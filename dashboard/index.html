@@ -138,6 +138,8 @@
       backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
       font-size:11px;color:var(--text-soft)
     }
+    .chip-group{display:inline-flex;align-items:center;gap:6px}
+    .chip-sep{width:1px;height:14px;background:rgba(148,163,184,0.6)}
     .chip-label{font-weight:500}
     .chip-value{font-weight:600;color:var(--text-main)}
     .chip-dot{width:8px;height:8px;border-radius:999px;background:var(--danger);box-shadow:0 0 0 4px var(--danger-soft)}
@@ -586,7 +588,8 @@
       position:relative;width:86px;height:86px;border-radius:999px;border:none;
       background:radial-gradient(circle at 30% 20%,#ffffff,#e5e7eb);
       color:#0f172a;font-size:11px;display:flex;align-items:center;justify-content:center;
-      box-shadow:0 0 0 1px rgba(148,163,184,0.55),0 4px 10px rgba(15,23,42,0.1);overflow:hidden
+      box-shadow:0 0 0 1px rgba(148,163,184,0.55),0 4px 10px rgba(15,23,42,0.1);overflow:hidden;
+      -webkit-user-select:none;user-select:none;-webkit-touch-callout:none
     }
     .longpress-btn::before{content:'';position:absolute;inset:16px;border-radius:999px;background:radial-gradient(circle at 30% 20%,#f8fafc,#e2e8f0);opacity:.95}
     .longpress-btn span{position:relative;text-align:center;line-height:1.2;pointer-events:none;z-index:1;font-weight:500;letter-spacing:.06em}
@@ -744,6 +747,8 @@
     .settings-group:first-of-type{border-top:none}
     .settings-group-title{font-size:12px;font-weight:600;letter-spacing:.10em;text-transform:uppercase;color:#9ca3af;margin-bottom:6px}
     .settings-row{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:6px 0}
+    .settings-row > div{flex:1;min-width:0}
+    .settings-row .switch{flex:0 0 auto;align-self:flex-start}
     .settings-label{font-size:13px;color:#111827;font-weight:600}
     .settings-desc{font-size:11px;color:#6b7280;text-align:right;line-height:1.35}
     .settings-select{min-width:110px;padding:4px 8px;font-size:12px;border-radius:999px;border:1px solid rgba(148,163,184,0.9);background:#f9fafb}
@@ -962,14 +967,15 @@
     @media(min-width:1100px){.shell{grid-template-columns:minmax(0,2.8fr) minmax(340px,1fr)}}
     @media(max-width:600px){
       body{padding:10px}
-      .top-bar{flex-direction:column-reverse;align-items:stretch;gap:6px}
+      .top-bar{flex-direction:column;align-items:flex-start;gap:6px}
       .top-left{width:100%}
-      .top-right{justify-content:flex-end;align-self:flex-end;width:100%}
+      .top-right{justify-content:flex-start;align-self:flex-start;width:100%}
       .logo-img{height:40px}
       .title-main{font-size:16px}
       .title-sub{font-size:11px}
       .card-base{padding:14px 14px}
-      .countdown-wrap{display:grid;grid-template-columns:1fr auto;align-items:end;gap:10px}
+      .countdown-wrap{display:flex;flex-direction:column;align-items:flex-start;gap:6px}
+      .pill-row{width:100%;justify-content:flex-start}
       .countdown-label-block{min-width:0}
       #countdown{justify-self:end;min-width:0;line-height:1;font-size:clamp(34px,11vw,48px)}
       .item-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -977,9 +983,9 @@
       .primary-btn,.secondary-btn{height:44px}
       .chart-row{flex-direction:column}
       .chart-box{flex:1 1 auto}
-      .settings-overlay{align-items:flex-end;justify-content:center;padding:0}
+      .settings-overlay{align-items:center;justify-content:center;padding:12px}
       .settings-dialog{
-        width:100%;max-width:100%;height:auto;max-height:82vh;border-radius:18px 18px 0 0;margin:0;
+        width:100%;max-width:520px;height:70vh;max-height:70vh;border-radius:18px;margin:0;
         padding:14px 16px max(12px,env(safe-area-inset-bottom,12px))
       }
       .settings-body{flex-direction:column;overflow-y:auto;padding-right:2px}
@@ -987,7 +993,11 @@
         width:100%;border-right:none;border-bottom:1px solid rgba(209,213,219,0.9);
         padding-right:0;padding-bottom:6px;flex-direction:row;gap:6px;overflow-x:auto
       }
-      .settings-nav-btn{flex:1;justify-content:center;padding-left:10px}
+      .settings-nav-btn{
+        flex:0 0 auto;justify-content:center;align-items:center;flex-direction:column;
+        padding:8px 10px;gap:3px;min-height:64px;min-width:88px;text-align:center
+      }
+      .settings-nav-btn span{display:block;white-space:nowrap;word-break:keep-all}
       .settings-nav-btn::before{display:none}
       .launcher-arrow-btn{width:110px;height:54px;font-size:20px}
     }
@@ -1116,14 +1126,17 @@
       </div>
       <div class="top-right">
         <div class="chip" id="conn-chip">
-          <div class="chip-dot" id="conn-dot"></div>
-          <div class="chip-label">STATUS</div>
-          <div class="chip-value" id="conn-text">DISCONNECTED</div>
-        </div>
-        <div class="chip" id="ws-chip">
-          <div class="chip-dot" id="ws-dot"></div>
-          <div class="chip-label">WS</div>
-          <div class="chip-value" id="ws-text">OFF</div>
+          <div class="chip-group">
+            <div class="chip-dot" id="conn-dot"></div>
+            <div class="chip-label">STATUS</div>
+            <div class="chip-value" id="conn-text">DISCONNECTED</div>
+          </div>
+          <div class="chip-sep" aria-hidden="true"></div>
+          <div class="chip-group">
+            <div class="chip-dot" id="ws-dot"></div>
+            <div class="chip-label">WS</div>
+            <div class="chip-value" id="ws-text">OFF</div>
+          </div>
         </div>
         <div class="chip">
           <div class="chip-label">KST</div>
@@ -1533,7 +1546,7 @@
                 </div>
                 <div class="settings-group-title" style="margin:0;">HANWOOL FLASH6</div>
 
-                <div class="settings-row"><div class="settings-label"><br>Program</div><div class="settings-desc" style="text-align:left;"><br>FLASH</div></div>
+                <div class="settings-row"><div class="settings-label"><br>Program</div><div class="settings-desc"><br>FLASH</div></div>
                 <div class="settings-row"><div class="settings-label">Build ID</div><div class="settings-desc">v6 · B0</div></div>
                 <div class="settings-row"><div class="settings-label">Protocol</div><div class="settings-desc">FLASH JSON v1.0</div></div>
                 <div class="settings-row">
