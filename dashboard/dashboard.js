@@ -44,6 +44,7 @@
     let prevSwState = null;
     let prevIcState = null;
     let prevGsState = null;
+    let prevSmState = null;
     let st2StartMs = null;
     let igniterAbortSent = false;
     let lastAbortReason = null;
@@ -51,6 +52,7 @@
 
     // ✅ RelaySafe/LOCKOUT
     let relaySafeEnabled = true;
+    let safetyModeEnabled = false;
     let lockoutLatched = false;
     let lockoutRelayMask = 0; // bit0=rly1, bit1=rly2
     let lastLockoutToastMs = 0;
@@ -188,6 +190,8 @@
       location.hostname === "localhost" ||
       location.hostname === "127.0.0.1"
     );
+    let suppressCountdownToastUntil = 0;
+    let suppressIgnitionToastUntil = 0;
 
     // =====================
     // ✅ SPLASH / PRELOAD
@@ -270,6 +274,7 @@
         ignDurationSec:5,
         countdownSec:10,
         relaySafe: true,
+        safetyMode: false,
         igs: 0,
         serialEnabled: false,
         serialRx: true,
@@ -284,6 +289,7 @@
         uiSettings = raw ? Object.assign(defaultSettings(), JSON.parse(raw)) : defaultSettings();
       }catch(e){ uiSettings = defaultSettings(); }
       relaySafeEnabled = !!uiSettings.relaySafe;
+      safetyModeEnabled = !!uiSettings.safetyMode;
 
       // WebSerial 기본 OFF 강제
       serialEnabled = false;
@@ -319,11 +325,17 @@
         controlsSectionSequence:"시퀀스 제어",
         controlsSectionControl:"컨트롤",
         forceIgniteBtn:"강제 점화",
+        forceIgniteSub:"고위험 동작",
+        forceIgniteDanger:"위험",
+        safetyModeOnToast:"안전 모드가 켜졌습니다. 제어 권한이 제한됩니다.",
+        safetyModeOffToast:"안전 모드가 꺼졌습니다. 안전에 주의하세요!",
         controlSerialSub:"시리얼 연결",
         controlSerialLabel:"WebSerial",
         controlDevToolsLabel:"개발자 도구",
         controlDevToolsSub:"개발자 도구 열기",
         controlInspectionLabel:"설비 점검",
+        controlSafetyLabel:"안전 모드",
+        controlSafetySub:"Safty",
         controlLauncherLabel:"발사대",
         controlLauncherSub:"발사대 모터/액추에이터제어",
         devToolsTitle:"DEV TOOLS",
@@ -654,12 +666,18 @@
         controlsSectionData:"Data",
         controlsSectionSequence:"Sequence Control",
         controlsSectionControl:"Control",
-        forceIgniteBtn:"Force Ignition",
+        forceIgniteBtn:"Ignition",
+        forceIgniteSub:"High-risk",
+        forceIgniteDanger:"DANGER",
+        safetyModeOnToast:"Safety mode enabled. Relay actuation is blocked.",
+        safetyModeOffToast:"Safety mode disabled.",
         controlSerialSub:"Connect",
         controlSerialLabel:"WebSerial",
         controlDevToolsLabel:"Developer Tools",
         controlDevToolsSub:"Open developer tools",
         controlInspectionLabel:"Inspection",
+        controlSafetyLabel:"Safety",
+        controlSafetySub:"Safety mode",
         controlLauncherLabel:"Launcher",
         controlLauncherSub:"Launcher motor/actuator control",
         devToolsTitle:"DEV TOOLS",
@@ -1088,6 +1106,7 @@
       if(el.countdownSecInput) el.countdownSecInput.value = uiSettings.countdownSec;
 
       if(el.relaySafeToggle) el.relaySafeToggle.checked = !!uiSettings.relaySafe;
+      if(el.safeModeToggle) el.safeModeToggle.checked = !!uiSettings.safetyMode;
       if(el.igswitch) el.igswitch.checked = !!uiSettings.igs;
 
       if(el.serialToggle) el.serialToggle.checked = !!uiSettings.serialEnabled;
@@ -1204,14 +1223,13 @@
         hideLockoutModal();
         setLockoutVisual(false);
         setInspectionPassed();
-        onIncomingSample(buildSimSample(), "SIM");
-        if(!silent) showToast(t("simEnabledToast"), "info");
+        onIncomingSample(buildSimSample(), "SIMULATION");
       }else{
         resetSimState();
         resetInspectionUI();
         connOk = false;
         updateConnectionUI(false);
-        if(!silent) showToast(t("simDisabledToast"), "info");
+        if(!silent) showToast(t("simDisabledToast"), "info", {key:"sim-toggle"});
         devRelay1Locked = false;
         devRelay2Locked = false;
         lockoutLatched = false;
@@ -1545,16 +1563,16 @@
         const blank = " ".repeat(totalWidth);
         for(let i = 0; i < totalRows; i++) rows.push(blank);
         const art = [
-          " _   _  ___  _   _  _      ___   ___  _     ",
-          "| | | |/ _ \\| | | || |    / _ \\ / _ \\| |    ",
-          "| |_| | | | | |_| || |   | | | | | | | |    ",
-          "|  _  | |_| |  _  || |___| |_| | |_| | |___ ",
-          "|_| |_|\\___/|_| |_||_____\\___/ \\___/|_____|",
+          "     H  H  AA  N  N W  W  OO   OO  L       ",
+          "     H  H A  A NN N W  W O  O O  O L       ",
+          "     HHHH AAAA N NN W WW O  O O  O L       ",
+          "     H  H A  A N  N WW W O  O O  O L       ",
+          "     H  H A  A N  N W  W  OO   OO  LLLL    ",
           "",
           "                   TETRIS                  ",
           "                 With ALTIS                "
         ];
-        const mid = Math.floor(totalRows / 2) - 2;
+        const mid = Math.max(0, Math.floor(totalRows / 2) - 5);
         for(let i = 0; i < art.length; i++){
           const text = art[i];
           const start = Math.max(0, Math.floor((totalWidth - text.length) / 2));
@@ -1709,11 +1727,44 @@
       if(!el.toastContainer) return;
       const toastType = type || "info";
       const duration = (opts && opts.duration) ? opts.duration : 5200;
+      const key = (opts && opts.key) ? String(opts.key) : null;
+
+      let existingToast = null;
+      if(key){
+        for(const node of el.toastContainer.children){
+          if(node && node.dataset && node.dataset.key === key){
+            existingToast = node;
+            break;
+          }
+        }
+      }
+
+      if(existingToast){
+        existingToast.className = "toast toast-" + toastType;
+        const img = existingToast.querySelector(".toast-icon img");
+        if(img) img.src = getToastIconPath(toastType);
+        const titleDiv = existingToast.querySelector(".toast-title");
+        if(titleDiv){
+          if(toastType==="success") titleDiv.textContent = t("toastTitleSuccess");
+          else if(toastType==="warn") titleDiv.textContent = t("toastTitleWarn");
+          else if(toastType==="error") titleDiv.textContent = t("toastTitleError");
+          else if(toastType==="ignite") titleDiv.textContent = t("toastTitleIgnite");
+          else titleDiv.textContent = t("toastTitleInfo");
+        }
+        const textDiv = existingToast.querySelector(".toast-text");
+        if(textDiv) textDiv.textContent = message;
+        if(existingToast._timer){ clearTimeout(existingToast._timer); }
+        existingToast.classList.remove("toast-hide");
+        requestAnimationFrame(()=>existingToast.classList.add("toast-show"));
+        existingToast._timer = setTimeout(()=>dismissToast(existingToast), duration);
+        return;
+      }
 
       const toast = document.createElement("div");
       toast.className = "toast toast-" + toastType;
       toast.setAttribute("role","status");
       toast.setAttribute("aria-live","polite");
+      if(key) toast.dataset.key = key;
 
       const iconDiv = document.createElement("div");
       iconDiv.className = "toast-icon";
@@ -1861,7 +1912,7 @@
       const unlocked=isControlUnlocked();
       if(el.forceBtn){
         const igniterBlocked = (uiSettings && uiSettings.igs) && latestTelemetry.ic !== 1;
-        const blocked = (!unlocked || lockoutLatched || state!==0 || igniterBlocked);
+        const blocked = (!unlocked || lockoutLatched || state!==0 || igniterBlocked || safetyModeEnabled);
         el.forceBtn.disabled = blocked;
         el.forceBtn.classList.toggle("disabled", blocked);
       }
@@ -2213,6 +2264,10 @@
       }
       if(st===0){ el.igniteBtn.disabled=false; el.abortBtn.disabled=true; }
       else { el.igniteBtn.disabled=true; el.abortBtn.disabled=false; }
+      if(safetyModeEnabled){
+        el.igniteBtn.disabled = true;
+        if(st===0) el.abortBtn.disabled = true;
+      }
       updateControlAccessUI(st);
     }
 
@@ -2487,6 +2542,8 @@
       const ab  = Number(data.ab != null ? data.ab : 0);
       const ar  = (data.ar != null ? Number(data.ar) : null);
       const gs  = Number(data.gs != null ? data.gs : data.igs ?? 0);
+      const smRaw = (data.sm != null ? data.sm : (data.safe != null ? data.safe : null));
+      const sm = (smRaw != null) ? Number(smRaw) : null;
       const mode = Number(data.m != null ? data.m : data.mode ?? -1);
 
       // ✅ LOCKOUT 필드 매칭(펌웨어: rf/rm 우선)
@@ -2504,7 +2561,14 @@
       }
       if(st===2 && st2StartMs===null) st2StartMs=Date.now();
       if(st!==2) st2StartMs=null;
-      latestTelemetry = {sw: sw?1:0, ic: ic?1:0, rly: rly?1:0, mode, gs};
+      latestTelemetry = {
+        sw: sw?1:0,
+        ic: ic?1:0,
+        rly: rly?1:0,
+        mode,
+        gs,
+        sm: (sm != null) ? (sm ? 1 : 0) : (safetyModeEnabled ? 1 : 0)
+      };
 
       if(st===0){
         igniterAbortSent = false;
@@ -2631,10 +2695,22 @@
           prevGsState=!!gs;
           if(prevGsState){
             addLogLine(t("igsOnLog"), "SAFE");
-            showToast(t("igsOnToast", {safety:safetyLineSuffix()}),"warn");
+            showToast(t("igsOnToast", {safety:safetyLineSuffix()}),"warn",{key:"igs-toggle"});
           }else{
             addLogLine(t("igsOffLog"), "SAFE");
-            showToast(t("igsOffToast", {safety:safetyLineSuffix()}),"info");
+            showToast(t("igsOffToast", {safety:safetyLineSuffix()}),"info",{key:"igs-toggle"});
+          }
+        }
+
+        if(sm != null){
+          if(prevSmState===null) prevSmState=!!sm;
+          else if(prevSmState!==!!sm){
+            prevSmState=!!sm;
+          }
+          safetyModeEnabled = !!sm;
+          if(uiSettings){
+            uiSettings.safetyMode = safetyModeEnabled;
+            saveSettings();
           }
         }
 
@@ -2643,7 +2719,13 @@
 
         if(el.thrust)   el.thrust.innerHTML   = `<span class="num">${thrustDisp.toFixed(3)}</span><span class="unit">${thrustUnit}</span>`;
         if(el.pressure) el.pressure.innerHTML = `<span class="num">${p.toFixed(3)}</span><span class="unit">V</span>`;
-        if(el.lt)       el.lt.innerHTML       = `<span class="num">${lt.toFixed(0)}</span><span class="unit">ms</span><span class="unit">/ ${elapsedMs.toFixed(0)} ms</span>`;
+        if(el.lt){
+          el.lt.innerHTML = `
+            <span class="lt-line"><span class="num">${lt.toFixed(0)}</span><span class="unit">ms</span></span>
+            <span class="unit lt-sep">/</span>
+            <span class="lt-line"><span class="num">${elapsedMs.toFixed(0)}</span><span class="unit">ms</span></span>
+          `;
+        }
 
         if(el.loopPill) el.loopPill.textContent = lt.toFixed(0) + " ms";
         if(el.snapHz){
@@ -2690,6 +2772,7 @@
         }
 
         if(el.igswitch) el.igswitch.checked=!!gs;
+        if(el.safeModeToggle && sm != null) el.safeModeToggle.checked = !!sm;
 
         if(el.countdown){
           let cdText="--";
@@ -2716,10 +2799,14 @@
         if(statusCode!==lastStatusCode){
           if(statusCode===1){
             addLogLine(t("countdownStartLog"),"COUNT");
-            showToast(t("countdownStartToast", {safety:safetyLineSuffix()}),"warn");
+            if(Date.now() >= suppressCountdownToastUntil){
+              showToast(t("countdownStartToast", {safety:safetyLineSuffix()}),"warn");
+            }
           }else if(statusCode===2){
             addLogLine(t("ignitionFiringLog"),"IGNITE");
-            showToast(t("ignitionFiringToast", {safety:safetyLineSuffix()}),"ignite");
+            if(Date.now() >= suppressIgnitionToastUntil){
+              showToast(t("ignitionFiringToast", {safety:safetyLineSuffix()}),"ignite");
+            }
           }else if(statusCode===0 && lastStatusCode===2){
             addLogLine(t("sequenceCompleteLog"),"DONE");
             showToast(t("sequenceCompleteToast"),"success");
@@ -3024,6 +3111,7 @@
           sendCommand({http:"/precount?uw=0&cd=0", ser:"PRECOUNT 0 0"}, false);
           sendCommand({http:"/countdown_start", ser:"COUNTDOWN"}, true);
           addLogLine(t("countdownRequestedLog"),"CMD");
+          suppressCountdownToastUntil = Date.now() + 3000;
           showToast(t("countdownRequestedToast", {safety:safetyLineSuffix()}),"ignite");
         }
       },40);
@@ -3037,7 +3125,6 @@
         const cdMs=(uiSettings?uiSettings.countdownSec:10)*1000;
         lpLastSentSec=Math.ceil(cdMs/1000);
         sendCommand({http:"/precount?uw=1&cd="+cdMs, ser:"PRECOUNT 1 "+cdMs}, false);
-        showToast(t("longPressCanceledToast", {safety:safetyLineSuffix()}),"info");
       }
     }
 
@@ -3825,6 +3912,7 @@
 
       el.relaySafeToggle = document.getElementById("relaySafeToggle");
       el.igswitch = document.getElementById("igswitch");
+      el.safeModeToggle = document.getElementById("safeModeToggle");
       el.serialToggle = document.getElementById("serialToggle");
       el.serialToggleWrap = document.getElementById("serialToggleWrap");
       el.serialControlTile = document.getElementById("serialControlTile");
@@ -3954,7 +4042,8 @@
           saveSettings();
           updateRelaySafePill();
           sendCommand({http:"/set?rs="+(relaySafeEnabled?1:0), ser:"RS "+(relaySafeEnabled?1:0)}, true);
-          showToast(relaySafeEnabled ? t("relaySafeOnToast") : t("relaySafeOffToast"), relaySafeEnabled?"info":"warn");
+          showToast(relaySafeEnabled ? t("relaySafeOnToast") : t("relaySafeOffToast"),
+            relaySafeEnabled?"info":"warn",{key:"relay-safe-toggle"});
         });
       }
 
@@ -3965,9 +4054,22 @@
           saveSettings();
           sendCommand({http:"/set?igs="+val, ser:"IGS "+val}, true);
           addLogLine(t("igsToggledLog", {state:(val?"ON":"OFF")}),"SAFE");
-          showToast(val ? t("igsToggledOnToast", {safety:safetyLineSuffix()})
-                       : t("igsToggledOffToast", {safety:safetyLineSuffix()}),
-                   val ? "warn" : "info");
+        });
+      }
+
+      if(el.safeModeToggle){
+        el.safeModeToggle.addEventListener("change",()=>{
+          safetyModeEnabled = !!el.safeModeToggle.checked;
+          uiSettings.safetyMode = safetyModeEnabled;
+          saveSettings();
+          sendCommand({http:"/set?safe="+(safetyModeEnabled?1:0), ser:"SAFE "+(safetyModeEnabled?1:0)}, true);
+          setButtonsFromState(currentSt, lockoutLatched);
+          updateControlAccessUI(currentSt);
+          showToast(
+            safetyModeEnabled ? t("safetyModeOnToast") : t("safetyModeOffToast"),
+            safetyModeEnabled ? "info" : "warn",
+            {key:"safety-mode-toggle"}
+          );
         });
       }
 
@@ -3990,7 +4092,11 @@
           serialRxEnabled = !!el.serialRxToggle.checked;
           uiSettings.serialRx = serialRxEnabled;
           saveSettings();
-          showToast(serialRxEnabled ? t("serialRxOnToast") : t("serialRxOffToast"), "info");
+          showToast(
+            serialRxEnabled ? t("serialRxOnToast") : t("serialRxOffToast"),
+            "info",
+            {key:"serial-rx-toggle"}
+          );
         });
       }
       if(el.serialTxToggle){
@@ -3998,7 +4104,11 @@
           serialTxEnabled = !!el.serialTxToggle.checked;
           uiSettings.serialTx = serialTxEnabled;
           saveSettings();
-          showToast(serialTxEnabled ? t("serialTxOnToast") : t("serialTxOffToast"), "info");
+          showToast(
+            serialTxEnabled ? t("serialTxOnToast") : t("serialTxOffToast"),
+            "info",
+            {key:"serial-tx-toggle"}
+          );
         });
       }
       if(el.simToggle){
@@ -4076,6 +4186,7 @@
           }
           hideForceConfirm();
           sendCommand({http:"/force_ignite", ser:"FORCE"}, true);
+          suppressIgnitionToastUntil = Date.now() + 3000;
           showToast(t("forceRequestedToast", {safety:safetyLineSuffix()}),"ignite");
         });
       }
@@ -4497,6 +4608,7 @@
 
           uiSettings.relaySafe = relaySafeEnabled;
           uiSettings.igs = el.igswitch ? (el.igswitch.checked?1:0) : (uiSettings.igs||0);
+          uiSettings.safetyMode = safetyModeEnabled;
           uiSettings.serialEnabled = serialEnabled;
           uiSettings.serialRx = serialRxEnabled;
           uiSettings.serialTx = serialTxEnabled;
