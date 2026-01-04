@@ -440,12 +440,13 @@
     .log-prefix{color:#6b7280}
     .tetris-overlay{
       position:absolute;inset:0;background:rgba(2,6,23,0.98);color:#e2e8f0;
-      display:flex;flex-direction:column;gap:6px;padding:8px 10px;z-index:2
+      display:flex;flex-direction:column;gap:6px;padding:8px 10px 14px;z-index:2;
+      overflow:hidden
     }
     .tetris-hud{font-size:10px;color:#94a3b8;letter-spacing:.08em;text-transform:uppercase;display:flex;justify-content:space-between}
     .tetris-screen{
       flex:1 1 auto;min-height:0;white-space:pre;line-height:1.2;font-size:11px;color:#e5e7eb;
-      display:flex;align-items:flex-start;overflow:hidden;padding-bottom:4px
+      display:flex;align-items:flex-start;overflow-y:auto;overflow-x:hidden;padding-bottom:8px
     }
     .tetris-help{font-size:10px;color:#64748b}
     .fw-f-logo{cursor:pointer}
@@ -979,6 +980,16 @@
       .countdown-label-block{min-width:0}
       #countdown{justify-self:end;min-width:0;line-height:1;font-size:clamp(34px,11vw,48px)}
       .item-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+      #lt{flex-direction:column;align-items:flex-end;gap:2px}
+      #lt .lt-line{display:flex;align-items:baseline;gap:4px}
+      #lt .lt-sep{display:none}
+      #lt .num,#lt .unit{
+        font-size:10px;color:#64748b;font-weight:700;letter-spacing:.12em;text-transform:uppercase
+      }
+      @media(min-width:601px){
+        #lt{flex-direction:row;align-items:baseline;gap:6px}
+        #lt .lt-sep{display:inline}
+      }
       .controls-main-row{flex-direction:column}
       .primary-btn,.secondary-btn{height:44px}
       .chart-row{flex-direction:column}
@@ -993,6 +1004,7 @@
         width:100%;border-right:none;border-bottom:1px solid rgba(209,213,219,0.9);
         padding-right:0;padding-bottom:6px;flex-direction:row;gap:6px;overflow-x:auto
       }
+      .settings-nav-title{display:none}
       .settings-nav-btn{
         flex:0 0 auto;justify-content:center;align-items:center;flex-direction:column;
         padding:8px 10px;gap:3px;min-height:64px;min-width:88px;text-align:center
@@ -1083,6 +1095,8 @@
       box-shadow:0 0 0 3px rgba(59,130,246,0.35), 0 6px 14px rgba(37,99,235,0.12);
       border-color:rgba(59,130,246,0.9);
     }
+    .force-tile{justify-content:space-between}
+    .force-tile .control-tile-actions{margin-left:auto}
 
     /* ✅ 오른쪽 액션 영역 정렬 고정(줄바꿈 방지) */
     .control-tile-actions{
@@ -1215,7 +1229,7 @@
           </div>
 
           <div class="item">
-            <span class="label"><span class="label-icon"></span>Loop Time</span>
+            <span class="label"><span class="label-icon"></span>Loop</span>
             <span id="lt" class="value">-- ms</span>
           </div>
         </div>
@@ -1293,10 +1307,18 @@
               <div class="abort-btn-wrap"><button id="abortBtn" class="secondary-btn" disabled>ABORT</button></div>
             </div>
 
-            <button id="forceIgniteBtn" class="force-btn" data-i18n="forceIgniteBtn">강제 점화</button>
-
             <div class="controls-section-label" data-i18n="controlsSectionControl">컨트롤</div>
             <div class="control-row">
+              <button id="forceIgniteBtn" class="control-tile is-btn is-danger force-tile">
+                <div>
+                  <div class="control-tile-label" data-i18n="forceIgniteBtn">강제 점화</div>
+                  <div class="control-tile-sub" data-i18n="forceIgniteSub">고위험 동작</div>
+                </div>
+                <div class="control-tile-actions">
+                  <span class="pill pill-red" data-i18n="forceIgniteDanger">위험</span>
+                </div>
+              </button>
+
               <div id="serialControlTile" class="control-tile">
                 <div>
                   <div id="serialControlTitle" class="control-tile-label" data-i18n="controlSerialLabel">WebSerial</div>
@@ -1316,6 +1338,19 @@
                 </div>
                 <div class="control-tile-actions">
                   <span id="inspectionStatusPill" class="pill pill-gray" data-i18n="inspectionWait">대기</span>
+                </div>
+              </div>
+
+              <div id="safetyModeTile" class="control-tile">
+                <div>
+                  <div class="control-tile-label" data-i18n="controlSafetyLabel">안전 모드</div>
+                  <div class="control-tile-sub" data-i18n="controlSafetySub">Safty Mode</div>
+                </div>
+                <div class="control-tile-actions">
+                  <label class="switch" title="Safety Mode">
+                    <input type="checkbox" id="safeModeToggle">
+                    <span class="slider"></span>
+                  </label>
                 </div>
               </div>
 
