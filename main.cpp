@@ -63,6 +63,7 @@ volatile int igs = 1;
 volatile int relaySafe = 1;          // ✅ 기본 ON
 volatile int relayFault = 0;         // 0/1 (latched)
 volatile uint8_t relayFaultMask = 0; // bit0=rly1, bit1=rly2
+volatile uint8_t safetyMode = 0;     // 0/1 (relay inhibit)
 
 // -------------------- (옵션) 시리얼 JSON 스트림 --------------------
 volatile int serialStream = 1;       // 1=JSON 계속 출력, 0=출력 중지 (/set?stream=0|1)
@@ -141,6 +142,7 @@ struct SampleSnap {
   uint8_t  rf;      // relayFault latched (LOCKOUT)
   uint8_t  rm;      // relayFaultMask
   uint8_t  ss;      // serialStream
+  uint8_t  sm;      // safety mode
 };
 
 static portMUX_TYPE sampleMux = portMUX_INITIALIZER_UNLOCKED;
@@ -163,6 +165,14 @@ static inline bool isLocked(uint8_t* outMask = nullptr) {
   portEXIT_CRITICAL(&stateMux);
   if (outMask) *outMask = mask;
   return locked;
+}
+
+static inline bool isSafetyOn() {
+  bool on;
+  portENTER_CRITICAL(&stateMux);
+  on = (safetyMode != 0);
+  portEXIT_CRITICAL(&stateMux);
+  return on;
 }
 
 // =======================================================
@@ -191,13 +201,13 @@ static void buildJson(char* out, size_t outLen, const SampleSnap& s) {
            "{\"t\":%.3f,\"p\":%.3f,\"iv\":%.3f,\"ut\":%lu,\"lt\":%u,\"ct\":%u,\"hz\":%u,"
            "\"s\":%u,\"ic\":%u,\"r\":%u,\"gs\":%u,"
            "\"st\":%u,\"cd\":%u,\"uw\":%u,\"ab\":%u,\"ar\":%u,\"m\":%u,"
-           "\"rs\":%u,\"rf\":%u,\"rm\":%u,\"ss\":%u,"
+           "\"rs\":%u,\"rf\":%u,\"rm\":%u,\"ss\":%u,\"sm\":%u,"
            "\"fw_program\":\"%s\",\"fw_ver\":\"%s\",\"fw_build\":\"%s\","
            "\"fw_ver_build\":\"%s\",\"fw_board\":\"%s\",\"fw_protocol\":\"%s\"}",
            s.t, s.p, s.iv, (unsigned long)s.ut, (unsigned)s.lt, (unsigned)s.ct, (unsigned)s.hz,
            (unsigned)s.s, (unsigned)s.ic, (unsigned)s.r, (unsigned)s.gs,
            (unsigned)s.st, (unsigned)s.cd, (unsigned)s.uw, (unsigned)s.ab, (unsigned)s.ar, (unsigned)s.m,
-           (unsigned)s.rs, (unsigned)s.rf, (unsigned)s.rm, (unsigned)s.ss,
+           (unsigned)s.rs, (unsigned)s.rf, (unsigned)s.rm, (unsigned)s.ss, (unsigned)s.sm,
            FW_PROGRAM, FW_PROG_VER, FW_PROG_BUILD, FW_VER_BUILD, FW_BOARD, FW_PROTOCOL);
 }
 
@@ -254,6 +264,10 @@ static inline void applySetKV(const String& key, const String& val) {
     int v = val.toInt();
     v = (v != 0) ? 1 : 0;
     serialStream = v;
+  } else if (key == "safe") {
+    int v = val.toInt();
+    v = (v != 0) ? 1 : 0;
+    safetyMode = (uint8_t)v;
   } else if (key == "ign_ms") {
     long v = val.toInt();
     if (v < 1000)  v = 1000;
@@ -332,6 +346,17 @@ void handleSetIGS(AsyncWebServerRequest* request) {
     anyParam = true;
   }
 
+  if (request->hasParam("safe")) {
+    int v = request->getParam("safe")->value().toInt();
+    v = (v != 0) ? 1 : 0;
+    portENTER_CRITICAL(&stateMux);
+    safetyMode = (uint8_t)v;
+    portEXIT_CRITICAL(&stateMux);
+    if (resp.length()) resp += ", ";
+    resp += "SAFE=" + String(v);
+    anyParam = true;
+  }
+
   if (request->hasParam("ign_ms")) {
     long v = request->getParam("ign_ms")->value().toInt();
     if (v < 1000)  v = 1000;
@@ -367,6 +392,7 @@ void handleSetIGS(AsyncWebServerRequest* request) {
 
 void handleIgnite(AsyncWebServerRequest* request) {
   if (isLocked()) { sendLockedHttp(request); return; }
+  if (isSafetyOn()) { request->send(403, "text/plain", "SAFETY_MODE"); return; }
   const uint32_t now = millis();
   portENTER_CRITICAL(&stateMux);
   startFiringNow(now);
@@ -376,6 +402,7 @@ void handleIgnite(AsyncWebServerRequest* request) {
 
 void handleForceIgnite(AsyncWebServerRequest* request) {
   if (isLocked()) { sendLockedHttp(request); return; }
+  if (isSafetyOn()) { request->send(403, "text/plain", "SAFETY_MODE"); return; }
   const SampleSnap s = getLastSnapCopy();
   if (igs && s.ic == 0) {
     request->send(403, "text/plain", "IGNITER_REQUIRED");
@@ -390,6 +417,7 @@ void handleForceIgnite(AsyncWebServerRequest* request) {
 
 void handleCountdownStart(AsyncWebServerRequest* request) {
   if (isLocked()) { sendLockedHttp(request); return; }
+  if (isSafetyOn()) { request->send(403, "text/plain", "SAFETY_MODE"); return; }
   const uint32_t now = millis();
   bool ok = false;
   portENTER_CRITICAL(&stateMux);
@@ -419,6 +447,7 @@ void handleAbort(AsyncWebServerRequest* request) {
 
 void handlePrecount(AsyncWebServerRequest* request) {
   if (isLocked()) { sendLockedHttp(request); return; }
+  if (isSafetyOn()) { request->send(403, "text/plain", "SAFETY_MODE"); return; }
 
   if (!request->hasParam("uw")) {
     request->send(400, "text/plain", "NO PARAM");
@@ -530,6 +559,7 @@ void handleHelp(AsyncWebServerRequest* request) {
 <li>/abort</li>
 <li>/set?igs=0|1</li>
 <li>/set?rs=0|1</li>
+<li>/set?safe=0|1</li>
 <li>/set?stream=0|1</li>
 <li>/set?ign_ms=1000~10000</li>
 <li>/set?cd_ms=3000~30000</li>
@@ -581,6 +611,10 @@ static void handleSerialCommand(String line) {
   }
 
   if (line.startsWith("/countdown_start")) {
+    if (isSafetyOn()) {
+      serialErr("SAFETY_MODE");
+      return;
+    }
     bool ok = false;
     portENTER_CRITICAL(&stateMux);
     if (currentState == ST_IDLE) { startCountdownNow(now); ok = true; }
@@ -591,6 +625,10 @@ static void handleSerialCommand(String line) {
   }
 
   if (line.startsWith("/ignite")) {
+    if (isSafetyOn()) {
+      serialErr("SAFETY_MODE");
+      return;
+    }
     portENTER_CRITICAL(&stateMux);
     startFiringNow(now);
     portEXIT_CRITICAL(&stateMux);
@@ -599,6 +637,10 @@ static void handleSerialCommand(String line) {
   }
 
   if (line.startsWith("/force_ignite")) {
+    if (isSafetyOn()) {
+      serialErr("SAFETY_MODE");
+      return;
+    }
     const SampleSnap s = getLastSnapCopy();
     if (igs && s.ic == 0) {
       serialErr("IGNITER_REQUIRED");
@@ -623,6 +665,10 @@ static void handleSerialCommand(String line) {
   }
 
   if (line.startsWith("/precount")) {
+    if (isSafetyOn()) {
+      serialErr("SAFETY_MODE");
+      return;
+    }
     int q = line.indexOf('?');
     if (q < 0) { serialErr("NO_QUERY"); return; }
     String query = line.substring(q + 1);
@@ -796,7 +842,7 @@ static void SamplerTask(void* arg) {
     relayMask |= (fastRead(rly1) ? 1 : 0);
     relayMask |= (fastRead(rly2) ? 2 : 0);
 
-    uint8_t st, uw, ab, ar, gsLocal, rsLocal, rfLocal, rmLocal, ssLocal;
+    uint8_t st, uw, ab, ar, gsLocal, rsLocal, rfLocal, rmLocal, ssLocal, smLocal;
     uint32_t ss, cdDur;
     uint32_t cd = 0;
 
@@ -810,6 +856,7 @@ static void SamplerTask(void* arg) {
     rfLocal = (uint8_t)relayFault;
     rmLocal = (uint8_t)relayFaultMask;
     ssLocal = (uint8_t)serialStream;
+    smLocal = (uint8_t)safetyMode;
 
     ss = stateStartTimeMs;
     cdDur = countdownDurationMs;
@@ -861,6 +908,7 @@ static void SamplerTask(void* arg) {
     snap.rf = rfLocal;
     snap.rm = rmLocal;
     snap.ss = ssLocal;
+    snap.sm = smLocal;
 
     portENTER_CRITICAL(&sampleMux);
     lastSnap = snap;
@@ -947,20 +995,24 @@ static void ControlTask(void* arg) {
     // ---- 최신 설정/상태 읽기 ----
     uint8_t rsLocal = 0;
     uint8_t rfLocal = 0;
+    uint8_t smLocal = 0;
 
     SystemState st;
     uint32_t stStart, ignDur, cdDur;
     int ab;
+    int uwLocal = 0;
 
     portENTER_CRITICAL(&stateMux);
     rsLocal = (uint8_t)relaySafe;
     rfLocal = (uint8_t)relayFault;
+    smLocal = (uint8_t)safetyMode;
 
     st = currentState;
     stStart = stateStartTimeMs;
     ignDur = ignitionDurationMs;
     cdDur  = countdownDurationMs;
     ab = webAbortFlag;
+    uwLocal = webUserWaiting;
     portEXIT_CRITICAL(&stateMux);
 
     // ✅ 스위치는 스냅샷 말고 "직접" 읽어서 전환 순간 오탐/지연 제거
@@ -984,6 +1036,20 @@ static void ControlTask(void* arg) {
         toneOn = true;
       }
 
+      continue;
+    }
+
+    // ---- SAFETY MODE (릴레이 차단) ----
+    if (smLocal == 1) {
+      if (st != ST_IDLE || uwLocal == 1) {
+        portENTER_CRITICAL(&stateMux);
+        setIdleAbort(ABORT_USER);
+        portEXIT_CRITICAL(&stateMux);
+      }
+      setRelays(false);
+      stopTone();
+      fastWrite(led1, LOW);
+      fastWrite(led2, HIGH);
       continue;
     }
 
