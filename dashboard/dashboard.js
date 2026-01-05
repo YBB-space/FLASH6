@@ -405,7 +405,7 @@
         forceConfirmCancel:"취소",
         lockoutAck:"확인",
         launcherTitle:"발사대 제어",
-        launcherNote:"발사대 모터/액추에이터와 연결된 후 실제 높이 제어가 적용됩니다.<br>현재는 UI 수준의 제어 모킹입니다.",
+        launcherNote:"발사대 모터/액추에이터 제어가 적용됩니다.<br>버튼을 누르는 동안 모터가 구동됩니다.",
         launcherHint:"안전 주의: 발사대 주변 접근 금지. 이상 징후 시 즉시 중지하세요.",
         inspectionTitle:"설비 점검",
         inspectionSub:"자동 점검을 완료하면 제어 권한이 부여됩니다.",
@@ -581,7 +581,8 @@
         forceIgniterRequired:"이그나이터 미연결 상태에서는 강제 점화를 사용할 수 없습니다.",
         lockoutControlDenied:"LOCKOUT 상태에서는 제어가 불가능합니다.",
         inspectionRequiredPlain:"설비 점검을 먼저 완료하세요.",
-        launcherUpDownLog:"발사대 {dir} (UI 전용).",
+        launcherUpDownLog:"발사대 {dir} 명령 전송.",
+        dirStop:"정지",
         lockoutCmdDenied:"LOCKOUT({name}) 상태에서는 명령을 보낼 수 없습니다. 보드를 재시작하세요.",
         cmdSentLog:"명령 => {cmd}",
         systemReadyLog:"시스템 준비 완료. 명령 대기 중.",
@@ -748,7 +749,7 @@
         forceConfirmCancel:"Cancel",
         lockoutAck:"Acknowledge",
         launcherTitle:"Launcher Control",
-        launcherNote:"Actual height control is enabled after connecting the launcher motor/actuator.<br>Currently this is UI-only control mocking.",
+        launcherNote:"Launcher motor/actuator control is enabled.<br>The motor runs while you hold the button.",
         launcherHint:"Safety: Keep clear of the launcher. Stop immediately if anything seems abnormal.",
         inspectionTitle:"Inspection",
         inspectionSub:"Complete the automatic check to gain control authority.",
@@ -947,7 +948,8 @@
         forceIgniterRequired:"Force ignition requires igniter OK when IGS is enabled.",
         lockoutControlDenied:"LOCKOUT state: control not allowed.",
         inspectionRequiredPlain:"Complete inspection first.",
-        launcherUpDownLog:"Launcher {dir} (UI only).",
+        launcherUpDownLog:"Launcher {dir} command sent.",
+        dirStop:"STOP",
         lockoutCmdDenied:"LOCKOUT({name}) cannot send command. Restart the board.",
         cmdSentLog:"CMD => {cmd}",
         systemReadyLog:"System ready. Waiting for commands.",
@@ -3286,23 +3288,51 @@
       }
       if(launcherOverlayEl){ launcherOverlayEl.classList.remove("hidden"); launcherOverlayEl.style.display="flex"; }
     }
-    function hideLauncher(){ if(launcherOverlayEl){ launcherOverlayEl.classList.add("hidden"); launcherOverlayEl.style.display="none"; } }
+    function hideLauncher(){
+      if(launcherOverlayEl){
+        launcherOverlayEl.classList.add("hidden");
+        launcherOverlayEl.style.display="none";
+      }
+      stopLauncherHold("up");
+      stopLauncherHold("down");
+    }
     function launcherStep(dir){
-      const dirLabel = (dir==="up") ? t("dirUp") : t("dirDown");
-      addLogLine(t("launcherUpDownLog", {dir:dirLabel}),"LAUNCHER");
+      sendCommand({http:"/launcher?dir="+dir, ser:"LAUNCHER "+dir.toUpperCase()}, false);
     }
     function startLauncherHold(dir){
       if(lockoutLatched){ showToast(t("lockoutControlDenied"), "error"); return; }
       if(!isControlUnlocked()){ showToast(t("inspectionRequiredPlain"), "warn"); return; }
       if(dir==="up"){
-        if(!launcherUpHold){ launcherStep("up"); launcherUpHold=setInterval(()=>launcherStep("up"),200); }
+        if(!launcherUpHold){
+          const dirLabel = t("dirUp");
+          addLogLine(t("launcherUpDownLog", {dir:dirLabel}),"LAUNCHER");
+          launcherStep("up");
+          launcherUpHold=setInterval(()=>launcherStep("up"),200);
+        }
       }else{
-        if(!launcherDownHold){ launcherStep("down"); launcherDownHold=setInterval(()=>launcherStep("down"),200); }
+        if(!launcherDownHold){
+          const dirLabel = t("dirDown");
+          addLogLine(t("launcherUpDownLog", {dir:dirLabel}),"LAUNCHER");
+          launcherStep("down");
+          launcherDownHold=setInterval(()=>launcherStep("down"),200);
+        }
       }
     }
     function stopLauncherHold(dir){
-      if(dir==="up"){ if(launcherUpHold){ clearInterval(launcherUpHold); launcherUpHold=null; } }
-      else { if(launcherDownHold){ clearInterval(launcherDownHold); launcherDownHold=null; } }
+      if(dir==="up"){
+        if(!launcherUpHold) return;
+        clearInterval(launcherUpHold);
+        launcherUpHold = null;
+      }else{
+        if(!launcherDownHold) return;
+        clearInterval(launcherDownHold);
+        launcherDownHold = null;
+      }
+      if(!launcherUpHold && !launcherDownHold){
+        const dirLabel = t("dirStop");
+        addLogLine(t("launcherUpDownLog", {dir:dirLabel}),"LAUNCHER");
+        sendCommand({http:"/launcher?dir=stop", ser:"LAUNCHER STOP"}, false);
+      }
     }
 
     // =====================
@@ -3866,6 +3896,10 @@
         }else if(head === "CDMS"){
           const ms = (parts[1] != null) ? (Number(parts[1])|0) : 10000;
           serLine = "/set?cd_ms=" + ms;
+        }else if(head === "LAUNCHER"){
+          const dir = (parts[1] || "STOP").toUpperCase();
+          const dirValue = (dir === "UP" || dir === "DOWN") ? dir.toLowerCase() : "stop";
+          serLine = "/launcher?dir=" + dirValue;
         }
       }
 
