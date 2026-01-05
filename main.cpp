@@ -38,6 +38,9 @@ int pressure_sig = 7;
 int hx711_dt     = 6;
 int hx711_clk    = 9;
 int ign_adc_pin  = 15;
+int launcher_ena = 12;
+int launcher_in1 = 10;
+int launcher_in2 = 2;
 
 // =======================================================
 // ===================== CONFIG/STATE ====================
@@ -115,6 +118,28 @@ static inline int fastRead(int pin) {
 }
 static inline void fastWrite(int pin, int level) {
   gpio_set_level((gpio_num_t)pin, level);
+}
+
+enum LauncherDir : uint8_t {
+  LAUNCHER_STOP = 0,
+  LAUNCHER_UP = 1,
+  LAUNCHER_DOWN = 2,
+};
+
+static inline void setLauncherDir(LauncherDir dir) {
+  if (dir == LAUNCHER_UP) {
+    fastWrite(launcher_in1, 1);
+    fastWrite(launcher_in2, 0);
+    fastWrite(launcher_ena, 1);
+  } else if (dir == LAUNCHER_DOWN) {
+    fastWrite(launcher_in1, 0);
+    fastWrite(launcher_in2, 1);
+    fastWrite(launcher_ena, 1);
+  } else {
+    fastWrite(launcher_ena, 0);
+    fastWrite(launcher_in1, 0);
+    fastWrite(launcher_in2, 0);
+  }
 }
 
 // =======================================================
@@ -390,6 +415,21 @@ void handleSetIGS(AsyncWebServerRequest* request) {
   else request->send(200, "text/plain", resp);
 }
 
+void handleLauncher(AsyncWebServerRequest* request) {
+  if (isLocked()) { sendLockedHttp(request); return; }
+  if (isSafetyOn()) { request->send(403, "text/plain", "SAFETY_MODE"); return; }
+
+  String dir = request->hasParam("dir") ? request->getParam("dir")->value() : "";
+  dir.toLowerCase();
+  LauncherDir mode = LAUNCHER_STOP;
+  if (dir == "up") mode = LAUNCHER_UP;
+  else if (dir == "down") mode = LAUNCHER_DOWN;
+
+  setLauncherDir(mode);
+  const char* label = (mode == LAUNCHER_UP) ? "UP" : (mode == LAUNCHER_DOWN) ? "DOWN" : "STOP";
+  request->send(200, "text/plain", String("LAUNCHER=") + label);
+}
+
 void handleIgnite(AsyncWebServerRequest* request) {
   if (isLocked()) { sendLockedHttp(request); return; }
   if (isSafetyOn()) { request->send(403, "text/plain", "SAFETY_MODE"); return; }
@@ -563,6 +603,7 @@ void handleHelp(AsyncWebServerRequest* request) {
 <li>/set?stream=0|1</li>
 <li>/set?ign_ms=1000~10000</li>
 <li>/set?cd_ms=3000~30000</li>
+<li>/launcher?dir=up|down|stop</li>
 <li>/precount?uw=0|1&cd=ms</li>
 <li>/loadcell_cal?weight=kgf</li>
 <li>/loadcell_zero</li>
@@ -607,6 +648,30 @@ static void handleSerialCommand(String line) {
     applyQueryLike(query);
     portEXIT_CRITICAL(&stateMux);
     serialReply("SET_OK");
+    return;
+  }
+
+  if (line.startsWith("/launcher")) {
+    if (isSafetyOn()) { serialErr("SAFETY_MODE"); return; }
+    String dir = "";
+    int q = line.indexOf('?');
+    if (q >= 0 && q < (int)line.length() - 1) {
+      String query = line.substring(q + 1);
+      int dPos = query.indexOf("dir=");
+      if (dPos >= 0) {
+        int amp = query.indexOf('&', dPos);
+        String val = (amp >= 0) ? query.substring(dPos + 4, amp) : query.substring(dPos + 4);
+        val.trim();
+        dir = val;
+      }
+    }
+    dir.toLowerCase();
+    LauncherDir mode = LAUNCHER_STOP;
+    if (dir == "up") mode = LAUNCHER_UP;
+    else if (dir == "down") mode = LAUNCHER_DOWN;
+    setLauncherDir(mode);
+    const char* label = (mode == LAUNCHER_UP) ? "UP" : (mode == LAUNCHER_DOWN) ? "DOWN" : "STOP";
+    serialReply(String("LAUNCHER=") + label);
     return;
   }
 
@@ -1172,6 +1237,7 @@ static void ControlTask(void* arg) {
           // 즉시 안전 상태
           setRelays(false);
           stopTone();
+          setLauncherDir(LAUNCHER_STOP);
         }
       } else {
         offMismatchSinceMs = 0;
@@ -1198,6 +1264,10 @@ void setup() {
 
   pinMode(pressure_sig, INPUT);
   pinMode(ign_adc_pin, INPUT);
+  pinMode(launcher_ena, OUTPUT);
+  pinMode(launcher_in1, OUTPUT);
+  pinMode(launcher_in2, OUTPUT);
+  setLauncherDir(LAUNCHER_STOP);
 
   analogReadResolution(12);
 
@@ -1259,6 +1329,7 @@ void setup() {
   server.on("/overlay",         HTTP_GET, overlay);
 
   server.on("/set",             HTTP_GET, handleSetIGS);
+  server.on("/launcher",        HTTP_GET, handleLauncher);
   server.on("/ignite",          HTTP_GET, handleIgnite);
   server.on("/force_ignite",    HTTP_GET, handleForceIgnite);
   server.on("/abort",           HTTP_GET, handleAbort);
