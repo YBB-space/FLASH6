@@ -1911,6 +1911,11 @@
     function isControlUnlocked(){
       return controlAuthority && inspectionState==="passed" && !lockoutLatched;
     }
+    function canOperateLauncher(){
+      const relayOn = latestTelemetry && latestTelemetry.rly === 1;
+      const switchOn = latestTelemetry && latestTelemetry.sw === 1;
+      return !(lockoutLatched || safetyModeEnabled || currentSt !== 0 || relayOn || switchOn);
+    }
 
     function updateInspectionPill(){
       if(!el.inspectionStatusPill) return;
@@ -1943,9 +1948,7 @@
         el.forceBtn.classList.toggle("disabled", blocked);
       }
       if(el.launcherOpenBtn){
-        const relayOn = latestTelemetry && latestTelemetry.rly === 1;
-        const switchOn = latestTelemetry && latestTelemetry.sw === 1;
-        const blocked = (!unlocked || lockoutLatched || state!==0 || relayOn || switchOn);
+        const blocked = !canOperateLauncher();
         el.launcherOpenBtn.classList.toggle("disabled", blocked);
         el.launcherOpenBtn.setAttribute("aria-disabled", blocked ? "true" : "false");
       }
@@ -2304,7 +2307,8 @@
     // =====================
     function getWsUrl(){
       const proto = (location.protocol === "https:") ? "wss" : "ws";
-      return proto + "://" + location.host + "/ws";
+      const host = location.host || "192.168.4.1";
+      return proto + "://" + host + "/ws";
     }
 
     function addWsLog(msg){
@@ -3282,8 +3286,8 @@
         showToast(t("lockoutControlDenied"), "error");
         return;
       }
-      if(!isControlUnlocked()){
-        showToast(t("inspectionRequiredShort"), "warn");
+      if(!canOperateLauncher()){
+        if(safetyModeEnabled) showToast(t("safetyModeOnToast"), "warn");
         return;
       }
       if(launcherOverlayEl){ launcherOverlayEl.classList.remove("hidden"); launcherOverlayEl.style.display="flex"; }
@@ -3301,7 +3305,10 @@
     }
     function startLauncherHold(dir){
       if(lockoutLatched){ showToast(t("lockoutControlDenied"), "error"); return; }
-      if(!isControlUnlocked()){ showToast(t("inspectionRequiredPlain"), "warn"); return; }
+      if(!canOperateLauncher()){
+        if(safetyModeEnabled) showToast(t("safetyModeOnToast"), "warn");
+        return;
+      }
       if(dir==="up"){
         if(!launcherUpHold){
           const dirLabel = t("dirUp");
@@ -3890,6 +3897,9 @@
         }else if(head === "IGS"){
           const v = (parts[1] != null) ? (Number(parts[1]) ? 1 : 0) : 0;
           serLine = "/set?igs=" + v;
+        }else if(head === "SAFE"){
+          const v = (parts[1] != null) ? (Number(parts[1]) ? 1 : 0) : 0;
+          serLine = "/set?safe=" + v;
         }else if(head === "IGNMS"){
           const ms = (parts[1] != null) ? (Number(parts[1])|0) : 5000;
           serLine = "/set?ign_ms=" + ms;
