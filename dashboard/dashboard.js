@@ -18,6 +18,142 @@
 
     let prevStForIgn = 0;
     let ignitionAnalysis = {hasData:false,ignStartMs:null,thresholdMs:null,lastAboveMs:null,windowStartMs:null,windowEndMs:null,delaySec:null,durationSec:null,endNotified:false};
+    let selectedMotorName = "";
+    let pendingMissionApply = null;
+    const motorSpecs = {
+      "frontier2025": {
+        name: "frontier2025",
+        diameterMm: 60,
+        lengthMm: 250,
+        ignDelaySec: 1.8,
+        grainMassG: 400,
+        totalMassG: 1430,
+        vendor: "ALTIS"
+      },
+      "frontier2026 stg2 cnc": {
+        name: "frontier2026 stg2 cnc",
+        diameterMm: 48,
+        lengthMm: 250,
+        ignDelaySec: 1.8,
+        grainMassG: 200,
+        totalMassG: 1000,
+        vendor: "ALTIS"
+      },
+      "frontier2026 stg2 pvc": {
+        name: "frontier2026 stg2 pvc",
+        diameterMm: 48,
+        lengthMm: 250,
+        ignDelaySec: 1.8,
+        grainMassG: 200,
+        totalMassG: 542,
+        vendor: "ALTIS"
+      },
+      "QUAIL1 motor": {
+        name: "QUAIL1 motor",
+        diameterMm: 50,
+        lengthMm: 255,
+        ignDelaySec: 1.8,
+        grainMassG: 400,
+        totalMassG: 1500,
+        vendor: "HANWOOL"
+      }
+    };
+    function buildMotorPresetInfo(){
+      const buttons = document.querySelectorAll(".mission-preset-btn[data-mission]");
+      buttons.forEach(btn=>{
+        if(btn.querySelector(".mission-preset-info")) return;
+        const name = (btn.getAttribute("data-mission") || "").trim();
+        if(!name) return;
+        const spec = motorSpecs[name] || null;
+        btn.classList.add("has-info");
+        const photo = btn.querySelector(".mission-preset-photo");
+        if(photo && !photo.querySelector("img")){
+          const img = document.createElement("img");
+          img.src = "img/flash_stb.svg";
+          img.alt = name;
+          photo.textContent = "";
+          photo.appendChild(img);
+        }
+
+        const info = document.createElement("div");
+        info.className = "mission-preset-info";
+        const addLine = (label, value, valueClass, lineClass)=>{
+          if(value == null || value === "") return;
+          const line = document.createElement("div");
+          line.className = "mission-info-line";
+          if(lineClass) line.classList.add(lineClass);
+          const key = document.createElement("span");
+          key.className = "mission-info-label";
+          key.textContent = label;
+          const val = document.createElement("span");
+          val.className = "mission-info-value";
+          if(valueClass) val.classList.add(valueClass);
+          val.textContent = value;
+          line.appendChild(key);
+          line.appendChild(val);
+          info.appendChild(line);
+        };
+
+        if(name === "motor-support"){
+          const msg = document.createElement("div");
+          msg.className = "mission-info-message";
+          msg.textContent = "모터 추가는 ybb1833@naver.com 으로 문의해주세요.";
+          info.appendChild(msg);
+          btn.appendChild(info);
+          return;
+        }
+        if(name === "no-motor"){
+          const msg = document.createElement("div");
+          msg.className = "mission-info-message";
+          msg.textContent = "모터의 메타데이터 없이 진행할수 있습니다.";
+          info.appendChild(msg);
+          btn.appendChild(info);
+          return;
+        }
+
+          if(!spec){
+            btn.classList.add("no-spec");
+            if(!btn.querySelector(".mission-preset-sub")){
+              const sub = document.createElement("div");
+              sub.className = "mission-preset-sub";
+              sub.textContent = "no data";
+              const nameEl = btn.querySelector(".mission-preset-name");
+              if(nameEl && nameEl.parentNode){
+              nameEl.parentNode.insertBefore(sub, nameEl);
+              }else{
+                btn.appendChild(sub);
+              }
+            }
+        }else{
+          btn.classList.add("has-spec");
+        }
+        if(spec && spec.vendor){
+          const existingVendor = btn.querySelector(".mission-preset-vendor");
+          if(!existingVendor){
+            const vendorEl = document.createElement("div");
+            vendorEl.className = "mission-preset-vendor";
+            vendorEl.textContent = spec.vendor;
+            const nameEl = btn.querySelector(".mission-preset-name");
+            if(nameEl && nameEl.parentNode){
+              nameEl.parentNode.insertBefore(vendorEl, nameEl);
+            }else{
+              btn.appendChild(vendorEl);
+            }
+          }
+        }
+        addLine("MOTOR", name);
+        if(spec){
+          addLine("DIA", (spec.diameterMm != null) ? (spec.diameterMm + " mm") : "", null, "is-divider");
+          addLine("LEN", (spec.lengthMm != null) ? (spec.lengthMm + " mm") : "");
+          addLine("IGN", (spec.ignDelaySec != null) ? (spec.ignDelaySec + " s") : "");
+          addLine("GRAIN", (spec.grainMassG != null) ? (spec.grainMassG + " g") : "");
+          addLine("TOTAL", (spec.totalMassG != null) ? (spec.totalMassG + " g") : "");
+        }else{
+          addLine("INFO", "NO DATA");
+        }
+        btn.appendChild(info);
+      });
+    }
 
     const MAX_POINTS         = 300;
 
@@ -349,8 +485,12 @@
         settingsNavInterface:"인터페이스",
         settingsNavSequence:"시퀀스",
         settingsNavSafety:"안전",
-        settingsNavInfo:"정보",
+        settingsNavInfo:"SW 정보",
         settingsGroupHardware:"하드웨어",
+        settingsHardwareInfoTitle:"하드웨어 정보",
+        settingsBoardNameLabel:"보드 이름",
+        settingsFirmwareNameLabel:"펌웨어 정보",
+        settingsProtocolLabel:"프로토콜",
         settingsSerialStatusLabel:"시리얼 연결 상태",
         settingsSerialRxLabel:"시리얼 수신 로그 반영",
         settingsSerialRxHint:"보드가 JSON 라인을 출력하면 그대로 파싱해 UI/차트에 반영합니다.",
@@ -423,7 +563,7 @@
         inspectionPassText:"모든 항목 통과. 제어 권한 확보됨.",
         settingsLangLabel:"언어",
         settingsLangHint:"표시 언어를 변경합니다.",
-        exportXlsx:"XLSX 내보내기",
+        exportXlsx:"보고서 내보내기",
         chartNoData:"데이터 없음",
         labelDelay:"지연",
         labelBurn:"연소",
@@ -616,8 +756,8 @@
         clipboardCopyFailedToast:"클립보드 복사에 실패했습니다. 브라우저 권한을 확인하세요.",
         copyFailedLog:"복사 실패: {err}",
         copyFailedToast:"복사에 실패했습니다. 브라우저 정책을 확인하세요.",
-        xlsxExportLog:"XLSX 내보내기 완료 (IGN_SUMMARY/EVENT/RAW): {filename}",
-        xlsxExportToast:"XLSX로 내보냈습니다. (IGN_SUMMARY + EVENT + RAW 시트)",
+        xlsxExportLog:"보고서 내보내기 완료 (XLSX/ENG): {filename}",
+        xlsxExportToast:"보고서를 .eng / .xlsx 파일로 내보냈습니다.",
         thrustUnitChangedToast:"추력 단위가 {from} → {to} 로 변경되었습니다. 표시 단위만 변경됩니다. {safety}",
         ignTimeChangedToast:"점화 시간이 {from}s → {to}s 로 변경되었습니다. 과열/인가 시간에 주의하세요. {safety}",
         countdownChangedToast:"카운트다운 시간이 {from}s → {to}s 로 변경되었습니다. 인원 통제 시간을 충분히 두세요. {safety}",
@@ -693,8 +833,12 @@
         settingsNavInterface:"Interface",
         settingsNavSequence:"Sequence",
         settingsNavSafety:"Safety",
-        settingsNavInfo:"Info",
+        settingsNavInfo:"SW Info",
         settingsGroupHardware:"Hardware",
+        settingsHardwareInfoTitle:"Hardware Info",
+        settingsBoardNameLabel:"Board Name",
+        settingsFirmwareNameLabel:"Firmware",
+        settingsProtocolLabel:"Protocol",
         settingsSerialStatusLabel:"Serial connection status",
         settingsSerialRxLabel:"Apply serial RX logs",
         settingsSerialRxHint:"Parse JSON lines from the board and reflect them in the UI/charts.",
@@ -790,7 +934,7 @@
         loadcellSaveLog:"Loadcell calibration save request (weight={weight} kg)",
         settingsLangLabel:"Language",
         settingsLangHint:"Change display language.",
-        exportXlsx:"Export XLSX",
+        exportXlsx:"Export Report",
         chartNoData:"NO DATA",
         labelDelay:"Delay",
         labelBurn:"Burn",
@@ -983,8 +1127,8 @@
         clipboardCopyFailedToast:"Clipboard copy failed. Check browser permissions.",
         copyFailedLog:"Copy failed: {err}",
         copyFailedToast:"Copy failed. Check browser policy.",
-        xlsxExportLog:"XLSX exported (IGN_SUMMARY/EVENT/RAW): {filename}",
-        xlsxExportToast:"Exported to XLSX. (IGN_SUMMARY + EVENT + RAW sheets)",
+        xlsxExportLog:"Report exported (XLSX/ENG): {filename}",
+        xlsxExportToast:"Exported report to .eng / .xlsx files.",
         thrustUnitChangedToast:"Thrust unit changed {from} → {to}. Display only. {safety}",
         ignTimeChangedToast:"Ignition time changed {from}s → {to}s. Watch heating/drive time. {safety}",
         countdownChangedToast:"Countdown changed {from}s → {to}s. Allow enough clearance time. {safety}",
@@ -2601,6 +2745,12 @@
         gs,
         sm: (sm != null) ? (sm ? 1 : 0) : (safetyModeEnabled ? 1 : 0)
       };
+      const fwBoard = data.fw_board ?? data.fwBoard ?? null;
+      const fwProgram = data.fw_program ?? data.fwProgram ?? null;
+      const fwProtocol = data.fw_protocol ?? data.fwProtocol ?? null;
+      if(fwBoard && el.hwBoardName) el.hwBoardName.textContent = String(fwBoard);
+      if(fwProgram && el.hwFirmwareName) el.hwFirmwareName.textContent = String(fwProgram);
+      if(fwProtocol && el.hwProtocolName) el.hwProtocolName.textContent = String(fwProtocol);
 
       if(st===0){
         igniterAbortSent = false;
@@ -3018,6 +3168,10 @@
       sendCommand({http:"/precount?uw=0&cd=0", ser:"PRECOUNT 0 0"}, false);
     }
     function showConfirm(){
+      if(!hasMissionSelected()){
+        showMissionRequired();
+        return;
+      }
       if(lockoutLatched){
         showToast(t("lockoutNoControl"), "error");
         return;
@@ -3165,6 +3319,76 @@
     // =====================
     function showSettings(){ if(el.settingsOverlay){ el.settingsOverlay.classList.remove("hidden"); el.settingsOverlay.style.display="flex"; } }
     function hideSettings(){ if(el.settingsOverlay){ el.settingsOverlay.classList.add("hidden"); el.settingsOverlay.style.display="none"; } }
+    function setMissionCloseLabel(isBack){
+      if(!el.missionCloseBtn) return;
+      el.missionCloseBtn.textContent = isBack ? "뒤로" : "닫기";
+    }
+    function resetMissionToPresetList(){
+      if(el.missionFields) el.missionFields.classList.add("hidden");
+      if(el.missionPresetBlock) el.missionPresetBlock.classList.remove("hidden");
+      if(el.missionDialog){
+        el.missionDialog.classList.remove("custom-mode");
+        el.missionDialog.classList.remove("ask-test");
+        el.missionDialog.classList.remove("review-mode");
+      }
+      if(el.missionTestInline){
+        el.missionTestInline.style.display = "none";
+        el.missionTestInline.setAttribute("aria-hidden","true");
+      }
+      if(el.missionReview) el.missionReview.setAttribute("aria-hidden","true");
+      if(el.missionConfirmBtn) el.missionConfirmBtn.textContent = "다음";
+      setMissionCloseLabel(false);
+    }
+    function hasMissionSelected(){
+      return !!(
+        (selectedMotorName && selectedMotorName.trim()) ||
+        (el.missionName && el.missionName.value && el.missionName.value.trim())
+      );
+    }
+    function updateExportButtonState(){
+      if(!el.exportCsvBtn) return;
+      const ok = hasMissionSelected();
+      el.exportCsvBtn.disabled = !ok;
+      el.exportCsvBtn.classList.toggle("disabled", !ok);
+    }
+    function showMissionRequired(){
+      if(el.missionRequiredOverlay){
+        el.missionRequiredOverlay.classList.remove("hidden");
+        el.missionRequiredOverlay.style.display="flex";
+      }
+    }
+    function hideMissionRequired(){
+      if(el.missionRequiredOverlay){
+        el.missionRequiredOverlay.classList.add("hidden");
+        el.missionRequiredOverlay.style.display="none";
+      }
+    }
+    function showNoMotorNotice(){
+      if(el.noMotorOverlay){
+        el.noMotorOverlay.classList.remove("hidden");
+        el.noMotorOverlay.style.display="flex";
+      }
+    }
+    function hideNoMotorNotice(){
+      if(el.noMotorOverlay){
+        el.noMotorOverlay.classList.add("hidden");
+        el.noMotorOverlay.style.display="none";
+      }
+    }
+    function showMission(){
+      if(el.missionOverlay){
+        el.missionOverlay.classList.remove("hidden");
+        el.missionOverlay.style.display="flex";
+      }
+      resetMissionToPresetList();
+    }
+    function hideMission(){
+      resetMissionToPresetList();
+      if(el.missionOverlay){
+        el.missionOverlay.classList.add("hidden");
+        el.missionOverlay.style.display="none";
+      }
+    }
     function updateLoadcellLiveValue(val){
       lastThrustKgf = val;
       if(!el.loadcellLiveValue) return;
@@ -3261,6 +3485,10 @@
       }
     }
     function showForceConfirm(){
+      if(!hasMissionSelected()){
+        showMissionRequired();
+        return;
+      }
       if(lockoutLatched){
         showToast(t("lockoutForceDenied"), "error");
         return;
@@ -3380,12 +3608,15 @@
         out += ' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
       }
       out += ">";
+      out += '<cols><col min="1" max="1" width="38" customWidth="1"/></cols>';
       out += "<sheetData>";
       for(let r = 0; r < rows.length; r++){
-        const row = rows[r];
+        const rowEntry = rows[r];
+        const row = (rowEntry && !Array.isArray(rowEntry) && rowEntry.cells) ? rowEntry.cells : rowEntry;
+        const rowStyle = (rowEntry && !Array.isArray(rowEntry) && rowEntry.style != null) ? rowEntry.style : null;
         const rowNum = r + 1;
         let rowXml = "";
-        const styleId = (r === 0) ? ' s="1"' : "";
+        const styleId = (rowStyle != null) ? (' s="' + rowStyle + '"') : ((r === 0) ? ' s="1"' : "");
         for(let c = 0; c < row.length; c++){
           const value = row[c];
           if(value === null || value === undefined || value === "") continue;
@@ -3460,19 +3691,24 @@
     function buildStylesXml(){
       return '<?xml version="1.0" encoding="UTF-8"?>' +
         '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
-        '<fonts count="2">' +
+        '<fonts count="4">' +
           '<font><sz val="11"/><color theme="1"/><name val="Calibri"/><family val="2"/></font>' +
           '<font><b/><sz val="11"/><color rgb="FF1F2937"/><name val="Calibri"/><family val="2"/></font>' +
+          '<font><b/><sz val="13"/><color rgb="FFFFFFFF"/><name val="Calibri"/><family val="2"/></font>' +
+          '<font><sz val="12"/><color rgb="FF111827"/><name val="Calibri"/><family val="2"/></font>' +
         '</fonts>' +
-        '<fills count="2">' +
+        '<fills count="3">' +
           '<fill><patternFill patternType="none"/></fill>' +
           '<fill><patternFill patternType="solid"><fgColor rgb="FFE5E7EB"/><bgColor indexed="64"/></patternFill></fill>' +
+          '<fill><patternFill patternType="solid"><fgColor rgb="FF1D4ED8"/><bgColor indexed="64"/></patternFill></fill>' +
         '</fills>' +
         '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>' +
         '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
-        '<cellXfs count="2">' +
+        '<cellXfs count="4">' +
           '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' +
           '<xf numFmtId="0" fontId="1" fillId="1" borderId="0" xfId="0" applyFont="1" applyFill="1"/>' +
+          '<xf numFmtId="0" fontId="2" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/>' +
+          '<xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1"/>' +
         '</cellXfs>' +
         "</styleSheet>";
     }
@@ -3815,6 +4051,31 @@
       const zipData = buildZip(files);
       return new Blob([zipData], {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
     }
+    function formatEngNumber(value, digits){
+      if(!isFinite(value)) return "0";
+      const fixed = Number(value).toFixed(digits);
+      return fixed.replace(/\.?0+$/,"");
+    }
+    function buildEngText(rows, meta){
+      const rawName = (meta.name || "ALTIS_MOTOR").trim() || "ALTIS_MOTOR";
+      const rawVendor = (meta.vendor || "ALTIS").trim() || "ALTIS";
+      const name = rawName.replace(/\s+/g, "_");
+      const vendor = rawVendor.replace(/\s+/g, "_");
+      const header = [
+        name,
+        formatEngNumber(meta.diameterMm, 0),
+        formatEngNumber(meta.lengthMm, 0),
+        formatEngNumber(meta.delaySec, 3),
+        formatEngNumber(meta.propMassKg, 3),
+        formatEngNumber(meta.totalMassKg, 3),
+        vendor
+      ].join(" ");
+      const lines = [header];
+      for(const row of rows){
+        lines.push(formatEngNumber(row[0], 4) + " " + formatEngNumber(row[1], 3));
+      }
+      return lines.join("\n") + "\n";
+    }
 
     // =====================
     // 공통 명령 전송: Wi-Fi + (옵션) Serial
@@ -3969,16 +4230,55 @@
       el.abortBtn = document.getElementById("abortBtn");
       el.forceBtn = document.getElementById("forceIgniteBtn");
       el.copyLogBtn = document.getElementById("copyLogBtn");
+      el.missionOpenBtn = document.getElementById("missionOpenBtn");
       el.exportCsvBtn = document.getElementById("exportCsvBtn");
 
       el.controlsSettingsBtn = document.getElementById("controlsSettingsBtn");
       el.settingsOverlay = document.getElementById("settingsOverlay");
       el.settingsClose = document.getElementById("settingsClose");
       el.settingsSave = document.getElementById("settingsSave");
+      el.missionOverlay = document.getElementById("missionOverlay");
+      el.missionDialog = document.getElementById("missionDialog");
+      el.missionClose = document.getElementById("missionClose");
+      el.missionCloseBtn = document.getElementById("missionCloseBtn");
+      el.missionConfirmBtn = document.getElementById("missionConfirmBtn");
+      el.missionCustomBtn = document.getElementById("missionCustomBtn");
+      el.missionFields = document.getElementById("missionFields");
+      el.missionName = document.getElementById("missionName");
+      el.missionTestCount = document.getElementById("missionTestCount");
+      el.missionMotorDia = document.getElementById("missionMotorDia");
+      el.missionMotorLen = document.getElementById("missionMotorLen");
+      el.missionIgnDelay = document.getElementById("missionIgnDelay");
+      el.missionGrainMass = document.getElementById("missionGrainMass");
+      el.missionTotalMass = document.getElementById("missionTotalMass");
+      el.missionVendor = document.getElementById("missionVendor");
+      el.missionTestInline = document.getElementById("missionTestInline");
+      el.missionTestPromptInput = document.getElementById("missionTestPromptInput");
+      el.missionReview = document.getElementById("missionReview");
+      el.missionReviewMotor = document.getElementById("missionReviewMotor");
+      el.missionReviewTestCount = document.getElementById("missionReviewTestCount");
+      el.missionReviewDia = document.getElementById("missionReviewDia");
+      el.missionReviewLen = document.getElementById("missionReviewLen");
+      el.missionReviewIgnDelay = document.getElementById("missionReviewIgnDelay");
+      el.missionReviewGrain = document.getElementById("missionReviewGrain");
+      el.missionReviewTotal = document.getElementById("missionReviewTotal");
+      el.missionReviewVendor = document.getElementById("missionReviewVendor");
+      el.missionTestCancel = document.getElementById("missionTestCancel");
+      el.missionTestConfirm = document.getElementById("missionTestConfirm");
+      el.missionBackBtn = document.getElementById("missionBackBtn");
+      el.missionPresetGrid = document.getElementById("missionPresetGrid");
+      el.missionPresetViewport = document.getElementById("missionPresetViewport");
+      el.missionPresetDivider = document.getElementById("missionPresetDivider");
+      el.missionPresetWrap = document.getElementById("missionPresetWrap");
+      el.missionPresetBlock = document.getElementById("missionPresetBlock");
+      el.missionScrollLeft = document.getElementById("missionScrollLeft");
+      el.missionScrollRight = document.getElementById("missionScrollRight");
       el.fwLogoEaster = document.getElementById("fwLogoEaster");
       el.unitThrust = document.getElementById("unitThrust");
       el.ignTimeInput = document.getElementById("ignTimeInput");
       el.countdownSecInput = document.getElementById("countdownSecInput");
+
+      buildMotorPresetInfo();
 
       el.relaySafeToggle = document.getElementById("relaySafeToggle");
       el.igswitch = document.getElementById("igswitch");
@@ -4001,6 +4301,9 @@
       el.simToggle = document.getElementById("simToggle");
       el.serialStatus = document.getElementById("serialStatus");
       el.serialStatusText = document.getElementById("serialStatusText");
+      el.hwBoardName = document.getElementById("hwBoardName");
+      el.hwFirmwareName = document.getElementById("hwFirmwareName");
+      el.hwProtocolName = document.getElementById("hwProtocolName");
       el.langSelect = document.getElementById("langSelect");
       el.loadcellCalOpen = document.getElementById("loadcellCalOpen");
       el.loadcellOverlay = document.getElementById("loadcellOverlay");
@@ -4015,6 +4318,10 @@
       el.loadcellWarningTitle = document.getElementById("loadcellWarningTitle");
       el.loadcellWarningProceed = document.getElementById("loadcellWarningProceed");
       el.loadcellWarningCancel = document.getElementById("loadcellWarningCancel");
+      el.missionRequiredOverlay = document.getElementById("missionRequiredOverlay");
+      el.missionRequiredOk = document.getElementById("missionRequiredOk");
+      el.noMotorOverlay = document.getElementById("noMotorOverlay");
+      el.noMotorOk = document.getElementById("noMotorOk");
 
       el.launcherOpenBtn = document.getElementById("launcherOpenBtn");
       el.inspectionOpenBtn = document.getElementById("inspectionOpenBtn");
@@ -4212,6 +4519,8 @@
         });
       }
 
+      updateExportButtonState();
+
       if(el.igniteBtn){
         el.igniteBtn.addEventListener("click",()=>{
           if(currentSt===0) showConfirm();
@@ -4233,6 +4542,28 @@
       }
 
       if(confirmCancelBtn){ confirmCancelBtn.addEventListener("click",()=>hideConfirm()); }
+      if(el.missionRequiredOk){
+        el.missionRequiredOk.addEventListener("click",()=>hideMissionRequired());
+      }
+      if(el.missionRequiredOverlay){
+        el.missionRequiredOverlay.addEventListener("click",(ev)=>{
+          if(ev.target===el.missionRequiredOverlay) hideMissionRequired();
+        });
+      }
+      if(el.noMotorOk){
+        el.noMotorOk.addEventListener("click",()=>{
+          hideNoMotorNotice();
+          hideMission();
+        });
+      }
+      if(el.noMotorOverlay){
+        el.noMotorOverlay.addEventListener("click",(ev)=>{
+          if(ev.target===el.noMotorOverlay){
+            hideNoMotorNotice();
+            hideMission();
+          }
+        });
+      }
 
       if(el.longPressBtn){
         el.longPressBtn.addEventListener("pointerdown", (e)=>{ e.preventDefault(); el.longPressBtn.setPointerCapture(e.pointerId); startHold(); });
@@ -4389,7 +4720,12 @@
           const fnameSuffix =
             now.getFullYear().toString()+
             pad(now.getMonth()+1)+pad(now.getDate())+"_"+pad(now.getHours())+pad(now.getMinutes())+pad(now.getSeconds());
-          const filename = "ALTIS_FLASH_DAQ_" + fnameSuffix + "_data.xlsx";
+          const safeName = (s)=>String(s || "UNKNOWN").trim().replace(/\s+/g,"_").replace(/[^a-zA-Z0-9._-]/g,"");
+          const motorLabel = safeName(selectedMotorName || (el.missionName && el.missionName.value) || "NO_MOTOR");
+          const testLabel = safeName((el.missionTestCount && el.missionTestCount.value) || "NA");
+          const filenameBase = "ALTIS_FLASH_DAQ_" + motorLabel + "_T" + testLabel + "_" + fnameSuffix + "_data";
+          const filenameXlsx = filenameBase + ".xlsx";
+          const filenameEng = filenameBase + ".eng";
 
           const hasIgnitionWindow =
             ignitionAnalysis.hasData &&
@@ -4402,6 +4738,38 @@
 
           const delayVal = (ignitionAnalysis.delaySec!=null) ? ignitionAnalysis.delaySec.toFixed(3) : "";
           const durVal   = (ignitionAnalysis.durationSec!=null) ? ignitionAnalysis.durationSec.toFixed(3) : "";
+
+          const missionMotor = (selectedMotorName || (el.missionName && el.missionName.value) || "").trim();
+          const missionDiameterMm = parseFloat(el.missionMotorDia && el.missionMotorDia.value);
+          const missionLengthMm = parseFloat(el.missionMotorLen && el.missionMotorLen.value);
+          const missionDelaySec = parseFloat(el.missionIgnDelay && el.missionIgnDelay.value);
+          const missionGrainMassG = parseFloat(el.missionGrainMass && el.missionGrainMass.value);
+          const missionTotalMassG = parseFloat(el.missionTotalMass && el.missionTotalMass.value);
+          const missionVendor = (el.missionVendor && el.missionVendor.value) ? el.missionVendor.value.trim() : "";
+
+          let thrustMin = Infinity;
+          let thrustMax = -Infinity;
+          let thrustSum = 0;
+          let thrustCount = 0;
+          let thrustNMin = Infinity;
+          let thrustNMax = -Infinity;
+          let thrustNSum = 0;
+          let thrustNCount = 0;
+          let pressureMin = Infinity;
+          let pressureMax = -Infinity;
+          let pressureSum = 0;
+          let pressureCount = 0;
+          let baseElapsedSec = null;
+          let xMaxSec = null;
+          let xDeltaSum = 0;
+          let xDeltaCount = 0;
+          let lastXVal = null;
+
+          const KGF_TO_N = 9.80665;
+          const t0ms = (logData && logData.length) ? Date.parse(logData[0].time) : null;
+          const engRows = [];
+          let engBaseSec = null;
+          let engBaseMs = null;
 
           const summaryRows = [
             [t("hdrTimeIso"), t("hdrMessage"), t("hdrIgnWindow"), t("hdrIgnDelay"), t("hdrBurn"), t("hdrThreshold"), t("hdrAvgThrust"), t("hdrMaxThrust"), t("hdrAvgThrustN"), t("hdrMaxThrustN"), t("hdrAvgPressure"), t("hdrMaxPressure")],
@@ -4433,26 +4801,6 @@
             t("hdrIgs"), t("hdrState"), t("hdrCdMs"), t("hdrRelTime"), t("hdrIgnWindowFlag")
           ]];
 
-          let thrustMin = Infinity;
-          let thrustMax = -Infinity;
-          let thrustSum = 0;
-          let thrustCount = 0;
-          let thrustNMin = Infinity;
-          let thrustNMax = -Infinity;
-          let thrustNSum = 0;
-          let thrustNCount = 0;
-          let pressureMin = Infinity;
-          let pressureMax = -Infinity;
-          let pressureSum = 0;
-          let pressureCount = 0;
-          let baseElapsedSec = null;
-          let xMaxSec = null;
-          let xDeltaSum = 0;
-          let xDeltaCount = 0;
-          let lastXVal = null;
-
-          const KGF_TO_N = 9.80665;
-          const t0ms = (logData && logData.length) ? Date.parse(logData[0].time) : null;
           for(const row of logData){
             const ms = Date.parse(row.time);
             const rel = (t0ms!=null && isFinite(ms)) ? ((ms - t0ms)/1000) : "";
@@ -4526,6 +4874,26 @@
               (rel !== "" ? Number(rel.toFixed(3)) : ""),
               inWin
             ]);
+          }
+
+          for(const row of logData){
+            const ms = Date.parse(row.time);
+            if(hasIgnitionWindow && (!isFinite(ms) || ms < windowStartMs || ms > windowEndMs)){
+              continue;
+            }
+            const tVal = Number(row.t);
+            if(!isFinite(tVal)) continue;
+            let sec = null;
+            if(row.elapsed != null && isFinite(Number(row.elapsed))){
+              const elapsedSec = Number(row.elapsed) / 1000;
+              if(engBaseSec == null) engBaseSec = elapsedSec;
+              sec = elapsedSec - engBaseSec;
+            }else if(isFinite(ms)){
+              if(engBaseMs == null) engBaseMs = ms;
+              sec = (ms - engBaseMs) / 1000;
+            }
+            if(sec == null || !isFinite(sec)) continue;
+            engRows.push([sec, tVal * KGF_TO_N]);
           }
 
           const avgThrustVal = (thrustCount > 0) ? (thrustSum / thrustCount) : null;
@@ -4611,14 +4979,41 @@
               }
             : null;
 
+          const infoRows = [
+            {cells:["INFO SUMMARY"], style:2},
+            {cells:["모터 이름: " + (missionMotor || "-")], style:3},
+            {cells:["실험 회차: " + ((el.missionTestCount && el.missionTestCount.value) ? el.missionTestCount.value.trim() : "-")], style:3},
+            {cells:["실험 총 평가: -"], style:3},
+            {cells:["최대 추력 (kgf): " + ((isFinite(thrustMax) && thrustMax !== -Infinity) ? Number(thrustMax.toFixed(3)) : "-")], style:3},
+            {cells:["평균 추력 (kgf): " + ((avgThrustVal != null && isFinite(avgThrustVal)) ? Number(avgThrustVal.toFixed(3)) : "-")], style:3},
+            {cells:["최대 압력 (V): " + ((isFinite(pressureMax) && pressureMax !== -Infinity) ? Number(pressureMax.toFixed(3)) : "-")], style:3},
+            {cells:["평균 압력 (V): " + ((avgPressureVal != null && isFinite(avgPressureVal)) ? Number(avgPressureVal.toFixed(3)) : "-")], style:3},
+            {cells:["점화 지연 (s): " + ((delayVal !== "" ? Number(delayVal) : "-"))], style:3},
+            {cells:["연소 시간 (s): " + ((durVal !== "" ? Number(durVal) : "-"))], style:3},
+            {cells:["시험 날짜: " + now.toISOString()], style:3}
+          ];
+
           const workbook = buildXlsxBlob([
+            {name:"INFO", rows:infoRows},
             {name:"IGN_SUMMARY", rows:summaryRows},
             {name:"EVENT", rows:eventRows},
             {name:"RAW", rows:rawRows}
           ], chartConfig);
-          downloadBlobAsFile(workbook, filename);
+          downloadBlobAsFile(workbook, filenameXlsx);
 
-          addLogLine(t("xlsxExportLog", {filename}), "INFO");
+          const engText = buildEngText(engRows, {
+            name: missionMotor,
+            diameterMm: missionDiameterMm,
+            lengthMm: missionLengthMm,
+            delaySec: missionDelaySec,
+            propMassKg: isFinite(missionGrainMassG) ? (missionGrainMassG / 1000) : null,
+            totalMassKg: isFinite(missionTotalMassG) ? (missionTotalMassG / 1000) : null,
+            vendor: missionVendor,
+            timeIso: now.toISOString()
+          });
+          downloadBlobAsFile(new Blob([engText], {type:"text/plain"}), filenameEng);
+
+          addLogLine(t("xlsxExportLog", {filename:filenameXlsx}), "INFO");
           showToast(t("xlsxExportToast"), "success");
         });
       }
@@ -4638,6 +5033,209 @@
       if(el.settingsClose) el.settingsClose.addEventListener("click",()=>hideSettings());
       if(el.settingsOverlay){
         el.settingsOverlay.addEventListener("click",(ev)=>{ if(ev.target===el.settingsOverlay) hideSettings(); });
+      }
+      if(el.missionOpenBtn) el.missionOpenBtn.addEventListener("click",()=>showMission());
+      if(el.missionClose) el.missionClose.addEventListener("click",()=>hideMission());
+      if(el.missionCloseBtn){
+        el.missionCloseBtn.addEventListener("click",()=>{
+          if(el.missionDialog && (el.missionDialog.classList.contains("custom-mode") ||
+            el.missionDialog.classList.contains("ask-test") ||
+            el.missionDialog.classList.contains("review-mode"))){
+            resetMissionToPresetList();
+            return;
+          }
+          hideMission();
+        });
+      }
+      if(el.missionOverlay){
+        el.missionOverlay.addEventListener("click",(ev)=>{ if(ev.target===el.missionOverlay) hideMission(); });
+      }
+      if(el.missionBackBtn){
+        el.missionBackBtn.addEventListener("click",()=>{
+          resetMissionToPresetList();
+        });
+      }
+      const getCenteredPreset = ()=>{
+        if(!el.missionPresetGrid || !el.missionPresetViewport) return null;
+        const cards = Array.from(el.missionPresetGrid.querySelectorAll(".mission-preset-btn"));
+        if(cards.length === 0) return null;
+        const center = el.missionPresetGrid.scrollLeft + el.missionPresetViewport.clientWidth / 2;
+        let best = cards[0];
+        let bestDist = Infinity;
+        cards.forEach(card=>{
+          const mid = card.offsetLeft + card.offsetWidth / 2;
+          const dist = Math.abs(mid - center);
+          if(dist < bestDist){ bestDist = dist; best = card; }
+        });
+        return best;
+      };
+      const applyMotorSpec = (name)=>{
+        const spec = motorSpecs[name];
+        if(!spec) return;
+        if(el.missionName) el.missionName.value = spec.name;
+        if(el.missionMotorDia) el.missionMotorDia.value = spec.diameterMm;
+        if(el.missionMotorLen) el.missionMotorLen.value = spec.lengthMm;
+        if(el.missionIgnDelay) el.missionIgnDelay.value = spec.ignDelaySec;
+        if(el.missionGrainMass) el.missionGrainMass.value = spec.grainMassG;
+        if(el.missionTotalMass) el.missionTotalMass.value = spec.totalMassG;
+        if(el.missionVendor) el.missionVendor.value = spec.vendor;
+      };
+      const ensureExperimentCount = (onOk)=>{
+        if(!el.missionTestCount || !el.missionTestPromptInput) { onOk(); return; }
+        if(el.missionTestCount.value && el.missionTestCount.value.trim() !== "") { onOk(); return; }
+        pendingMissionApply = onOk;
+        el.missionTestPromptInput.value = "";
+        if(el.missionDialog) el.missionDialog.classList.add("ask-test");
+        if(el.missionTestInline) el.missionTestInline.setAttribute("aria-hidden","false");
+        setMissionCloseLabel(true);
+        el.missionTestPromptInput.focus();
+      };
+      const setReviewValue = (target, value)=>{
+        if(!target) return;
+        target.textContent = (value && String(value).trim() !== "") ? String(value) : "-";
+      };
+      const showMissionReview = ()=>{
+        const motorName = (selectedMotorName || (el.missionName && el.missionName.value) || "").trim();
+        setReviewValue(el.missionReviewMotor, motorName || "CUSTOM");
+        setReviewValue(el.missionReviewTestCount, el.missionTestCount && el.missionTestCount.value);
+        setReviewValue(el.missionReviewDia, el.missionMotorDia && el.missionMotorDia.value ? (el.missionMotorDia.value + " mm") : "");
+        setReviewValue(el.missionReviewLen, el.missionMotorLen && el.missionMotorLen.value ? (el.missionMotorLen.value + " mm") : "");
+        setReviewValue(el.missionReviewIgnDelay, el.missionIgnDelay && el.missionIgnDelay.value ? (el.missionIgnDelay.value + " s") : "");
+        setReviewValue(el.missionReviewGrain, el.missionGrainMass && el.missionGrainMass.value ? (el.missionGrainMass.value + " g") : "");
+        setReviewValue(el.missionReviewTotal, el.missionTotalMass && el.missionTotalMass.value ? (el.missionTotalMass.value + " g") : "");
+        setReviewValue(el.missionReviewVendor, el.missionVendor && el.missionVendor.value);
+        if(el.missionDialog) el.missionDialog.classList.add("review-mode");
+        if(el.missionReview) el.missionReview.setAttribute("aria-hidden","false");
+        if(el.missionConfirmBtn) el.missionConfirmBtn.textContent = "확인";
+        setMissionCloseLabel(true);
+      };
+      const submitMissionTestCount = ()=>{
+        if(!el.missionTestPromptInput) return;
+        const num = parseInt(el.missionTestPromptInput.value, 10);
+        if(el.missionTestCount) el.missionTestCount.value = (isFinite(num) && num > 0) ? String(num) : "";
+        if(el.missionDialog) el.missionDialog.classList.remove("ask-test");
+        if(el.missionTestInline){
+          el.missionTestInline.style.display = "none";
+          el.missionTestInline.setAttribute("aria-hidden","true");
+        }
+        showMissionReview();
+      };
+      const updateCenteredPreset = ()=>{
+        if(!el.missionPresetGrid) return;
+        const cards = Array.from(el.missionPresetGrid.querySelectorAll(".mission-preset-btn"));
+        const centered = getCenteredPreset();
+        cards.forEach(card=>card.classList.toggle("is-center", card === centered));
+      };
+      const scrollToCard = (card)=>{
+        if(!card || !el.missionPresetViewport || !el.missionPresetGrid) return;
+        const targetLeft = card.offsetLeft - (el.missionPresetViewport.clientWidth - card.offsetWidth) / 2;
+        el.missionPresetGrid.scrollTo({left: Math.max(0, targetLeft), behavior:"smooth"});
+      };
+      if(el.missionPresetGrid && el.missionScrollLeft && el.missionScrollRight){
+        el.missionScrollLeft.addEventListener("click",()=>{
+          const cards = Array.from(el.missionPresetGrid.querySelectorAll(".mission-preset-btn"));
+          const current = getCenteredPreset();
+          const idx = Math.max(0, cards.indexOf(current) - 1);
+          scrollToCard(cards[idx]);
+        });
+        el.missionScrollRight.addEventListener("click",()=>{
+          const cards = Array.from(el.missionPresetGrid.querySelectorAll(".mission-preset-btn"));
+          const current = getCenteredPreset();
+          const idx = Math.min(cards.length - 1, cards.indexOf(current) + 1);
+          scrollToCard(cards[idx]);
+        });
+        el.missionPresetGrid.addEventListener("scroll",()=>{
+          updateCenteredPreset();
+        }, {passive:true});
+        updateCenteredPreset();
+      }
+      const presetButtons=document.querySelectorAll(".mission-preset-btn");
+      if(presetButtons.length && el.missionPresetGrid && el.missionPresetViewport){
+        presetButtons.forEach(btn=>{
+          btn.addEventListener("click",()=>{
+            const cardWidth = btn.getBoundingClientRect().width;
+            const viewportWidth = el.missionPresetViewport.getBoundingClientRect().width;
+            const targetLeft = btn.offsetLeft - (viewportWidth - cardWidth) / 2;
+            el.missionPresetGrid.scrollLeft = Math.max(0, targetLeft);
+          });
+        });
+      }
+
+      const showExperimentPrompt = ()=>{
+        if(!el.missionTestCount || !el.missionTestPromptInput) return;
+        el.missionTestPromptInput.value = "";
+        if(el.missionDialog) el.missionDialog.classList.add("ask-test");
+        if(el.missionTestInline){
+          el.missionTestInline.style.display = "flex";
+          el.missionTestInline.setAttribute("aria-hidden","false");
+        }
+        setMissionCloseLabel(true);
+        el.missionTestPromptInput.focus();
+      };
+      if(el.missionConfirmBtn){
+        el.missionConfirmBtn.addEventListener("click",()=>{
+        if(el.missionDialog && el.missionDialog.classList.contains("review-mode")){
+            if(el.missionDialog) el.missionDialog.classList.remove("review-mode");
+            if(el.missionReview) el.missionReview.setAttribute("aria-hidden","true");
+            if(el.missionConfirmBtn) el.missionConfirmBtn.textContent = "다음";
+            setMissionCloseLabel(false);
+            const cb = pendingMissionApply;
+            pendingMissionApply = null;
+            if(cb) cb();
+            updateExportButtonState();
+            return;
+          }
+          if(el.missionDialog && el.missionDialog.classList.contains("ask-test")){
+            submitMissionTestCount();
+            return;
+          }
+          if(el.missionFields && !el.missionFields.classList.contains("hidden")){
+            selectedMotorName = (el.missionName && el.missionName.value) ? el.missionName.value.trim() : "CUSTOM";
+            pendingMissionApply = ()=>hideMission();
+            showMissionReview();
+            updateExportButtonState();
+            return;
+          }
+          const centered = getCenteredPreset();
+          if(!centered) { hideMission(); return; }
+          if(centered.id === "missionCustomBtn"){
+            if(el.missionFields) el.missionFields.classList.remove("hidden");
+            if(el.missionPresetBlock) el.missionPresetBlock.classList.add("hidden");
+            if(el.missionDialog) el.missionDialog.classList.add("custom-mode");
+            setMissionCloseLabel(true);
+            return;
+          }
+          const name = centered.getAttribute("data-mission") || "";
+          if(el.missionName) el.missionName.value = name;
+          selectedMotorName = name;
+          applyMotorSpec(name);
+          pendingMissionApply = ()=>hideMission();
+          if(name === "no-motor"){
+            showNoMotorNotice();
+          }else{
+            showExperimentPrompt();
+          }
+          updateExportButtonState();
+        });
+      }
+      if(el.missionTestCancel){
+        el.missionTestCancel.addEventListener("click",()=>{
+          if(el.missionDialog) el.missionDialog.classList.remove("ask-test");
+          if(el.missionTestInline){
+            el.missionTestInline.style.display = "none";
+            el.missionTestInline.setAttribute("aria-hidden","true");
+          }
+          pendingMissionApply = null;
+          setMissionCloseLabel(false);
+        });
+      }
+      if(el.missionTestConfirm){
+        el.missionTestConfirm.addEventListener("click",()=>submitMissionTestCount());
+      }
+      if(el.missionTestPromptInput){
+        el.missionTestPromptInput.addEventListener("keydown",(ev)=>{
+          if(ev.key === "Enter") submitMissionTestCount();
+        });
       }
       if(el.loadcellCalOpen) el.loadcellCalOpen.addEventListener("click",()=>showLoadcellModal());
       if(el.loadcellClose) el.loadcellClose.addEventListener("click",()=>hideLoadcellModal());
@@ -4779,8 +5377,7 @@
       if(chartLeft){
         chartLeft.addEventListener("click",()=>{ autoScrollChart=false; chartView.start=(chartView.start||0)-Math.round(chartView.window*0.2); redrawCharts(); });
       }
-      if(chartRight){
-        chartRight.addEventListener("click",()=>{ autoScrollChart=false; chartView.start=(chartView.start||0)+Math.round(chartView.window*0.2); redrawCharts(); });
+      if(chartRight){      chartRight.addEventListener("click",()=>{ autoScrollChart=false; chartView.start=(chartView.start||0)+Math.round(chartView.window*0.2); redrawCharts(); });
       }
       if(chartLive){
         chartLive.addEventListener("click",()=>{ autoScrollChart=true; redrawCharts(); });
