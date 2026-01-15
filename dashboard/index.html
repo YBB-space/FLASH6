@@ -6,7 +6,7 @@
   <title>FLASH6 - DASHBOARD</title>
 
   <!-- ✅ 이미지 프리로드(LOCKOUT/토스트/아이콘 늦게 뜨는거 방지) -->
-  <link rel="preload" as="image" href="img/Flash_logo.png">
+  <link rel="preload" as="image" href="img/Flash_logo.svg ">
   <link rel="preload" as="image" href="img/Danger.svg">
   <link rel="preload" as="image" href="img/Tick.svg">
   <link rel="preload" as="image" href="img/Graph.svg">
@@ -29,7 +29,11 @@
       --danger:#ef4444;--danger-soft:rgba(248,113,113,0.12);
       --warn:#f59e0b;--warn-soft:rgba(245,158,11,0.16);
       --border-subtle:rgba(148,163,184,0.42);--border-strong:rgba(148,163,184,0.82);
-      --radius-xl:22px;--radius-lg:18px;--radius-md:14px;--radius-pill:999px;
+      --radius-xl:10px;--radius-lg:8px;--radius-md:6px;--radius-pill:999px;
+      --page-pad-x:48px;--page-pad-y:24px;--page-pad-bottom:24px;
+      --shell-gap:14px;--card-pad:16px;
+      --chart-height:clamp(260px,40vh,380px);
+      --log-height:clamp(180px,24vh,260px);
     }
     body{
       font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",system-ui,sans-serif;
@@ -37,12 +41,203 @@
         radial-gradient(circle at top left,#e0edff 0,transparent 55%),
         radial-gradient(circle at top right,#fde2ff 0,transparent 55%),
         linear-gradient(180deg,#f9fafb,#eef2ff);
-      min-height:100vh;display:flex;justify-content:center;align-items:flex-start;
-      padding:14px;color:var(--text-main);
+      min-height:100vh;display:flex;justify-content:flex-start;align-items:flex-start;
+      padding:0;margin:0;color:var(--text-main);
+    }
+    .app-shell{
+      width:100%;
+      display:flex;gap:28px;align-items:flex-start;
+      padding:0;
+    }
+    .side-nav{
+      display:flex;
+    }
+    .side-nav-mobile{
+      display:none;
+    }
+    .side-nav-desktop{
+      width:64px;min-height:100vh;
+      background:#ffffff;border-right:1px solid #e5e7eb;
+      display:flex;flex-direction:column;align-items:center;
+      padding:18px 10px;gap:14px;position:sticky;top:0;
+    }
+    .side-nav-logo{
+      width:40px;height:40px;border-radius:12px;background:#ffffff;
+      border:1px solid #e5e7eb;display:flex;align-items:center;justify-content:center;
+    }
+    .side-nav-logo img{width:26px;height:26px;display:block}
+    .side-nav-menu{
+      width:100%;display:flex;flex-direction:column;gap:10px;align-items:center;
+    }
+    .side-nav-item{
+      width:38px;height:38px;border-radius:12px;border:1px solid transparent;
+      background:transparent;color:#6b7280;font-size:0;
+      display:grid;place-items:center;cursor:pointer;
+    }
+    .side-nav-divider{
+      width:100%;height:1px;background:var(--ui-line);margin:6px 0;
+    }
+    .side-nav-action{
+      width:38px;height:38px;border-radius:12px;border:1px solid transparent;
+      background:transparent;color:#6b7280;font-size:0;
+      display:grid;place-items:center;cursor:pointer;
+    }
+    .side-nav-item::before{content:none}
+    .side-nav-item svg{
+      width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;
+      stroke-linecap:round;stroke-linejoin:round;
+    }
+    .side-nav-action svg{
+      width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;
+      stroke-linecap:round;stroke-linejoin:round;
+    }
+    .side-nav-item.active{
+      border-color:#e2e8f0;
+      background:#eef2f7;
+      color:#475569;
+      box-shadow:none;
+    }
+    .side-nav-action:hover{background:#f1f5f9;color:#0f172a}
+    .side-nav-action.disabled{opacity:.45;pointer-events:none}
+    .side-nav-spacer{flex:1}
+    .side-nav-btn{
+      width:38px;height:38px;border-radius:12px;border:1px solid transparent;
+      background:transparent;color:#6b7280;display:grid;place-items:center;cursor:pointer;
+    }
+    .side-nav-btn svg{
+      width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;
+      stroke-linecap:round;stroke-linejoin:round;
+    }
+    .side-nav-btn:hover{background:#f1f5f9;color:#0f172a}
+    .page-kicker{
+      font-size:12px;font-weight:600;letter-spacing:.02em;color:#94a3b8;
+    }
+    .page-title{
+      font-size:20px;font-weight:700;letter-spacing:.02em;color:#0f172a;
+    }
+    .home-view{
+      min-height:calc(100vh - 140px);
+    }
+    .home-view::before,
+    .home-view::after{content:none}
+    .home-hero{
+      position:relative;
+      display:flex;align-items:center;justify-content:space-between;gap:16px;
+      padding:22px 22px;border-radius:22px;border:1px solid rgba(255,255,255,0.08);
+      background:linear-gradient(135deg,rgba(33,38,45,0.92),rgba(17,20,25,0.85));
+      box-shadow:0 18px 36px rgba(0,0,0,0.35);
+      overflow:hidden;
+      min-height:clamp(140px,20vh,210px);
+    }
+    .home-hero::before{
+      content:"";position:absolute;inset:-40% 40% 20% -10%;
+      background:radial-gradient(circle at 30% 30%,rgba(255,255,255,0.08),transparent 65%);
+      opacity:.8;pointer-events:none;
+    }
+    .home-hero::after{
+      content:"";position:absolute;right:18px;top:18px;width:120px;height:120px;
+      border-radius:24px;
+      background:linear-gradient(135deg,rgba(255,255,255,0.08),rgba(255,255,255,0));
+      border:1px solid rgba(255,255,255,0.06);
+      opacity:.7;pointer-events:none;
+      transform:rotate(12deg);
+    }
+    .home-hero-title{font-size:22px;font-weight:700;color:#f8fafc;letter-spacing:.04em}
+    .home-hero-sub{font-size:12px;color:#cbd5f5;margin-top:6px}
+    .home-hero-pill{
+      padding:8px 14px;border-radius:999px;font-size:11px;font-weight:800;
+      background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#e0f2fe;
+      letter-spacing:.18em;text-transform:uppercase;
+      box-shadow:0 10px 20px rgba(37,99,235,0.35);
+    }
+    .home-hero-pill.is-offline{
+      background:linear-gradient(135deg,#ef4444,#b91c1c);
+      color:#fee2e2;box-shadow:0 8px 16px rgba(239,68,68,0.25);
+    }
+    .home-grid{
+      display:grid;gap:12px;flex:1;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      grid-auto-rows:minmax(140px,1fr);
+      align-items:stretch;
+    }
+    .home-card{
+      padding:18px;
+      display:flex;flex-direction:column;gap:6px;
+      background:rgba(22,26,32,0.9);
+      border:1px solid rgba(255,255,255,0.06);
+      box-shadow:0 18px 30px rgba(0,0,0,0.35);
+    }
+    .home-row{
+      display:flex;align-items:center;justify-content:space-between;gap:12px;
+      padding:8px 0;border-bottom:1px solid rgba(148,163,184,0.12);
+    }
+    .home-row:last-child{border-bottom:none}
+    .home-row-label{font-size:12px;color:#9aa3b2}
+    .home-row-value{display:flex;align-items:center;gap:8px;color:#f8fafc;font-size:13px;font-weight:600}
+    .home-status-badge{
+      display:inline-flex;align-items:center;gap:6px;padding:2px 8px;border-radius:999px;
+      font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+      border:1px solid rgba(148,163,184,0.25);color:#9aa3b2;background:rgba(15,23,42,0.5);
+    }
+    .home-status-badge::before{
+      content:"";width:6px;height:6px;border-radius:999px;background:#94a3b8;
+      box-shadow:0 0 0 3px rgba(148,163,184,0.12);
+    }
+    .home-status-badge.is-ok{color:#86efac;border-color:rgba(34,197,94,0.3);background:rgba(22,163,74,0.18)}
+    .home-status-badge.is-ok::before{background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,0.18)}
+    .home-status-badge.is-warn{color:#fbbf24;border-color:rgba(245,158,11,0.35);background:rgba(245,158,11,0.18)}
+    .home-status-badge.is-warn::before{background:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,0.2)}
+    .home-status-badge.is-alert{color:#fecaca;border-color:rgba(239,68,68,0.4);background:rgba(239,68,68,0.2)}
+    .home-status-badge.is-alert::before{background:#ef4444;box-shadow:0 0 0 3px rgba(239,68,68,0.2)}
+    .home-status-badge.is-off{color:#94a3b8;border-color:rgba(148,163,184,0.25);background:rgba(30,41,59,0.6)}
+    .home-status-badge.is-off::before{background:#94a3b8;box-shadow:0 0 0 3px rgba(148,163,184,0.18)}
+    .home-actions{
+      display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:4px;
+    }
+    .home-action-btn{
+      border-radius:12px;border:1px solid rgba(148,163,184,0.2);
+      padding:10px 8px;background:rgba(15,23,42,0.8);color:#e2e8f0;font-weight:700;font-size:12px;
+      letter-spacing:.08em;text-transform:uppercase;cursor:pointer;
+      transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+    }
+    .home-action-btn:hover{transform:translateY(-1px);box-shadow:0 8px 18px rgba(15,23,42,0.12)}
+    .home-action-btn.is-active{
+      border-color:rgba(59,130,246,0.55);color:#bfdbfe;background:rgba(59,130,246,0.2);
+    }
+    .home-action-btn.is-danger{
+      border-color:rgba(239,68,68,0.5);color:#fecaca;background:rgba(239,68,68,0.18);
+    }
+    .home-action-hint{margin-top:6px;font-size:11px;color:#94a3b8}
+    .home-card-title{
+      color:#a5b4fc;
+    }
+    .home-log-list{
+      color:#cbd5e1;
+    }
+    .home-card-title{
+      font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+      color:#64748b;margin-bottom:6px
+    }
+    .home-kv{
+      display:flex;justify-content:space-between;gap:12px;padding:8px 0;
+      border-bottom:1px solid rgba(148,163,184,0.18)
+    }
+    .home-kv:last-child{border-bottom:none}
+    .home-kv span{color:#64748b;font-size:12px}
+    .home-kv strong{color:#0f172a;font-size:13px;font-weight:700}
+    .home-log-list{
+      display:flex;flex-direction:column;gap:8px;font-size:11px;color:#475569;
+      line-height:1.5;white-space:pre-line;flex:1;overflow:auto;padding-right:4px
+    }
+    .home-card-log{grid-column:1 / -1;min-height:180px}
+    @media(max-width:920px){
+      .home-view{min-height:auto}
+      .home-grid{grid-template-columns:1fr;grid-auto-rows:auto}
+      .home-actions{grid-template-columns:1fr}
     }
     /* ✅ LOCKOUT 배경(빨간 그라데이션 깜빡임) */
     .page-wrap{
-      width:100%;max-width:1240px;display:flex;flex-direction:column;gap:12px;position:relative;z-index:1;
+      width:100%;max-width:1240px;display:flex;flex-direction:column;gap:12px;position:relative;z-index:1;flex:1;
 
       /* ✅ 스플래시 끝나기 전까지 숨김 */
       opacity:0;
@@ -126,7 +321,7 @@
     }
 
     .top-bar{display:flex;align-items:center;justify-content:space-between;gap:10px}
-    .top-left{display:flex;align-items:center;gap:12px}
+    .top-left{display:flex;flex-direction:column;align-items:flex-start;gap:2px}
     .logo-img{height:40px;width:auto;display:block;filter:drop-shadow(0 2px 6px rgba(15,23,42,0.18))}
     .title-block{display:flex;flex-direction:column;gap:2px}
     .title-main{font-size:18px;font-weight:600;letter-spacing:.03em}
@@ -144,11 +339,11 @@
     .chip-value{font-weight:600;color:var(--text-main)}
     .chip-dot{width:8px;height:8px;border-radius:999px;background:var(--danger);box-shadow:0 0 0 4px var(--danger-soft)}
     .chip-dot.ok{background:var(--ok);box-shadow:0 0 0 4px var(--ok-soft)}
-    .shell{width:100%;display:flex;flex-direction:column;gap:12px}
+    .shell{width:100%;display:flex;flex-direction:column;gap:var(--shell-gap)}
     .card-base{
       position:relative;background:var(--card-bg);border-radius:var(--radius-xl);
       border:1px solid rgba(148,163,184,0.62);box-shadow:var(--card-shadow);
-      padding:16px 18px;overflow:hidden;
+      padding:var(--card-pad);overflow:hidden;
       backdrop-filter:blur(20px) saturate(1.25);-webkit-backdrop-filter:blur(20px) saturate(1.25)
     }
     .card-base::before{
@@ -164,48 +359,95 @@
       opacity:0.6;pointer-events:none
     }
     .card-base>*{position:relative;z-index:1}
+    .main-card{
+      background:#ffffff;
+      border:1px solid rgba(148,163,184,0.35);
+      box-shadow:0 6px 14px rgba(15,23,42,0.08);
+    }
+    .main-card::before,.main-card::after{content:none}
     .side-col{display:flex;flex-direction:column;gap:12px}
-    .card-header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+    .card-header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
     .card-title{font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--text-soft)}
     .card-badge{padding:3px 10px;border-radius:var(--radius-pill);background:var(--accent-soft);color:var(--accent-strong);font-size:11px;font-weight:500;white-space:nowrap}
-    .section-label{margin-top:10px;font-size:11px;font-weight:600;letter-spacing:.10em;text-transform:uppercase;color:#9ca3af}
-    .status-row{display:flex;flex-direction:column;gap:6px}
-    .status-line{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
-    #statusText{font-size:clamp(18px,2.4vw,20px);font-weight:600;color:var(--text-main)}
-    #statusPill{padding:4px 10px;border-radius:var(--radius-pill);font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase}
-    .status-ready{background:var(--ok-soft);color:var(--ok);box-shadow:0 0 0 1px rgba(22,163,74,0.5)}
-    .status-count{background:var(--warn-soft);color:var(--warn);box-shadow:0 0 0 1px rgba(245,158,11,0.5)}
-    .status-fire{background:rgba(248,113,113,0.14);color:#b91c1c;box-shadow:0 0 0 1px rgba(239,68,68,0.6)}
-    .status-abort{background:rgba(254,202,202,0.9);color:#b91c1c;box-shadow:0 0 0 1px rgba(239,68,68,0.6)}
-    .status-disc{background:#e5e7eb;color:#4b5563;box-shadow:0 0 0 1px rgba(148,163,184,0.9)}
-    .status-lock{background:rgba(239,68,68,0.14);color:#991b1b;box-shadow:0 0 0 1px rgba(239,68,68,0.65)}
-    .countdown-wrap{margin-top:8px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+    .section-label{margin-top:6px;font-size:11px;font-weight:600;letter-spacing:.10em;text-transform:uppercase;color:#9ca3af}
+    .status-row{display:flex;flex-direction:column;gap:2px}
+    .status-line{display:flex;align-items:center;justify-content:flex-start;gap:10px}
+    .status-title{display:flex;align-items:center;gap:10px}
+    .status-line{width:100%;justify-content:space-between}
+    #statusText{font-size:clamp(18px,2.4vw,20px);font-weight:700;color:#0f172a}
+    #statusPill{padding:3px 8px;border-radius:8px;font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;border:1px solid rgba(148,163,184,0.35);box-shadow:none}
+    .status-ready{background:rgba(22,163,74,0.08);color:#15803d;border-color:rgba(22,163,74,0.35)}
+    .status-count{background:rgba(245,158,11,0.10);color:#b45309;border-color:rgba(245,158,11,0.35)}
+    .status-fire{background:rgba(239,68,68,0.08);color:#b91c1c;border-color:rgba(239,68,68,0.35)}
+    .status-seq{background:rgba(37,99,235,0.10);color:#1d4ed8;border-color:rgba(37,99,235,0.35)}
+    .status-abort{background:rgba(239,68,68,0.12);color:#b91c1c;border-color:rgba(239,68,68,0.45)}
+    .status-disc{background:#f3f4f6;color:#4b5563;border-color:rgba(148,163,184,0.35)}
+    .status-lock{background:rgba(239,68,68,0.08);color:#991b1b;border-color:rgba(239,68,68,0.45)}
+    .countdown-wrap{margin-top:5px;display:flex;align-items:center;justify-content:space-between;gap:9px;flex-wrap:wrap}
+    .status-top{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
+    .status-left{flex:1;min-width:0}
+    .status-metrics{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:14px}
+    .status-metric{
+      background:#f9fafb;
+      border:1px solid rgba(148,163,184,0.3);
+      border-radius:10px;
+      padding:9px 11px;
+      min-width:140px;
+      min-height:64px;
+    }
+    .status-metric-label{font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:#94a3b8;margin-bottom:6px}
+    .status-metric-value{font-size:18px;font-weight:700;letter-spacing:.02em;color:#111827}
+    .status-metric-value .unit{margin-left:4px;font-size:10px;color:#64748b;letter-spacing:.1em;text-transform:uppercase}
+    .status-meta-row{margin-top:10px}
+    @media(max-width:980px){
+      .status-top{flex-direction:column}
+    .status-metrics{width:100%;justify-content:flex-start}
+    }
     .countdown-label-block{display:flex;flex-direction:column;gap:2px}
     .countdown-caption{font-size:11px;color:var(--text-soft);letter-spacing:.14em;text-transform:uppercase}
     .countdown-sub{font-size:12px;color:var(--text-soft)}
+    .countdown-mobile{
+      display:none;
+      font-family:SFMono-Regular,ui-monospace,Menlo,Monaco,Consolas,"Courier New",monospace;
+      font-size:clamp(28px,9vw,40px);
+      font-weight:800;letter-spacing:.05em;color:var(--danger);
+      text-align:left;min-width:120px
+    }
     #countdown{
       font-family:SFMono-Regular,ui-monospace,Menlo,Monaco,Consolas,"Courier New",monospace;
       font-size:clamp(46px,7vw,64px);font-weight:800;letter-spacing:.05em;color:var(--danger);
       text-align:right;min-width:120px
     }
     #countdown span{font-size:14px;margin-left:4px;color:var(--text-soft);letter-spacing:0}
-    .pill-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+    .pill-row{display:flex;flex-wrap:wrap;gap:7px;margin-top:5px}
     .pill{
       padding:5px 12px;border-radius:var(--radius-pill);font-size:11px;
       border:1px solid rgba(148,163,184,0.5);background:rgba(249,250,251,0.96);color:var(--text-soft);
       display:inline-flex;align-items:center;gap:4px;white-space:nowrap
     }
+    .pill-toggle{padding:4px 10px;font-size:10px;min-width:42px;justify-content:center;cursor:pointer}
+    .pill-toggle.is-on{
+      background:rgba(34,197,94,0.16);
+      color:#16a34a;
+      border-color:rgba(34,197,94,0.5);
+    }
+    .pill-toggle.is-off{
+      background:rgba(148,163,184,0.2);
+      color:#4b5563;
+      border-color:rgba(148,163,184,0.5);
+    }
+    .hidden-input{display:none}
     .pill strong{color:var(--text-main);font-weight:600;margin-right:4px}
     .pill-sep{opacity:.55;margin:0 2px}
     .pill-green{background:rgba(22,163,74,0.12);color:var(--ok);border-color:rgba(22,163,74,0.4)}
     .pill-red{background:rgba(248,113,113,0.12);color:var(--danger);border-color:rgba(248,113,113,0.4)}
     .pill-gray{background:#e5e7eb;color:#374151;border-color:rgba(148,163,184,0.7)}
-    .ign-metrics{margin-top:6px;font-size:11px;color:var(--text-soft);display:flex;gap:10px}
+    .ign-metrics{margin-top:4px;font-size:11px;color:var(--text-soft);display:flex;gap:10px}
     .ign-metrics span{white-space:nowrap}
-    .item-grid{display:grid;grid-template-columns:1fr;gap:8px;margin-top:10px}
+    .item-grid{display:grid;grid-template-columns:1fr;gap:8px;margin-top:6px}
     .item{
       display:flex;justify-content:space-between;align-items:center;
-      padding:9px 10px;border-radius:var(--radius-md);
+      padding:7px 10px;border-radius:var(--radius-md);
       background:linear-gradient(135deg,#f9fafb,#eef2ff);
       border:1px solid rgba(209,213,219,0.9)
     }
@@ -225,6 +467,59 @@
     }
     .value .num{font-size:clamp(17px,2.2vw,21px);font-weight:650;letter-spacing:.01em;}
     .value .unit{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#64748b;}
+    .motor-card{
+      background:linear-gradient(135deg,#f7f7fb 0%,#eef2ff 60%,#f8fafc 100%);
+      border:1px solid rgba(148,163,184,0.25);
+      box-shadow:0 16px 28px rgba(15,23,42,0.08);
+    }
+    .motor-card .card-header{margin-bottom:8px}
+    .motor-card .card-title{
+      letter-spacing:.28em;
+      color:#475569;
+    }
+    .motor-card .card-badge{
+      background:rgba(59,130,246,0.12);
+      color:#1d4ed8;
+      border:1px solid rgba(59,130,246,0.28);
+      font-weight:700;
+    }
+    .motor-card .item-grid{
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:7px;
+    }
+    .motor-card .item{
+      background:#f8f9ff;
+      border:1px solid rgba(148,163,184,0.22);
+      border-radius:8px;
+      padding:8px 10px;
+      box-shadow:inset 0 0 0 1px rgba(255,255,255,0.6);
+    }
+    .motor-card .label{
+      font-size:10px;
+      color:#475569;
+      letter-spacing:.06em;
+      text-transform:uppercase;
+      line-height:1.1;
+    }
+    .motor-card .label-icon{display:none}
+    .motor-card .value{
+      color:#6b7280;
+      font-weight:600;
+      gap:6px;
+      line-height:1.1;
+    }
+    .motor-card .value .num{font-size:11px}
+    .motor-card .value .unit{font-size:8px;letter-spacing:.08em;color:#94a3b8}
+    #commStatus .num{
+      font-size:clamp(8px,0.9vw,10px);
+      font-weight:600;
+      display:inline-block;
+      max-width:90px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      vertical-align:bottom;
+    }
     .item-pressure .value-block{display:flex;flex-direction:column;align-items:flex-end;gap:12px}
     .switch{position:relative;display:inline-block;width:52px;height:30px;}
     .switch input{display:none}
@@ -306,7 +601,7 @@
       margin-top:6px
     }
     .control-tile{
-      padding:10px 12px;border-radius:var(--radius-md);
+      padding:10px 12px;border-radius:10px;
       border:1px solid rgba(209,213,219,0.9);background:linear-gradient(135deg,#f9fafb,#eef2ff);
       display:flex;align-items:center;justify-content:space-between;gap:10px;
       min-width:0
@@ -327,6 +622,12 @@
       color:#4b5563;font-size:14px;display:flex;align-items:center;justify-content:center;
       box-shadow:0 5px 12px rgba(148,163,184,0.32);padding:0
     }
+    .controls-gear-btn svg{
+      width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.8;
+      stroke-linecap:round;stroke-linejoin:round;
+    }
+    .controls-mobile-only{display:none}
+    .launcher-desktop-only{display:grid}
     .controls-gear-btn:hover{background:#0f172a;color:#e5e7eb}
     .devtools-panel{
       display:none;flex-direction:column;gap:12px;
@@ -374,8 +675,16 @@
       letter-spacing:.06em;
     }
     .devtools-warning.show{display:block}
-    .charts-card{padding:14px}
-    .chart-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:8px;flex-wrap:wrap}
+    .charts-card{
+      padding:12px;
+      padding-bottom:18px;
+      overflow:hidden;
+      display:grid;
+      grid-template-rows:auto 1fr;
+      height:var(--chart-height);
+      min-height:0
+    }
+    .chart-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;gap:8px;flex-wrap:wrap}
     .chart-title-main{font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--text-soft)}
     .chart-controls{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
     .chart-btn{
@@ -383,30 +692,31 @@
       background:#f9fafb;color:#4b5563;padding:2px 8px;font-size:11px;min-width:26px;text-align:center
     }
     .chart-btn-live{background:var(--accent);border-color:var(--accent-strong);color:#eff6ff;font-weight:600;letter-spacing:.05em}
-    .chart-row{display:flex;flex-direction:row;flex-wrap:wrap;gap:10px;margin-top:4px}
+    .chart-row{
+      display:flex;flex:1 1 auto;flex-direction:row;flex-wrap:wrap;
+      gap:8px;margin-top:2px;min-height:0;align-items:stretch;
+    }
     .chart-box{
       background:linear-gradient(135deg,#f8fafc,#e2e8f0);
-      border-radius:var(--radius-md);padding:6px;border:1px solid rgba(148,163,184,0.55);flex:1 1 260px;
+      border-radius:var(--radius-md);padding:6px;border:1px solid rgba(148,163,184,0.55);flex:1 1 0;
+      display:flex;flex-direction:column;min-height:0;overflow:hidden;
       box-shadow:0 6px 14px rgba(15,23,42,0.08),0 1px 0 rgba(255,255,255,0.8) inset
     }
     .chart-box-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
     .chart-title{font-size:12px;font-weight:600;color:#111827}
     .chart-badge{font-size:10px;padding:3px 8px;border-radius:var(--radius-pill);background:rgba(255,255,255,0.8);color:#4b5563}
-    .chart-box canvas{width:100%;display:block}
-    .chart-box canvas{ height:220px; }
-    @media(min-width:768px){ .chart-box canvas{ height:240px; } }
-    @media(min-width:1100px){ .chart-box canvas{ height:260px; } }
+    .chart-box canvas{width:100%;height:100%;max-height:100%;display:block;flex:1;min-height:0}
     @media(max-width:900px){
-      .chart-row{flex-direction:column}
-      .chart-box{flex:1 1 auto}
-      .chart-box canvas{ height:clamp(220px, 38vh, 300px); }
+      .charts-card{height:auto}
+      .chart-row{flex-direction:column;flex-wrap:nowrap}
+      .chart-box{flex:1 1 auto;min-height:220px}
     }
 
     .log-card{
-      position:relative;background:#020617;color:#e5e7eb;border-radius:20px;
+      position:relative;background:#020617;color:#e5e7eb;border-radius:var(--radius-lg);
       padding:10px;box-shadow:0 10px 28px rgba(15,23,42,0.75);
       font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Courier New",monospace;
-      font-size:11px;display:flex;flex-direction:column;height:260px;max-height:260px;
+      font-size:11px;display:flex;flex-direction:column;height:var(--log-height);max-height:var(--log-height);
       border:1px solid rgba(15,23,42,0.95);backdrop-filter:blur(18px) saturate(1.2);-webkit-backdrop-filter:blur(18px) saturate(1.2);
       overflow:hidden
     }
@@ -448,50 +758,122 @@
     #logView::-webkit-scrollbar-thumb{background:#4b5563;border-radius:999px}
     .log-line{font-family:inherit;font-size:11px;line-height:1.4;color:#e5e7eb}
     .log-prefix{color:#6b7280}
+    .terminal-view{
+      flex:1;
+      min-height:0;
+    }
+    .terminal-view .shell{
+      display:flex;
+      flex-direction:column;
+      align-items:stretch;
+      flex:1;
+      min-height:0;
+    }
+    .terminal-view .log-card{
+      height:calc(100vh - 130px);
+      max-height:none;
+      width:100%;
+    }
+    .terminal-view .log-card,
+    .terminal-view .terminal-shell,
+    .terminal-view #logView{
+      width:100%;
+    }
+    .terminal-view .terminal-shell{
+      height:100%;
+      width:100%;
+    }
+    .hardware-view{
+      flex:1;
+      min-height:0;
+    }
+    .hardware-view .shell{
+      display:flex;
+      flex-direction:column;
+      gap:16px;
+      min-height:0;
+    }
+    .hardware-card{
+      padding:18px;
+    }
+    .hardware-title{
+      font-size:16px;font-weight:700;letter-spacing:.04em;color:#111827;
+    }
+    .hardware-desc{
+      margin-top:8px;font-size:13px;color:#6b7280;line-height:1.6;
+    }
     .tetris-overlay{
       position:absolute;inset:0;background:rgba(2,6,23,0.98);color:#e2e8f0;
-      display:flex;flex-direction:column;gap:6px;padding:8px 10px 14px;z-index:2;
+      display:flex;flex-direction:column;gap:6px;padding:8px 10px 24px;z-index:2;
       overflow:hidden
     }
-    .tetris-hud{font-size:10px;color:#94a3b8;letter-spacing:.08em;text-transform:uppercase;display:flex;justify-content:space-between}
+    .tetris-hud{font-size:12px;color:#94a3b8;letter-spacing:.08em;text-transform:uppercase;display:flex;justify-content:space-between}
     .tetris-screen{
-      flex:1 1 auto;min-height:0;white-space:pre;line-height:1.2;font-size:11px;color:#e5e7eb;
+      flex:1 1 auto;min-height:0;white-space:pre;line-height:1.3;font-size:14px;color:#e5e7eb;
       display:flex;align-items:flex-start;overflow-y:auto;overflow-x:hidden;padding-bottom:8px
     }
-    .tetris-help{font-size:10px;color:#64748b}
+    .tetris-help{font-size:12px;color:#64748b}
     .fw-f-logo{cursor:pointer}
 
-    .toast-container{position:fixed;top:18px;right:18px;z-index:80;display:flex;flex-direction:column;gap:10px;pointer-events:none}
-    .toast{
-      position:relative;width:min(420px,calc(100vw - 36px));padding:12px 14px;border-radius:18px;
-      background:rgba(255,255,255,0.62);
-      border:1px solid var(--toast-border, rgba(148,163,184,0.55));
-      backdrop-filter:blur(24px) saturate(1.25);-webkit-backdrop-filter:blur(24px) saturate(1.25);
-      box-shadow:0 10px 26px rgba(15,23,42,0.14);
-      overflow:hidden;display:flex;align-items:center;gap:12px;
-      opacity:0;transform:translateX(14px);pointer-events:auto;
+    .toast-container{
+      position:fixed;top:20px;left:50%;transform:translateX(-50%);
+      z-index:80;display:flex;flex-direction:column;align-items:center;gap:10px;pointer-events:none
     }
-    .toast::after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 20% 0,rgba(255,255,255,0.26),transparent 55%);pointer-events:none}
+    .toast{
+      position:relative;width:min(180px,calc(100vw - 48px));padding:6px 10px;border-radius:999px;
+      background:#ececec;
+      border:1px solid rgba(148,163,184,0.35);
+      box-shadow:0 12px 26px rgba(15,23,42,0.12);
+      overflow:hidden;display:flex;align-items:center;gap:14px;
+      opacity:0;transform:translateY(-8px);pointer-events:auto;cursor:pointer;
+      transition:width .22s ease,padding .22s ease,border-radius .22s ease;
+    }
+    .toast::after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 20% 0,rgba(255,255,255,0.3),transparent 55%);pointer-events:none}
     .toast-show{animation:toastIn .24s ease-out forwards}
     .toast-hide{animation:toastOut .18s ease-in forwards}
-    @keyframes toastIn{to{opacity:1;transform:translateX(0)}}
-    @keyframes toastOut{to{opacity:0;transform:translateX(14px)}}
+    @keyframes toastIn{to{opacity:1;transform:translateY(0)}}
+    @keyframes toastOut{to{opacity:0;transform:translateY(-8px)}}
     .toast-icon{
-      width:44px;height:44px;border-radius:999px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
-      background:radial-gradient(circle at 30% 20%,rgba(255,255,255,0.95),rgba(255,255,255,0.55));
-      border:1px solid rgba(255,255,255,0.70);
+      width:30px;height:30px;border-radius:999px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+      background:var(--toast-icon-bg, #111827);border:1px solid rgba(15,23,42,0.85);
       box-shadow:0 6px 14px rgba(15,23,42,0.16),0 0 0 6px var(--toast-ring, rgba(148,163,184,0.16));
     }
-    .toast-icon img{width:22px;height:22px;display:block;filter:drop-shadow(0 2px 6px rgba(15,23,42,0.18))}
-    .toast-body{flex:1;min-width:0}
-    .toast-title{font-size:13px;font-weight:800;letter-spacing:.02em;color:#0f172a}
-    .toast-text{margin-top:3px;font-size:12px;color:#475569;line-height:1.45;word-break:keep-all}
-    .toast-info{--toast-border:rgba(96,165,250,0.40);--toast-ring:rgba(96,165,250,0.16)}
-    .toast-success{--toast-border:rgba(52,211,153,0.40);--toast-ring:rgba(52,211,153,0.16)}
-    .toast-warn{--toast-border:rgba(251,191,36,0.45);--toast-ring:rgba(251,191,36,0.18)}
-    .toast-error{--toast-border:rgba(251,113,133,0.45);--toast-ring:rgba(251,113,133,0.18)}
-    .toast-ignite{--toast-border:rgba(249,115,22,0.45);--toast-ring:rgba(249,115,22,0.18)}
-    @media(max-width:600px){.toast-container{top:14px;right:12px}}
+    .toast-icon img{width:14px;height:14px;display:block;filter:brightness(10) drop-shadow(0 2px 4px rgba(0,0,0,0.18))}
+    .toast-body{
+      flex:1;min-width:0;
+      display:flex;justify-content:center;
+      text-align:center;
+      transform:translateX(-8px);
+    }
+    .toast-title{display:none}
+    .toast-text{
+      font-size:10px;color:#111827;line-height:1.35;
+      word-break:keep-all;text-align:center;
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    }
+    .toast-expanded{
+      width:min(420px,calc(100vw - 48px));
+      padding:12px 16px;
+      border-radius:24px;
+      background:#f4f4f4;
+      box-shadow:0 18px 30px rgba(15,23,42,0.16);
+    }
+    .toast-expanded .toast-text{
+      white-space:normal;
+      overflow:visible;
+      text-overflow:clip;
+      font-size:12px;
+      line-height:1.55;
+    }
+    .toast-info{--toast-icon-bg:#1d4ed8;--toast-ring:rgba(96,165,250,0.2)}
+    .toast-success{--toast-icon-bg:#16a34a;--toast-ring:rgba(52,211,153,0.2)}
+    .toast-warn{--toast-icon-bg:#f59e0b;--toast-ring:rgba(251,191,36,0.22)}
+    .toast-error{--toast-icon-bg:#ef4444;--toast-ring:rgba(251,113,133,0.22)}
+    .toast-ignite{--toast-icon-bg:#f97316;--toast-ring:rgba(249,115,22,0.22)}
+    @media(max-width:600px){
+      .toast-container{top:14px}
+      .toast{width:min(520px,calc(100vw - 32px))}
+    }
 
     .confirm-overlay,.settings-overlay{
       position:fixed;inset:0;background:rgba(15,23,42,0.45);
@@ -502,6 +884,34 @@
       display:flex;align-items:center;justify-content:center;padding:16px;z-index:70;
       backdrop-filter:blur(2px);
     }
+    .disconnect-overlay{
+      position:fixed;inset:0;background:rgba(2,6,23,0.82);
+      display:flex;align-items:center;justify-content:center;padding:16px;z-index:65;
+      backdrop-filter:blur(10px);
+    }
+    .disconnect-dialog{
+      min-width:min(360px,calc(100vw - 48px));
+      max-width:520px;
+      padding:10px 16px 6px;
+      text-align:center;
+    }
+    .disconnect-title{
+      font-size:16px;font-weight:700;letter-spacing:.08em;color:#f8fafc;
+      margin-top:12px;
+    }
+    .disconnect-text{
+      margin-top:6px;font-size:13px;color:#cbd5f5;line-height:1.5;
+    }
+    .disconnect-actions{
+      display:flex;justify-content:center;margin-top:14px;
+    }
+    .disconnect-ok{
+      background:#e2e8f0;color:#0f172a;border:1px solid rgba(148,163,184,0.35);
+      border-radius:999px;padding:8px 18px;font-weight:700;font-size:12px;
+      letter-spacing:.06em;cursor:pointer;
+      box-shadow:0 6px 18px rgba(15,23,42,0.25);
+    }
+    .disconnect-ok:hover{background:#f8fafc}
     .hidden{display:none}
     .confirm-dialog{
       position:relative;
@@ -511,6 +921,7 @@
       color:#0f172a;border:1px solid rgba(255,255,255,0.7);
       backdrop-filter:blur(24px) saturate(1.15);-webkit-backdrop-filter:blur(24px) saturate(1.15);overflow:hidden
     }
+    .confirm-dialog.force-dialog{min-height:270px;padding-bottom:22px}
     .confirm-dialog>*{position:relative;z-index:1}
     .confirm-dialog::before{
       content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;
@@ -613,6 +1024,43 @@
       box-shadow:0 0 16px rgba(56,189,248,0.6)
     }
     .force-actions{width:100%;display:flex;flex-direction:column;gap:10px;margin-top:8px}
+    .force-slide{
+      position:relative;width:100%;max-width:300px;height:46px;border-radius:999px;
+      border:1px solid #0f172a;background:#0b0f16;
+      box-shadow:inset 0 0 0 1px rgba(148,163,184,0.25),0 6px 14px rgba(2,6,23,0.6);
+      display:flex;align-items:center;justify-content:center;overflow:hidden;
+      -webkit-user-select:none;user-select:none;touch-action:none;
+      margin:8px auto 0;
+    }
+    .force-slide::before{
+      content:"";position:absolute;inset:0;
+      background:linear-gradient(90deg,rgba(239,68,68,0.28) var(--slide-pct,0%),transparent 0);
+      opacity:.9;pointer-events:none
+    }
+    .force-slide-arrows{
+      position:absolute;right:16px;top:0;bottom:0;
+      display:flex;align-items:center;
+      font-size:18px;letter-spacing:2px;line-height:1;color:#94a3b8;opacity:.75;pointer-events:none;
+      z-index:1;
+    }
+    .force-slide-thumb{
+      position:absolute;left:3px;top:50%;height:40px;border-radius:999px;
+      border:1px solid rgba(226,232,240,0.9);background:#f8fafc;color:#0f172a;
+      display:flex;align-items:center;justify-content:center;
+      padding:0 20px;font-size:12px;font-weight:700;line-height:1;
+      box-shadow:0 6px 14px rgba(2,6,23,0.35);
+      transform:translate(var(--slide-x,0px), -50%);transition:transform .18s ease;
+      z-index:2;
+    }
+    .force-slide-label{
+      pointer-events:none;white-space:nowrap
+    }
+    .force-slide.dragging .force-slide-thumb{transition:none}
+    .force-cancel-link{
+      border:none;background:none;color:#94a3b8;
+      font-size:11px;letter-spacing:.02em;text-decoration:underline;
+      cursor:pointer;padding:2px 4px;align-self:center;margin-top:12px;
+    }
     .force-cancel-big{
       width:100%;height:40px;border-radius:var(--radius-pill);
       border:1px solid rgba(148,163,184,0.75);
@@ -1238,7 +1686,8 @@
     @media(max-width:600px){#launcherOverlay{align-items:center!important;justify-content:center!important;padding:16px!important}}
     @media(max-width:600px){#inspectionOverlay{align-items:center!important;justify-content:center!important;padding:0 12px!important}}
     @media(max-width:767px){
-      .shell{display:flex;flex-direction:column;gap:10px}
+      :root{--shell-gap:10px;--page-pad-x:18px;--page-pad-y:18px;--page-pad-bottom:40px}
+      .shell{display:flex;flex-direction:column;gap:var(--shell-gap)}
       .side-col{display:contents}
       .main-card{order:1}
       .controls-card{order:2}
@@ -1246,27 +1695,117 @@
       .log-card{order:4}
     }
     @media(min-width:768px){
-      .shell{display:grid;grid-template-columns:minmax(0,2.8fr) minmax(320px,1fr);grid-template-areas:"main side" "charts side";gap:14px;align-items:start}
-      .main-card{grid-area:main}
-      .charts-card{grid-area:charts;min-height:220px}
-      .side-col{grid-area:side}
+      .shell{display:flex;flex-direction:column;gap:var(--shell-gap)}
+      .row-top{
+        display:grid;
+        grid-template-columns:minmax(0,1.75fr) minmax(240px,0.85fr);
+        gap:14px;
+        align-items:stretch
+      }
+      .row-bottom{
+        display:grid;
+        grid-template-columns:minmax(0,2.45fr) minmax(250px,0.9fr);
+        gap:14px;
+        align-items:stretch
+      }
+      .row-top > .card-base,
+      .row-bottom > .card-base{height:100%}
       .item-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+      #dashboardView{flex:1;min-height:0}
+      #dashboardView .shell{
+        height:100%;
+        min-height:0;
+        display:grid;
+        grid-template-rows:auto minmax(0,1fr);
+        gap:var(--shell-gap);
+      }
+      #dashboardView .row-top,
+      #dashboardView .row-bottom{min-height:0}
+      #dashboardView .row-top > .card-base{height:auto}
     }
-    @media(min-width:1100px){.shell{grid-template-columns:minmax(0,2.8fr) minmax(340px,1fr)}}
+    @media(min-width:1100px){
+      .row-top{grid-template-columns:minmax(0,1.9fr) minmax(260px,0.95fr)}
+      .row-bottom{grid-template-columns:minmax(0,2.65fr) minmax(290px,0.95fr)}
+    }
+    @media(min-width:768px) and (max-width:1100px){
+      .row-top{grid-template-columns:minmax(0,1.35fr) minmax(280px,0.9fr)}
+      body{overflow-y:auto}
+      .page-wrap{height:auto;overflow:visible}
+      .charts-card{height:auto}
+      .row-bottom{grid-template-columns:minmax(0,1.45fr) minmax(260px,0.85fr)}
+      .chart-box{min-height:clamp(150px, 24vh, 210px)}
+      .motor-card .item-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+      .motor-card .label{font-size:10px;letter-spacing:.04em}
+      .motor-card .value .num{font-size:11px}
+      .controls-main-row{gap:6px}
+      .controls-toolbar{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .controls-card{padding:12px}
+      .controls-toolbar .toolbar-btn{height:30px;font-size:10px;padding:5px 6px}
+      .primary-btn,.secondary-btn{height:38px;font-size:12px}
+      .control-row{gap:6px}
+      .control-tile{padding:8px 10px}
+      .control-tile-label{font-size:12px}
+      .control-tile-sub{font-size:10px}
+      .control-tile-actions{gap:6px}
+      .control-tile .switch{width:44px;height:24px}
+      .control-tile .slider:before{width:18px;height:18px;left:3px;bottom:2px}
+      .control-tile input:checked + .slider:before{transform:translateX(18px)}
+    }
+    @media(max-width:980px){
+      .app-shell{flex-direction:row}
+    }
     @media(max-width:600px){
-      body{padding:10px}
+      body{padding:0;overflow-y:auto;display:block}
+      .app-shell{
+        min-height:100vh;
+        padding-bottom:calc(96px + env(safe-area-inset-bottom, 0px));
+      }
+      .side-nav-desktop{display:none}
+      .side-nav-mobile{
+        display:flex;
+        position:fixed;left:12px;right:12px;bottom:12px;z-index:60;
+        width:auto;min-height:auto;height:72px;
+        flex-direction:row;justify-content:space-between;align-items:center;
+        border-right:none;border-bottom:none;
+        background:rgba(255,255,255,0.98);
+        border:1px solid rgba(148,163,184,0.25);
+        border-radius:28px;
+        box-shadow:0 18px 40px rgba(15,23,42,0.18);
+        padding:10px 12px;
+      }
+      .side-nav-mobile .side-nav-menu{
+        flex:1;
+        flex-direction:row;align-items:center;justify-content:space-between;
+        width:auto;gap:6px;
+      }
+      .side-nav-mobile .side-nav-item,
+      .side-nav-mobile .side-nav-btn{
+        width:48px;height:48px;border-radius:999px;
+        border:1px solid transparent;
+      }
+      .side-nav-mobile .side-nav-item.active{
+        background:#cfe3ff;color:#3b82f6;
+        box-shadow:0 10px 20px rgba(59,130,246,0.25);
+      }
+      .page-wrap{
+        height:auto;overflow:visible;
+        padding-bottom:calc(108px + env(safe-area-inset-bottom, 0px));
+      }
       .top-bar{flex-direction:column;align-items:flex-start;gap:6px}
       .top-left{width:100%}
-      .top-right{justify-content:flex-start;align-self:flex-start;width:100%}
+      .top-right{display:none}
       .logo-img{height:40px}
       .title-main{font-size:16px}
       .title-sub{font-size:11px}
       .card-base{padding:14px 14px}
       .countdown-wrap{display:flex;flex-direction:column;align-items:flex-start;gap:6px}
+      .countdown-mobile{display:block}
       .pill-row{width:100%;justify-content:flex-start}
       .countdown-label-block{min-width:0}
       #countdown{justify-self:end;min-width:0;line-height:1;font-size:clamp(34px,11vw,48px)}
       .item-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .motor-card .item-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .motor-card .item{min-height:48px}
       #lt{flex-direction:column;align-items:flex-end;gap:2px}
       #lt .lt-line{display:flex;align-items:baseline;gap:4px}
       #lt .lt-sep{display:none}
@@ -1279,6 +1818,8 @@
       }
       .controls-main-row{flex-direction:column}
       .primary-btn,.secondary-btn{height:44px}
+      .controls-mobile-only{display:inline-flex}
+      .launcher-desktop-only{display:none}
       .chart-row{flex-direction:column}
       .chart-box{flex:1 1 auto}
       .settings-overlay{align-items:center;justify-content:center;padding:12px}
@@ -1305,6 +1846,36 @@
       .countdown-wrap{grid-template-columns:1fr}
       #countdown{margin-top:6px;justify-self:end}
       .item-grid{grid-template-columns:1fr}
+    }
+    @media(max-height:900px){
+      :root{
+        --page-pad-y:20px;
+        --card-pad:14px;
+        --chart-height:clamp(220px,36vh,320px);
+        --log-height:clamp(170px,22vh,230px);
+      }
+      .page-title{font-size:32px}
+      .controls-card{padding-top:12px;padding-bottom:12px}
+      .primary-btn,.secondary-btn{height:38px}
+    }
+    @media(max-height:760px){
+      :root{
+        --page-pad-y:16px;
+        --card-pad:12px;
+        --shell-gap:10px;
+        --chart-height:clamp(190px,32vh,260px);
+        --log-height:clamp(140px,18vh,200px);
+      }
+      .page-title{font-size:28px}
+      .chart-box{min-height:150px}
+      .toolbar-btn{height:30px;font-size:10px}
+      .control-tile{padding:8px 10px}
+      .control-tile-label{font-size:12px}
+      .control-tile-sub{font-size:10px}
+      .status-metric{min-height:60px}
+    }
+    @media(max-height:680px){
+      .page-wrap{overflow:auto}
     }
 
     /* ✅ LOCKOUT 모달 */
@@ -1405,6 +1976,564 @@
       box-shadow:0 10px 22px rgba(239,68,68,0.18);
     }
 
+    :root{
+      --ui-bg:#f7f7f5;
+      --ui-surface:#ffffff;
+      --ui-line:#ededed;
+      --ui-text:#111827;
+      --ui-muted:#6b7280;
+      --ui-accent:#1e6cff;
+      --ui-accent-soft:rgba(30,108,255,0.12);
+    }
+    html[data-theme="dark"]{
+      --ui-bg:#0b0f14;
+      --ui-surface:#0f172a;
+      --ui-line:#1f2937;
+      --ui-text:#e2e8f0;
+      --ui-muted:#94a3b8;
+      --ui-accent:#60a5fa;
+      --ui-accent-soft:rgba(96,165,250,0.16);
+      color-scheme:dark;
+    }
+    html,body{height:100%}
+    body{
+      font-family:"SUIT","Pretendard","Noto Sans KR","Apple SD Gothic Neo","Segoe UI",sans-serif;
+      background:var(--ui-bg);
+      color:var(--ui-text);
+      overflow:hidden;
+    }
+    @media(max-width:600px){
+      body{overflow-y:auto}
+      .page-wrap{height:auto;overflow:visible}
+    }
+    html[data-theme="dark"] .side-nav-desktop,
+    html[data-theme="dark"] .side-nav-mobile{
+      background:#0f141b;
+      border-right:1px solid var(--ui-line);
+      box-shadow:8px 0 30px rgba(2,6,23,0.6);
+    }
+    html[data-theme="dark"] .card-base{
+      background:rgba(15,23,42,0.92);
+      border:1px solid rgba(51,65,85,0.8);
+      box-shadow:0 18px 30px rgba(2,6,23,0.55);
+    }
+    html[data-theme="dark"] .chart-box{
+      background:linear-gradient(135deg,#111827,#0b1220);
+      border-color:rgba(51,65,85,0.7);
+    }
+    html[data-theme="dark"] .chart-title{color:#e2e8f0}
+    html[data-theme="dark"] .chart-badge{
+      background:rgba(15,23,42,0.8);
+      color:#cbd5f5;
+      border:1px solid rgba(51,65,85,0.7);
+    }
+    html[data-theme="dark"] .pill{
+      background:#111827;
+      color:#e2e8f0;
+      border-color:rgba(51,65,85,0.8);
+    }
+    html[data-theme="dark"] .pill strong{
+      color:#e2e8f0;
+    }
+    html[data-theme="dark"] .pill-gray{
+      background:rgba(51,65,85,0.6);
+      color:#cbd5f5;
+      border-color:rgba(71,85,105,0.8);
+    }
+    html[data-theme="dark"] .control-tile{
+      background:rgba(15,23,42,0.72);
+      border-color:rgba(51,65,85,0.7);
+      color:var(--ui-text);
+    }
+    html[data-theme="dark"] .control-tile-label{
+      color:#e2e8f0;
+    }
+    html[data-theme="dark"] .control-tile-sub{
+      color:#94a3b8;
+    }
+    html[data-theme="dark"] .toolbar-btn{
+      background:linear-gradient(135deg,#111827,#0f172a);
+      border-color:rgba(51,65,85,0.8);
+      color:#e2e8f0;
+      box-shadow:0 4px 10px rgba(2,6,23,0.35);
+    }
+    html[data-theme="dark"] .settings-dialog{
+      background:rgba(15,23,42,0.96);
+      border-color:rgba(51,65,85,0.8);
+      box-shadow:0 12px 30px rgba(2,6,23,0.55);
+      color:var(--ui-text);
+    }
+    html[data-theme="dark"] .settings-dialog::before{
+      background:linear-gradient(145deg,rgba(30,41,59,0.9),rgba(51,65,85,0.9));
+    }
+    html[data-theme="dark"] .settings-nav{
+      border-right:1px solid rgba(51,65,85,0.8);
+    }
+    html[data-theme="dark"] .settings-nav-btn:hover{background:rgba(30,41,59,0.8)}
+    html[data-theme="dark"] .settings-label{color:#e2e8f0}
+    html[data-theme="dark"] .settings-desc{color:#94a3b8}
+    html[data-theme="dark"] .settings-select,
+    html[data-theme="dark"] .settings-number{
+      background:#0f172a;
+      border-color:rgba(51,65,85,0.8);
+      color:#e2e8f0;
+    }
+    html[data-theme="dark"] .settings-close-btn:hover{
+      background:rgba(30,41,59,0.8);
+      color:#e2e8f0;
+    }
+    html[data-theme="dark"] .serial-pill{
+      background:rgba(15,23,42,0.9);
+      border-color:rgba(51,65,85,0.8);
+      color:#cbd5f5;
+    }
+    html[data-theme="dark"] .card-title,
+    html[data-theme="dark"] .section-label,
+    html[data-theme="dark"] .controls-section-label,
+    html[data-theme="dark"] .countdown-caption,
+    html[data-theme="dark"] .countdown-sub,
+    html[data-theme="dark"] .status-metric-label{
+      color:var(--ui-muted);
+    }
+    html[data-theme="dark"] #statusText{
+      color:#e2e8f0;
+    }
+    html[data-theme="dark"] .status-metric-value{
+      color:var(--ui-text);
+    }
+    html[data-theme="dark"] .status-metric-value .unit{
+      color:var(--ui-muted);
+    }
+    html[data-theme="dark"] .status-metric{
+      background:#0f172a;
+      border-color:rgba(51,65,85,0.7);
+    }
+    html[data-theme="dark"] .item{
+      background:linear-gradient(135deg,#0f172a,#0b1220);
+      border-color:rgba(51,65,85,0.7);
+    }
+    html[data-theme="dark"] .label{
+      color:#cbd5f5;
+    }
+    html[data-theme="dark"] .value{
+      color:var(--ui-text);
+    }
+    html[data-theme="dark"] .value .unit{
+      color:var(--ui-muted);
+    }
+    html[data-theme="dark"] .motor-card{
+      background:linear-gradient(135deg,#0f172a 0%,#101826 60%,#0b1220 100%);
+      border-color:rgba(51,65,85,0.55);
+      box-shadow:0 16px 28px rgba(2,6,23,0.5);
+    }
+    html[data-theme="dark"] .motor-card .card-title{
+      color:#cbd5f5;
+    }
+    html[data-theme="dark"] .motor-card .card-badge{
+      background:rgba(96,165,250,0.18);
+      color:#bfdbfe;
+      border-color:rgba(96,165,250,0.35);
+    }
+    html[data-theme="dark"] .motor-card .item{
+      background:#0f172a;
+      border-color:rgba(51,65,85,0.7);
+      box-shadow:inset 0 0 0 1px rgba(15,23,42,0.6);
+    }
+    html[data-theme="dark"] .motor-card .label{
+      color:#cbd5f5;
+    }
+    html[data-theme="dark"] .motor-card .value{
+      color:#e2e8f0;
+    }
+    html[data-theme="dark"] .motor-card .value .unit{
+      color:#94a3b8;
+    }
+    html[data-theme="dark"] .chart-btn{
+      background:#0f172a;
+      color:#e2e8f0;
+      border-color:rgba(51,65,85,0.8);
+    }
+    html[data-theme="dark"] .chart-btn-live{
+      background:#1d4ed8;
+      border-color:#1e3a8a;
+      color:#e2e8f0;
+    }
+    html[data-theme="dark"] .primary-btn{
+      border-color:rgba(249,115,22,0.5);
+      box-shadow:0 6px 16px rgba(2,6,23,0.45),0 3px 8px rgba(249,115,22,0.18);
+    }
+    html[data-theme="dark"] .secondary-btn{
+      border-color:rgba(71,85,105,0.6);
+      background:linear-gradient(135deg,rgba(15,23,42,0.85),rgba(30,41,59,0.85));
+      color:#e2e8f0;
+    }
+    html[data-theme="dark"] .card-badge{
+      background:rgba(96,165,250,0.16);
+      color:#bfdbfe;
+      border-color:rgba(96,165,250,0.3);
+    }
+    html[data-theme="dark"] .slider{
+      background:#111827;
+      border-color:rgba(51,65,85,0.8);
+    }
+    html[data-theme="dark"] .slider:before{
+      background:#e2e8f0;
+      box-shadow:0 4px 10px rgba(2,6,23,0.6);
+    }
+    html[data-theme="dark"] .settings-overlay,
+    html[data-theme="dark"] .confirm-overlay{
+      background:rgba(2,6,23,0.72);
+    }
+    html[data-theme="dark"] .launcher-dialog{
+      background:linear-gradient(180deg,#0f172a,#0b1220);
+      border-color:rgba(51,65,85,0.7);
+      color:#e2e8f0;
+      box-shadow:0 12px 30px rgba(2,6,23,0.6),0 2px 0 rgba(15,23,42,0.7) inset;
+    }
+    html[data-theme="dark"] .launcher-dialog::before{
+      background:linear-gradient(135deg,rgba(30,41,59,0.9),rgba(51,65,85,0.6));
+    }
+    html[data-theme="dark"] .launcher-dialog::after{
+      background:radial-gradient(circle at 15% 0,rgba(30,41,59,0.6),transparent 60%);
+    }
+    html[data-theme="dark"] .launcher-title{color:#e2e8f0}
+    html[data-theme="dark"] .launcher-note,
+    html[data-theme="dark"] .launcher-hint{color:#94a3b8}
+    html[data-theme="dark"] .launcher-divider{background:rgba(51,65,85,0.7)}
+    html[data-theme="dark"] .launcher-arrow-btn{
+      background:linear-gradient(135deg,#111827,#0f172a);
+      border-color:rgba(51,65,85,0.8);
+      color:#e2e8f0;
+      box-shadow:0 4px 10px rgba(2,6,23,0.35);
+    }
+    html[data-theme="dark"] .inspection-dialog{
+      background:rgba(15,23,42,0.96);
+      border-color:rgba(51,65,85,0.8);
+      color:#e2e8f0;
+      box-shadow:0 12px 30px rgba(2,6,23,0.55);
+    }
+    html[data-theme="dark"] .inspection-title{color:#e2e8f0}
+    html[data-theme="dark"] .inspection-sub,
+    html[data-theme="dark"] .inspection-desc{color:#94a3b8}
+    html[data-theme="dark"] .inspection-item{
+      background:linear-gradient(135deg,#0f172a,#0b1220);
+      border-color:rgba(51,65,85,0.7);
+    }
+    html[data-theme="dark"] .inspection-label{color:#e2e8f0}
+    html[data-theme="dark"] .inspection-status{color:#cbd5f5}
+    html[data-theme="dark"] .inspection-dot{
+      background:#334155;
+      box-shadow:0 0 0 5px rgba(51,65,85,0.35);
+    }
+    html[data-theme="dark"] .inspection-result{color:#cbd5f5}
+    html[data-theme="dark"] .mission-dialog{
+      background:rgba(15,23,42,0.98);
+      border-color:rgba(51,65,85,0.7);
+      color:#e2e8f0;
+      box-shadow:0 20px 44px rgba(2,6,23,0.6),0 2px 0 rgba(15,23,42,0.7) inset;
+    }
+    html[data-theme="dark"] .mission-dialog::before{
+      background:rgba(51,65,85,0.7);
+    }
+    html[data-theme="dark"] .mission-title,
+    html[data-theme="dark"] .mission-review-title,
+    html[data-theme="dark"] .mission-test-title{color:#e2e8f0}
+    html[data-theme="dark"] .mission-sub,
+    html[data-theme="dark"] .mission-test-sub{color:#94a3b8}
+    html[data-theme="dark"] .mission-kicker{
+      background:rgba(148,163,184,0.16);
+      color:#cbd5f5;
+    }
+    html[data-theme="dark"] .mission-close-btn{
+      background:rgba(30,41,59,0.8);
+      color:#cbd5f5;
+      box-shadow:0 4px 10px rgba(2,6,23,0.4);
+    }
+    html[data-theme="dark"] .mission-close-btn:hover{background:#1f2937;color:#e2e8f0}
+    html[data-theme="dark"] .mission-divider{background:rgba(51,65,85,0.6)}
+    html[data-theme="dark"] .mission-label{color:#94a3b8}
+    html[data-theme="dark"] .mission-input,
+    html[data-theme="dark"] .mission-test-input{
+      background:#0f172a;
+      color:#e2e8f0;
+      border-color:rgba(51,65,85,0.8);
+      box-shadow:0 1px 0 rgba(15,23,42,0.6) inset;
+    }
+    html[data-theme="dark"] .mission-unit{
+      background:rgba(15,23,42,0.8);
+      border-color:rgba(51,65,85,0.6);
+      color:#cbd5f5;
+    }
+    html[data-theme="dark"] .mission-preset-title{color:#cbd5f5}
+    html[data-theme="dark"] .mission-preset-viewport{
+      background:#0f172a;
+      border:1px solid rgba(51,65,85,0.7);
+    }
+    html[data-theme="dark"] .mission-preset-btn{
+      background:linear-gradient(180deg,#0f172a,#0b1220);
+      border-color:rgba(51,65,85,0.7);
+      box-shadow:0 6px 16px rgba(2,6,23,0.5);
+    }
+    html[data-theme="dark"] .mission-preset-photo{
+      background:linear-gradient(180deg,#111827,#0f172a);
+      border-color:rgba(51,65,85,0.7);
+      color:#94a3b8;
+    }
+    html[data-theme="dark"] .mission-preset-name{color:#e2e8f0}
+    html[data-theme="dark"] .mission-preset-sub,
+    html[data-theme="dark"] .mission-preset-vendor{color:#94a3b8}
+    html[data-theme="dark"] .mission-preset-info{
+      background:rgba(15,23,42,0.96);
+      border-color:rgba(51,65,85,0.7);
+      box-shadow:0 10px 18px rgba(2,6,23,0.55);
+    }
+    html[data-theme="dark"] .mission-info-label,
+    html[data-theme="dark"] .mission-review-label{color:#94a3b8}
+    html[data-theme="dark"] .mission-info-value,
+    html[data-theme="dark"] .mission-info-message,
+    html[data-theme="dark"] .mission-review-value{color:#e2e8f0}
+    html[data-theme="dark"] .mission-review-item{border-bottom:1px solid rgba(51,65,85,0.6)}
+    html[data-theme="dark"] .mission-test-cancel{color:#94a3b8}
+    html[data-theme="dark"] .mission-back-btn{color:#93c5fd}
+    html[data-theme="dark"] .loadcell-dialog{
+      background:linear-gradient(180deg,rgba(15,23,42,0.98),rgba(11,18,32,0.96));
+      border-color:rgba(51,65,85,0.7);
+      color:#e2e8f0;
+      box-shadow:0 16px 38px rgba(2,6,23,0.6),0 2px 0 rgba(15,23,42,0.7) inset;
+    }
+    html[data-theme="dark"] .loadcell-dialog::before{
+      background:linear-gradient(135deg,rgba(30,41,59,0.9),rgba(51,65,85,0.6));
+    }
+    html[data-theme="dark"] .loadcell-dialog::after{
+      background:radial-gradient(circle at 20% 0,rgba(30,41,59,0.6),transparent 55%);
+    }
+    html[data-theme="dark"] .loadcell-kicker{
+      background:rgba(148,163,184,0.16);
+      color:#cbd5f5;
+    }
+    html[data-theme="dark"] .loadcell-steps,
+    html[data-theme="dark"] .loadcell-note{color:#94a3b8}
+    html[data-theme="dark"] .loadcell-card{
+      background:rgba(15,23,42,0.95);
+      border-color:rgba(51,65,85,0.7);
+      box-shadow:0 6px 14px rgba(2,6,23,0.45);
+    }
+    html[data-theme="dark"] .loadcell-value{color:#e2e8f0}
+    html[data-theme="dark"] .loadcell-unit{color:#94a3b8}
+    html[data-theme="dark"] .loadcell-input{
+      background:#0f172a;
+      border-color:rgba(51,65,85,0.8);
+      color:#e2e8f0;
+      box-shadow:0 4px 10px rgba(2,6,23,0.4);
+    }
+    html[data-theme="dark"] .loadcell-actions{border-top:1px solid rgba(51,65,85,0.7)}
+    html[data-theme="dark"] .loadcell-secondary{
+      background:rgba(34,197,94,0.18);
+      color:#86efac;
+      border-color:rgba(34,197,94,0.45);
+    }
+    html[data-theme="dark"] .loadcell-cancel{
+      background:#0f172a;
+      color:#e2e8f0;
+      border-color:rgba(51,65,85,0.8);
+    }
+    html[data-theme="dark"] .loadcell-warning-title{color:#e2e8f0}
+    html[data-theme="dark"] .loadcell-warning .confirm-text,
+    html[data-theme="dark"] .loadcell-warning-sub{color:#94a3b8}
+    html[data-theme="dark"] .lockout-dialog{
+      background:linear-gradient(180deg,#2b0f14 0,#1f1015 20%,#0f172a 70%);
+      border-color:rgba(248,113,113,0.6);
+      box-shadow:0 16px 38px rgba(2,6,23,0.7);
+    }
+    html[data-theme="dark"] .lockout-dialog .confirm-text{color:#cbd5f5}
+    html[data-theme="dark"] .lockout-figure{
+      background:#0f172a;
+      border-color:rgba(51,65,85,0.7);
+      box-shadow:0 10px 24px rgba(2,6,23,0.55);
+    }
+    .app-shell{gap:0;height:100vh}
+    .side-nav-desktop{
+      width:72px;
+      background:#fdfdfc;
+      border-right:1px solid var(--ui-line);
+      box-shadow:8px 0 30px rgba(15,23,42,0.04);
+      padding:22px 12px;
+      gap:14px;
+      overflow:hidden;
+      transition:box-shadow .2s ease, background-color .2s ease, border-color .2s ease;
+    }
+    .side-nav-desktop:hover,
+    .side-nav-desktop:active{
+      width:176px;
+      align-items:flex-start;
+      padding-left:14px;
+      padding-right:14px;
+    }
+    .side-nav-desktop:hover .side-nav-menu,
+    .side-nav-desktop:active .side-nav-menu{
+      align-items:stretch;
+    }
+    .side-nav-desktop .side-nav-logo{
+      width:42px;height:42px;border-radius:0;
+      border:none;
+      background:transparent;
+    }
+    .side-nav-item,.side-nav-action,.side-nav-btn{
+      width:40px;height:40px;border-radius:12px;
+      color:#6b7280;
+      display:flex;align-items:center;justify-content:center;
+      gap:0;padding:0 10px;overflow:hidden;
+      transition:background .18s ease,color .18s ease;
+    }
+    .side-nav-item::after,
+    .side-nav-action::after,
+    .side-nav-btn::after{
+      content:attr(aria-label);
+      font-size:12px;font-weight:600;letter-spacing:.02em;
+      color:currentColor;white-space:nowrap;
+      opacity:0;transform:translateX(-6px);
+      max-width:0;overflow:hidden;
+      transition:opacity .18s ease,transform .18s ease,max-width .2s ease;
+      pointer-events:none;
+    }
+    .side-nav-desktop:hover .side-nav-item,
+    .side-nav-desktop:active .side-nav-item,
+    .side-nav-desktop:hover .side-nav-action,
+    .side-nav-desktop:active .side-nav-action,
+    .side-nav-desktop:hover .side-nav-btn,
+    .side-nav-desktop:active .side-nav-btn{
+      width:100%;
+      justify-content:flex-start;
+      gap:10px;
+    }
+    .side-nav-desktop:hover .side-nav-item::after,
+    .side-nav-desktop:active .side-nav-item::after,
+    .side-nav-desktop:hover .side-nav-action::after,
+    .side-nav-desktop:active .side-nav-action::after,
+    .side-nav-desktop:hover .side-nav-btn::after,
+    .side-nav-desktop:active .side-nav-btn::after{
+      opacity:1;
+      transform:translateX(0);
+      max-width:140px;
+    }
+    .side-nav-item.active{
+      border-color:rgba(59,130,246,0.25);
+      background:#cfe3ff;
+      color:#3b82f6;
+      box-shadow:0 10px 20px rgba(59,130,246,0.25);
+    }
+    .page-wrap{
+      max-width:none;
+      height:100dvh;
+      min-height:100dvh;
+      padding:var(--page-pad-y) var(--page-pad-x) var(--page-pad-bottom);
+      gap:var(--shell-gap);
+      overflow:hidden;
+    }
+    .top-bar{align-items:flex-start;margin-bottom:6px}
+    .page-kicker{
+      font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
+      color:var(--ui-text);
+    }
+    .page-kicker .board-name-strong{color:#111827}
+    .page-kicker .board-name-regular{color:#1f2937}
+    .page-kicker .board-name-light{color:#4b5563}
+    html[data-theme="dark"] .page-kicker .board-name-strong,
+    html[data-theme="dark"] .page-kicker .board-name-regular,
+    html[data-theme="dark"] .page-kicker .board-name-light{color:#f8fafc}
+    .board-name-strong{font-weight:700}
+    .board-name-regular{font-weight:500}
+    .board-name-light{font-weight:300}
+    .page-title{
+      font-size:36px;font-weight:700;letter-spacing:.01em;color:var(--ui-text);
+    }
+    .card-base{
+      background:rgba(255,255,255,0.98);
+      border:1px solid var(--ui-line);
+      box-shadow:0 18px 30px rgba(15,23,42,0.06);
+    }
+    .card-base::before,.card-base::after{content:none}
+    .home-view .card-base{
+      background:rgba(22,26,32,0.9);
+      border:1px solid rgba(255,255,255,0.06);
+      box-shadow:0 18px 30px rgba(0,0,0,0.35);
+    }
+    .card-title{
+      color:var(--ui-muted);
+      font-weight:700;
+      letter-spacing:.22em;
+    }
+    .card-badge{
+      background:var(--ui-accent-soft);
+      color:var(--ui-accent);
+      border:1px solid rgba(29,78,216,0.2);
+    }
+    .pill{
+      background:#f9fafb;
+      border:1px solid var(--ui-line);
+      color:var(--ui-muted);
+    }
+    .home-view{
+      min-height:calc(100vh - 170px);
+      animation:homeRise .6s cubic-bezier(.22,1,.36,1);
+    }
+    .home-mini{
+      display:flex;align-items:center;gap:10px;font-size:13px;color:var(--ui-muted);
+    }
+    .home-mini span:last-child{color:var(--ui-text);font-weight:600}
+    .home-data{display:none}
+    .home-board-title{
+      margin-top:6px;
+      font-size:36px;
+      font-weight:700;
+      letter-spacing:.06em;
+      color:var(--ui-text);
+      text-transform:uppercase;
+    }
+    .countdown-header{
+      display:flex;
+      flex-direction:column;
+      align-items:flex-end;
+      gap:4px;
+      min-width:140px;
+    }
+    .countdown-label{
+      font-size:12px;
+      letter-spacing:.32em;
+      text-transform:uppercase;
+      color:var(--ui-muted);
+    }
+    #countdown{
+      font-size:28px;
+      font-weight:700;
+      letter-spacing:.08em;
+      color:var(--ui-text);
+      text-align:right;
+    }
+    @keyframes homeRise{
+      from{opacity:0;transform:translateY(16px)}
+      to{opacity:1;transform:translateY(0)}
+    }
+    @media(max-width:760px){
+      :root{--page-pad-x:18px;--page-pad-y:22px;--page-pad-bottom:40px}
+      .page-title{font-size:30px}
+      .home-board-title{font-size:28px}
+    }
+    @media(max-width:540px){
+      .side-nav-mobile{width:auto}
+    }
+    @media(max-width:600px){
+      html,body{height:auto}
+      body{overflow-y:auto}
+      .app-shell{height:auto}
+      :root{
+        --page-pad-x:16px;
+        --page-pad-y:16px;
+        --page-pad-bottom:calc(108px + env(safe-area-inset-bottom, 0px));
+      }
+      .page-wrap{height:auto;min-height:auto;overflow:visible}
+    }
+
   </style>
 </head>
 <body>
@@ -1413,117 +2542,223 @@
 
   <!-- ✅ SPLASH: 로고 먼저 → 2초 뒤 로딩중 → 이미지 프리로드 완료되면 진입 -->
   <div id="splash" aria-label="loading">
-    <img id="splashLogo" src="img/Flash_logo.png" alt="FLASH">
+    <img id="splashLogo" src="img/Flash_logo.svg " alt="FLASH">
     <div id="splashLoading" data-i18n-html="splashLoading">로딩중<span id="splashDots"></span></div>
   </div>
 
-  <div class="page-wrap">
-    <div id="toastContainer" class="toast-container"></div>
+  <div class="app-shell">
+    <aside class="side-nav side-nav-desktop" aria-label="sidebar">
+      <div class="side-nav-logo">
+        <img src="img/Flash_logo.svg " alt="FLASH">
+      </div>
+      <div class="side-nav-menu">
+        <button class="side-nav-item" data-page-title="Home" aria-label="Home">
+          <svg viewBox="0 0 24 24"><path d="M4 12l8-7 8 7"/><path d="M6 10v9h12v-9"/></svg>
+        </button>
+        <button class="side-nav-item active" data-page-title="Dashboard" aria-label="Dashboard">
+          <svg viewBox="0 0 24 24"><path d="M12 4a8 8 0 1 0 8 8"/><path d="M12 12l4-3"/><path d="M4 20h16"/></svg>
+        </button>
+        <button class="side-nav-item" data-page-title="Hardware" aria-label="Hardware">
+          <svg viewBox="0 0 24 24"><path d="M7 3v6"/><path d="M17 3v6"/><path d="M3 11h18"/><path d="M5 11v7h14v-7"/><path d="M8 21h8"/></svg>
+        </button>
+        <button id="sidebarTerminalBtn" class="side-nav-item" data-page-title="Terminal" aria-label="Terminal">
+          <svg viewBox="0 0 24 24"><path d="M3 6h18v12H3z"/><path d="M7 10l3 2-3 2"/><path d="M12 14h5"/></svg>
+        </button>
+        <div class="side-nav-divider" aria-hidden="true"></div>
+        <button id="launcherOpenBtn" class="side-nav-action js-launcher-open launcher-desktop-only" aria-label="Launcher">
+          <svg viewBox="0 0 24 24">
+            <path d="M7 17l10-10"/>
+            <path d="M9 7h8v8"/>
+            <path d="M6 18l-2 2"/>
+          </svg>
+        </button>
+      </div>
+      <div class="side-nav-spacer"></div>
+      <button id="sidebarSettingsBtn" class="side-nav-btn js-sidebar-settings" aria-label="Settings">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06A1.65 1.65 0 0 0 15 19.4a1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09A1.65 1.65 0 0 0 15 4.6a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09A1.65 1.65 0 0 0 19.4 15z"/></svg>
+      </button>
+    </aside>
+    <aside class="side-nav side-nav-mobile" aria-label="mobile navigation">
+      <div class="side-nav-menu">
+        <button class="side-nav-item active" data-page-title="Dashboard" aria-label="Dashboard">
+          <svg viewBox="0 0 24 24"><path d="M12 4a8 8 0 1 0 8 8"/><path d="M12 12l4-3"/><path d="M4 20h16"/></svg>
+        </button>
+        <button class="side-nav-item" data-page-title="Hardware" aria-label="Hardware">
+          <svg viewBox="0 0 24 24"><path d="M7 3v6"/><path d="M17 3v6"/><path d="M3 11h18"/><path d="M5 11v7h14v-7"/><path d="M8 21h8"/></svg>
+        </button>
+        <button class="side-nav-item" data-page-title="Terminal" aria-label="Terminal">
+          <svg viewBox="0 0 24 24"><path d="M3 6h18v12H3z"/><path d="M7 10l3 2-3 2"/><path d="M12 14h5"/></svg>
+        </button>
+        <button class="side-nav-item js-launcher-open" aria-label="Launcher">
+          <svg viewBox="0 0 24 24">
+            <path d="M7 17l10-10"/>
+            <path d="M9 7h8v8"/>
+            <path d="M6 18l-2 2"/>
+          </svg>
+        </button>
+        <button class="side-nav-btn js-sidebar-settings" aria-label="Settings">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06A1.65 1.65 0 0 0 15 19.4a1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09A1.65 1.65 0 0 0 15 4.6a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09A1.65 1.65 0 0 0 19.4 15z"/></svg>
+        </button>
+      </div>
+    </aside>
+
+    <div class="page-wrap">
+      <div id="toastContainer" class="toast-container"></div>
 
     <header class="top-bar">
       <div class="top-left">
-        <img class="logo-img" src="img/Flash_logo.png" alt="ALTIS logo">
-        <div class="title-block">
-        </div>
+        <div id="pageKicker" class="page-kicker">FLASH 6</div>
+        <div id="pageTitle" class="page-title">Dashboard</div>
       </div>
       <div class="top-right">
-        <div class="chip" id="conn-chip">
-          <div class="chip-group">
-            <div class="chip-dot" id="conn-dot"></div>
-            <div class="chip-label">STATUS</div>
-            <div class="chip-value" id="conn-text">DISCONNECTED</div>
-          </div>
-          <div class="chip-sep" aria-hidden="true"></div>
-          <div class="chip-group">
-            <div class="chip-dot" id="ws-dot"></div>
-            <div class="chip-label">WS</div>
-            <div class="chip-value" id="ws-text">OFF</div>
-          </div>
-        </div>
-        <div class="chip">
-          <div class="chip-label">KST</div>
-          <div class="chip-value" id="kst-time">--:--:--</div>
+        <div class="countdown-header">
+          <div class="countdown-label">COUNTDOWN</div>
+          <div id="countdown">T- --</div>
         </div>
       </div>
     </header>
 
+    <section id="homeView" class="home-view hidden"></section>
+
+    <section id="terminalView" class="dashboard-view terminal-view hidden">
+      <main class="shell">
+        <section class="card-base log-card" style="background:#020617;border-color:#111827;">
+          <div class="log-header"><div class="log-title">TERMINAL</div></div>
+          <div class="terminal-shell" style="box-shadow:none;margin-top:0;">
+            <div class="terminal-header">
+              <div id="termTitle" class="term-title">hanwool-tms@board: ~</div>
+              <div class="term-actions">
+                <button id="copyLogBtn" class="term-copy-btn" type="button">COPY</button>
+              </div>
+            </div>
+            <div id="logView"></div>
+            <div id="tetrisOverlay" class="tetris-overlay hidden" aria-hidden="true">
+              <div class="tetris-hud">
+                <span id="tetrisScore">TETRIS · SCORE 000</span>
+                <span id="tetrisLines">LINES 0</span>
+              </div>
+              <pre id="tetrisScreen" class="tetris-screen" aria-label="Tetris"></pre>
+              <div class="tetris-help">←/→ move·↑ rotate·↓ drop·C hold·ESC to exit</div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </section>
+
+    <section id="hardwareView" class="dashboard-view hardware-view hidden">
+      <main class="shell">
+        <section class="card-base hardware-card">
+          <div class="card-header">
+            <div class="card-title">HARDWARE</div>
+          </div>
+          <div class="hardware-title">Hardware Overview</div>
+          <div class="hardware-desc">보드 정보/핀맵/연결 상태를 요약하는 페이지를 구성할 수 있습니다.</div>
+        </section>
+      </main>
+    </section>
+
+    <div id="dashboardView" class="dashboard-view">
     <main class="shell">
-      <section class="card-base main-card">
+      <div class="row-top">
+        <section class="card-base main-card">
         <div class="card-header">
-          <div class="card-title">COUNTDOWN & STATUS</div>
-          <div class="card-badge">LIVE SESSION</div>
+          <div class="card-title">STATUS</div>
         </div>
 
-        <div class="status-row">
-          <div class="status-line">
-            <div id="statusText">System ready</div>
-            <div id="statusPill" class="status-ready">READY</div>
-          </div>
-        </div>
-
-        <div class="countdown-wrap">
-          <div class="countdown-label-block">
-            <div class="countdown-caption">T-MINUS</div>
-            <div class="countdown-sub">Main ignition countdown</div>
-          </div>
-          <div class="pill-row">
-            <div class="pill">
-              <strong>WS</strong>
-              <span id="snap-hz">-- Hz</span>
+        <div class="status-top">
+          <div class="status-left">
+            <div class="status-row">
+              <div class="status-line">
+              <div class="status-title">
+                <div id="statusText">System ready</div>
+                <div id="statusPill" class="status-ready">READY</div>
+              </div>
+              </div>
             </div>
 
-            <div class="pill">
-              <strong>HX711</strong>
-              <span id="hx-hz">-- Hz</span>
+            <div class="countdown-wrap">
+              <div class="countdown-label-block">
+                <div class="countdown-caption">T-MINUS</div>
+                <div class="countdown-sub">Main ignition countdown</div>
+              </div>
+              <div id="countdownMobile" class="countdown-mobile">T- --</div>
             </div>
 
-            <div class="pill"><strong>Mode</strong> <span id="mode-pill">-</span></div>
-            <div class="pill"><strong>Relay</strong> <span id="relay-safe-pill">SAFE</span></div>
-          </div>
-        </div>
+            <div class="pill-row status-meta-row">
+              <div class="pill">
+                <strong>WS</strong>
+                <span id="snap-hz">-- Hz</span>
+              </div>
 
-        <div id="countdown">--<span>s</span></div>
+              <div class="pill">
+                <strong>HX711</strong>
+                <span id="hx-hz">-- Hz</span>
+              </div>
 
-        <div class="section-label">Live Telemetry</div>
-        <div class="ign-metrics">
-          <span id="ignDelayDisplay">Delay --.-s</span>
-          <span id="burnDurationDisplay">Burn --.-s</span>
-        </div>
-
-        <div class="item-grid">
-          <div class="item">
-            <span class="label"><span class="label-icon"></span><span data-i18n="labelThrust">추력</span></span>
-            <span id="thrust" class="value">--</span>
+              <div class="pill"><strong>Mode</strong> <span id="mode-pill">-</span></div>
+            </div>
           </div>
 
-          <div class="item item-pressure">
-            <span class="label"><span class="label-icon"></span><span data-i18n="labelPressure">압력</span></span>
-            <div class="value-block"><span id="pressure" class="value">--</span></div>
-          </div>
-
-          <div class="item">
-            <span class="label"><span class="label-icon"></span><span data-i18n="labelSwitch">스위치</span></span>
-            <span id="sw" class="pill pill-gray">--</span>
-          </div>
-
-          <div class="item">
-            <span class="label"><span class="label-icon"></span><span data-i18n="labelIgniter">Igniter</span></span>
-            <span id="ic" class="pill pill-red">--</span>
-          </div>
-
-          <div class="item">
-            <span class="label"><span class="label-icon"></span><span data-i18n="labelRelay">릴레이</span></span>
-            <span id="relay" class="pill pill-gray">--</span>
-          </div>
-
-          <div class="item">
-            <span class="label"><span class="label-icon"></span>Loop</span>
-            <span id="lt" class="value">-- ms</span>
+          <div class="status-metrics">
+            <div class="status-metric">
+              <div class="status-metric-label">Thrust</div>
+              <div id="thrust" class="status-metric-value">--</div>
+            </div>
+            <div class="status-metric">
+              <div class="status-metric-label">Pressure</div>
+              <div id="pressure" class="status-metric-value">--</div>
+            </div>
           </div>
         </div>
       </section>
+        <section class="card-base motor-card">
+          <div class="card-header">
+            <div class="card-title">QUICK DATA</div>
+            <div class="card-badge">MISSION</div>
+          </div>
+          <div class="item-grid">
+            <div class="item">
+              <span class="label"><span class="label-icon"></span>Battery</span>
+              <span id="batteryStatus" class="value"><span class="num">--</span></span>
+            </div>
+            <div class="item">
+              <span class="label"><span class="label-icon"></span>Com</span>
+              <span id="commStatus" class="value"><span class="num">--</span></span>
+            </div>
+            <div class="item">
+              <span class="label"><span class="label-icon"></span>State</span>
+              <span id="quick-state" class="value"><span class="num">--</span></span>
+            </div>
+            <div class="item">
+              <span class="label"><span class="label-icon"></span>Delay</span>
+              <span id="motorDelay" class="value"><span class="num">--.-</span><span class="unit">S</span></span>
+            </div>
+            <div class="item">
+              <span class="label"><span class="label-icon"></span>Burn</span>
+              <span id="motorBurn" class="value"><span class="num">--.-</span><span class="unit">S</span></span>
+            </div>
+            <div class="item">
+              <span class="label"><span class="label-icon"></span>Switch</span>
+              <span id="quick-sw" class="value"><span class="num">--</span></span>
+            </div>
+            <div class="item">
+              <span class="label"><span class="label-icon"></span>Igniter</span>
+              <span id="quick-igniter" class="value"><span class="num">--</span></span>
+            </div>
+            <div class="item">
+              <span class="label"><span class="label-icon"></span>Relay</span>
+              <span id="quick-relay" class="value"><span class="num">--</span></span>
+            </div>
+            <div class="item">
+              <span class="label"><span class="label-icon"></span>Loop</span>
+              <span id="loop-pill" class="value"><span class="num">--</span><span class="unit">ms</span></span>
+            </div>
+          </div>
+        </section>
+      </div>
 
-      <section class="card-base charts-card">
+      <div class="row-bottom">
+        <section class="card-base charts-card">
         <div class="chart-header">
           <div class="chart-title-main">THRUST & PRESSURE TREND</div>
           <div class="chart-controls">
@@ -1553,38 +2788,13 @@
           </div>
         </div>
       </section>
-
-      <div class="side-col">
-        <section class="log-card">
-          <div class="log-header"><div class="log-title">EVENT LOG</div></div>
-            <div class="terminal-shell">
-            <div class="terminal-header">
-              <div id="termTitle" class="term-title">hanwool-tms@board: ~</div>
-              <div class="term-actions">
-                <button id="copyLogBtn" class="term-copy-btn" type="button">COPY</button>
-              </div>
-            </div>
-            <div id="logView"></div>
-            <div id="tetrisOverlay" class="tetris-overlay hidden" aria-hidden="true">
-              <div class="tetris-hud">
-                <span id="tetrisScore">TETRIS · SCORE 000</span>
-                <span id="tetrisLines">LINES 0</span>
-              </div>
-              <pre id="tetrisScreen" class="tetris-screen" aria-label="Tetris"></pre>
-              <div class="tetris-help">←/→ move·↑ rotate·↓ drop·C hold·ESC to exit</div>
-            </div>
-          </div>
-        </section>
-
         <section id="controlsCard" class="card-base controls-card">
           <div id="controlsHeader" class="card-header">
             <div>
               <div class="card-title">CONTROL PANEL</div>
               <div id="controlsHelpLink" class="controls-help" data-i18n="controlsHelpLink">도움말로 바로가기</div>
             </div>
-            <div class="controls-header-actions">
-              <button id="controlsSettingsBtn" class="controls-gear-btn" title="Settings">⚙</button>
-            </div>
+            <div class="controls-header-actions"></div>
           </div>
 
           <div id="controlsMain" class="controls-grid">
@@ -1596,7 +2806,7 @@
 
             <div class="controls-section-label" data-i18n="controlsSectionSequence">시퀀스 제어</div>
             <div class="controls-main-row">
-              <div class="primary-btn-wrap"><button id="igniteBtn" class="primary-btn">SEQUENCE START</button></div>
+              <div class="primary-btn-wrap"><button id="igniteBtn" class="primary-btn" data-i18n="sequenceStartBtn">SEQUENCE START</button></div>
               <div class="abort-btn-wrap"><button id="abortBtn" class="secondary-btn" disabled>ABORT</button></div>
             </div>
 
@@ -1612,16 +2822,14 @@
                 </div>
               </button>
 
-              <div id="serialControlTile" class="control-tile">
+              <div id="serialControlTile" class="control-tile is-btn" role="button" tabindex="0">
                 <div>
                   <div id="serialControlTitle" class="control-tile-label" data-i18n="controlSerialLabel">WebSerial</div>
                   <div id="serialControlSub" class="control-tile-sub" data-i18n="controlSerialSub">시리얼 연결</div>
                 </div>
                 <div class="control-tile-actions">
-                  <label id="serialToggleWrap" class="switch" title="WebSerial">
-                    <input type="checkbox" id="serialToggle">
-                    <span class="slider"></span>
-                  </label>
+                  <input type="checkbox" id="serialToggle" class="hidden-input">
+                  <button id="serialTogglePill" class="pill pill-toggle is-off" type="button">OFF</button>
                 </div>
               </div>
 
@@ -1634,28 +2842,17 @@
                 </div>
               </div>
 
-              <div id="safetyModeTile" class="control-tile">
+              <div id="safetyModeTile" class="control-tile is-btn" role="button" tabindex="0">
                 <div>
                   <div class="control-tile-label" data-i18n="controlSafetyLabel">안전 모드</div>
                   <div class="control-tile-sub" data-i18n="controlSafetySub">Safty Mode</div>
                 </div>
                 <div class="control-tile-actions">
-                  <label class="switch" title="Safety Mode">
-                    <input type="checkbox" id="safeModeToggle">
-                    <span class="slider"></span>
-                  </label>
+                  <input type="checkbox" id="safeModeToggle" class="hidden-input">
+                  <button id="safeModePill" class="pill pill-toggle is-off" type="button">OFF</button>
                 </div>
               </div>
 
-              <div id="launcherOpenBtn" class="control-tile is-btn span-2" role="button" tabindex="0">
-                <div>
-                  <div class="control-tile-label" data-i18n="controlLauncherLabel">발사대</div>
-                  <div class="control-tile-sub" data-i18n="controlLauncherSub">발사대 모터/액츄에이터제어</div>
-                </div>
-                <div class="control-tile-actions">
-                  <span class="pill pill-gray">OPEN</span>
-                </div>
-              </div>
             </div>
           </div>
 
@@ -1677,11 +2874,13 @@
       </div>
     </main>
 
+    </div>
+
     <!-- 설정 -->
     <div id="settingsOverlay" class="settings-overlay hidden">
       <div class="settings-dialog">
         <div class="settings-header">
-          <div class="settings-title">CONTROL SETTINGS</div>
+          <div class="settings-title">SETTINGS</div>
           <button id="settingsClose" class="settings-close-btn">×</button>
         </div>
 
@@ -1692,7 +2891,7 @@
             <button class="settings-nav-btn" data-target="units"><span data-i18n="settingsNavInterface">인터페이스</span><span class="settings-nav-badge">Interface</span></button>
             <button class="settings-nav-btn" data-target="sequence"><span data-i18n="settingsNavSequence">시퀀스</span><span class="settings-nav-badge">Sequence</span></button>
             <button class="settings-nav-btn" data-target="safety"><span data-i18n="settingsNavSafety">SAFETY</span><span class="settings-nav-badge">Safety</span></button>
-            <button class="settings-nav-btn" data-target="fw"><span data-i18n="settingsNavInfo">SW 정보</span><span class="settings-nav-badge">SW Info</span></button>
+            <button class="settings-nav-btn" data-target="fw"><span data-i18n="settingsNavInfo">정보</span><span class="settings-nav-badge">Info</span></button>
           </nav>
 
           <div class="settings-panels">
@@ -1800,26 +2999,36 @@
                     <option value="N">N</option>
                   </select>
                 </div>
-            <div class="settings-row">
-              <div>
-                <div class="settings-label" data-i18n="settingsPressureUnitLabel">압력 단위</div>
-                <div class="hint-mini" data-i18n="settingsPressureUnitHint">현재는 Voltage(V) 기준. 센서 보정이 들어가면 kPa/psi로 확장 가능합니다.</div>
-              </div>
-            </div>
+                <div class="settings-row">
+                  <div>
+                    <div class="settings-label" data-i18n="settingsPressureUnitLabel">압력 단위</div>
+                    <div class="hint-mini" data-i18n="settingsPressureUnitHint">현재는 Voltage(V) 기준. 센서 보정이 들어가면 kPa/psi로 확장 가능합니다.</div>
+                  </div>
+                </div>
 
-            <div class="settings-row">
-              <div>
-                <div class="settings-label" data-i18n="settingsLangLabel">언어</div>
-                <div class="hint-mini" data-i18n="settingsLangHint">표시 언어를 변경합니다.</div>
+                <div class="settings-row">
+                  <div>
+                    <div class="settings-label" data-i18n="settingsLangLabel">언어</div>
+                    <div class="hint-mini" data-i18n="settingsLangHint">표시 언어를 변경합니다.</div>
+                  </div>
+                  <select id="langSelect" class="settings-select">
+                    <option value="ko" data-i18n="langOptionKo">한국어</option>
+                    <option value="en" data-i18n="langOptionEn">English</option>
+                  </select>
+                </div>
+                <div class="settings-row">
+                  <div>
+                    <div class="settings-label" data-i18n="settingsThemeLabel">다크 모드</div>
+                    <div class="hint-mini" data-i18n="settingsThemeHint">라이트/다크 테마를 전환합니다.</div>
+                  </div>
+                  <label class="switch">
+                    <input type="checkbox" id="themeToggle">
+                    <span class="slider"></span>
+                  </label>
+                </div>
               </div>
-              <select id="langSelect" class="settings-select">
-                <option value="ko" data-i18n="langOptionKo">한국어</option>
-                <option value="en" data-i18n="langOptionEn">English</option>
-              </select>
-            </div>
-          </div>
 
-        </div>
+            </div>
 
             <!-- SEQUENCE -->
             <div class="settings-panel" data-panel="sequence">
@@ -1893,7 +3102,7 @@
               <div class="settings-group">
                 <!-- ✅ 여기: "소프트웨어" 설정 안에 작은 F 로고 -->
                 <div class="fw-head">
-                  <img id="fwLogoEaster" class="fw-f-logo" src="img/Flash_logo.png" alt="F">
+                  <img id="fwLogoEaster" class="fw-f-logo" src="img/Flash_logo.svg " alt="F">
                 </div>
                 <div class="settings-group-title" style="margin:0;">HANWOOL FLASH6</div>
 
@@ -1911,6 +3120,13 @@
                     to do so, subject to the following conditions:<br>
                     • THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED.
                   </div>
+                </div>
+                <div class="settings-row">
+                  <div>
+                    <div class="settings-label">업데이트</div>
+                    <div class="hint-mini">펌웨어 + FLASH 프로그램 최신 버전 확인</div>
+                  </div>
+                  <button id="swUpdateBtn" class="settings-btn" type="button">업데이트 확인</button>
                 </div>
               </div>
             </div>
@@ -2242,7 +3458,7 @@
 
     <!-- 강제 점화 모달 -->
     <div id="forceOverlay" class="confirm-overlay hidden" style="display:none;">
-      <div class="confirm-dialog">
+      <div class="confirm-dialog force-dialog">
         <div class="confirm-icon" aria-hidden="true"><span>!</span></div>
         <div class="confirm-title" data-i18n="forceConfirmTitle">강제 점화를 진행할까요?</div>
         <div class="confirm-text" data-i18n-html="forceConfirmText">
@@ -2250,8 +3466,13 @@
           주변 인원 접근 금지 · 보호구 착용 권장 · 결선/단락 재확인.
         </div>
         <div class="force-actions">
-          <button id="forceConfirmYes" class="force-danger-small" data-i18n="forceConfirmYes">강제 점화</button>
-          <button id="forceConfirmCancel" class="force-cancel-big" data-i18n="forceConfirmCancel">취소</button>
+          <div id="forceSlide" class="force-slide" role="button" aria-label="Slide to force ignition">
+            <div id="forceSlideThumb" class="force-slide-thumb" aria-hidden="true">
+              <span class="force-slide-label" data-i18n="forceSlideLabel">밀어서 강제 점화</span>
+            </div>
+            <span class="force-slide-arrows" aria-hidden="true">›››</span>
+          </div>
+          <button id="forceConfirmCancel" class="force-cancel-link" data-i18n="forceConfirmCancel">취소</button>
         </div>
       </div>
     </div>
@@ -2266,6 +3487,20 @@
           해결하려면 브라우저를 새로고침 하세요.
         </div>
         <button id="wsAlertClose" class="ws-alert-close-btn" data-i18n="wsAlertClose">닫기</button>
+      </div>
+    </div>
+
+    <!-- 연결 해제 오버레이 -->
+    <div id="disconnectOverlay" class="disconnect-overlay hidden" style="display:none;">
+      <div class="disconnect-dialog" role="alertdialog" aria-modal="true" aria-labelledby="disconnectTitle" aria-describedby="disconnectText">
+        <div class="confirm-icon" aria-hidden="true"><span>!</span></div>
+        <div id="disconnectTitle" class="disconnect-title" data-i18n="deviceDisconnectedTitle">연결 해제</div>
+        <div id="disconnectText" class="disconnect-text" data-i18n-html="deviceDisconnectedText">
+          기기와의 통신이 끊겼습니다.<br>케이블/전원을 확인해주세요.
+        </div>
+        <div class="disconnect-actions">
+          <button id="disconnectOk" class="disconnect-ok" data-i18n="deviceDisconnectedOk">확인</button>
+        </div>
       </div>
     </div>
 
@@ -2388,7 +3623,10 @@
       </div>
     </div>
 
-    <footer class="footer-nav"><div class="footer-meta" data-i18n="footerMeta">2026 ALTIS 추진팀 윤보배 - HANWOOL</div></footer>
+
+    <footer class="footer-nav"><div class="footer-meta"></div></footer>
+    </div>
+    </div>
   </div>
 
   <script src="dashboard.js"></script>
