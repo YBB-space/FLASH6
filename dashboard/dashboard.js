@@ -7,6 +7,7 @@
     let eventLog = [];
     let thrustBaseHistory = [];
     let pressureBaseHistory = [];
+    let chartTimeHistory = [];
     let sampleHistory = [];
     const SAMPLE_HISTORY_MAX = 10000;
     const EVENT_LOG_MAX = 5000;
@@ -156,6 +157,9 @@
     }
 
     const MAX_POINTS         = 300;
+    const CHART_WINDOW_MS_DEFAULT = 25000;
+    const CHART_WINDOW_MS_MIN = 5000;
+    const CHART_WINDOW_MS_MAX = 120000;
 
     // ✅ 너무 빡센 폴링(30ms)은 ESP 쪽 응답 흔들림(간헐 타임아웃/큐 적체)을 만들 수 있어서 완화
     const POLL_INTERVAL      = 80;
@@ -166,7 +170,7 @@
     let lastChartRedraw = 0;
     let sampleCounter = 0;
     let isUpdating = false;
-    let chartView = { start: 0, window: 150 };
+    let chartView = { startMs: null, windowMs: CHART_WINDOW_MS_DEFAULT };
     let autoScrollChart = true;
     let disconnectedLogged = false;
     let lastStatusCode = -1;
@@ -182,9 +186,12 @@
     let prevGsState = null;
     let prevSmState = null;
     let st2StartMs = null;
+    let localTplusStartMs = null;
+    let localTplusActive = false;
     let igniterAbortSent = false;
     let lastAbortReason = null;
     let firstSampleMs = null;
+    let sequenceActive = false;
 
     // ✅ RelaySafe/LOCKOUT
     let relaySafeEnabled = true;
@@ -217,7 +224,12 @@
     let inspectionState = "idle";
     let inspectionRunning = false;
     let latestTelemetry = {sw:null, ic:null, rly:null, mode:null};
+    let lastBatteryV = null;
+    let lastBatteryPct = null;
     let lastThrustKgf = null;
+    const THRUST_GAUGE_MAX_KGF = 10;
+    const THRUST_GAUGE_MAX_LBF = 22;
+    const PRESSURE_GAUGE_MAX_V = 5;
     let pendingLoadcellWeight = null;
     let pendingLoadcellZero = false;
     function isIgniterCheckEnabled(){
@@ -237,6 +249,10 @@
     const MAX_VISIBLE_LOG = 500;
     const TETRIS_W = 10;
     const TETRIS_H = 14;
+    const TETRIS_SCALE_X = 1;
+    const TETRIS_SCALE_Y = 1;
+    const TETRIS_CELL_ON = "#";
+    const TETRIS_CELL_OFF = ".";
     const TETRIS_TICK_MS = 300;
     const TETRIS_LOCK_DELAY_MS = 250;
     const TETRIS_SHAPES = [
@@ -295,6 +311,9 @@
     let tetrisTimer = null;
     let tetrisState = null;
     let tetrisKeyHandler = null;
+    let tetrisBgmTimer = null;
+    let tetrisBgmIndex = 0;
+    let tetrisBgmActive = false;
     let logoTapCount = 0;
     let logoTapTimer = null;
 
@@ -303,6 +322,7 @@
     let lastOkMs = Date.now();          // 마지막 정상 샘플 수신 시각
     let failStreak = 0;                // 연속 실패 횟수
     let lastDiscAnnounceMs = 0;
+    let unstableToastShown = false;
 
     const DISCONNECT_GRACE_MS = 1500;  // 이 시간 동안 샘플이 없으면 끊김 후보
     const FAIL_STREAK_LIMIT   = 20;    // 연속 실패가 이 이상이고, grace도 지났으면 DISCONNECTED
@@ -366,7 +386,7 @@
       }, 320);
 
       const ASSETS = [
-        "img/Flash_logo.png",
+        "img/Flash_logo.svg ",
         "img/Danger.svg",
         "img/Tick.svg",
         "img/Graph.svg",
@@ -417,8 +437,17 @@
         serialRx: true,
         serialTx: true,
         simEnabled: false,
-        lang: "ko"
+        lang: "ko",
+        theme: "light"
       };
+    }
+    function applyTheme(theme){
+      const root = document.documentElement;
+      if(theme === "dark"){
+        root.setAttribute("data-theme", "dark");
+      }else{
+        root.removeAttribute("data-theme");
+      }
     }
     function loadSettings(){
       try{
@@ -437,6 +466,7 @@
       serialTxEnabled = uiSettings.serialTx !== false;
       simEnabled = !!uiSettings.simEnabled;
       setLanguage(uiSettings.lang || "ko");
+      applyTheme(uiSettings.theme || "light");
     }
     function saveSettings(){ try{ localStorage.setItem(SETTINGS_KEY, JSON.stringify(uiSettings)); }catch(e){} }
 
@@ -445,11 +475,11 @@
     // =====================
     const I18N = {
       ko: {
-        toastTitleSuccess:"완료",
-        toastTitleWarn:"주의",
-        toastTitleError:"오류",
-        toastTitleIgnite:"점화 / 추력 감지",
-        toastTitleInfo:"알림",
+        toastTitleSuccess:"성공 알림",
+        toastTitleWarn:"주의 알림",
+        toastTitleError:"오류 알림",
+        toastTitleIgnite:"점화 알림",
+        toastTitleInfo:"일반 알림",
         safetyLineSuffix:"안전거리 확보 · 결선/단락 확인 · 주변 인원 접근 금지.",
         splashLoading:"로딩중<span id=\"splashDots\"></span>",
         labelThrust:"추력",
@@ -485,7 +515,7 @@
         settingsNavInterface:"인터페이스",
         settingsNavSequence:"시퀀스",
         settingsNavSafety:"안전",
-        settingsNavInfo:"SW 정보",
+        settingsNavInfo:"정보",
         settingsGroupHardware:"하드웨어",
         settingsHardwareInfoTitle:"하드웨어 정보",
         settingsBoardNameLabel:"보드 이름",
@@ -542,6 +572,7 @@
         forceConfirmTitle:"강제 점화를 진행할까요?",
         forceConfirmText:"강제 점화는 고위험 동작입니다.<br>주변 인원 접근 금지 · 보호구 착용 권장 · 결선/단락 재확인.",
         forceConfirmYes:"강제 점화",
+        forceSlideLabel:"밀어서 강제 점화",
         forceConfirmCancel:"취소",
         lockoutAck:"확인",
         launcherTitle:"발사대 제어",
@@ -563,6 +594,8 @@
         inspectionPassText:"모든 항목 통과. 제어 권한 확보됨.",
         settingsLangLabel:"언어",
         settingsLangHint:"표시 언어를 변경합니다.",
+        settingsThemeLabel:"다크 모드",
+        settingsThemeHint:"라이트/다크 테마를 전환합니다.",
         exportXlsx:"보고서 내보내기",
         chartNoData:"데이터 없음",
         labelDelay:"지연",
@@ -599,6 +632,9 @@
         wsAlertTitle:"WebSocket 연결 안됨",
         wsAlertText:"WebSocket이 연결되어있지 않아 데이터가 10 Hz로 출력됩니다.<br>해결하려면 브라우저를 새로고침 하세요.",
         wsAlertClose:"닫기",
+        deviceDisconnectedTitle:"연결 해제",
+        deviceDisconnectedText:"기기와의 통신이 끊겼습니다.<br>케이블/전원을 확인해주세요.",
+        deviceDisconnectedOk:"확인",
         noResponse:"보드 응답 없음",
         hdrTimeIso:"시간_ISO",
         hdrMessage:"메시지",
@@ -638,14 +674,20 @@
         statusCountdown:"COUNTDOWN",
         statusNotArmed:"NOT ARMED",
         statusReady:"READY",
+        statusSequence:"SEQUENCE",
         statusLockoutText:"비정상적인 릴레이 HIGH 감지 ({name}). 모든 제어 권한이 해제되었습니다. 보드를 재시작하세요.",
         statusAbortText:"시퀀스가 중단되었습니다.",
         statusAbortTextReason:"시퀀스가 중단되었습니다. ({reason})",
         statusIgnitionText:"점화 중입니다.",
         statusCountdownText:"카운트다운 진행 중",
+        statusSequenceText:"시퀀스 진행 중",
         statusNotArmedTextReady:"이그나이터 미연결 / 점화 시퀀스 가능",
         statusNotArmedTextBlocked:"이그나이터 미연결 / 점화 시퀀스 제한",
         statusReadyText:"시스템 준비 완료",
+        sequenceStartBtn:"SEQUENCE START",
+        sequenceEndBtn:"SEQUENCE END",
+        sequenceEndLog:"시퀀스 종료 요청.",
+        sequenceEndToast:"시퀀스를 종료했습니다.",
         relaySafeLockout:"LOCKOUT({name})",
         relaySafeSafe:"SAFE",
         relaySafeOff:"OFF",
@@ -756,8 +798,8 @@
         clipboardCopyFailedToast:"클립보드 복사에 실패했습니다. 브라우저 권한을 확인하세요.",
         copyFailedLog:"복사 실패: {err}",
         copyFailedToast:"복사에 실패했습니다. 브라우저 정책을 확인하세요.",
-        xlsxExportLog:"보고서 내보내기 완료 (XLSX/ENG): {filename}",
-        xlsxExportToast:"보고서를 .eng / .xlsx 파일로 내보냈습니다.",
+        xlsxExportLog:"보고서 내보내기 완료 (ZIP): {filename}",
+        xlsxExportToast:"보고서를 .zip 파일로 내보냈습니다.",
         thrustUnitChangedToast:"추력 단위가 {from} → {to} 로 변경되었습니다. 표시 단위만 변경됩니다. {safety}",
         ignTimeChangedToast:"점화 시간이 {from}s → {to}s 로 변경되었습니다. 과열/인가 시간에 주의하세요. {safety}",
         countdownChangedToast:"카운트다운 시간이 {from}s → {to}s 로 변경되었습니다. 인원 통제 시간을 충분히 두세요. {safety}",
@@ -796,7 +838,7 @@
         toastTitleSuccess:"Success",
         toastTitleWarn:"Warning",
         toastTitleError:"Error",
-        toastTitleIgnite:"Ignition / Thrust",
+        toastTitleIgnite:"Ignite",
         toastTitleInfo:"Notice",
         safetyLineSuffix:"Keep safe distance · Check wiring/shorts · No personnel approach.",
         splashLoading:"Loading<span id=\"splashDots\"></span>",
@@ -833,7 +875,7 @@
         settingsNavInterface:"Interface",
         settingsNavSequence:"Sequence",
         settingsNavSafety:"Safety",
-        settingsNavInfo:"SW Info",
+        settingsNavInfo:"Info",
         settingsGroupHardware:"Hardware",
         settingsHardwareInfoTitle:"Hardware Info",
         settingsBoardNameLabel:"Board Name",
@@ -890,6 +932,7 @@
         forceConfirmTitle:"Proceed with force ignition?",
         forceConfirmText:"Force ignition is high risk.<br>No personnel nearby · PPE recommended · Recheck wiring/shorts.",
         forceConfirmYes:"Force Ignition",
+        forceSlideLabel:"Slide to Force Ignition",
         forceConfirmCancel:"Cancel",
         lockoutAck:"Acknowledge",
         launcherTitle:"Launcher Control",
@@ -934,6 +977,8 @@
         loadcellSaveLog:"Loadcell calibration save request (weight={weight} kg)",
         settingsLangLabel:"Language",
         settingsLangHint:"Change display language.",
+        settingsThemeLabel:"Dark mode",
+        settingsThemeHint:"Toggle light/dark theme.",
         exportXlsx:"Export Report",
         chartNoData:"NO DATA",
         labelDelay:"Delay",
@@ -1003,14 +1048,20 @@
         statusCountdown:"COUNTDOWN",
         statusNotArmed:"NOT ARMED",
         statusReady:"READY",
+        statusSequence:"SEQUENCE",
         statusLockoutText:"Abnormal relay HIGH detected ({name}). Control revoked. Restart the board.",
         statusAbortText:"Sequence aborted.",
         statusAbortTextReason:"Sequence aborted. ({reason})",
         statusIgnitionText:"Igniter firing.",
         statusCountdownText:"Launch countdown in progress",
+        statusSequenceText:"Sequence in progress",
         statusNotArmedTextReady:"Igniter open / ignition sequence allowed",
         statusNotArmedTextBlocked:"Igniter open / ignition sequence blocked",
         statusReadyText:"System ready",
+        sequenceStartBtn:"SEQUENCE START",
+        sequenceEndBtn:"SEQUENCE END",
+        sequenceEndLog:"Sequence end requested.",
+        sequenceEndToast:"Sequence ended.",
         relaySafeLockout:"LOCKOUT({name})",
         relaySafeSafe:"SAFE",
         relaySafeOff:"OFF",
@@ -1029,6 +1080,9 @@
         wsAlertTitle:"WebSocket disconnected",
         wsAlertText:"WebSocket is not connected, so data is shown at 10 Hz.<br>Refresh the browser to fix it.",
         wsAlertClose:"Close",
+        deviceDisconnectedTitle:"Device disconnected",
+        deviceDisconnectedText:"Connection to the device was lost.<br>Check cable/power.",
+        deviceDisconnectedOk:"OK",
         wsLost:"Dashboard lost connection to board.",
         boardUnstable:"Board response is unstable. Check power/wiring/Wi-Fi/polling interval.",
         webserialUnsupported:"This browser does not support WebSerial. (Chrome/Edge recommended)",
@@ -1127,8 +1181,8 @@
         clipboardCopyFailedToast:"Clipboard copy failed. Check browser permissions.",
         copyFailedLog:"Copy failed: {err}",
         copyFailedToast:"Copy failed. Check browser policy.",
-        xlsxExportLog:"Report exported (XLSX/ENG): {filename}",
-        xlsxExportToast:"Exported report to .eng / .xlsx files.",
+        xlsxExportLog:"Report exported (ZIP): {filename}",
+        xlsxExportToast:"Exported report as .zip file.",
         thrustUnitChangedToast:"Thrust unit changed {from} → {to}. Display only. {safety}",
         ignTimeChangedToast:"Ignition time changed {from}s → {to}s. Watch heating/drive time. {safety}",
         countdownChangedToast:"Countdown changed {from}s → {to}s. Allow enough clearance time. {safety}",
@@ -1195,21 +1249,15 @@
       });
     }
     function updateSerialControlTile(){
-      if(!el.serialControlTitle || !el.serialControlSub || !el.serialToggleWrap || !el.serialControlTile) return;
+      if(!el.serialControlTitle || !el.serialControlSub || !el.serialTogglePill || !el.serialControlTile) return;
       if(simEnabled){
         el.serialControlTitle.textContent = t("controlDevToolsLabel");
         el.serialControlSub.textContent = t("controlDevToolsSub");
-        el.serialToggleWrap.style.display = "none";
-        el.serialControlTile.classList.add("is-btn");
-        el.serialControlTile.setAttribute("role", "button");
-        el.serialControlTile.setAttribute("tabindex", "0");
+        el.serialTogglePill.style.display = "none";
       }else{
         el.serialControlTitle.textContent = t("controlSerialLabel");
         el.serialControlSub.textContent = t("controlSerialSub");
-        el.serialToggleWrap.style.display = "inline-flex";
-        el.serialControlTile.classList.remove("is-btn");
-        el.serialControlTile.removeAttribute("role");
-        el.serialControlTile.removeAttribute("tabindex");
+        el.serialTogglePill.style.display = "inline-flex";
       }
     }
     function setDevToolsVisible(show){
@@ -1235,7 +1283,7 @@
         lockoutRelayMask = (devRelay1Locked ? 1 : 0) | (devRelay2Locked ? 2 : 0);
         setLockoutVisual(lockoutLatched);
         updateRelaySafePill();
-        setButtonsFromState(currentSt, lockoutLatched);
+        setButtonsFromState(currentSt, lockoutLatched, sequenceActive);
         if(lockoutLatched){
           simState.st = 0;
           simState.countdownStartMs = null;
@@ -1269,14 +1317,21 @@
       if(el.countdownSecInput) el.countdownSecInput.value = uiSettings.countdownSec;
 
       if(el.relaySafeToggle) el.relaySafeToggle.checked = !!uiSettings.relaySafe;
-      if(el.safeModeToggle) el.safeModeToggle.checked = !!uiSettings.safetyMode;
+      if(el.safeModeToggle){
+        el.safeModeToggle.checked = !!uiSettings.safetyMode;
+        updateTogglePill(el.safeModePill, el.safeModeToggle.checked);
+      }
       if(el.igswitch) el.igswitch.checked = !!uiSettings.igs;
 
-      if(el.serialToggle) el.serialToggle.checked = !!uiSettings.serialEnabled;
+      if(el.serialToggle){
+        el.serialToggle.checked = !!uiSettings.serialEnabled;
+        updateTogglePill(el.serialTogglePill, el.serialToggle.checked);
+      }
       if(el.serialRxToggle) el.serialRxToggle.checked = uiSettings.serialRx !== false;
       if(el.serialTxToggle) el.serialTxToggle.checked = uiSettings.serialTx !== false;
       if(el.simToggle) el.simToggle.checked = !!uiSettings.simEnabled;
       if(el.langSelect) el.langSelect.value = (uiSettings.lang === "en") ? "en" : "ko";
+      if(el.themeToggle) el.themeToggle.checked = (uiSettings.theme === "dark");
 
       updateRelaySafePill();
       updateSerialPill();
@@ -1341,6 +1396,18 @@
       el.wsAlertOverlay.classList.add("hidden");
       el.wsAlertOverlay.style.display = "none";
     }
+    function showDisconnectOverlay(){
+      if(!el.disconnectOverlay) return;
+      if(el.disconnectTitle) el.disconnectTitle.textContent = t("deviceDisconnectedTitle");
+      if(el.disconnectText) el.disconnectText.innerHTML = t("deviceDisconnectedText");
+      el.disconnectOverlay.classList.remove("hidden");
+      el.disconnectOverlay.style.display = "flex";
+    }
+    function hideDisconnectOverlay(){
+      if(!el.disconnectOverlay) return;
+      el.disconnectOverlay.classList.add("hidden");
+      el.disconnectOverlay.style.display = "none";
+    }
     function updateWsAlert(){
       if(simEnabled && devWsOff){
         showWsAlert();
@@ -1362,6 +1429,12 @@
       if(!wsAlertDismissed){
         showWsAlert();
       }
+    }
+    function updateTogglePill(pillEl, checked){
+      if(!pillEl) return;
+      pillEl.textContent = checked ? "ON" : "OFF";
+      pillEl.classList.toggle("is-on", !!checked);
+      pillEl.classList.toggle("is-off", !checked);
     }
 
     function resetSimState(){
@@ -1404,7 +1477,7 @@
         lockoutRelayMask = 0;
         setLockoutVisual(false);
         updateRelaySafePill();
-        setButtonsFromState(currentSt, lockoutLatched);
+        setButtonsFromState(currentSt, lockoutLatched, sequenceActive);
         setDevToolsVisible(false);
       }
       updateSerialControlTile();
@@ -1711,7 +1784,8 @@
 
     function writeOverlayMsg(rows, rowIndex, msg){
       const row = rows[rowIndex].split("");
-      const start = Math.max(1, Math.floor((TETRIS_W - msg.length) / 2) + 1);
+      const insideWidth = Math.max(0, row.length - 2);
+      const start = Math.max(1, Math.floor((insideWidth - msg.length) / 2) + 1);
       for(let i = 0; i < msg.length && (start + i) < row.length - 1; i++){
         row[start + i] = msg[i];
       }
@@ -1722,12 +1796,13 @@
       if(!el.tetrisScreen || !tetrisState) return;
       const rows = [];
       const panel = [];
-      const totalRows = TETRIS_H + 2;
+      const displayW = TETRIS_W * TETRIS_SCALE_X;
+      const totalRows = (TETRIS_H * TETRIS_SCALE_Y) + 2;
       for(let i = 0; i < totalRows; i++) panel.push("");
 
       if(tetrisState.intro){
         const panelWidth = panel[0].length || 1;
-        const totalWidth = (TETRIS_W + 2) + panelWidth;
+        const totalWidth = (displayW + 2) + panelWidth;
         const blank = " ".repeat(totalWidth);
         for(let i = 0; i < totalRows; i++) rows.push(blank);
         const art = [
@@ -1762,7 +1837,7 @@
             }
           }
         }
-        const holdLines = holdPreview.map(r=>r.join(""));
+        const holdLines = holdPreview.map(r=>r.map(c=>c === "#" ? TETRIS_CELL_ON : TETRIS_CELL_OFF).join(""));
 
         const preview = Array.from({length:4}, ()=>Array(4).fill("."));
         if(tetrisState.nextPiece){
@@ -1773,23 +1848,24 @@
             }
           }
         }
-        const previewLines = preview.map(r=>r.join(""));
+        const previewLines = preview.map(r=>r.map(c=>c === "#" ? TETRIS_CELL_ON : TETRIS_CELL_OFF).join(""));
+        const panelBoxWidth = 4 * TETRIS_SCALE_X;
         panel[0] = "  HOLD";
-        panel[1] = "  +----+";
+        panel[1] = "  +" + "-".repeat(panelBoxWidth) + "+";
         for(let i = 0; i < 4; i++){
           panel[2 + i] = "  |" + holdLines[i] + "|";
         }
-        panel[6] = "  +----+";
+        panel[6] = "  +" + "-".repeat(panelBoxWidth) + "+";
         const clearCount = Math.min(tetrisState.score, 10);
         panel[7] = "  CLEAR " + String(clearCount).padStart(2, "0") + "/10";
         panel[8] = "  NEXT";
-        panel[9] = "  +----+";
+        panel[9] = "  +" + "-".repeat(panelBoxWidth) + "+";
         for(let i = 0; i < 4; i++){
           panel[10 + i] = "  |" + previewLines[i] + "|";
         }
-        panel[14] = "  +----+";
+        panel[14] = "  +" + "-".repeat(panelBoxWidth) + "+";
 
-        rows.push("+" + "-".repeat(TETRIS_W) + "+");
+        rows.push("+" + "-".repeat(displayW) + "+");
         const {piece} = tetrisState;
         for(let y = 0; y < TETRIS_H; y++){
           let line = "|";
@@ -1803,12 +1879,14 @@
                 }
               }
             }
-            line += filled ? "#" : ".";
+            line += filled ? TETRIS_CELL_ON : TETRIS_CELL_OFF;
           }
           line += "|";
-          rows.push(line);
+          for(let sy = 0; sy < TETRIS_SCALE_Y; sy++){
+            rows.push(line);
+          }
         }
-        rows.push("+" + "-".repeat(TETRIS_W) + "+");
+        rows.push("+" + "-".repeat(displayW) + "+");
 
         if(tetrisState.gameOver){
           const mid = Math.floor(rows.length / 2);
@@ -1832,7 +1910,11 @@
       if(!el.connDot || !el.connText) return;
       if(connected){ el.connDot.classList.add("ok"); el.connText.textContent = t("connConnected"); }
       else { el.connDot.classList.remove("ok"); el.connText.textContent = t("connDisconnected"); }
+      if(connected || sampleCounter === 0) hideDisconnectOverlay();
+      else showDisconnectOverlay();
       updateInspectionAccess();
+      updateMotorInfoPanel();
+      updateHomeUI();
     }
 
     function updateWsUI(){
@@ -1845,6 +1927,154 @@
         el.wsText.textContent = wsEverConnected ? "OFF" : "INIT";
       }
       updateWsAlert();
+      updateHomeUI();
+    }
+    function updateHomeLog(){
+      if(!el.homeLog) return;
+      if(!eventLog.length){
+        el.homeLog.textContent = "-";
+        return;
+      }
+      const recent = eventLog.slice(-3).reverse().map(item=>{
+        const time = (item.time || "").slice(11, 19);
+        const tag = item.tag ? "[" + item.tag + "] " : "";
+        return time + " " + tag + item.message;
+      });
+      el.homeLog.textContent = recent.join("\n");
+    }
+
+    function syncQuickDataHeight(){
+      const mainCard = document.querySelector(".main-card");
+      const quickCard = document.querySelector(".motor-card");
+      if(!mainCard || !quickCard) return;
+      quickCard.style.height = "";
+      const mainH = mainCard.getBoundingClientRect().height;
+      if(mainH > 0) quickCard.style.height = Math.round(mainH) + "px";
+    }
+    function setHomeBadge(node, label, tone){
+      if(!node) return;
+      node.classList.remove("is-ok","is-warn","is-alert","is-off");
+      if(tone) node.classList.add(tone);
+      node.textContent = label;
+    }
+    function formatBoardNameHtml(name){
+      const normalized = String(name || "").trim().replace(/\s+/g, " ");
+      if(!normalized || normalized === "-") return null;
+      const upper = normalized.toUpperCase();
+      if(upper === "ALTIS INTELLIGNET V1" || upper === "ALTIS INTELLIGENT V1"){
+        return '<span class="board-name-strong">ALTIS</span> <span class="board-name-regular">INTELLIGNET</span> <span class="board-name-light">V1</span>';
+      }
+      return null;
+    }
+
+    function setBoardNameDisplay(node, name, fallback){
+      if(!node) return;
+      const value = String(name || "").trim();
+      const label = (value && value !== "-") ? value : (fallback || "FLASH6");
+      const html = formatBoardNameHtml(label);
+      if(html){
+        node.innerHTML = html;
+      }else{
+        node.textContent = label;
+      }
+    }
+
+    function updateHomeUI(){
+      if(!el.homeView) return;
+      const textOrDash = (node)=> (node && node.textContent && node.textContent.trim()) ? node.textContent.trim() : "-";
+      const boardName = textOrDash(el.hwBoardName);
+      if(el.pageKicker){
+        setBoardNameDisplay(el.pageKicker, boardName, "FLASH6");
+        el.pageKicker.classList.remove("hidden");
+      }
+      if(el.homeConnStatus) el.homeConnStatus.textContent = textOrDash(el.connText);
+      if(el.homeWsStatus) el.homeWsStatus.textContent = textOrDash(el.wsText);
+      if(el.homeMode) el.homeMode.textContent = textOrDash(el.modePill);
+      if(el.homeStatus){
+        const pill = textOrDash(el.statusPill);
+        const text = textOrDash(el.statusText);
+        el.homeStatus.textContent = (pill !== "-" && text !== "-") ? (pill + " — " + text) : (text !== "-" ? text : pill);
+      }
+      if(el.homeRelay) el.homeRelay.textContent = textOrDash(el.relay);
+      if(el.homeSwitch) el.homeSwitch.textContent = textOrDash(el.sw);
+      if(el.homeIgniter) el.homeIgniter.textContent = textOrDash(el.ic);
+      if(el.homeSafety){
+        const safety = (el.safeModeToggle && el.safeModeToggle.checked) ? "ON" : "OFF";
+        el.homeSafety.textContent = safety;
+      }
+      if(el.homeHeroBoard) el.homeHeroBoard.textContent = boardName;
+      if(el.homeFirmware) el.homeFirmware.textContent = textOrDash(el.hwFirmwareName);
+      if(el.homeProtocol) el.homeProtocol.textContent = textOrDash(el.hwProtocolName);
+      const serialLabel = !serialEnabled ? t("serialOff") : (serialConnected ? t("serialConnected") : t("serialDisconnected"));
+      if(el.homeSerialStatus) el.homeSerialStatus.textContent = serialLabel;
+
+      const heroLive = connOk && wsConnected;
+      if(el.homeHeroPill){
+        el.homeHeroPill.textContent = heroLive ? "LIVE" : "OFFLINE";
+        el.homeHeroPill.classList.toggle("is-offline", !heroLive);
+      }
+
+      setHomeBadge(el.homeStatusBadge,
+        lockoutLatched ? "ALERT" : (safetyModeEnabled ? "SAFE" : "OK"),
+        lockoutLatched ? "is-alert" : (safetyModeEnabled ? "is-warn" : "is-ok"));
+      setHomeBadge(el.homeConnBadge, connOk ? "OK" : "OFF", connOk ? "is-ok" : "is-alert");
+      if(wsConnected){
+        setHomeBadge(el.homeWsBadge, "ON", "is-ok");
+      }else if(wsEverConnected){
+        setHomeBadge(el.homeWsBadge, "OFF", "is-warn");
+      }else{
+        setHomeBadge(el.homeWsBadge, "INIT", "is-off");
+      }
+      setHomeBadge(el.homeModeBadge, (textOrDash(el.modePill) !== "-") ? "OK" : "OFF", (textOrDash(el.modePill) !== "-") ? "is-ok" : "is-off");
+      setHomeBadge(el.homeSafetyBadge,
+        (el.safeModeToggle && el.safeModeToggle.checked) ? "ON" : "OFF",
+        (el.safeModeToggle && el.safeModeToggle.checked) ? "is-ok" : "is-warn");
+      if(!serialEnabled){
+        setHomeBadge(el.homeSerialBadge, "OFF", "is-off");
+      }else if(serialConnected){
+        setHomeBadge(el.homeSerialBadge, "OK", "is-ok");
+      }else{
+        setHomeBadge(el.homeSerialBadge, "ERR", "is-alert");
+      }
+
+      const missionName = (el.missionName && el.missionName.value && el.missionName.value.trim()) ? el.missionName.value.trim() : "-";
+      const missionMotor = (selectedMotorName || (el.missionName && el.missionName.value) || "").trim() || "-";
+      const missionDelay = (el.missionIgnDelay && el.missionIgnDelay.value && el.missionIgnDelay.value.trim()) ? (el.missionIgnDelay.value.trim() + " s") : "-";
+      if(el.homeMissionName) el.homeMissionName.textContent = missionName;
+      if(el.homeMissionMotor) el.homeMissionMotor.textContent = missionMotor;
+      if(el.homeMissionDelay) el.homeMissionDelay.textContent = missionDelay;
+
+      const battValue = (lastBatteryV != null && isFinite(lastBatteryV)) ? lastBatteryV.toFixed(2) : null;
+      const battPct = (lastBatteryPct != null && isFinite(lastBatteryPct)) ? Math.round(lastBatteryPct) : null;
+      if(el.homeHealthBattery){
+        el.homeHealthBattery.textContent = battValue ? (battValue + " V" + (battPct != null ? (" · " + battPct + "%") : "")) : "--";
+      }
+      setHomeBadge(el.homeHealthBatteryBadge, battValue ? "OK" : "WAIT", battValue ? "is-ok" : "is-warn");
+
+      const igniterOk = !isIgniterCheckEnabled() || latestTelemetry.ic === 1;
+      if(el.homeHealthIgniter) el.homeHealthIgniter.textContent = isIgniterCheckEnabled() ? (latestTelemetry.ic === 1 ? "OK" : "OPEN") : "SKIP";
+      setHomeBadge(el.homeHealthIgniterBadge, isIgniterCheckEnabled() ? (igniterOk ? "OK" : "ALERT") : "OFF",
+        isIgniterCheckEnabled() ? (igniterOk ? "is-ok" : "is-alert") : "is-off");
+
+      const switchSafe = latestTelemetry.sw === 0;
+      if(el.homeHealthSwitch) el.homeHealthSwitch.textContent = (latestTelemetry.sw == null) ? "--" : (switchSafe ? "OFF" : "ON");
+      setHomeBadge(el.homeHealthSwitchBadge, (latestTelemetry.sw == null) ? "WAIT" : (switchSafe ? "OK" : "ALERT"),
+        (latestTelemetry.sw == null) ? "is-warn" : (switchSafe ? "is-ok" : "is-alert"));
+
+      if(el.homeHealthRelay) el.homeHealthRelay.textContent = lockoutLatched ? "LOCKOUT" : "OK";
+      setHomeBadge(el.homeHealthRelayBadge, lockoutLatched ? "ALERT" : "OK", lockoutLatched ? "is-alert" : "is-ok");
+
+      const armed = isControlUnlocked();
+      if(el.homeArmBtn){
+        el.homeArmBtn.textContent = armed ? "DISARM" : "ARM";
+        el.homeArmBtn.classList.toggle("is-active", armed);
+      }
+      if(el.homeSafeBtn) el.homeSafeBtn.classList.toggle("is-active", !!(el.safeModeToggle && el.safeModeToggle.checked));
+      if(el.homeIgniterBtn) el.homeIgniterBtn.classList.toggle("is-active", !!(el.igswitch && el.igswitch.checked));
+      if(el.homeActionHint){
+        el.homeActionHint.textContent = armed ? "제어 권한 활성" : "점검 후 ARM 가능";
+      }
+      updateHomeLog();
     }
 
     function addLogLine(message, tag){
@@ -1872,6 +2102,7 @@
         logLines.shift();
       }
       el.logView.scrollTop = el.logView.scrollHeight;
+      updateHomeLog();
     }
 
     function getToastIconPath(type){
@@ -1886,16 +2117,59 @@
       if(!toast || toast._dismissed) return;
       toast._dismissed = true;
       if(toast._timer){ clearTimeout(toast._timer); toast._timer = null; }
+      if(toast._expandTimer){ clearTimeout(toast._expandTimer); toast._expandTimer = null; }
       toast.classList.remove("toast-show");
       toast.classList.add("toast-hide");
       setTimeout(()=>{ if(toast && toast.parentNode) toast.parentNode.removeChild(toast); }, 220);
     }
 
+    function getToastTitle(type, message){
+      const msg = String(message || "");
+      const lower = msg.toLowerCase();
+      const rules = [
+        {re:/lockout|락아웃/i, title:"LOCKOUT 경고"},
+        {re:/abort|중단/i, title:"시퀀스 중단"},
+        {re:/점화|ignition|ignite|thrust/i, title:"점화 알림"},
+        {re:/카운트다운|countdown/i, title:"카운트다운"},
+        {re:/시퀀스|sequence/i, title:"시퀀스 상태"},
+        {re:/메타데이터|미지정/i, title:"메타데이터 없음"},
+        {re:/미션|mission/i, title:"미션 설정"},
+        {re:/점검|inspection/i, title:"점검 결과"},
+        {re:/시리얼|serial/i, title:"시리얼 상태"},
+        {re:/연결|connect|disconnected|connected|link/i, title:"연결 상태"},
+        {re:/로드셀|loadcell/i, title:"로드셀 저장"},
+        {re:/복사|copy|clipboard/i, title:"복사 결과"},
+        {re:/저장|save|saved/i, title:"저장 완료"},
+        {re:/설정|setting|변경|changed/i, title:"설정 변경"},
+        {re:/안전|safety/i, title:"안전 모드"},
+        {re:/스위치|switch/i, title:"스위치 상태"},
+        {re:/이그나이터|igniter/i, title:"이그나이터 상태"},
+        {re:/배터리|battery/i, title:"배터리 상태"},
+        {re:/대시보드|dashboard/i, title:"대시보드 시작"},
+        {re:/강제|force/i, title:"강제 점화"}
+      ];
+      for(const rule of rules){
+        if(rule.re.test(msg) || rule.re.test(lower)){
+          return rule.title;
+        }
+      }
+      if(type==="success") return t("toastTitleSuccess");
+      if(type==="warn") return t("toastTitleWarn");
+      if(type==="error") return t("toastTitleError");
+      if(type==="ignite") return t("toastTitleIgnite");
+      return t("toastTitleInfo");
+    }
+
     function showToast(message, type, opts){
       if(!el.toastContainer) return;
       const toastType = type || "info";
-  const duration = (opts && opts.duration) ? opts.duration : 3000;
+      const duration = (opts && opts.duration) ? opts.duration : 3000;
       const key = (opts && opts.key) ? String(opts.key) : null;
+      const titleText = getToastTitle(toastType, message);
+
+      for(const node of Array.from(el.toastContainer.children)){
+        dismissToast(node);
+      }
 
       let existingToast = null;
       if(key){
@@ -1911,19 +2185,19 @@
         existingToast.className = "toast toast-" + toastType;
         const img = existingToast.querySelector(".toast-icon img");
         if(img) img.src = getToastIconPath(toastType);
-        const titleDiv = existingToast.querySelector(".toast-title");
-        if(titleDiv){
-          if(toastType==="success") titleDiv.textContent = t("toastTitleSuccess");
-          else if(toastType==="warn") titleDiv.textContent = t("toastTitleWarn");
-          else if(toastType==="error") titleDiv.textContent = t("toastTitleError");
-          else if(toastType==="ignite") titleDiv.textContent = t("toastTitleIgnite");
-          else titleDiv.textContent = t("toastTitleInfo");
-        }
         const textDiv = existingToast.querySelector(".toast-text");
-        if(textDiv) textDiv.textContent = message;
+        if(textDiv) textDiv.textContent = titleText;
+        existingToast.dataset.full = message;
+        existingToast.classList.remove("toast-expanded");
         if(existingToast._timer){ clearTimeout(existingToast._timer); }
+        if(existingToast._expandTimer){ clearTimeout(existingToast._expandTimer); }
         existingToast.classList.remove("toast-hide");
         requestAnimationFrame(()=>existingToast.classList.add("toast-show"));
+        existingToast._expandTimer = setTimeout(()=>{
+          if(existingToast._dismissed) return;
+          existingToast.classList.add("toast-expanded");
+          if(textDiv) textDiv.textContent = existingToast.dataset.full || message;
+        }, 1000);
         existingToast._timer = setTimeout(()=>dismissToast(existingToast), duration);
         return;
       }
@@ -1944,27 +2218,33 @@
       const bodyDiv = document.createElement("div");
       bodyDiv.className = "toast-body";
 
-      const titleDiv = document.createElement("div");
-      titleDiv.className = "toast-title";
-      if(toastType==="success") titleDiv.textContent = t("toastTitleSuccess");
-      else if(toastType==="warn") titleDiv.textContent = t("toastTitleWarn");
-      else if(toastType==="error") titleDiv.textContent = t("toastTitleError");
-      else if(toastType==="ignite") titleDiv.textContent = t("toastTitleIgnite");
-      else titleDiv.textContent = t("toastTitleInfo");
-
       const textDiv = document.createElement("div");
       textDiv.className = "toast-text";
-      textDiv.textContent = message;
+      textDiv.textContent = titleText;
 
-      bodyDiv.appendChild(titleDiv);
+      toast.dataset.full = message;
       bodyDiv.appendChild(textDiv);
 
       toast.appendChild(iconDiv);
       toast.appendChild(bodyDiv);
 
-      toast.addEventListener("click", ()=>dismissToast(toast));
+      toast.addEventListener("click", ()=>{
+        if(!toast.classList.contains("toast-expanded")){
+          toast.classList.add("toast-expanded");
+          textDiv.textContent = toast.dataset.full || message;
+          if(toast._timer){ clearTimeout(toast._timer); toast._timer = null; }
+          if(toast._expandTimer){ clearTimeout(toast._expandTimer); toast._expandTimer = null; }
+          return;
+        }
+        dismissToast(toast);
+      });
       el.toastContainer.appendChild(toast);
       requestAnimationFrame(()=>toast.classList.add("toast-show"));
+      toast._expandTimer = setTimeout(()=>{
+        if(toast._dismissed) return;
+        toast.classList.add("toast-expanded");
+        textDiv.textContent = toast.dataset.full || message;
+      }, 1000);
       toast._timer = setTimeout(()=>dismissToast(toast), duration);
     }
 
@@ -2016,6 +2296,32 @@
         playTone(freq, dur, offset);
         offset += dur + gap;
       }
+    }
+    const TETRIS_BGM = [
+      {freq:659, dur:140},{freq:494, dur:70},{freq:523, dur:70},{freq:587, dur:140},{freq:523, dur:70},{freq:494, dur:70},
+      {freq:440, dur:140},{freq:440, dur:70},{freq:523, dur:70},{freq:659, dur:140},{freq:587, dur:70},{freq:523, dur:70},
+      {freq:494, dur:210},{freq:523, dur:70},{freq:587, dur:140},{freq:659, dur:140},
+      {freq:523, dur:140},{freq:440, dur:140},{freq:440, dur:70},{freq:440, dur:140},{freq:494, dur:70},{freq:523, dur:70},
+      {freq:587, dur:210},{freq:698, dur:70},{freq:880, dur:140},{freq:784, dur:70},{freq:698, dur:70},
+      {freq:659, dur:210},{freq:523, dur:70},{freq:659, dur:140},{freq:587, dur:70},{freq:523, dur:70}
+    ];
+    function stopTetrisBgm(){
+      tetrisBgmActive = false;
+      if(tetrisBgmTimer){ clearTimeout(tetrisBgmTimer); tetrisBgmTimer = null; }
+    }
+    function playTetrisBgm(){
+      stopTetrisBgm();
+      tetrisBgmActive = true;
+      tetrisBgmIndex = 0;
+      const tick = ()=>{
+        if(!tetrisBgmActive) return;
+        const tone = TETRIS_BGM[tetrisBgmIndex];
+        playTone(tone.freq, tone.dur, 0);
+        const gap = (tone.gap != null) ? tone.gap : 30;
+        tetrisBgmIndex = (tetrisBgmIndex + 1) % TETRIS_BGM.length;
+        tetrisBgmTimer = setTimeout(tick, tone.dur + gap);
+      };
+      tick();
     }
 
     function safetyLineSuffix(){
@@ -2075,9 +2381,7 @@
 
     function updateInspectionAccess(){
       if(!el.inspectionOpenBtn) return;
-      const relayOn = latestTelemetry && latestTelemetry.rly === 1;
-      const switchOn = latestTelemetry && latestTelemetry.sw === 1;
-      const blocked = (!connOk || currentSt !== 0 || relayOn || switchOn);
+      const blocked = inspectionRunning;
       el.inspectionOpenBtn.classList.toggle("disabled", blocked);
       el.inspectionOpenBtn.setAttribute("aria-disabled", blocked ? "true" : "false");
     }
@@ -2087,14 +2391,16 @@
       const unlocked=isControlUnlocked();
       if(el.forceBtn){
         const igniterBlocked = (uiSettings && uiSettings.igs) && latestTelemetry.ic !== 1;
-        const blocked = (!unlocked || lockoutLatched || state!==0 || igniterBlocked || safetyModeEnabled);
+        const blocked = (!unlocked || lockoutLatched || state!==0 || sequenceActive || igniterBlocked || safetyModeEnabled);
         el.forceBtn.disabled = blocked;
         el.forceBtn.classList.toggle("disabled", blocked);
       }
-      if(el.launcherOpenBtn){
+      if(el.launcherOpenBtns && el.launcherOpenBtns.length){
         const blocked = !canOperateLauncher();
-        el.launcherOpenBtn.classList.toggle("disabled", blocked);
-        el.launcherOpenBtn.setAttribute("aria-disabled", blocked ? "true" : "false");
+        el.launcherOpenBtns.forEach(btn=>{
+          btn.classList.toggle("disabled", blocked);
+          btn.setAttribute("aria-disabled", blocked ? "true" : "false");
+        });
       }
       updateInspectionPill();
     }
@@ -2185,7 +2491,7 @@
           {freq:1100, dur:180, gap:0}
         ]);
       }
-      setButtonsFromState(currentSt, lockoutLatched);
+      setButtonsFromState(currentSt, lockoutLatched, sequenceActive);
       updateInspectionPill();
     }
 
@@ -2204,16 +2510,6 @@
       }
     }
 
-    function colorToRgba(hex, alpha){
-      if(!hex) hex="#000000";
-      if(hex[0]==="#") hex=hex.substring(1);
-      if(hex.length===3) hex=hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
-      const r=parseInt(hex.substring(0,2),16)||0;
-      const g=parseInt(hex.substring(2,4),16)||0;
-      const b=parseInt(hex.substring(4,6),16)||0;
-      return "rgba("+r+","+g+","+b+","+alpha+")";
-    }
-
     // ✅ KST 시각 표시
     function updateKstClock(){
       if(!el.kstTime) return;
@@ -2225,6 +2521,24 @@
     function getViewIndices(data, view){
       const len=data.length;
       if(len===0) return {start:0,end:-1};
+
+      if(view && view.windowMs && chartTimeHistory.length === len){
+        let windowMs = view.windowMs;
+        if(windowMs < CHART_WINDOW_MS_MIN) windowMs = CHART_WINDOW_MS_MIN;
+        if(windowMs > CHART_WINDOW_MS_MAX) windowMs = CHART_WINDOW_MS_MAX;
+
+        const lastTime = chartTimeHistory[len - 1] || 0;
+        let startMs = view.startMs;
+        if(startMs == null) startMs = lastTime - windowMs;
+        const endMs = startMs + windowMs;
+
+        let start = 0;
+        while(start < len && chartTimeHistory[start] < startMs) start++;
+        let end = len - 1;
+        while(end > start && chartTimeHistory[end] > endMs) end--;
+        return {start, end};
+      }
+
       let windowSize=view.window||len;
       if(windowSize<2) windowSize=2;
       if(windowSize>len) windowSize=len;
@@ -2234,11 +2548,24 @@
       return {start:start,end:start+windowSize-1};
     }
 
+    function colorToRgba(hex, alpha){
+      if(!hex) hex="#000000";
+      if(hex[0]==="#") hex=hex.substring(1);
+      if(hex.length===3) hex=hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+      const r=parseInt(hex.substring(0,2),16)||0;
+      const g=parseInt(hex.substring(2,4),16)||0;
+      const b=parseInt(hex.substring(4,6),16)||0;
+      return "rgba("+r+","+g+","+b+","+alpha+")";
+    }
+
     // =====================
     // 캔버스 DPR 보정
     // =====================
     function ensureCanvasSize(canvas){
       const rect = canvas.getBoundingClientRect();
+      if(rect.width < 2 || rect.height < 2 || canvas.offsetParent === null){
+        return null;
+      }
       if(!canvas._cssInit){
         canvas.style.width = "100%";
         canvas.style.height = "";
@@ -2274,7 +2601,9 @@
       const canvas=document.getElementById(canvasId);
       if(!canvas) return;
 
-      const { w:width, h:height, ctx } = ensureCanvasSize(canvas);
+      const size = ensureCanvasSize(canvas);
+      if(!size) return;
+      const { w:width, h:height, ctx } = size;
       ctx.clearRect(0,0,width,height);
       const padding=6;
       ctx.save();
@@ -2378,67 +2707,118 @@
       drawChart("thrustChart", thrustDisplay, "#ef4444", chartView);
       drawChart("pressureChart", pressureDisplay, "#3b82f6", chartView);
     }
+    function refreshChartLayout(){
+      const row = document.querySelector(".chart-row");
+      if(row) row.style.height = "";
+      const ids=["thrustChart","pressureChart"];
+      ids.forEach((id)=>{
+        const canvas=document.getElementById(id);
+        if(!canvas) return;
+        canvas._cssW=null;
+        canvas._cssH=null;
+      });
+      redrawCharts();
+    }
 
     // =====================
     // 상태/버튼
     // =====================
-    function setStatusFromState(st, ignOK, aborted, lockout){
+    function setStatusFromState(st, ignOK, aborted, lockout, seqActive){
       if(!el.statusPill||!el.statusText) return 0;
+      el.statusPill.classList.remove("hidden");
+      if(el.statusPillMeta) el.statusPillMeta.classList.remove("hidden");
 
       if(lockout){
         el.statusPill.className="status-lock";
+        if(el.statusPillMeta) el.statusPillMeta.className="status-lock";
         el.statusPill.textContent = t("statusLockout");
+        if(el.statusPillMeta) el.statusPillMeta.textContent = t("statusLockout");
         const name = relayMaskName(lockoutRelayMask);
         el.statusText.textContent = t("statusLockoutText", {name});
         return 9;
       }
       if(aborted){
         el.statusPill.className="status-abort";
+        if(el.statusPillMeta) el.statusPillMeta.className="status-abort";
         el.statusPill.textContent = t("statusAbort");
+        if(el.statusPillMeta) el.statusPillMeta.textContent = t("statusAbort");
         el.statusText.textContent = t("statusAbortTextReason", {reason:getAbortReasonLabel()});
         return 4;
       }
       if(st===2){
         el.statusPill.className="status-fire";
+        if(el.statusPillMeta) el.statusPillMeta.className="status-fire";
         el.statusPill.textContent = t("statusIgnition");
+        if(el.statusPillMeta) el.statusPillMeta.textContent = t("statusIgnition");
         el.statusText.textContent = t("statusIgnitionText");
         return 2;
       }
       if(st===1){
         el.statusPill.className="status-count";
+        if(el.statusPillMeta) el.statusPillMeta.className="status-count";
         el.statusPill.textContent = t("statusCountdown");
+        if(el.statusPillMeta) el.statusPillMeta.textContent = t("statusCountdown");
         el.statusText.textContent = t("statusCountdownText");
         return 1;
       }
+      if(seqActive){
+        el.statusPill.className="status-seq";
+        if(el.statusPillMeta) el.statusPillMeta.className="status-seq";
+        el.statusPill.textContent = t("statusSequence");
+        if(el.statusPillMeta) el.statusPillMeta.textContent = t("statusSequence");
+        el.statusText.textContent = t("statusSequenceText");
+        return 5;
+      }
       if(!ignOK){
         el.statusPill.className="status-disc";
+        if(el.statusPillMeta) el.statusPillMeta.className="status-disc";
         el.statusPill.textContent = t("statusNotArmed");
+        if(el.statusPillMeta) el.statusPillMeta.textContent = t("statusNotArmed");
         const allowSeq = !(uiSettings && uiSettings.igs);
         el.statusText.textContent = allowSeq ? t("statusNotArmedTextReady") : t("statusNotArmedTextBlocked");
         return 3;
       }
       el.statusPill.className="status-ready";
+      if(el.statusPillMeta) el.statusPillMeta.className="status-ready";
       el.statusPill.textContent = t("statusReady");
+      if(el.statusPillMeta) el.statusPillMeta.textContent = t("statusReady");
       el.statusText.textContent = t("statusReadyText");
       return 0;
     }
 
-    function setButtonsFromState(st, lockout){
+    function setButtonsFromState(st, lockout, seqActive){
       if(!el.igniteBtn||!el.abortBtn){ updateControlAccessUI(st); return; }
       if(lockout){
         el.igniteBtn.disabled=true;
         el.abortBtn.disabled=true;
+        if(el.igniteBtn) el.igniteBtn.textContent = t("sequenceStartBtn");
         updateControlAccessUI(st);
         return;
       }
       if(!isControlUnlocked()){
         el.igniteBtn.disabled=true;
         el.abortBtn.disabled = (st===0);
+        if(el.igniteBtn) el.igniteBtn.textContent = t("sequenceStartBtn");
         updateControlAccessUI(st);
         return;
       }
-      if(st===0){ el.igniteBtn.disabled=false; el.abortBtn.disabled=true; }
-      else { el.igniteBtn.disabled=true; el.abortBtn.disabled=false; }
+      if(seqActive){
+        el.igniteBtn.disabled=false;
+        el.abortBtn.disabled=true;
+        if(el.igniteBtn) el.igniteBtn.textContent = t("sequenceEndBtn");
+      }else if(st===1 || st===2){
+        el.igniteBtn.disabled=false;
+        el.abortBtn.disabled=false;
+        if(el.igniteBtn) el.igniteBtn.textContent = t("sequenceEndBtn");
+      }else if(st===0){
+        el.igniteBtn.disabled=false;
+        el.abortBtn.disabled=true;
+        if(el.igniteBtn) el.igniteBtn.textContent = t("sequenceStartBtn");
+      }else{
+        el.igniteBtn.disabled=true;
+        el.abortBtn.disabled=false;
+        if(el.igniteBtn) el.igniteBtn.textContent = t("sequenceStartBtn");
+      }
       if(safetyModeEnabled){
         el.igniteBtn.disabled = true;
         if(st===0) el.abortBtn.disabled = true;
@@ -2564,8 +2944,8 @@
         }
 
         if(el.statusPill && el.statusText && !lockoutLatched){
-          el.statusPill.className="status-disc";
-          el.statusPill.textContent = t("statusDisconnected");
+          el.statusPill.className="status-disc hidden";
+          el.statusPill.textContent = "";
           el.statusText.textContent = reason || t("statusNoResponse");
         }
 
@@ -2574,7 +2954,8 @@
           disconnectedLogged = true;
         }
 
-        if(now - lastDiscAnnounceMs > DISC_TOAST_COOLDOWN_MS){
+        if(!unstableToastShown){
+          unstableToastShown = true;
           lastDiscAnnounceMs = now;
           showToast(t("boardUnstable"), "warn");
         }
@@ -2600,6 +2981,7 @@
         serialReader = serialPort.readable?.getReader?.({ signal: serialReadAbort.signal }) || null;
         serialConnected = true;
         updateSerialPill();
+        hideDisconnectOverlay();
 
         addLogLine(t("webserialConnected"), "SER");
         showToast(t("webserialConnectedToast"), "success");
@@ -2627,6 +3009,7 @@
         serialConnected = false;
         updateSerialPill();
         addLogLine(t("webserialDisconnected"), "SER");
+        if(serialEnabled) showDisconnectOverlay();
       }
     }
 
@@ -2644,27 +3027,36 @@
 
     async function readSerialLoop(){
       const decoder = new TextDecoder();
-      while(serialReader){
-        const { value, done } = await serialReader.read();
-        if(done) break;
-        if(!value) continue;
+      try{
+        while(serialReader){
+          const { value, done } = await serialReader.read();
+          if(done) break;
+          if(!value) continue;
 
-        if(!serialRxEnabled) continue;
+          if(!serialRxEnabled) continue;
 
-        const chunk = decoder.decode(value, { stream:true });
-        serialLineBuf += chunk;
+          const chunk = decoder.decode(value, { stream:true });
+          serialLineBuf += chunk;
 
-        let idx;
-        while((idx = serialLineBuf.indexOf("\n")) >= 0){
-          const line = serialLineBuf.slice(0, idx).trim();
-          serialLineBuf = serialLineBuf.slice(idx+1);
-          if(!line) continue;
-          if(line[0] === "{" && line[line.length-1] === "}"){
-            try{
-              const obj = JSON.parse(line);
-              onIncomingSample(obj, "SER");
-            }catch(e){}
+          let idx;
+          while((idx = serialLineBuf.indexOf("\n")) >= 0){
+            const line = serialLineBuf.slice(0, idx).trim();
+            serialLineBuf = serialLineBuf.slice(idx+1);
+            if(!line) continue;
+            if(line[0] === "{" && line[line.length-1] === "}"){
+              try{
+                const obj = JSON.parse(line);
+                onIncomingSample(obj, "SER");
+              }catch(e){}
+            }
           }
+        }
+      } finally{
+        if(serialConnected){
+          serialConnected = false;
+          updateSerialPill();
+          addLogLine(t("webserialDisconnected"), "SER");
+          if(serialEnabled) showDisconnectOverlay();
         }
       }
     }
@@ -2687,6 +3079,7 @@
 
       if(!connOk){
         connOk = true;
+        unstableToastShown = false;
         disconnectedLogged = false;
         updateConnectionUI(true);
         addLogLine(t("linkEstablished", {src:srcTag}), "NET");
@@ -2714,6 +3107,7 @@
       const rly = (data.r  != null ? data.r  : data.rly ?? 0);
       const st  = Number(data.st != null ? data.st : (data.state ?? 0));
       const cd  = (data.cd != null ? Number(data.cd) : null);
+      const td  = (data.td != null ? Number(data.td) : null);
       const uw  = Number(data.uw ?? 0);
       const ab  = Number(data.ab != null ? data.ab : 0);
       const ar  = (data.ar != null ? Number(data.ar) : null);
@@ -2725,8 +3119,18 @@
       // ✅ LOCKOUT 필드 매칭(펌웨어: rf/rm 우선)
       const lko = Number(data.lko ?? data.lockout ?? data.rf ?? 0);
       const rm  = Number(data.rm  ?? data.rmask   ?? data.rm ?? 0);
+      const battRaw = data.vbatt ?? data.vbat ?? data.batt ?? data.battery ?? data.iv ?? null;
+      if(battRaw != null && isFinite(Number(battRaw))){
+        lastBatteryV = Number(battRaw);
+      }
+      const battPctRaw = data.bp ?? data.batt_pct ?? data.battery_pct ?? null;
+      if(battPctRaw != null && isFinite(Number(battPctRaw))){
+        const pct = Math.max(0, Math.min(100, Number(battPctRaw)));
+        lastBatteryPct = pct;
+      }
 
       currentSt=st;
+      sequenceActive = (td != null && isFinite(td) && td > 0 && st === 0);
       if(ar != null){
         const mapped = mapAbortReasonCode(ar);
         if(mapped){
@@ -2737,6 +3141,15 @@
       }
       if(st===2 && st2StartMs===null) st2StartMs=Date.now();
       if(st!==2) st2StartMs=null;
+      if(st===2){
+        if(localTplusStartMs===null) localTplusStartMs=Date.now();
+        localTplusActive = true;
+      }else if(st===1){
+        localTplusActive = false;
+        localTplusStartMs = null;
+      }else if(st===0 && localTplusStartMs!=null){
+        localTplusActive = true;
+      }
       latestTelemetry = {
         sw: sw?1:0,
         ic: ic?1:0,
@@ -2765,13 +3178,14 @@
 
       thrustBaseHistory.push(thrustVal);
       pressureBaseHistory.push(p);
+      chartTimeHistory.push(timeMs);
 
       const maxKeep=MAX_POINTS*4;
       if(thrustBaseHistory.length>maxKeep){
         const remove=thrustBaseHistory.length-maxKeep;
         thrustBaseHistory.splice(0,remove);
         pressureBaseHistory.splice(0,remove);
-        chartView.start=Math.max(0,chartView.start-remove);
+        chartTimeHistory.splice(0,remove);
       }
 
       sampleHistory.push({timeMs,timeIso,t:thrustVal,p,lt,elapsed:elapsedMs,hz:hxHz,ct:ctUs,sw:sw?1:0,ic:ic?1:0,r:rly?1:0,st,cd:cd??0});
@@ -2835,6 +3249,7 @@
         }
       }
       prevStForIgn=st;
+      updateMotorInfoPanel();
 
       // UI 업데이트(스킵)
       if(sampleCounter % UI_SAMPLE_SKIP === 0){
@@ -2845,6 +3260,10 @@
         else if(prevSwState!==!!sw){
           prevSwState=!!sw;
           if(prevSwState){
+            if(currentSt === 0){
+              localTplusStartMs = Date.now();
+              localTplusActive = true;
+            }
             addLogLine(t("switchHighLog"), "SW");
             showToast(t("switchHighToast", {safety:safetyLineSuffix()}),"warn");
           }else{
@@ -2901,6 +3320,17 @@
 
         if(el.thrust)   el.thrust.innerHTML   = `<span class="num">${thrustDisp.toFixed(3)}</span><span class="unit">${thrustUnit}</span>`;
         if(el.pressure) el.pressure.innerHTML = `<span class="num">${p.toFixed(3)}</span><span class="unit">V</span>`;
+        if(el.thrustGauge){
+          const maxThrust = (String(thrustUnit).toLowerCase() === "lbf") ? THRUST_GAUGE_MAX_LBF : THRUST_GAUGE_MAX_KGF;
+          const thrustVal = Math.max(0, thrustDisp);
+          const thrustPct = Math.min(100, (maxThrust > 0 ? (thrustVal / maxThrust) * 100 : 0));
+          el.thrustGauge.style.setProperty("--gauge-pct", thrustPct.toFixed(1) + "%");
+        }
+        if(el.pressureGauge){
+          const pressureVal = Math.max(0, p);
+          const pressurePct = Math.min(100, (PRESSURE_GAUGE_MAX_V > 0 ? (pressureVal / PRESSURE_GAUGE_MAX_V) * 100 : 0));
+          el.pressureGauge.style.setProperty("--gauge-pct", pressurePct.toFixed(1) + "%");
+        }
         if(el.lt){
           el.lt.innerHTML = `
             <span class="lt-line"><span class="num">${lt.toFixed(0)}</span><span class="unit">ms</span></span>
@@ -2909,7 +3339,7 @@
           `;
         }
 
-        if(el.loopPill) el.loopPill.textContent = lt.toFixed(0) + " ms";
+        if(el.loopPill) el.loopPill.innerHTML = `<span class="num">${lt.toFixed(0)}</span><span class="unit">ms</span>`;
         if(el.snapHz){
           const nowUi = Date.now();
           if((nowUi - lastSnapHzUiMs) >= 1000 || lastSnapHzUiMs === 0){
@@ -2942,41 +3372,113 @@
           if(sw){ el.sw.textContent = t("swHigh"); el.sw.className="pill pill-green"; }
           else { el.sw.textContent = t("swLow"); el.sw.className="pill pill-gray"; }
         }
+        if(el.quickSw){
+          const swLabel = (sw == null) ? "--" : (sw ? t("swHigh") : t("swLow"));
+          el.quickSw.innerHTML = `<span class="num">${swLabel}</span>`;
+        }
 
         if(el.ic){
           if(ic){ el.ic.textContent = t("icOk"); el.ic.className="pill pill-green"; }
           else { el.ic.textContent = t("icNo"); el.ic.className="pill pill-red"; }
+        }
+        if(el.quickIgniter){
+          const icLabel = (ic == null) ? "--" : (ic ? t("icOk") : t("icNo"));
+          el.quickIgniter.innerHTML = `<span class="num">${icLabel}</span>`;
         }
 
         if(el.relay){
           if(rly){ el.relay.textContent = t("relayOn"); el.relay.className="pill pill-green"; }
           else { el.relay.textContent = t("relayOff"); el.relay.className="pill pill-gray"; }
         }
+        if(el.quickRelay){
+          const rlyLabel = (rly == null) ? "--" : (rly ? t("relayOn") : t("relayOff"));
+          el.quickRelay.innerHTML = `<span class="num">${rlyLabel}</span>`;
+        }
+        if(el.quickState){
+          let stateLabel="--";
+          if(lockoutLatched) stateLabel = t("statusLockout");
+          else if(ab) stateLabel = t("statusAbort");
+          else if(st===2) stateLabel = t("statusIgnition");
+          else if(st===1) stateLabel = t("statusCountdown");
+          else if(sequenceActive) stateLabel = t("statusSequence");
+          else if(st===0){
+            stateLabel = (ic===0) ? t("statusNotArmed") : t("statusReady");
+          }
+          el.quickState.innerHTML = `<span class="num">${stateLabel}</span>`;
+        }
 
         if(el.igswitch) el.igswitch.checked=!!gs;
-        if(el.safeModeToggle && sm != null) el.safeModeToggle.checked = !!sm;
+        if(el.safeModeToggle && sm != null){
+          el.safeModeToggle.checked = !!sm;
+          updateTogglePill(el.safeModePill, el.safeModeToggle.checked);
+        }
 
         if(el.countdown){
-          let cdText="--";
-          if(st===1 && cd!==null){
-            let sec=Math.ceil(cd/1000); if(sec<0) sec=0;
-            cdText=sec;
-            if(sec !== lastCountdownSec){
-              if(sec > 0){
+          let prefix = "T- ";
+          let cdText="--:--.---";
+          const pad2 = (n)=>String(n).padStart(2,"0");
+          const pad3 = (n)=>String(n).padStart(3,"0");
+          const useTd = (td != null && isFinite(td) && !(st === 0 && Number(td) === 0));
+
+          if(useTd){
+            if(td < 0){
+              const msRemain = Math.max(0, Math.round(-td));
+              const secRemain = Math.ceil(msRemain/1000);
+              const minPart = Math.floor(msRemain / 60000);
+              const secPart = Math.floor((msRemain % 60000) / 1000);
+              const msPart = msRemain % 1000;
+              cdText = pad2(minPart) + ":" + pad2(secPart) + "." + pad3(msPart);
+              if(secRemain !== lastCountdownSec){
+                if(secRemain > 0){
+                  playTone(880, 90, 0);
+                }else{
+                  playTone(1200, 200, 0);
+                }
+                lastCountdownSec = secRemain;
+              }
+            }else{
+              prefix = "T+ ";
+              const elapsedMs = Math.max(0, Math.round(td));
+              const minPart = Math.floor(elapsedMs / 60000);
+              const secPart = Math.floor((elapsedMs % 60000) / 1000);
+              const msPart = elapsedMs % 1000;
+              cdText = pad2(minPart) + ":" + pad2(secPart) + "." + pad3(msPart);
+              lastCountdownSec = null;
+            }
+          }else if(st===1 && cd!==null){
+            const msRemain = Math.max(0, Math.round(cd));
+            const secRemain = Math.ceil(msRemain/1000);
+            const minPart = Math.floor(msRemain / 60000);
+            const secPart = Math.floor((msRemain % 60000) / 1000);
+            const msPart = msRemain % 1000;
+            cdText = pad2(minPart) + ":" + pad2(secPart) + "." + pad3(msPart);
+            if(secRemain !== lastCountdownSec){
+              if(secRemain > 0){
                 playTone(880, 90, 0);
               }else{
                 playTone(1200, 200, 0);
               }
-              lastCountdownSec = sec;
+              lastCountdownSec = secRemain;
             }
+          }else if(localTplusActive && localTplusStartMs!=null){
+            prefix = "T+ ";
+            const elapsedMs = Math.max(0, Date.now() - localTplusStartMs);
+            const minPart = Math.floor(elapsedMs / 60000);
+            const secPart = Math.floor((elapsedMs % 60000) / 1000);
+            const msPart = elapsedMs % 1000;
+            cdText = pad2(minPart) + ":" + pad2(secPart) + "." + pad3(msPart);
+            lastCountdownSec = null;
           }else{
             lastCountdownSec = null;
           }
-          el.countdown.innerHTML=cdText+"<span>s</span>";
+          const cdLabel = prefix + cdText;
+          el.countdown.textContent = cdLabel;
+          if(el.countdownMobile) el.countdownMobile.textContent = cdLabel;
         }
 
-        const statusCode=setStatusFromState(st,!!ic,!!ab,lockoutLatched);
-        setButtonsFromState(st, lockoutLatched);
+        const statusCode=setStatusFromState(st,!!ic,!!ab,lockoutLatched, sequenceActive);
+        setButtonsFromState(st, lockoutLatched, sequenceActive);
+        updateHomeUI();
 
         if(statusCode!==lastStatusCode){
           if(statusCode===1){
@@ -3012,12 +3514,12 @@
 
         if(autoScrollChart){
           const len=thrustBaseHistory.length;
-          let windowSize=chartView.window||150;
-          if(windowSize<10) windowSize=10;
-          if(windowSize>MAX_POINTS) windowSize=MAX_POINTS;
-          if(windowSize>len) windowSize=len;
-          chartView.window=windowSize;
-          chartView.start=Math.max(0,len-windowSize);
+          const lastTime = (len > 0) ? chartTimeHistory[len - 1] : 0;
+          let windowMs = chartView.windowMs || CHART_WINDOW_MS_DEFAULT;
+          if(windowMs < CHART_WINDOW_MS_MIN) windowMs = CHART_WINDOW_MS_MIN;
+          if(windowMs > CHART_WINDOW_MS_MAX) windowMs = CHART_WINDOW_MS_MAX;
+          chartView.windowMs = windowMs;
+          chartView.startMs = lastTime - windowMs;
         }
 
         const nowPerf=(typeof performance!=="undefined" && performance.now) ? performance.now() : Date.now();
@@ -3080,7 +3582,7 @@
     let panStartX=0;
     let panStartStart=0;
     let pinchStartDist=0;
-    let pinchStartWindow=MAX_POINTS;
+    let pinchStartWindow=CHART_WINDOW_MS_DEFAULT;
 
     function attachTouch(canvasId){
       const canvas=document.getElementById(canvasId);
@@ -3091,13 +3593,20 @@
         if(ev.touches.length===1){
           isPanning=true;isPinching=false;
           panStartX=ev.touches[0].clientX;
-          panStartStart=chartView.start||0;
+          if(chartView.startMs == null){
+            const len = thrustBaseHistory.length;
+            const lastTime = (len > 0) ? chartTimeHistory[len - 1] : 0;
+            const windowMs = chartView.windowMs || CHART_WINDOW_MS_DEFAULT;
+            panStartStart = lastTime - windowMs;
+          }else{
+            panStartStart = chartView.startMs;
+          }
         }else if(ev.touches.length>=2){
           isPinching=true;isPanning=false;
           const dx=ev.touches[0].clientX-ev.touches[1].clientX;
           const dy=ev.touches[0].clientY-ev.touches[1].clientY;
           pinchStartDist=Math.sqrt(dx*dx+dy*dy)||1;
-          pinchStartWindow=chartView.window||MAX_POINTS;
+          pinchStartWindow=chartView.windowMs || CHART_WINDOW_MS_DEFAULT;
         }
         ev.preventDefault();
       },{passive:false});
@@ -3107,18 +3616,18 @@
           const dx=ev.touches[0].clientX-panStartX;
           const width=canvas.clientWidth||200;
           const ratio=width ? dx/width : 0;
-          const delta=Math.round(-ratio*(chartView.window||MAX_POINTS)*0.8);
-          chartView.start=panStartStart+delta;
+          const deltaMs=Math.round(-ratio*(chartView.windowMs || CHART_WINDOW_MS_DEFAULT)*0.8);
+          chartView.startMs=panStartStart+deltaMs;
           redrawCharts();
         }else if(isPinching && ev.touches.length>=2){
           const dx=ev.touches[0].clientX-ev.touches[1].clientX;
           const dy=ev.touches[0].clientY-ev.touches[1].clientY;
           const dist=Math.sqrt(dx*dx+dy*dy)||1;
           const scale=pinchStartDist/dist;
-          let newWindow=Math.round(pinchStartWindow*scale);
-          if(newWindow<10) newWindow=10;
-          if(newWindow>MAX_POINTS) newWindow=MAX_POINTS;
-          chartView.window=newWindow;
+          let newWindowMs=Math.round(pinchStartWindow*scale);
+          if(newWindowMs < CHART_WINDOW_MS_MIN) newWindowMs = CHART_WINDOW_MS_MIN;
+          if(newWindowMs > CHART_WINDOW_MS_MAX) newWindowMs = CHART_WINDOW_MS_MAX;
+          chartView.windowMs=newWindowMs;
           redrawCharts();
         }
         ev.preventDefault();
@@ -3137,6 +3646,11 @@
     const LP_DURATION=3000;
     let longPressSpinnerEl=null;
     let confirmOverlayEl=null;
+    let forceSlideEl=null;
+    let forceSlideThumbEl=null;
+    let forceSlideActive=false;
+    let forceSlidePointerId=null;
+    let forceSlideDragOffset=0;
     let confirmTitleEl=null;
     let lpLastSentSec=3;
     let userWaitingLocal=false;
@@ -3190,6 +3704,7 @@
     }
 
     function showEasterEggWarning(){
+      sendCommand({http:"/easter_bgm", ser:"/easter_bgm"}, false);
       if(easterOverlayEl){
         easterEggPending = true;
         easterOverlayEl.classList.remove("hidden");
@@ -3317,8 +3832,18 @@
     // =====================
     // 설정/발사대
     // =====================
-    function showSettings(){ if(el.settingsOverlay){ el.settingsOverlay.classList.remove("hidden"); el.settingsOverlay.style.display="flex"; } }
-    function hideSettings(){ if(el.settingsOverlay){ el.settingsOverlay.classList.add("hidden"); el.settingsOverlay.style.display="none"; } }
+    function showSettings(){
+      if(el.settingsOverlay){
+        el.settingsOverlay.classList.remove("hidden");
+        el.settingsOverlay.style.display="flex";
+      }
+    }
+    function hideSettings(){
+      if(el.settingsOverlay){
+        el.settingsOverlay.classList.add("hidden");
+        el.settingsOverlay.style.display="none";
+      }
+    }
     function setMissionCloseLabel(isBack){
       if(!el.missionCloseBtn) return;
       el.missionCloseBtn.textContent = isBack ? "뒤로" : "닫기";
@@ -3351,6 +3876,25 @@
       el.exportCsvBtn.disabled = !ok;
       el.exportCsvBtn.classList.toggle("disabled", !ok);
     }
+    function updateMotorInfoPanel(){
+      if(!el.batteryStatus || !el.commStatus || !el.motorDelay || !el.motorBurn) return;
+      const delay = (ignitionAnalysis && ignitionAnalysis.delaySec != null)
+        ? ignitionAnalysis.delaySec.toFixed(1)
+        : "--.-";
+      const burn = (ignitionAnalysis && ignitionAnalysis.durationSec != null)
+        ? ignitionAnalysis.durationSec.toFixed(1)
+        : "--.-";
+      const commText = connOk ? "CONNECTED" : "DISCONNECTED";
+      const batteryBlocked = !!(latestTelemetry && (latestTelemetry.ic === 1 || latestTelemetry.sw === 1));
+      const pctText = batteryBlocked
+        ? "N"
+        : ((lastBatteryPct != null && isFinite(lastBatteryPct)) ? (Math.round(lastBatteryPct) + "%") : "--%");
+
+      el.batteryStatus.innerHTML = '<span class="num">' + pctText + "</span>";
+      el.commStatus.innerHTML = '<span class="num">' + commText + "</span>";
+      el.motorDelay.innerHTML = '<span class="num">' + delay + '</span><span class="unit">S</span>';
+      el.motorBurn.innerHTML = '<span class="num">' + burn + '</span><span class="unit">S</span>';
+    }
     function showMissionRequired(){
       if(el.missionRequiredOverlay){
         el.missionRequiredOverlay.classList.remove("hidden");
@@ -3368,6 +3912,7 @@
         el.noMotorOverlay.classList.remove("hidden");
         el.noMotorOverlay.style.display="flex";
       }
+      showToast("메타데이터 미지정: 미션 정보 없이 진행", "warn", {key:"mission-no-meta"});
     }
     function hideNoMotorNotice(){
       if(el.noMotorOverlay){
@@ -3484,6 +4029,37 @@
         showToast(t("loadcellZeroSaveFailToast"), "error");
       }
     }
+    function setForceSlidePosition(x){
+      if(!forceSlideEl || !forceSlideThumbEl) return 0;
+      const rect = forceSlideEl.getBoundingClientRect();
+      const padding = 3;
+      const maxX = Math.max(0, rect.width - forceSlideThumbEl.offsetWidth - padding * 2);
+      const clamped = Math.max(0, Math.min(x, maxX));
+      forceSlideEl.style.setProperty("--slide-x", clamped + "px");
+      const pct = maxX ? (clamped / maxX) * 100 : 0;
+      forceSlideEl.style.setProperty("--slide-pct", pct.toFixed(2) + "%");
+      return pct;
+    }
+    function resetForceSlide(){
+      if(!forceSlideEl) return;
+      forceSlideEl.classList.remove("dragging","unlocked");
+      forceSlideEl.style.setProperty("--slide-x", "0px");
+      forceSlideEl.style.setProperty("--slide-pct", "0%");
+      forceSlideActive = false;
+      forceSlidePointerId = null;
+      forceSlideDragOffset = 0;
+    }
+    function commitForceIgnite(){
+      if(!isControlUnlocked()){
+        showToast(t("inspectionRequiredShort"), "warn");
+        resetForceSlide();
+        return;
+      }
+      hideForceConfirm();
+      sendCommand({http:"/force_ignite", ser:"FORCE"}, true);
+      suppressIgnitionToastUntil = Date.now() + 3000;
+      showToast(t("forceRequestedToast", {safety:safetyLineSuffix()}),"ignite");
+    }
     function showForceConfirm(){
       if(!hasMissionSelected()){
         showMissionRequired();
@@ -3506,9 +4082,13 @@
         return;
       }
       if(forceOverlayEl){ forceOverlayEl.classList.remove("hidden"); forceOverlayEl.style.display="flex"; }
+      resetForceSlide();
       showToast(t("forceWarning", {safety:safetyLineSuffix()}),"warn");
     }
-    function hideForceConfirm(){ if(forceOverlayEl){ forceOverlayEl.classList.add("hidden"); forceOverlayEl.style.display="none"; } }
+    function hideForceConfirm(){
+      if(forceOverlayEl){ forceOverlayEl.classList.add("hidden"); forceOverlayEl.style.display="none"; }
+      resetForceSlide();
+    }
     function showLauncher(){
       if(lockoutLatched){
         showToast(t("lockoutControlDenied"), "error");
@@ -3945,7 +4525,16 @@
 
       for(const file of files){
         const nameBytes = encoder.encode(file.name);
-        const dataBytes = encoder.encode(file.data);
+        let dataBytes = null;
+        if(file.dataBytes){
+          dataBytes = file.dataBytes;
+        }else if(file.data instanceof Uint8Array){
+          dataBytes = file.data;
+        }else if(file.data && file.data.buffer instanceof ArrayBuffer){
+          dataBytes = new Uint8Array(file.data);
+        }else{
+          dataBytes = encoder.encode(file.data);
+        }
         const crc = crc32(dataBytes);
         const localHeader = new Uint8Array(30 + nameBytes.length);
         const view = new DataView(localHeader.buffer);
@@ -4027,7 +4616,7 @@
       out.set(end, offset);
       return out;
     }
-    function buildXlsxBlob(sheets, chart){
+    function buildXlsxBytes(sheets, chart){
       const chartCount = chart ? 3 : 0;
       const files = [];
       files.push({name:"[Content_Types].xml", data:buildContentTypesXml(sheets.length, chartCount)});
@@ -4048,7 +4637,10 @@
         files.push({name:"xl/charts/chart2.xml", data:buildChartXml(chart.sheetName, chart.startRow, chart.endRow, chart.titlePressure, "D", chart.seriesNamePressure, chart.axisTitlePressure, "3B82F6", chart.majorUnitPressure, chart.xMajorUnit, chart.xNumFmt, chart.axisTitleX, chart.xMin, chart.xMax, chart.yMinPressure, chart.yMaxPressure, chart.xTickSkip, chart.xLabelCol)});
         files.push({name:"xl/charts/chart3.xml", data:buildChartXml(chart.sheetName, chart.startRow, chart.endRow, chart.titleThrustN, "C", chart.seriesNameThrustN, chart.axisTitleThrustN, "F59E0B", chart.majorUnitThrustN, chart.xMajorUnit, chart.xNumFmt, chart.axisTitleX, chart.xMin, chart.xMax, chart.yMinThrustN, chart.yMaxThrustN, chart.xTickSkip, chart.xLabelCol)});
       }
-      const zipData = buildZip(files);
+      return buildZip(files);
+    }
+    function buildXlsxBlob(sheets, chart){
+      const zipData = buildXlsxBytes(sheets, chart);
       return new Blob([zipData], {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
     }
     function formatEngNumber(value, digits){
@@ -4101,6 +4693,12 @@
         simState.st = 2;
         simState.ignStartMs = Date.now();
         simState.countdownStartMs = null;
+        simState.cdMs = 0;
+        simState.countdownTotalMs = null;
+      }else if(path.startsWith("/sequence_end")){
+        simState.st = 0;
+        simState.countdownStartMs = null;
+        simState.ignStartMs = null;
         simState.cdMs = 0;
         simState.countdownTotalMs = null;
       }else if(path.startsWith("/abort")){
@@ -4204,12 +4802,65 @@
       el.statusPill = document.getElementById("statusPill");
       el.statusText = document.getElementById("statusText");
       el.countdown = document.getElementById("countdown");
+      el.countdownMobile = document.getElementById("countdownMobile");
       el.lockoutBg = document.getElementById("lockoutBg");
       el.kstTime = document.getElementById("kst-time");
+      el.pageTitle = document.getElementById("pageTitle");
+      el.pageKicker = document.getElementById("pageKicker");
+      el.homeView = document.getElementById("homeView");
+      el.dashboardView = document.getElementById("dashboardView");
+      el.terminalView = document.getElementById("terminalView");
+      el.hardwareView = document.getElementById("hardwareView");
+      el.controlPanelView = document.getElementById("controlPanelView");
+      el.homeHeroPill = document.getElementById("homeHeroPill");
+      el.homeHeroBoard = document.getElementById("homeHeroBoard");
+      el.homeFirmware = document.getElementById("homeFirmware");
+      el.homeProtocol = document.getElementById("homeProtocol");
+      el.homeConnStatus = document.getElementById("homeConnStatus");
+      el.homeWsStatus = document.getElementById("homeWsStatus");
+      el.homeMode = document.getElementById("homeMode");
+      el.homeStatus = document.getElementById("homeStatus");
+      el.homeStatusBadge = document.getElementById("homeStatusBadge");
+      el.homeConnBadge = document.getElementById("homeConnBadge");
+      el.homeWsBadge = document.getElementById("homeWsBadge");
+      el.homeModeBadge = document.getElementById("homeModeBadge");
+      el.homeSafetyBadge = document.getElementById("homeSafetyBadge");
+      el.homeSerialStatus = document.getElementById("homeSerialStatus");
+      el.homeSerialBadge = document.getElementById("homeSerialBadge");
+      el.homeRelay = document.getElementById("homeRelay");
+      el.homeSwitch = document.getElementById("homeSwitch");
+      el.homeIgniter = document.getElementById("homeIgniter");
+      el.homeSafety = document.getElementById("homeSafety");
+      el.homeMissionName = document.getElementById("homeMissionName");
+      el.homeMissionMotor = document.getElementById("homeMissionMotor");
+      el.homeMissionDelay = document.getElementById("homeMissionDelay");
+      el.homeHealthBattery = document.getElementById("homeHealthBattery");
+      el.homeHealthBatteryBadge = document.getElementById("homeHealthBatteryBadge");
+      el.homeHealthIgniter = document.getElementById("homeHealthIgniter");
+      el.homeHealthIgniterBadge = document.getElementById("homeHealthIgniterBadge");
+      el.homeHealthSwitch = document.getElementById("homeHealthSwitch");
+      el.homeHealthSwitchBadge = document.getElementById("homeHealthSwitchBadge");
+      el.homeHealthRelay = document.getElementById("homeHealthRelay");
+      el.homeHealthRelayBadge = document.getElementById("homeHealthRelayBadge");
+      el.homeArmBtn = document.getElementById("homeArmBtn");
+      el.homeSafeBtn = document.getElementById("homeSafeBtn");
+      el.homeIgniterBtn = document.getElementById("homeIgniterBtn");
+      el.homeActionHint = document.getElementById("homeActionHint");
+      el.homeLog = document.getElementById("homeLog");
+      el.quickSw = document.getElementById("quick-sw");
+      el.quickIgniter = document.getElementById("quick-igniter");
+      el.quickRelay = document.getElementById("quick-relay");
+      el.quickState = document.getElementById("quick-state");
 
       el.thrust = document.getElementById("thrust");
       el.pressure = document.getElementById("pressure");
+      el.thrustGauge = document.querySelector(".status-gauge.thrust");
+      el.pressureGauge = document.querySelector(".status-gauge.pressure");
       el.lt = document.getElementById("lt");
+      el.batteryStatus = document.getElementById("batteryStatus");
+      el.commStatus = document.getElementById("commStatus");
+      el.motorDelay = document.getElementById("motorDelay");
+      el.motorBurn = document.getElementById("motorBurn");
 
       el.loopPill = document.getElementById("loop-pill");
       el.snapHz   = document.getElementById("snap-hz");
@@ -4233,10 +4884,12 @@
       el.missionOpenBtn = document.getElementById("missionOpenBtn");
       el.exportCsvBtn = document.getElementById("exportCsvBtn");
 
-      el.controlsSettingsBtn = document.getElementById("controlsSettingsBtn");
+      el.controlsSettingsBtns = document.querySelectorAll(".js-controls-settings");
+      el.sidebarSettingsBtns = document.querySelectorAll(".js-sidebar-settings");
+      el.sidebarTerminalBtn = document.getElementById("sidebarTerminalBtn");
       el.settingsOverlay = document.getElementById("settingsOverlay");
-      el.settingsClose = document.getElementById("settingsClose");
-      el.settingsSave = document.getElementById("settingsSave");
+      el.settingsClose = el.settingsOverlay ? el.settingsOverlay.querySelector("#settingsClose") : null;
+      el.settingsSave = el.settingsOverlay ? el.settingsOverlay.querySelector("#settingsSave") : null;
       el.missionOverlay = document.getElementById("missionOverlay");
       el.missionDialog = document.getElementById("missionDialog");
       el.missionClose = document.getElementById("missionClose");
@@ -4284,7 +4937,8 @@
       el.igswitch = document.getElementById("igswitch");
       el.safeModeToggle = document.getElementById("safeModeToggle");
       el.serialToggle = document.getElementById("serialToggle");
-      el.serialToggleWrap = document.getElementById("serialToggleWrap");
+      el.safeModePill = document.getElementById("safeModePill");
+      el.serialTogglePill = document.getElementById("serialTogglePill");
       el.serialControlTile = document.getElementById("serialControlTile");
       el.serialControlTitle = document.getElementById("serialControlTitle");
       el.serialControlSub = document.getElementById("serialControlSub");
@@ -4305,6 +4959,7 @@
       el.hwFirmwareName = document.getElementById("hwFirmwareName");
       el.hwProtocolName = document.getElementById("hwProtocolName");
       el.langSelect = document.getElementById("langSelect");
+      el.themeToggle = document.getElementById("themeToggle");
       el.loadcellCalOpen = document.getElementById("loadcellCalOpen");
       el.loadcellOverlay = document.getElementById("loadcellOverlay");
       el.loadcellDialog = document.getElementById("loadcellDialog");
@@ -4323,7 +4978,7 @@
       el.noMotorOverlay = document.getElementById("noMotorOverlay");
       el.noMotorOk = document.getElementById("noMotorOk");
 
-      el.launcherOpenBtn = document.getElementById("launcherOpenBtn");
+      el.launcherOpenBtns = document.querySelectorAll(".js-launcher-open");
       el.inspectionOpenBtn = document.getElementById("inspectionOpenBtn");
       el.inspectionOverlay = document.getElementById("inspectionOverlay");
       el.inspectionClose = document.getElementById("inspectionClose");
@@ -4341,6 +4996,10 @@
       el.lockoutNote = document.getElementById("lockoutNote");
       el.wsAlertOverlay = document.getElementById("wsAlertOverlay");
       el.wsAlertClose = document.getElementById("wsAlertClose");
+      el.disconnectOverlay = document.getElementById("disconnectOverlay");
+      el.disconnectTitle = document.getElementById("disconnectTitle");
+      el.disconnectText = document.getElementById("disconnectText");
+      el.disconnectOk = document.getElementById("disconnectOk");
       el.easterOverlay = document.getElementById("easterOverlay");
       el.easterEggOk = document.getElementById("easterEggOk");
       el.tetrisWinOverlay = document.getElementById("tetrisWinOverlay");
@@ -4397,7 +5056,7 @@
       showToast(t("dashboardStartToast", {safety:safetyLineSuffix()}),"info");
       setLockoutVisual(false);
       if(!simEnabled) resetInspectionUI();
-      setButtonsFromState(currentSt, lockoutLatched);
+      setButtonsFromState(currentSt, lockoutLatched, sequenceActive);
 
       confirmOverlayEl=document.getElementById("confirmOverlay");
       longPressSpinnerEl=document.querySelector("#longPressBtn .longpress-spinner");
@@ -4405,6 +5064,8 @@
       const confirmCancelBtn=document.getElementById("confirmCancel");
 
       forceOverlayEl=document.getElementById("forceOverlay");
+      forceSlideEl=document.getElementById("forceSlide");
+      forceSlideThumbEl=document.getElementById("forceSlideThumb");
       launcherOverlayEl=document.getElementById("launcherOverlay");
       easterOverlayEl=el.easterOverlay;
       easterEggOkEl=el.easterEggOk;
@@ -4445,6 +5106,7 @@
         el.safeModeToggle.addEventListener("change",()=>{
           safetyModeEnabled = !!el.safeModeToggle.checked;
           uiSettings.safetyMode = safetyModeEnabled;
+          updateTogglePill(el.safeModePill, el.safeModeToggle.checked);
           saveSettings();
           sendCommand({http:"/set?safe="+(safetyModeEnabled?1:0), ser:"SAFE "+(safetyModeEnabled?1:0)}, true);
           if(safetyModeEnabled && currentSt !== 0){
@@ -4458,7 +5120,7 @@
               sendCommand({http:"/abort", ser:"ABORT"}, true);
             }
           }
-          setButtonsFromState(currentSt, lockoutLatched);
+          setButtonsFromState(currentSt, lockoutLatched, sequenceActive);
           updateControlAccessUI(currentSt);
           showToast(
             safetyModeEnabled ? t("safetyModeOnToast") : t("safetyModeOffToast"),
@@ -4472,6 +5134,7 @@
         el.serialToggle.addEventListener("change",async ()=>{
           serialEnabled = !!el.serialToggle.checked;
           uiSettings.serialEnabled = serialEnabled;
+          updateTogglePill(el.serialTogglePill, el.serialToggle.checked);
           saveSettings();
           updateSerialPill();
 
@@ -4506,6 +5169,33 @@
           );
         });
       }
+      if(el.serialTogglePill && el.serialToggle){
+        el.serialTogglePill.addEventListener("click",()=>{
+          el.serialToggle.checked = !el.serialToggle.checked;
+          el.serialToggle.dispatchEvent(new Event("change", {bubbles:true}));
+        });
+      }
+      if(el.serialControlTile && el.serialToggle){
+        el.serialControlTile.addEventListener("click",(ev)=>{
+          if(simEnabled) return;
+          if(ev.target && ev.target.closest(".pill-toggle")) return;
+          el.serialToggle.checked = !el.serialToggle.checked;
+          el.serialToggle.dispatchEvent(new Event("change", {bubbles:true}));
+        });
+        el.serialControlTile.addEventListener("keydown",(ev)=>{
+          if(simEnabled) return;
+          if(ev.key !== "Enter" && ev.key !== " ") return;
+          ev.preventDefault();
+          el.serialToggle.checked = !el.serialToggle.checked;
+          el.serialToggle.dispatchEvent(new Event("change", {bubbles:true}));
+        });
+      }
+      if(el.safeModePill && el.safeModeToggle){
+        el.safeModePill.addEventListener("click",()=>{
+          el.safeModeToggle.checked = !el.safeModeToggle.checked;
+          el.safeModeToggle.dispatchEvent(new Event("change", {bubbles:true}));
+        });
+      }
       if(el.simToggle){
         el.simToggle.addEventListener("change",()=>{
           setSimEnabled(!!el.simToggle.checked);
@@ -4518,11 +5208,38 @@
           setLanguage(uiSettings.lang);
         });
       }
+      if(el.themeToggle){
+        el.themeToggle.addEventListener("change",()=>{
+          uiSettings.theme = el.themeToggle.checked ? "dark" : "light";
+          saveSettings();
+          applyTheme(uiSettings.theme);
+        });
+      }
 
       updateExportButtonState();
+      updateMotorInfoPanel();
 
       if(el.igniteBtn){
         el.igniteBtn.addEventListener("click",()=>{
+          if(sequenceActive || currentSt===1 || currentSt===2){
+            sendCommand({http:"/sequence_end", ser:"SEQUENCE_END"}, true);
+            addLogLine(t("sequenceEndLog"),"SEQ");
+            showToast(t("sequenceEndToast"), "info");
+            localTplusActive = false;
+            localTplusStartMs = null;
+            if(el.countdown) el.countdown.textContent = "T- --";
+            if(el.countdownMobile) el.countdownMobile.textContent = "T- --";
+            return;
+          }
+          if(currentSt===0 && localTplusActive){
+            localTplusActive = false;
+            localTplusStartMs = null;
+            if(el.countdown) el.countdown.textContent = "T- --";
+            if(el.countdownMobile) el.countdownMobile.textContent = "T- --";
+            addLogLine(t("sequenceEndLog"),"SEQ");
+            showToast(t("sequenceEndToast"), "info");
+            return;
+          }
           if(currentSt===0) showConfirm();
         });
       }
@@ -4554,6 +5271,7 @@
         el.noMotorOk.addEventListener("click",()=>{
           hideNoMotorNotice();
           hideMission();
+          updateMotorInfoPanel();
         });
       }
       if(el.noMotorOverlay){
@@ -4593,21 +5311,52 @@
       }
 
       const forceBtn=el.forceBtn;
-      const forceYes=document.getElementById("forceConfirmYes");
       const forceCancel=document.getElementById("forceConfirmCancel");
-      if(forceBtn && forceYes && forceCancel){
+      if(forceBtn && forceCancel){
         forceBtn.addEventListener("click",()=>showForceConfirm());
         forceCancel.addEventListener("click",()=>hideForceConfirm());
-        forceYes.addEventListener("click",()=>{
-          if(!isControlUnlocked()){
-            showToast(t("inspectionRequiredShort"), "warn");
-            return;
+      }
+      if(forceSlideEl && forceSlideThumbEl){
+        const startSlide=(e)=>{
+          if(e.button != null && e.button !== 0) return;
+          e.preventDefault();
+          forceSlideActive = true;
+          forceSlidePointerId = e.pointerId;
+          forceSlideEl.setPointerCapture(e.pointerId);
+          const thumbRect = forceSlideThumbEl.getBoundingClientRect();
+          forceSlideDragOffset = e.clientX - thumbRect.left;
+          const rect = forceSlideEl.getBoundingClientRect();
+          const x = e.clientX - rect.left - forceSlideDragOffset;
+          forceSlideEl.classList.add("dragging");
+          setForceSlidePosition(x);
+        };
+        const moveSlide=(e)=>{
+          if(!forceSlideActive || e.pointerId !== forceSlidePointerId) return;
+          e.preventDefault();
+          const rect = forceSlideEl.getBoundingClientRect();
+          const x = e.clientX - rect.left - forceSlideDragOffset;
+          setForceSlidePosition(x);
+        };
+        const endSlide=(e)=>{
+          if(!forceSlideActive || e.pointerId !== forceSlidePointerId) return;
+          e.preventDefault();
+          const rect = forceSlideEl.getBoundingClientRect();
+          const x = e.clientX - rect.left - forceSlideDragOffset;
+          const pct = setForceSlidePosition(x);
+          forceSlideEl.classList.remove("dragging");
+          forceSlideActive = false;
+          forceSlidePointerId = null;
+          if(pct >= 90){
+            forceSlideEl.classList.add("unlocked");
+            commitForceIgnite();
+          }else{
+            resetForceSlide();
           }
-          hideForceConfirm();
-          sendCommand({http:"/force_ignite", ser:"FORCE"}, true);
-          suppressIgnitionToastUntil = Date.now() + 3000;
-          showToast(t("forceRequestedToast", {safety:safetyLineSuffix()}),"ignite");
-        });
+        };
+        forceSlideEl.addEventListener("pointerdown", startSlide);
+        forceSlideEl.addEventListener("pointermove", moveSlide);
+        forceSlideEl.addEventListener("pointerup", endSlide);
+        forceSlideEl.addEventListener("pointercancel", endSlide);
       }
 
       // ✅ LOCKOUT modal events
@@ -4638,6 +5387,9 @@
           }
           hideWsAlert();
         });
+      }
+      if(el.disconnectOk){
+        el.disconnectOk.addEventListener("click", ()=>hideDisconnectOverlay());
       }
       if(easterEggOkEl){
         easterEggOkEl.addEventListener("click", ()=>hideEasterEggWarning());
@@ -4726,6 +5478,7 @@
           const filenameBase = "ALTIS_FLASH_DAQ_" + motorLabel + "_T" + testLabel + "_" + fnameSuffix + "_data";
           const filenameXlsx = filenameBase + ".xlsx";
           const filenameEng = filenameBase + ".eng";
+          const filenameZip = filenameBase + ".zip";
 
           const hasIgnitionWindow =
             ignitionAnalysis.hasData &&
@@ -4993,13 +5746,12 @@
             {cells:["시험 날짜: " + now.toISOString()], style:3}
           ];
 
-          const workbook = buildXlsxBlob([
+          const xlsxBytes = buildXlsxBytes([
             {name:"INFO", rows:infoRows},
             {name:"IGN_SUMMARY", rows:summaryRows},
             {name:"EVENT", rows:eventRows},
             {name:"RAW", rows:rawRows}
           ], chartConfig);
-          downloadBlobAsFile(workbook, filenameXlsx);
 
           const engText = buildEngText(engRows, {
             name: missionMotor,
@@ -5011,9 +5763,13 @@
             vendor: missionVendor,
             timeIso: now.toISOString()
           });
-          downloadBlobAsFile(new Blob([engText], {type:"text/plain"}), filenameEng);
+          const zipBytes = buildZip([
+            {name:filenameXlsx, dataBytes:xlsxBytes},
+            {name:filenameEng, data:engText}
+          ]);
+          downloadBlobAsFile(new Blob([zipBytes], {type:"application/zip"}), filenameZip);
 
-          addLogLine(t("xlsxExportLog", {filename:filenameXlsx}), "INFO");
+          addLogLine(t("xlsxExportLog", {filename:filenameZip}), "INFO");
           showToast(t("xlsxExportToast"), "success");
         });
       }
@@ -5029,7 +5785,79 @@
         });
       });
 
-      if(el.controlsSettingsBtn) el.controlsSettingsBtn.addEventListener("click",()=>showSettings());
+      if(el.controlsSettingsBtns && el.controlsSettingsBtns.length){
+        el.controlsSettingsBtns.forEach(btn=>{
+          btn.addEventListener("click",()=>showSettings());
+        });
+      }
+      const sideNavItems = document.querySelectorAll(".side-nav-item");
+      const setActiveView = (title)=>{
+        const label = title || "Dashboard";
+        const lower = label.toLowerCase();
+        const displayLabel = (lower === "home") ? "Welcome to FLASH6" : (lower === "control" ? "Control Panel" : label);
+        if(el.pageTitle) el.pageTitle.textContent = displayLabel;
+        const isHome = lower === "home";
+        const isTerminal = lower === "terminal";
+        const isHardware = lower === "hardware";
+        const isControl = lower === "control";
+        const isDashboard = !isHome && !isTerminal && !isHardware && !isControl;
+        if(el.pageKicker){
+          const name = el.hwBoardName?.textContent?.trim();
+          setBoardNameDisplay(el.pageKicker, name, "FLASH6");
+          el.pageKicker.classList.remove("hidden");
+        }
+        if(el.homeView) el.homeView.classList.toggle("hidden", !isHome);
+        if(el.dashboardView) el.dashboardView.classList.toggle("hidden", !isDashboard);
+        if(el.terminalView) el.terminalView.classList.toggle("hidden", !isTerminal);
+        if(el.hardwareView) el.hardwareView.classList.toggle("hidden", !isHardware);
+        if(el.controlPanelView) el.controlPanelView.classList.toggle("hidden", !isControl);
+        if(isHome) updateHomeUI();
+        if(isDashboard){
+          requestAnimationFrame(refreshChartLayout);
+          setTimeout(refreshChartLayout, 160);
+        }
+      };
+      const activateNavItem = (title)=>{
+        if(!sideNavItems.length){
+          setActiveView(title);
+          return;
+        }
+        const match = Array.from(sideNavItems).find(item=>{
+          const label = (item.dataset.pageTitle || item.textContent || "").trim();
+          return label.toLowerCase() === String(title).toLowerCase();
+        });
+        if(match){
+          sideNavItems.forEach(btn=>btn.classList.remove("active"));
+          match.classList.add("active");
+        }
+        setActiveView(title);
+      };
+      if(el.sidebarSettingsBtns && el.sidebarSettingsBtns.length){
+        el.sidebarSettingsBtns.forEach(btn=>{
+          btn.addEventListener("click",()=>{
+            showSettings();
+          });
+        });
+      }
+      const maybeOpenSettings = ()=>{
+        if(location.hash === "#settings"){
+          showSettings();
+        }
+      };
+      maybeOpenSettings();
+      window.addEventListener("hashchange", maybeOpenSettings);
+      if(sideNavItems.length){
+        sideNavItems.forEach(item=>{
+          item.addEventListener("click",()=>{
+            sideNavItems.forEach(btn=>btn.classList.remove("active"));
+            item.classList.add("active");
+            const title = item.dataset.pageTitle || item.textContent.trim();
+            setActiveView(title);
+          });
+        });
+        const active = Array.from(sideNavItems).find(item=>item.classList.contains("active"));
+        setActiveView(active ? (active.dataset.pageTitle || active.textContent.trim()) : "Dashboard");
+      }
       if(el.settingsClose) el.settingsClose.addEventListener("click",()=>hideSettings());
       if(el.settingsOverlay){
         el.settingsOverlay.addEventListener("click",(ev)=>{ if(ev.target===el.settingsOverlay) hideSettings(); });
@@ -5049,6 +5877,28 @@
       }
       if(el.missionOverlay){
         el.missionOverlay.addEventListener("click",(ev)=>{ if(ev.target===el.missionOverlay) hideMission(); });
+      }
+      const toggleInput = (node)=>{
+        if(!node) return;
+        node.checked = !node.checked;
+        node.dispatchEvent(new Event("change", {bubbles:true}));
+      };
+      if(el.homeArmBtn){
+        el.homeArmBtn.addEventListener("click",()=>{
+          if(isControlUnlocked()){
+            resetInspectionUI();
+            setButtonsFromState(currentSt, lockoutLatched, sequenceActive);
+            updateHomeUI();
+            return;
+          }
+          if(el.inspectionOpenBtn) el.inspectionOpenBtn.click();
+        });
+      }
+      if(el.homeSafeBtn){
+        el.homeSafeBtn.addEventListener("click",()=>toggleInput(el.safeModeToggle));
+      }
+      if(el.homeIgniterBtn){
+        el.homeIgniterBtn.addEventListener("click",()=>toggleInput(el.igswitch));
       }
       if(el.missionBackBtn){
         el.missionBackBtn.addEventListener("click",()=>{
@@ -5179,10 +6029,13 @@
             if(el.missionReview) el.missionReview.setAttribute("aria-hidden","true");
             if(el.missionConfirmBtn) el.missionConfirmBtn.textContent = "다음";
             setMissionCloseLabel(false);
+            updateMotorInfoPanel();
             const cb = pendingMissionApply;
             pendingMissionApply = null;
             if(cb) cb();
             updateExportButtonState();
+            const missionLabel = (selectedMotorName || (el.missionName && el.missionName.value) || "").trim() || "CUSTOM";
+            showToast("미션 지정: " + missionLabel, "success", {key:"mission-set"});
             return;
           }
           if(el.missionDialog && el.missionDialog.classList.contains("ask-test")){
@@ -5235,6 +6088,12 @@
       if(el.missionTestPromptInput){
         el.missionTestPromptInput.addEventListener("keydown",(ev)=>{
           if(ev.key === "Enter") submitMissionTestCount();
+        });
+      }
+      const swUpdateBtn = document.getElementById("swUpdateBtn");
+      if(swUpdateBtn){
+        swUpdateBtn.addEventListener("click",()=>{
+          showToast("업데이트 확인은 준비 중입니다.", "info", {key:"sw-update"});
         });
       }
       if(el.loadcellCalOpen) el.loadcellCalOpen.addEventListener("click",()=>showLoadcellModal());
@@ -5302,9 +6161,11 @@
           uiSettings.serialEnabled = serialEnabled;
           uiSettings.serialRx = serialRxEnabled;
           uiSettings.serialTx = serialTxEnabled;
+          uiSettings.theme = el.themeToggle && el.themeToggle.checked ? "dark" : "light";
 
           saveSettings();
           applySettingsToUI();
+          applyTheme(uiSettings.theme);
 
           await sendCommand({http:"/set?ign_ms="+(ignSec*1000), ser:"IGNMS "+(ignSec*1000)}, false);
           await sendCommand({http:"/set?cd_ms="+(cdSec*1000),  ser:"CDMS "+(cdSec*1000)}, false);
@@ -5332,9 +6193,11 @@
         });
       }
 
-      if(el.launcherOpenBtn && launcherOverlayEl){
-        el.launcherOpenBtn.addEventListener("click",()=>showLauncher());
-        el.launcherOpenBtn.addEventListener("keydown",(e)=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); showLauncher(); }});
+      if(el.launcherOpenBtns && el.launcherOpenBtns.length && launcherOverlayEl){
+        el.launcherOpenBtns.forEach(btn=>{
+          btn.addEventListener("click",()=>showLauncher());
+          btn.addEventListener("keydown",(e)=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); showLauncher(); }});
+        });
       }
       if(launcherCloseBtn){ launcherCloseBtn.addEventListener("click",()=>hideLauncher()); }
       if(launcherOverlayEl){ launcherOverlayEl.addEventListener("click",(ev)=>{ if(ev.target===launcherOverlayEl) hideLauncher(); }); }
@@ -5369,15 +6232,37 @@
       const chartLive=document.getElementById("chartLive");
 
       if(zoomOutBtn){
-        zoomOutBtn.addEventListener("click",()=>{ chartView.window=Math.min(MAX_POINTS,Math.round(chartView.window*1.4)); autoScrollChart=false; redrawCharts(); });
+        zoomOutBtn.addEventListener("click",()=>{
+          const base = chartView.windowMs || CHART_WINDOW_MS_DEFAULT;
+          chartView.windowMs = Math.min(CHART_WINDOW_MS_MAX, Math.round(base * 1.4));
+          autoScrollChart=false;
+          redrawCharts();
+        });
       }
       if(zoomInBtn){
-        zoomInBtn.addEventListener("click",()=>{ chartView.window=Math.max(10,Math.round(chartView.window*0.7)); autoScrollChart=false; redrawCharts(); });
+        zoomInBtn.addEventListener("click",()=>{
+          const base = chartView.windowMs || CHART_WINDOW_MS_DEFAULT;
+          chartView.windowMs = Math.max(CHART_WINDOW_MS_MIN, Math.round(base * 0.7));
+          autoScrollChart=false;
+          redrawCharts();
+        });
       }
       if(chartLeft){
-        chartLeft.addEventListener("click",()=>{ autoScrollChart=false; chartView.start=(chartView.start||0)-Math.round(chartView.window*0.2); redrawCharts(); });
+        chartLeft.addEventListener("click",()=>{
+          autoScrollChart=false;
+          const base = chartView.startMs || 0;
+          const step = Math.round((chartView.windowMs || CHART_WINDOW_MS_DEFAULT) * 0.2);
+          chartView.startMs = base - step;
+          redrawCharts();
+        });
       }
-      if(chartRight){      chartRight.addEventListener("click",()=>{ autoScrollChart=false; chartView.start=(chartView.start||0)+Math.round(chartView.window*0.2); redrawCharts(); });
+      if(chartRight){      chartRight.addEventListener("click",()=>{
+          autoScrollChart=false;
+          const base = chartView.startMs || 0;
+          const step = Math.round((chartView.windowMs || CHART_WINDOW_MS_DEFAULT) * 0.2);
+          chartView.startMs = base + step;
+          redrawCharts();
+        });
       }
       if(chartLive){
         chartLive.addEventListener("click",()=>{ autoScrollChart=true; redrawCharts(); });
@@ -5385,7 +6270,7 @@
 
       attachTouch("thrustChart");
       attachTouch("pressureChart");
-      window.addEventListener("resize",()=>{ redrawCharts(); });
+      window.addEventListener("resize",()=>{ refreshChartLayout(); });
 
       openWebSocket();
       updateWsUI();
