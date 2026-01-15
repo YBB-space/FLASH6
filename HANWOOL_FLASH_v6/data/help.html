@@ -1,0 +1,425 @@
+void handleHelp() {
+    String msg = R"rawliteral(
+  <!doctype html>
+  <html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>HANWOOL TMS 도움말</title>
+    <style>
+      *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+      :root{
+        --bg1:#f5f7fb;
+        --bg2:#eef2ff;
+        --card:rgba(255,255,255,.82);
+        --card2:rgba(255,255,255,.95);
+        --text:#0b1220;
+        --muted:#6b7280;
+        --border:rgba(148,163,184,.42);
+        --accent:#2563eb;
+        --accent2:#7c3aed;
+        --ok:#10b981;
+        --warn:#f59e0b;
+        --bad:#ef4444;
+        --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace;
+        --sans: -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",system-ui,sans-serif;
+        --r-xl:28px;
+        --r-lg:18px;
+        --r-pill:999px;
+        --sh: 0 22px 60px rgba(15,23,42,.12);
+      }
+      html,body{height:100%}
+      body{
+        font-family:var(--sans);
+        color:var(--text);
+        background:
+          radial-gradient(1000px 620px at 0% 0%, rgba(56,189,248,.20) 0%, transparent 60%),
+          radial-gradient(900px 520px at 100% 100%, rgba(167,139,250,.18) 0%, transparent 60%),
+          linear-gradient(180deg, #fbfdff 0%, var(--bg1) 55%, #f3f5ff 100%);
+        padding:18px;
+      }
+      .wrap{
+        max-width: 920px;
+        margin: 0 auto;
+      }
+      .top{
+        display:flex;
+        align-items:flex-start;
+        justify-content:space-between;
+        gap:12px;
+        padding:18px 18px 14px;
+        border-radius: var(--r-xl);
+        background: linear-gradient(145deg, rgba(255,255,255,.92), rgba(249,250,251,.76));
+        border: 1px solid rgba(209,213,219,.80);
+        box-shadow: var(--sh);
+        position:relative;
+        overflow:hidden;
+      }
+      .top::before{
+        content:"";
+        position:absolute; inset:-1px;
+        background: radial-gradient(900px 240px at 10% 0%, rgba(37,99,235,.14), transparent 60%),
+                    radial-gradient(900px 260px at 100% 100%, rgba(124,58,237,.12), transparent 60%),
+                    linear-gradient(180deg, rgba(255,255,255,.70), rgba(255,255,255,0) 55%);
+        opacity:.9;
+        pointer-events:none;
+      }
+      .title{
+        position:relative;
+        display:flex;
+        flex-direction:column;
+        gap:6px;
+      }
+      .kicker{
+        font-family:var(--mono);
+        font-size:11px;
+        letter-spacing:.20em;
+        text-transform:uppercase;
+        color: rgba(37,99,235,.92);
+      }
+      h1{
+        font-size:18px;
+        letter-spacing:.08em;
+        font-weight:900;
+        text-transform:uppercase;
+      }
+      .sub{
+        font-size:12px;
+        color: var(--muted);
+        line-height:1.5;
+        max-width: 56ch;
+      }
+      .pill{
+        position:relative;
+        display:inline-flex;
+        align-items:center;
+        gap:8px;
+        padding:7px 12px;
+        border-radius: var(--r-pill);
+        background: rgba(236,253,245,.92);
+        border:1px solid rgba(16,185,129,.28);
+        color:#047857;
+        font-size:11px;
+        font-family:var(--mono);
+        letter-spacing:.10em;
+        text-transform:uppercase;
+        box-shadow: 0 16px 34px rgba(16,185,129,.18);
+        white-space:nowrap;
+        height: fit-content;
+      }
+      .dot{
+        width:8px;height:8px;border-radius:999px;
+        background: var(--ok);
+        box-shadow: 0 0 0 4px rgba(16,185,129,.20);
+      }
+  
+      .grid{
+        margin-top:14px;
+        display:grid;
+        grid-template-columns: 1.15fr .85fr;
+        gap:12px;
+      }
+      @media (max-width: 860px){
+        .grid{grid-template-columns: 1fr;}
+      }
+  
+      .card{
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 22px;
+        padding:14px 14px 12px;
+        backdrop-filter: blur(16px) saturate(1.12);
+        -webkit-backdrop-filter: blur(16px) saturate(1.12);
+        box-shadow: 0 18px 44px rgba(15,23,42,.08);
+      }
+      .card h2{
+        font-size:13px;
+        font-weight:850;
+        letter-spacing:.12em;
+        text-transform:uppercase;
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:10px;
+        margin-bottom:10px;
+      }
+      .tag{
+        font-size:10px;
+        padding:4px 8px;
+        border-radius: var(--r-pill);
+        background: rgba(37,99,235,.10);
+        border:1px solid rgba(37,99,235,.18);
+        color: rgba(37,99,235,.95);
+        font-family: var(--mono);
+        letter-spacing:.12em;
+        text-transform:uppercase;
+        white-space:nowrap;
+      }
+  
+      .list{
+        display:flex;
+        flex-direction:column;
+        gap:8px;
+      }
+      .item{
+        display:flex;
+        gap:10px;
+        align-items:flex-start;
+        padding:10px 10px;
+        border-radius: 16px;
+        background: rgba(255,255,255,.70);
+        border:1px solid rgba(209,213,219,.72);
+        transition: transform .12s ease, border-color .12s ease, background .12s ease;
+      }
+      .item:hover{
+        transform: translateY(-1px);
+        border-color: rgba(99,102,241,.55);
+        background: var(--card2);
+      }
+      .badge{
+        font-size:10px;
+        font-family: var(--mono);
+        letter-spacing:.12em;
+        text-transform:uppercase;
+        padding:5px 8px;
+        border-radius: 999px;
+        border:1px solid rgba(148,163,184,.28);
+        background: rgba(148,163,184,.10);
+        color: rgba(17,24,39,.82);
+        flex:0 0 auto;
+        transform: translateY(1px);
+      }
+      .badge.data{ background: rgba(16,185,129,.10); border-color: rgba(16,185,129,.22); color: #047857;}
+      .badge.ctrl{ background: rgba(245,158,11,.12); border-color: rgba(245,158,11,.22); color: #92400e;}
+      .badge.cfg { background: rgba(37,99,235,.10); border-color: rgba(37,99,235,.18); color: rgba(37,99,235,.95);}
+  
+      .body{
+        flex:1;
+        min-width:0;
+      }
+      .path{
+        font-family: var(--mono);
+        font-size:12px;
+        letter-spacing:.04em;
+        color: var(--text);
+        word-break: break-all;
+      }
+      .desc{
+        margin-top:4px;
+        font-size:11px;
+        color: var(--muted);
+        line-height:1.55;
+      }
+  
+      .note{
+        margin-top:10px;
+        padding:10px 12px;
+        border-radius: 16px;
+        background: rgba(254,252,232,.86);
+        border:1px solid rgba(234,179,8,.30);
+        color: rgba(120,53,15,.92);
+        font-size:11px;
+        line-height:1.7;
+      }
+      .note code{
+        font-family: var(--mono);
+        font-size: 11px;
+        padding: 1px 6px;
+        border-radius: 999px;
+        background: rgba(148,163,184,.14);
+        border: 1px solid rgba(148,163,184,.20);
+        color: rgba(15,23,42,.92);
+      }
+  
+      .actions{
+        display:flex;
+        gap:8px;
+        flex-wrap:wrap;
+        margin-top:10px;
+      }
+      .btn{
+        display:inline-flex;
+        align-items:center;
+        gap:8px;
+        padding:9px 12px;
+        border-radius: 18px;
+        border:1px solid rgba(209,213,219,.80);
+        background: rgba(255,255,255,.76);
+        color: rgba(17,24,39,.90);
+        font-size:12px;
+        text-decoration:none;
+        cursor:pointer;
+        transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+        box-shadow: 0 14px 26px rgba(15,23,42,.07);
+      }
+      .btn:hover{
+        transform: translateY(-1px);
+        border-color: rgba(99,102,241,.60);
+        box-shadow: 0 18px 36px rgba(15,23,42,.10);
+      }
+      .btn.primary{
+        border-color: rgba(37,99,235,.70);
+        background: linear-gradient(135deg, #2563eb, #3b82f6, #7c3aed);
+        color: #fff;
+        box-shadow: 0 18px 44px rgba(37,99,235,.22);
+      }
+  
+      .footer{
+        margin-top:12px;
+        font-size:11px;
+        color: rgba(107,114,128,.95);
+        text-align:center;
+        opacity:.9;
+      }
+    </style>
+  </head>
+  
+  <body>
+    <div class="wrap">
+      <section class="top">
+        <div class="title">
+          <div class="kicker">HANWOOL · FLASH JSON v1.0</div>
+          <h1>HANWOOL TMS HELP</h1>
+          <div class="sub">
+            현재 펌웨어가 제공하는 HTTP 엔드포인트 목록입니다. 브라우저에서 직접 열거나,
+            대시보드/OBS HUD가 이 경로들을 사용합니다.
+          </div>
+        </div>
+        <div class="pill"><span class="dot"></span>board online</div>
+      </section>
+  
+      <section class="grid">
+        <div class="card">
+          <h2>Data & Dashboard <span class="tag">read</span></h2>
+          <div class="list">
+            <div class="item">
+              <div class="badge data">DATA</div>
+              <div class="body">
+                <div class="path">/ws</div>
+                <div class="desc">WebSocket 실시간 스트림(JSON push).</div>
+              </div>
+            </div>
+
+            <div class="item">
+              <div class="badge data">DATA</div>
+              <div class="body">
+                <div class="path">/dashboard</div>
+                <div class="desc">실시간 대시보드 UI 페이지.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="note">
+            팁) OBS HUD는 WebSocket 클라이언트로 <code>/ws</code> 스트림을 구독하세요.
+          </div>
+
+          <div class="actions">
+            <a class="btn primary" href="/">🏠 HOME</a>
+            <a class="btn" href="/dashboard">📡 DASHBOARD</a>
+          </div>
+        </div>
+  
+        <div class="card">
+          <h2>Control <span class="tag">danger</span></h2>
+          <div class="list">
+            <div class="item">
+              <div class="badge ctrl">CD</div>
+              <div class="body">
+                <div class="path">/countdown_start</div>
+                <div class="desc">카운트다운 시작.</div>
+              </div>
+            </div>
+  
+            <div class="item">
+              <div class="badge ctrl">FIRE</div>
+              <div class="body">
+                <div class="path">/ignite</div>
+                <div class="desc">점화 시퀀스 실행(ARM/세이프티 조건 따름).</div>
+              </div>
+            </div>
+  
+            <div class="item">
+              <div class="badge ctrl">FIRE</div>
+              <div class="body">
+                <div class="path">/force_ignite</div>
+                <div class="desc">강제 점화(주의: 안전 로직 우회 가능).</div>
+              </div>
+            </div>
+  
+            <div class="item">
+              <div class="badge ctrl">STOP</div>
+              <div class="body">
+                <div class="path">/abort</div>
+                <div class="desc">즉시 중단/안전 상태로 전환.</div>
+              </div>
+            </div>
+          </div>
+  
+          <div class="note">
+            점화 관련 엔드포인트는 반드시 현장 안전 수칙 준수 후 사용하세요.
+          </div>
+  
+          <h2 style="margin-top:12px">Config <span class="tag">set</span></h2>
+          <div class="list">
+            <div class="item">
+              <div class="badge cfg">SET</div>
+              <div class="body">
+                <div class="path">/set?igs=0|1</div>
+                <div class="desc">Igniter safety test(점화기 안전 테스트) ON/OFF.</div>
+              </div>
+            </div>
+  
+            <div class="item">
+              <div class="badge cfg">SET</div>
+              <div class="body">
+                <div class="path">/set?rs=0|1</div>
+                <div class="desc">Relay safe(릴레이 안전) 플래그 ON/OFF.</div>
+              </div>
+            </div>
+  
+            <div class="item">
+              <div class="badge cfg">SET</div>
+              <div class="body">
+                <div class="path">/set?stream=0|1</div>
+                <div class="desc">스트리밍/전송 모드 ON/OFF.</div>
+              </div>
+            </div>
+  
+            <div class="item">
+              <div class="badge cfg">SET</div>
+              <div class="body">
+                <div class="path">/set?ign_ms=1000~10000</div>
+                <div class="desc">점화 유지 시간(ms) 설정.</div>
+              </div>
+            </div>
+  
+            <div class="item">
+              <div class="badge cfg">SET</div>
+              <div class="body">
+                <div class="path">/set?cd_ms=3000~30000</div>
+                <div class="desc">카운트다운 시간(ms) 설정.</div>
+              </div>
+            </div>
+  
+            <div class="item">
+              <div class="badge cfg">PRE</div>
+              <div class="body">
+                <div class="path">/precount?uw=0|1&cd=ms</div>
+                <div class="desc">프리카운트 설정(uw, countdown ms).</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+  
+      <div class="footer">
+        ALTIS / HANWOOL · Embedded Web UI (ESP32) · Help Page
+      </div>
+    </div>
+  </body>
+  </html>
+  )rawliteral";
+  
+    server.send(200, "text/html; charset=utf-8", msg);
+  }
+  
