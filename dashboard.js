@@ -1260,6 +1260,7 @@
         const key = htmlKey || textKey;
         if(!key) return;
         const value = t(key);
+        if(value === key) return;
         if(htmlKey) node.innerHTML = value;
         else node.textContent = value;
       });
@@ -5207,8 +5208,21 @@
           updateDevToolsUI();
         });
       }
+      const bindTap = (node, handler)=>{
+        if(!node) return;
+        let touchTs = 0;
+        node.addEventListener("touchstart",(ev)=>{
+          touchTs = Date.now();
+          ev.preventDefault();
+          handler();
+        }, {passive:false});
+        node.addEventListener("click",(ev)=>{
+          if(Date.now() - touchTs < 600) return;
+          handler(ev);
+        });
+      };
       if(el.devLoadcellErrBtn){
-        el.devLoadcellErrBtn.addEventListener("click",()=>{
+        bindTap(el.devLoadcellErrBtn, ()=>{
           devLoadcellError = !devLoadcellError;
           updateDevToolsUI();
         });
