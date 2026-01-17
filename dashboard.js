@@ -202,6 +202,8 @@
     let devRelay1Locked = false;
     let devRelay2Locked = false;
     let devWsOff = false;
+    let devLoadcellError = false;
+    let loadcellErrorActive = false;
 
     // ✅ LOCKOUT modal
     let lockoutModalShown = false;
@@ -240,6 +242,7 @@
       {key:"link",    check:()=>connOk},
       {key:"serial",  check:()=>(!serialEnabled) || serialConnected},
       {key:"igniter", check:()=> isIgniterCheckEnabled() ? (latestTelemetry.ic===1) : true},
+      {key:"loadcell", check:()=> (lastThrustKgf != null && isFinite(lastThrustKgf) && !loadcellErrorActive)},
       {key:"switch",  check:()=>latestTelemetry.sw===0},
       {key:"relay",   check:()=>!lockoutLatched},
     ];
@@ -511,6 +514,7 @@
         devRelay1Btn:"1번 릴레이",
         devRelay2Btn:"2번 릴레이",
         devWsOffBtn:"WS OFF (SIM)",
+        devLoadcellErrBtn:"로드셀 오류 (SIM)",
         settingsNavTitle:"섹션",
         settingsNavHardware:"하드웨어",
         settingsNavInterface:"인터페이스",
@@ -572,6 +576,8 @@
         simDisabledToast:"시뮬레이션 모드가 꺼졌습니다.",
         forceConfirmTitle:"강제 점화를 진행할까요?",
         forceConfirmText:"강제 점화는 고위험 동작입니다.<br>주변 인원 접근 금지 · 보호구 착용 권장 · 결선/단락 재확인.",
+        forceLoadcellTitle:"로드셀을 점검하세요",
+        forceLoadcellText:"로드셀 상태가 확인되지 않았습니다.<br>강제 점화는 진행할 수 있지만 위험을 충분히 이해한 뒤 선택하세요.",
         forceConfirmYes:"강제 점화",
         forceSlideLabel:"밀어서 강제 점화",
         forceConfirmCancel:"취소",
@@ -586,6 +592,8 @@
         inspectionDescSerial:"USB 시리얼 연결/권한",
         inspectionLabelIgniter:"이그나이터",
         inspectionDescIgniter:"연속성/오픈 여부",
+        inspectionLabelLoadcell:"로드셀",
+        inspectionDescLoadcell:"추력 데이터 정상 수신",
         inspectionLabelSwitch:"스위치",
         inspectionDescSwitch:"저전위(LOW) 안전 상태",
         inspectionDescRelay:"비정상 릴레이 HIGH 여부",
@@ -675,6 +683,7 @@
         statusCountdown:"COUNTDOWN",
         statusNotArmed:"NOT ARMED",
         statusReady:"READY",
+        statusLoadcellCheck:"LOADCELL CHECK",
         statusSequence:"SEQUENCE",
         statusLockoutText:"비정상적인 릴레이 HIGH 감지 ({name}). 모든 제어 권한이 해제되었습니다. 보드를 재시작하세요.",
         statusAbortText:"시퀀스가 중단되었습니다.",
@@ -871,6 +880,7 @@
         devRelay1Btn:"Relay 1",
         devRelay2Btn:"Relay 2",
         devWsOffBtn:"WS OFF (SIM)",
+        devLoadcellErrBtn:"LOADCELL ERROR (SIM)",
         settingsNavTitle:"Sections",
         settingsNavHardware:"Hardware",
         settingsNavInterface:"Interface",
@@ -932,6 +942,8 @@
         simDisabledToast:"Simulation mode disabled.",
         forceConfirmTitle:"Proceed with force ignition?",
         forceConfirmText:"Force ignition is high risk.<br>No personnel nearby · PPE recommended · Recheck wiring/shorts.",
+        forceLoadcellTitle:"Check the loadcell",
+        forceLoadcellText:"Loadcell status is not verified.<br>You can still force ignite, but proceed only if you understand the risk.",
         forceConfirmYes:"Force Ignition",
         forceSlideLabel:"Slide to Force Ignition",
         forceConfirmCancel:"Cancel",
@@ -946,6 +958,8 @@
         inspectionDescSerial:"USB serial connection/permissions",
         inspectionLabelIgniter:"Igniter",
         inspectionDescIgniter:"Continuity/open status",
+        inspectionLabelLoadcell:"Loadcell",
+        inspectionDescLoadcell:"Thrust data reception",
         inspectionLabelSwitch:"Switch",
         inspectionDescSwitch:"LOW safety state",
         inspectionDescRelay:"Abnormal relay HIGH status",
@@ -1049,6 +1063,7 @@
         statusCountdown:"COUNTDOWN",
         statusNotArmed:"NOT ARMED",
         statusReady:"READY",
+        statusLoadcellCheck:"LOADCELL CHECK",
         statusSequence:"SEQUENCE",
         statusLockoutText:"Abnormal relay HIGH detected ({name}). Control revoked. Restart the board.",
         statusAbortText:"Sequence aborted.",
@@ -1279,6 +1294,10 @@
         el.devWsOffBtn.classList.toggle("is-on", devWsOff);
         el.devWsOffBtn.classList.toggle("is-warning", devWsOff);
       }
+      if(el.devLoadcellErrBtn){
+        el.devLoadcellErrBtn.classList.toggle("is-on", devLoadcellError);
+        el.devLoadcellErrBtn.classList.toggle("is-warning", devLoadcellError);
+      }
       if(simEnabled){
         lockoutLatched = devRelay1Locked || devRelay2Locked;
         lockoutRelayMask = (devRelay1Locked ? 1 : 0) | (devRelay2Locked ? 2 : 0);
@@ -1461,6 +1480,7 @@
         resetSimState();
         lockoutLatched = false;
         lockoutRelayMask = 0;
+        devLoadcellError = false;
         hideLockoutModal();
         setLockoutVisual(false);
         setInspectionPassed();
@@ -1474,6 +1494,7 @@
         devRelay1Locked = false;
         devRelay2Locked = false;
         devWsOff = false;
+        devLoadcellError = false;
         lockoutLatched = false;
         lockoutRelayMask = 0;
         setLockoutVisual(false);
@@ -2395,7 +2416,7 @@
       const unlocked=isControlUnlocked();
       if(el.forceBtn){
         const igniterBlocked = (uiSettings && uiSettings.igs) && latestTelemetry.ic !== 1;
-        const blocked = (!unlocked || lockoutLatched || state!==0 || sequenceActive || igniterBlocked || safetyModeEnabled);
+        const blocked = ((!unlocked && !loadcellErrorActive) || lockoutLatched || state!==0 || sequenceActive || igniterBlocked || safetyModeEnabled);
         el.forceBtn.disabled = blocked;
         el.forceBtn.classList.toggle("disabled", blocked);
       }
@@ -2711,6 +2732,34 @@
       drawChart("thrustChart", thrustDisplay, "#ef4444", chartView);
       drawChart("pressureChart", pressureDisplay, "#3b82f6", chartView);
     }
+    let chartLayoutRaf = null;
+    function scheduleChartLayoutRefresh(){
+      if(chartLayoutRaf) cancelAnimationFrame(chartLayoutRaf);
+      chartLayoutRaf = requestAnimationFrame(()=>{
+        chartLayoutRaf = null;
+        refreshChartLayout();
+      });
+    }
+    let chartSyncTimer = null;
+    function syncChartHeightToControls(attempt=0){
+      if(chartSyncTimer) clearTimeout(chartSyncTimer);
+      refreshChartLayout();
+      if(!window.matchMedia("(min-width: 1100px)").matches) return;
+      const chartsCard = document.querySelector(".charts-card");
+      const controlsCard = document.getElementById("controlsCard");
+      if(!chartsCard || !controlsCard) return;
+      const targetH = Math.round(controlsCard.getBoundingClientRect().height);
+      if(targetH < 2){
+        if(attempt < 8){
+          chartSyncTimer = setTimeout(()=>syncChartHeightToControls(attempt + 1), 120);
+        }
+        return;
+      }
+      const currentH = Math.round(chartsCard.getBoundingClientRect().height);
+      if(Math.abs(currentH - targetH) > 2 && attempt < 8){
+        chartSyncTimer = setTimeout(()=>syncChartHeightToControls(attempt + 1), 120);
+      }
+    }
     function refreshChartLayout(){
       const row = document.querySelector(".chart-row");
       if(row) row.style.height = "";
@@ -2787,6 +2836,14 @@
         el.statusText.textContent = t("statusSequenceText");
         return 5;
       }
+      if(loadcellErrorActive && st===0){
+        el.statusPill.className="status-loadcell";
+        if(el.statusPillMeta) el.statusPillMeta.className="status-loadcell";
+        el.statusPill.textContent = t("statusLoadcellCheck");
+        if(el.statusPillMeta) el.statusPillMeta.textContent = t("statusLoadcellCheck");
+        el.statusText.textContent = t("statusLoadcellCheck");
+        return 6;
+      }
       if(!ignOK){
         el.statusPill.className="status-disc";
         if(el.statusPillMeta) el.statusPillMeta.className="status-disc";
@@ -2818,6 +2875,13 @@
         el.igniteBtn.disabled = !wantSequenceEnd;
         el.abortBtn.disabled = (st===0);
         if(el.igniteBtn) el.igniteBtn.textContent = wantSequenceEnd ? t("sequenceEndBtn") : t("sequenceStartBtn");
+        updateControlAccessUI(st);
+        return;
+      }
+      if(loadcellErrorActive && st===0){
+        el.igniteBtn.disabled=true;
+        el.abortBtn.disabled=true;
+        if(el.igniteBtn) el.igniteBtn.textContent = t("sequenceStartBtn");
         updateControlAccessUI(st);
         return;
       }
@@ -3113,6 +3177,9 @@
       if(firstSampleMs === null) firstSampleMs = timeMs;
 
       const thrustVal = Number(data.t  != null ? data.t  : (data.thrust   ?? 0));
+      const thrustHasData = (data.t != null || data.thrust != null);
+      loadcellErrorActive = (simEnabled && devLoadcellError) || !thrustHasData || !isFinite(thrustVal);
+      const thrustMissing = loadcellErrorActive;
       updateLoadcellLiveValue(thrustVal);
       const p   = Number(data.p  != null ? data.p  : (data.pressure ?? 0));
       const lt  = Number(data.lt != null ? data.lt : (data.loop ?? data.loopTime ?? 0));
@@ -3336,12 +3403,23 @@
         const thrustDisp=convertThrustForDisplay(thrustVal);
         const thrustUnit = (uiSettings && uiSettings.thrustUnit) ? uiSettings.thrustUnit : "kgf";
 
-        if(el.thrust)   el.thrust.innerHTML   = `<span class="num">${thrustDisp.toFixed(3)}</span><span class="unit">${thrustUnit}</span>`;
+        if(el.thrust){
+          const metric = el.thrust.closest(".status-metric");
+          if(thrustMissing){
+            el.thrust.innerHTML = "로드셀 시스템을<br>점검하세요";
+            if(metric) metric.classList.add("is-alert");
+            if(metric) metric.classList.toggle("is-alert-blink", loadcellErrorActive);
+          }else{
+            if(metric) metric.classList.remove("is-alert");
+            if(metric) metric.classList.remove("is-alert-blink");
+            el.thrust.innerHTML = `<span class="num">${thrustDisp.toFixed(3)}</span><span class="unit">${thrustUnit}</span>`;
+          }
+        }
         if(el.pressure) el.pressure.innerHTML = `<span class="num">${p.toFixed(3)}</span><span class="unit">V</span>`;
         if(el.thrustGauge){
           const maxThrust = (String(thrustUnit).toLowerCase() === "lbf") ? THRUST_GAUGE_MAX_LBF : THRUST_GAUGE_MAX_KGF;
-          const thrustVal = Math.max(0, thrustDisp);
-          const thrustPct = Math.min(100, (maxThrust > 0 ? (thrustVal / maxThrust) * 100 : 0));
+          const thrustVal = thrustMissing ? 0 : Math.max(0, thrustDisp);
+          const thrustPct = Math.min(100, (maxThrust > 0 && isFinite(thrustVal) ? (thrustVal / maxThrust) * 100 : 0));
           el.thrustGauge.style.setProperty("--gauge-pct", thrustPct.toFixed(1) + "%");
         }
         if(el.pressureGauge){
@@ -3431,13 +3509,19 @@
           else if(st===1) stateLabel = t("statusCountdown");
           else if(sequenceActive) stateLabel = t("statusSequence");
           else if(st===0){
-            isNotArmed = (ic===0);
-            stateLabel = isNotArmed ? t("statusNotArmed") : t("statusReady");
+            if(loadcellErrorActive){
+              stateLabel = t("statusLoadcellCheck");
+            }else{
+              isNotArmed = (ic===0);
+              stateLabel = isNotArmed ? t("statusNotArmed") : t("statusReady");
+            }
           }
           if(lockoutLatched || ab || st===2) stateStatus = "bad";
-          else if(st===1 || sequenceActive || (st===0 && ic===0)) stateStatus = "warn";
+          else if(st===1 || sequenceActive || (st===0 && (ic===0 || loadcellErrorActive))) stateStatus = "warn";
           else if(st===0) stateStatus = "ok";
-          el.quickState.innerHTML = `<span class="num">${stateLabel}</span>`;
+          const loadcellLabel = t("statusLoadcellCheck");
+          const stateHtml = (stateLabel === loadcellLabel) ? loadcellLabel.replace(" ", "<br>") : stateLabel;
+          el.quickState.innerHTML = `<span class="num">${stateHtml}</span>`;
           el.quickState.classList.toggle("is-not-armed", isNotArmed);
           setQuickItemStatus(el.quickState, stateStatus);
         }
@@ -4133,9 +4217,15 @@
         showToast(t("forceIgniterRequired"), "warn");
         return;
       }
-      if(!isControlUnlocked()){
+      if(!isControlUnlocked() && !loadcellErrorActive){
         showToast(t("inspectionRequiredShort"), "warn");
         return;
+      }
+      if(el.forceConfirmTitle){
+        el.forceConfirmTitle.textContent = loadcellErrorActive ? t("forceLoadcellTitle") : t("forceConfirmTitle");
+      }
+      if(el.forceConfirmText){
+        el.forceConfirmText.innerHTML = loadcellErrorActive ? t("forceLoadcellText") : t("forceConfirmText");
       }
       if(forceOverlayEl){ forceOverlayEl.classList.remove("hidden"); forceOverlayEl.style.display="flex"; }
       resetForceSlide();
@@ -5016,6 +5106,7 @@
       el.devRelay1Btn = document.getElementById("devRelay1Btn");
       el.devRelay2Btn = document.getElementById("devRelay2Btn");
       el.devWsOffBtn = document.getElementById("devWsOffBtn");
+      el.devLoadcellErrBtn = document.getElementById("devLoadcellErrBtn");
       el.serialRxToggle = document.getElementById("serialRxToggle");
       el.serialTxToggle = document.getElementById("serialTxToggle");
       el.simToggle = document.getElementById("simToggle");
@@ -5043,6 +5134,8 @@
       el.missionRequiredOk = document.getElementById("missionRequiredOk");
       el.noMotorOverlay = document.getElementById("noMotorOverlay");
       el.noMotorOk = document.getElementById("noMotorOk");
+      el.forceConfirmTitle = document.querySelector("#forceOverlay .confirm-title");
+      el.forceConfirmText = document.querySelector("#forceOverlay .confirm-text");
 
       el.launcherOpenBtns = document.querySelectorAll(".js-launcher-open");
       el.inspectionOpenBtn = document.getElementById("inspectionOpenBtn");
@@ -5111,6 +5204,12 @@
       if(el.devWsOffBtn){
         el.devWsOffBtn.addEventListener("click",()=>{
           devWsOff = !devWsOff;
+          updateDevToolsUI();
+        });
+      }
+      if(el.devLoadcellErrBtn){
+        el.devLoadcellErrBtn.addEventListener("click",()=>{
+          devLoadcellError = !devLoadcellError;
           updateDevToolsUI();
         });
       }
@@ -5934,8 +6033,7 @@
         document.body.classList.toggle("countdown-view-active", isCountdown);
         if(isHome) updateHomeUI();
         if(isDashboard){
-          requestAnimationFrame(refreshChartLayout);
-          setTimeout(refreshChartLayout, 160);
+          syncChartHeightToControls(0);
         }
       };
       const activateNavItem = (title)=>{
@@ -6399,11 +6497,16 @@
 
       attachTouch("thrustChart");
       attachTouch("pressureChart");
+      const controlsCard = document.getElementById("controlsCard");
+      if(controlsCard && window.ResizeObserver){
+        const ro = new ResizeObserver(()=>{ scheduleChartLayoutRefresh(); });
+        ro.observe(controlsCard);
+      }
       window.addEventListener("resize",()=>{ refreshChartLayout(); });
-      requestAnimationFrame(refreshChartLayout);
-      setTimeout(refreshChartLayout, 180);
+      syncChartHeightToControls(0);
+      setTimeout(()=>syncChartHeightToControls(1), 180);
       if(document.fonts && document.fonts.ready){
-        document.fonts.ready.then(()=>{ setTimeout(refreshChartLayout, 120); });
+        document.fonts.ready.then(()=>{ setTimeout(()=>syncChartHeightToControls(2), 120); });
       }
 
       openWebSocket();
