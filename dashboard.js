@@ -5876,12 +5876,20 @@
       if(sideNavDesktop){
         let navResizeTimer = null;
         let navExpandTimer = null;
+        let navClickExpandTimer = null;
         const expandTemporarily = ()=>{
           sideNavDesktop.classList.add("is-expanded");
           clearTimeout(navExpandTimer);
           navExpandTimer = setTimeout(()=>{
             sideNavDesktop.classList.remove("is-expanded");
           }, 1000);
+        };
+        const expandOnClick = ()=>{
+          sideNavDesktop.classList.add("is-expanded");
+          clearTimeout(navClickExpandTimer);
+          navClickExpandTimer = setTimeout(()=>{
+            sideNavDesktop.classList.remove("is-expanded");
+          }, 900);
         };
         const scheduleNavRefresh = ()=>{
           requestAnimationFrame(refreshChartLayout);
@@ -5891,7 +5899,7 @@
         sideNavDesktop.addEventListener("mouseenter", scheduleNavRefresh);
         sideNavDesktop.addEventListener("mouseleave", scheduleNavRefresh);
         sideNavDesktop.addEventListener("touchstart", expandTemporarily, {passive:true});
-        sideNavDesktop.addEventListener("click", expandTemporarily);
+        sideNavDesktop.addEventListener("click", expandOnClick);
         sideNavDesktop.addEventListener("transitionend",(ev)=>{
           if(ev.propertyName === "width" || ev.propertyName === "padding-left" || ev.propertyName === "padding-right"){
             scheduleNavRefresh();
@@ -5966,6 +5974,14 @@
             item.classList.add("active");
             const title = item.dataset.pageTitle || item.textContent.trim();
             setActiveView(title);
+            const nav = document.querySelector(".side-nav-desktop");
+            if(nav){
+              nav.classList.add("is-expanded");
+              clearTimeout(nav._collapseTimer);
+              nav._collapseTimer = setTimeout(()=>{
+                nav.classList.remove("is-expanded");
+              }, 900);
+            }
           });
         });
         const active = Array.from(sideNavItems).find(item=>item.classList.contains("active"));
