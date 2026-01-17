@@ -7,6 +7,7 @@
 
   <!-- ✅ 이미지 프리로드(LOCKOUT/토스트/아이콘 늦게 뜨는거 방지) -->
   <link rel="preload" as="image" href="img/Flash_logo.svg ">
+  <link rel="preload" as="image" href="img/Flash_logo_plain.svg">
   <link rel="preload" as="image" href="img/Danger.svg">
   <link rel="preload" as="image" href="img/Tick.svg">
   <link rel="preload" as="image" href="img/Graph.svg">
@@ -101,11 +102,17 @@
     }
     .side-nav-item::before{content:none}
     .side-nav-item svg{
-      width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;
+      width:20px;height:20px;min-width:20px;min-height:20px;
+      flex:0 0 20px;
+      stroke:currentColor;fill:none;stroke-width:1.8;
+      transform:scale(1);
       stroke-linecap:round;stroke-linejoin:round;
     }
     .side-nav-action svg{
-      width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;
+      width:20px;height:20px;min-width:20px;min-height:20px;
+      flex:0 0 20px;
+      stroke:currentColor;fill:none;stroke-width:1.8;
+      transform:scale(1);
       stroke-linecap:round;stroke-linejoin:round;
     }
     .side-nav-item.active{
@@ -122,7 +129,10 @@
       background:transparent;color:#6b7280;display:grid;place-items:center;cursor:pointer;
     }
     .side-nav-btn svg{
-      width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;
+      width:20px;height:20px;min-width:20px;min-height:20px;
+      flex:0 0 20px;
+      stroke:currentColor;fill:none;stroke-width:1.8;
+      transform:scale(1);
       stroke-linecap:round;stroke-linejoin:round;
     }
     .side-nav-btn:hover{background:#f1f5f9;color:#0f172a}
@@ -2843,7 +2853,7 @@
 
   <!-- ✅ SPLASH: 로고 먼저 → 2초 뒤 로딩중 → 이미지 프리로드 완료되면 진입 -->
   <div id="splash" aria-label="loading">
-    <img id="splashLogo" src="img/Flash_logo.svg " alt="FLASH">
+    <img id="splashLogo" src="img/Flash_logo_plain.svg" alt="FLASH">
     <div id="splashLoading" data-i18n-html="splashLoading">로딩중<span id="splashDots"></span></div>
   </div>
 
