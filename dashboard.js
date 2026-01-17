@@ -387,6 +387,7 @@
 
       const ASSETS = [
         "img/Flash_logo.svg ",
+        "img/Flash_logo_plain.svg",
         "img/Danger.svg",
         "img/Tick.svg",
         "img/Graph.svg",
