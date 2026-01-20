@@ -3240,7 +3240,6 @@
               <div class="primary-btn-wrap"><button id="igniteBtn" class="primary-btn" data-i18n="sequenceStartBtn">SEQUENCE START</button></div>
               <div class="abort-btn-wrap"><button id="abortBtn" class="secondary-btn" disabled>ABORT</button></div>
             </div>
-
             <div class="control-row">
               <button id="forceIgniteBtn" class="control-tile is-btn is-danger force-tile">
                 <div>
@@ -3318,7 +3317,8 @@
         <div class="settings-body">
           <nav class="settings-nav">
             <div class="settings-nav-title" data-i18n="settingsNavTitle">섹션</div>
-            <button class="settings-nav-btn active" data-target="connect"><span data-i18n="settingsNavHardware">하드웨어</span><span class="settings-nav-badge">Hardware</span></button>
+            <button class="settings-nav-btn active" data-target="connect"><span data-i18n="settingsNavConnect">연결</span><span class="settings-nav-badge">Connect</span></button>
+            <button class="settings-nav-btn" data-target="hardware"><span data-i18n="settingsNavHardware">하드웨어</span><span class="settings-nav-badge">Hardware</span></button>
             <button class="settings-nav-btn" data-target="units"><span data-i18n="settingsNavInterface">인터페이스</span><span class="settings-nav-badge">Interface</span></button>
             <button class="settings-nav-btn" data-target="sequence"><span data-i18n="settingsNavSequence">시퀀스</span><span class="settings-nav-badge">Sequence</span></button>
             <button class="settings-nav-btn" data-target="safety"><span data-i18n="settingsNavSafety">SAFETY</span><span class="settings-nav-badge">Safety</span></button>
@@ -3329,29 +3329,59 @@
             <!-- CONNECT -->
             <div class="settings-panel active" data-panel="connect">
               <div class="settings-group">
-                <div class="settings-group-title" data-i18n="settingsHardwareInfoTitle">하드웨어 정보</div>
+                <div class="settings-group-title" data-i18n="settingsWifiInfoTitle">Wi-Fi</div>
                 <div class="settings-row">
                   <div>
-                    <div class="settings-label" data-i18n="settingsBoardNameLabel">보드 이름</div>
+                    <div class="settings-label" data-i18n="settingsWifiModeLabel">모드</div>
                   </div>
-                  <span id="hwBoardName" class="settings-desc mono">-</span>
+                  <span id="wifiMode" class="settings-desc mono">-</span>
                 </div>
                 <div class="settings-row">
                   <div>
-                    <div class="settings-label" data-i18n="settingsFirmwareNameLabel">펌웨어 정보</div>
+                    <div class="settings-label" data-i18n="settingsWifiSsidLabel">SSID</div>
                   </div>
-                  <span id="hwFirmwareName" class="settings-desc mono">-</span>
+                  <span id="wifiSsid" class="settings-desc mono">-</span>
                 </div>
                 <div class="settings-row">
                   <div>
-                    <div class="settings-label" data-i18n="settingsProtocolLabel">프로토콜</div>
+                    <div class="settings-label" data-i18n="settingsWifiChannelLabel">채널</div>
                   </div>
-                  <span id="hwProtocolName" class="settings-desc mono">-</span>
+                  <span id="wifiChannel" class="settings-desc mono">-</span>
+                </div>
+                <div class="settings-row">
+                  <div>
+                    <div class="settings-label" data-i18n="settingsWifiBandwidthLabel">대역폭</div>
+                  </div>
+                  <span id="wifiBandwidth" class="settings-desc mono">-</span>
+                </div>
+                <div class="settings-row">
+                  <div>
+                    <div class="settings-label" data-i18n="settingsWifiTxPowerLabel">TX 전력</div>
+                  </div>
+                  <span id="wifiTxPower" class="settings-desc mono">-</span>
+                </div>
+                <div class="settings-row">
+                  <div>
+                    <div class="settings-label" data-i18n="settingsWifiIpLabel">IP</div>
+                  </div>
+                  <span id="wifiIp" class="settings-desc mono">-</span>
+                </div>
+                <div class="settings-row">
+                  <div>
+                    <div class="settings-label" data-i18n="settingsWifiStaCountLabel">접속 장치</div>
+                  </div>
+                  <span id="wifiStaCount" class="settings-desc mono">-</span>
+                </div>
+                <div class="settings-row">
+                  <div>
+                    <div class="settings-label" data-i18n="settingsWifiRssiLabel">신호(RSSI)</div>
+                  </div>
+                  <span id="wifiRssi" class="settings-desc mono">-</span>
                 </div>
               </div>
 
               <div class="settings-group">
-                <div class="settings-group-title" data-i18n="settingsGroupHardware">하드웨어</div>
+                <div class="settings-group-title" data-i18n="settingsGroupSerial">시리얼</div>
 
                 <div class="settings-row">
                   <div>
@@ -3386,23 +3416,37 @@
 
                 <div class="settings-row">
                   <div>
-                    <div class="settings-label" data-i18n="settingsSimLabel">가상 기기 (개발자 모드)</div>
-                    <div class="hint-mini" data-i18n="settingsSimHint">가상 센서 값을 생성해 모든 기능을 테스트합니다.</div>
-                  </div>
-                  <label class="switch" title="Simulation">
-                    <input type="checkbox" id="simToggle">
-                    <span class="slider"></span>
-                  </label>
-                </div>
-
-                <div class="settings-row">
-                  <div>
                     <div class="settings-label" data-i18n="settingsWsKeepLabel">WebSocket 유지</div>
                     <div class="hint-mini" data-i18n="settingsWsKeepHint">연결이 끊겨도 자동 재연결을 시도합니다.</div>
                   </div>
                   <span class="settings-desc mono">ws /ws</span>
                 </div>
 
+              </div>
+            </div>
+
+            <!-- HARDWARE -->
+            <div class="settings-panel" data-panel="hardware">
+              <div class="settings-group">
+                <div class="settings-group-title" data-i18n="settingsHardwareInfoTitle">하드웨어 정보</div>
+                <div class="settings-row">
+                  <div>
+                    <div class="settings-label" data-i18n="settingsBoardNameLabel">보드 이름</div>
+                  </div>
+                  <span id="hwBoardName" class="settings-desc mono">-</span>
+                </div>
+                <div class="settings-row">
+                  <div>
+                    <div class="settings-label" data-i18n="settingsFirmwareNameLabel">펌웨어 정보</div>
+                  </div>
+                  <span id="hwFirmwareName" class="settings-desc mono">-</span>
+                </div>
+                <div class="settings-row">
+                  <div>
+                    <div class="settings-label" data-i18n="settingsProtocolLabel">프로토콜</div>
+                  </div>
+                  <span id="hwProtocolName" class="settings-desc mono">-</span>
+                </div>
               </div>
 
               <div class="settings-group">
@@ -3455,6 +3499,16 @@
                   </div>
                   <label class="switch">
                     <input type="checkbox" id="themeToggle">
+                    <span class="slider"></span>
+                  </label>
+                </div>
+                <div class="settings-row">
+                  <div>
+                    <div class="settings-label" data-i18n="settingsSimLabel">가상 기기 (개발자 모드)</div>
+                    <div class="hint-mini" data-i18n="settingsSimHint">가상 센서 값을 생성해 모든 기능을 테스트합니다.</div>
+                  </div>
+                  <label class="switch" title="Simulation">
+                    <input type="checkbox" id="simToggle">
                     <span class="slider"></span>
                   </label>
                 </div>
