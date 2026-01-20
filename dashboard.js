@@ -180,6 +180,8 @@
     let rxWindowCount = 0;
     let rxHzWindow = 0;
     let lastCountdownSec = null;
+    let wifiInfo = null;
+    let wifiInfoLastMs = 0;
 
     let prevSwState = null;
     let prevIcState = null;
@@ -427,6 +429,11 @@
     // UI 설정 저장
     // =====================
     const SETTINGS_KEY = "hanwool_tms_settings_v2";
+    const OVERLAY_CHANNEL = "hanwool_overlay_sync";
+    const OVERLAY_SYNC_KEY = "hanwool_overlay_latest";
+    const OVERLAY_SYNC_MIN_MS = 150;
+    let overlayChannel = null;
+    let lastOverlaySyncMs = 0;
     let uiSettings = null;
 
     function defaultSettings(){
@@ -474,6 +481,22 @@
     }
     function saveSettings(){ try{ localStorage.setItem(SETTINGS_KEY, JSON.stringify(uiSettings)); }catch(e){} }
 
+    try{
+      if("BroadcastChannel" in window){
+        overlayChannel = new BroadcastChannel(OVERLAY_CHANNEL);
+      }
+    }catch(e){}
+
+    function publishOverlaySample(sample){
+      if(!sample) return;
+      if(overlayChannel) overlayChannel.postMessage(sample);
+      const now = Date.now();
+      if(now - lastOverlaySyncMs >= OVERLAY_SYNC_MIN_MS){
+        lastOverlaySyncMs = now;
+        try{ localStorage.setItem(OVERLAY_SYNC_KEY, JSON.stringify(sample)); }catch(e){}
+      }
+    }
+
     // =====================
     // 언어 (i18n)
     // =====================
@@ -516,6 +539,7 @@
         devWsOffBtn:"WS OFF (SIM)",
         devLoadcellErrBtn:"로드셀 오류 (SIM)",
         settingsNavTitle:"섹션",
+        settingsNavConnect:"연결",
         settingsNavHardware:"하드웨어",
         settingsNavInterface:"인터페이스",
         settingsNavSequence:"시퀀스",
@@ -526,6 +550,16 @@
         settingsBoardNameLabel:"보드 이름",
         settingsFirmwareNameLabel:"펌웨어 정보",
         settingsProtocolLabel:"프로토콜",
+        settingsGroupSerial:"시리얼",
+        settingsWifiInfoTitle:"Wi-Fi",
+        settingsWifiModeLabel:"모드",
+        settingsWifiSsidLabel:"SSID",
+        settingsWifiChannelLabel:"채널",
+        settingsWifiBandwidthLabel:"대역폭",
+        settingsWifiTxPowerLabel:"TX 전력",
+        settingsWifiIpLabel:"IP",
+        settingsWifiStaCountLabel:"접속 장치",
+        settingsWifiRssiLabel:"신호(RSSI)",
         settingsSerialStatusLabel:"시리얼 연결 상태",
         settingsSerialRxLabel:"시리얼 수신 로그 반영",
         settingsSerialRxHint:"보드가 JSON 라인을 출력하면 그대로 파싱해 UI/차트에 반영합니다.",
@@ -694,6 +728,7 @@
         statusNotArmedTextReady:"이그나이터 미연결 / 점화 시퀀스 가능",
         statusNotArmedTextBlocked:"이그나이터 미연결 / 점화 시퀀스 제한",
         statusReadyText:"시스템 준비 완료",
+        sequenceReadyBtn:"READY",
         sequenceStartBtn:"SEQUENCE START",
         sequenceEndBtn:"SEQUENCE END",
         sequenceEndLog:"시퀀스 종료 요청.",
@@ -882,6 +917,7 @@
         devWsOffBtn:"WS OFF (SIM)",
         devLoadcellErrBtn:"LOADCELL ERROR (SIM)",
         settingsNavTitle:"Sections",
+        settingsNavConnect:"Connect",
         settingsNavHardware:"Hardware",
         settingsNavInterface:"Interface",
         settingsNavSequence:"Sequence",
@@ -892,6 +928,16 @@
         settingsBoardNameLabel:"Board Name",
         settingsFirmwareNameLabel:"Firmware",
         settingsProtocolLabel:"Protocol",
+        settingsGroupSerial:"Serial",
+        settingsWifiInfoTitle:"Wi-Fi",
+        settingsWifiModeLabel:"Mode",
+        settingsWifiSsidLabel:"SSID",
+        settingsWifiChannelLabel:"Channel",
+        settingsWifiBandwidthLabel:"Bandwidth",
+        settingsWifiTxPowerLabel:"TX power",
+        settingsWifiIpLabel:"IP",
+        settingsWifiStaCountLabel:"Connected devices",
+        settingsWifiRssiLabel:"Signal (RSSI)",
         settingsSerialStatusLabel:"Serial connection status",
         settingsSerialRxLabel:"Apply serial RX logs",
         settingsSerialRxHint:"Parse JSON lines from the board and reflect them in the UI/charts.",
@@ -1074,6 +1120,7 @@
         statusNotArmedTextReady:"Igniter open / ignition sequence allowed",
         statusNotArmedTextBlocked:"Igniter open / ignition sequence blocked",
         statusReadyText:"System ready",
+        sequenceReadyBtn:"READY",
         sequenceStartBtn:"SEQUENCE START",
         sequenceEndBtn:"SEQUENCE END",
         sequenceEndLog:"Sequence end requested.",
@@ -1461,15 +1508,6 @@
     function resetSimState(){
       simState = {st:0, cdMs:0, countdownStartMs:null, ignStartMs:null, countdownTotalMs:null};
     }
-    function setInspectionPassed(){
-      inspectionRunning = false;
-      inspectionState = "passed";
-      controlAuthority = true;
-      INSPECTION_STEPS.forEach(s=>setInspectionItemState(s.key, "ok", t("inspectionOk")));
-      setInspectionResult(t("inspectionPassText"), "ok");
-      updateInspectionPill();
-      updateControlAccessUI(currentSt);
-    }
     function setSimEnabled(enabled, opts){
       const silent = !!(opts && opts.silent);
       simEnabled = !!enabled;
@@ -1484,7 +1522,7 @@
         devLoadcellError = false;
         hideLockoutModal();
         setLockoutVisual(false);
-        setInspectionPassed();
+        resetInspectionUI();
         onIncomingSample(buildSimSample(), "SIMULATION");
       }else{
         resetSimState();
@@ -1955,6 +1993,43 @@
       updateWsAlert();
       updateHomeUI();
     }
+
+    function updateWifiInfoUI(info){
+      if(!el.wifiMode && !el.wifiSsid) return;
+      if(!info){
+        if(el.wifiMode) el.wifiMode.textContent = "-";
+        if(el.wifiSsid) el.wifiSsid.textContent = "-";
+        if(el.wifiChannel) el.wifiChannel.textContent = "-";
+        if(el.wifiBandwidth) el.wifiBandwidth.textContent = "-";
+        if(el.wifiTxPower) el.wifiTxPower.textContent = "-";
+        if(el.wifiIp) el.wifiIp.textContent = "-";
+        if(el.wifiStaCount) el.wifiStaCount.textContent = "-";
+        if(el.wifiRssi) el.wifiRssi.textContent = "-";
+        return;
+      }
+      const mode = info.mode || "-";
+      const apSsid = info.ap_ssid || "";
+      const staSsid = info.sta_ssid || "";
+      const ssidLabel = (staSsid && staSsid.length) ? staSsid : apSsid;
+      const channel = (info.channel != null) ? String(info.channel) : "-";
+      const bandwidth = info.bandwidth || "-";
+      const txDbm = (info.tx_dbm != null && isFinite(Number(info.tx_dbm))) ? Number(info.tx_dbm).toFixed(1) + " dBm" : "-";
+      const apIp = info.ap_ip || "";
+      const staIp = info.sta_ip || "";
+      const ipLabel = (staIp && staIp !== "0.0.0.0") ? staIp : apIp;
+      const staCount = (info.sta_count != null) ? String(info.sta_count) : "-";
+      const rssiVal = Number(info.rssi);
+      const rssiLabel = (isFinite(rssiVal) && rssiVal > -100) ? (rssiVal + " dBm") : "-";
+
+      if(el.wifiMode) el.wifiMode.textContent = mode;
+      if(el.wifiSsid) el.wifiSsid.textContent = ssidLabel || "-";
+      if(el.wifiChannel) el.wifiChannel.textContent = channel;
+      if(el.wifiBandwidth) el.wifiBandwidth.textContent = bandwidth;
+      if(el.wifiTxPower) el.wifiTxPower.textContent = txDbm;
+      if(el.wifiIp) el.wifiIp.textContent = ipLabel || "-";
+      if(el.wifiStaCount) el.wifiStaCount.textContent = staCount;
+      if(el.wifiRssi) el.wifiRssi.textContent = rssiLabel;
+    }
     function updateHomeLog(){
       if(!el.homeLog) return;
       if(!eventLog.length){
@@ -2297,6 +2372,35 @@
       }
       return audioCtx;
     }
+
+    const COUNTDOWN_AUDIO_SOURCES = {
+      10: "/mp3/t-10.mp3",
+      9: "/mp3/9.mp3",
+      8: "/mp3/8.mp3",
+      7: "/mp3/7.mp3",
+      6: "/mp3/6.mp3",
+      5: "/mp3/5.mp3",
+      4: "/mp3/4.mp3",
+      3: "/mp3/3.mp3",
+      2: "/mp3/2.mp3",
+      1: "/mp3/1.mp3",
+      0: "/mp3/ignition.mp3"
+    };
+    const countdownAudioCache = {};
+    function playCountdownMp3(secRemain){
+      const key = Number(secRemain);
+      if(!isFinite(key) || !(key in COUNTDOWN_AUDIO_SOURCES)) return;
+      let audio = countdownAudioCache[key];
+      if(!audio){
+        audio = new Audio(COUNTDOWN_AUDIO_SOURCES[key]);
+        audio.preload = "auto";
+        countdownAudioCache[key] = audio;
+      }
+      try{
+        audio.currentTime = 0;
+        audio.play().catch(()=>{});
+      }catch(e){}
+    }
     function playTone(freq, durationMs, delayMs){
       const ctx = getAudioCtx();
       if(!ctx) return;
@@ -2519,6 +2623,14 @@
       }
       setButtonsFromState(currentSt, lockoutLatched, sequenceActive);
       updateInspectionPill();
+    }
+
+    function openInspectionFromUI(){
+      if(!connOk){
+        showToast(t("inspectionOpenToast"), "warn");
+        return;
+      }
+      showInspection();
     }
 
     function showInspection(){
@@ -2873,9 +2985,9 @@
         return;
       }
       if(!isControlUnlocked()){
-        el.igniteBtn.disabled = !wantSequenceEnd;
+        el.igniteBtn.disabled = false;
         el.abortBtn.disabled = (st===0);
-        if(el.igniteBtn) el.igniteBtn.textContent = wantSequenceEnd ? t("sequenceEndBtn") : t("sequenceStartBtn");
+        if(el.igniteBtn) el.igniteBtn.textContent = wantSequenceEnd ? t("sequenceEndBtn") : t("sequenceReadyBtn");
         updateControlAccessUI(st);
         return;
       }
@@ -3201,6 +3313,8 @@
       const smRaw = (data.sm != null ? data.sm : (data.safe != null ? data.safe : null));
       const sm = (smRaw != null) ? Number(smRaw) : null;
       const mode = Number(data.m != null ? data.m : data.mode ?? -1);
+
+      publishOverlaySample({ t: thrustVal, p, st, td, ab, ts: Date.now() });
 
       // ✅ LOCKOUT 필드 매칭(펌웨어: rf/rm 우선)
       const lko = Number(data.lko ?? data.lockout ?? data.rf ?? 0);
@@ -3550,9 +3664,9 @@
               cdText = pad2(minPart) + ":" + pad2(secPart) + "." + pad3(msPart);
               if(secRemain !== lastCountdownSec){
                 if(secRemain > 0){
-                  playTone(880, 90, 0);
+                  playCountdownMp3(secRemain);
                 }else{
-                  playTone(1200, 200, 0);
+                  playCountdownMp3(0);
                 }
                 lastCountdownSec = secRemain;
               }
@@ -3662,6 +3776,20 @@
         onIncomingSample(data, "WIFI");
       }finally{
         isUpdating=false;
+      }
+    }
+
+    async function fetchWifiInfo(){
+      if(simEnabled) return;
+      try{
+        const info = await fetchJsonTimeout("/wifi_info", 700);
+        wifiInfo = info;
+        wifiInfoLastMs = Date.now();
+        updateWifiInfoUI(info);
+      }catch(e){
+        if(!wifiInfo || (Date.now() - wifiInfoLastMs) > 5000){
+          updateWifiInfoUI(null);
+        }
       }
     }
 
@@ -5116,6 +5244,14 @@
       el.hwBoardName = document.getElementById("hwBoardName");
       el.hwFirmwareName = document.getElementById("hwFirmwareName");
       el.hwProtocolName = document.getElementById("hwProtocolName");
+      el.wifiMode = document.getElementById("wifiMode");
+      el.wifiSsid = document.getElementById("wifiSsid");
+      el.wifiChannel = document.getElementById("wifiChannel");
+      el.wifiBandwidth = document.getElementById("wifiBandwidth");
+      el.wifiTxPower = document.getElementById("wifiTxPower");
+      el.wifiIp = document.getElementById("wifiIp");
+      el.wifiStaCount = document.getElementById("wifiStaCount");
+      el.wifiRssi = document.getElementById("wifiRssi");
       el.langSelect = document.getElementById("langSelect");
       el.themeToggle = document.getElementById("themeToggle");
       el.loadcellCalOpen = document.getElementById("loadcellCalOpen");
@@ -5435,6 +5571,18 @@
             showToast(t("sequenceEndToast"), "info");
             return;
           }
+          if(currentSt===0 && !isControlUnlocked()){
+            if(lockoutLatched){
+              showToast(t("lockoutNoControl"), "error");
+              return;
+            }
+            if(!hasMissionSelected()){
+              showMissionRequired();
+              return;
+            }
+            openInspectionFromUI();
+            return;
+          }
           if(currentSt===0) showConfirm();
         });
       }
@@ -5485,15 +5633,8 @@
       }
 
       if(el.inspectionOpenBtn){
-        const openInspection=()=>{
-          if(!connOk){
-            showToast(t("inspectionOpenToast"), "warn");
-            return;
-          }
-          showInspection();
-        };
-        el.inspectionOpenBtn.addEventListener("click", openInspection);
-        el.inspectionOpenBtn.addEventListener("keydown",(e)=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); openInspection(); }});
+        el.inspectionOpenBtn.addEventListener("click", openInspectionFromUI);
+        el.inspectionOpenBtn.addEventListener("keydown",(e)=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); openInspectionFromUI(); }});
       }
       if(el.inspectionRetry){
         el.inspectionRetry.addEventListener("click",()=>runInspectionSequence());
@@ -6526,6 +6667,8 @@
       openWebSocket();
       updateWsUI();
       setInterval(ensureWsAlive, 500);
+      setInterval(fetchWifiInfo, 2000);
+      fetchWifiInfo();
       updateData().finally(()=>{ pollLoop(); });
       updateSerialPill();
 
