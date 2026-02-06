@@ -634,6 +634,7 @@
     let devWsOff = false;
     let devLoadcellError = false;
     let loadcellErrorActive = false;
+    let lastLoadcellErrorActive = null;
 
     // ✅ LOCKOUT modal
     let lockoutModalShown = false;
@@ -676,6 +677,14 @@
       {key:"switch",  check:()=>latestTelemetry.sw===0},
       {key:"relay",   check:()=>!lockoutLatched},
     ];
+    const INSPECTION_STEP_INFO = {
+      link:{labelKey:"inspectionLabelLink", descKey:"inspectionDescLink"},
+      serial:{label:"WebSerial", descKey:"inspectionDescSerial"},
+      igniter:{labelKey:"inspectionLabelIgniter", descKey:"inspectionDescIgniter"},
+      loadcell:{labelKey:"inspectionLabelLoadcell", descKey:"inspectionDescLoadcell"},
+      switch:{labelKey:"inspectionLabelSwitch", descKey:"inspectionDescSwitch"},
+      relay:{label:"RelaySafe/LOCKOUT", descKey:"inspectionDescRelay"}
+    };
 
     // ✅ DOM 캐시
     const el = {};
@@ -775,6 +784,7 @@
     const WS_RETRY_MAX_MS = 5000;
     let wsEverConnected = false;
     let wsAlertDismissed = false;
+    let lastWsAlertActive = false;
     const wsLogSilent = (
       location.protocol === "file:" ||
       location.hostname === "localhost" ||
@@ -798,26 +808,15 @@
 
     async function runSplashAndPreload(){
       const splash  = document.getElementById("splash");
-      const loading = document.getElementById("splashLoading");
-      const dots    = document.getElementById("splashDots");
       const app     = document.querySelector(".page-wrap");
 
-      if(!splash || !loading || !dots || !app){
+      if(!splash || !app){
         app?.classList?.add("ready");
         return;
       }
 
-      // ✅ 타이밍 고정: 로고만 2초 → 로딩중 표시 → (프리로드 완료 후) 넘어감
-      const SHOW_LOADING_AFTER_MS = 2000;  // 로고만 보이는 시간
-      const ALTIS_SHOW_MS = 1000;          // ALTIS 로고 먼저
-      const HOLD_AFTER_LOADING_MS = 300;   // "로딩중" 최소 체류(너무 휙 넘어가는 느낌 방지)
-
-      // 점 애니메이션
-      let n = 0;
-      const dotTimer = setInterval(()=>{
-        n = (n + 1) % 4;
-        dots.textContent = ".".repeat(n);
-      }, 320);
+      const MIN_SPLASH_MS = 2600;  // 최소 표시 시간
+      const ALTIS_SHOW_MS = 1600;  // ALTIS 먼저
 
       const ASSETS = [
         "img/altis_logo2.svg",
@@ -832,30 +831,22 @@
         "img/RS_all.svg",
       ];
 
-      // ✅ 프리로드는 바로 시작
+      const startMs = performance.now();
       const preloadPromise = preloadImages(ASSETS);
+      const switchTimer = setTimeout(()=>{ splash.classList.add("flash-on"); }, ALTIS_SHOW_MS);
 
-      // ✅ ALTIS → FLASH 전환
-      setTimeout(()=>{ splash.classList.add("flash-on"); }, ALTIS_SHOW_MS);
-
-      // ✅ 2초는 무조건 기다렸다가 로딩중 표시
-      await new Promise(r => setTimeout(r, SHOW_LOADING_AFTER_MS));
-      loading.classList.add("show");
-
-      // ✅ 프리로드 끝날 때까지 대기
       const PRELOAD_TIMEOUT_MS = 2500;
       await Promise.race([
         preloadPromise,
         new Promise(r => setTimeout(r, PRELOAD_TIMEOUT_MS)),
       ]);
 
-      // ✅ 로딩중이 뜬 상태로 너무 바로 꺼지지 않게 살짝 홀드
-      await new Promise(r => setTimeout(r, HOLD_AFTER_LOADING_MS));
+      const elapsed = performance.now() - startMs;
+      const waitMs = Math.max(0, MIN_SPLASH_MS - elapsed);
+      if(waitMs) await new Promise(r => setTimeout(r, waitMs));
 
-      clearInterval(dotTimer);
-      dots.textContent = "";
+      clearTimeout(switchTimer);
 
-      // ✅ 스플래시 종료 → 앱 표시
       splash.classList.add("hide");
       app.classList.add("ready");
       setTimeout(()=>{ try{ splash.remove(); }catch(e){} }, 350);
@@ -1078,6 +1069,7 @@
         launcherAutoConfirmBtn:"실행",
         inspectionTitle:"설비 점검",
         inspectionSub:"자동 점검을 완료하면 제어 권한이 부여됩니다.",
+        inspectionCurrentTitle:"현재 점검 항목",
         inspectionLabelLink:"데이터 링크",
         inspectionDescLink:"Wi-Fi/폴링 응답 상태",
         inspectionDescSerial:"USB 시리얼 연결/권한",
@@ -1341,7 +1333,8 @@
         loadcellSaveSuccessToast:"로드셀 보정값을 저장했습니다.",
         loadcellSaveFailToast:"로드셀 보정 저장에 실패했습니다.",
         loadcellZeroSaveLog:"로드셀 영점 저장 요청",
-        loadcellSaveLog:"로드셀 보정 저장 요청 (weight={weight} kg)"
+        loadcellSaveLog:"로드셀 보정 저장 요청 (weight={weight} kg)",
+        loadcellErrorToast:"로드셀 데이터 수신 오류입니다. 센서/배선을 점검하세요."
       },
       en: {
         toastTitleSuccess:"Success",
@@ -1481,6 +1474,7 @@
         launcherAutoConfirmBtn:"Run",
         inspectionTitle:"Inspection",
         inspectionSub:"Complete the automatic check to gain control authority.",
+        inspectionCurrentTitle:"Current check",
         inspectionLabelLink:"Data link",
         inspectionDescLink:"Wi-Fi/polling response",
         inspectionDescSerial:"USB serial connection/permissions",
@@ -1518,6 +1512,7 @@
         loadcellSaveSuccessToast:"Loadcell calibration saved.",
         loadcellSaveFailToast:"Failed to save loadcell calibration.",
         loadcellSaveLog:"Loadcell calibration save request (weight={weight} kg)",
+        loadcellErrorToast:"Loadcell data error. Check sensor and wiring.",
         settingsLangLabel:"Language",
         settingsLangHint:"Change display language.",
         settingsThemeLabel:"Dark mode",
@@ -1956,9 +1951,10 @@
     }
 
     function showWsAlert(){
-      if(!el.wsAlertOverlay) return;
-      el.wsAlertOverlay.classList.remove("hidden");
-      el.wsAlertOverlay.style.display = "flex";
+      if(el.wsAlertOverlay){
+        el.wsAlertOverlay.classList.add("hidden");
+        el.wsAlertOverlay.style.display = "none";
+      }
     }
     function hideWsAlert(){
       if(!el.wsAlertOverlay) return;
@@ -1978,26 +1974,23 @@
       el.disconnectOverlay.style.display = "none";
     }
     function updateWsAlert(){
-      if(simEnabled && devWsOff){
-        showWsAlert();
-        return;
-      }
-      if(wsLogSilent){
-        hideWsAlert();
-        return;
-      }
-      if(simEnabled){
-        hideWsAlert();
-        return;
-      }
-      if(!connOk || wsConnected){
+      const simOff = (simEnabled && devWsOff);
+      const shouldAlert = (simOff || (!simEnabled && !wsLogSilent && connOk && !wsConnected));
+
+      if(!shouldAlert){
         wsAlertDismissed = false;
+        lastWsAlertActive = false;
         hideWsAlert();
         return;
       }
-      if(!wsAlertDismissed){
-        showWsAlert();
+
+      if(!lastWsAlertActive){
+        const raw = t("wsAlertText");
+        const text = String(raw).replace(/<br\s*\/?>/gi, " ");
+        showToast(text, "warn", {key:"ws-alert", duration:6000});
+        lastWsAlertActive = true;
       }
+      hideWsAlert();
     }
     function updateTogglePill(pillEl, checked){
       if(!pillEl) return;
@@ -2848,19 +2841,16 @@
         existingToast.className = "toast toast-" + toastType;
         const img = existingToast.querySelector(".toast-icon img");
         if(img) img.src = getToastIconPath(toastType);
+        const titleDiv = existingToast.querySelector(".toast-title");
+        if(titleDiv) titleDiv.textContent = titleText;
         const textDiv = existingToast.querySelector(".toast-text");
-        if(textDiv) textDiv.textContent = titleText;
+        if(textDiv) textDiv.textContent = message;
         existingToast.dataset.full = message;
         existingToast.classList.remove("toast-expanded");
         if(existingToast._timer){ clearTimeout(existingToast._timer); }
         if(existingToast._expandTimer){ clearTimeout(existingToast._expandTimer); }
         existingToast.classList.remove("toast-hide");
         requestAnimationFrame(()=>existingToast.classList.add("toast-show"));
-        existingToast._expandTimer = setTimeout(()=>{
-          if(existingToast._dismissed) return;
-          existingToast.classList.add("toast-expanded");
-          if(textDiv) textDiv.textContent = existingToast.dataset.full || message;
-        }, 1000);
         existingToast._timer = setTimeout(()=>dismissToast(existingToast), duration);
         return;
       }
@@ -2881,15 +2871,31 @@
       const bodyDiv = document.createElement("div");
       bodyDiv.className = "toast-body";
 
+      const titleDiv = document.createElement("div");
+      titleDiv.className = "toast-title";
+      titleDiv.textContent = titleText;
+
       const textDiv = document.createElement("div");
       textDiv.className = "toast-text";
-      textDiv.textContent = titleText;
+      textDiv.textContent = message;
 
       toast.dataset.full = message;
+      bodyDiv.appendChild(titleDiv);
       bodyDiv.appendChild(textDiv);
 
       toast.appendChild(iconDiv);
       toast.appendChild(bodyDiv);
+
+      const closeBtn = document.createElement("button");
+      closeBtn.type = "button";
+      closeBtn.className = "toast-close";
+      closeBtn.setAttribute("aria-label","Dismiss");
+      closeBtn.textContent = "×";
+      closeBtn.addEventListener("click",(ev)=>{
+        ev.stopPropagation();
+        dismissToast(toast);
+      });
+      toast.appendChild(closeBtn);
 
       toast.addEventListener("click", ()=>{
         if(!toast.classList.contains("toast-expanded")){
@@ -2903,11 +2909,6 @@
       });
       el.toastContainer.appendChild(toast);
       requestAnimationFrame(()=>toast.classList.add("toast-show"));
-      toast._expandTimer = setTimeout(()=>{
-        if(toast._dismissed) return;
-        toast.classList.add("toast-expanded");
-        textDiv.textContent = toast.dataset.full || message;
-      }, 1000);
       toast._timer = setTimeout(()=>dismissToast(toast), duration);
     }
 
@@ -3097,18 +3098,44 @@
       updateInspectionPill();
     }
 
-    function setInspectionItemState(key,state,label){
-      const item=document.querySelector('.inspection-item[data-key="'+key+'"]');
-      if(!item) return;
-      item.classList.remove("state-running","state-ok","state-bad","state-skip");
-      if(state==="running") item.classList.add("state-running");
-      else if(state==="ok") item.classList.add("state-ok");
-      else if(state==="bad") item.classList.add("state-bad");
-      else if(state==="skip") item.classList.add("state-skip");
-      const status=item.querySelector(".inspection-status");
-      if(status){
-        status.textContent = label || (state==="ok" ? t("inspectionOk") : state==="bad" ? t("inspectionNeed") : t("inspectionRunningLabel"));
+    function setInspectionStepInfo(key){
+      const info = INSPECTION_STEP_INFO[key] || {};
+      const label = info.labelKey ? t(info.labelKey) : (info.label || key || "-");
+      const desc = info.descKey ? t(info.descKey) : (info.desc || "");
+      if(el.inspectionStepLabel) el.inspectionStepLabel.textContent = label;
+      if(el.inspectionStepDesc) el.inspectionStepDesc.textContent = desc;
+    }
+
+    function setInspectionStatusPills(state){
+      const pill = el.inspectionStatusSingle;
+      if(!pill) return;
+      pill.classList.remove("is-active","is-running","is-ok","is-bad");
+      let label = "-";
+      if(state==="running"){
+        pill.classList.add("is-active","is-running");
+        label = t("inspectionChecking");
+      }else if(state==="ok" || state==="skip"){
+        pill.classList.add("is-active","is-ok");
+        label = t("inspectionOk");
+      }else if(state==="bad"){
+        pill.classList.add("is-active","is-bad");
+        label = t("inspectionNeed");
+      }else{
+        label = t("inspectionWait");
       }
+      pill.textContent = label;
+    }
+
+    function setInspectionItemState(key,state,label){
+      setInspectionStepInfo(key);
+      if(!state){
+        setInspectionStatusPills("idle");
+        return;
+      }
+      if(state==="running") setInspectionStatusPills("running");
+      else if(state==="ok") setInspectionStatusPills("ok");
+      else if(state==="bad") setInspectionStatusPills("bad");
+      else if(state==="skip") setInspectionStatusPills("skip");
     }
 
     function setInspectionResult(text, state){
@@ -3122,7 +3149,9 @@
       inspectionRunning=false;
       controlAuthority=false;
       inspectionState="idle";
-      INSPECTION_STEPS.forEach(s=>setInspectionItemState(s.key,"", t("inspectionWait")));
+      if(INSPECTION_STEPS.length){
+        setInspectionItemState(INSPECTION_STEPS[0].key,"", t("inspectionWait"));
+      }
       setInspectionResult(t("inspectionIdleText"),"neutral");
       updateInspectionPill();
       updateControlAccessUI(currentSt);
@@ -3157,6 +3186,10 @@
         }
         if(!ok && !skipped) hasFail=true;
         await delay(180);
+        if(!ok && !skipped){
+          await delay(260);
+          break;
+        }
       }
 
       inspectionRunning=false;
@@ -3954,6 +3987,14 @@
       const thrustVal = Number(data.t  != null ? data.t  : (data.thrust   ?? 0));
       const thrustHasData = (data.t != null || data.thrust != null);
       loadcellErrorActive = (simEnabled && devLoadcellError) || !thrustHasData || !isFinite(thrustVal);
+      if(lastLoadcellErrorActive === null){
+        lastLoadcellErrorActive = loadcellErrorActive;
+      }else if(loadcellErrorActive && !lastLoadcellErrorActive){
+        showToast(t("loadcellErrorToast"), "error", {key:"loadcell-error", duration:6000});
+        lastLoadcellErrorActive = true;
+      }else if(!loadcellErrorActive){
+        lastLoadcellErrorActive = false;
+      }
       const thrustMissing = loadcellErrorActive;
       updateLoadcellLiveValue(thrustVal);
       const p   = Number(data.p  != null ? data.p  : (data.pressure ?? 0));
@@ -6169,6 +6210,9 @@
       el.inspectionOpenBtn = document.getElementById("inspectionOpenBtn");
       el.inspectionOverlay = document.getElementById("inspectionOverlay");
       el.inspectionClose = document.getElementById("inspectionClose");
+      el.inspectionStepLabel = document.getElementById("inspectionStepLabel");
+      el.inspectionStepDesc = document.getElementById("inspectionStepDesc");
+      el.inspectionStatusSingle = document.getElementById("inspectionStatusSingle");
       el.inspectionResult = document.getElementById("inspectionResult");
       el.inspectionRetry = document.getElementById("inspectionRetry");
       el.inspectionStatusPill = document.getElementById("inspectionStatusPill");
