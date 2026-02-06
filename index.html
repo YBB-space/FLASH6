@@ -328,7 +328,8 @@
       height:auto;
       display:block;
       filter:drop-shadow(0 10px 22px rgba(15,23,42,0.12));
-      transition:opacity .28s ease, transform .28s ease;
+      transition:opacity .45s ease, transform .45s ease;
+      will-change:opacity, transform;
     }
     .splash-logo--flash{
       position:absolute;
@@ -1631,63 +1632,107 @@
     .fw-f-logo{cursor:pointer}
 
     .toast-container{
-      position:fixed;top:20px;left:50%;transform:translateX(-50%);
-      z-index:80;display:flex;flex-direction:column;align-items:center;gap:10px;pointer-events:none
+      position:fixed;bottom:22px;left:calc(72px + 22px);transform:none;
+      z-index:80;display:flex;flex-direction:column;align-items:flex-start;gap:12px;pointer-events:none;
+      transition:left .2s ease;
     }
     .toast{
-      position:relative;width:min(180px,calc(100vw - 48px));padding:6px 10px;border-radius:999px;
-      background:#ececec;
-      border:1px solid rgba(148,163,184,0.35);
-      box-shadow:0 12px 26px rgba(15,23,42,0.12);
-      overflow:hidden;display:flex;align-items:center;gap:14px;
-      opacity:0;transform:translateY(-8px);pointer-events:auto;cursor:pointer;
-      transition:width .22s ease,padding .22s ease,border-radius .22s ease;
+      position:relative;width:min(440px,calc(100vw - 44px));padding:16px 18px 14px;border-radius:14px;
+      background:#1f1f1f;
+      border:1px solid rgba(255,255,255,0.06);
+      box-shadow:0 18px 40px rgba(15,23,42,0.35);
+      overflow:hidden;display:flex;align-items:flex-start;gap:14px;
+      opacity:0;transform:translateY(10px);pointer-events:auto;cursor:pointer;
+      transition:transform .22s ease,opacity .22s ease;
+      color:#f8fafc;
     }
-    .toast::after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 20% 0,rgba(255,255,255,0.3),transparent 55%);pointer-events:none}
+    .toast::after{
+      content:"";position:absolute;inset:0;
+      background:radial-gradient(circle at 20% 0,rgba(255,255,255,0.12),transparent 55%);
+      pointer-events:none
+    }
     .toast-show{animation:toastIn .24s ease-out forwards}
     .toast-hide{animation:toastOut .18s ease-in forwards}
     @keyframes toastIn{to{opacity:1;transform:translateY(0)}}
     @keyframes toastOut{to{opacity:0;transform:translateY(-8px)}}
     .toast-icon{
-      width:30px;height:30px;border-radius:999px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
-      background:var(--toast-icon-bg, #111827);border:1px solid rgba(15,23,42,0.85);
-      box-shadow:0 6px 14px rgba(15,23,42,0.16),0 0 0 6px var(--toast-ring, rgba(148,163,184,0.16));
+      width:36px;height:36px;border-radius:999px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+      position:relative;
+      background:var(--toast-icon-bg, #111827);
+      border:1px solid rgba(255,255,255,0.08);
+      box-shadow:0 8px 18px rgba(0,0,0,0.35);
     }
-    .toast-icon img{width:14px;height:14px;display:block;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.22))}
+    .toast-icon::after{
+      content:"";
+      position:absolute;inset:-8px;border-radius:999px;
+      background:var(--toast-glow, rgba(148,163,184,0.18));
+      filter:blur(6px);
+      opacity:0.6;
+      pointer-events:none;
+    }
+    .toast-icon img{width:18px;height:18px;display:block;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.22))}
     .toast-body{
       flex:1;min-width:0;
-      display:flex;justify-content:center;
-      text-align:center;
-      transform:translateX(-8px);
+      display:flex;flex-direction:column;gap:6px;
+      justify-content:flex-start;
+      text-align:left;
     }
-    .toast-title{display:none}
+    .toast-title{
+      font-size:12px;
+      font-weight:700;
+      letter-spacing:.04em;
+      color:#e2e8f0;
+    }
     .toast-text{
-      font-size:10px;color:#111827;line-height:1.35;
-      word-break:keep-all;text-align:center;
-      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+      font-size:13px;color:#d1d5db;line-height:1.5;
+      word-break:keep-all;text-align:left;
+      white-space:normal;overflow:visible;text-overflow:clip;
+      padding-right:28px;
     }
+    .toast-close{
+      position:absolute;right:12px;top:10px;
+      width:28px;height:28px;border-radius:8px;border:none;
+      background:transparent;color:rgba(255,255,255,0.7);
+      font-size:20px;line-height:1;cursor:pointer;
+    }
+    .toast-close:hover{color:#ffffff;background:rgba(255,255,255,0.08)}
     .toast-expanded{
-      width:min(420px,calc(100vw - 48px));
-      padding:12px 16px;
-      border-radius:24px;
-      background:#f4f4f4;
-      box-shadow:0 18px 30px rgba(15,23,42,0.16);
+      width:min(440px,calc(100vw - 44px));
+      padding:16px 18px 14px;
+      border-radius:14px;
+      background:#1f1f1f;
+      box-shadow:0 18px 40px rgba(15,23,42,0.35);
     }
     .toast-expanded .toast-text{
-      white-space:normal;
-      overflow:visible;
-      text-overflow:clip;
-      font-size:12px;
-      line-height:1.55;
+      font-size:inherit;
+      line-height:1.5;
     }
-    .toast-info{--toast-icon-bg:#1d4ed8;--toast-ring:rgba(96,165,250,0.2)}
-    .toast-success{--toast-icon-bg:#16a34a;--toast-ring:rgba(52,211,153,0.2)}
-    .toast-warn{--toast-icon-bg:#f59e0b;--toast-ring:rgba(251,191,36,0.22)}
-    .toast-error{--toast-icon-bg:#ef4444;--toast-ring:rgba(251,113,133,0.22)}
-    .toast-ignite{--toast-icon-bg:#f97316;--toast-ring:rgba(249,115,22,0.22)}
+    .toast-info{
+      --toast-icon-bg:radial-gradient(circle at 30% 30%, #d1d5db, #6b7280);
+      --toast-glow:rgba(148,163,184,0.35);
+    }
+    .toast-success{
+      --toast-icon-bg:radial-gradient(circle at 30% 30%, #6ee7b7, #22c55e);
+      --toast-glow:rgba(34,197,94,0.35);
+    }
+    .toast-warn{
+      --toast-icon-bg:radial-gradient(circle at 30% 30%, #fcd34d, #f59e0b);
+      --toast-glow:rgba(245,158,11,0.38);
+    }
+    .toast-error{
+      --toast-icon-bg:radial-gradient(circle at 30% 30%, #fda4af, #ef4444);
+      --toast-glow:rgba(239,68,68,0.38);
+    }
+    .toast-ignite{
+      --toast-icon-bg:radial-gradient(circle at 30% 30%, #fdba74, #fb923c);
+      --toast-glow:rgba(251,146,60,0.38);
+    }
+    @media(max-width:920px){
+      .toast-container{bottom:14px;left:14px}
+    }
     @media(max-width:600px){
-      .toast-container{top:14px}
-      .toast{width:min(520px,calc(100vw - 32px))}
+      .toast-container{bottom:14px;left:14px}
+      .toast{width:min(520px,calc(100vw - 28px))}
     }
 
     .confirm-overlay,.settings-overlay{
@@ -2141,40 +2186,79 @@
     .control-tile.disabled{opacity:.55;pointer-events:none;filter:grayscale(0.1)}
 
     .inspection-dialog{
-      position:relative;width:520px;max-width:95vw;
-      background:rgba(255,255,255,0.97);border-radius:18px;
-      box-shadow:0 12px 30px rgba(15,23,42,0.14);
-      border:1px solid rgba(148,163,184,0.7);
-      padding:14px 16px 12px;
-      color:var(--text-main);
-      backdrop-filter:blur(20px) saturate(1.1);-webkit-backdrop-filter:blur(20px) saturate(1.1);
+      position:relative;width:560px;max-width:92vw;height:420px;max-height:90vh;
+      background:linear-gradient(180deg,rgba(255,255,255,0.98),rgba(243,246,251,0.96));
+      border-radius:18px;
+      box-shadow:0 16px 38px rgba(15,23,42,0.14),0 2px 0 rgba(255,255,255,0.9) inset;
+      border:1px solid rgba(255,255,255,0.7);
+      padding:20px 20px 16px;
+      color:#0f172a;
+      backdrop-filter:blur(24px) saturate(1.12);-webkit-backdrop-filter:blur(24px) saturate(1.12);
+      display:flex;flex-direction:column;overflow:hidden;
     }
-    .inspection-header{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px}
-    .inspection-title{font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#0f172a}
-    .inspection-sub{font-size:11px;color:#6b7280;margin-top:2px}
-    .inspection-close-btn{border:none;background:transparent;font-size:18px;line-height:1;padding:2px 4px;border-radius:999px;box-shadow:none;color:#9ca3af}
-    .inspection-close-btn:hover{background:rgba(229,231,235,0.7);color:#111827}
-    .inspection-list{display:flex;flex-direction:column;gap:8px;margin-top:6px}
-    .inspection-item{
-      display:flex;justify-content:space-between;align-items:center;gap:10px;
-      padding:10px 12px;border-radius:14px;
-      border:1px solid rgba(209,213,219,0.9);
-      background:linear-gradient(135deg,#f9fafb,#eef2ff);
+    .inspection-dialog::before{
+      content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;
+      background:linear-gradient(135deg,rgba(255,255,255,0.95),rgba(148,163,184,0.4));
+      -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+      -webkit-mask-composite:xor;mask-composite:exclude;
+      opacity:.9;pointer-events:none
     }
-    .inspection-left{display:flex;align-items:center;gap:10px}
-    .inspection-dot{width:10px;height:10px;border-radius:999px;background:#cbd5e1;box-shadow:0 0 0 5px rgba(203,213,225,0.28)}
-    .inspection-label{font-size:13px;font-weight:600;color:#0f172a}
-    .inspection-desc{font-size:11px;color:#6b7280}
-    .inspection-status{font-size:12px;color:#4b5563;font-weight:600;white-space:nowrap}
-    .inspection-item.state-running .inspection-dot{background:#f59e0b;box-shadow:0 0 0 5px rgba(245,158,11,0.22)}
-    .inspection-item.state-ok .inspection-dot{background:var(--ok);box-shadow:0 0 0 5px var(--ok-soft)}
-    .inspection-item.state-bad .inspection-dot{background:var(--danger);box-shadow:0 0 0 5px var(--danger-soft)}
-    .inspection-item.state-skip .inspection-dot{background:#f59e0b !important;box-shadow:0 0 0 5px rgba(245,158,11,0.22) !important}
-    .inspection-item.state-running .inspection-status{color:#f59e0b}
-    .inspection-item.state-ok .inspection-status{color:#166534}
-    .inspection-item.state-bad .inspection-status{color:#b91c1c}
-    .inspection-item.state-skip .inspection-status{color:#f59e0b !important}
-    .inspection-footer{margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+    .inspection-dialog::after{
+      content:"";position:absolute;inset:0;
+      background:radial-gradient(circle at 18% 0,rgba(255,255,255,0.75),transparent 55%);
+      opacity:.6;pointer-events:none
+    }
+    .inspection-dialog .settings-title{
+      font-size:15px;font-weight:700;letter-spacing:.02em;color:#0f172a
+    }
+    .inspection-dialog .settings-close-btn{
+      font-size:20px;color:#94a3b8;border-radius:999px;padding:4px 8px
+    }
+    .inspection-dialog .settings-close-btn:hover{background:rgba(148,163,184,0.18);color:#0f172a}
+    .inspection-sub{font-size:12px;color:#6b7280;margin-top:2px}
+    .inspection-body{
+      display:flex;flex-direction:column;gap:10px;flex:1;
+      justify-content:center;align-items:center;text-align:center;
+      padding:6px 0 8px
+    }
+    .inspection-kicker{
+      font-size:10px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;
+      color:#64748b;background:rgba(15,23,42,0.06);padding:4px 10px;border-radius:999px
+    }
+    .inspection-step-title{font-size:18px;font-weight:700;color:#0f172a}
+    .inspection-step-desc{font-size:12px;color:#6b7280;line-height:1.6;max-width:420px}
+    .inspection-status-card{
+      width:100%;max-width:240px;
+      padding:0;border-radius:16px;
+      background:transparent;
+      border:none;
+      box-shadow:none;
+      display:flex;justify-content:center;align-items:center
+    }
+    .inspection-status-pill{
+      min-width:100px;padding:8px 14px;border-radius:20px;
+      font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+      border:1px solid rgba(148,163,184,0.35);background:rgba(148,163,184,0.12);
+      color:#64748b;transition:transform .12s ease,box-shadow .12s ease,background .12s ease,color .12s ease;
+      text-align:center;
+    }
+    .inspection-status-pill.is-active{
+      transform:translateY(-1px);
+      box-shadow:0 6px 12px rgba(15,23,42,0.12);
+    }
+    .inspection-status-pill.is-running{
+      color:#b45309;border-color:rgba(245,158,11,0.5);background:rgba(245,158,11,0.16)
+    }
+    .inspection-status-pill.is-ok{
+      color:#166534;border-color:rgba(22,163,74,0.45);background:rgba(22,163,74,0.14)
+    }
+    .inspection-status-pill.is-bad{
+      color:#b91c1c;border-color:rgba(239,68,68,0.45);background:rgba(239,68,68,0.14)
+    }
+    .inspection-footer{
+      margin-top:12px;display:flex;justify-content:space-between;align-items:center;gap:10px;
+      padding-top:10px;border-top:1px solid rgba(148,163,184,0.2)
+    }
     .inspection-result{font-size:12px;font-weight:600;color:#475569}
     .inspection-result.ok{color:#166534}
     .inspection-result.error{color:#b91c1c}
@@ -2206,15 +2290,10 @@
 
     /* ✅ 설정 네비/버튼 살짝 업그레이드 */
     .settings-nav-btn{
-      border:none;background:transparent;padding:6px 8px;border-radius:12px;font-size:12px;text-align:left;color:#6b7280;
+      border:none;background:transparent;padding:6px 10px;border-radius:12px;font-size:12px;text-align:left;color:#6b7280;
       display:flex;justify-content:space-between;align-items:center;box-shadow:none;
-      border:1px solid transparent;position:relative;padding-left:26px;
+      border:1px solid transparent;position:relative;
       transition:background .12s ease,border-color .12s ease,color .12s ease;
-    }
-    .settings-nav-btn::before{
-      content:"";position:absolute;left:10px;top:50%;
-      width:7px;height:7px;border-radius:999px;transform:translateY(-50%);
-      background:rgba(148,163,184,0.9);box-shadow:0 0 0 4px rgba(148,163,184,0.14);opacity:.55;
     }
     .settings-nav-btn span{font-weight:500}
     .settings-nav-badge{font-size:10px;color:#9ca3af}
@@ -2225,9 +2304,6 @@
       color:#e5e7eb;
     }
     .settings-nav-btn.active .settings-nav-badge{color:#e5e7eb;opacity:.7}
-    .settings-nav-btn.active::before{
-      background:#38bdf8;box-shadow:0 0 0 5px rgba(56,189,248,0.22);opacity:1;
-    }
 
     .settings-panels{flex:1;padding-left:4px;padding-right:12px;min-width:0;overflow-y:auto}
     .settings-panel{display:none;animation:fadeInSettings .15s ease-out}
@@ -3363,23 +3439,42 @@
       box-shadow:0 4px 10px rgba(2,6,23,0.35);
     }
     html[data-theme="dark"] .inspection-dialog{
-      background:rgba(15,23,42,0.96);
-      border-color:rgba(51,65,85,0.8);
+      background:linear-gradient(180deg,#0f172a,#0b1220);
+      border-color:rgba(51,65,85,0.7);
       color:#e2e8f0;
       box-shadow:0 12px 30px rgba(2,6,23,0.55);
     }
-    html[data-theme="dark"] .inspection-title{color:#e2e8f0}
-    html[data-theme="dark"] .inspection-sub,
-    html[data-theme="dark"] .inspection-desc{color:#94a3b8}
-    html[data-theme="dark"] .inspection-item{
-      background:linear-gradient(135deg,#0f172a,#0b1220);
-      border-color:rgba(51,65,85,0.7);
+    html[data-theme="dark"] .inspection-dialog::before{
+      background:linear-gradient(145deg,rgba(30,41,59,0.9),rgba(51,65,85,0.6));
     }
-    html[data-theme="dark"] .inspection-label{color:#e2e8f0}
-    html[data-theme="dark"] .inspection-status{color:#cbd5f5}
-    html[data-theme="dark"] .inspection-dot{
-      background:#334155;
-      box-shadow:0 0 0 5px rgba(51,65,85,0.35);
+    html[data-theme="dark"] .inspection-dialog::after{
+      background:radial-gradient(circle at 18% 0,rgba(148,163,184,0.35),transparent 60%);
+    }
+    html[data-theme="dark"] .inspection-dialog .settings-title{color:#e2e8f0}
+    html[data-theme="dark"] .inspection-sub{color:#94a3b8}
+    html[data-theme="dark"] .inspection-kicker{
+      color:#cbd5f5;background:rgba(148,163,184,0.12)
+    }
+    html[data-theme="dark"] .inspection-step-title{color:#e2e8f0}
+    html[data-theme="dark"] .inspection-step-desc{color:#94a3b8}
+    html[data-theme="dark"] .inspection-status-card{
+      background:transparent;
+      border:none;
+      box-shadow:none;
+    }
+    html[data-theme="dark"] .inspection-status-pill{
+      color:#cbd5f5;
+      border-color:rgba(51,65,85,0.7);
+      background:rgba(51,65,85,0.25);
+    }
+    html[data-theme="dark"] .inspection-status-pill.is-running{
+      color:#fbbf24;border-color:rgba(245,158,11,0.45);background:rgba(245,158,11,0.2)
+    }
+    html[data-theme="dark"] .inspection-status-pill.is-ok{
+      color:#86efac;border-color:rgba(34,197,94,0.45);background:rgba(34,197,94,0.2)
+    }
+    html[data-theme="dark"] .inspection-status-pill.is-bad{
+      color:#fca5a5;border-color:rgba(248,113,113,0.45);background:rgba(248,113,113,0.2)
     }
     html[data-theme="dark"] .inspection-result{color:#cbd5f5}
     html[data-theme="dark"] .mission-dialog{
@@ -3570,6 +3665,10 @@
       opacity:1;
       transform:translateX(0);
       max-width:140px;
+    }
+    .side-nav-desktop:hover ~ .page-wrap .toast-container,
+    .side-nav-desktop.is-expanded ~ .page-wrap .toast-container{
+      left:calc(176px + 22px);
     }
     @media (hover: none) and (pointer: coarse){
       .side-nav-desktop:hover{
@@ -4938,74 +5037,20 @@
     <!-- 설비 점검 모달 -->
     <div id="inspectionOverlay" class="settings-overlay hidden" style="display:none;">
       <div class="inspection-dialog">
-        <div class="inspection-header">
+        <div class="settings-header inspection-header">
           <div>
-            <div class="inspection-title" data-i18n="inspectionTitle">설비 점검</div>
+            <div class="settings-title" data-i18n="inspectionTitle">설비 점검</div>
             <div class="inspection-sub" data-i18n="inspectionSub">자동 점검을 완료하면 제어 권한이 부여됩니다.</div>
           </div>
-          <button id="inspectionClose" class="inspection-close-btn" aria-label="close">×</button>
+          <button id="inspectionClose" class="settings-close-btn" aria-label="close">×</button>
         </div>
 
-        <div class="inspection-list">
-          <div class="inspection-item" data-key="link">
-            <div class="inspection-left">
-              <span class="inspection-dot"></span>
-              <div>
-                <div class="inspection-label" data-i18n="inspectionLabelLink">데이터 링크</div>
-                <div class="inspection-desc" data-i18n="inspectionDescLink">Wi-Fi/폴링 응답 상태</div>
-              </div>
-            </div>
-            <div class="inspection-status" data-i18n="inspectionWait">대기</div>
-          </div>
-          <div class="inspection-item" data-key="serial">
-            <div class="inspection-left">
-              <span class="inspection-dot"></span>
-              <div>
-                <div class="inspection-label">WebSerial</div>
-                <div class="inspection-desc" data-i18n="inspectionDescSerial">USB 시리얼 연결/권한</div>
-              </div>
-            </div>
-            <div class="inspection-status" data-i18n="inspectionWait">대기</div>
-          </div>
-          <div class="inspection-item" data-key="igniter">
-            <div class="inspection-left">
-              <span class="inspection-dot"></span>
-              <div>
-                <div class="inspection-label" data-i18n="inspectionLabelIgniter">이그나이터</div>
-                <div class="inspection-desc" data-i18n="inspectionDescIgniter">연속성/오픈 여부</div>
-              </div>
-            </div>
-            <div class="inspection-status" data-i18n="inspectionWait">대기</div>
-          </div>
-          <div class="inspection-item" data-key="loadcell">
-            <div class="inspection-left">
-              <span class="inspection-dot"></span>
-              <div>
-                <div class="inspection-label" data-i18n="inspectionLabelLoadcell">로드셀</div>
-                <div class="inspection-desc" data-i18n="inspectionDescLoadcell">추력 데이터 정상 수신</div>
-              </div>
-            </div>
-            <div class="inspection-status" data-i18n="inspectionWait">대기</div>
-          </div>
-          <div class="inspection-item" data-key="switch">
-            <div class="inspection-left">
-              <span class="inspection-dot"></span>
-              <div>
-                <div class="inspection-label" data-i18n="inspectionLabelSwitch">스위치</div>
-                <div class="inspection-desc" data-i18n="inspectionDescSwitch">저전위(LOW) 안전 상태</div>
-              </div>
-            </div>
-            <div class="inspection-status" data-i18n="inspectionWait">대기</div>
-          </div>
-          <div class="inspection-item" data-key="relay">
-            <div class="inspection-left">
-              <span class="inspection-dot"></span>
-              <div>
-                <div class="inspection-label">RelaySafe/LOCKOUT</div>
-                <div class="inspection-desc" data-i18n="inspectionDescRelay">비정상 릴레이 HIGH 여부</div>
-              </div>
-            </div>
-            <div class="inspection-status" data-i18n="inspectionWait">대기</div>
+        <div class="inspection-body">
+          <div class="inspection-kicker" data-i18n="inspectionCurrentTitle">현재 점검 항목</div>
+          <div id="inspectionStepLabel" class="inspection-step-title">-</div>
+          <div id="inspectionStepDesc" class="inspection-step-desc">-</div>
+          <div class="inspection-status-card">
+            <div id="inspectionStatusSingle" class="inspection-status-pill">-</div>
           </div>
         </div>
 
