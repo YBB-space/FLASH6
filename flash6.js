@@ -688,6 +688,8 @@
 
     // ✅ DOM 캐시
     const el = {};
+    let controlsCardParent = null;
+    let controlsCardNext = null;
     const MAX_VISIBLE_LOG = 500;
     const TETRIS_W = 10;
     const TETRIS_H = 14;
@@ -939,6 +941,11 @@
         toastTitleInfo:"일반 알림",
         safetyLineSuffix:"안전거리 확보 · 결선/단락 확인 · 주변 인원 접근 금지.",
         splashLoading:"로딩중<span id=\"splashDots\"></span>",
+        viewDashboardLabel:"DASHBOARD",
+        viewCountdownLabel:"COUNTDOWN",
+        viewHomeLabel:"HOME",
+        viewHardwareLabel:"HARDWARE",
+        viewTerminalLabel:"TERMINAL",
         labelThrust:"추력",
         labelPressure:"압력",
         labelSwitch:"스위치",
@@ -1213,8 +1220,8 @@
         serialWriteFailed:"시리얼 쓰기 실패: {err}",
         linkEstablished:"연결됨 ({src}).",
         linkEstablishedToast:"보드와 연결되었습니다. ({src})",
-        lockoutDetectedLog:"LOCKOUT: 비정상적인 릴레이 HIGH 감지 ({name}). 제어 권한 해제. 재시작 필요.",
-        lockoutDetectedToast:"비정상적인 릴레이 HIGH 감지 ({name}). 모든 제어 권한이 해제되었습니다. 보드를 재시작하세요.",
+        lockoutDetectedLog:"LOCKOUT: 비정상적인 릴레이 HIGH 감지 ({name})",
+        lockoutDetectedToast:"비정상적인 릴레이 HIGH 감지 ({name})",
         ignitionSignal:"점화 신호 감지 (st=2). 추력 {thr} kgf 초과 감시 시작.",
         ignitionThresholdLog:"추력이 {thr} kgf 초과. 점화 지연 = {delay}s",
         ignitionThresholdToast:"추력이 임계값({thr} kgf) 이상으로 감지되었습니다. 점화 지연 ≈ {delay}s. {safety}",
@@ -1248,7 +1255,7 @@
         abortReasonLockout:"릴레이 LOCKOUT",
         abortReasonUnknown:"원인 미상",
         notArmedToast:"NOT ARMED 상태입니다. 이그나이터 연결 상태를 확인하세요. {safety}",
-        lockoutDetectedToastShort:"비정상적인 릴레이 HIGH 감지 ({name}). 모든 제어가 정지됩니다. 보드를 재시작하세요.",
+        lockoutDetectedToastShort:"비정상적인 릴레이 HIGH 감지 ({name}).",
         pollingErrorLog:"폴링 오류: {err}",
         pollingErrorToast:"폴링 중 오류가 발생했습니다. 로그를 확인하세요.",
         lockoutNoControl:"LOCKOUT 상태에서는 어떤 제어도 불가능합니다. 보드를 재시작하세요.",
@@ -1344,6 +1351,11 @@
         toastTitleInfo:"Notice",
         safetyLineSuffix:"Keep safe distance · Check wiring/shorts · No personnel approach.",
         splashLoading:"Loading<span id=\"splashDots\"></span>",
+        viewDashboardLabel:"DASHBOARD",
+        viewCountdownLabel:"COUNTDOWN",
+        viewHomeLabel:"HOME",
+        viewHardwareLabel:"HARDWARE",
+        viewTerminalLabel:"TERMINAL",
         labelThrust:"Thrust",
         labelPressure:"Pressure",
         labelSwitch:"Switch",
@@ -1910,7 +1922,6 @@
     function setLockoutVisual(on){
       if(el.lockoutBg){
         el.lockoutBg.classList.remove("active");
-        el.lockoutBg.style.opacity = "0";
       }
       if(el.quickRelay){
         const item = el.quickRelay.closest(".item");
@@ -2823,8 +2834,11 @@
       const key = (opts && opts.key) ? String(opts.key) : null;
       const titleText = getToastTitle(toastType, message);
 
-      for(const node of Array.from(el.toastContainer.children)){
-        dismissToast(node);
+      const keepExisting = opts && opts.keep;
+      if(!keepExisting){
+        for(const node of Array.from(el.toastContainer.children)){
+          dismissToast(node);
+        }
       }
 
       let existingToast = null;
@@ -3240,6 +3254,31 @@
       if(el.inspectionOverlay){
         el.inspectionOverlay.classList.add("hidden");
         el.inspectionOverlay.style.display="none";
+      }
+    }
+
+    function showControlsModal(){
+      if(!el.controlsOverlay || !el.controlsOverlaySlot || !el.controlsCard) return;
+      if(!controlsCardParent){
+        controlsCardParent = el.controlsCard.parentNode;
+        controlsCardNext = el.controlsCard.nextSibling;
+      }
+      el.controlsOverlaySlot.appendChild(el.controlsCard);
+      if(el.controlsOverlayClose){
+        el.controlsCard.appendChild(el.controlsOverlayClose);
+      }
+      el.controlsOverlay.classList.remove("hidden");
+    }
+    function hideControlsModal(){
+      if(!el.controlsOverlay || !el.controlsCard || !controlsCardParent) return;
+      el.controlsOverlay.classList.add("hidden");
+      if(controlsCardNext && controlsCardNext.parentNode === controlsCardParent){
+        controlsCardParent.insertBefore(el.controlsCard, controlsCardNext);
+      }else{
+        controlsCardParent.appendChild(el.controlsCard);
+      }
+      if(el.controlsOverlayClose){
+        el.controlsOverlay.appendChild(el.controlsOverlayClose);
       }
     }
 
@@ -4241,10 +4280,10 @@
           if(thrustMissing){
             el.thrust.innerHTML = "로드셀 시스템을<br>점검하세요";
             if(metric) metric.classList.add("is-alert");
-            if(metric) metric.classList.toggle("is-alert-blink", loadcellErrorActive);
+            if(metric) metric.classList.toggle("loadcell-blink", loadcellErrorActive);
           }else{
             if(metric) metric.classList.remove("is-alert");
-            if(metric) metric.classList.remove("is-alert-blink");
+            if(metric) metric.classList.remove("loadcell-blink");
             el.thrust.innerHTML = `<span class="num">${thrustDisp.toFixed(3)}</span><span class="unit">${thrustUnit}</span>`;
           }
         }
@@ -5983,6 +6022,8 @@
       el.countdownMobile = document.getElementById("countdownMobile");
       el.countdownBig = document.getElementById("countdownBig");
       el.countdownHeader = document.querySelector(".countdown-header");
+      el.countdownLabel = document.getElementById("countdownLabel");
+      el.viewLabel = document.getElementById("viewLabel");
       el.countdownStatus = document.getElementById("countdownStatus");
       el.lockoutBg = document.getElementById("lockoutBg");
       el.kstTime = document.getElementById("kst-time");
@@ -6218,6 +6259,10 @@
       el.inspectionStatusPill = document.getElementById("inspectionStatusPill");
 
       el.longPressBtn = document.getElementById("longPressBtn");
+      el.controlsOverlay = document.getElementById("controlsOverlay");
+      el.controlsOverlaySlot = document.getElementById("controlsOverlaySlot");
+      el.controlsOverlayClose = document.getElementById("controlsOverlayClose");
+      el.controlsToggleBtns = document.querySelectorAll(".js-controls-open");
 
       // ✅ LOCKOUT modal elements
       el.lockoutOverlay = document.getElementById("lockoutOverlay");
@@ -6408,7 +6453,7 @@
           showToast(
             safetyModeEnabled ? t("safetyModeOnToast") : t("safetyModeOffToast"),
             safetyModeEnabled ? "info" : "warn",
-            {key:"safety-mode-toggle"}
+          {key:"safety-mode-toggle", keep:true, duration:5000}
           );
         });
       }
@@ -6612,6 +6657,20 @@
       }
       if(el.inspectionOverlay){
         el.inspectionOverlay.addEventListener("click",(ev)=>{ if(ev.target===el.inspectionOverlay) hideInspection(); });
+      }
+      if(el.controlsToggleBtns && el.controlsToggleBtns.length){
+        el.controlsToggleBtns.forEach(btn=>{
+          btn.addEventListener("click",(ev)=>{
+            ev.preventDefault();
+            showControlsModal();
+          });
+        });
+      }
+      if(el.controlsOverlayClose){
+        el.controlsOverlayClose.addEventListener("click", hideControlsModal);
+      }
+      if(el.controlsOverlay){
+        el.controlsOverlay.addEventListener("click",(ev)=>{ if(ev.target === el.controlsOverlay) hideControlsModal(); });
       }
 
       const forceBtn=el.forceBtn;
@@ -7164,6 +7223,23 @@
         if(el.countdownView) el.countdownView.classList.toggle("hidden", !isCountdown);
         if(el.controlPanelView) el.controlPanelView.classList.toggle("hidden", !isControl);
         if(el.countdownHeader) el.countdownHeader.classList.toggle("hidden", isCountdown || isDashboard);
+        if(el.viewLabel){
+          if(isCountdown || isDashboard){
+            el.viewLabel.textContent = t(isCountdown ? "viewCountdownLabel" : "viewDashboardLabel");
+            el.viewLabel.classList.remove("hidden");
+          }else{
+            el.viewLabel.classList.add("hidden");
+          }
+        }
+        if(el.countdownLabel){
+          let label = t("viewCountdownLabel");
+          if(isHome) label = t("viewHomeLabel");
+          else if(isHardware) label = t("viewHardwareLabel");
+          else if(isTerminal) label = t("viewTerminalLabel");
+          else if(isCountdown) label = t("viewCountdownLabel");
+          else if(isDashboard) label = t("viewDashboardLabel");
+          el.countdownLabel.textContent = label;
+        }
         document.body.classList.toggle("countdown-view-active", isCountdown);
         document.body.classList.toggle("dashboard-view-active", isDashboard);
         if(isHome) updateHomeUI();
