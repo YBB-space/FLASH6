@@ -263,11 +263,7 @@
         for(let i=0;i<2;i++){ col.push(r,g,b,1); }
       };
 
-      const gridColor = null;
-      const axisColor = [0.1,0.1,0.1];
       const dashColor = [0.6,0.6,0.6];
-
-      const gridSteps = 0;
 
       addLine(0,0,0, 0.9,0,0, ...dashColor);
       addLine(0,0,0, 0,0.9,0, ...dashColor);
@@ -466,7 +462,6 @@
       ctx.save();
       ctx.translate(cx, cy);
       const r = 10;
-      const sizeW = half * 2;
       ctx.beginPath();
       ctx.moveTo(-half + r, -half);
       ctx.lineTo(half - r, -half);
@@ -618,6 +613,7 @@
     let st2StartMs = null;
     let localTplusStartMs = null;
     let localTplusActive = false;
+    let tplusUiActive = false;
     let igniterAbortSent = false;
     let lastAbortReason = null;
     let firstSampleMs = null;
@@ -665,6 +661,7 @@
     const PRESSURE_GAUGE_MAX_V = 5;
     let pendingLoadcellWeight = null;
     let pendingLoadcellZero = false;
+    let lastBurnSeconds = null;
     function isIgniterCheckEnabled(){
       if(latestTelemetry && latestTelemetry.gs != null) return !!latestTelemetry.gs;
       return !!(uiSettings && uiSettings.igs);
@@ -690,6 +687,7 @@
     const el = {};
     let controlsCardParent = null;
     let controlsCardNext = null;
+    const CONTROLS_MOBILE_CLASS = "controls-mobile-hidden";
     const MAX_VISIBLE_LOG = 500;
     const TETRIS_W = 10;
     const TETRIS_H = 14;
@@ -755,9 +753,6 @@
     let tetrisTimer = null;
     let tetrisState = null;
     let tetrisKeyHandler = null;
-    let tetrisBgmTimer = null;
-    let tetrisBgmIndex = 0;
-    let tetrisBgmActive = false;
     let logoTapCount = 0;
     let logoTapTimer = null;
 
@@ -765,12 +760,10 @@
     let connOk = false;
     let lastOkMs = Date.now();          // 마지막 정상 샘플 수신 시각
     let failStreak = 0;                // 연속 실패 횟수
-    let lastDiscAnnounceMs = 0;
     let unstableToastShown = false;
 
     const DISCONNECT_GRACE_MS = 1500;  // 이 시간 동안 샘플이 없으면 끊김 후보
     const FAIL_STREAK_LIMIT   = 20;    // 연속 실패가 이 이상이고, grace도 지났으면 DISCONNECTED
-    const DISC_TOAST_COOLDOWN_MS = 7000;
 
     // ✅ 엔드포인트 “기억” (매번 3개 다 두드리지 않게)
     let preferredEndpoint = "/graphic_data";
@@ -970,13 +963,13 @@
         controlLauncherLabel:"발사대",
         controlLauncherSub:"발사대 모터/액추에이터제어",
         devToolsTitle:"DEV TOOLS",
-        devRelayStatus:"릴레이 상태",
-        devRelay1Btn:"1번 릴레이",
-        devRelay2Btn:"2번 릴레이",
-        devWsOffBtn:"WS OFF (SIM)",
-        devLoadcellErrBtn:"로드셀 오류 (SIM)",
+        devRelayStatus:"SIM ER",
+        devRelay1Btn:"1번 릴레이 오류",
+        devRelay2Btn:"2번 릴레이 오류",
+        devWsOffBtn:"WS 오류",
+        devLoadcellErrBtn:"로드셀 오류",
         settingsNavTitle:"섹션",
-        settingsNavConnect:"연결",
+        settingsNavConnect:"하드웨어",
         settingsNavHardware:"하드웨어",
         settingsNavInterface:"인터페이스",
         settingsNavSequence:"시퀀스",
@@ -1182,7 +1175,7 @@
         statusReady:"READY",
         statusLoadcellCheck:"LOADCELL CHECK",
         statusSequence:"SEQUENCE",
-        statusLockoutText:"비정상적인 릴레이 HIGH 감지 ({name}). 모든 제어 권한이 해제되었습니다. 보드를 재시작하세요.",
+        statusLockoutText:"비정상적인 릴레이 HIGH 감지 ({name})",
         statusAbortText:"시퀀스가 중단되었습니다.",
         statusAbortTextReason:"시퀀스가 중단되었습니다. ({reason})",
         statusIgnitionText:"점화 중입니다.",
@@ -1192,7 +1185,7 @@
         statusNotArmedTextBlocked:"이그나이터 미연결 / 점화 시퀀스 제한",
         statusReadyText:"시스템 준비 완료",
         sequenceReadyBtn:"READY",
-        sequenceStartBtn:"SEQUENCE START",
+        sequenceStartBtn:"SEQUENCE",
         sequenceEndBtn:"SEQUENCE END",
         sequenceEndLog:"시퀀스 종료 요청.",
         sequenceEndToast:"시퀀스를 종료했습니다.",
@@ -1264,6 +1257,7 @@
         inspectionRequiredShort:"설비 점검을 먼저 완료하세요. 제어 권한이 필요합니다.",
         countdownRequestedLog:"대시보드에서 카운트다운 요청 (롱프레스).",
         countdownRequestedToast:"카운트다운 요청을 보드에 전송했습니다. 신호/배선/주변을 계속 확인하세요. {safety}",
+        countdownIgniterRequired:"IGS 모드에서는 이그나이터가 없으면 RELAY ON을 시작할 수 없습니다. {safety}",
         longPressCanceledToast:"롱프레스가 취소되었습니다. 주변 안전 확보 후 다시 시도하세요. {safety}",
         lockoutForceDenied:"LOCKOUT 상태에서는 강제점화를 포함한 제어가 불가능합니다. 보드를 재시작하세요.",
         forceNotAllowed:"시퀀스 진행 중에는 강제 점화를 사용할 수 없습니다.",
@@ -1386,7 +1380,7 @@
         devWsOffBtn:"WS OFF (SIM)",
         devLoadcellErrBtn:"LOADCELL ERROR (SIM)",
         settingsNavTitle:"Sections",
-        settingsNavConnect:"Connect",
+        settingsNavConnect:"Hardware",
         settingsNavHardware:"Hardware",
         settingsNavInterface:"Interface",
         settingsNavSequence:"Sequence",
@@ -1698,6 +1692,7 @@
         inspectionRequiredShort:"Complete inspection first. Control authority required.",
         countdownRequestedLog:"Countdown requested from dashboard (long-press).",
         countdownRequestedToast:"Countdown request sent to board. Keep checking signal/wiring/area. {safety}",
+        countdownIgniterRequired:"Countdown blocked: igniter missing while IGS is enabled. {safety}",
         longPressCanceledToast:"Long-press canceled. Try again after securing safety. {safety}",
         lockoutForceDenied:"LOCKOUT state: control including force ignition is not allowed. Restart the board.",
         forceNotAllowed:"Force ignition is not allowed during sequence.",
@@ -1909,6 +1904,16 @@
       updateSerialControlTile();
     }
     const delay = (ms)=>new Promise(resolve=>setTimeout(resolve, ms));
+    function setOverlayVisible(node, visible, displayMode){
+      if(!node) return;
+      if(visible){
+        node.classList.remove("hidden");
+        node.style.display = displayMode || "flex";
+      }else{
+        node.classList.add("hidden");
+        node.style.display = "none";
+      }
+    }
 
     // =====================
     // LOCKOUT helpers
@@ -1923,9 +1928,17 @@
       if(el.lockoutBg){
         el.lockoutBg.classList.remove("active");
       }
-      if(el.quickRelay){
-        const item = el.quickRelay.closest(".item");
-        if(item) item.classList.toggle("relay-lockout", !!on);
+      const mask = on ? (lockoutRelayMask || 0) : 0;
+      const blinkAll = on && mask === 0;
+      const r1Blink = on && (blinkAll || ((mask & 1) !== 0));
+      const r2Blink = on && (blinkAll || ((mask & 2) !== 0));
+      if(el.quickRelay1){
+        const item = el.quickRelay1.closest(".item");
+        if(item) item.classList.toggle("relay-lockout", !!r1Blink);
+      }
+      if(el.quickRelay2){
+        const item = el.quickRelay2.closest(".item");
+        if(item) item.classList.toggle("relay-lockout", !!r2Blink);
       }
     }
 
@@ -1936,6 +1949,7 @@
       return "img/RS_all.svg";
     }
     function showLockoutModal(){
+      hideMobileControlsPanel();
       if(!el.lockoutOverlay) return;
 
       const name = relayMaskName(lockoutRelayMask);
@@ -1950,39 +1964,26 @@
         el.lockoutNote.textContent = t("lockoutModalNote");
       }
 
-      el.lockoutOverlay.classList.remove("hidden");
-      el.lockoutOverlay.style.display = "flex";
+      setOverlayVisible(el.lockoutOverlay, true);
       lockoutModalShown = true;
     }
     function hideLockoutModal(){
-      if(!el.lockoutOverlay) return;
-      el.lockoutOverlay.classList.add("hidden");
-      el.lockoutOverlay.style.display = "none";
+      setOverlayVisible(el.lockoutOverlay, false);
       lockoutModalShown = false;
     }
 
-    function showWsAlert(){
-      if(el.wsAlertOverlay){
-        el.wsAlertOverlay.classList.add("hidden");
-        el.wsAlertOverlay.style.display = "none";
-      }
-    }
     function hideWsAlert(){
-      if(!el.wsAlertOverlay) return;
-      el.wsAlertOverlay.classList.add("hidden");
-      el.wsAlertOverlay.style.display = "none";
+      setOverlayVisible(el.wsAlertOverlay, false);
     }
     function showDisconnectOverlay(){
+      hideMobileControlsPanel();
       if(!el.disconnectOverlay) return;
       if(el.disconnectTitle) el.disconnectTitle.textContent = t("deviceDisconnectedTitle");
       if(el.disconnectText) el.disconnectText.innerHTML = t("deviceDisconnectedText");
-      el.disconnectOverlay.classList.remove("hidden");
-      el.disconnectOverlay.style.display = "flex";
+      setOverlayVisible(el.disconnectOverlay, true);
     }
     function hideDisconnectOverlay(){
-      if(!el.disconnectOverlay) return;
-      el.disconnectOverlay.classList.add("hidden");
-      el.disconnectOverlay.style.display = "none";
+      setOverlayVisible(el.disconnectOverlay, false);
     }
     function updateWsAlert(){
       const simOff = (simEnabled && devWsOff);
@@ -2120,6 +2121,7 @@
     // UI 헬퍼
     // =====================
     function showTetrisOverlay(){
+      hideMobileControlsPanel();
       if(el.tetrisOverlay){
         el.tetrisOverlay.classList.remove("hidden");
         el.tetrisOverlay.setAttribute("aria-hidden","false");
@@ -2502,6 +2504,7 @@
       updateMotorInfoPanel();
       updateHomeUI();
       updateGyroConnectionUI(connected);
+      setButtonsFromState(currentSt, lockoutLatched, sequenceActive);
       if(!connected){
         if(el.gyroStatusPill && el.gyroStatusText){
           el.gyroStatusPill.className = "gyro-status-pill status-disc";
@@ -2592,15 +2595,6 @@
         return time + " " + tag + item.message;
       });
       el.homeLog.textContent = recent.join("\n");
-    }
-
-    function syncQuickDataHeight(){
-      const mainCard = document.querySelector(".main-card");
-      const quickCard = document.querySelector(".motor-card");
-      if(!mainCard || !quickCard) return;
-      quickCard.style.height = "";
-      const mainH = mainCard.getBoundingClientRect().height;
-      if(mainH > 0) quickCard.style.height = Math.round(mainH) + "px";
     }
     function setHomeBadge(node, label, tone){
       if(!node) return;
@@ -3004,32 +2998,6 @@
         offset += dur + gap;
       }
     }
-    const TETRIS_BGM = [
-      {freq:659, dur:140},{freq:494, dur:70},{freq:523, dur:70},{freq:587, dur:140},{freq:523, dur:70},{freq:494, dur:70},
-      {freq:440, dur:140},{freq:440, dur:70},{freq:523, dur:70},{freq:659, dur:140},{freq:587, dur:70},{freq:523, dur:70},
-      {freq:494, dur:210},{freq:523, dur:70},{freq:587, dur:140},{freq:659, dur:140},
-      {freq:523, dur:140},{freq:440, dur:140},{freq:440, dur:70},{freq:440, dur:140},{freq:494, dur:70},{freq:523, dur:70},
-      {freq:587, dur:210},{freq:698, dur:70},{freq:880, dur:140},{freq:784, dur:70},{freq:698, dur:70},
-      {freq:659, dur:210},{freq:523, dur:70},{freq:659, dur:140},{freq:587, dur:70},{freq:523, dur:70}
-    ];
-    function stopTetrisBgm(){
-      tetrisBgmActive = false;
-      if(tetrisBgmTimer){ clearTimeout(tetrisBgmTimer); tetrisBgmTimer = null; }
-    }
-    function playTetrisBgm(){
-      stopTetrisBgm();
-      tetrisBgmActive = true;
-      tetrisBgmIndex = 0;
-      const tick = ()=>{
-        if(!tetrisBgmActive) return;
-        const tone = TETRIS_BGM[tetrisBgmIndex];
-        playTone(tone.freq, tone.dur, 0);
-        const gap = (tone.gap != null) ? tone.gap : 30;
-        tetrisBgmIndex = (tetrisBgmIndex + 1) % TETRIS_BGM.length;
-        tetrisBgmTimer = setTimeout(tick, tone.dur + gap);
-      };
-      tick();
-    }
 
     function safetyLineSuffix(){
       return t("safetyLineSuffix");
@@ -3063,6 +3031,7 @@
         el.serialStatus.classList.add("bad");
         el.serialStatusText.textContent = t("serialDisconnected");
       }
+      updateMobileControlPills();
     }
 
     function isControlUnlocked(){
@@ -3084,6 +3053,7 @@
       else { cls+="pill-gray"; txt=t("inspectionWait"); }
       el.inspectionStatusPill.className=cls;
       el.inspectionStatusPill.textContent=txt;
+      updateMobileControlPills();
     }
 
     function updateInspectionAccess(){
@@ -3110,6 +3080,121 @@
         });
       }
       updateInspectionPill();
+      updateMobileControlPills();
+      syncMobileControlButtons();
+      updateMobileSequenceStatusLabel(sequenceActive, state, lockoutLatched);
+    }
+
+    const MOBILE_PANEL_MEDIA = window.matchMedia("(max-width: 600px)");
+    let mobileControlsActive = false;
+
+    function isMobileLayout(){
+      return MOBILE_PANEL_MEDIA.matches;
+    }
+
+    function showMobileControlsPanel(){
+      if(!el.mobileControlsPanel || mobileControlsActive) return;
+      updateMobileControlPills();
+      syncMobileControlButtons();
+      updateMobileSequenceStatusLabel(sequenceActive, currentSt, lockoutLatched);
+      mobileControlsActive = true;
+      el.mobileControlsPanel.classList.add("is-open");
+      el.mobileControlsPanel.setAttribute("aria-hidden","false");
+      document.documentElement.classList.add("mobile-controls-active");
+    }
+
+    function hideMobileControlsPanel(){
+      if(!el.mobileControlsPanel || !mobileControlsActive) return;
+      mobileControlsActive = false;
+      el.mobileControlsPanel.classList.remove("is-open");
+      el.mobileControlsPanel.setAttribute("aria-hidden","true");
+      document.documentElement.classList.remove("mobile-controls-active");
+    }
+
+    if(MOBILE_PANEL_MEDIA.addEventListener){
+      MOBILE_PANEL_MEDIA.addEventListener("change",(event)=>{
+        if(!event.matches) hideMobileControlsPanel();
+      });
+    }else if(MOBILE_PANEL_MEDIA.addListener){
+      MOBILE_PANEL_MEDIA.addListener((event)=>{
+        if(!event.matches) hideMobileControlsPanel();
+      });
+    }
+
+    function updateMobileControlPills(){
+      if(!el.mobileControlsPanel) return;
+      const serialPill = el.mobileControlPills ? el.mobileControlPills.serial : null;
+      if(serialPill){
+        const serialLabel = serialEnabled
+          ? (serialConnected ? t("serialConnected") : t("serialDisconnected"))
+          : t("serialOff");
+        serialPill.textContent = serialLabel;
+        serialPill.className = "pill " + (serialEnabled ? (serialConnected ? "pill-green" : "pill-red") : "pill-gray");
+      }
+      const safetyPill = el.mobileControlPills ? el.mobileControlPills.safety : null;
+      if(safetyPill){
+        const safetyOn = el.safeModeToggle ? el.safeModeToggle.checked : safetyModeEnabled;
+        safetyPill.textContent = safetyOn ? "ON" : "OFF";
+        safetyPill.className = "pill " + (safetyOn ? "pill-green" : "pill-gray");
+      }
+      const inspectionPill = el.mobileControlPills ? el.mobileControlPills.inspection : null;
+      if(inspectionPill && el.inspectionStatusPill){
+        inspectionPill.textContent = el.inspectionStatusPill.textContent;
+        inspectionPill.className = el.inspectionStatusPill.className;
+      }
+    }
+
+    function setMobileControlButtonState(type, disabled){
+      if(!el.mobileControlButtonMap) return;
+      const btn = el.mobileControlButtonMap[type];
+      if(!btn) return;
+      btn.disabled = !!disabled;
+      btn.classList.toggle("disabled", !!disabled);
+      btn.setAttribute("aria-disabled", disabled ? "true" : "false");
+    }
+
+    function syncMobileControlButtons(){
+      if(!el.mobileControlButtonMap) return;
+      const sequenceDisabled = !!(el.igniteBtn && el.igniteBtn.disabled);
+      const forceDisabled = !!(el.forceBtn && el.forceBtn.disabled);
+      const inspectionDisabled = !!(el.inspectionOpenBtn && el.inspectionOpenBtn.classList.contains("disabled"));
+      setMobileControlButtonState("sequence", sequenceDisabled);
+      setMobileControlButtonState("force", forceDisabled);
+      setMobileControlButtonState("inspection", inspectionDisabled);
+    }
+
+    function shouldShowMobileAbortButton(){
+      if(!isMobileLayout() || !el.mobileAbortBtn) return false;
+      return sequenceActive || currentSt === 1 || currentSt === 2 || localTplusActive || forceSlideActive;
+    }
+    function updateMobileAbortButton(){
+      if(!el.mobileAbortBtn) return;
+      const show = shouldShowMobileAbortButton();
+      el.mobileAbortBtn.classList.toggle("is-visible", show);
+      if(el.mobileAbortPanel) el.mobileAbortPanel.classList.toggle("is-visible", show);
+      el.mobileAbortBtn.disabled = !!(el.abortBtn && el.abortBtn.disabled);
+    }
+
+    function updateAbortButtonLabel(isTplus){
+      const label = isTplus ? "STOP" : "ABORT";
+      tplusUiActive = !!isTplus;
+      if(el.abortBtn) el.abortBtn.textContent = label;
+      if(el.mobileAbortBtn) el.mobileAbortBtn.textContent = label;
+    }
+
+    function setIgniteButtonLabel(key){
+      const label = t(key);
+      if(el.igniteLabel){
+        el.igniteLabel.textContent = label;
+      }
+      if(el.igniteBtn && !el.igniteLabel) el.igniteBtn.textContent = label;
+      if(el.mobileSequenceLabel) el.mobileSequenceLabel.textContent = label;
+    }
+
+    function toggleInput(node){
+      if(!node) return;
+      node.checked = !node.checked;
+      node.dispatchEvent(new Event("change", {bubbles:true}));
     }
 
     function setInspectionStepInfo(key){
@@ -3243,26 +3328,23 @@
     }
 
     function showInspection(){
-      if(el.inspectionOverlay){
-        el.inspectionOverlay.classList.remove("hidden");
-        el.inspectionOverlay.style.display="flex";
-      }
+      hideMobileControlsPanel();
+      setOverlayVisible(el.inspectionOverlay, true);
       resetInspectionUI();
       runInspectionSequence();
     }
     function hideInspection(){
-      if(el.inspectionOverlay){
-        el.inspectionOverlay.classList.add("hidden");
-        el.inspectionOverlay.style.display="none";
-      }
+      setOverlayVisible(el.inspectionOverlay, false);
     }
 
     function showControlsModal(){
+      hideMobileControlsPanel();
       if(!el.controlsOverlay || !el.controlsOverlaySlot || !el.controlsCard) return;
       if(!controlsCardParent){
         controlsCardParent = el.controlsCard.parentNode;
         controlsCardNext = el.controlsCard.nextSibling;
       }
+      el.controlsCard.classList.remove(CONTROLS_MOBILE_CLASS);
       el.controlsOverlaySlot.appendChild(el.controlsCard);
       if(el.controlsOverlayClose){
         el.controlsCard.appendChild(el.controlsOverlayClose);
@@ -3276,6 +3358,9 @@
         controlsCardParent.insertBefore(el.controlsCard, controlsCardNext);
       }else{
         controlsCardParent.appendChild(el.controlsCard);
+      }
+      if(el.controlsCard && window.matchMedia("(max-width: 600px)").matches){
+        el.controlsCard.classList.add(CONTROLS_MOBILE_CLASS);
       }
       if(el.controlsOverlayClose){
         el.controlsOverlay.appendChild(el.controlsOverlayClose);
@@ -3710,50 +3795,65 @@
 
     function setButtonsFromState(st, lockout, seqActive){
       if(!el.igniteBtn||!el.abortBtn){ updateControlAccessUI(st); return; }
-      const wantSequenceEnd = !!(seqActive || st===1 || st===2);
+      const running = !!(seqActive || st===1 || st===2 || localTplusActive);
+      const readyEligible = isControlUnlocked() && connOk && hasMissionSelected() && !safetyModeEnabled && !loadcellErrorActive && st === 0 && !running;
       if(lockout){
         el.igniteBtn.disabled=true;
         el.abortBtn.disabled=true;
-        if(el.igniteBtn) el.igniteBtn.textContent = t("sequenceStartBtn");
+        setIgniteButtonLabel("sequenceStartBtn");
         updateControlAccessUI(st);
         return;
       }
       if(!isControlUnlocked()){
-        el.igniteBtn.disabled = false;
+        el.igniteBtn.disabled = true;
         el.abortBtn.disabled = (st===0);
-        if(el.igniteBtn) el.igniteBtn.textContent = wantSequenceEnd ? t("sequenceEndBtn") : t("sequenceReadyBtn");
+        setIgniteButtonLabel("sequenceStartBtn");
         updateControlAccessUI(st);
         return;
       }
       if(loadcellErrorActive && st===0){
         el.igniteBtn.disabled=true;
         el.abortBtn.disabled=true;
-        if(el.igniteBtn) el.igniteBtn.textContent = t("sequenceStartBtn");
+        setIgniteButtonLabel("sequenceStartBtn");
         updateControlAccessUI(st);
         return;
       }
-      if(seqActive){
-        el.igniteBtn.disabled=false;
-        el.abortBtn.disabled=true;
-        if(el.igniteBtn) el.igniteBtn.textContent = t("sequenceEndBtn");
-      }else if(st===1 || st===2){
-        el.igniteBtn.disabled=false;
-        el.abortBtn.disabled=false;
-        if(el.igniteBtn) el.igniteBtn.textContent = t("sequenceEndBtn");
-      }else if(st===0){
-        el.igniteBtn.disabled=false;
-        el.abortBtn.disabled=true;
-        if(el.igniteBtn) el.igniteBtn.textContent = t("sequenceStartBtn");
+      if(st===0){
+        el.igniteBtn.disabled = !readyEligible;
+        el.abortBtn.disabled = true;
+        setIgniteButtonLabel(readyEligible ? "sequenceReadyBtn" : "sequenceStartBtn");
       }else{
-        el.igniteBtn.disabled=true;
+        el.igniteBtn.disabled=false;
         el.abortBtn.disabled=false;
-        if(el.igniteBtn) el.igniteBtn.textContent = t("sequenceStartBtn");
+        setIgniteButtonLabel("sequenceStartBtn");
       }
       if(safetyModeEnabled){
         el.igniteBtn.disabled = true;
         if(st===0) el.abortBtn.disabled = true;
       }
+      if(running){
+        el.igniteBtn.disabled = true;
+        el.abortBtn.disabled = false;
+        setIgniteButtonLabel("sequenceStartBtn");
+      }
       updateControlAccessUI(st);
+      updateMobileAbortButton();
+      updateMobileSequenceStatusLabel(seqActive, st, lockout);
+    }
+
+    function updateMobileSequenceStatusLabel(seqActive, st, lockout){
+      const running = !!(seqActive || st === 1 || st === 2 || localTplusActive);
+      const readyEligible = isControlUnlocked() && connOk && hasMissionSelected() && !safetyModeEnabled && !loadcellErrorActive && st === 0 && !running;
+      let label = "진행 불가";
+      if(lockout){
+        label = "제한";
+      }else if(running){
+        label = "진행중";
+      }else if(readyEligible){
+        label = "준비";
+      }
+      if(el.sequenceStatusLabel) el.sequenceStatusLabel.textContent = label;
+      if(el.sequenceStatusDesktop) el.sequenceStatusDesktop.textContent = label;
     }
 
     // =====================
@@ -3886,7 +3986,6 @@
 
         if(!unstableToastShown){
           unstableToastShown = true;
-          lastDiscAnnounceMs = now;
           showToast(t("boardUnstable"), "warn");
         }
       }
@@ -4173,6 +4272,14 @@
           );
 
           showLockoutModal();
+        }else{
+          if(rm){
+            const nextMask = (lockoutRelayMask || 0) | rm;
+            if(nextMask !== lockoutRelayMask){
+              lockoutRelayMask = nextMask;
+              setLockoutVisual(true);
+            }
+          }
         }
         updateControlAccessUI(currentSt);
       }
@@ -4180,6 +4287,7 @@
       // 점화 분석
       if(st===2 && prevStForIgn!==2){
         ignitionAnalysis={hasData:false,ignStartMs:timeMs,thresholdMs:null,lastAboveMs:null,windowStartMs:null,windowEndMs:null,delaySec:null,durationSec:null,endNotified:false};
+        lastBurnSeconds = null;
         addLogLine(t("ignitionSignal", {thr:IGN_THRUST_THRESHOLD.toFixed(2)}),"IGN");
       }
 
@@ -4222,7 +4330,11 @@
               localTplusActive = true;
             }
             addLogLine(t("switchHighLog"), "SW");
-            showToast(t("switchHighToast", {safety:safetyLineSuffix()}),"warn");
+            if((uiSettings && uiSettings.igs) && !ic){
+              showToast(t("countdownIgniterRequired", {safety:safetyLineSuffix()}), "warn");
+            }else{
+              showToast(t("switchHighToast", {safety:safetyLineSuffix()}),"warn");
+            }
           }else{
             addLogLine(t("switchLowLog"), "SW");
             showToast(t("switchLowToast", {safety:safetyLineSuffix()}),"info");
@@ -4407,15 +4519,35 @@
           if(rly){ el.relay.textContent = t("relayOn"); el.relay.className="pill pill-green"; }
           else { el.relay.textContent = t("relayOff"); el.relay.className="pill pill-gray"; }
         }
-        if(el.quickRelay){
-          let rlyLabel = (rly == null) ? "--" : (rly ? t("relayOn") : t("relayOff"));
-          let rlyStatus = (rly == null) ? null : (rly ? "ok" : "warn");
-          if(lockoutLatched){
-            rlyLabel = "ERROR";
-            rlyStatus = "bad";
+        if(el.quickRelay1 || el.quickRelay2){
+          const rlyMask = (rly == null) ? null : Number(rly);
+          const r1On = (rlyMask == null) ? null : ((rlyMask & 1) !== 0);
+          const r2On = (rlyMask == null) ? null : ((rlyMask & 2) !== 0);
+          const lockMask = lockoutLatched ? (lockoutRelayMask || 0) : 0;
+          const lockAll = lockoutLatched && lockMask === 0;
+          const r1Lock = lockoutLatched && (lockAll || ((lockMask & 1) !== 0));
+          const r2Lock = lockoutLatched && (lockAll || ((lockMask & 2) !== 0));
+
+          if(el.quickRelay1){
+            let r1Label = (r1On == null) ? "--" : (r1On ? t("relayOn") : t("relayOff"));
+            let r1Status = (r1On == null) ? null : (r1On ? "ok" : "warn");
+            if(r1Lock){
+              r1Label = "ERROR";
+              r1Status = "bad";
+            }
+            el.quickRelay1.innerHTML = `<span class="num">${r1Label}</span>`;
+            setQuickItemStatus(el.quickRelay1, r1Status);
           }
-          el.quickRelay.innerHTML = `<span class="num">${rlyLabel}</span>`;
-          setQuickItemStatus(el.quickRelay, rlyStatus);
+          if(el.quickRelay2){
+            let r2Label = (r2On == null) ? "--" : (r2On ? t("relayOn") : t("relayOff"));
+            let r2Status = (r2On == null) ? null : (r2On ? "ok" : "warn");
+            if(r2Lock){
+              r2Label = "ERROR";
+              r2Status = "bad";
+            }
+            el.quickRelay2.innerHTML = `<span class="num">${r2Label}</span>`;
+            setQuickItemStatus(el.quickRelay2, r2Status);
+          }
         }
         updateGyroMetaFromMain();
         if(el.quickState){
@@ -4442,6 +4574,10 @@
           const stateHtml = (stateLabel === loadcellLabel) ? loadcellLabel.replace(" ", "<br>") : stateLabel;
           el.quickState.innerHTML = `<span class="num">${stateHtml}</span>`;
           el.quickState.classList.toggle("is-not-armed", isNotArmed);
+          const quickStateItem = el.quickState.closest(".item-quick-state");
+          if(quickStateItem){
+            quickStateItem.classList.toggle("state-lockout", lockoutLatched);
+          }
           setQuickItemStatus(el.quickState, stateStatus);
         }
 
@@ -4451,12 +4587,16 @@
           updateTogglePill(el.safeModePill, el.safeModeToggle.checked);
         }
 
+        let tplusActive = false;
         if(el.countdown){
           let prefix = "T- ";
           let cdText="--:--.---";
           const pad2 = (n)=>String(n).padStart(2,"0");
           const pad3 = (n)=>String(n).padStart(3,"0");
-          const useTd = (td != null && isFinite(td) && !(st === 0 && Number(td) === 0));
+          let useTd = (td != null && isFinite(td) && !(st === 0 && Number(td) === 0));
+          if(useTd && td < 0 && localTplusActive && localTplusStartMs != null){
+            useTd = false;
+          }
 
           if(useTd){
             if(td < 0){
@@ -4477,6 +4617,7 @@
             }else{
               prefix = "T+ ";
               const elapsedMs = Math.max(0, Math.round(td));
+              tplusActive = true;
               const minPart = Math.floor(elapsedMs / 60000);
               const secPart = Math.floor((elapsedMs % 60000) / 1000);
               const msPart = elapsedMs % 1000;
@@ -4486,6 +4627,7 @@
           }else if(localTplusActive && localTplusStartMs!=null){
             prefix = "T+ ";
             const elapsedMs = Math.max(0, Date.now() - localTplusStartMs);
+            tplusActive = true;
             const minPart = Math.floor(elapsedMs / 60000);
             const secPart = Math.floor((elapsedMs % 60000) / 1000);
             const msPart = elapsedMs % 1000;
@@ -4499,14 +4641,13 @@
           if(el.countdownMobile) el.countdownMobile.textContent = cdLabel;
           if(el.countdownBig) el.countdownBig.textContent = cdLabel;
         }
-
+        updateAbortButtonLabel(tplusActive && st !== 2);
         const statusCode=setStatusFromState(st,!!ic,!!ab,lockoutLatched, sequenceActive);
         if(el.countdownStatus && el.statusText){
           el.countdownStatus.textContent = el.statusText.textContent || "";
         }
         setButtonsFromState(st, lockoutLatched, sequenceActive);
         updateHomeUI();
-
         if(statusCode!==lastStatusCode){
           if(statusCode===1){
             addLogLine(t("countdownStartLog"),"COUNT");
@@ -4725,10 +4866,11 @@
       if(lpTimer){ clearInterval(lpTimer); lpTimer=null; }
       resetLongPressVisual();
       userWaitingLocal=false;
-      if(confirmOverlayEl){ confirmOverlayEl.classList.add("hidden"); confirmOverlayEl.style.display="none"; }
+      setOverlayVisible(confirmOverlayEl, false);
       sendCommand({http:"/precount?uw=0&cd=0", ser:"PRECOUNT 0 0"}, false);
     }
     function showConfirm(){
+      hideMobileControlsPanel();
       if(!hasMissionSelected()){
         showMissionRequired();
         return;
@@ -4741,30 +4883,31 @@
         showToast(t("inspectionRequiredToast"), "warn");
         return;
       }
+      if((uiSettings && uiSettings.igs) && latestTelemetry.ic !== 1){
+        showToast(t("countdownIgniterRequired", {safety:safetyLineSuffix()}), "warn");
+        return;
+      }
       if(lpTimer){ clearInterval(lpTimer); lpTimer=null; }
       resetLongPressVisual();
       userWaitingLocal=true;
       lpLastSentSec=3;
-      if(confirmOverlayEl){ confirmOverlayEl.classList.remove("hidden"); confirmOverlayEl.style.display="flex"; }
+      setOverlayVisible(confirmOverlayEl, true);
       sendCommand({http:"/precount?uw=1&cd=3000", ser:"PRECOUNT 1 3000"}, false);
       showToast(t("preSequenceToast", {safety:safetyLineSuffix()}),"warn");
     }
 
     function showEasterEggWarning(){
+      hideMobileControlsPanel();
       sendCommand({http:"/easter_bgm", ser:"/easter_bgm"}, false);
       if(easterOverlayEl){
         easterEggPending = true;
-        easterOverlayEl.classList.remove("hidden");
-        easterOverlayEl.style.display="flex";
+        setOverlayVisible(easterOverlayEl, true);
         return;
       }
       startTetris();
     }
     function hideEasterEggWarning(){
-      if(easterOverlayEl){
-        easterOverlayEl.classList.add("hidden");
-        easterOverlayEl.style.display="none";
-      }
+      setOverlayVisible(easterOverlayEl, false);
       if(easterEggPending){
         easterEggPending = false;
         startTetris();
@@ -4772,30 +4915,20 @@
     }
 
     function showTetrisWin(){
+      hideMobileControlsPanel();
       if(tetrisWinShown) return;
       tetrisWinShown = true;
-      if(tetrisWinOverlayEl){
-        tetrisWinOverlayEl.classList.remove("hidden");
-        tetrisWinOverlayEl.style.display="flex";
-      }
+      setOverlayVisible(tetrisWinOverlayEl, true);
     }
     function hideTetrisWin(){
-      if(tetrisWinOverlayEl){
-        tetrisWinOverlayEl.classList.add("hidden");
-        tetrisWinOverlayEl.style.display="none";
-      }
+      setOverlayVisible(tetrisWinOverlayEl, false);
     }
     function showTetrisPrize(){
-      if(tetrisPrizeOverlayEl){
-        tetrisPrizeOverlayEl.classList.remove("hidden");
-        tetrisPrizeOverlayEl.style.display="flex";
-      }
+      hideMobileControlsPanel();
+      setOverlayVisible(tetrisPrizeOverlayEl, true);
     }
     function hideTetrisPrize(){
-      if(tetrisPrizeOverlayEl){
-        tetrisPrizeOverlayEl.classList.add("hidden");
-        tetrisPrizeOverlayEl.style.display="none";
-      }
+      setOverlayVisible(tetrisPrizeOverlayEl, false);
     }
     function copyTetrisPrizeCode(){
       const code = tetrisPrizeCodeEl ? tetrisPrizeCodeEl.textContent.trim() : "";
@@ -4827,6 +4960,10 @@
         showToast(t("inspectionRequiredShort"), "warn");
         return;
       }
+      if((uiSettings && uiSettings.igs) && latestTelemetry.ic !== 1){
+        showToast(t("countdownIgniterRequired", {safety:safetyLineSuffix()}), "warn");
+        return;
+      }
       if(!el.longPressBtn || !longPressSpinnerEl || lpTimer) return;
       userWaitingLocal=true;
       lpStart=Date.now();
@@ -4855,7 +4992,13 @@
         if(left===0){
           clearInterval(lpTimer); lpTimer=null;
           resetLongPressVisual(); userWaitingLocal=false;
-          if(confirmOverlayEl){ confirmOverlayEl.classList.add("hidden"); confirmOverlayEl.style.display="none"; }
+          if((uiSettings && uiSettings.igs) && latestTelemetry.ic !== 1){
+            setOverlayVisible(confirmOverlayEl, false);
+            sendCommand({http:"/precount?uw=0&cd=0", ser:"PRECOUNT 0 0"}, false);
+            showToast(t("countdownIgniterRequired", {safety:safetyLineSuffix()}), "warn");
+            return;
+          }
+          setOverlayVisible(confirmOverlayEl, false);
           sendCommand({http:"/precount?uw=0&cd=0", ser:"PRECOUNT 0 0"}, false);
           sendCommand({http:"/countdown_start", ser:"COUNTDOWN"}, true);
           addLogLine(t("countdownRequestedLog"),"CMD");
@@ -4880,16 +5023,11 @@
     // 설정/발사대
     // =====================
     function showSettings(){
-      if(el.settingsOverlay){
-        el.settingsOverlay.classList.remove("hidden");
-        el.settingsOverlay.style.display="flex";
-      }
+      hideMobileControlsPanel();
+      setOverlayVisible(el.settingsOverlay, true);
     }
     function hideSettings(){
-      if(el.settingsOverlay){
-        el.settingsOverlay.classList.add("hidden");
-        el.settingsOverlay.style.display="none";
-      }
+      setOverlayVisible(el.settingsOverlay, false);
     }
     function setMissionCloseLabel(isBack){
       if(!el.missionCloseBtn) return;
@@ -4930,6 +5068,13 @@
       item.classList.remove("status-ok","status-warn","status-bad");
       if(status) item.classList.add("status-" + status);
     }
+    function setMotorTimeState(valueEl, state){
+      if(!valueEl) return;
+      const item = valueEl.closest(".item");
+      if(!item) return;
+      item.classList.remove("status-time-ready","status-time-progress");
+      if(state) item.classList.add("status-time-" + state);
+    }
     function updateStatusMotor(){
       if(!el.statusMotor) return;
       const motorName = (selectedMotorName || (el.missionName && el.missionName.value) || "").trim();
@@ -4965,6 +5110,23 @@
       el.commStatus.innerHTML = '<span class="num">' + commText + "</span>";
       el.motorDelay.innerHTML = '<span class="num">' + delay + '</span><span class="unit">S</span>';
       el.motorBurn.innerHTML = '<span class="num">' + burn + '</span><span class="unit">S</span>';
+      const delayState = (ignitionAnalysis && ignitionAnalysis.delaySec != null) ? "ready" : null;
+      setMotorTimeState(el.motorDelay, delayState);
+      let burnState = null;
+      if(ignitionAnalysis && ignitionAnalysis.durationSec != null){
+        const burnNumeric = Number(ignitionAnalysis.durationSec);
+        if(Number.isFinite(burnNumeric)){
+          const isBurning = (currentSt === 2);
+          const increasing = (lastBurnSeconds != null && burnNumeric > lastBurnSeconds);
+          burnState = (isBurning || increasing) ? "progress" : "ready";
+          lastBurnSeconds = burnNumeric;
+        }else{
+          lastBurnSeconds = null;
+        }
+      }else{
+        lastBurnSeconds = null;
+      }
+      setMotorTimeState(el.motorBurn, burnState);
       if(el.statusBar){
         el.statusBar.classList.toggle("is-online", !!connOk);
         el.statusBar.classList.toggle("is-offline", !connOk);
@@ -4988,43 +5150,28 @@
       updateGyroMetaFromMain();
     }
     function showMissionRequired(){
-      if(el.missionRequiredOverlay){
-        el.missionRequiredOverlay.classList.remove("hidden");
-        el.missionRequiredOverlay.style.display="flex";
-      }
+      hideMobileControlsPanel();
+      setOverlayVisible(el.missionRequiredOverlay, true);
     }
     function hideMissionRequired(){
-      if(el.missionRequiredOverlay){
-        el.missionRequiredOverlay.classList.add("hidden");
-        el.missionRequiredOverlay.style.display="none";
-      }
+      setOverlayVisible(el.missionRequiredOverlay, false);
     }
     function showNoMotorNotice(){
-      if(el.noMotorOverlay){
-        el.noMotorOverlay.classList.remove("hidden");
-        el.noMotorOverlay.style.display="flex";
-      }
+      hideMobileControlsPanel();
+      setOverlayVisible(el.noMotorOverlay, true);
       showToast("메타데이터 미지정: 미션 정보 없이 진행", "warn", {key:"mission-no-meta"});
     }
     function hideNoMotorNotice(){
-      if(el.noMotorOverlay){
-        el.noMotorOverlay.classList.add("hidden");
-        el.noMotorOverlay.style.display="none";
-      }
+      setOverlayVisible(el.noMotorOverlay, false);
     }
     function showMission(){
-      if(el.missionOverlay){
-        el.missionOverlay.classList.remove("hidden");
-        el.missionOverlay.style.display="flex";
-      }
+      hideMobileControlsPanel();
+      setOverlayVisible(el.missionOverlay, true);
       resetMissionToPresetList();
     }
     function hideMission(){
       resetMissionToPresetList();
-      if(el.missionOverlay){
-        el.missionOverlay.classList.add("hidden");
-        el.missionOverlay.style.display="none";
-      }
+      setOverlayVisible(el.missionOverlay, false);
     }
     function updateLoadcellLiveValue(val){
       lastThrustKgf = val;
@@ -5036,10 +5183,8 @@
       el.loadcellLiveValue.textContent = Number(val).toFixed(3);
     }
     function showLoadcellModal(){
-      if(el.loadcellOverlay){
-        el.loadcellOverlay.classList.remove("hidden");
-        el.loadcellOverlay.style.display = "flex";
-      }
+      hideMobileControlsPanel();
+      setOverlayVisible(el.loadcellOverlay, true);
       if(el.loadcellDialog) el.loadcellDialog.classList.remove("show-warning");
       if(el.loadcellDialog) el.loadcellDialog.classList.remove("step-input");
       if(el.loadcellWeightInput) el.loadcellWeightInput.value = "";
@@ -5050,14 +5195,12 @@
       updateLoadcellLiveValue(lastThrustKgf);
     }
     function hideLoadcellModal(){
-      if(el.loadcellOverlay){
-        el.loadcellOverlay.classList.add("hidden");
-        el.loadcellOverlay.style.display = "none";
-      }
+      setOverlayVisible(el.loadcellOverlay, false);
       if(el.loadcellDialog) el.loadcellDialog.classList.remove("show-warning");
       if(el.loadcellDialog) el.loadcellDialog.classList.remove("step-input");
     }
     function showLoadcellWarning(weight){
+      hideMobileControlsPanel();
       pendingLoadcellZero = false;
       if(el.loadcellDialog) el.loadcellDialog.classList.add("show-warning");
       if(el.loadcellWarningTitle) el.loadcellWarningTitle.textContent = t("loadcellModalConfirmTitle");
@@ -5066,6 +5209,7 @@
       }
     }
     function showLoadcellZeroWarning(){
+      hideMobileControlsPanel();
       pendingLoadcellZero = true;
       if(el.loadcellDialog) el.loadcellDialog.classList.add("show-warning");
       if(el.loadcellWarningTitle) el.loadcellWarningTitle.textContent = t("loadcellZeroConfirmTitle");
@@ -5138,6 +5282,7 @@
       forceSlideEl.style.setProperty("--slide-x", "0px");
       forceSlideEl.style.setProperty("--slide-pct", "0%");
       forceSlideActive = false;
+      updateMobileAbortButton();
       forceSlidePointerId = null;
       forceSlideDragOffset = 0;
     }
@@ -5153,6 +5298,7 @@
       showToast(t("forceRequestedToast", {safety:safetyLineSuffix()}),"ignite");
     }
     function showForceConfirm(){
+      hideMobileControlsPanel();
       if(!hasMissionSelected()){
         showMissionRequired();
         return;
@@ -5179,15 +5325,16 @@
       if(el.forceConfirmText){
         el.forceConfirmText.innerHTML = loadcellErrorActive ? t("forceLoadcellText") : t("forceConfirmText");
       }
-      if(forceOverlayEl){ forceOverlayEl.classList.remove("hidden"); forceOverlayEl.style.display="flex"; }
+      setOverlayVisible(forceOverlayEl, true);
       resetForceSlide();
       showToast(t("forceWarning", {safety:safetyLineSuffix()}),"warn");
     }
     function hideForceConfirm(){
-      if(forceOverlayEl){ forceOverlayEl.classList.add("hidden"); forceOverlayEl.style.display="none"; }
+      setOverlayVisible(forceOverlayEl, false);
       resetForceSlide();
     }
     function showLauncher(){
+      hideMobileControlsPanel();
       if(lockoutLatched){
         showToast(t("lockoutControlDenied"), "error");
         return;
@@ -5196,12 +5343,11 @@
         if(safetyModeEnabled) showToast(t("safetyModeOnToast"), "warn");
         return;
       }
-      if(launcherOverlayEl){ launcherOverlayEl.classList.remove("hidden"); launcherOverlayEl.style.display="flex"; }
+      setOverlayVisible(launcherOverlayEl, true);
     }
     function hideLauncher(){
       if(launcherOverlayEl){
-        launcherOverlayEl.classList.add("hidden");
-        launcherOverlayEl.style.display="none";
+        setOverlayVisible(launcherOverlayEl, false);
         launcherOverlayEl.classList.remove("auto-active");
       }
       launcherAutoActive = false;
@@ -5265,16 +5411,11 @@
     }
 
     function showLauncherAutoConfirm(){
-      if(launcherAutoOverlayEl){
-        launcherAutoOverlayEl.classList.remove("hidden");
-        launcherAutoOverlayEl.style.display="flex";
-      }
+      hideMobileControlsPanel();
+      setOverlayVisible(launcherAutoOverlayEl, true);
     }
     function hideLauncherAutoConfirm(){
-      if(launcherAutoOverlayEl){
-        launcherAutoOverlayEl.classList.add("hidden");
-        launcherAutoOverlayEl.style.display="none";
-      }
+      setOverlayVisible(launcherAutoOverlayEl, false);
     }
 
     // =====================
@@ -5766,10 +5907,6 @@
       }
       return buildZip(files);
     }
-    function buildXlsxBlob(sheets, chart){
-      const zipData = buildXlsxBytes(sheets, chart);
-      return new Blob([zipData], {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
-    }
     function formatEngNumber(value, digits){
       if(!isFinite(value)) return "0";
       const fixed = Number(value).toFixed(digits);
@@ -6073,7 +6210,8 @@
       el.homeLog = document.getElementById("homeLog");
       el.quickSw = document.getElementById("quick-sw");
       el.quickIgniter = document.getElementById("quick-igniter");
-      el.quickRelay = document.getElementById("quick-relay");
+      el.quickRelay1 = document.getElementById("quick-relay-1");
+      el.quickRelay2 = document.getElementById("quick-relay-2");
       el.quickState = document.getElementById("quick-state");
 
       el.thrust = document.getElementById("thrust");
@@ -6263,6 +6401,28 @@
       el.controlsOverlaySlot = document.getElementById("controlsOverlaySlot");
       el.controlsOverlayClose = document.getElementById("controlsOverlayClose");
       el.controlsToggleBtns = document.querySelectorAll(".js-controls-open");
+
+      el.igniteLabel = document.getElementById("igniteBtnLabel");
+      el.sequenceStatusDesktop = document.getElementById("sequenceStatusDesktop");
+      el.mobileControlsPanel = document.getElementById("mobileControlsPanel");
+      el.mobileControlsHandle = el.mobileControlsPanel ? el.mobileControlsPanel.querySelector(".mobile-controls-handle") : null;
+      el.mobileAbortBtn = document.getElementById("mobileAbortBtn");
+      el.mobileAbortPanel = document.getElementById("mobileAbortPanel");
+      el.mobileSequenceLabel = document.getElementById("mobileSequenceLabel");
+      el.mobileControlButtons = el.mobileControlsPanel ? el.mobileControlsPanel.querySelectorAll("[data-mobile-control]") : null;
+      el.mobileControlButtonMap = {};
+      if(el.mobileControlButtons && el.mobileControlButtons.length){
+        el.mobileControlButtons.forEach(btn=>{
+          const key = btn.getAttribute("data-mobile-control");
+          if(key) el.mobileControlButtonMap[key] = btn;
+        });
+      }
+      el.mobileControlPills = {
+        serial: el.mobileControlsPanel ? el.mobileControlsPanel.querySelector("[data-mobile-pill=\"serial\"]") : null,
+        inspection: el.mobileControlsPanel ? el.mobileControlsPanel.querySelector("[data-mobile-pill=\"inspection\"]") : null,
+        safety: el.mobileControlsPanel ? el.mobileControlsPanel.querySelector("[data-mobile-pill=\"safety\"]") : null,
+      };
+      el.sequenceStatusLabel = el.mobileControlsPanel ? el.mobileControlsPanel.querySelector("[data-mobile-status=\"sequence\"]") : null;
 
       // ✅ LOCKOUT modal elements
       el.lockoutOverlay = document.getElementById("lockoutOverlay");
@@ -6564,24 +6724,6 @@
       if(el.igniteBtn){
         el.igniteBtn.addEventListener("click",()=>{
           if(sequenceActive || currentSt===1 || currentSt===2){
-            sendCommand({http:"/sequence_end", ser:"SEQUENCE_END"}, true);
-            addLogLine(t("sequenceEndLog"),"SEQ");
-            showToast(t("sequenceEndToast"), "info");
-            localTplusActive = false;
-            localTplusStartMs = null;
-            if(el.countdown) el.countdown.textContent = "T- --";
-            if(el.countdownMobile) el.countdownMobile.textContent = "T- --";
-            if(el.countdownBig) el.countdownBig.textContent = "T- --";
-            return;
-          }
-          if(currentSt===0 && localTplusActive){
-            localTplusActive = false;
-            localTplusStartMs = null;
-            if(el.countdown) el.countdown.textContent = "T- --";
-            if(el.countdownMobile) el.countdownMobile.textContent = "T- --";
-            if(el.countdownBig) el.countdownBig.textContent = "T- --";
-            addLogLine(t("sequenceEndLog"),"SEQ");
-            showToast(t("sequenceEndToast"), "info");
             return;
           }
           if(currentSt===0 && !isControlUnlocked()){
@@ -6605,6 +6747,19 @@
           if(lockoutLatched){
             const name = relayMaskName(lockoutRelayMask);
           showToast(t("lockoutAbortDenied", {name}), "error");
+            return;
+          }
+          if(tplusUiActive){
+            sendCommand({http:"/sequence_end", ser:"SEQUENCE_END"}, true);
+            addLogLine(t("sequenceEndLog"),"SEQ");
+            showToast(t("sequenceEndToast"), "info");
+            localTplusActive = false;
+            localTplusStartMs = null;
+            if(el.countdown) el.countdown.textContent = "T- --";
+            if(el.countdownMobile) el.countdownMobile.textContent = "T- --";
+            if(el.countdownBig) el.countdownBig.textContent = "T- --";
+            updateAbortButtonLabel(false);
+            hideConfirm();
             return;
           }
           lastAbortReason = "user";
@@ -6662,6 +6817,10 @@
         el.controlsToggleBtns.forEach(btn=>{
           btn.addEventListener("click",(ev)=>{
             ev.preventDefault();
+            if(isMobileLayout() && el.mobileControlsPanel){
+              showMobileControlsPanel();
+              return;
+            }
             showControlsModal();
           });
         });
@@ -6671,6 +6830,21 @@
       }
       if(el.controlsOverlay){
         el.controlsOverlay.addEventListener("click",(ev)=>{ if(ev.target === el.controlsOverlay) hideControlsModal(); });
+      }
+
+      document.addEventListener("pointerdown",(ev)=>{
+        if(!mobileControlsActive) return;
+        if(el.mobileControlsPanel && el.mobileControlsPanel.contains(ev.target)) return;
+        if(ev.target.closest && ev.target.closest(".js-controls-open")) return;
+        hideMobileControlsPanel();
+      });
+      if(el.mobileAbortBtn){
+        el.mobileAbortBtn.addEventListener("click",(ev)=>{
+          ev.preventDefault();
+          if(el.abortBtn && !el.abortBtn.disabled){
+            el.abortBtn.click();
+          }
+        });
       }
 
       const forceBtn=el.forceBtn;
@@ -6684,6 +6858,7 @@
           if(e.button != null && e.button !== 0) return;
           e.preventDefault();
           forceSlideActive = true;
+          updateMobileAbortButton();
           forceSlidePointerId = e.pointerId;
           forceSlideEl.setPointerCapture(e.pointerId);
           const thumbRect = forceSlideThumbEl.getBoundingClientRect();
@@ -6708,6 +6883,7 @@
           const pct = setForceSlidePosition(x);
           forceSlideEl.classList.remove("dragging");
           forceSlideActive = false;
+          updateMobileAbortButton();
           forceSlidePointerId = null;
           if(pct >= 90){
             forceSlideEl.classList.add("unlocked");
@@ -7232,12 +7408,10 @@
           }
         }
         if(el.countdownLabel){
-          let label = t("viewCountdownLabel");
+          let label = t("statusCountdown");
           if(isHome) label = t("viewHomeLabel");
           else if(isHardware) label = t("viewHardwareLabel");
           else if(isTerminal) label = t("viewTerminalLabel");
-          else if(isCountdown) label = t("viewCountdownLabel");
-          else if(isDashboard) label = t("viewDashboardLabel");
           el.countdownLabel.textContent = label;
         }
         document.body.classList.toggle("countdown-view-active", isCountdown);
@@ -7319,11 +7493,6 @@
       if(el.missionOverlay){
         el.missionOverlay.addEventListener("click",(ev)=>{ if(ev.target===el.missionOverlay) hideMission(); });
       }
-      const toggleInput = (node)=>{
-        if(!node) return;
-        node.checked = !node.checked;
-        node.dispatchEvent(new Event("change", {bubbles:true}));
-      };
       if(el.homeArmBtn){
         el.homeArmBtn.addEventListener("click",()=>{
           if(isControlUnlocked()){
@@ -7345,6 +7514,57 @@
         el.missionBackBtn.addEventListener("click",()=>{
           resetMissionToPresetList();
         });
+      }
+      const mobileControlActions = {
+        sequence: ()=>{ if(el.igniteBtn) el.igniteBtn.click(); },
+        force: ()=>{ if(el.forceBtn) el.forceBtn.click(); },
+        serial: ()=>{ toggleInput(el.serialToggle); },
+        inspection: ()=>{ if(el.inspectionOpenBtn) el.inspectionOpenBtn.click(); },
+        safety: ()=>{ toggleInput(el.safeModeToggle); },
+        mission: ()=>{ if(el.missionOpenBtn) el.missionOpenBtn.click(); },
+        export: ()=>{ if(el.exportCsvBtn) el.exportCsvBtn.click(); },
+      };
+      if(el.mobileControlButtons && el.mobileControlButtons.length){
+        el.mobileControlButtons.forEach(btn=>{
+          btn.addEventListener("click",(ev)=>{
+            ev.preventDefault();
+            const type = btn.getAttribute("data-mobile-control");
+            const action = mobileControlActions[type];
+            if(!action) return;
+            if(type === "mission" || type === "export"){
+              hideMobileControlsPanel();
+            }
+            action();
+          });
+        });
+      }
+      updateAbortButtonLabel(false);
+      updateMobileControlPills();
+      updateMobileAbortButton();
+      if(el.mobileControlsHandle){
+        let handleDragActive = false;
+        let handleStartY = 0;
+        const onHandlePointerMove = (ev)=>{
+          if(!handleDragActive) return;
+          const delta = ev.clientY - handleStartY;
+          if(delta > 40){
+            hideMobileControlsPanel();
+            handleDragActive = false;
+          }
+        };
+        const stopHandleDrag = (ev)=>{
+          handleDragActive = false;
+          if(ev.pointerId != null) el.mobileControlsHandle.releasePointerCapture(ev.pointerId);
+        };
+        el.mobileControlsHandle.addEventListener("pointerdown",(ev)=>{
+          ev.preventDefault();
+          handleDragActive = true;
+          handleStartY = ev.clientY;
+          if(ev.pointerId != null) el.mobileControlsHandle.setPointerCapture(ev.pointerId);
+        });
+        el.mobileControlsHandle.addEventListener("pointermove",onHandlePointerMove);
+        el.mobileControlsHandle.addEventListener("pointerup",stopHandleDrag);
+        el.mobileControlsHandle.addEventListener("pointercancel",stopHandleDrag);
       }
       const getCenteredPreset = ()=>{
         if(!el.missionPresetGrid || !el.missionPresetViewport) return null;
