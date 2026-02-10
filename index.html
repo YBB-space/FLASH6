@@ -40,6 +40,8 @@
       --shell-gap:14px;--card-pad:16px;
       --chart-height:520px;
       --log-height:clamp(180px,24vh,260px);
+      --mobile-nav-height:72px;
+      --mobile-nav-gap:12px;
     }
     body{
       font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",system-ui,sans-serif;
@@ -137,6 +139,9 @@
       stroke-linecap:round;stroke-linejoin:round;
     }
     .side-nav-btn:hover{background:#f1f5f9;color:#0f172a}
+    .mobile-controls-panel{
+      display:none;
+    }
     .page-kicker{
       font-size:12px;font-weight:600;letter-spacing:.02em;color:#94a3b8;
     }
@@ -1056,6 +1061,28 @@
       align-content:stretch;
       grid-auto-rows:1fr;
     }
+    .item.status-time-progress{
+      border-color:rgba(245,158,11,0.6);
+      background:linear-gradient(135deg,rgba(245,158,11,0.08),rgba(245,158,11,0.03));
+      box-shadow:0 4px 12px rgba(245,158,11,0.15);
+    }
+    .item.status-time-ready{
+      border-color:rgba(34,197,94,0.5);
+      box-shadow:0 0 0 1px rgba(34,197,94,0.12);
+      animation:loadcellReadyBlink 1s ease-in-out infinite;
+    }
+    @keyframes loadcellReadyBlink{
+      0%,100%{
+        border-color:rgba(34,197,94,0.45);
+        box-shadow:0 0 0 1px rgba(34,197,94,0.12);
+        background:linear-gradient(135deg,rgba(22,163,74,0.08),rgba(34,197,94,0.04));
+      }
+      50%{
+        border-color:rgba(16,185,129,0.8);
+        box-shadow:0 0 0 2px rgba(16,185,129,0.18);
+        background:linear-gradient(135deg,rgba(22,163,74,0.16),rgba(34,197,94,0.12));
+      }
+    }
     @media(max-width:980px){
       .quick-data-body{
         flex-direction:column;
@@ -1135,6 +1162,12 @@
     .item.status-bad{
       background:linear-gradient(135deg,rgba(239,68,68,0.16),rgba(248,113,113,0.1));
       border-color:rgba(239,68,68,0.55);
+    }
+    .item-quick-state.state-lockout{
+      background:linear-gradient(135deg,rgba(248,113,113,0.18),rgba(239,68,68,0.08));
+      border-color:rgba(239,68,68,0.6);
+      box-shadow:0 0 0 1px rgba(239,68,68,0.12);
+      animation:loadcellAlertBlinkStrong 1s ease-in-out infinite;
     }
     .item.relay-lockout{
       background:linear-gradient(135deg,rgba(248,113,113,0.08),rgba(239,68,68,0.04));
@@ -1301,16 +1334,100 @@
       text-shadow:0 1px 2px rgba(0,0,0,0.12);
       backdrop-filter:blur(10px) saturate(1.15);-webkit-backdrop-filter:blur(10px) saturate(1.15);
     }
+    .primary-btn.sequence-btn{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      text-align:left;
+      height:auto;
+      min-height:56px;
+      padding:12px 16px;
+      border-radius:10px;
+      background:#ffffff;
+      border:1px solid rgba(148,163,184,0.25);
+      box-shadow:none;
+      color:var(--text-main);
+      text-shadow:none;
+      backdrop-filter:none;
+      -webkit-backdrop-filter:none;
+    }
+    .primary-btn.sequence-btn:disabled{
+      background:#f1f5f9;
+      border-color:rgba(148,163,184,0.35);
+      color:#94a3b8;
+      box-shadow:none;
+      cursor:not-allowed;
+    }
+    .primary-btn.sequence-btn:disabled .sequence-btn-sub{
+      color:#94a3b8;
+    }
+    .controls-main-row .abort-btn-wrap{
+      flex:1.6;
+      display:flex;
+      align-items:stretch;
+    }
+    .controls-main-row .abort-btn-wrap .secondary-btn{
+      height:auto;
+      min-height:56px;
+      border-radius:10px;
+      font-size:13px;
+      letter-spacing:.06em;
+    }
+    .sequence-btn-text{
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+      min-width:0;
+    }
+    .sequence-btn-title{
+      font-size:11px;
+      font-weight:700;
+      letter-spacing:.05em;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .sequence-btn-sub{
+      font-size:10px;
+      font-weight:500;
+      color:#6b7280;
+      opacity:1;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .sequence-status-pill{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:4px 10px;
+      border-radius:999px;
+      font-size:11px;
+      font-weight:700;
+      letter-spacing:.08em;
+      border:1px solid rgba(148,163,184,0.4);
+      color:#475569;
+      background:rgba(148,163,184,0.08);
+      flex-shrink:0;
+      line-height:1.2;
+    }
     .secondary-btn{
-      border-radius:14px;
-      border:1px solid rgba(148,163,184,0.55);
-      background:linear-gradient(135deg,rgba(34, 36, 40, 0.78),rgba(64, 71, 84, 0.78));
-      color:#f8fafc;
+      border-radius:10px;
+      border:1px solid rgba(239,68,68,0.6);
+      background:linear-gradient(135deg,#f87171,#ef4444);
+      color:#fff7ed;
       font-size:12px;font-weight:700;letter-spacing:.04em;
       padding:10px 16px;height:42px;width:100%;
-      box-shadow:0 5px 12px rgba(107,114,128,0.22);
+      box-shadow:0 8px 16px rgba(239,68,68,0.25);
       text-shadow:0 1px 2px rgba(0,0,0,0.12);
-      backdrop-filter:blur(10px) saturate(1.05);-webkit-backdrop-filter:blur(10px) saturate(1.05);
+    }
+    .secondary-btn:disabled{
+      background:linear-gradient(135deg,rgba(148,163,184,0.4),rgba(100,116,139,0.4));
+      border-color:rgba(148,163,184,0.4);
+      color:#e2e8f0;
+      box-shadow:none;
+      text-shadow:none;
     }
     .force-btn,.launcher-open-btn{
       margin-top:6px;width:100%;padding:10px 14px;border-radius:var(--radius-pill);
@@ -1321,6 +1438,12 @@
     .force-btn.disabled{opacity:.45;pointer-events:none;filter:saturate(0.6) grayscale(0.1)}
     .launcher-open-btn{justify-content:space-between}
     .controls-card{padding-top:14px;padding-bottom:14px;position:relative}
+    .controls-card{
+      background:linear-gradient(180deg,#ffffff,#f7f8fc);
+      border:1px solid rgba(148,163,184,0.26);
+      box-shadow:0 18px 30px rgba(15,23,42,0.12);
+    }
+    .controls-card::before,.controls-card::after{content:none}
     #controlsHeader{
       border-bottom:1px solid rgba(148,163,184,0.35);
       padding-bottom:8px;
@@ -1346,7 +1469,8 @@
     }
     .control-tile{
       padding:9px 12px;border-radius:10px;
-      border:1px solid rgba(209,213,219,0.9);background:linear-gradient(135deg,#f9fafb,#eef2ff);
+      border:1px solid rgba(148,163,184,0.25);
+      background:#ffffff;
       display:flex;align-items:center;justify-content:space-between;gap:10px;
       min-width:0
     }
@@ -1617,8 +1741,12 @@
       font-weight:700;
       letter-spacing:.08em;
       color:#0f172a;
-      text-shadow:0 10px 30px rgba(15,23,42,0.15);
-      animation:countdownGlow 2.2s ease-in-out infinite;
+      text-shadow:
+        0 18px 42px rgba(15,23,42,0.32),
+        0 4px 0 rgba(255,255,255,0.7),
+        0 0 22px rgba(59,130,246,0.18);
+      filter:drop-shadow(0 10px 26px rgba(15,23,42,0.18));
+      animation:countdownGlow 2s ease-in-out infinite;
     }
     .countdown-hero-status{
       font-size:13px;
@@ -1632,8 +1760,18 @@
       text-transform:uppercase;
     }
     @keyframes countdownGlow{
-      0%,100%{text-shadow:0 10px 24px rgba(15,23,42,0.16)}
-      50%{text-shadow:0 18px 40px rgba(37,99,235,0.28)}
+      0%,100%{
+        text-shadow:
+          0 16px 34px rgba(15,23,42,0.22),
+          0 3px 0 rgba(255,255,255,0.6),
+          0 0 18px rgba(59,130,246,0.18);
+      }
+      50%{
+        text-shadow:
+          0 26px 54px rgba(30,64,175,0.45),
+          0 4px 0 rgba(255,255,255,0.75),
+          0 0 28px rgba(59,130,246,0.32);
+      }
     }
     .hardware-view{
       flex:1;
@@ -1669,8 +1807,18 @@
 
     .toast-container{
       position:fixed;bottom:22px;left:calc(72px + 22px);transform:none;
-      z-index:80;display:flex;flex-direction:column;align-items:flex-start;gap:12px;pointer-events:none;
-      transition:left .2s ease;
+      z-index:220;display:flex;flex-direction:column;align-items:flex-start;gap:12px;pointer-events:none;
+      transition:left .2s ease, top .2s ease, bottom .2s ease, width .2s ease;
+    }
+    html.mobile-controls-active .toast-container{
+      bottom:auto;
+      top:calc(env(safe-area-inset-top, 0px) + 14px);
+      left:50%;
+      transform:translateX(-50%);
+      width:calc(100% - 32px);
+      max-width:640px;
+      align-items:center;
+      z-index:270;
     }
     .toast{
       position:relative;width:min(440px,calc(100vw - 44px));padding:16px 18px 14px;border-radius:14px;
@@ -2981,6 +3129,18 @@
         border-radius:28px;
         box-shadow:0 18px 40px rgba(15,23,42,0.18);
         padding:10px 12px;
+        overflow:visible;
+      }
+      .mobile-controls-active .side-nav-mobile::after{
+        content:"";
+        position:absolute;
+        top:-8px;
+        left:12px;
+        right:12px;
+        height:1px;
+        background:rgba(15,23,42,0.08);
+        border-radius:1px;
+        pointer-events:none;
       }
       .side-nav-mobile .side-nav-menu{
         flex:1;
@@ -3010,6 +3170,55 @@
       .side-nav-mobile .side-nav-item.active{
         background:#cfe3ff;color:#3b82f6;
         box-shadow:0 6px 12px rgba(59,130,246,0.18);
+      }
+      .mobile-abort-wrapper{
+        position:absolute;
+        bottom:100%;
+        left:50%;
+        transform:translate(-50%, -22px);
+        pointer-events:none;
+        width:100%;
+        display:flex;
+        justify-content:center;
+      }
+      .mobile-abort-panel{
+        display:none;
+        pointer-events:auto;
+        flex-direction:column;
+        align-items:center;
+        gap:6px;
+        padding:10px 12px;
+        border-radius:16px;
+        border:1px solid rgba(148,163,184,0.25);
+        background:#ffffff;
+      }
+      .mobile-abort-panel.is-visible{display:flex}
+      .mobile-abort-help{
+        font-size:11px;
+        color:#6b7280;
+        text-align:center;
+        line-height:1.4;
+      }
+      .mobile-abort-btn{
+        display:none;
+        pointer-events:auto;
+        background:#dc2626;
+        color:#fff;
+        border:none;
+        border-radius:14px;
+        padding:10px 28px;
+        font-weight:700;
+        letter-spacing:.08em;
+        text-transform:uppercase;
+        box-shadow:0 15px 35px rgba(220,38,38,0.35);
+        transition:transform .2s ease,opacity .2s ease;
+        opacity:0;
+        transform:translateY(6px);
+      }
+      .mobile-abort-btn.is-visible{
+        display:inline-flex;
+        opacity:1;
+        transform:translateY(0);
       }
       .page-wrap{
         height:auto;overflow:visible;
@@ -3051,6 +3260,128 @@
       .settings-dialog{
         width:100%;max-width:520px;height:70vh;max-height:70vh;border-radius:12px;margin:0;
         padding:14px 16px max(12px,env(safe-area-inset-bottom,12px))
+      }
+      .mobile-controls-panel{
+        display:flex;
+        position:fixed;
+        left:12px;
+        right:12px;
+        bottom:calc(12px + env(safe-area-inset-bottom, 0px));
+        max-width:640px;
+        margin:0 auto;
+        width:auto;
+        border-radius:28px 28px 18px 18px;
+        padding:44px 20px 28px;
+        background:linear-gradient(180deg,#ffffff,#f7f8fc);
+        border:1px solid rgba(148,163,184,0.26);
+        box-shadow:0 18px 30px rgba(15,23,42,0.12);
+        flex-direction:column;
+        gap:18px;
+        min-height:360px;
+        transform:translateY(calc(100% + 20px));
+        transition:transform .32s cubic-bezier(0.22,0.61,0.36,1),opacity .28s ease;
+        opacity:0;
+        pointer-events:none;
+        z-index:70;
+        will-change:transform,opacity;
+        overflow:hidden;
+      }
+      .mobile-controls-panel.is-open{
+        transform:translateY(0);
+        opacity:1;
+        pointer-events:auto;
+      }
+      .mobile-controls-handle{
+        position:absolute;
+        top:10px;
+        left:50%;
+        transform:translateX(-50%);
+        width:48px;
+        height:5px;
+        border-radius:999px;
+        background:rgba(15,23,42,0.15);
+      }
+      .mobile-controls-head{
+        display:flex;
+        flex-direction:column;
+        gap:4px;
+        font-size:12px;
+        text-transform:uppercase;
+        letter-spacing:.2em;
+        color:#94a3b8;
+      }
+      .mobile-controls-head-title{font-weight:600;color:#94a3b8}
+      .mobile-controls-head-sub{font-size:14px;font-weight:700;color:var(--text-main);letter-spacing:0;text-transform:none}
+      .mobile-controls-slot{
+        display:grid;
+        grid-template-columns:repeat(2,minmax(0,1fr));
+        gap:10px;
+        width:100%;
+        max-height:calc(60vh);
+        overflow-y:auto;
+        padding-right:4px;
+        grid-auto-flow:row dense;
+      }
+      .mobile-controls-slot .control-tile:first-of-type{
+        grid-column:1 / -1;
+      }
+      .mobile-controls-slot .control-tile{
+        width:100%;
+        padding:14px 16px;
+        border-radius:16px;
+        border:1px solid rgba(148,163,184,0.25);
+        justify-content:space-between;
+        min-height:56px;
+        background:#fff;
+      }
+      .mobile-control-main{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:12px;
+        width:100%;
+      }
+      .mobile-control-text{
+        flex:1;
+        display:flex;
+        flex-direction:column;
+        align-items:flex-start;
+        text-align:left;
+        gap:4px;
+      }
+      .mobile-control-text .control-tile-label,
+      .mobile-control-text .control-tile-sub{
+        width:100%;
+        text-align:left;
+      }
+      .mobile-control-status{
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        padding:4px 10px;
+        border-radius:999px;
+        font-size:11px;
+        font-weight:700;
+        letter-spacing:0.08em;
+        border:1px solid rgba(148,163,184,0.4);
+        color:#475569;
+        background:rgba(148,163,184,0.08);
+        flex-shrink:0;
+        line-height:1.2;
+      }
+      .mobile-controls-panel .control-tile-actions{margin-left:auto}
+      .mobile-controls-toolbar{
+        display:flex;
+        flex-wrap:wrap;
+        gap:10px;
+      }
+      .mobile-controls-toolbar-top{
+        margin-top:6px;
+        margin-bottom:-2px;
+      }
+      .mobile-toolbar-btn{
+        flex:1 1 calc(50% - 5px);
+        min-width:0;
       }
       .settings-body{flex-direction:column;overflow:hidden;padding-right:2px}
       .settings-panels{overflow-y:auto;padding-right:10px}
@@ -3495,9 +3826,9 @@
       box-shadow:0 6px 16px rgba(2,6,23,0.45),0 3px 8px rgba(249,115,22,0.18);
     }
     html[data-theme="dark"] .secondary-btn{
-      border-color:rgba(71,85,105,0.6);
-      background:linear-gradient(135deg,rgba(15,23,42,0.85),rgba(30,41,59,0.85));
-      color:#e2e8f0;
+      border-color:rgba(248,113,113,0.55);
+      background:linear-gradient(135deg,rgba(185,28,28,0.88),rgba(239,68,68,0.88));
+      color:#fff7ed;
     }
     html[data-theme="dark"] .card-badge{
       background:rgba(96,165,250,0.16);
@@ -3921,6 +4252,26 @@
       .page-wrap{height:auto;min-height:auto;overflow:visible}
     }
 
+    .confirm-overlay,
+    .settings-overlay,
+    .ws-alert-overlay,
+    .disconnect-overlay,
+    .controls-overlay,
+    #launcherOverlay,
+    #inspectionOverlay,
+    #missionOverlay,
+    #loadcellOverlay,
+    #lockoutOverlay,
+    #forceOverlay,
+    #missionRequiredOverlay,
+    #noMotorOverlay,
+    #tetrisOverlay,
+    #tetrisWinOverlay,
+    #tetrisPrizeOverlay,
+    #easterOverlay,
+    #launcherAutoOverlay {
+      z-index:95;
+    }
   </style>
 </head>
 <body>
@@ -3934,7 +4285,9 @@
     <div id="splashLoading" data-i18n-html="splashLoading">로딩중<span id="splashDots"></span></div>
   </div>
 
-  <div class="app-shell">
+    <div id="toastContainer" class="toast-container"></div>
+
+    <div class="app-shell">
     <aside class="side-nav side-nav-desktop" aria-label="sidebar">
       <div class="side-nav-logo">
         <img src="img/Flash_logo.svg " alt="FLASH">
@@ -3977,6 +4330,68 @@
       </button>
     </aside>
     <aside class="side-nav side-nav-mobile" aria-label="mobile navigation">
+      <div id="mobileControlsPanel" class="mobile-controls-panel" aria-hidden="true">
+        <div class="mobile-controls-handle" aria-hidden="true"></div>
+        <div class="mobile-controls-head">
+          <div class="mobile-controls-head-title">CONTROL PANEL</div>
+        </div>
+        <div class="mobile-controls-toolbar mobile-controls-toolbar-top">
+          <button type="button" class="toolbar-btn mobile-toolbar-btn" data-mobile-control="mission">미션 지정</button>
+          <button type="button" class="toolbar-btn mobile-toolbar-btn" data-mobile-control="export">보고서 내보내기</button>
+        </div>
+        <div class="mobile-controls-slot">
+          <button type="button" class="control-tile mobile-control mobile-control-primary" data-mobile-control="sequence">
+            <div class="mobile-control-main">
+              <div class="mobile-control-text">
+              <div id="mobileSequenceLabel" class="control-tile-label" data-i18n="sequenceStartBtn">SEQUENCE START</div>
+                <div class="control-tile-sub">시퀀스 작동 시작/종료</div>
+              </div>
+              <span class="mobile-control-status" data-mobile-status="sequence">준비</span>
+            </div>
+          </button>
+          <button type="button" class="control-tile mobile-control mobile-control-danger" data-mobile-control="force">
+            <div>
+              <div class="control-tile-label" data-i18n="forceIgniteBtn">강제 점화</div>
+              <div class="control-tile-sub" data-i18n="forceIgniteSub">고위험 동작</div>
+            </div>
+            <div class="control-tile-actions">
+              <span class="pill pill-red" data-mobile-pill="force" data-i18n="forceIgniteDanger">위험</span>
+            </div>
+          </button>
+          <button type="button" class="control-tile mobile-control" data-mobile-control="serial">
+            <div>
+              <div class="control-tile-label" data-i18n="controlSerialLabel">WebSerial</div>
+              <div class="control-tile-sub" data-i18n="controlSerialSub">시리얼 연결</div>
+            </div>
+            <div class="control-tile-actions">
+              <span class="pill pill-gray" data-mobile-pill="serial">OFF</span>
+            </div>
+          </button>
+          <button type="button" class="control-tile mobile-control" data-mobile-control="inspection">
+            <div>
+              <div class="control-tile-label" data-i18n="controlInspectionLabel">설비 점검</div>
+            </div>
+            <div class="control-tile-actions">
+              <span class="pill pill-gray" data-mobile-pill="inspection">대기</span>
+            </div>
+          </button>
+          <button type="button" class="control-tile mobile-control" data-mobile-control="safety">
+            <div>
+              <div class="control-tile-label" data-i18n="controlSafetyLabel">안전 모드</div>
+              <div class="control-tile-sub" data-i18n="controlSafetySub">Safety Mode</div>
+            </div>
+            <div class="control-tile-actions">
+              <span class="pill pill-gray" data-mobile-pill="safety">OFF</span>
+            </div>
+          </button>
+        </div>
+      </div>
+      <div class="mobile-abort-wrapper">
+        <div id="mobileAbortPanel" class="mobile-abort-panel">
+          <div class="mobile-abort-help">시퀀스를 중단하시려면<br>아래 버튼을 클릭하세요</div>
+          <button id="mobileAbortBtn" class="mobile-abort-btn" type="button" aria-label="Abort sequence">ABORT</button>
+        </div>
+      </div>
       <div class="side-nav-menu">
         <button class="side-nav-item active" data-page-title="Dashboard" aria-label="Dashboard">
           <svg viewBox="0 0 24 24">
@@ -4011,14 +4426,14 @@
     </aside>
 
     <div class="page-wrap">
-      <div id="toastContainer" class="toast-container"></div>
-
     <header class="top-bar">
-      <div class="countdown-header">
-        <div class="countdown-label">COUNTDOWN</div>
-        <div id="countdown">T- --</div>
+      <div class="top-left">
+        <div class="countdown-header">
+          <div id="countdownLabel" class="countdown-label">COUNTDOWN</div>
+          <div id="countdown">T- --</div>
+        </div>
+        <div id="viewLabel" class="view-label hidden">Dashboard</div>
       </div>
-      <div id="viewLabel" class="view-label hidden">Dashboard</div>
       <div class="top-right">
         <div id="statusBar" class="status-bar is-offline" aria-label="Device status">
           <div id="connStatusLabel" class="status-conn-block">
@@ -4055,7 +4470,7 @@
             <div id="logView"></div>
             <div class="terminal-input-row">
               <span class="terminal-prompt">$</span>
-              <input id="termInput" class="terminal-input" type="text" autocomplete="off" placeholder="/set?rs=1 or IGNITE">
+              <input id="termInput" class="terminal-input" type="text" autocomplete="off" placeholder="터미널 명령은 최고 권한입니다. 안전 확인 후 실행하세요.">
               <button id="termSendBtn" class="terminal-send-btn" type="button">SEND</button>
             </div>
             <div id="tetrisOverlay" class="tetris-overlay hidden" aria-hidden="true">
@@ -4121,7 +4536,6 @@
               <div class="status-title status-title-stack">
                 <div class="status-main-line">
                   <div id="statusText">System ready</div>
-                  <div id="statusPill" class="status-ready">READY</div>
                 </div>
                 <div class="status-countdown-inline">
                   <div id="countdownMobile" class="countdown-mobile">T- --</div>
@@ -4189,16 +4603,16 @@
               <span id="quick-igniter" class="value"><span class="num">--</span></span>
             </div>
             <div class="item">
-              <span class="label"><span class="label-icon"></span>Relay</span>
-              <span id="quick-relay" class="value"><span class="num">--</span></span>
+              <span class="label"><span class="label-icon"></span>RELAY1</span>
+              <span id="quick-relay-1" class="value"><span class="num">--</span></span>
+            </div>
+            <div class="item">
+              <span class="label"><span class="label-icon"></span>RELAY2</span>
+              <span id="quick-relay-2" class="value"><span class="num">--</span></span>
             </div>
             <div class="item">
               <span class="label"><span class="label-icon"></span>Loop</span>
               <span id="loop-pill" class="value"><span class="num">--</span><span class="unit">ms</span></span>
-            </div>
-            <div class="item item-null">
-              <span class="label"><span class="label-icon"></span>null</span>
-              <span class="value"><span class="num">.</span></span>
             </div>
             <div class="item item-null">
               <span class="label"><span class="label-icon"></span>null</span>
@@ -4257,7 +4671,7 @@
           </div>
         </div>
       </section>
-        <section id="controlsCard" class="card-base controls-card">
+        <section id="controlsCard" class="card-base controls-card controls-mobile-hidden">
           <div id="controlsHeader" class="card-header">
             <div>
               <div class="card-title">CONTROL PANEL</div>
@@ -4273,8 +4687,18 @@
             </div>
 
             <div class="controls-main-row">
-              <div class="primary-btn-wrap"><button id="igniteBtn" class="primary-btn" data-i18n="sequenceStartBtn">SEQUENCE START</button></div>
-              <div class="abort-btn-wrap"><button id="abortBtn" class="secondary-btn" disabled>ABORT</button></div>
+              <div class="primary-btn-wrap">
+                <button id="igniteBtn" class="primary-btn sequence-btn">
+                  <span class="sequence-btn-text">
+                    <span id="igniteBtnLabel" class="sequence-btn-title" data-i18n="sequenceStartBtn">SEQUENCE START</span>
+                    <span class="sequence-btn-sub">시퀀스 제어</span>
+                  </span>
+                  <span id="sequenceStatusDesktop" class="sequence-status-pill">준비</span>
+                </button>
+              </div>
+              <div class="abort-btn-wrap">
+                <button id="abortBtn" class="secondary-btn" disabled>ABORT</button>
+              </div>
             </div>
             <div class="control-row">
               <button id="forceIgniteBtn" class="control-tile is-btn is-danger force-tile">
@@ -4353,8 +4777,7 @@
         <div class="settings-body">
           <nav class="settings-nav">
             <div class="settings-nav-title" data-i18n="settingsNavTitle">섹션</div>
-            <button class="settings-nav-btn active" data-target="connect"><span data-i18n="settingsNavConnect">연결</span><span class="settings-nav-badge">Connect</span></button>
-            <button class="settings-nav-btn" data-target="hardware"><span data-i18n="settingsNavHardware">하드웨어</span><span class="settings-nav-badge">Hardware</span></button>
+            <button class="settings-nav-btn active" data-target="connect"><span data-i18n="settingsNavConnect">하드웨어</span><span class="settings-nav-badge">Hardware</span></button>
             <button class="settings-nav-btn" data-target="units"><span data-i18n="settingsNavInterface">인터페이스</span><span class="settings-nav-badge">Interface</span></button>
             <button class="settings-nav-btn" data-target="sequence"><span data-i18n="settingsNavSequence">시퀀스</span><span class="settings-nav-badge">Sequence</span></button>
             <button class="settings-nav-btn" data-target="safety"><span data-i18n="settingsNavSafety">SAFETY</span><span class="settings-nav-badge">Safety</span></button>
@@ -4364,55 +4787,26 @@
           <div class="settings-panels">
             <!-- CONNECT -->
             <div class="settings-panel active" data-panel="connect">
+
               <div class="settings-group">
-                <div class="settings-group-title" data-i18n="settingsWifiInfoTitle">Wi-Fi</div>
+                <div class="settings-group-title" data-i18n="settingsHardwareInfoTitle">하드웨어 정보</div>
                 <div class="settings-row">
                   <div>
-                    <div class="settings-label" data-i18n="settingsWifiModeLabel">모드</div>
+                    <div class="settings-label" data-i18n="settingsBoardNameLabel">보드 이름</div>
                   </div>
-                  <span id="wifiMode" class="settings-desc mono">-</span>
+                  <span id="hwBoardName" class="settings-desc mono">-</span>
                 </div>
                 <div class="settings-row">
                   <div>
-                    <div class="settings-label" data-i18n="settingsWifiSsidLabel">SSID</div>
+                    <div class="settings-label" data-i18n="settingsFirmwareNameLabel">펌웨어 정보</div>
                   </div>
-                  <span id="wifiSsid" class="settings-desc mono">-</span>
+                  <span id="hwFirmwareName" class="settings-desc mono">-</span>
                 </div>
                 <div class="settings-row">
                   <div>
-                    <div class="settings-label" data-i18n="settingsWifiChannelLabel">채널</div>
+                    <div class="settings-label" data-i18n="settingsProtocolLabel">프로토콜</div>
                   </div>
-                  <span id="wifiChannel" class="settings-desc mono">-</span>
-                </div>
-                <div class="settings-row">
-                  <div>
-                    <div class="settings-label" data-i18n="settingsWifiBandwidthLabel">대역폭</div>
-                  </div>
-                  <span id="wifiBandwidth" class="settings-desc mono">-</span>
-                </div>
-                <div class="settings-row">
-                  <div>
-                    <div class="settings-label" data-i18n="settingsWifiTxPowerLabel">TX 전력</div>
-                  </div>
-                  <span id="wifiTxPower" class="settings-desc mono">-</span>
-                </div>
-                <div class="settings-row">
-                  <div>
-                    <div class="settings-label" data-i18n="settingsWifiIpLabel">IP</div>
-                  </div>
-                  <span id="wifiIp" class="settings-desc mono">-</span>
-                </div>
-                <div class="settings-row">
-                  <div>
-                    <div class="settings-label" data-i18n="settingsWifiStaCountLabel">접속 장치</div>
-                  </div>
-                  <span id="wifiStaCount" class="settings-desc mono">-</span>
-                </div>
-                <div class="settings-row">
-                  <div>
-                    <div class="settings-label" data-i18n="settingsWifiRssiLabel">신호(RSSI)</div>
-                  </div>
-                  <span id="wifiRssi" class="settings-desc mono">-</span>
+                  <span id="hwProtocolName" class="settings-desc mono">-</span>
                 </div>
               </div>
 
@@ -4473,31 +4867,6 @@
                   </select>
                 </div>
               </div>
-            </div>
-
-            <!-- HARDWARE -->
-            <div class="settings-panel" data-panel="hardware">
-              <div class="settings-group">
-                <div class="settings-group-title" data-i18n="settingsHardwareInfoTitle">하드웨어 정보</div>
-                <div class="settings-row">
-                  <div>
-                    <div class="settings-label" data-i18n="settingsBoardNameLabel">보드 이름</div>
-                  </div>
-                  <span id="hwBoardName" class="settings-desc mono">-</span>
-                </div>
-                <div class="settings-row">
-                  <div>
-                    <div class="settings-label" data-i18n="settingsFirmwareNameLabel">펌웨어 정보</div>
-                  </div>
-                  <span id="hwFirmwareName" class="settings-desc mono">-</span>
-                </div>
-                <div class="settings-row">
-                  <div>
-                    <div class="settings-label" data-i18n="settingsProtocolLabel">프로토콜</div>
-                  </div>
-                  <span id="hwProtocolName" class="settings-desc mono">-</span>
-                </div>
-              </div>
 
               <div class="settings-group">
                 <div class="settings-group-title" data-i18n="loadcellSettingsTitle">로드셀 보정</div>
@@ -4507,6 +4876,57 @@
                     <div class="hint-mini" data-i18n="loadcellSettingsHint">영점/보정 값을 보드에 저장합니다.</div>
                   </div>
                   <button id="loadcellCalOpen" class="settings-btn" data-i18n="loadcellOpenBtn">로드셀 영점 조절</button>
+                </div>
+              </div>
+              <div class="settings-group">
+                <div class="settings-group-title" data-i18n="settingsWifiInfoTitle">Wi-Fi</div>
+                <div class="settings-row">
+                  <div>
+                    <div class="settings-label" data-i18n="settingsWifiModeLabel">모드</div>
+                  </div>
+                  <span id="wifiMode" class="settings-desc mono">-</span>
+                </div>
+                <div class="settings-row">
+                  <div>
+                    <div class="settings-label" data-i18n="settingsWifiSsidLabel">SSID</div>
+                  </div>
+                  <span id="wifiSsid" class="settings-desc mono">-</span>
+                </div>
+                <div class="settings-row">
+                  <div>
+                    <div class="settings-label" data-i18n="settingsWifiChannelLabel">채널</div>
+                  </div>
+                  <span id="wifiChannel" class="settings-desc mono">-</span>
+                </div>
+                <div class="settings-row">
+                  <div>
+                    <div class="settings-label" data-i18n="settingsWifiBandwidthLabel">대역폭</div>
+                  </div>
+                  <span id="wifiBandwidth" class="settings-desc mono">-</span>
+                </div>
+                <div class="settings-row">
+                  <div>
+                    <div class="settings-label" data-i18n="settingsWifiTxPowerLabel">TX 전력</div>
+                  </div>
+                  <span id="wifiTxPower" class="settings-desc mono">-</span>
+                </div>
+                <div class="settings-row">
+                  <div>
+                    <div class="settings-label" data-i18n="settingsWifiIpLabel">IP</div>
+                  </div>
+                  <span id="wifiIp" class="settings-desc mono">-</span>
+                </div>
+                <div class="settings-row">
+                  <div>
+                    <div class="settings-label" data-i18n="settingsWifiStaCountLabel">접속 장치</div>
+                  </div>
+                  <span id="wifiStaCount" class="settings-desc mono">-</span>
+                </div>
+                <div class="settings-row">
+                  <div>
+                    <div class="settings-label" data-i18n="settingsWifiRssiLabel">신호(RSSI)</div>
+                  </div>
+                  <span id="wifiRssi" class="settings-desc mono">-</span>
                 </div>
               </div>
             </div>
