@@ -190,6 +190,86 @@
     let gyroPitchDeg = 0;
     let gyroRollDeg = 0;
     let gyroGl = null;
+    const DATA_SOURCE_LIVE = "live";
+    const DATA_SOURCE_REPLAY = "replay";
+    let activeDataSource = DATA_SOURCE_LIVE;
+    let replayUiActive = false;
+    let replaySourceActive = false;
+    const replayState = {
+      samples: [],
+      index: 0,
+      lastIndex: -1,
+      timer: null,
+      playing: false,
+      speed: 1,
+      fileName: ""
+    };
+    let logDataRevision = 0;
+    let reportExportedRevision = 0;
+    let reportExportedOnce = false;
+    let pendingExportLeaveAction = null;
+
+    // =====================
+    // Alarm policy
+    // =====================
+    const ALERT_LEVEL = Object.freeze({
+      INFO: "info",
+      NOTICE: "notice",
+      WARNING: "warning",
+      CRITICAL: "critical"
+    });
+
+    const ALARM_DEFS = Object.freeze({
+      WS_DISCONNECTED: {
+        level: ALERT_LEVEL.WARNING,
+        textKey: "alarmWsDisconnected",
+        clearKey: "alarmWsRecovered",
+        sticky: true,
+        rateLimitMs: 8000
+      },
+      DATA_TIMEOUT: {
+        level: ALERT_LEVEL.CRITICAL,
+        textKey: "alarmDataTimeout",
+        clearKey: "alarmDataTimeoutClear",
+        sticky: true,
+        rateLimitMs: 12000
+      },
+      RX_HZ_DROP: {
+        level: ALERT_LEVEL.WARNING,
+        textKey: "alarmRxHzDrop",
+        clearKey: "alarmRxHzRecovered",
+        sticky: true,
+        rateLimitMs: 10000
+      },
+      RELAY_LOCKOUT: {
+        level: ALERT_LEVEL.CRITICAL,
+        textKey: "alarmRelayLockout",
+        sticky: true,
+        rateLimitMs: 15000
+      },
+      REPLAY_FORMAT: {
+        level: ALERT_LEVEL.WARNING,
+        textKey: "alarmReplayFormat",
+        rateLimitMs: 3000
+      },
+      REPLAY_AUTOSTOP: {
+        level: ALERT_LEVEL.NOTICE,
+        textKey: "alarmReplayAutoStop",
+        rateLimitMs: 1500
+      },
+      WS_BACKPRESSURE: {
+        level: ALERT_LEVEL.WARNING,
+        textKey: "alarmWsBackpressure",
+        rateLimitMs: 15000
+      },
+      INTERNAL_EXCEPTION: {
+        level: ALERT_LEVEL.WARNING,
+        textKey: "alarmInternalException",
+        rateLimitMs: 10000
+      }
+    });
+    const alarmState = {};
+    const silentExceptionState = {};
 
     function mat4Identity(){
       return [1,0,0,0,
@@ -653,6 +733,23 @@
     let inspectionState = "idle";
     let inspectionRunning = false;
     let latestTelemetry = {sw:null, ic:null, rly:null, mode:null};
+    const STATUS_MAP_DEFAULT = Object.freeze({lat:35.154244, lon:128.09293, zoom:12});
+    const STATUS_MAP_KR_BOUNDS = Object.freeze({south:33.0, west:124.5, north:38.9, east:131.9});
+    const STATUS_MAP_OFFLINE_VIEW = Object.freeze({left:30, top:8, width:40, height:84});
+    const statusMapState = {
+      lat: STATUS_MAP_DEFAULT.lat,
+      lon: STATUS_MAP_DEFAULT.lon,
+      zoom: STATUS_MAP_DEFAULT.zoom,
+      map: null,
+      marker: null,
+      markerExpanded: false,
+      offlineMode: false,
+      offlineRoot: null,
+      offlineMarker: null,
+      uiBound: false,
+      hasLiveFix: false,
+      lastUpdateMs: 0
+    };
     let lastBatteryV = null;
     let lastBatteryPct = null;
     let lastThrustKgf = null;
@@ -764,6 +861,11 @@
 
     const DISCONNECT_GRACE_MS = 1500;  // 이 시간 동안 샘플이 없으면 끊김 후보
     const FAIL_STREAK_LIMIT   = 20;    // 연속 실패가 이 이상이고, grace도 지났으면 DISCONNECTED
+    const TARGET_STREAM_HZ = 80;
+    const RX_HZ_WARN_THRESHOLD = 30;
+    const RX_HZ_RECOVER_THRESHOLD = 45;
+    const DATA_TIMEOUT_ALARM_MS = 2200;
+    let lastWsQueueDropCount = 0;
 
     // ✅ 엔드포인트 “기억” (매번 3개 다 두드리지 않게)
     let preferredEndpoint = "/graphic_data";
@@ -930,8 +1032,10 @@
         toastTitleSuccess:"성공 알림",
         toastTitleWarn:"주의 알림",
         toastTitleError:"오류 알림",
+        toastTitleCritical:"치명 경고",
         toastTitleIgnite:"점화 알림",
         toastTitleInfo:"일반 알림",
+        toastTitleNotice:"공지 알림",
         safetyLineSuffix:"안전거리 확보 · 결선/단락 확인 · 주변 인원 접근 금지.",
         splashLoading:"로딩중<span id=\"splashDots\"></span>",
         viewDashboardLabel:"DASHBOARD",
@@ -1089,6 +1193,13 @@
         settingsThemeLabel:"다크 모드",
         settingsThemeHint:"라이트/다크 테마를 전환합니다.",
         exportXlsx:"보고서 내보내기",
+        exportPendingBadge:"보고서 내보내기 X",
+        exportDoneBadge:"보고서 내보내기 O",
+        exportLeaveTitle:"보고서 내보내기 안됨",
+        exportLeaveText:"보고서를 아직 내보내지 않았습니다.<br>정말 이 페이지를 나가시겠습니까?",
+        exportLeaveConfirm:"나가기",
+        exportLeaveCancel:"취소",
+        exportBeforeCloseConfirm:"보고서 내보내기가 완료되지 않았습니다. 정말 나가시겠습니까?",
         chartNoData:"데이터 없음",
         labelDelay:"지연",
         labelBurn:"연소",
@@ -1203,6 +1314,17 @@
         wsConnected:"WebSocket 연결됨: {url}",
         wsLost:"보드와의 연결이 끊겼습니다.",
         boardUnstable:"보드 응답이 불안정합니다. 전원/배선/Wi-Fi/폴링 주기를 확인하세요.",
+        alarmWsDisconnected:"WebSocket 연결이 끊겼습니다. 실시간 스트림이 중단되었습니다.",
+        alarmWsRecovered:"WebSocket 연결이 복구되었습니다.",
+        alarmDataTimeout:"데이터가 일정 시간 수신되지 않았습니다. 통신/전원 상태를 확인하세요. ({ms} ms)",
+        alarmDataTimeoutClear:"데이터 수신이 정상으로 복구되었습니다.",
+        alarmRxHzDrop:"데이터 수신 주파수가 저하되었습니다. 목표 {target} Hz 대비 현재 {hz} Hz",
+        alarmRxHzRecovered:"데이터 수신 주파수가 정상 범위로 복구되었습니다.",
+        alarmRelayLockout:"비정상 릴레이 HIGH 감지로 LOCKOUT 되었습니다. ({name}) 보드를 재시작하세요.",
+        alarmWsBackpressure:"WebSocket 전송 큐 적체가 발생했습니다. 누적 {total}회 (이번 +{delta})",
+        alarmReplayFormat:"Replay 파일 포맷 오류: {reason}",
+        alarmReplayAutoStop:"Replay 데이터 끝에 도달해 자동 정지되었습니다.",
+        alarmInternalException:"내부 예외가 반복 발생했습니다. 소스={source}, 오류={err}",
         webserialUnsupported:"WebSerial조건이 아닙니다. (도움말 페이지를 확인하세요)",
         webserialConnected:"WebSerial 연결됨 @460800.",
         webserialConnectedToast:"시리얼(WebSerial) 연결 완료.",
@@ -1341,8 +1463,10 @@
         toastTitleSuccess:"Success",
         toastTitleWarn:"Warning",
         toastTitleError:"Error",
+        toastTitleCritical:"Critical",
         toastTitleIgnite:"Ignite",
-        toastTitleInfo:"Notice",
+        toastTitleInfo:"Info",
+        toastTitleNotice:"Notice",
         safetyLineSuffix:"Keep safe distance · Check wiring/shorts · No personnel approach.",
         splashLoading:"Loading<span id=\"splashDots\"></span>",
         viewDashboardLabel:"DASHBOARD",
@@ -1524,6 +1648,13 @@
         settingsThemeLabel:"Dark mode",
         settingsThemeHint:"Toggle light/dark theme.",
         exportXlsx:"Export Report",
+        exportPendingBadge:"Report Not Exported",
+        exportDoneBadge:"Report Exported",
+        exportLeaveTitle:"Report Not Exported",
+        exportLeaveText:"The report has not been exported yet.<br>Do you really want to leave this page?",
+        exportLeaveConfirm:"Leave",
+        exportLeaveCancel:"Cancel",
+        exportBeforeCloseConfirm:"Report export is not completed. Do you really want to leave?",
         chartNoData:"NO DATA",
         labelDelay:"Delay",
         labelBurn:"Burn",
@@ -1638,6 +1769,17 @@
         deviceDisconnectedOk:"OK",
         wsLost:"Dashboard lost connection to board.",
         boardUnstable:"Board response is unstable. Check power/wiring/Wi-Fi/polling interval.",
+        alarmWsDisconnected:"WebSocket disconnected. Real-time stream is down.",
+        alarmWsRecovered:"WebSocket connection recovered.",
+        alarmDataTimeout:"No data received for too long. Check communication/power. ({ms} ms)",
+        alarmDataTimeoutClear:"Data reception has recovered.",
+        alarmRxHzDrop:"Data receive rate dropped. Target {target} Hz, current {hz} Hz.",
+        alarmRxHzRecovered:"Data receive rate recovered to normal range.",
+        alarmRelayLockout:"LOCKOUT triggered by abnormal relay HIGH. ({name}) Restart the board.",
+        alarmWsBackpressure:"WebSocket send queue backpressure detected. Total {total} (this +{delta}).",
+        alarmReplayFormat:"Replay file format error: {reason}",
+        alarmReplayAutoStop:"Replay reached end-of-data and stopped automatically.",
+        alarmInternalException:"Repeated internal exceptions detected. source={source}, error={err}",
         webserialUnsupported:"This browser does not support WebSerial. (Chrome/Edge recommended)",
         webserialConnected:"WebSerial connected @460800.",
         webserialConnectedToast:"Serial (WebSerial) connected.",
@@ -1789,6 +1931,7 @@
       document.documentElement.lang = currentLang;
       updateStaticTexts();
       updateSerialControlTile();
+      updateExportGuardUi();
     }
     function updateStaticTexts(){
       const nodes = document.querySelectorAll("[data-i18n],[data-i18n-html]");
@@ -1902,6 +2045,9 @@
       updateSerialPill();
       updateStaticTexts();
       updateSerialControlTile();
+      updateExportGuardUi();
+      refreshStatusMapMarkerContent();
+      refreshStatusMapSize();
     }
     const delay = (ms)=>new Promise(resolve=>setTimeout(resolve, ms));
     function setOverlayVisible(node, visible, displayMode){
@@ -1986,6 +2132,12 @@
       setOverlayVisible(el.disconnectOverlay, false);
     }
     function updateWsAlert(){
+      if(replaySourceActive){
+        wsAlertDismissed = false;
+        lastWsAlertActive = false;
+        hideWsAlert();
+        return;
+      }
       const simOff = (simEnabled && devWsOff);
       const shouldAlert = (simOff || (!simEnabled && !wsLogSilent && connOk && !wsConnected));
 
@@ -1997,9 +2149,6 @@
       }
 
       if(!lastWsAlertActive){
-        const raw = t("wsAlertText");
-        const text = String(raw).replace(/<br\s*\/?>/gi, " ");
-        showToast(text, "warn", {key:"ws-alert", duration:6000});
         lastWsAlertActive = true;
       }
       hideWsAlert();
@@ -2049,6 +2198,7 @@
       }
       updateSerialControlTile();
       updateWsAlert();
+      evaluateRuntimeAlarms(Date.now());
     }
     function buildSimSample(){
       const now = Date.now();
@@ -2490,6 +2640,355 @@
       el.tetrisScreen.textContent = out.join("\n");
     }
 
+    function formatStatusMapCoord(v){
+      return Number(v).toFixed(5);
+    }
+    function isStatusMapInKorea(lat, lon){
+      return lat >= STATUS_MAP_KR_BOUNDS.south &&
+             lat <= STATUS_MAP_KR_BOUNDS.north &&
+             lon >= STATUS_MAP_KR_BOUNDS.west &&
+             lon <= STATUS_MAP_KR_BOUNDS.east;
+    }
+    function clampStatusMapToKorea(lat, lon){
+      return {
+        lat: Math.max(STATUS_MAP_KR_BOUNDS.south, Math.min(STATUS_MAP_KR_BOUNDS.north, lat)),
+        lon: Math.max(STATUS_MAP_KR_BOUNDS.west, Math.min(STATUS_MAP_KR_BOUNDS.east, lon))
+      };
+    }
+    function projectStatusMapOffline(lat, lon){
+      const pos = clampStatusMapToKorea(lat, lon);
+      const nx = (pos.lon - STATUS_MAP_KR_BOUNDS.west) / (STATUS_MAP_KR_BOUNDS.east - STATUS_MAP_KR_BOUNDS.west);
+      const ny = (STATUS_MAP_KR_BOUNDS.north - pos.lat) / (STATUS_MAP_KR_BOUNDS.north - STATUS_MAP_KR_BOUNDS.south);
+      return {
+        x: STATUS_MAP_OFFLINE_VIEW.left + nx * STATUS_MAP_OFFLINE_VIEW.width,
+        y: STATUS_MAP_OFFLINE_VIEW.top + ny * STATUS_MAP_OFFLINE_VIEW.height
+      };
+    }
+    function updateStatusMapOfflineMarker(){
+      if(!statusMapState.offlineMode || !statusMapState.offlineMarker) return;
+      const p = projectStatusMapOffline(statusMapState.lat, statusMapState.lon);
+      statusMapState.offlineMarker.style.left = p.x.toFixed(3) + "%";
+      statusMapState.offlineMarker.style.top = p.y.toFixed(3) + "%";
+    }
+    function bindStatusMapControls(){
+      if(statusMapState.uiBound) return;
+      statusMapState.uiBound = true;
+      if(el.statusMapRecenterBtn){
+        el.statusMapRecenterBtn.addEventListener("click",(ev)=>{
+          ev.preventDefault();
+          statusMapState.hasLiveFix = false;
+          statusMapSetMarker(STATUS_MAP_DEFAULT.lat, STATUS_MAP_DEFAULT.lon, {recenter:true, zoom:STATUS_MAP_DEFAULT.zoom});
+        });
+      }
+      if(el.statusMapCopyBtn){
+        el.statusMapCopyBtn.addEventListener("click", async (ev)=>{
+          ev.preventDefault();
+          if(!statusMapState.hasLiveFix){
+            const prevNoGps = el.statusMapCopyBtn.textContent;
+            el.statusMapCopyBtn.textContent = "No GPS";
+            setTimeout(()=>{
+              if(el.statusMapCopyBtn) el.statusMapCopyBtn.textContent = prevNoGps;
+            }, 900);
+            return;
+          }
+          const txt = formatStatusMapCoord(statusMapState.lat) + ", " + formatStatusMapCoord(statusMapState.lon);
+          const ok = await copyTextSafe(txt);
+          const prev = el.statusMapCopyBtn.textContent;
+          el.statusMapCopyBtn.textContent = ok ? "✓ Copied" : "Copy failed";
+          setTimeout(()=>{
+            if(el.statusMapCopyBtn) el.statusMapCopyBtn.textContent = prev;
+          }, 900);
+        });
+      }
+    }
+    function initStatusMapOffline(){
+      if(!el.statusMap) return;
+      statusMapState.offlineMode = true;
+      statusMapState.map = null;
+      statusMapState.marker = null;
+      statusMapState.markerExpanded = false;
+      el.statusMap.innerHTML = "";
+      el.statusMap.classList.remove("leaflet-container");
+      el.statusMap.classList.add("status-map-canvas--offline");
+
+      const root = document.createElement("div");
+      root.className = "status-map-offline";
+
+      const kr = document.createElement("div");
+      kr.className = "status-map-offline-kr";
+      const jeju = document.createElement("div");
+      jeju.className = "status-map-offline-jeju";
+      const label = document.createElement("div");
+      label.className = "status-map-offline-label";
+      label.textContent = "KR OFFLINE";
+      const marker = document.createElement("div");
+      marker.className = "status-map-offline-marker";
+      marker.textContent = "🚀";
+
+      root.appendChild(kr);
+      root.appendChild(jeju);
+      root.appendChild(label);
+      root.appendChild(marker);
+      el.statusMap.appendChild(root);
+
+      statusMapState.offlineRoot = root;
+      statusMapState.offlineMarker = marker;
+      updateStatusMapOfflineMarker();
+    }
+    function updateStatusMapHud(){
+      if(!el.statusMapCoordText || !el.statusMapZoomText) return;
+      if(statusMapState.hasLiveFix){
+        el.statusMapCoordText.textContent = formatStatusMapCoord(statusMapState.lat) + " , " + formatStatusMapCoord(statusMapState.lon);
+      }else{
+        el.statusMapCoordText.textContent = "-- , --";
+      }
+      if(statusMapState.offlineMode){
+        el.statusMapZoomText.textContent = "KR offline";
+      }else{
+        const zoomVal = (statusMapState.map && isFinite(statusMapState.map.getZoom())) ? statusMapState.map.getZoom() : statusMapState.zoom;
+        el.statusMapZoomText.textContent = "zoom " + String(zoomVal);
+      }
+    }
+    function escapeStatusMapPopupText(v){
+      return String(v == null ? "" : v)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+    function getStatusMapMissionName(){
+      const mission = (selectedMotorName || (el.missionName && el.missionName.value) || "").trim();
+      return mission || "NO MISSION";
+    }
+    function getStatusMapPopupMode(){
+      const selectMode = (el.opModeSelect && el.opModeSelect.value) ? String(el.opModeSelect.value).toLowerCase() : "";
+      if(selectMode === "flight" || selectMode === "daq") return selectMode;
+      const settingMode = (uiSettings && uiSettings.opMode) ? String(uiSettings.opMode).toLowerCase() : "";
+      if(settingMode === "flight" || settingMode === "daq") return settingMode;
+      if(document.documentElement.classList.contains("mode-daq")) return "daq";
+      if(document.documentElement.classList.contains("mode-flight")) return "flight";
+      return "daq";
+    }
+    function getStatusMapMarkerMeta(){
+      const mode = getStatusMapPopupMode();
+      const kind = (mode === "flight") ? "VEHICLE" : "MOTOR";
+      const mission = getStatusMapMissionName();
+      const modeLabel = (mode === "flight") ? "FLIGHT MODE" : "DAQ MODE";
+      return {modeLabel, kind, mission};
+    }
+    function buildStatusMapRocketHtml(){
+      const meta = getStatusMapMarkerMeta();
+      return "<button class=\"status-map-rocket-pill\" type=\"button\" aria-expanded=\"false\" tabindex=\"-1\">" +
+        "<span class=\"status-map-rocket-circle\"><span class=\"emoji\">🚀</span><span class=\"status-map-info-icon\">i</span></span>" +
+        "<span class=\"status-map-rocket-meta\">" +
+          "<span class=\"status-map-rocket-kicker\">" + escapeStatusMapPopupText(meta.modeLabel) + "</span>" +
+          "<span class=\"status-map-rocket-title\">" + escapeStatusMapPopupText(meta.kind) + "</span>" +
+          "<span class=\"status-map-rocket-mission\">" + escapeStatusMapPopupText(meta.mission) + "</span>" +
+        "</span>" +
+      "</button>";
+    }
+    function refreshStatusMapMarkerContent(){
+      if(!statusMapState.marker || !statusMapState.marker.getElement) return;
+      const markerEl = statusMapState.marker.getElement();
+      if(!markerEl) return;
+      const meta = getStatusMapMarkerMeta();
+      const kicker = markerEl.querySelector(".status-map-rocket-kicker");
+      const title = markerEl.querySelector(".status-map-rocket-title");
+      const mission = markerEl.querySelector(".status-map-rocket-mission");
+      if(kicker) kicker.textContent = meta.modeLabel;
+      if(title) title.textContent = meta.kind;
+      if(mission) mission.textContent = meta.mission;
+    }
+    function setStatusMapMarkerExpanded(expanded){
+      statusMapState.markerExpanded = !!expanded;
+      if(!statusMapState.marker || !statusMapState.marker.getElement) return;
+      const markerEl = statusMapState.marker.getElement();
+      if(!markerEl) return;
+      const pill = markerEl.querySelector(".status-map-rocket-pill");
+      if(!pill) return;
+      pill.classList.toggle("is-expanded", statusMapState.markerExpanded);
+      pill.setAttribute("aria-expanded", statusMapState.markerExpanded ? "true" : "false");
+      refreshStatusMapMarkerContent();
+    }
+    function statusMapSetMarker(lat, lon, opt){
+      const latNum = Number(lat);
+      const lonNum = Number(lon);
+      if(!isFinite(latNum) || !isFinite(lonNum)) return;
+      const clamped = clampStatusMapToKorea(latNum, lonNum);
+      statusMapState.lat = clamped.lat;
+      statusMapState.lon = clamped.lon;
+      if(statusMapState.marker){
+        statusMapState.marker.setLatLng([clamped.lat, clamped.lon]);
+      }
+      if(opt && opt.recenter && statusMapState.map){
+        const zoomVal = isFinite(Number(opt.zoom)) ? Number(opt.zoom) : statusMapState.map.getZoom();
+        statusMapState.map.setView([clamped.lat, clamped.lon], zoomVal);
+      }
+      updateStatusMapOfflineMarker();
+      updateStatusMapHud();
+    }
+    async function copyTextSafe(text){
+      if(!text) return false;
+      try{
+        if(navigator.clipboard && window.isSecureContext){
+          await navigator.clipboard.writeText(text);
+          return true;
+        }
+      }catch(e){}
+      try{
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        ta.style.top = "-9999px";
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        const ok = document.execCommand("copy");
+        document.body.removeChild(ta);
+        return !!ok;
+      }catch(e){
+        return false;
+      }
+    }
+    function extractTelemetryLatLon(data){
+      if(!data || typeof data !== "object") return null;
+      const gps = (data.gps && typeof data.gps === "object") ? data.gps : null;
+      const latRaw = data.gps_lat ?? data.gpsLat ?? data.gpsLatitude ?? data.nav_lat ?? (gps ? (gps.lat ?? gps.latitude ?? null) : null);
+      const lonRaw = data.gps_lon ?? data.gps_lng ?? data.gpsLon ?? data.gpsLng ?? data.gpsLongitude ?? data.nav_lon ?? data.nav_lng ?? (gps ? (gps.lon ?? gps.lng ?? gps.longitude ?? null) : null);
+      const latNum = Number(latRaw);
+      const lonNum = Number(lonRaw);
+      if(!isFinite(latNum) || !isFinite(lonNum)) return null;
+      if(Math.abs(latNum) > 90 || Math.abs(lonNum) > 180) return null;
+      if(!isStatusMapInKorea(latNum, lonNum)) return null;
+      return {lat:latNum, lon:lonNum};
+    }
+    function updateStatusMapFromTelemetry(data){
+      const pos = extractTelemetryLatLon(data);
+      if(!pos) return;
+      const now = Date.now();
+      if((now - statusMapState.lastUpdateMs) < 700 && statusMapState.hasLiveFix) return;
+      statusMapState.lastUpdateMs = now;
+      const shouldRecenter = !statusMapState.hasLiveFix;
+      statusMapState.hasLiveFix = true;
+      statusMapSetMarker(pos.lat, pos.lon, {recenter: shouldRecenter});
+    }
+    function refreshStatusMapSize(){
+      if(!statusMapState.map) return;
+      try{ statusMapState.map.invalidateSize(); }catch(e){}
+    }
+    function initStatusMap(){
+      if(!el.statusMap || statusMapState.map) return;
+      bindStatusMapControls();
+      if(typeof window.L === "undefined"){
+        initStatusMapOffline();
+        updateStatusMapHud();
+        return;
+      }
+      statusMapState.offlineMode = false;
+      el.statusMap.classList.remove("status-map-canvas--offline");
+      statusMapState.offlineRoot = null;
+      statusMapState.offlineMarker = null;
+      el.statusMap.innerHTML = "";
+      const koreaBounds = [
+        [STATUS_MAP_KR_BOUNDS.south, STATUS_MAP_KR_BOUNDS.west],
+        [STATUS_MAP_KR_BOUNDS.north, STATUS_MAP_KR_BOUNDS.east]
+      ];
+      const map = window.L.map(el.statusMap, {
+        zoomControl:false,
+        maxBounds:koreaBounds,
+        maxBoundsViscosity:1.0,
+        minZoom:6
+      }).setView(
+        [statusMapState.lat, statusMapState.lon],
+        statusMapState.zoom
+      );
+      let tileOk = false;
+      let tileErrCount = 0;
+      const tileLayer = window.L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+        subdomains: "abcd",
+        bounds: koreaBounds,
+        noWrap: true,
+        minZoom: 6,
+        maxZoom: 19,
+        attribution: "&copy; OSM contributors &copy; CARTO"
+      }).addTo(map);
+      tileLayer.on("tileload", ()=>{
+        tileOk = true;
+      });
+      tileLayer.on("tileerror", ()=>{
+        tileErrCount += 1;
+        if(tileOk) return;
+        if(tileErrCount < 8) return;
+        try{ map.remove(); }catch(e){}
+        initStatusMapOffline();
+        updateStatusMapHud();
+      });
+      const rocketIcon = window.L.divIcon({
+        className: "status-map-rocket-icon",
+        html: buildStatusMapRocketHtml(),
+        iconSize: [44, 44],
+        iconAnchor: [22, 44]
+      });
+      const marker = window.L.marker([statusMapState.lat, statusMapState.lon], {icon:rocketIcon}).addTo(map);
+      statusMapState.markerExpanded = false;
+      marker.on("click",(ev)=>{
+        if(ev && ev.originalEvent){
+          if(ev.originalEvent.preventDefault) ev.originalEvent.preventDefault();
+          if(ev.originalEvent.stopPropagation) ev.originalEvent.stopPropagation();
+        }
+        setStatusMapMarkerExpanded(!statusMapState.markerExpanded);
+      });
+      statusMapState.map = map;
+      statusMapState.marker = marker;
+      refreshStatusMapMarkerContent();
+      setStatusMapMarkerExpanded(false);
+      map.on("click", ()=>{
+        setStatusMapMarkerExpanded(false);
+      });
+      map.on("zoomend", ()=>{
+        statusMapState.zoom = map.getZoom();
+        updateStatusMapHud();
+      });
+      map.on("moveend", ()=>{
+        updateStatusMapHud();
+      });
+      updateStatusMapHud();
+      setTimeout(refreshStatusMapSize, 120);
+    }
+
+    function syncCountdownInlineStatus(){
+      if(!el.countdownInlineStatus || !el.countdownInlineStatusText || !el.countdownInlineStatusPill) return;
+      const statusText = (el.statusText && el.statusText.textContent) ? el.statusText.textContent.trim() : "";
+      const pillText = (el.statusPill && el.statusPill.textContent) ? el.statusPill.textContent.trim() : "";
+
+      if(statusText){
+        el.countdownInlineStatusText.textContent = statusText;
+      }
+
+      const pillClasses = ["countdown-inline-status-pill"];
+      if(el.statusPill){
+        const clsList = (el.statusPill.className || "").split(/\s+/);
+        for(const cls of clsList){
+          if(!cls || cls === "hidden") continue;
+          if(/^status-/.test(cls)) pillClasses.push(cls);
+        }
+      }
+      el.countdownInlineStatusPill.className = pillClasses.join(" ");
+
+      if(pillText){
+        el.countdownInlineStatusPill.textContent = pillText;
+        el.countdownInlineStatusPill.classList.remove("hidden");
+      }else{
+        el.countdownInlineStatusPill.textContent = "";
+        el.countdownInlineStatusPill.classList.add("hidden");
+      }
+
+      const hasContent = !!(statusText || pillText);
+      el.countdownInlineStatus.classList.toggle("hidden", !hasContent);
+    }
+
     function updateConnectionUI(connected){
       if(el.connDot){
         if(connected) el.connDot.classList.add("ok");
@@ -2500,6 +2999,7 @@
       }
       if(connected || sampleCounter === 0) hideDisconnectOverlay();
       else showDisconnectOverlay();
+      syncCountdownInlineStatus();
       updateInspectionAccess();
       updateMotorInfoPanel();
       updateHomeUI();
@@ -2545,6 +3045,7 @@
       }
       updateWsAlert();
       updateHomeUI();
+      evaluateRuntimeAlarms(Date.now());
     }
 
     function updateWifiInfoUI(info){
@@ -2766,11 +3267,26 @@
       updateHomeLog();
     }
 
+    function normalizeToastType(type){
+      const raw = String(type || "info").toLowerCase();
+      if(raw === "notice") return "info";
+      if(raw === "warning") return "warn";
+      if(raw === "critical") return "error";
+      return raw;
+    }
+
+    function normalizeToastTitleType(type){
+      const raw = String(type || "info").toLowerCase();
+      if(raw === "warn") return "warning";
+      return raw;
+    }
+
     function getToastIconPath(type){
-      if(type==="success") return "img/Tick.svg";
-      if(type==="warn") return "img/Danger.svg";
-      if(type==="error") return "img/Danger.svg";
-      if(type==="ignite") return "img/Graph.svg";
+      const tType = normalizeToastType(type);
+      if(tType==="success") return "img/Tick.svg";
+      if(tType==="warn") return "img/Danger.svg";
+      if(tType==="error") return "img/Danger.svg";
+      if(tType==="ignite") return "img/Graph.svg";
       return "img/Activity.svg";
     }
 
@@ -2782,6 +3298,16 @@
       toast.classList.remove("toast-show");
       toast.classList.add("toast-hide");
       setTimeout(()=>{ if(toast && toast.parentNode) toast.parentNode.removeChild(toast); }, 220);
+    }
+
+    function dismissToastByKey(key){
+      if(!el.toastContainer || !key) return;
+      const token = String(key);
+      for(const node of Array.from(el.toastContainer.children)){
+        if(node && node.dataset && node.dataset.key === token){
+          dismissToast(node);
+        }
+      }
     }
 
     function getToastTitle(type, message){
@@ -2814,8 +3340,10 @@
           return rule.title;
         }
       }
+      if(type==="notice") return t("toastTitleNotice");
       if(type==="success") return t("toastTitleSuccess");
-      if(type==="warn") return t("toastTitleWarn");
+      if(type==="warning" || type==="warn") return t("toastTitleWarn");
+      if(type==="critical") return t("toastTitleCritical");
       if(type==="error") return t("toastTitleError");
       if(type==="ignite") return t("toastTitleIgnite");
       return t("toastTitleInfo");
@@ -2823,14 +3351,18 @@
 
     function showToast(message, type, opts){
       if(!el.toastContainer) return;
-      const toastType = type || "info";
+      const rawType = type || "info";
+      const toastType = normalizeToastType(rawType);
+      const titleType = normalizeToastTitleType(rawType);
       const duration = (opts && opts.duration) ? opts.duration : 3000;
       const key = (opts && opts.key) ? String(opts.key) : null;
-      const titleText = getToastTitle(toastType, message);
+      const titleText = (opts && opts.title) ? String(opts.title) : getToastTitle(titleType, message);
+      const sticky = !!(opts && opts.sticky);
 
       const keepExisting = opts && opts.keep;
       if(!keepExisting){
         for(const node of Array.from(el.toastContainer.children)){
+          if(node && node.dataset && node.dataset.sticky === "1") continue;
           dismissToast(node);
         }
       }
@@ -2858,6 +3390,8 @@
         if(existingToast._timer){ clearTimeout(existingToast._timer); }
         if(existingToast._expandTimer){ clearTimeout(existingToast._expandTimer); }
         existingToast.classList.remove("toast-hide");
+        if(sticky) existingToast.dataset.sticky = "1";
+        else if(existingToast.dataset && existingToast.dataset.sticky) delete existingToast.dataset.sticky;
         requestAnimationFrame(()=>existingToast.classList.add("toast-show"));
         existingToast._timer = setTimeout(()=>dismissToast(existingToast), duration);
         return;
@@ -2868,6 +3402,7 @@
       toast.setAttribute("role","status");
       toast.setAttribute("aria-live","polite");
       if(key) toast.dataset.key = key;
+      if(sticky) toast.dataset.sticky = "1";
 
       const iconDiv = document.createElement("div");
       iconDiv.className = "toast-icon";
@@ -2918,6 +3453,165 @@
       el.toastContainer.appendChild(toast);
       requestAnimationFrame(()=>toast.classList.add("toast-show"));
       toast._timer = setTimeout(()=>dismissToast(toast), duration);
+    }
+
+    function addDebugLog(message){
+      addLogLine(String(message || ""), "DBG");
+    }
+
+    function getAlarmRuntime(code){
+      const key = String(code || "");
+      if(!alarmState[key]){
+        alarmState[key] = {
+          active: false,
+          lastNotifyMs: 0,
+          lastClearMs: 0
+        };
+      }
+      return alarmState[key];
+    }
+
+    function alarmLevelToToastType(level){
+      if(level === ALERT_LEVEL.CRITICAL) return "critical";
+      if(level === ALERT_LEVEL.WARNING) return "warning";
+      if(level === ALERT_LEVEL.NOTICE) return "notice";
+      return "info";
+    }
+
+    function alarmLevelTitle(level){
+      if(level === ALERT_LEVEL.CRITICAL) return t("toastTitleCritical");
+      if(level === ALERT_LEVEL.WARNING) return t("toastTitleWarn");
+      if(level === ALERT_LEVEL.NOTICE) return t("toastTitleNotice");
+      return t("toastTitleInfo");
+    }
+
+    function alarmLogTag(level){
+      if(level === ALERT_LEVEL.CRITICAL) return "ALARM!";
+      if(level === ALERT_LEVEL.WARNING) return "ALARM";
+      if(level === ALERT_LEVEL.NOTICE) return "NOTICE";
+      return "INFO";
+    }
+
+    function notifyAlarm(code, params, opts){
+      const def = ALARM_DEFS[code];
+      if(!def) return;
+      const runtime = getAlarmRuntime(code);
+      const now = Date.now();
+      const rateLimitMs = (opts && opts.rateLimitMs != null)
+        ? Math.max(0, Number(opts.rateLimitMs) || 0)
+        : (def.rateLimitMs || 0);
+      if(!(opts && opts.force) && rateLimitMs > 0 && (now - runtime.lastNotifyMs) < rateLimitMs){
+        return;
+      }
+
+      const message = (opts && opts.message != null)
+        ? String(opts.message)
+        : (def.textKey ? t(def.textKey, params || {}) : String(code));
+
+      runtime.lastNotifyMs = now;
+      addLogLine("[ALARM][" + code + "] " + message, alarmLogTag(def.level));
+
+      if(opts && opts.toast === false) return;
+
+      showToast(message, alarmLevelToToastType(def.level), {
+        key: "alarm-" + code,
+        keep: !!def.sticky,
+        sticky: !!def.sticky,
+        duration: (opts && opts.duration) ? opts.duration : (def.level === ALERT_LEVEL.CRITICAL ? 12000 : 7000),
+        title: alarmLevelTitle(def.level)
+      });
+    }
+
+    function setAlarmActive(code, active, params, opts){
+      const def = ALARM_DEFS[code];
+      if(!def) return;
+      const runtime = getAlarmRuntime(code);
+      const nextActive = !!active;
+
+      if(nextActive){
+        const firstRaise = !runtime.active;
+        runtime.active = true;
+        if(firstRaise){
+          notifyAlarm(code, params, opts);
+        }
+        return;
+      }
+
+      if(!runtime.active) return;
+      runtime.active = false;
+      runtime.lastClearMs = Date.now();
+      dismissToastByKey("alarm-" + code);
+
+      if(def.clearKey){
+        const clearMessage = t(def.clearKey, params || {});
+        addLogLine("[ALARM CLEAR][" + code + "] " + clearMessage, "INFO");
+      }
+    }
+
+    function reportSilentException(source, err){
+      const src = String(source || "unknown");
+      const now = Date.now();
+      const msg = (err && err.message) ? err.message : String(err || "unknown");
+
+      let stat = silentExceptionState[src];
+      if(!stat){
+        stat = {windowStartMs: now, count: 0, lastAlarmMs: 0};
+        silentExceptionState[src] = stat;
+      }
+
+      if((now - stat.windowStartMs) > 5000){
+        stat.windowStartMs = now;
+        stat.count = 0;
+      }
+      stat.count += 1;
+
+      addDebugLog("[" + src + "] " + msg);
+
+      if(stat.count >= 3 && (now - stat.lastAlarmMs) >= 10000){
+        stat.lastAlarmMs = now;
+        notifyAlarm("INTERNAL_EXCEPTION", {
+          source: src,
+          err: msg
+        }, {force: true});
+      }
+    }
+
+    function handleWsBackpressureSignal(counter){
+      const next = Math.max(0, Number(counter) || 0);
+      if(next < lastWsQueueDropCount){
+        lastWsQueueDropCount = next;
+        return;
+      }
+      if(next === lastWsQueueDropCount) return;
+
+      const delta = next - lastWsQueueDropCount;
+      lastWsQueueDropCount = next;
+      notifyAlarm("WS_BACKPRESSURE", {total: next, delta});
+    }
+
+    function evaluateRuntimeAlarms(nowMs){
+      if(replaySourceActive || simEnabled){
+        setAlarmActive("WS_DISCONNECTED", false);
+        setAlarmActive("DATA_TIMEOUT", false);
+        setAlarmActive("RX_HZ_DROP", false);
+        return;
+      }
+
+      const now = Number(nowMs || Date.now());
+      const sinceOk = Math.max(0, now - (lastOkMs || 0));
+      const wsDisconnected = !!(connOk && !wsConnected);
+      const dataTimedOut = !!(sampleCounter > 0 && sinceOk >= DATA_TIMEOUT_ALARM_MS);
+      const hzDrop = !!(sampleCounter > 0 && wsConnected && rxHzWindow > 0 && rxHzWindow <= RX_HZ_WARN_THRESHOLD);
+      const hzRecovered = (rxHzWindow <= 0 || rxHzWindow >= RX_HZ_RECOVER_THRESHOLD || !wsConnected);
+
+      setAlarmActive("WS_DISCONNECTED", wsDisconnected, {ms: sinceOk});
+      setAlarmActive("DATA_TIMEOUT", dataTimedOut, {ms: sinceOk});
+
+      if(hzDrop){
+        setAlarmActive("RX_HZ_DROP", true, {target: TARGET_STREAM_HZ, hz: rxHzWindow});
+      }else if(hzRecovered){
+        setAlarmActive("RX_HZ_DROP", false, {target: TARGET_STREAM_HZ, hz: rxHzWindow});
+      }
     }
 
     function mapAbortReasonCode(code){
@@ -3040,7 +3734,7 @@
     function canOperateLauncher(){
       const relayOn = latestTelemetry && latestTelemetry.rly === 1;
       const switchOn = latestTelemetry && latestTelemetry.sw === 1;
-      return !(lockoutLatched || safetyModeEnabled || currentSt !== 0 || relayOn || switchOn);
+      return !(lockoutLatched || safetyModeEnabled || replaySourceActive || currentSt !== 0 || relayOn || switchOn);
     }
 
     function updateInspectionPill(){
@@ -3058,7 +3752,7 @@
 
     function updateInspectionAccess(){
       if(!el.inspectionOpenBtn) return;
-      const blocked = inspectionRunning;
+      const blocked = inspectionRunning || replaySourceActive;
       el.inspectionOpenBtn.classList.toggle("disabled", blocked);
       el.inspectionOpenBtn.setAttribute("aria-disabled", blocked ? "true" : "false");
     }
@@ -3068,7 +3762,7 @@
       const unlocked=isControlUnlocked();
       if(el.forceBtn){
         const igniterBlocked = (uiSettings && uiSettings.igs) && latestTelemetry.ic !== 1;
-        const blocked = ((!unlocked && !loadcellErrorActive) || lockoutLatched || state!==0 || sequenceActive || igniterBlocked || safetyModeEnabled);
+        const blocked = replaySourceActive || ((!unlocked && !loadcellErrorActive) || lockoutLatched || state!==0 || sequenceActive || igniterBlocked || safetyModeEnabled);
         el.forceBtn.disabled = blocked;
         el.forceBtn.classList.toggle("disabled", blocked);
       }
@@ -3297,7 +3991,7 @@
       if(hasFail){
         controlAuthority=false;
         setInspectionResult(t("inspectionFailText"),"error");
-        showToast(t("inspectFailToast"),"warn");
+        showToast(t("inspectFailToast"),"notice");
         addLogLine(t("inspectFailLog"),"SAFE");
         playBeepPattern([
           {freq:440, dur:120, gap:80},
@@ -3321,7 +4015,7 @@
 
     function openInspectionFromUI(){
       if(!connOk){
-        showToast(t("inspectionOpenToast"), "warn");
+        showToast(t("inspectionOpenToast"), "notice");
         return;
       }
       showInspection();
@@ -3796,7 +4490,14 @@
     function setButtonsFromState(st, lockout, seqActive){
       if(!el.igniteBtn||!el.abortBtn){ updateControlAccessUI(st); return; }
       const running = !!(seqActive || st===1 || st===2 || localTplusActive);
-      const readyEligible = isControlUnlocked() && connOk && hasMissionSelected() && !safetyModeEnabled && !loadcellErrorActive && st === 0 && !running;
+      const readyEligible = !replaySourceActive && isControlUnlocked() && connOk && hasMissionSelected() && !safetyModeEnabled && !loadcellErrorActive && st === 0 && !running;
+      if(replaySourceActive){
+        el.igniteBtn.disabled = true;
+        el.abortBtn.disabled = true;
+        setIgniteButtonLabel("sequenceStartBtn");
+        updateControlAccessUI(st);
+        return;
+      }
       if(lockout){
         el.igniteBtn.disabled=true;
         el.abortBtn.disabled=true;
@@ -3843,7 +4544,7 @@
 
     function updateMobileSequenceStatusLabel(seqActive, st, lockout){
       const running = !!(seqActive || st === 1 || st === 2 || localTplusActive);
-      const readyEligible = isControlUnlocked() && connOk && hasMissionSelected() && !safetyModeEnabled && !loadcellErrorActive && st === 0 && !running;
+      const readyEligible = !replaySourceActive && isControlUnlocked() && connOk && hasMissionSelected() && !safetyModeEnabled && !loadcellErrorActive && st === 0 && !running;
       let label = "진행 불가";
       if(lockout){
         label = "제한";
@@ -3854,6 +4555,782 @@
       }
       if(el.sequenceStatusLabel) el.sequenceStatusLabel.textContent = label;
       if(el.sequenceStatusDesktop) el.sequenceStatusDesktop.textContent = label;
+    }
+
+    function setReplayStatus(text){
+      if(el.replayStatusText) el.replayStatusText.textContent = String(text || "");
+    }
+
+    function setActiveDataSource(mode){
+      const next = (mode === DATA_SOURCE_REPLAY) ? DATA_SOURCE_REPLAY : DATA_SOURCE_LIVE;
+      if(activeDataSource === next) return;
+      activeDataSource = next;
+      replaySourceActive = (next === DATA_SOURCE_REPLAY);
+      updateInspectionAccess();
+      setButtonsFromState(currentSt, lockoutLatched, sequenceActive);
+      updateControlAccessUI(currentSt);
+      evaluateRuntimeAlarms(Date.now());
+    }
+
+    function resetReplayBuffers(){
+      thrustBaseHistory = [];
+      pressureBaseHistory = [];
+      accelMagHistory = [];
+      accelXHistory = [];
+      accelYHistory = [];
+      accelZHistory = [];
+      chartTimeHistory = [];
+      sampleHistory = [];
+      logData = [];
+      logDataRevision = 0;
+      reportExportedRevision = 0;
+      reportExportedOnce = false;
+      firstSampleMs = null;
+      sampleCounter = 0;
+      rxWindowStartMs = 0;
+      rxWindowCount = 0;
+      rxHzWindow = 0;
+      prevSwState = null;
+      prevIcState = null;
+      prevGsState = null;
+      prevSmState = null;
+      prevStForIgn = 0;
+      ignitionAnalysis = {hasData:false,ignStartMs:null,thresholdMs:null,lastAboveMs:null,windowStartMs:null,windowEndMs:null,delaySec:null,durationSec:null,endNotified:false};
+      lastBurnSeconds = null;
+      lastStatusCode = -1;
+      currentSt = 0;
+      sequenceActive = false;
+      st2StartMs = null;
+      localTplusActive = false;
+      localTplusStartMs = null;
+      if(el.countdown) el.countdown.textContent = "T- --:--:??";
+      if(el.countdownMobile) el.countdownMobile.textContent = "T- --:--:??";
+      if(el.countdownBig) el.countdownBig.textContent = "T- --:--:??";
+      updateAbortButtonLabel(false);
+      autoScrollChart = true;
+      chartView.startMs = null;
+      redrawCharts();
+      setButtonsFromState(currentSt, lockoutLatched, sequenceActive);
+      updateControlAccessUI(currentSt);
+      updateExportGuardUi();
+    }
+
+    function formatReplayMs(ms){
+      const value = Math.max(0, Math.round(Number(ms) || 0));
+      const min = Math.floor(value / 60000);
+      const sec = Math.floor((value % 60000) / 1000);
+      const msec = value % 1000;
+      return String(min).padStart(2, "0") + ":" + String(sec).padStart(2, "0") + "." + String(msec).padStart(3, "0");
+    }
+
+    function replayRelativeMsAt(index){
+      if(!replayState.samples.length) return 0;
+      const first = replayState.samples[0].tsMs;
+      const maxIndex = replayState.samples.length - 1;
+      const clamped = Math.max(0, Math.min(maxIndex, index));
+      const ts = replayState.samples[clamped].tsMs;
+      const rel = ts - first;
+      return isFinite(rel) ? Math.max(0, rel) : 0;
+    }
+
+    function updateReplaySeekUi(overrideIndex){
+      const total = replayState.samples.length;
+      const maxIndex = Math.max(0, total - 1);
+      const defaultIndex = (replayState.lastIndex >= 0)
+        ? replayState.lastIndex
+        : Math.max(0, replayState.index - 1);
+      const index = (overrideIndex == null) ? defaultIndex : Math.max(0, Math.min(maxIndex, Number(overrideIndex) || 0));
+      if(el.replaySeekRange){
+        el.replaySeekRange.max = String(maxIndex);
+        el.replaySeekRange.value = String(index);
+        el.replaySeekRange.disabled = total <= 1;
+      }
+      if(el.replaySeekLabel){
+        const currentMs = (total > 0) ? replayRelativeMsAt(index) : 0;
+        const totalMs = (total > 0) ? replayRelativeMsAt(maxIndex) : 0;
+        el.replaySeekLabel.textContent = formatReplayMs(currentMs) + " / " + formatReplayMs(totalMs);
+      }
+    }
+
+    function updateReplaySpeedUi(){
+      if(!el.replaySpeedBtns || !el.replaySpeedBtns.length) return;
+      el.replaySpeedBtns.forEach(btn=>{
+        const speed = Number(btn.getAttribute("data-replay-speed"));
+        const active = isFinite(speed) && Math.abs(speed - replayState.speed) < 0.001;
+        btn.classList.toggle("is-active", active);
+      });
+    }
+
+    function updateReplayModeUi(){
+      if(el.controlsCard){
+        el.controlsCard.classList.toggle("replay-mode", replayUiActive);
+      }
+      if(el.replayPanel){
+        el.replayPanel.classList.toggle("hidden", !replayUiActive);
+        el.replayPanel.setAttribute("aria-hidden", replayUiActive ? "false" : "true");
+      }
+      if(el.replayOpenBtn){
+        el.replayOpenBtn.classList.toggle("is-active", replayUiActive);
+        el.replayOpenBtn.textContent = replayUiActive ? "실시간 복귀" : "Replay";
+      }
+      if(el.replayFileBtn){
+        el.replayFileBtn.classList.toggle("is-loaded", !!replayState.fileName);
+      }
+      if(el.controlsCardTitle){
+        el.controlsCardTitle.textContent = replayUiActive ? "DATA REPLAY" : "CONTROL PANEL";
+      }
+      if(el.replayDropTitle){
+        el.replayDropTitle.textContent = replayState.fileName ? replayState.fileName : "Replay 파일 업로드";
+      }
+      if(el.replayDropGuide){
+        el.replayDropGuide.textContent = replayState.fileName
+          ? ("파일 변경: 클릭 또는 드래그 (" + replayState.samples.length + " samples)")
+          : "파일을 드래그 하거나 클릭하여 업로드하세요.";
+      }
+      const hasSamples = replayState.samples.length > 0;
+      const hasProgress = replayState.lastIndex >= 0 || replayState.index > 0;
+      if(el.replayStartBtn){
+        el.replayStartBtn.textContent = replayState.playing ? "재생 중" : (hasProgress ? "Replay 재개" : "Replay 시작");
+        el.replayStartBtn.disabled = !hasSamples || replayState.playing;
+      }
+      if(el.replayStopBtn){
+        el.replayStopBtn.disabled = !hasSamples || !replayState.playing;
+      }
+      if(el.replayRestartBtn){
+        el.replayRestartBtn.disabled = !hasSamples;
+      }
+      if(el.replayTminus10Btn){
+        el.replayTminus10Btn.disabled = !hasSamples;
+      }
+      updateReplaySeekUi();
+      updateReplaySpeedUi();
+    }
+
+    function clearReplayTimer(){
+      if(replayState.timer){
+        clearTimeout(replayState.timer);
+        replayState.timer = null;
+      }
+    }
+
+    function applyReplaySampleAt(index){
+      if(index < 0 || index >= replayState.samples.length) return false;
+      const frame = replayState.samples[index];
+      if(!frame || !frame.sample) return false;
+      onIncomingSample(frame.sample, "REPLAY");
+      replayState.lastIndex = index;
+      updateReplaySeekUi(index);
+      return true;
+    }
+
+    function scheduleReplayTick(delayMs){
+      clearReplayTimer();
+      if(!replayState.playing) return;
+      const waitMs = Math.max(0, Math.round(Number(delayMs) || 0));
+      replayState.timer = setTimeout(runReplayTick, waitMs);
+    }
+
+    function runReplayTick(){
+      replayState.timer = null;
+      if(!replayState.playing) return;
+      const total = replayState.samples.length;
+      if(total <= 0){
+        replayState.playing = false;
+        setReplayStatus("리플레이 데이터가 없습니다.");
+        updateReplayModeUi();
+        return;
+      }
+      if(replayState.index >= total){
+        replayState.playing = false;
+        setReplayStatus("리플레이가 끝났습니다.");
+        updateReplayModeUi();
+        notifyAlarm("REPLAY_AUTOSTOP");
+        return;
+      }
+
+      const currentIndex = replayState.index;
+      if(!applyReplaySampleAt(currentIndex)){
+        replayState.playing = false;
+        setReplayStatus("리플레이 샘플 재생에 실패했습니다.");
+        updateReplayModeUi();
+        return;
+      }
+      replayState.index = currentIndex + 1;
+      updateReplayModeUi();
+
+      if(!replayState.playing) return;
+      if(replayState.index >= total){
+        replayState.playing = false;
+        setReplayStatus("리플레이가 끝났습니다.");
+        updateReplayModeUi();
+        notifyAlarm("REPLAY_AUTOSTOP");
+        return;
+      }
+
+      const nowTs = replayState.samples[currentIndex].tsMs;
+      const nextTs = replayState.samples[replayState.index].tsMs;
+      let deltaMs = Number(nextTs) - Number(nowTs);
+      if(!isFinite(deltaMs) || deltaMs < 1) deltaMs = 1;
+      const speed = (isFinite(replayState.speed) && replayState.speed > 0) ? replayState.speed : 1;
+      scheduleReplayTick(deltaMs / speed);
+    }
+
+    function pauseReplayPlayback(opts){
+      const silent = !!(opts && opts.silent);
+      clearReplayTimer();
+      const wasPlaying = replayState.playing;
+      replayState.playing = false;
+      updateReplayModeUi();
+      if(wasPlaying && !silent){
+        setReplayStatus("리플레이를 정지했습니다.");
+      }
+    }
+
+    function startReplayPlayback(){
+      if(!replayState.samples.length){
+        showToast("리플레이 파일(.xlsx)을 먼저 선택하세요.", "notice", {key:"replay-no-file"});
+        return;
+      }
+      if(replayState.playing) return;
+      if(replayState.index >= replayState.samples.length){
+        replayState.index = 0;
+        replayState.lastIndex = -1;
+      }
+      if(replayState.lastIndex < 0 && replayState.index === 0){
+        resetReplayBuffers();
+      }
+      setActiveDataSource(DATA_SOURCE_REPLAY);
+      replayState.playing = true;
+      setReplayStatus("리플레이 재생 중");
+      updateReplayModeUi();
+      scheduleReplayTick(0);
+    }
+
+    function restartReplayPlayback(){
+      if(!replayState.samples.length){
+        showToast("리플레이 파일(.xlsx)을 먼저 선택하세요.", "notice", {key:"replay-no-file"});
+        return;
+      }
+      pauseReplayPlayback({silent:true});
+      setActiveDataSource(DATA_SOURCE_REPLAY);
+      replayState.index = 0;
+      replayState.lastIndex = -1;
+      resetReplayBuffers();
+      replayState.playing = true;
+      setReplayStatus("리플레이를 처음부터 재생합니다.");
+      updateReplayModeUi();
+      scheduleReplayTick(0);
+    }
+
+    function seekReplayToIndex(targetIndex, resumePlayback){
+      if(!replayState.samples.length) return;
+      const maxIndex = replayState.samples.length - 1;
+      const index = Math.max(0, Math.min(maxIndex, Number(targetIndex) || 0));
+      const shouldResume = !!resumePlayback;
+      pauseReplayPlayback({silent:true});
+      setActiveDataSource(DATA_SOURCE_REPLAY);
+      resetReplayBuffers();
+      applyReplaySampleAt(index);
+      replayState.index = index + 1;
+      setReplayStatus("리플레이 시점을 이동했습니다.");
+      updateReplayModeUi();
+      if(shouldResume && replayState.index <= maxIndex){
+        const nowTs = replayState.samples[index].tsMs;
+        const nextTs = replayState.samples[replayState.index].tsMs;
+        let deltaMs = Number(nextTs) - Number(nowTs);
+        if(!isFinite(deltaMs) || deltaMs < 1) deltaMs = 1;
+        const speed = (isFinite(replayState.speed) && replayState.speed > 0) ? replayState.speed : 1;
+        replayState.playing = true;
+        updateReplayModeUi();
+        scheduleReplayTick(deltaMs / speed);
+      }
+    }
+
+    function findReplayTminusIndex(targetMs){
+      const target = Number(targetMs);
+      if(!isFinite(target)) return -1;
+      if(!replayState.samples.length) return -1;
+      let bestIndex = -1;
+      let bestDiff = Infinity;
+
+      for(let i = 0; i < replayState.samples.length; i++){
+        const frame = replayState.samples[i];
+        const td = Number(frame && frame.sample ? frame.sample.td : NaN);
+        if(!isFinite(td) || td >= 0) continue;
+        const diff = Math.abs(td - target);
+        if(diff < bestDiff){
+          bestDiff = diff;
+          bestIndex = i;
+        }
+      }
+      if(bestIndex >= 0){
+        return bestIndex;
+      }
+
+      let t0Ts = null;
+      for(let i = 0; i < replayState.samples.length; i++){
+        const frame = replayState.samples[i];
+        const td = Number(frame && frame.sample ? frame.sample.td : NaN);
+        if(isFinite(td) && td >= 0){
+          t0Ts = Number(frame.tsMs);
+          break;
+        }
+      }
+      if(!isFinite(t0Ts)){
+        for(let i = 0; i < replayState.samples.length; i++){
+          const frame = replayState.samples[i];
+          const st = Number(frame && frame.sample ? frame.sample.st : NaN);
+          if(st === 2){
+            t0Ts = Number(frame.tsMs);
+            break;
+          }
+        }
+      }
+      if(!isFinite(t0Ts)){
+        return -1;
+      }
+
+      const targetTs = t0Ts + target;
+      let nearest = -1;
+      let nearestDiff = Infinity;
+      for(let i = 0; i < replayState.samples.length; i++){
+        const frameTs = Number(replayState.samples[i].tsMs);
+        if(!isFinite(frameTs)) continue;
+        const diff = Math.abs(frameTs - targetTs);
+        if(diff < nearestDiff){
+          nearestDiff = diff;
+          nearest = i;
+        }
+      }
+      return nearest;
+    }
+
+    function seekReplayToTminus10(){
+      if(!replayState.samples.length){
+        showToast("리플레이 파일(.xlsx)을 먼저 선택하세요.", "notice", {key:"replay-no-file"});
+        return;
+      }
+      const idx = findReplayTminusIndex(-10000);
+      if(idx < 0){
+        setReplayStatus("T-10 지점을 찾지 못했습니다.");
+        showToast("T-10 지점을 찾지 못했습니다.", "notice", {key:"replay-tminus-missing"});
+        return;
+      }
+      const resume = replayState.playing;
+      seekReplayToIndex(idx, resume);
+      setReplayStatus("T-10 지점으로 이동했습니다.");
+      showToast("T-10 지점으로 이동했습니다.", "info", {key:"replay-tminus10"});
+    }
+
+    function enterReplayMode(){
+      hideMobileControlsPanel();
+      replayUiActive = true;
+      if(!replayState.samples.length){
+        showToast("리플레이 파일을 선택하세요.", "notice", {key:"replay-select-file"});
+      }
+      updateReplayModeUi();
+    }
+
+    function exitReplayMode(){
+      replayUiActive = false;
+      pauseReplayPlayback({silent:true});
+      setActiveDataSource(DATA_SOURCE_LIVE);
+      setReplayStatus("실시간 모드");
+      updateReplayModeUi();
+      updateData().catch(()=>{});
+    }
+
+    function replayNormalizeZipPath(path){
+      const parts = [];
+      String(path || "").replace(/\\/g, "/").split("/").forEach(part=>{
+        if(!part || part === ".") return;
+        if(part === ".."){
+          if(parts.length) parts.pop();
+          return;
+        }
+        parts.push(part);
+      });
+      return parts.join("/");
+    }
+
+    function replayResolveZipPath(baseDir, target){
+      if(!target) return "";
+      if(target[0] === "/") return replayNormalizeZipPath(target.slice(1));
+      return replayNormalizeZipPath((baseDir ? (baseDir + "/") : "") + target);
+    }
+
+    async function replayInflateDeflateRaw(dataBytes){
+      if(typeof DecompressionStream === "undefined"){
+        throw new Error("브라우저에서 XLSX 압축 해제를 지원하지 않습니다. (DecompressionStream 없음)");
+      }
+      const stream = new Blob([dataBytes]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+      const arrayBuffer = await new Response(stream).arrayBuffer();
+      return new Uint8Array(arrayBuffer);
+    }
+
+    async function replayUnzipEntries(arrayBuffer){
+      const bytes = new Uint8Array(arrayBuffer);
+      const view = new DataView(arrayBuffer);
+      const EOCD_SIG = 0x06054b50;
+      const CD_SIG = 0x02014b50;
+      const LOCAL_SIG = 0x04034b50;
+
+      let eocdOffset = -1;
+      const searchStart = Math.max(0, bytes.length - 65557);
+      for(let i = bytes.length - 22; i >= searchStart; i--){
+        if(view.getUint32(i, true) === EOCD_SIG){
+          eocdOffset = i;
+          break;
+        }
+      }
+      if(eocdOffset < 0){
+        throw new Error("XLSX ZIP 구조를 찾지 못했습니다.");
+      }
+
+      const centralDirSize = view.getUint32(eocdOffset + 12, true);
+      const centralDirOffset = view.getUint32(eocdOffset + 16, true);
+      const centralDirEnd = centralDirOffset + centralDirSize;
+      if(centralDirEnd > bytes.length){
+        throw new Error("XLSX ZIP 중앙 디렉터리가 손상되었습니다.");
+      }
+
+      const decoder = new TextDecoder("utf-8");
+      const entries = new Map();
+      let ptr = centralDirOffset;
+      while(ptr < centralDirEnd){
+        if(view.getUint32(ptr, true) !== CD_SIG) break;
+        const method = view.getUint16(ptr + 10, true);
+        const compressedSize = view.getUint32(ptr + 20, true);
+        const nameLen = view.getUint16(ptr + 28, true);
+        const extraLen = view.getUint16(ptr + 30, true);
+        const commentLen = view.getUint16(ptr + 32, true);
+        const localHeaderOffset = view.getUint32(ptr + 42, true);
+        const fileName = decoder.decode(bytes.slice(ptr + 46, ptr + 46 + nameLen));
+
+        ptr += 46 + nameLen + extraLen + commentLen;
+
+        if(view.getUint32(localHeaderOffset, true) !== LOCAL_SIG){
+          throw new Error("XLSX 로컬 헤더가 손상되었습니다: " + fileName);
+        }
+        const localNameLen = view.getUint16(localHeaderOffset + 26, true);
+        const localExtraLen = view.getUint16(localHeaderOffset + 28, true);
+        const dataStart = localHeaderOffset + 30 + localNameLen + localExtraLen;
+        const dataEnd = dataStart + compressedSize;
+        if(dataEnd > bytes.length){
+          throw new Error("XLSX 파일 항목 범위를 벗어났습니다: " + fileName);
+        }
+
+        const raw = bytes.slice(dataStart, dataEnd);
+        let decoded;
+        if(method === 0){
+          decoded = raw;
+        }else if(method === 8){
+          decoded = await replayInflateDeflateRaw(raw);
+        }else{
+          throw new Error("지원하지 않는 XLSX 압축 방식(" + method + "): " + fileName);
+        }
+        entries.set(replayNormalizeZipPath(fileName), decoded);
+      }
+      return entries;
+    }
+
+    function replayZipText(entries, path){
+      const key = replayNormalizeZipPath(path);
+      const bytes = entries.get(key);
+      if(!bytes) return null;
+      return new TextDecoder("utf-8").decode(bytes);
+    }
+
+    function replayParseXml(xmlText, name){
+      const doc = new DOMParser().parseFromString(xmlText, "application/xml");
+      if(doc.getElementsByTagName("parsererror").length){
+        throw new Error("XML 파싱 오류: " + (name || "unknown"));
+      }
+      return doc;
+    }
+
+    function replayNodeText(node){
+      if(!node) return "";
+      const tNodes = Array.from(node.getElementsByTagName("t"));
+      if(!tNodes.length){
+        return node.textContent || "";
+      }
+      return tNodes.map(n=>n.textContent || "").join("");
+    }
+
+    function replayCellRefToColIndex(ref){
+      const match = /^[A-Z]+/i.exec(ref || "");
+      if(!match) return -1;
+      const letters = match[0].toUpperCase();
+      let col = 0;
+      for(let i = 0; i < letters.length; i++){
+        col = (col * 26) + (letters.charCodeAt(i) - 64);
+      }
+      return col - 1;
+    }
+
+    function replayReadSharedStrings(entries){
+      const xml = replayZipText(entries, "xl/sharedStrings.xml");
+      if(!xml) return [];
+      const doc = replayParseXml(xml, "sharedStrings");
+      return Array.from(doc.getElementsByTagName("si")).map(node=>replayNodeText(node));
+    }
+
+    function replayReadCellValue(cell, sharedStrings){
+      const type = cell.getAttribute("t") || "";
+      if(type === "inlineStr"){
+        const isNode = cell.getElementsByTagName("is")[0];
+        return replayNodeText(isNode || cell);
+      }
+      const vNode = cell.getElementsByTagName("v")[0];
+      const raw = vNode ? String(vNode.textContent || "") : "";
+      if(type === "s"){
+        const idx = Number(raw);
+        return (isFinite(idx) && sharedStrings[idx] != null) ? sharedStrings[idx] : "";
+      }
+      if(type === "b"){
+        return raw === "1" ? 1 : 0;
+      }
+      if(raw === "") return "";
+      const num = Number(raw);
+      return isFinite(num) ? num : raw;
+    }
+
+    function replayReadSheetRows(sheetXml, sharedStrings){
+      const doc = replayParseXml(sheetXml, "worksheet");
+      const rows = [];
+      const rowNodes = Array.from(doc.getElementsByTagName("row"));
+      rowNodes.forEach(rowNode=>{
+        const row = [];
+        const cells = Array.from(rowNode.getElementsByTagName("c"));
+        let fallbackCol = 0;
+        cells.forEach(cell=>{
+          let col = replayCellRefToColIndex(cell.getAttribute("r") || "");
+          if(col < 0) col = fallbackCol;
+          row[col] = replayReadCellValue(cell, sharedStrings);
+          fallbackCol = col + 1;
+        });
+        rows.push(row);
+      });
+      return rows;
+    }
+
+    function replayNormalizeHeader(value){
+      return String(value == null ? "" : value)
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, "")
+        .replace(/[^a-z0-9가-힣_]/g, "");
+    }
+
+    function replayFindHeaderIndex(headers, candidates){
+      const normalized = headers.map(replayNormalizeHeader);
+      for(const candidate of candidates){
+        const token = replayNormalizeHeader(candidate);
+        const idx = normalized.indexOf(token);
+        if(idx >= 0) return idx;
+      }
+      return -1;
+    }
+
+    function replayToNumber(value, fallback){
+      const num = Number(value);
+      return isFinite(num) ? num : fallback;
+    }
+
+    function replayToBinary(value, fallback){
+      if(typeof value === "string"){
+        const token = value.trim().toLowerCase();
+        if(token === "1" || token === "true" || token === "on" || token === "high" || token === "ok") return 1;
+        if(token === "0" || token === "false" || token === "off" || token === "low" || token === "no") return 0;
+      }
+      const num = Number(value);
+      if(isFinite(num)) return num ? 1 : 0;
+      return fallback;
+    }
+
+    function replayExcelSerialToMs(serial){
+      const n = Number(serial);
+      if(!isFinite(n)) return null;
+      return Math.round((n - 25569) * 86400000);
+    }
+
+    function replayBuildSamples(rows){
+      if(!rows || !rows.length){
+        throw new Error("시트에 데이터가 없습니다.");
+      }
+
+      let headerRow = 0;
+      for(let i = 0; i < Math.min(rows.length, 12); i++){
+        const row = rows[i] || [];
+        const thrustIdx = replayFindHeaderIndex(row, ["thrust_kgf", "추력_kgf", "thrust", "t"]);
+        const pressureIdx = replayFindHeaderIndex(row, ["pressure_v", "압력_v", "pressure", "p"]);
+        if(thrustIdx >= 0 || pressureIdx >= 0){
+          headerRow = i;
+          break;
+        }
+      }
+
+      const headers = rows[headerRow] || [];
+      const col = {
+        timeIso: replayFindHeaderIndex(headers, ["time_iso", "시간_iso", "timestamp", "datetime", "time"]),
+        thrust: replayFindHeaderIndex(headers, ["thrust_kgf", "추력_kgf", "thrust", "t"]),
+        pressure: replayFindHeaderIndex(headers, ["pressure_v", "압력_v", "pressure", "p"]),
+        accelX: replayFindHeaderIndex(headers, ["accel_x_g", "가속도_x_g", "ax", "accel_x"]),
+        accelY: replayFindHeaderIndex(headers, ["accel_y_g", "가속도_y_g", "ay", "accel_y"]),
+        accelZ: replayFindHeaderIndex(headers, ["accel_z_g", "가속도_z_g", "az", "accel_z"]),
+        gyroX: replayFindHeaderIndex(headers, ["gyro_x_dps", "자이로_x_dps", "gx", "gyro_x"]),
+        gyroY: replayFindHeaderIndex(headers, ["gyro_y_dps", "자이로_y_dps", "gy", "gyro_y"]),
+        gyroZ: replayFindHeaderIndex(headers, ["gyro_z_dps", "자이로_z_dps", "gz", "gyro_z"]),
+        loopMs: replayFindHeaderIndex(headers, ["loop_ms", "루프_ms", "lt"]),
+        hz: replayFindHeaderIndex(headers, ["hx_hz", "hz"]),
+        cpuUs: replayFindHeaderIndex(headers, ["cpu_us", "cpu", "ct"]),
+        sw: replayFindHeaderIndex(headers, ["switch", "스위치", "s"]),
+        ic: replayFindHeaderIndex(headers, ["ign_ok", "점화_정상", "ic", "igniter"]),
+        relay: replayFindHeaderIndex(headers, ["relay", "릴레이", "r"]),
+        gs: replayFindHeaderIndex(headers, ["igs_mode", "igs_모드", "igs", "gs"]),
+        state: replayFindHeaderIndex(headers, ["state", "상태", "st"]),
+        tdMs: replayFindHeaderIndex(headers, ["td_ms", "tdms", "td"]),
+        elapsedMs: replayFindHeaderIndex(headers, ["elapsed_ms", "경과_ms", "elapsed"]),
+        relTimeSec: replayFindHeaderIndex(headers, ["rel_time_s", "상대시간_s", "reltime", "time_axis"])
+      };
+
+      if(col.thrust < 0 && col.pressure < 0){
+        throw new Error("RAW 시트에서 추력/압력 컬럼을 찾지 못했습니다.");
+      }
+
+      const samples = [];
+      let prevTs = null;
+      for(let r = headerRow + 1; r < rows.length; r++){
+        const row = rows[r] || [];
+        if(!row.length) continue;
+
+        const thrustVal = replayToNumber(col.thrust >= 0 ? row[col.thrust] : null, NaN);
+        const pressureVal = replayToNumber(col.pressure >= 0 ? row[col.pressure] : null, NaN);
+        if(!isFinite(thrustVal) && !isFinite(pressureVal)) continue;
+
+        let tsMs = null;
+        if(col.timeIso >= 0){
+          const rawTs = row[col.timeIso];
+          if(typeof rawTs === "number"){
+            if(rawTs > 1000000000){
+              tsMs = (rawTs > 1000000000000) ? rawTs : (rawTs * 1000);
+            }else{
+              tsMs = replayExcelSerialToMs(rawTs);
+            }
+          }else if(rawTs != null && rawTs !== ""){
+            const parsed = Date.parse(String(rawTs));
+            if(isFinite(parsed)) tsMs = parsed;
+          }
+        }
+        if(tsMs == null && col.elapsedMs >= 0){
+          const elapsed = replayToNumber(row[col.elapsedMs], NaN);
+          if(isFinite(elapsed)) tsMs = elapsed;
+        }
+        if(tsMs == null && col.relTimeSec >= 0){
+          const relSec = replayToNumber(row[col.relTimeSec], NaN);
+          if(isFinite(relSec)) tsMs = relSec * 1000;
+        }
+        if(tsMs == null && col.hz >= 0 && prevTs != null){
+          const hz = replayToNumber(row[col.hz], NaN);
+          if(isFinite(hz) && hz > 0) tsMs = prevTs + (1000 / hz);
+        }
+        if(tsMs == null){
+          tsMs = (prevTs == null) ? 0 : (prevTs + 100);
+        }
+        if(prevTs != null && tsMs <= prevTs){
+          tsMs = prevTs + 1;
+        }
+        prevTs = tsMs;
+
+        samples.push({
+          tsMs,
+          sample: {
+            t: isFinite(thrustVal) ? thrustVal : 0,
+            p: isFinite(pressureVal) ? pressureVal : 0,
+            ax: replayToNumber(col.accelX >= 0 ? row[col.accelX] : null, 0),
+            ay: replayToNumber(col.accelY >= 0 ? row[col.accelY] : null, 0),
+            az: replayToNumber(col.accelZ >= 0 ? row[col.accelZ] : null, 0),
+            gx: replayToNumber(col.gyroX >= 0 ? row[col.gyroX] : null, 0),
+            gy: replayToNumber(col.gyroY >= 0 ? row[col.gyroY] : null, 0),
+            gz: replayToNumber(col.gyroZ >= 0 ? row[col.gyroZ] : null, 0),
+            lt: replayToNumber(col.loopMs >= 0 ? row[col.loopMs] : null, 0),
+            hz: replayToNumber(col.hz >= 0 ? row[col.hz] : null, 0),
+            ct: replayToNumber(col.cpuUs >= 0 ? row[col.cpuUs] : null, 0),
+            s: replayToBinary(col.sw >= 0 ? row[col.sw] : null, 0),
+            ic: replayToBinary(col.ic >= 0 ? row[col.ic] : null, 0),
+            r: replayToNumber(col.relay >= 0 ? row[col.relay] : null, 0),
+            gs: replayToBinary(col.gs >= 0 ? row[col.gs] : null, 0),
+            st: replayToNumber(col.state >= 0 ? row[col.state] : null, 0),
+            td: (col.tdMs >= 0) ? replayToNumber(row[col.tdMs], 0) : null
+          }
+        });
+      }
+
+      if(!samples.length){
+        throw new Error("리플레이 가능한 샘플이 없습니다.");
+      }
+      return samples;
+    }
+
+    function replaySelectSheetPath(entries){
+      const workbookXml = replayZipText(entries, "xl/workbook.xml");
+      const relsXml = replayZipText(entries, "xl/_rels/workbook.xml.rels");
+      let preferred = null;
+      if(workbookXml && relsXml){
+        const wbDoc = replayParseXml(workbookXml, "workbook");
+        const relDoc = replayParseXml(relsXml, "workbook.rels");
+        const relMap = {};
+        Array.from(relDoc.getElementsByTagName("Relationship")).forEach(rel=>{
+          const id = rel.getAttribute("Id");
+          const target = rel.getAttribute("Target");
+          if(id && target){
+            relMap[id] = replayResolveZipPath("xl", target);
+          }
+        });
+        let fallback = null;
+        Array.from(wbDoc.getElementsByTagName("sheet")).forEach(sheet=>{
+          const rid = sheet.getAttribute("r:id");
+          const name = String(sheet.getAttribute("name") || "").trim().toLowerCase();
+          const path = rid ? relMap[rid] : null;
+          if(path && !fallback) fallback = path;
+          if(path && (name === "raw" || name.indexOf("raw") >= 0)){
+            preferred = path;
+          }
+        });
+        if(!preferred) preferred = fallback;
+      }
+      return preferred ? replayNormalizeZipPath(preferred) : null;
+    }
+
+    async function parseReplayXlsx(file){
+      if(!file) throw new Error("리플레이 파일이 선택되지 않았습니다.");
+      const entries = await replayUnzipEntries(await file.arrayBuffer());
+      const worksheetPaths = Array.from(entries.keys())
+        .filter(name=>/^xl\/worksheets\/.+\.xml$/i.test(name))
+        .sort();
+      if(!worksheetPaths.length){
+        throw new Error("XLSX 워크시트를 찾지 못했습니다.");
+      }
+
+      const preferred = replaySelectSheetPath(entries);
+      const targets = preferred
+        ? [preferred, ...worksheetPaths.filter(name=>name !== preferred)]
+        : worksheetPaths.slice();
+      const sharedStrings = replayReadSharedStrings(entries);
+      let lastErr = null;
+      for(const path of targets){
+        try{
+          const sheetXml = replayZipText(entries, path);
+          if(!sheetXml) continue;
+          const rows = replayReadSheetRows(sheetXml, sharedStrings);
+          const samples = replayBuildSamples(rows);
+          if(samples.length) return samples;
+        }catch(err){
+          lastErr = err;
+        }
+      }
+      throw (lastErr || new Error("리플레이 데이터를 해석하지 못했습니다."));
     }
 
     // =====================
@@ -3893,6 +5370,7 @@
       wsSocket.onopen = ()=>{
         wsConnected = true;
         wsEverConnected = true;
+        setAlarmActive("WS_DISCONNECTED", false);
         updateWsUI();
         wsRetryMs = 300;
         addWsLog(t("wsConnected", {url}));
@@ -3904,12 +5382,15 @@
         try{
           const obj = JSON.parse(ev.data);
           onIncomingSample(obj, "WS");
-        }catch(e){}
+        }catch(e){
+          reportSilentException("ws-json", e);
+        }
       };
 
       wsSocket.onerror = ()=>{
         wsConnected = false;
         addWsLog(t("wsError"));
+        setAlarmActive("WS_DISCONNECTED", true);
         updateWsUI();
       };
 
@@ -3918,18 +5399,21 @@
         const code = ev?.code ?? 0;
         const reason = ev?.reason || "-";
         addWsLog(t("wsClosed", {code, reason}));
+        setAlarmActive("WS_DISCONNECTED", true);
         updateWsUI();
         scheduleWsReconnect("closed");
       };
     }
 
     function ensureWsAlive(){
+      if(replaySourceActive) return;
       if(wsConnected && (Date.now() - wsLastMsgMs) > DISCONNECT_GRACE_MS){
         failStreak = FAIL_STREAK_LIMIT;
         markDisconnectedIfNeeded(t("wsTimeout"));
         wsConnected = false;
         updateWsUI();
       }
+      evaluateRuntimeAlarms(Date.now());
     }
 
     // =====================
@@ -3964,6 +5448,7 @@
     }
 
     function markDisconnectedIfNeeded(reason){
+      if(replaySourceActive) return;
       const now = Date.now();
       const sinceOk = now - (lastOkMs || 0);
 
@@ -3977,6 +5462,7 @@
           el.statusPill.className="status-disc hidden";
           el.statusPill.textContent = "";
           el.statusText.textContent = reason || t("statusNoResponse");
+          syncCountdownInlineStatus();
         }
 
         if(!disconnectedLogged){
@@ -3998,7 +5484,7 @@
 
     async function serialConnect(){
       if(!serialSupported()){
-        showToast(t("webserialUnsupported"), "warn");
+        showToast(t("webserialUnsupported"), "notice");
         return;
       }
       try{
@@ -4076,7 +5562,9 @@
               try{
                 const obj = JSON.parse(line);
                 onIncomingSample(obj, "SER");
-              }catch(e){}
+              }catch(e){
+                reportSilentException("serial-json", e);
+              }
             }
           }
         }
@@ -4094,6 +5582,13 @@
     // 공통: 샘플 수신 처리
     // =====================
     function onIncomingSample(data, srcTag){
+      const src = String(srcTag || "").toUpperCase();
+      const isReplaySample = (src === "REPLAY");
+      if(replaySourceActive){
+        if(!isReplaySample) return;
+      }else if(isReplaySample){
+        return;
+      }
       const nowOk = Date.now();
       if(rxWindowStartMs === 0) rxWindowStartMs = nowOk;
       rxWindowCount++;
@@ -4160,6 +5655,11 @@
       const smRaw = (data.sm != null ? data.sm : (data.safe != null ? data.safe : null));
       const sm = (smRaw != null) ? Number(smRaw) : null;
       const mode = Number(data.m != null ? data.m : data.mode ?? -1);
+      const wsQueueDropCount = Number(data.wq != null ? data.wq : (data.ws_queue_drop ?? 0));
+
+      if(!isReplaySample && isFinite(wsQueueDropCount)){
+        handleWsBackpressureSignal(wsQueueDropCount);
+      }
 
       publishOverlaySample({ t: thrustVal, p, st, td, ab, ts: Date.now() });
 
@@ -4205,6 +5705,7 @@
         gs,
         sm: (sm != null) ? (sm ? 1 : 0) : (safetyModeEnabled ? 1 : 0)
       };
+      updateStatusMapFromTelemetry(data);
       const fwBoard = data.fw_board ?? data.fwBoard ?? null;
       const fwProgram = data.fw_program ?? data.fwProgram ?? null;
       const fwProtocol = data.fw_protocol ?? data.fwProtocol ?? null;
@@ -4251,7 +5752,9 @@
       }
 
       logData.push({time:timeIso,t:thrustVal,p,ax,ay,az,gx,gy,gz,lt,elapsed:elapsedMs,hz:hxHz,ct:ctUs,s:sw?1:0,ic:ic?1:0,r:rly?1:0,gs,st,td});
+      logDataRevision += 1;
       if(logData.length > RAW_LOG_MAX) logData.splice(0, logData.length - RAW_LOG_MAX);
+      updateExportGuardUi();
 
       // ✅ LOCKOUT 반영(보드가 내보내면)
       if(lko === 1){
@@ -4265,11 +5768,7 @@
           setLockoutVisual(true);
 
           addLogLine(t("lockoutDetectedLog", {name}), "SAFE");
-          showToast(
-            t("lockoutDetectedToast", {name}),
-            "error",
-            {duration:12000}
-          );
+          notifyAlarm("RELAY_LOCKOUT", {name}, {force:true});
 
           showLockoutModal();
         }else{
@@ -4331,7 +5830,7 @@
             }
             addLogLine(t("switchHighLog"), "SW");
             if((uiSettings && uiSettings.igs) && !ic){
-              showToast(t("countdownIgniterRequired", {safety:safetyLineSuffix()}), "warn");
+              showToast(t("countdownIgniterRequired", {safety:safetyLineSuffix()}), "notice");
             }else{
               showToast(t("switchHighToast", {safety:safetyLineSuffix()}),"warn");
             }
@@ -4355,7 +5854,7 @@
               inspectionState = "failed";
               updateInspectionPill();
               updateControlAccessUI(currentSt);
-              showToast(t("inspectionRequiredToast"), "warn");
+              showToast(t("inspectionRequiredToast"), "notice");
             }
           }
         }
@@ -4460,13 +5959,6 @@
           `;
         }
 
-        if(el.loopPill){
-          el.loopPill.innerHTML = `<span class="num">${lt.toFixed(0)}</span><span class="unit">ms</span>`;
-          if(isFinite(lt)){
-            const loopStatus = (lt <= 20) ? "ok" : (lt <= 50 ? "warn" : "bad");
-            setQuickItemStatus(el.loopPill, loopStatus);
-          }
-        }
         if(el.snapHz){
           const nowUi = Date.now();
           if((nowUi - lastSnapHzUiMs) >= 1000 || lastSnapHzUiMs === 0){
@@ -4476,6 +5968,10 @@
           }
         }
         if(el.hxHz) el.hxHz.textContent = (hxHz>0 && isFinite(hxHz)) ? (hxHz.toFixed(0) + " Hz") : "-- Hz";
+        if(el.quickHxHz){
+          const hxNum = (hxHz>0 && isFinite(hxHz)) ? hxHz.toFixed(0) : "--";
+          el.quickHxHz.innerHTML = `<span class="num">${hxNum}</span><span class="unit">Hz</span>`;
+        }
         if(el.cpuUs) el.cpuUs.textContent = (ctUs>0 && isFinite(ctUs)) ? (ctUs.toFixed(0) + " us") : "-- us";
 
         if(el.ignDelayDisplay) el.ignDelayDisplay.textContent = (ignitionAnalysis.delaySec!=null)
@@ -4590,9 +6086,15 @@
         let tplusActive = false;
         if(el.countdown){
           let prefix = "T- ";
-          let cdText="--:--.---";
+          let cdText="--:--:??";
           const pad2 = (n)=>String(n).padStart(2,"0");
-          const pad3 = (n)=>String(n).padStart(3,"0");
+          const formatCountdown = (ms)=>{
+            const value = Math.max(0, Math.round(Number(ms) || 0));
+            const minPart = Math.floor(value / 60000);
+            const secPart = Math.floor((value % 60000) / 1000);
+            const centiPart = Math.floor((value % 1000) / 10);
+            return pad2(minPart) + ":" + pad2(secPart) + ":" + pad2(centiPart);
+          };
           let useTd = (td != null && isFinite(td) && !(st === 0 && Number(td) === 0));
           if(useTd && td < 0 && localTplusActive && localTplusStartMs != null){
             useTd = false;
@@ -4602,10 +6104,7 @@
             if(td < 0){
               const msRemain = Math.max(0, Math.round(-td));
               const secRemain = Math.ceil(msRemain/1000);
-              const minPart = Math.floor(msRemain / 60000);
-              const secPart = Math.floor((msRemain % 60000) / 1000);
-              const msPart = msRemain % 1000;
-              cdText = pad2(minPart) + ":" + pad2(secPart) + "." + pad3(msPart);
+              cdText = formatCountdown(msRemain);
               if(secRemain !== lastCountdownSec){
                 if(secRemain > 0){
                   playCountdownMp3(secRemain);
@@ -4618,20 +6117,14 @@
               prefix = "T+ ";
               const elapsedMs = Math.max(0, Math.round(td));
               tplusActive = true;
-              const minPart = Math.floor(elapsedMs / 60000);
-              const secPart = Math.floor((elapsedMs % 60000) / 1000);
-              const msPart = elapsedMs % 1000;
-              cdText = pad2(minPart) + ":" + pad2(secPart) + "." + pad3(msPart);
+              cdText = formatCountdown(elapsedMs);
               lastCountdownSec = null;
             }
           }else if(localTplusActive && localTplusStartMs!=null){
             prefix = "T+ ";
             const elapsedMs = Math.max(0, Date.now() - localTplusStartMs);
             tplusActive = true;
-            const minPart = Math.floor(elapsedMs / 60000);
-            const secPart = Math.floor((elapsedMs % 60000) / 1000);
-            const msPart = elapsedMs % 1000;
-            cdText = pad2(minPart) + ":" + pad2(secPart) + "." + pad3(msPart);
+            cdText = formatCountdown(elapsedMs);
             lastCountdownSec = null;
           }else{
             lastCountdownSec = null;
@@ -4643,6 +6136,7 @@
         }
         updateAbortButtonLabel(tplusActive && st !== 2);
         const statusCode=setStatusFromState(st,!!ic,!!ab,lockoutLatched, sequenceActive);
+        syncCountdownInlineStatus();
         if(el.countdownStatus && el.statusText){
           el.countdownStatus.textContent = el.statusText.textContent || "";
         }
@@ -4668,7 +6162,7 @@
             showToast(t("sequenceAbortedToastReason", {reason:reasonLabel, safety:safetyLineSuffix()}),"error");
             lastAbortReason = null;
           }else if(statusCode===3){
-            showToast(t("notArmedToast", {safety:safetyLineSuffix()}),"warn");
+            showToast(t("notArmedToast", {safety:safetyLineSuffix()}),"notice");
           }else if(statusCode===9){
             const now = Date.now();
             if(now - lastLockoutToastMs > 5000){
@@ -4696,12 +6190,15 @@
           lastChartRedraw=nowPerf;
         }
       }
+
+      evaluateRuntimeAlarms(nowOk);
     }
 
     // =====================
     // Wi-Fi 폴링 루프
     // =====================
     async function updateData(){
+      if(replaySourceActive) return;
       if(simEnabled){
         onIncomingSample(buildSimSample(), "SIM");
         return;
@@ -4746,6 +6243,7 @@
         addLogLine(t("pollingErrorLog", {err:(e?.message || e)}), "ERROR");
         showToast(t("pollingErrorToast"), "error");
       }
+      evaluateRuntimeAlarms(Date.now());
       const t1 = (performance?.now?.() ?? Date.now());
       const dt = t1 - t0;
 
@@ -4880,11 +6378,11 @@
         return;
       }
       if(!isControlUnlocked()){
-        showToast(t("inspectionRequiredToast"), "warn");
+        showToast(t("inspectionRequiredToast"), "notice");
         return;
       }
       if((uiSettings && uiSettings.igs) && latestTelemetry.ic !== 1){
-        showToast(t("countdownIgniterRequired", {safety:safetyLineSuffix()}), "warn");
+        showToast(t("countdownIgniterRequired", {safety:safetyLineSuffix()}), "notice");
         return;
       }
       if(lpTimer){ clearInterval(lpTimer); lpTimer=null; }
@@ -4957,11 +6455,11 @@
     function startHold(){
       if(lockoutLatched) return;
       if(!isControlUnlocked()){
-        showToast(t("inspectionRequiredShort"), "warn");
+        showToast(t("inspectionRequiredShort"), "notice");
         return;
       }
       if((uiSettings && uiSettings.igs) && latestTelemetry.ic !== 1){
-        showToast(t("countdownIgniterRequired", {safety:safetyLineSuffix()}), "warn");
+        showToast(t("countdownIgniterRequired", {safety:safetyLineSuffix()}), "notice");
         return;
       }
       if(!el.longPressBtn || !longPressSpinnerEl || lpTimer) return;
@@ -4995,7 +6493,7 @@
           if((uiSettings && uiSettings.igs) && latestTelemetry.ic !== 1){
             setOverlayVisible(confirmOverlayEl, false);
             sendCommand({http:"/precount?uw=0&cd=0", ser:"PRECOUNT 0 0"}, false);
-            showToast(t("countdownIgniterRequired", {safety:safetyLineSuffix()}), "warn");
+            showToast(t("countdownIgniterRequired", {safety:safetyLineSuffix()}), "notice");
             return;
           }
           setOverlayVisible(confirmOverlayEl, false);
@@ -5060,6 +6558,59 @@
       const ok = hasMissionSelected();
       el.exportCsvBtn.disabled = !ok;
       el.exportCsvBtn.classList.toggle("disabled", !ok);
+      updateExportGuardUi();
+    }
+    function isReportExportedUpToDate(){
+      return !!reportExportedOnce;
+    }
+    function shouldWarnBeforeClose(){
+      if(!hasMissionSelected()) return false;
+      if(logData.length <= 0) return false;
+      return !isReportExportedUpToDate();
+    }
+    function updateExportGuardUi(){
+      if(el.exportPendingBadge){
+        el.exportPendingBadge.classList.remove("hidden");
+        const exported = isReportExportedUpToDate();
+        el.exportPendingBadge.classList.toggle("is-exported", exported);
+        el.exportPendingBadge.textContent = exported ? t("exportDoneBadge") : t("exportPendingBadge");
+        el.exportPendingBadge.setAttribute("aria-hidden", "false");
+      }
+    }
+    function hideExportLeaveOverlay(){
+      pendingExportLeaveAction = null;
+      if(el.exportLeaveOverlay){
+        setOverlayVisible(el.exportLeaveOverlay, false);
+      }
+    }
+    function requestLeaveWithExportGuard(onLeave){
+      if(!shouldWarnBeforeClose()){
+        if(typeof onLeave === "function") onLeave();
+        return;
+      }
+      pendingExportLeaveAction = (typeof onLeave === "function") ? onLeave : null;
+      if(el.exportLeaveOverlay){
+        setOverlayVisible(el.exportLeaveOverlay, true);
+      }else if(pendingExportLeaveAction){
+        const fallback = pendingExportLeaveAction;
+        pendingExportLeaveAction = null;
+        fallback();
+      }
+    }
+    function confirmLeaveWithExportGuard(){
+      const action = pendingExportLeaveAction;
+      pendingExportLeaveAction = null;
+      if(el.exportLeaveOverlay){
+        setOverlayVisible(el.exportLeaveOverlay, false);
+      }
+      if(action) action();
+    }
+    function handleBeforeUnload(ev){
+      if(!shouldWarnBeforeClose()) return;
+      const msg = t("exportBeforeCloseConfirm");
+      ev.preventDefault();
+      ev.returnValue = msg;
+      return msg;
     }
     function setQuickItemStatus(targetEl, status){
       if(!targetEl) return;
@@ -5131,7 +6682,11 @@
         el.statusBar.classList.toggle("is-online", !!connOk);
         el.statusBar.classList.toggle("is-offline", !connOk);
       }
-      if(el.connStatusText) el.connStatusText.textContent = commText;
+      if(el.connStatusText){
+        const snapHz = Number(rxHzWindow);
+        const hzText = (snapHz > 0 && isFinite(snapHz)) ? (snapHz.toFixed(0) + " Hz") : "-- Hz";
+        el.connStatusText.textContent = commText + " · " + hzText;
+      }
       if(el.batteryFill){
         const fill = (pctValue == null) ? 35 : Math.max(8, Math.min(88, pctValue));
         el.batteryFill.style.width = fill + "%";
@@ -5159,7 +6714,7 @@
     function showNoMotorNotice(){
       hideMobileControlsPanel();
       setOverlayVisible(el.noMotorOverlay, true);
-      showToast("메타데이터 미지정: 미션 정보 없이 진행", "warn", {key:"mission-no-meta"});
+      showToast("메타데이터 미지정: 미션 정보 없이 진행", "notice", {key:"mission-no-meta"});
     }
     function hideNoMotorNotice(){
       setOverlayVisible(el.noMotorOverlay, false);
@@ -5288,7 +6843,7 @@
     }
     function commitForceIgnite(){
       if(!isControlUnlocked()){
-        showToast(t("inspectionRequiredShort"), "warn");
+        showToast(t("inspectionRequiredShort"), "notice");
         resetForceSlide();
         return;
       }
@@ -5308,15 +6863,15 @@
         return;
       }
       if(currentSt!==0){
-        showToast(t("forceNotAllowed"), "warn");
+        showToast(t("forceNotAllowed"), "notice");
         return;
       }
       if((uiSettings && uiSettings.igs) && latestTelemetry.ic !== 1){
-        showToast(t("forceIgniterRequired"), "warn");
+        showToast(t("forceIgniterRequired"), "notice");
         return;
       }
       if(!isControlUnlocked() && !loadcellErrorActive){
-        showToast(t("inspectionRequiredShort"), "warn");
+        showToast(t("inspectionRequiredShort"), "notice");
         return;
       }
       if(el.forceConfirmTitle){
@@ -5340,7 +6895,7 @@
         return;
       }
       if(!canOperateLauncher()){
-        if(safetyModeEnabled) showToast(t("safetyModeOnToast"), "warn");
+        if(safetyModeEnabled) showToast(t("safetyModeOnToast"), "notice");
         return;
       }
       setOverlayVisible(launcherOverlayEl, true);
@@ -5363,7 +6918,7 @@
     function startLauncherHold(dir){
       if(lockoutLatched){ showToast(t("lockoutControlDenied"), "error"); return; }
       if(!canOperateLauncher()){
-        if(safetyModeEnabled) showToast(t("safetyModeOnToast"), "warn");
+        if(safetyModeEnabled) showToast(t("safetyModeOnToast"), "notice");
         return;
       }
       if(dir==="up"){
@@ -5994,7 +7549,7 @@
       if(cmd.http){
         const url = API_BASE ? (API_BASE + cmd.http) : cmd.http;
         const opt = API_BASE ? { mode:"no-cors", cache:"no-cache" } : { cache:"no-cache" };
-        fetch(url, opt).catch(()=>{});
+        fetch(url, opt).catch(err=>{ reportSilentException("cmd-http", err); });
       }
 
       let serLine = cmd.ser ? String(cmd.ser).trim() : "";
@@ -6143,6 +7698,7 @@
       el.wsDot = document.getElementById("ws-dot");
       el.wsText = document.getElementById("ws-text");
       el.statusPill = document.getElementById("statusPill");
+      el.statusPillMeta = document.getElementById("statusPillMeta");
       el.statusText = document.getElementById("statusText");
       el.gyroStatusPill = document.getElementById("gyroStatusPill");
       el.gyroStatusText = document.getElementById("gyroStatusText");
@@ -6155,7 +7711,15 @@
       el.statusMotor = document.getElementById("statusMotor");
       el.statusMotorGrain = document.getElementById("statusMotorGrain");
       el.statusMotorTest = document.getElementById("statusMotorTest");
+      el.statusMap = document.getElementById("statusMap");
+      el.statusMapCoordText = document.getElementById("statusMapCoordText");
+      el.statusMapZoomText = document.getElementById("statusMapZoomText");
+      el.statusMapRecenterBtn = document.getElementById("statusMapRecenterBtn");
+      el.statusMapCopyBtn = document.getElementById("statusMapCopyBtn");
       el.countdown = document.getElementById("countdown");
+      el.countdownInlineStatus = document.getElementById("countdownInlineStatus");
+      el.countdownInlineStatusText = document.getElementById("countdownInlineStatusText");
+      el.countdownInlineStatusPill = document.getElementById("countdownInlineStatusPill");
       el.countdownMobile = document.getElementById("countdownMobile");
       el.countdownBig = document.getElementById("countdownBig");
       el.countdownHeader = document.querySelector(".countdown-header");
@@ -6240,7 +7804,7 @@
       el.motorDelay = document.getElementById("motorDelay");
       el.motorBurn = document.getElementById("motorBurn");
 
-      el.loopPill = document.getElementById("loop-pill");
+      el.quickHxHz = document.getElementById("quick-hx-hz");
       el.snapHz   = document.getElementById("snap-hz");
       el.hxHz     = document.getElementById("hx-hz");
       el.cpuUs    = document.getElementById("cpu-us");
@@ -6338,8 +7902,23 @@
       el.serialControlTitle = document.getElementById("serialControlTitle");
       el.serialControlSub = document.getElementById("serialControlSub");
       el.controlsCard = document.getElementById("controlsCard");
+      el.controlsCardTitle = document.getElementById("controlsCardTitle");
       el.controlsHeader = document.getElementById("controlsHeader");
       el.controlsMain = document.getElementById("controlsMain");
+      el.replayOpenBtn = document.getElementById("replayOpenBtn");
+      el.replayPanel = document.getElementById("replayPanel");
+      el.replayFileInput = document.getElementById("replayFileInput");
+      el.replayFileBtn = document.getElementById("replayFileBtn");
+      el.replayDropTitle = document.getElementById("replayDropTitle");
+      el.replayDropGuide = document.getElementById("replayDropGuide");
+      el.replayStartBtn = document.getElementById("replayStartBtn");
+      el.replayStopBtn = document.getElementById("replayStopBtn");
+      el.replayRestartBtn = document.getElementById("replayRestartBtn");
+      el.replayTminus10Btn = document.getElementById("replayTminus10Btn");
+      el.replaySeekRange = document.getElementById("replaySeekRange");
+      el.replaySeekLabel = document.getElementById("replaySeekLabel");
+      el.replayStatusText = document.getElementById("replayStatusText");
+      el.replaySpeedBtns = document.querySelectorAll("[data-replay-speed]");
       el.devToolsPanel = document.getElementById("devToolsPanel");
       el.devToolsClose = document.getElementById("devToolsClose");
       el.devRelay1Btn = document.getElementById("devRelay1Btn");
@@ -6380,6 +7959,9 @@
       el.loadcellWarningCancel = document.getElementById("loadcellWarningCancel");
       el.missionRequiredOverlay = document.getElementById("missionRequiredOverlay");
       el.missionRequiredOk = document.getElementById("missionRequiredOk");
+      el.exportLeaveOverlay = document.getElementById("exportLeaveOverlay");
+      el.exportLeaveConfirm = document.getElementById("exportLeaveConfirm");
+      el.exportLeaveCancel = document.getElementById("exportLeaveCancel");
       el.noMotorOverlay = document.getElementById("noMotorOverlay");
       el.noMotorOk = document.getElementById("noMotorOk");
       el.forceConfirmTitle = document.querySelector("#forceOverlay .confirm-title");
@@ -6445,8 +8027,130 @@
       el.tetrisPrizeClose = document.getElementById("tetrisPrizeClose");
       el.tetrisPrizeCode = document.getElementById("tetrisPrizeCode");
 
-      const helpLink=document.getElementById("controlsHelpLink");
-      if(helpLink){ helpLink.addEventListener("click",()=>{ window.location.href="/help"; }); }
+      if(el.replayOpenBtn){
+        el.replayOpenBtn.addEventListener("click",()=>{
+          if(replayUiActive){
+            exitReplayMode();
+          }else{
+            enterReplayMode();
+          }
+        });
+      }
+      const loadReplayFile = async (file)=>{
+        if(!file) return;
+        setReplayStatus("XLSX 파일을 분석 중입니다...");
+        if(el.replayFileBtn) el.replayFileBtn.classList.remove("is-dragover");
+        try{
+          const samples = await parseReplayXlsx(file);
+          pauseReplayPlayback({silent:true});
+          setActiveDataSource(DATA_SOURCE_LIVE);
+          replayState.samples = samples;
+          replayState.fileName = file.name;
+          replayState.index = 0;
+          replayState.lastIndex = -1;
+          updateReplayModeUi();
+          setReplayStatus("");
+          showToast("리플레이 파일 로딩 완료: " + samples.length + " samples", "success", {key:"replay-load"});
+        }catch(err){
+          const reason = (err && err.message) ? err.message : String(err || "unknown");
+          replayState.samples = [];
+          replayState.fileName = "";
+          replayState.index = 0;
+          replayState.lastIndex = -1;
+          updateReplayModeUi();
+          setReplayStatus("리플레이 파일 파싱 실패: " + reason);
+          notifyAlarm("REPLAY_FORMAT", {reason});
+        }finally{
+          if(el.replayFileInput) el.replayFileInput.value = "";
+        }
+      };
+      if(el.replayFileBtn && el.replayFileInput){
+        el.replayFileBtn.addEventListener("click",()=>el.replayFileInput.click());
+      }
+      if(el.replayFileBtn){
+        let dragDepth = 0;
+        const clearDragState = ()=>{
+          dragDepth = 0;
+          el.replayFileBtn.classList.remove("is-dragover");
+        };
+        el.replayFileBtn.addEventListener("dragenter",(ev)=>{
+          ev.preventDefault();
+          dragDepth++;
+          el.replayFileBtn.classList.add("is-dragover");
+        });
+        el.replayFileBtn.addEventListener("dragover",(ev)=>{
+          ev.preventDefault();
+          if(ev.dataTransfer) ev.dataTransfer.dropEffect = "copy";
+          el.replayFileBtn.classList.add("is-dragover");
+        });
+        el.replayFileBtn.addEventListener("dragleave",(ev)=>{
+          ev.preventDefault();
+          dragDepth = Math.max(0, dragDepth - 1);
+          if(dragDepth === 0){
+            el.replayFileBtn.classList.remove("is-dragover");
+          }
+        });
+        el.replayFileBtn.addEventListener("drop",(ev)=>{
+          ev.preventDefault();
+          clearDragState();
+          const file = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0]
+            ? ev.dataTransfer.files[0]
+            : null;
+          if(file) loadReplayFile(file);
+        });
+      }
+      if(el.replayFileInput){
+        el.replayFileInput.addEventListener("change", async ()=>{
+          const file = el.replayFileInput.files && el.replayFileInput.files[0];
+          if(!file) return;
+          await loadReplayFile(file);
+        });
+      }
+      if(el.replayStartBtn){
+        el.replayStartBtn.addEventListener("click",()=>startReplayPlayback());
+      }
+      if(el.replayStopBtn){
+        el.replayStopBtn.addEventListener("click",()=>pauseReplayPlayback());
+      }
+      if(el.replayRestartBtn){
+        el.replayRestartBtn.addEventListener("click",()=>restartReplayPlayback());
+      }
+      if(el.replayTminus10Btn){
+        el.replayTminus10Btn.addEventListener("click",()=>seekReplayToTminus10());
+      }
+      if(el.replaySeekRange){
+        el.replaySeekRange.addEventListener("input",()=>{
+          updateReplaySeekUi(Number(el.replaySeekRange.value));
+        });
+        el.replaySeekRange.addEventListener("change",()=>{
+          const resume = replayState.playing;
+          seekReplayToIndex(Number(el.replaySeekRange.value), resume);
+        });
+      }
+      if(el.replaySpeedBtns && el.replaySpeedBtns.length){
+        el.replaySpeedBtns.forEach(btn=>{
+          btn.addEventListener("click",()=>{
+            const speed = Number(btn.getAttribute("data-replay-speed"));
+            if(!isFinite(speed) || speed <= 0) return;
+            replayState.speed = speed;
+            updateReplaySpeedUi();
+            if(replayState.playing){
+              clearReplayTimer();
+              if(replayState.lastIndex >= 0 && replayState.index < replayState.samples.length){
+                const nowTs = replayState.samples[replayState.lastIndex].tsMs;
+                const nextTs = replayState.samples[replayState.index].tsMs;
+                let deltaMs = Number(nextTs) - Number(nowTs);
+                if(!isFinite(deltaMs) || deltaMs < 1) deltaMs = 1;
+                scheduleReplayTick(deltaMs / replayState.speed);
+              }else{
+                scheduleReplayTick(0);
+              }
+            }
+          });
+        });
+      }
+      updateReplayModeUi();
+      setReplayStatus("");
 
       if(el.serialControlTile){
         el.serialControlTile.addEventListener("click",()=>{
@@ -6533,6 +8237,7 @@
 
       loadSettings();
       applySettingsToUI();
+      initStatusMap();
       if(simEnabled) setSimEnabled(true, {silent:true});
       addLogLine(t("systemReadyLog"),"READY");
       showToast(t("dashboardStartToast", {safety:safetyLineSuffix()}),"info");
@@ -6755,9 +8460,9 @@
             showToast(t("sequenceEndToast"), "info");
             localTplusActive = false;
             localTplusStartMs = null;
-            if(el.countdown) el.countdown.textContent = "T- --";
-            if(el.countdownMobile) el.countdownMobile.textContent = "T- --";
-            if(el.countdownBig) el.countdownBig.textContent = "T- --";
+            if(el.countdown) el.countdown.textContent = "T- --:--:??";
+            if(el.countdownMobile) el.countdownMobile.textContent = "T- --:--:??";
+            if(el.countdownBig) el.countdownBig.textContent = "T- --:--:??";
             updateAbortButtonLabel(false);
             hideConfirm();
             return;
@@ -6776,6 +8481,17 @@
       if(el.missionRequiredOverlay){
         el.missionRequiredOverlay.addEventListener("click",(ev)=>{
           if(ev.target===el.missionRequiredOverlay) hideMissionRequired();
+        });
+      }
+      if(el.exportLeaveCancel){
+        el.exportLeaveCancel.addEventListener("click",()=>hideExportLeaveOverlay());
+      }
+      if(el.exportLeaveConfirm){
+        el.exportLeaveConfirm.addEventListener("click",()=>confirmLeaveWithExportGuard());
+      }
+      if(el.exportLeaveOverlay){
+        el.exportLeaveOverlay.addEventListener("click",(ev)=>{
+          if(ev.target===el.exportLeaveOverlay) hideExportLeaveOverlay();
         });
       }
       if(el.noMotorOk){
@@ -7317,6 +9033,9 @@
           ]);
           downloadBlobAsFile(new Blob([zipBytes], {type:"application/zip"}), filenameZip);
 
+          reportExportedRevision = logDataRevision;
+          reportExportedOnce = true;
+          updateExportGuardUi();
           addLogLine(t("xlsxExportLog", {filename:filenameZip}), "INFO");
           showToast(t("xlsxExportToast"), "success");
         });
@@ -7398,10 +9117,10 @@
         if(el.gyroView) el.gyroView.classList.toggle("hidden", !isGyro);
         if(el.countdownView) el.countdownView.classList.toggle("hidden", !isCountdown);
         if(el.controlPanelView) el.controlPanelView.classList.toggle("hidden", !isControl);
-        if(el.countdownHeader) el.countdownHeader.classList.toggle("hidden", isCountdown || isDashboard);
+        if(el.countdownHeader) el.countdownHeader.classList.toggle("hidden", isCountdown);
         if(el.viewLabel){
-          if(isCountdown || isDashboard){
-            el.viewLabel.textContent = t(isCountdown ? "viewCountdownLabel" : "viewDashboardLabel");
+          if(isCountdown){
+            el.viewLabel.textContent = t("viewCountdownLabel");
             el.viewLabel.classList.remove("hidden");
           }else{
             el.viewLabel.classList.add("hidden");
@@ -7410,6 +9129,7 @@
         if(el.countdownLabel){
           let label = t("statusCountdown");
           if(isHome) label = t("viewHomeLabel");
+          else if(isDashboard) label = t("viewDashboardLabel");
           else if(isHardware) label = t("viewHardwareLabel");
           else if(isTerminal) label = t("viewTerminalLabel");
           el.countdownLabel.textContent = label;
@@ -7419,6 +9139,7 @@
         if(isHome) updateHomeUI();
         if(isDashboard){
           syncChartHeightToControls(0);
+          setTimeout(refreshStatusMapSize, 60);
         }
       };
       const activateNavItem = (title)=>{
@@ -7469,6 +9190,7 @@
         });
         window.addEventListener("resize", ()=>{
           resizeGyroGl();
+          refreshStatusMapSize();
         });
         const active = Array.from(sideNavItems).find(item=>item.classList.contains("active"));
         setActiveView(active ? (active.dataset.pageTitle || active.textContent.trim()) : "Dashboard");
@@ -7696,6 +9418,9 @@
             if(cb) cb();
             updateExportButtonState();
             const missionLabel = (selectedMotorName || (el.missionName && el.missionName.value) || "").trim() || "CUSTOM";
+            reportExportedRevision = 0;
+            reportExportedOnce = false;
+            updateExportGuardUi();
             showToast("미션 지정: " + missionLabel, "success", {key:"mission-set"});
             return;
           }
@@ -7772,7 +9497,7 @@
           }
           const weight = parseFloat(el.loadcellWeightInput ? el.loadcellWeightInput.value : "");
           if(!isFinite(weight) || weight <= 0){
-            showToast(t("loadcellWeightInvalidToast"), "warn");
+            showToast(t("loadcellWeightInvalidToast"), "notice");
             return;
           }
           pendingLoadcellWeight = weight;
@@ -7789,7 +9514,7 @@
           }
           const weight = (pendingLoadcellWeight != null) ? pendingLoadcellWeight : parseFloat(el.loadcellWeightInput ? el.loadcellWeightInput.value : "");
           if(!isFinite(weight) || weight <= 0){
-            showToast(t("loadcellWeightInvalidToast"), "warn");
+            showToast(t("loadcellWeightInvalidToast"), "notice");
             return;
           }
           saveLoadcellCalibration(weight);
@@ -7816,7 +9541,7 @@
         applySettingsToUI();
         await sendCommand({http:"/set?ign_ms="+(ignSec*1000), ser:"IGNMS "+(ignSec*1000)}, false);
         if(before !== uiSettings.ignDurationSec){
-          showToast(t("ignTimeChangedToast", {from:before, to:uiSettings.ignDurationSec, safety:safetyLineSuffix()}),"warn");
+          showToast(t("ignTimeChangedToast", {from:before, to:uiSettings.ignDurationSec, safety:safetyLineSuffix()}),"notice");
         }
         addLogLine(t("settingsUpdatedLog", {unit:uiSettings.thrustUnit, ign:uiSettings.ignDurationSec, cd:uiSettings.countdownSec}), "CFG");
       };
@@ -7831,7 +9556,7 @@
         applySettingsToUI();
         await sendCommand({http:"/set?cd_ms="+(cdSec*1000),  ser:"CDMS "+(cdSec*1000)}, false);
         if(before !== uiSettings.countdownSec){
-          showToast(t("countdownChangedToast", {from:before, to:uiSettings.countdownSec, safety:safetyLineSuffix()}),"warn");
+          showToast(t("countdownChangedToast", {from:before, to:uiSettings.countdownSec, safety:safetyLineSuffix()}),"notice");
         }
         addLogLine(t("settingsUpdatedLog", {unit:uiSettings.thrustUnit, ign:uiSettings.ignDurationSec, cd:uiSettings.countdownSec}), "CFG");
       };
@@ -7996,7 +9721,11 @@
         const ro = new ResizeObserver(()=>{ scheduleChartLayoutRefresh(); });
         ro.observe(controlsCard);
       }
-      window.addEventListener("resize",()=>{ refreshChartLayout(); });
+      window.addEventListener("beforeunload", handleBeforeUnload);
+      window.addEventListener("resize",()=>{
+        refreshChartLayout();
+        refreshStatusMapSize();
+      });
       syncChartHeightToControls(0);
       setTimeout(()=>syncChartHeightToControls(1), 180);
       if(document.fonts && document.fonts.ready){
