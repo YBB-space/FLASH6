@@ -166,6 +166,63 @@
     const CHART_WINDOW_MS_MAX = 120000;
     const RAD_TO_DEG = 57.2957795;
     const DEG_TO_RAD = 0.0174532925;
+    const GYRO_TRAIL_MAX_POINTS = 6000;
+    const GYRO_TRAIL_BASE_METERS_PER_UNIT_XZ = 4.2;
+    const GYRO_TRAIL_BASE_METERS_PER_UNIT_Y = 1.6;
+    const GYRO_TRAIL_HALF_SPAN_XZ = 2.2;
+    const GYRO_TRAIL_HALF_SPAN_Y = 3.2;
+    const GYRO_TRAIL_ZOOM_OUT_SMOOTH = 0.11;
+    const GYRO_TRAIL_ZOOM_IN_SMOOTH = 0.025;
+    const GYRO_WORLD_ALTITUDE_BASE = 0.23;
+    const GYRO_FOV_DEG = 44;
+    const GYRO_CAMERA_DEFAULT = Object.freeze({yawDeg:42, pitchDeg:24, distance:1});
+    const GYRO_CAMERA_MIN_DISTANCE = 2.3;
+    const GYRO_CAMERA_MAX_DISTANCE = 30;
+    const GYRO_CAMERA_TARGET_SMOOTH = 0.16;
+    const GYRO_CAMERA_DISTANCE_SMOOTH = 0.12;
+    const GYRO_CAMERA_PAN_LIMIT = 9.5;
+    const GYRO_PREVIEW_TRACK_TARGET_X = 0.52;
+    const GYRO_PREVIEW_TRACK_TARGET_Y = 0.34;
+    const GYRO_PREVIEW_TRACK_SMOOTH = 0.26;
+    const GYRO_PREVIEW_TRACK_DEADBAND = 0.018;
+    const GYRO_PREVIEW_TRACK_MAX_SHIFT_RATIO = 0.92;
+    const GYRO_GRID_MIN_SPAN = 10.5;
+    const GYRO_GRID_MAX_SPAN = 140;
+    const GYRO_ROCKET_SCALE = 0.36;
+    const GYRO_ROCKET_STL_PATH = "img/Gyro_model_rocket.stl";
+    const GYRO_ROCKET_STL_TARGET_LENGTH = 1.56;
+    const GYRO_ROCKET_STL_Y_OFFSET = 0.16;
+    const GYRO_ROCKET_STL_COLOR = [0.79,0.84,0.93,1];
+    const GYRO_ROCKET_RENDER_PITCH_UPRIGHT_DEG = 90;
+    const GYRO_TRAIL_FILTER_ALPHA = 0.16;
+    const GYRO_TRAIL_FILTER_ALPHA_ALT = 0.22;
+    const GYRO_TRAIL_MIN_STEP_M = 0.45;
+    const GYRO_TRAIL_MIN_STEP_M_IMU = 0.035;
+    const GYRO_TRAIL_IDLE_HOLD_MS = 700;
+    const GYRO_TRAIL_IDLE_HOLD_MS_IMU = 240;
+    const GYRO_TRAIL_IDLE_DRIFT_M = 0.16;
+    const GYRO_TRAIL_IDLE_DRIFT_M_IMU = 0.02;
+    const GYRO_TRAIL_JUMP_REJECT_M = 48;
+    const GYRO_TRAIL_JUMP_REJECT_M_IMU = 12;
+    const GYRO_TRAIL_JUMP_REJECT_MS = 1200;
+    const GYRO_TRAIL_JUMP_REJECT_MS_IMU = 600;
+    const GYRO_ALTITUDE_DEADBAND_M = 0.05;
+    const GYRO_ATTITUDE_ACCEL_BLEND = 0.08;
+    const GYRO_ATTITUDE_ACCEL_BLEND_SIM = 0.12;
+    const GYRO_ATTITUDE_ACCEL_UNTRUSTED_ERR_G = 0.28;
+    const GYRO_ATTITUDE_RATE_UNTRUSTED_DPS = 220;
+    const GYRO_IMU_MAX_DT_SEC = 0.18;
+    const GYRO_IMU_GRAVITY_MPS2 = 9.80665;
+    const GYRO_IMU_ACCEL_FILTER_ALPHA = 0.26;
+    const GYRO_IMU_ACCEL_DEADBAND_G = 0.018;
+    const GYRO_IMU_ACCEL_CLAMP_G = 1.6;
+    const GYRO_IMU_ACTIVE_ACCEL_MPS2 = 0.38;
+    const GYRO_IMU_DRAG_ACTIVE = 0.85;
+    const GYRO_IMU_DRAG_IDLE = 3.8;
+    const GYRO_IMU_VEL_EPS_MPS = 0.015;
+    const GYRO_IMU_RANGE_LIMIT_M = 260;
+    const GYRO_IMU_ALT_MIN_M = -60;
+    const GYRO_IMU_ALT_MAX_M = 420;
 
     // ✅ 너무 빡센 폴링(30ms)은 ESP 쪽 응답 흔들림(간헐 타임아웃/큐 적체)을 만들 수 있어서 완화
     const POLL_INTERVAL      = 80;
@@ -186,10 +243,74 @@
     let rxWindowCount = 0;
     let rxHzWindow = 0;
     let gyroLastUiMs = 0;
+    let gyroAttitudeLastMs = 0;
+    let gyroAttitudeReady = false;
     let gyroYawDeg = 0;
     let gyroPitchDeg = 0;
     let gyroRollDeg = 0;
     let gyroGl = null;
+    let gyroRocketMeshPromise = null;
+    let gyroViewportBindingsReady = false;
+    let statusMapViewportBindingsReady = false;
+    const gyroCameraState = {
+      yawDeg: GYRO_CAMERA_DEFAULT.yawDeg,
+      pitchDeg: GYRO_CAMERA_DEFAULT.pitchDeg,
+      distance: GYRO_CAMERA_DEFAULT.distance,
+      desiredDistance: GYRO_CAMERA_DEFAULT.distance,
+      panX: 0,
+      panY: 0,
+      panZ: 0,
+      targetX: 0,
+      targetY: GYRO_WORLD_ALTITUDE_BASE,
+      targetZ: 0,
+      previewRocketX: 0.5,
+      previewRocketY: 0.5,
+      previewRocketValid: false,
+      previewSmoothX: 0.5,
+      previewSmoothY: 0.5,
+      drag: null
+    };
+    const gyroViewportPortalState = {
+      homeParent: null,
+      homeNextSibling: null,
+      mountedToBody: false
+    };
+    const statusMapViewportPortalState = {
+      homeParent: null,
+      homeNextSibling: null,
+      mountedToBody: false
+    };
+    let gyroPathState = {
+      originLat: null,
+      originLon: null,
+      originAlt: null,
+      source: "none",
+      gpsOffsetX: 0,
+      gpsOffsetY: 0,
+      gpsOffsetZ: 0,
+      points: [],
+      lastFixMs: 0,
+      renderScaleXZ: GYRO_TRAIL_BASE_METERS_PER_UNIT_XZ,
+      renderScaleY: GYRO_TRAIL_BASE_METERS_PER_UNIT_Y,
+      smoothPath: [],
+      filteredX: null,
+      filteredY: null,
+      filteredZ: null,
+      imuLastMs: 0,
+      imuPosX: 0,
+      imuPosY: 0,
+      imuPosZ: 0,
+      imuVelX: 0,
+      imuVelY: 0,
+      imuVelZ: 0,
+      imuFiltX: 0,
+      imuFiltY: 0,
+      imuFiltZ: 0,
+      imuFiltReady: false,
+      altOffsetY: 0,
+      altAnchorX: 0,
+      altAnchorZ: 0
+    };
     const DATA_SOURCE_LIVE = "live";
     const DATA_SOURCE_REPLAY = "replay";
     let activeDataSource = DATA_SOURCE_LIVE;
@@ -280,188 +401,932 @@
     function mat4Mul(a,b){
       const o = new Array(16);
       for(let i=0;i<4;i++){
-        const ai0=a[i], ai1=a[i+4], ai2=a[i+8], ai3=a[i+12];
-        o[i]   = ai0*b[0] + ai1*b[1] + ai2*b[2] + ai3*b[3];
-        o[i+4] = ai0*b[4] + ai1*b[5] + ai2*b[6] + ai3*b[7];
-        o[i+8] = ai0*b[8] + ai1*b[9] + ai2*b[10]+ ai3*b[11];
-        o[i+12]= ai0*b[12]+ ai1*b[13]+ ai2*b[14]+ ai3*b[15];
+        const ai0 = a[i];
+        const ai1 = a[i+4];
+        const ai2 = a[i+8];
+        const ai3 = a[i+12];
+        o[i]    = ai0*b[0]  + ai1*b[1]  + ai2*b[2]  + ai3*b[3];
+        o[i+4]  = ai0*b[4]  + ai1*b[5]  + ai2*b[6]  + ai3*b[7];
+        o[i+8]  = ai0*b[8]  + ai1*b[9]  + ai2*b[10] + ai3*b[11];
+        o[i+12] = ai0*b[12] + ai1*b[13] + ai2*b[14] + ai3*b[15];
       }
       return o;
     }
     function mat4Perspective(fov, aspect, near, far){
-      const f = 1 / Math.tan(fov/2);
+      const f = 1 / Math.tan(fov / 2);
       const nf = 1 / (near - far);
       return [
-        f/aspect,0,0,0,
+        f / aspect,0,0,0,
         0,f,0,0,
-        0,0,(far+near)*nf,-1,
-        0,0,(2*far*near)*nf,0
+        0,0,(far + near) * nf,-1,
+        0,0,(2 * far * near) * nf,0
       ];
     }
     function mat4LookAt(eye, center, up){
-      const zx = eye[0]-center[0];
-      const zy = eye[1]-center[1];
-      const zz = eye[2]-center[2];
-      let zlen = Math.hypot(zx, zy, zz) || 1;
-      const z0 = zx/zlen, z1 = zy/zlen, z2 = zz/zlen;
-      const xx = up[1]*z2 - up[2]*z1;
-      const xy = up[2]*z0 - up[0]*z2;
-      const xz = up[0]*z1 - up[1]*z0;
-      let xlen = Math.hypot(xx, xy, xz) || 1;
-      const x0 = xx/xlen, x1 = xy/xlen, x2 = xz/xlen;
-      const y0 = z1*x2 - z2*x1;
-      const y1 = z2*x0 - z0*x2;
-      const y2 = z0*x1 - z1*x0;
+      const zx = eye[0] - center[0];
+      const zy = eye[1] - center[1];
+      const zz = eye[2] - center[2];
+      let zLen = Math.hypot(zx, zy, zz) || 1;
+      const z0 = zx / zLen;
+      const z1 = zy / zLen;
+      const z2 = zz / zLen;
+      const xx = (up[1] * z2) - (up[2] * z1);
+      const xy = (up[2] * z0) - (up[0] * z2);
+      const xz = (up[0] * z1) - (up[1] * z0);
+      let xLen = Math.hypot(xx, xy, xz) || 1;
+      const x0 = xx / xLen;
+      const x1 = xy / xLen;
+      const x2 = xz / xLen;
+      const y0 = (z1 * x2) - (z2 * x1);
+      const y1 = (z2 * x0) - (z0 * x2);
+      const y2 = (z0 * x1) - (z1 * x0);
       return [
         x0,y0,z0,0,
         x1,y1,z1,0,
         x2,y2,z2,0,
-        -(x0*eye[0]+x1*eye[1]+x2*eye[2]),
-        -(y0*eye[0]+y1*eye[1]+y2*eye[2]),
-        -(z0*eye[0]+z1*eye[1]+z2*eye[2]),
+        -((x0 * eye[0]) + (x1 * eye[1]) + (x2 * eye[2])),
+        -((y0 * eye[0]) + (y1 * eye[1]) + (y2 * eye[2])),
+        -((z0 * eye[0]) + (z1 * eye[1]) + (z2 * eye[2])),
         1
       ];
     }
     function mat4RotateX(a){
-      const c = Math.cos(a), s = Math.sin(a);
-      return [1,0,0,0, 0,c,s,0, 0,-s,c,0, 0,0,0,1];
+      const c = Math.cos(a);
+      const s = Math.sin(a);
+      return [1,0,0,0,
+              0,c,s,0,
+              0,-s,c,0,
+              0,0,0,1];
     }
     function mat4RotateY(a){
-      const c = Math.cos(a), s = Math.sin(a);
-      return [c,0,-s,0, 0,1,0,0, s,0,c,0, 0,0,0,1];
+      const c = Math.cos(a);
+      const s = Math.sin(a);
+      return [c,0,-s,0,
+              0,1,0,0,
+              s,0,c,0,
+              0,0,0,1];
     }
     function mat4RotateZ(a){
-      const c = Math.cos(a), s = Math.sin(a);
-      return [c,s,0,0, -s,c,0,0, 0,0,1,0, 0,0,0,1];
+      const c = Math.cos(a);
+      const s = Math.sin(a);
+      return [c,s,0,0,
+              -s,c,0,0,
+              0,0,1,0,
+              0,0,0,1];
+    }
+    function mat4Translate(tx, ty, tz){
+      return [1,0,0,0,
+              0,1,0,0,
+              0,0,1,0,
+              tx,ty,tz,1];
+    }
+    function mat4Scale(sx, sy, sz){
+      return [sx,0,0,0,
+              0,sy,0,0,
+              0,0,sz,0,
+              0,0,0,1];
+    }
+    function mat4TransformVec4(m, x, y, z, w){
+      return [
+        (m[0] * x) + (m[4] * y) + (m[8] * z) + (m[12] * w),
+        (m[1] * x) + (m[5] * y) + (m[9] * z) + (m[13] * w),
+        (m[2] * x) + (m[6] * y) + (m[10] * z) + (m[14] * w),
+        (m[3] * x) + (m[7] * y) + (m[11] * z) + (m[15] * w)
+      ];
+    }
+    function vec3Sub(a, b){
+      return [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+    }
+    function vec3Scale(v, s){
+      return [v[0] * s, v[1] * s, v[2] * s];
+    }
+    function vec3Cross(a, b){
+      return [
+        (a[1] * b[2]) - (a[2] * b[1]),
+        (a[2] * b[0]) - (a[0] * b[2]),
+        (a[0] * b[1]) - (a[1] * b[0])
+      ];
+    }
+    function vec3Length(v){
+      return Math.hypot(v[0], v[1], v[2]);
+    }
+    function vec3Normalize(v){
+      const len = vec3Length(v) || 1;
+      return [v[0] / len, v[1] / len, v[2] / len];
+    }
+    function clampLocal(value, min, max){
+      return Math.max(min, Math.min(max, value));
+    }
+    function normalizeAngleDeg(angle){
+      if(!isFinite(angle)) return 0;
+      let wrapped = angle % 360;
+      if(wrapped <= -180) wrapped += 360;
+      if(wrapped > 180) wrapped -= 360;
+      return wrapped;
+    }
+    function angleDeltaDeg(fromDeg, toDeg){
+      return normalizeAngleDeg(toDeg - fromDeg);
+    }
+    function lerpAngleDeg(fromDeg, toDeg, alpha){
+      const a = clampLocal(isFinite(alpha) ? alpha : 0, 0, 1);
+      return normalizeAngleDeg(fromDeg + (angleDeltaDeg(fromDeg, toDeg) * a));
+    }
+    function triNormal(a, b, c){
+      return vec3Normalize(vec3Cross(vec3Sub(b, a), vec3Sub(c, a)));
+    }
+    function gyroRenderPitchDeg(pitchDeg){
+      const p = isFinite(pitchDeg) ? Number(pitchDeg) : 0;
+      return GYRO_ROCKET_RENDER_PITCH_UPRIGHT_DEG - p;
+    }
+    function compileGyroShader(gl, type, src){
+      const sh = gl.createShader(type);
+      gl.shaderSource(sh, src);
+      gl.compileShader(sh);
+      if(!gl.getShaderParameter(sh, gl.COMPILE_STATUS)){
+        const msg = gl.getShaderInfoLog(sh) || "gyro shader compile failed";
+        gl.deleteShader(sh);
+        throw new Error(msg);
+      }
+      return sh;
+    }
+    function createGyroProgram(gl, vsSrc, fsSrc){
+      const vs = compileGyroShader(gl, gl.VERTEX_SHADER, vsSrc);
+      const fs = compileGyroShader(gl, gl.FRAGMENT_SHADER, fsSrc);
+      const prog = gl.createProgram();
+      gl.attachShader(prog, vs);
+      gl.attachShader(prog, fs);
+      gl.linkProgram(prog);
+      gl.deleteShader(vs);
+      gl.deleteShader(fs);
+      if(!gl.getProgramParameter(prog, gl.LINK_STATUS)){
+        const msg = gl.getProgramInfoLog(prog) || "gyro program link failed";
+        gl.deleteProgram(prog);
+        throw new Error(msg);
+      }
+      return prog;
+    }
+    function createGyroArrayBuffer(gl, data, usage){
+      const buf = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), usage || gl.STATIC_DRAW);
+      return buf;
+    }
+    function pushGyroLine(lineData, x1, y1, z1, x2, y2, z2, r, g, b, a){
+      lineData.pos.push(x1,y1,z1, x2,y2,z2);
+      lineData.col.push(r,g,b,a, r,g,b,a);
+    }
+    function pushSolidTri(mesh, a, b, c, color, na, nb, nc){
+      const faceN = triNormal(a, b, c);
+      const n0 = na || faceN;
+      const n1 = nb || faceN;
+      const n2 = nc || faceN;
+      mesh.pos.push(a[0],a[1],a[2], b[0],b[1],b[2], c[0],c[1],c[2]);
+      mesh.norm.push(n0[0],n0[1],n0[2], n1[0],n1[1],n1[2], n2[0],n2[1],n2[2]);
+      mesh.col.push(color[0],color[1],color[2],color[3],
+                    color[0],color[1],color[2],color[3],
+                    color[0],color[1],color[2],color[3]);
+      mesh.count += 3;
+    }
+    function pushSolidQuad(mesh, a, b, c, d, color, na, nb, nc, nd){
+      pushSolidTri(mesh, a, b, c, color, na, nb, nc);
+      pushSolidTri(mesh, a, c, d, color, na, nc, nd);
     }
 
-    function buildGyroGeometry(){
-      const pos = [];
-      const col = [];
-      const addLine = (x1,y1,z1,x2,y2,z2,r,g,b)=>{
-        pos.push(x1,y1,z1,x2,y2,z2);
-        for(let i=0;i<2;i++){ col.push(r,g,b,1); }
+    function buildGyroLineGeometry(){
+      const data = {pos:[], col:[]};
+      const sections = {};
+
+      sections.gridStart = 0;
+      const div = 48;
+      for(let i=0;i<=div;i++){
+        const u = -1 + ((2 * i) / div);
+        const major = (i % 6) === 0;
+        const c = major ? [0.56,0.65,0.8,0.46] : [0.42,0.5,0.64,0.24];
+        pushGyroLine(data, -1,0,u, 1,0,u, c[0],c[1],c[2],c[3]);
+        pushGyroLine(data, u,0,-1, u,0,1, c[0],c[1],c[2],c[3]);
+      }
+      sections.gridCount = (data.pos.length / 3) - sections.gridStart;
+
+      sections.axisStart = data.pos.length / 3;
+      const axisLen = 1.45;
+      const axisTail = 0.9;
+      const arrow = 0.13;
+      pushGyroLine(data, -axisTail,0,0, axisLen,0,0, 0.95,0.37,0.35,0.95);
+      pushGyroLine(data, 0,-axisTail,0, 0,axisLen,0, 0.23,0.84,0.48,0.95);
+      pushGyroLine(data, 0,0,-axisTail, 0,0,axisLen, 0.26,0.66,0.98,0.95);
+      pushGyroLine(data, axisLen,0,0, axisLen-arrow, arrow*0.55,0, 0.95,0.37,0.35,0.95);
+      pushGyroLine(data, axisLen,0,0, axisLen-arrow,-arrow*0.55,0, 0.95,0.37,0.35,0.95);
+      pushGyroLine(data, 0,axisLen,0, arrow*0.55,axisLen-arrow,0, 0.23,0.84,0.48,0.95);
+      pushGyroLine(data, 0,axisLen,0,-arrow*0.55,axisLen-arrow,0, 0.23,0.84,0.48,0.95);
+      pushGyroLine(data, 0,0,axisLen, 0,arrow*0.55,axisLen-arrow, 0.26,0.66,0.98,0.95);
+      pushGyroLine(data, 0,0,axisLen, 0,-arrow*0.55,axisLen-arrow, 0.26,0.66,0.98,0.95);
+      sections.axisCount = (data.pos.length / 3) - sections.axisStart;
+
+      sections.bodyStart = data.pos.length / 3;
+      const bodyAxisLen = 0.88;
+      pushGyroLine(data, 0,0,0, bodyAxisLen,0,0, 0.98,0.28,0.22,0.98);
+      pushGyroLine(data, 0,0,0, 0,bodyAxisLen,0, 0.13,0.86,0.42,0.98);
+      pushGyroLine(data, 0,0,0, 0,0,bodyAxisLen, 0.25,0.58,1,0.98);
+      // Heading cue on body
+      pushGyroLine(data, 0.04,0.36,0, 0.34,0.36,0, 1,0.82,0.22,0.96);
+      pushGyroLine(data, 0.34,0.36,0, 0.27,0.41,0, 1,0.82,0.22,0.96);
+      pushGyroLine(data, 0.34,0.36,0, 0.27,0.31,0, 1,0.82,0.22,0.96);
+      sections.bodyCount = (data.pos.length / 3) - sections.bodyStart;
+
+      return {pos:data.pos, col:data.col, sections};
+    }
+
+    function buildGyroSolidGeometry(){
+      const floor = {pos:[], norm:[], col:[], count:0};
+      const rocket = {pos:[], norm:[], col:[], count:0};
+
+      const floorN = [0,1,0];
+      pushSolidQuad(floor,
+        [-1,0,-1],[1,0,-1],[1,0,1],[-1,0,1],
+        [0.2,0.28,0.4,0.9],
+        floorN,floorN,floorN,floorN
+      );
+
+      const seg = 24;
+      const bodyRadius = 0.16;
+      const bodyBottomY = -0.62;
+      const bodyTopY = 0.48;
+      const bodyCol = [0.75,0.8,0.9,1];
+      for(let i=0;i<seg;i++){
+        const a0 = (i / seg) * Math.PI * 2;
+        const a1 = ((i + 1) / seg) * Math.PI * 2;
+        const c0 = Math.cos(a0), s0 = Math.sin(a0);
+        const c1 = Math.cos(a1), s1 = Math.sin(a1);
+        const p0 = [c0 * bodyRadius, bodyBottomY, s0 * bodyRadius];
+        const p1 = [c1 * bodyRadius, bodyBottomY, s1 * bodyRadius];
+        const p2 = [c1 * bodyRadius, bodyTopY,    s1 * bodyRadius];
+        const p3 = [c0 * bodyRadius, bodyTopY,    s0 * bodyRadius];
+        const n0 = [c0,0,s0];
+        const n1 = [c1,0,s1];
+        pushSolidTri(rocket, p0, p1, p2, bodyCol, n0, n1, n1);
+        pushSolidTri(rocket, p0, p2, p3, bodyCol, n0, n1, n0);
+      }
+
+      const baseCenter = [0,bodyBottomY,0];
+      const baseCol = [0.28,0.34,0.45,1];
+      for(let i=0;i<seg;i++){
+        const a0 = (i / seg) * Math.PI * 2;
+        const a1 = ((i + 1) / seg) * Math.PI * 2;
+        const p0 = [Math.cos(a0) * bodyRadius, bodyBottomY, Math.sin(a0) * bodyRadius];
+        const p1 = [Math.cos(a1) * bodyRadius, bodyBottomY, Math.sin(a1) * bodyRadius];
+        const n = [0,-1,0];
+        pushSolidTri(rocket, baseCenter, p1, p0, baseCol, n, n, n);
+      }
+
+      const noseBaseY = bodyTopY;
+      const noseTipY = 0.94;
+      const noseRadius = 0.13;
+      const noseCol = [0.98,0.45,0.24,1];
+      for(let i=0;i<seg;i++){
+        const a0 = (i / seg) * Math.PI * 2;
+        const a1 = ((i + 1) / seg) * Math.PI * 2;
+        const p0 = [Math.cos(a0) * noseRadius, noseBaseY, Math.sin(a0) * noseRadius];
+        const p1 = [Math.cos(a1) * noseRadius, noseBaseY, Math.sin(a1) * noseRadius];
+        const tip = [0, noseTipY, 0];
+        const n = triNormal(p0, p1, tip);
+        pushSolidTri(rocket, p0, p1, tip, noseCol, n, n, n);
+      }
+
+      const bandBot = 0.28;
+      const bandTop = 0.34;
+      const bandR = bodyRadius * 1.04;
+      const bandCol = [0.2,0.26,0.36,1];
+      for(let i=0;i<seg;i++){
+        const a0 = (i / seg) * Math.PI * 2;
+        const a1 = ((i + 1) / seg) * Math.PI * 2;
+        const c0 = Math.cos(a0), s0 = Math.sin(a0);
+        const c1 = Math.cos(a1), s1 = Math.sin(a1);
+        const p0 = [c0 * bandR, bandBot, s0 * bandR];
+        const p1 = [c1 * bandR, bandBot, s1 * bandR];
+        const p2 = [c1 * bandR, bandTop, s1 * bandR];
+        const p3 = [c0 * bandR, bandTop, s0 * bandR];
+        const n0 = [c0,0,s0];
+        const n1 = [c1,0,s1];
+        pushSolidTri(rocket, p0, p1, p2, bandCol, n0, n1, n1);
+        pushSolidTri(rocket, p0, p2, p3, bandCol, n0, n1, n0);
+      }
+
+      const finCol = [0.24,0.43,0.78,1];
+      const finRootTopY = bodyBottomY + 0.17;
+      const finRootBottomY = bodyBottomY + 0.01;
+      const finSpan = 0.25;
+      const finRearY = bodyBottomY - 0.16;
+      const dirs = [[1,0],[0,1],[-1,0],[0,-1]];
+      for(let i=0;i<dirs.length;i++){
+        const dx = dirs[i][0];
+        const dz = dirs[i][1];
+        const rootTop = [dx * bodyRadius * 0.97, finRootTopY, dz * bodyRadius * 0.97];
+        const rootBottom = [dx * bodyRadius * 0.97, finRootBottomY, dz * bodyRadius * 0.97];
+        const tip = [dx * (bodyRadius + finSpan), bodyBottomY - 0.08, dz * (bodyRadius + finSpan)];
+        const rear = [dx * (bodyRadius + finSpan * 0.64), finRearY, dz * (bodyRadius + finSpan * 0.64)];
+        const sideN = vec3Normalize([dx,0,dz]);
+        const backN = vec3Scale(sideN, -1);
+        pushSolidTri(rocket, rootTop, tip, rootBottom, finCol, sideN, sideN, sideN);
+        pushSolidTri(rocket, rootBottom, tip, rear, finCol, sideN, sideN, sideN);
+        pushSolidTri(rocket, rootTop, rootBottom, tip, finCol, backN, backN, backN);
+        pushSolidTri(rocket, rootBottom, rear, tip, finCol, backN, backN, backN);
+      }
+
+      const markerCol = [1,0.84,0.26,1];
+      pushSolidTri(rocket,
+        [bodyRadius * 0.96, 0.44, 0],
+        [bodyRadius + 0.22, 0.38, 0.03],
+        [bodyRadius + 0.22, 0.38, -0.03],
+        markerCol
+      );
+      pushSolidTri(rocket,
+        [bodyRadius * 0.96, 0.3, 0],
+        [bodyRadius + 0.17, 0.24, 0.03],
+        [bodyRadius + 0.17, 0.24, -0.03],
+        markerCol
+      );
+
+      return {floor, rocket};
+    }
+
+    function parseGyroBinaryStlMesh(arrayBuffer){
+      const view = new DataView(arrayBuffer);
+      if(view.byteLength < 84) throw new Error("STL too small");
+      const triCount = view.getUint32(80, true);
+      const expectedSize = 84 + (triCount * 50);
+      if(triCount <= 0 || expectedSize !== view.byteLength){
+        throw new Error("Unsupported STL layout");
+      }
+
+      let minX = Infinity, minY = Infinity, minZ = Infinity;
+      let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+      let offset = 84;
+      for(let i=0;i<triCount;i++){
+        offset += 12;
+        for(let v=0;v<3;v++){
+          const x = view.getFloat32(offset, true);
+          const y = view.getFloat32(offset + 4, true);
+          const z = view.getFloat32(offset + 8, true);
+          if(x < minX) minX = x;
+          if(y < minY) minY = y;
+          if(z < minZ) minZ = z;
+          if(x > maxX) maxX = x;
+          if(y > maxY) maxY = y;
+          if(z > maxZ) maxZ = z;
+          offset += 12;
+        }
+        offset += 2;
+      }
+
+      const spanX = maxX - minX;
+      const spanY = maxY - minY;
+      const spanZ = maxZ - minZ;
+      const maxSpan = Math.max(spanX, spanY, spanZ);
+      if(!(maxSpan > 0.00001)) throw new Error("Invalid STL bounds");
+
+      const cx = (minX + maxX) * 0.5;
+      const cy = (minY + maxY) * 0.5;
+      const cz = (minZ + maxZ) * 0.5;
+      const scale = GYRO_ROCKET_STL_TARGET_LENGTH / maxSpan;
+      const color = GYRO_ROCKET_STL_COLOR;
+
+      const mesh = {pos:[], norm:[], col:[], count:0};
+      const rotatePos = (x, y, z)=>{
+        const lx = (x - cx) * scale;
+        const ly = (y - cy) * scale;
+        const lz = (z - cz) * scale;
+        return [lx, lz + GYRO_ROCKET_STL_Y_OFFSET, -ly];
+      };
+      const rotateNorm = (x, y, z)=>{
+        const n = vec3Normalize([x, z, -y]);
+        return n;
       };
 
-      const dashColor = [0.6,0.6,0.6];
+      offset = 84;
+      for(let i=0;i<triCount;i++){
+        const nxRaw = view.getFloat32(offset, true);
+        const nyRaw = view.getFloat32(offset + 4, true);
+        const nzRaw = view.getFloat32(offset + 8, true);
+        offset += 12;
 
-      addLine(0,0,0, 0.9,0,0, ...dashColor);
-      addLine(0,0,0, 0,0.9,0, ...dashColor);
-      addLine(0,0,0, 0,0,0.9, ...dashColor);
+        const v0 = rotatePos(
+          view.getFloat32(offset, true),
+          view.getFloat32(offset + 4, true),
+          view.getFloat32(offset + 8, true)
+        );
+        offset += 12;
+        const v1 = rotatePos(
+          view.getFloat32(offset, true),
+          view.getFloat32(offset + 4, true),
+          view.getFloat32(offset + 8, true)
+        );
+        offset += 12;
+        const v2 = rotatePos(
+          view.getFloat32(offset, true),
+          view.getFloat32(offset + 4, true),
+          view.getFloat32(offset + 8, true)
+        );
+        offset += 12;
+        offset += 2;
 
-      const gridCount = pos.length / 3;
+        const fileNormalLen = Math.hypot(nxRaw, nyRaw, nzRaw);
+        const n = (fileNormalLen > 0.00001)
+          ? rotateNorm(nxRaw, nyRaw, nzRaw)
+          : triNormal(v0, v1, v2);
 
-      const radius = 0.2;
-      const height = 1.0;
-      const seg = 14;
-      for(let i=0;i<seg;i++){
-        const a0 = (i/seg) * Math.PI * 2;
-        const a1 = ((i+1)/seg) * Math.PI * 2;
-        const x0 = Math.cos(a0) * radius;
-        const z0 = Math.sin(a0) * radius;
-        const x1 = Math.cos(a1) * radius;
-        const z1 = Math.sin(a1) * radius;
-        addLine(x0,-height/2,z0, x0,height/2,z0, 0.3,0.3,0.35);
-        addLine(x0,height/2,z0, x1,height/2,z1, 0.4,0.4,0.45);
-        addLine(x0,-height/2,z0, x1,-height/2,z1, 0.4,0.4,0.45);
+        pushSolidTri(mesh, v0, v1, v2, color, n, n, n);
       }
 
-      const noseTop = [0, height/2 + 0.25, 0];
-      for(let i=0;i<seg;i++){
-        const a0 = (i/seg) * Math.PI * 2;
-        const x0 = Math.cos(a0) * radius * 0.9;
-        const z0 = Math.sin(a0) * radius * 0.9;
-        addLine(x0,height/2,z0, noseTop[0], noseTop[1], noseTop[2], 0.6,0.6,0.65);
+      return mesh;
+    }
+
+    function requestGyroRocketMeshFromStl(){
+      if(gyroRocketMeshPromise) return gyroRocketMeshPromise;
+      const src = new URL(GYRO_ROCKET_STL_PATH, window.location.href).href;
+      gyroRocketMeshPromise = fetch(src)
+        .then((res)=>{
+          if(!res.ok) throw new Error("STL fetch failed: " + res.status);
+          return res.arrayBuffer();
+        })
+        .then((buf)=> parseGyroBinaryStlMesh(buf))
+        .catch((err)=>{
+          console.warn("[gyro] STL rocket load failed:", err);
+          return null;
+        });
+      return gyroRocketMeshPromise;
+    }
+
+    function applyGyroRocketMeshToGl(mesh){
+      if(!gyroGl || !gyroGl.gl || !gyroGl.solid || !mesh || !mesh.count) return false;
+      const gl = gyroGl.gl;
+      const solid = gyroGl.solid;
+      const prevPos = solid.rocketPosBuf;
+      const prevNorm = solid.rocketNormBuf;
+      const prevCol = solid.rocketColBuf;
+      solid.rocketPosBuf = createGyroArrayBuffer(gl, mesh.pos, gl.STATIC_DRAW);
+      solid.rocketNormBuf = createGyroArrayBuffer(gl, mesh.norm, gl.STATIC_DRAW);
+      solid.rocketColBuf = createGyroArrayBuffer(gl, mesh.col, gl.STATIC_DRAW);
+      solid.rocketCount = mesh.count;
+      if(prevPos) gl.deleteBuffer(prevPos);
+      if(prevNorm) gl.deleteBuffer(prevNorm);
+      if(prevCol) gl.deleteBuffer(prevCol);
+      return true;
+    }
+
+    function isGyroViewportExpanded(){
+      return !!(el.gyro3dViewport && el.gyro3dViewport.classList.contains("is-expanded"));
+    }
+
+    function moveGyroViewportToBody(){
+      if(!el.gyro3dViewport || gyroViewportPortalState.mountedToBody) return;
+      const parent = el.gyro3dViewport.parentNode;
+      if(!parent) return;
+      gyroViewportPortalState.homeParent = parent;
+      gyroViewportPortalState.homeNextSibling = el.gyro3dViewport.nextSibling;
+      document.body.appendChild(el.gyro3dViewport);
+      gyroViewportPortalState.mountedToBody = true;
+    }
+
+    function restoreGyroViewportFromBody(){
+      if(!el.gyro3dViewport || !gyroViewportPortalState.mountedToBody) return;
+      const parent = gyroViewportPortalState.homeParent;
+      const nextSibling = gyroViewportPortalState.homeNextSibling;
+      if(parent){
+        if(nextSibling && nextSibling.parentNode === parent){
+          parent.insertBefore(el.gyro3dViewport, nextSibling);
+        }else{
+          parent.appendChild(el.gyro3dViewport);
+        }
       }
+      gyroViewportPortalState.homeParent = null;
+      gyroViewportPortalState.homeNextSibling = null;
+      gyroViewportPortalState.mountedToBody = false;
+    }
 
-      const finY = -height/2 + 0.05;
-      const finLen = 0.28;
-      addLine(radius, finY, 0, radius + finLen, finY + 0.12, 0, 0.12,0.35,0.85);
-      addLine(-radius, finY, 0, -radius - finLen, finY + 0.12, 0, 0.12,0.35,0.85);
-      addLine(0, finY, radius, 0, finY + 0.12, radius + finLen, 0.12,0.35,0.85);
-      addLine(0, finY, -radius, 0, finY + 0.12, -radius - finLen, 0.12,0.35,0.85);
+    function updateGyroExpandedViewportBounds(){
+      if(!el.gyro3dViewport || !isGyroViewportExpanded()) return;
+      const pageWrap = document.querySelector(".page-wrap");
+      const fallbackInset = window.innerWidth <= 900 ? 8 : 12;
+      let left = fallbackInset;
+      let top = fallbackInset;
+      let right = fallbackInset;
+      let bottom = fallbackInset;
+      if(pageWrap){
+        const rect = pageWrap.getBoundingClientRect();
+        if(rect.width > 32 && rect.height > 32){
+          left = Math.max(6, Math.round(rect.left + 6));
+          top = Math.max(6, Math.round(rect.top + 6));
+          right = Math.max(6, Math.round(window.innerWidth - rect.right + 6));
+          bottom = Math.max(6, Math.round(window.innerHeight - rect.bottom + 6));
+        }
+      }
+      el.gyro3dViewport.style.setProperty("--gyro3d-expand-left", left + "px");
+      el.gyro3dViewport.style.setProperty("--gyro3d-expand-top", top + "px");
+      el.gyro3dViewport.style.setProperty("--gyro3d-expand-right", right + "px");
+      el.gyro3dViewport.style.setProperty("--gyro3d-expand-bottom", bottom + "px");
 
-      addLine(0,0,0, 0.6,0,0, 0.93,0.27,0.27);
-      addLine(0,0,0, 0,0.6,0, 0.13,0.77,0.35);
-      addLine(0,0,0, 0,0,0.6, 0.23,0.51,0.96);
+      let hudLeft = window.innerWidth <= 900 ? 12 : 16;
+      if(window.innerWidth > 900){
+        const sideNavDesktop = document.querySelector(".side-nav-desktop");
+        if(sideNavDesktop){
+          const navRect = sideNavDesktop.getBoundingClientRect();
+          if(navRect.width > 20){
+            hudLeft = Math.max(hudLeft, Math.round(navRect.right + 10));
+          }
+        }
+      }
+      el.gyro3dViewport.style.setProperty("--gyro3d-hud-left", hudLeft + "px");
+    }
 
-      const bodyCount = pos.length / 3 - gridCount;
-      return {pos, col, gridCount, bodyCount};
+    function setGyroViewportExpanded(on){
+      if(!el.gyro3dViewport) return;
+      const next = !!on;
+      if(next && isStatusMapViewportExpanded()){
+        setStatusMapViewportExpanded(false);
+      }
+      if(next){
+        moveGyroViewportToBody();
+      }
+      el.gyro3dViewport.classList.toggle("is-expanded", next);
+      document.documentElement.classList.toggle("gyro3d-expanded", next);
+      if(next){
+        updateGyroExpandedViewportBounds();
+        syncGyroExpandedHud();
+      }else{
+        el.gyro3dViewport.style.removeProperty("--gyro3d-expand-left");
+        el.gyro3dViewport.style.removeProperty("--gyro3d-expand-top");
+        el.gyro3dViewport.style.removeProperty("--gyro3d-expand-right");
+        el.gyro3dViewport.style.removeProperty("--gyro3d-expand-bottom");
+        el.gyro3dViewport.style.removeProperty("--gyro3d-hud-left");
+        restoreGyroViewportFromBody();
+      }
+      if(!next){
+        gyroCameraState.drag = null;
+        setGyroViewportDragActive(false);
+      }
+      resizeGyroGl();
+    }
+
+    function setGyroViewportDragActive(on){
+      if(!el.gyro3dViewport) return;
+      el.gyro3dViewport.classList.toggle("is-dragging", !!on);
+    }
+
+    function resetGyroCameraPose(resetPan){
+      gyroCameraState.yawDeg = GYRO_CAMERA_DEFAULT.yawDeg;
+      gyroCameraState.pitchDeg = GYRO_CAMERA_DEFAULT.pitchDeg;
+      gyroCameraState.distance = GYRO_CAMERA_DEFAULT.distance;
+      gyroCameraState.desiredDistance = GYRO_CAMERA_DEFAULT.distance;
+      gyroCameraState.previewRocketX = 0.5;
+      gyroCameraState.previewRocketY = 0.5;
+      gyroCameraState.previewRocketValid = false;
+      gyroCameraState.previewSmoothX = 0.5;
+      gyroCameraState.previewSmoothY = 0.5;
+      if(resetPan){
+        gyroCameraState.panX = 0;
+        gyroCameraState.panY = 0;
+        gyroCameraState.panZ = 0;
+      }
+    }
+
+    function getGyroCameraBasis(){
+      const yawRad = gyroCameraState.yawDeg * DEG_TO_RAD;
+      const pitchRad = clampLocal(gyroCameraState.pitchDeg, -84, 84) * DEG_TO_RAD;
+      const cosPitch = Math.cos(pitchRad);
+      const orbitDir = [
+        Math.sin(yawRad) * cosPitch,
+        Math.sin(pitchRad),
+        Math.cos(yawRad) * cosPitch
+      ];
+      const forward = vec3Normalize(vec3Scale(orbitDir, -1));
+      let right = vec3Cross(forward, [0,1,0]);
+      if(vec3Length(right) < 0.0001) right = [1,0,0];
+      right = vec3Normalize(right);
+      const up = vec3Normalize(vec3Cross(right, forward));
+      return {orbitDir, forward, right, up};
+    }
+    function panGyroCameraByScreenDelta(dxPx, dyPx){
+      const basis = getGyroCameraBasis();
+      const pxToWorld = (gyroCameraState.distance * Math.tan((GYRO_FOV_DEG * DEG_TO_RAD) * 0.5) * 2) / Math.max(140, (gyroGl ? gyroGl.height : 240));
+      const sx = -dxPx * pxToWorld;
+      const sy = dyPx * pxToWorld;
+      gyroCameraState.panX += (basis.right[0] * sx) + (basis.up[0] * sy);
+      gyroCameraState.panY += (basis.right[1] * sx) + (basis.up[1] * sy);
+      gyroCameraState.panZ += (basis.right[2] * sx) + (basis.up[2] * sy);
+      const panLen = Math.hypot(gyroCameraState.panX, gyroCameraState.panY, gyroCameraState.panZ);
+      if(panLen > GYRO_CAMERA_PAN_LIMIT){
+        const ratio = GYRO_CAMERA_PAN_LIMIT / panLen;
+        gyroCameraState.panX *= ratio;
+        gyroCameraState.panY *= ratio;
+        gyroCameraState.panZ *= ratio;
+      }
+    }
+    function panGyroCameraByWorldDelta(dx, dy, dz){
+      gyroCameraState.panX += dx;
+      gyroCameraState.panY += dy;
+      gyroCameraState.panZ += dz;
+      const panLen = Math.hypot(gyroCameraState.panX, gyroCameraState.panY, gyroCameraState.panZ);
+      if(panLen > GYRO_CAMERA_PAN_LIMIT){
+        const ratio = GYRO_CAMERA_PAN_LIMIT / panLen;
+        gyroCameraState.panX *= ratio;
+        gyroCameraState.panY *= ratio;
+        gyroCameraState.panZ *= ratio;
+      }
+    }
+
+    function bindGyroViewportInteractions(){
+      if(gyroViewportBindingsReady || !el.gyro3dViewport) return;
+      const view = el.gyro3dViewport;
+      const redraw = ()=>{
+        if(!gyroGl) return;
+        renderGyroGl(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
+      };
+      const canControl = ()=>{
+        return isGyroViewportExpanded() && document.documentElement.classList.contains("preview-3d");
+      };
+      view.addEventListener("click", ()=>{
+        if(!document.documentElement.classList.contains("preview-3d")) return;
+        if(!isGyroViewportExpanded()){
+          setGyroViewportExpanded(true);
+          redraw();
+        }
+      });
+      view.addEventListener("keydown", (ev)=>{
+        if(!document.documentElement.classList.contains("preview-3d")) return;
+        if(ev.key === "Enter" || ev.key === " "){
+          ev.preventDefault();
+          setGyroViewportExpanded(!isGyroViewportExpanded());
+          redraw();
+        }
+      });
+      document.addEventListener("keydown", (ev)=>{
+        if(!isGyroViewportExpanded()) return;
+        if(ev.key === "Escape"){
+          setGyroViewportExpanded(false);
+          redraw();
+          return;
+        }
+        if(!document.documentElement.classList.contains("preview-3d")) return;
+        const activeEl = document.activeElement;
+        const tag = activeEl && activeEl.tagName ? activeEl.tagName.toLowerCase() : "";
+        if(tag === "input" || tag === "textarea" || tag === "select" || (activeEl && activeEl.isContentEditable)) return;
+        const key = ev.key;
+        const basis = getGyroCameraBasis();
+        const step = (ev.shiftKey ? 0.22 : 0.12) * Math.max(1, gyroCameraState.distance * 0.2);
+        let handled = false;
+        if(key === "ArrowLeft"){
+          panGyroCameraByWorldDelta(-basis.right[0] * step, -basis.right[1] * step, -basis.right[2] * step);
+          handled = true;
+        }else if(key === "ArrowRight"){
+          panGyroCameraByWorldDelta(basis.right[0] * step, basis.right[1] * step, basis.right[2] * step);
+          handled = true;
+        }else if(key === "ArrowUp"){
+          if(ev.shiftKey){
+            panGyroCameraByWorldDelta(0, step, 0);
+          }else{
+            panGyroCameraByWorldDelta(basis.forward[0] * step, basis.forward[1] * step, basis.forward[2] * step);
+          }
+          handled = true;
+        }else if(key === "ArrowDown"){
+          if(ev.shiftKey){
+            panGyroCameraByWorldDelta(0, -step, 0);
+          }else{
+            panGyroCameraByWorldDelta(-basis.forward[0] * step, -basis.forward[1] * step, -basis.forward[2] * step);
+          }
+          handled = true;
+        }else if(key === "PageUp"){
+          panGyroCameraByWorldDelta(0, step, 0);
+          handled = true;
+        }else if(key === "PageDown"){
+          panGyroCameraByWorldDelta(0, -step, 0);
+          handled = true;
+        }else if(key === "+" || key === "="){
+          gyroCameraState.desiredDistance = clampLocal(gyroCameraState.desiredDistance * 0.9, GYRO_CAMERA_MIN_DISTANCE, GYRO_CAMERA_MAX_DISTANCE);
+          handled = true;
+        }else if(key === "-" || key === "_"){
+          gyroCameraState.desiredDistance = clampLocal(gyroCameraState.desiredDistance * 1.1, GYRO_CAMERA_MIN_DISTANCE, GYRO_CAMERA_MAX_DISTANCE);
+          handled = true;
+        }else if(key === "0"){
+          resetGyroCameraPose(true);
+          handled = true;
+        }
+        if(handled){
+          ev.preventDefault();
+          redraw();
+        }
+      });
+      view.addEventListener("contextmenu", (ev)=>{
+        if(canControl()) ev.preventDefault();
+      });
+      view.addEventListener("pointerdown", (ev)=>{
+        if(!canControl()) return;
+        if(ev.button !== 0 && ev.button !== 1 && ev.button !== 2) return;
+        ev.preventDefault();
+        const panMode = (ev.button === 1) || (ev.button === 2) || ev.shiftKey || ev.altKey || ev.ctrlKey;
+        gyroCameraState.drag = {
+          pointerId: ev.pointerId,
+          panMode,
+          lastX: ev.clientX,
+          lastY: ev.clientY
+        };
+        setGyroViewportDragActive(true);
+        view.setPointerCapture(ev.pointerId);
+      });
+      view.addEventListener("pointermove", (ev)=>{
+        const drag = gyroCameraState.drag;
+        if(!drag || drag.pointerId !== ev.pointerId) return;
+        ev.preventDefault();
+        const dx = ev.clientX - drag.lastX;
+        const dy = ev.clientY - drag.lastY;
+        drag.lastX = ev.clientX;
+        drag.lastY = ev.clientY;
+        if(drag.panMode){
+          panGyroCameraByScreenDelta(dx, dy);
+        }else{
+          gyroCameraState.yawDeg -= dx * 0.26;
+          gyroCameraState.pitchDeg = clampLocal(gyroCameraState.pitchDeg - (dy * 0.22), -84, 84);
+        }
+        redraw();
+      });
+      const endDrag = (ev)=>{
+        if(!gyroCameraState.drag) return;
+        const drag = gyroCameraState.drag;
+        if(ev && drag.pointerId !== ev.pointerId) return;
+        gyroCameraState.drag = null;
+        setGyroViewportDragActive(false);
+        if(ev && view.hasPointerCapture(ev.pointerId)){
+          view.releasePointerCapture(ev.pointerId);
+        }
+      };
+      view.addEventListener("pointerup", endDrag);
+      view.addEventListener("pointercancel", endDrag);
+      view.addEventListener("pointerleave", (ev)=>{
+        if(!isGyroViewportExpanded()) endDrag(ev);
+      });
+      view.addEventListener("wheel", (ev)=>{
+        if(!canControl()) return;
+        ev.preventDefault();
+        const factor = Math.exp(ev.deltaY * 0.00125);
+        gyroCameraState.desiredDistance = clampLocal(gyroCameraState.desiredDistance * factor, GYRO_CAMERA_MIN_DISTANCE, GYRO_CAMERA_MAX_DISTANCE);
+        redraw();
+      }, {passive:false});
+      view.addEventListener("dblclick", (ev)=>{
+        if(!canControl()) return;
+        ev.preventDefault();
+        resetGyroCameraPose(true);
+        redraw();
+      });
+      const sideNavDesktop = document.querySelector(".side-nav-desktop");
+      if(sideNavDesktop){
+        const refreshExpandedHudInset = ()=>{
+          if(isGyroViewportExpanded()) updateGyroExpandedViewportBounds();
+        };
+        sideNavDesktop.addEventListener("mouseenter", refreshExpandedHudInset);
+        sideNavDesktop.addEventListener("mouseleave", refreshExpandedHudInset);
+        sideNavDesktop.addEventListener("transitionend", refreshExpandedHudInset);
+      }
+      gyroViewportBindingsReady = true;
     }
 
     function initGyroGl(){
       if(!el.gyroGl) return;
-      const gl = el.gyroGl.getContext("webgl");
+      let gl = null;
+      try{
+        gl = el.gyroGl.getContext("webgl", {alpha:true, antialias:true, premultipliedAlpha:true});
+      }catch(_err){
+        gl = null;
+      }
       if(!gl) return;
 
-      const vs = `
+      const lineVs = `
         attribute vec3 aPos;
         attribute vec4 aCol;
         uniform mat4 uMvp;
         varying vec4 vCol;
         void main(){
-          gl_Position = uMvp * vec4(aPos,1.0);
+          gl_Position = uMvp * vec4(aPos, 1.0);
           vCol = aCol;
         }`;
-      const fs = `
+      const lineFs = `
         precision mediump float;
         varying vec4 vCol;
         void main(){
           gl_FragColor = vCol;
         }`;
-      const compile = (type, src)=>{
-        const sh = gl.createShader(type);
-        gl.shaderSource(sh, src);
-        gl.compileShader(sh);
-        return sh;
-      };
-      const prog = gl.createProgram();
-      gl.attachShader(prog, compile(gl.VERTEX_SHADER, vs));
-      gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, fs));
-      gl.linkProgram(prog);
-      gl.useProgram(prog);
+      const solidVs = `
+        attribute vec3 aPos;
+        attribute vec3 aNorm;
+        attribute vec4 aCol;
+        uniform mat4 uModel;
+        uniform mat4 uView;
+        uniform mat4 uProj;
+        uniform vec3 uLightDir;
+        uniform float uAmbient;
+        varying vec4 vCol;
+        varying float vShade;
+        varying float vDepth;
+        void main(){
+          vec4 worldPos = uModel * vec4(aPos, 1.0);
+          vec3 worldN = normalize((uModel * vec4(aNorm, 0.0)).xyz);
+          float lit = max(dot(worldN, normalize(uLightDir)), 0.0);
+          vShade = uAmbient + ((1.0 - uAmbient) * lit);
+          vCol = aCol;
+          vec4 viewPos = uView * worldPos;
+          vDepth = -viewPos.z;
+          gl_Position = uProj * viewPos;
+        }`;
+      const solidFs = `
+        precision mediump float;
+        varying vec4 vCol;
+        varying float vShade;
+        varying float vDepth;
+        uniform vec3 uFogColor;
+        uniform float uFogNear;
+        uniform float uFogFar;
+        void main(){
+          float fogT = clamp((uFogFar - vDepth) / max(0.0001, (uFogFar - uFogNear)), 0.0, 1.0);
+          vec3 lit = vCol.rgb * vShade;
+          vec3 outCol = mix(uFogColor, lit, fogT);
+          gl_FragColor = vec4(outCol, vCol.a);
+        }`;
 
-      const geom = buildGyroGeometry();
-      const posBuf = gl.createBuffer();
-      gl.bindBuffer(gl.ARRAY_BUFFER, posBuf);
-      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(geom.pos), gl.STATIC_DRAW);
-      const aPos = gl.getAttribLocation(prog, "aPos");
-      gl.enableVertexAttribArray(aPos);
-      gl.vertexAttribPointer(aPos, 3, gl.FLOAT, false, 0, 0);
+      let lineProg;
+      let solidProg;
+      try{
+        lineProg = createGyroProgram(gl, lineVs, lineFs);
+        solidProg = createGyroProgram(gl, solidVs, solidFs);
+      }catch(err){
+        console.warn("[gyro] shader init failed:", err);
+        return;
+      }
 
-      const colBuf = gl.createBuffer();
-      gl.bindBuffer(gl.ARRAY_BUFFER, colBuf);
-      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(geom.col), gl.STATIC_DRAW);
-      const aCol = gl.getAttribLocation(prog, "aCol");
-      gl.enableVertexAttribArray(aCol);
-      gl.vertexAttribPointer(aCol, 4, gl.FLOAT, false, 0, 0);
+      const lineGeom = buildGyroLineGeometry();
+      const solidGeom = buildGyroSolidGeometry();
 
       gyroGl = {
         gl,
-        prog,
-        uMvp: gl.getUniformLocation(prog, "uMvp"),
-        gridCount: geom.gridCount,
-        bodyCount: geom.bodyCount,
-        view: mat4LookAt([1.6,1.3,2.2],[0,0,0],[0,1,0]),
-        proj: null,
+        canvas: el.gyroGl,
+        line: {
+          prog: lineProg,
+          aPos: gl.getAttribLocation(lineProg, "aPos"),
+          aCol: gl.getAttribLocation(lineProg, "aCol"),
+          uMvp: gl.getUniformLocation(lineProg, "uMvp"),
+          staticPosBuf: createGyroArrayBuffer(gl, lineGeom.pos, gl.STATIC_DRAW),
+          staticColBuf: createGyroArrayBuffer(gl, lineGeom.col, gl.STATIC_DRAW),
+          trailPosBuf: gl.createBuffer(),
+          trailColBuf: gl.createBuffer(),
+          headingPosBuf: gl.createBuffer(),
+          headingColBuf: gl.createBuffer()
+        },
+        solid: {
+          prog: solidProg,
+          aPos: gl.getAttribLocation(solidProg, "aPos"),
+          aNorm: gl.getAttribLocation(solidProg, "aNorm"),
+          aCol: gl.getAttribLocation(solidProg, "aCol"),
+          uModel: gl.getUniformLocation(solidProg, "uModel"),
+          uView: gl.getUniformLocation(solidProg, "uView"),
+          uProj: gl.getUniformLocation(solidProg, "uProj"),
+          uLightDir: gl.getUniformLocation(solidProg, "uLightDir"),
+          uAmbient: gl.getUniformLocation(solidProg, "uAmbient"),
+          uFogColor: gl.getUniformLocation(solidProg, "uFogColor"),
+          uFogNear: gl.getUniformLocation(solidProg, "uFogNear"),
+          uFogFar: gl.getUniformLocation(solidProg, "uFogFar"),
+          floorPosBuf: createGyroArrayBuffer(gl, solidGeom.floor.pos, gl.STATIC_DRAW),
+          floorNormBuf: createGyroArrayBuffer(gl, solidGeom.floor.norm, gl.STATIC_DRAW),
+          floorColBuf: createGyroArrayBuffer(gl, solidGeom.floor.col, gl.STATIC_DRAW),
+          floorCount: solidGeom.floor.count,
+          rocketPosBuf: createGyroArrayBuffer(gl, solidGeom.rocket.pos, gl.STATIC_DRAW),
+          rocketNormBuf: createGyroArrayBuffer(gl, solidGeom.rocket.norm, gl.STATIC_DRAW),
+          rocketColBuf: createGyroArrayBuffer(gl, solidGeom.rocket.col, gl.STATIC_DRAW),
+          rocketCount: solidGeom.rocket.count
+        },
+        sections: lineGeom.sections,
+        proj: mat4Identity(),
         width: 0,
         height: 0
       };
+      resetGyroCameraPose(true);
+      bindGyroViewportInteractions();
       resizeGyroGl();
       renderGyroGl(0,0,0);
+      requestGyroRocketMeshFromStl().then((mesh)=>{
+        if(!mesh) return;
+        if(!applyGyroRocketMeshToGl(mesh)) return;
+        renderGyroGl(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
+      });
     }
 
     function resizeGyroGl(){
-      if(!gyroGl || !el.gyroGl) return;
-      const dpr = window.devicePixelRatio || 1;
-      let w = Math.round(el.gyroGl.clientWidth * dpr);
-      let h = Math.round(el.gyroGl.clientHeight * dpr);
-      if((w <= 0 || h <= 0) && el.gyroGlPreview){
-        const pw = Math.round(el.gyroGlPreview.clientWidth * dpr);
-        const ph = Math.round(el.gyroGlPreview.clientHeight * dpr);
-        if(pw > 0 && ph > 0){
-          w = pw;
-          h = ph;
+      if(!gyroGl || !gyroGl.canvas) return;
+      const dpr = Math.min(2.5, window.devicePixelRatio || 1);
+      let w = Math.round(gyroGl.canvas.clientWidth * dpr);
+      let h = Math.round(gyroGl.canvas.clientHeight * dpr);
+      if((w <= 0 || h <= 0) && el.gyro3dViewport){
+        const fallbackW = Math.round(el.gyro3dViewport.clientWidth * dpr);
+        const fallbackH = Math.round(el.gyro3dViewport.clientHeight * dpr);
+        if(fallbackW > 0 && fallbackH > 0){
+          w = fallbackW;
+          h = fallbackH;
         }
       }
       w = Math.max(1, w);
@@ -469,36 +1334,728 @@
       if(gyroGl.width === w && gyroGl.height === h) return;
       gyroGl.width = w;
       gyroGl.height = h;
-      el.gyroGl.width = w;
-      el.gyroGl.height = h;
-      gyroGl.proj = mat4Perspective(45 * DEG_TO_RAD, w / h, 0.1, 10);
-      gyroGl.gl.viewport(0,0,w,h);
+      gyroGl.canvas.width = w;
+      gyroGl.canvas.height = h;
+      gyroGl.proj = mat4Perspective(GYRO_FOV_DEG * DEG_TO_RAD, w / h, 0.05, 80);
+      gyroGl.gl.viewport(0, 0, w, h);
+    }
+
+    function resetGyroPathTracking(){
+      gyroPathState.originLat = null;
+      gyroPathState.originLon = null;
+      gyroPathState.originAlt = null;
+      gyroPathState.source = "none";
+      gyroPathState.gpsOffsetX = 0;
+      gyroPathState.gpsOffsetY = 0;
+      gyroPathState.gpsOffsetZ = 0;
+      gyroPathState.points = [];
+      gyroPathState.smoothPath = [];
+      gyroPathState.lastFixMs = 0;
+      gyroPathState.renderScaleXZ = GYRO_TRAIL_BASE_METERS_PER_UNIT_XZ;
+      gyroPathState.renderScaleY = GYRO_TRAIL_BASE_METERS_PER_UNIT_Y;
+      gyroPathState.filteredX = null;
+      gyroPathState.filteredY = null;
+      gyroPathState.filteredZ = null;
+      gyroPathState.imuLastMs = 0;
+      gyroPathState.imuPosX = 0;
+      gyroPathState.imuPosY = 0;
+      gyroPathState.imuPosZ = 0;
+      gyroPathState.imuVelX = 0;
+      gyroPathState.imuVelY = 0;
+      gyroPathState.imuVelZ = 0;
+      gyroPathState.imuFiltX = 0;
+      gyroPathState.imuFiltY = 0;
+      gyroPathState.imuFiltZ = 0;
+      gyroPathState.imuFiltReady = false;
+      gyroPathState.altOffsetY = 0;
+      gyroPathState.altAnchorX = 0;
+      gyroPathState.altAnchorZ = 0;
+    }
+
+    function getGyroPathLastPoint(){
+      const pts = gyroPathState.points;
+      return (pts && pts.length) ? pts[pts.length - 1] : null;
+    }
+
+    function syncGyroImuAnchorToLatestPoint(){
+      const last = getGyroPathLastPoint();
+      if(last){
+        gyroPathState.imuPosX = last.x;
+        gyroPathState.imuPosY = last.y;
+        gyroPathState.imuPosZ = last.z;
+      }else{
+        gyroPathState.imuPosX = 0;
+        gyroPathState.imuPosY = 0;
+        gyroPathState.imuPosZ = 0;
+      }
+      gyroPathState.imuVelX = 0;
+      gyroPathState.imuVelY = 0;
+      gyroPathState.imuVelZ = 0;
+      gyroPathState.imuFiltReady = false;
+      gyroPathState.imuLastMs = 0;
+    }
+
+    function pushGyroPathMeters(eastM, upM, northM, nowMs, opt){
+      if(!isFinite(eastM) || !isFinite(upM) || !isFinite(northM)) return false;
+      const now = nowMs || Date.now();
+      const opts = opt || {};
+      const alphaX = clampLocal(isFinite(opts.alphaX) ? opts.alphaX : GYRO_TRAIL_FILTER_ALPHA, 0.01, 1);
+      const alphaY = clampLocal(isFinite(opts.alphaY) ? opts.alphaY : GYRO_TRAIL_FILTER_ALPHA_ALT, 0.01, 1);
+      const alphaZ = clampLocal(isFinite(opts.alphaZ) ? opts.alphaZ : GYRO_TRAIL_FILTER_ALPHA, 0.01, 1);
+      const minStepM = Math.max(0, isFinite(opts.minStepM) ? opts.minStepM : GYRO_TRAIL_MIN_STEP_M);
+      const idleHoldMs = Math.max(0, isFinite(opts.idleHoldMs) ? opts.idleHoldMs : GYRO_TRAIL_IDLE_HOLD_MS);
+      const idleDriftM = Math.max(0, isFinite(opts.idleDriftM) ? opts.idleDriftM : GYRO_TRAIL_IDLE_DRIFT_M);
+      const jumpRejectM = Math.max(0, isFinite(opts.jumpRejectM) ? opts.jumpRejectM : GYRO_TRAIL_JUMP_REJECT_M);
+      const jumpRejectMs = Math.max(1, isFinite(opts.jumpRejectMs) ? opts.jumpRejectMs : GYRO_TRAIL_JUMP_REJECT_MS);
+      const altDeadband = Math.max(0, isFinite(opts.altDeadbandM) ? opts.altDeadbandM : GYRO_ALTITUDE_DEADBAND_M);
+
+      if(gyroPathState.filteredX == null){
+        gyroPathState.filteredX = eastM;
+        gyroPathState.filteredY = upM;
+        gyroPathState.filteredZ = northM;
+      }else{
+        gyroPathState.filteredX += (eastM - gyroPathState.filteredX) * alphaX;
+        gyroPathState.filteredY += (upM - gyroPathState.filteredY) * alphaY;
+        gyroPathState.filteredZ += (northM - gyroPathState.filteredZ) * alphaZ;
+      }
+      if(Math.abs(gyroPathState.filteredY) < altDeadband){
+        gyroPathState.filteredY = 0;
+      }
+      const next = {
+        x: gyroPathState.filteredX,
+        y: gyroPathState.filteredY,
+        z: gyroPathState.filteredZ,
+        ms: now
+      };
+      const pts = gyroPathState.points;
+      const last = pts.length ? pts[pts.length - 1] : null;
+      if(last){
+        const dx = next.x - last.x;
+        const dy = next.y - last.y;
+        const dz = next.z - last.z;
+        const distSq = (dx * dx) + (dy * dy) + (dz * dz);
+        const dtMs = Math.max(1, now - last.ms);
+        const jumpRejectSq = jumpRejectM * jumpRejectM;
+        if(distSq > jumpRejectSq && dtMs < jumpRejectMs){
+          gyroPathState.lastFixMs = now;
+          return false;
+        }
+        const minStepSq = minStepM * minStepM;
+        if(distSq < minStepSq && dtMs < idleHoldMs){
+          gyroPathState.lastFixMs = now;
+          return false;
+        }
+        if(distSq < (idleDriftM * idleDriftM)){
+          gyroPathState.lastFixMs = now;
+          return false;
+        }
+      }
+      pts.push(next);
+      if(pts.length > GYRO_TRAIL_MAX_POINTS){
+        pts.splice(0, pts.length - GYRO_TRAIL_MAX_POINTS);
+      }
+      gyroPathState.lastFixMs = now;
+      return true;
+    }
+
+    function updateGyroPathFromGeo(geo, nowMs){
+      if(!geo || !isFinite(geo.lat) || !isFinite(geo.lon)) return false;
+      const now = nowMs || Date.now();
+      const alt = isFinite(geo.alt) ? geo.alt : 0;
+      if(gyroPathState.originLat == null || gyroPathState.originLon == null){
+        gyroPathState.originLat = geo.lat;
+        gyroPathState.originLon = geo.lon;
+        gyroPathState.originAlt = alt;
+      }
+      const latAvg = ((geo.lat + gyroPathState.originLat) * 0.5) * DEG_TO_RAD;
+      const rawNorthM = (geo.lat - gyroPathState.originLat) * 111320;
+      const rawEastM = (geo.lon - gyroPathState.originLon) * (111320 * Math.cos(latAvg));
+      const rawUpM = alt - gyroPathState.originAlt;
+
+      if(gyroPathState.source !== "gps"){
+        const last = getGyroPathLastPoint();
+        if(last){
+          gyroPathState.gpsOffsetX = last.x - rawEastM;
+          gyroPathState.gpsOffsetY = last.y - rawUpM;
+          gyroPathState.gpsOffsetZ = last.z - rawNorthM;
+        }else{
+          gyroPathState.gpsOffsetX = 0;
+          gyroPathState.gpsOffsetY = 0;
+          gyroPathState.gpsOffsetZ = 0;
+        }
+        gyroPathState.source = "gps";
+      }
+      const eastM = rawEastM + gyroPathState.gpsOffsetX;
+      const upM = rawUpM + gyroPathState.gpsOffsetY;
+      const northM = rawNorthM + gyroPathState.gpsOffsetZ;
+      const pushed = pushGyroPathMeters(eastM, upM, northM, now, {
+        alphaX: GYRO_TRAIL_FILTER_ALPHA,
+        alphaY: GYRO_TRAIL_FILTER_ALPHA_ALT,
+        alphaZ: GYRO_TRAIL_FILTER_ALPHA,
+        minStepM: GYRO_TRAIL_MIN_STEP_M,
+        idleHoldMs: GYRO_TRAIL_IDLE_HOLD_MS,
+        idleDriftM: GYRO_TRAIL_IDLE_DRIFT_M,
+        jumpRejectM: GYRO_TRAIL_JUMP_REJECT_M,
+        jumpRejectMs: GYRO_TRAIL_JUMP_REJECT_MS,
+        altDeadbandM: GYRO_ALTITUDE_DEADBAND_M
+      });
+      if(pushed){
+        gyroPathState.imuPosX = eastM;
+        gyroPathState.imuPosY = upM;
+        gyroPathState.imuPosZ = northM;
+      }
+      return pushed;
+    }
+
+    function updateGyroPathFromImuSample(sample, nowMs){
+      if(!sample) return false;
+      const now = nowMs || Date.now();
+      const ax = Number(sample.ax);
+      const ay = Number(sample.ay);
+      const az = Number(sample.az);
+      if(!isFinite(ax) || !isFinite(ay) || !isFinite(az)) return false;
+      const accNorm = Math.hypot(ax, ay, az);
+      if(!isFinite(accNorm) || accNorm < 0.18 || accNorm > 5) return false;
+
+      if(gyroPathState.source !== "imu"){
+        gyroPathState.source = "imu";
+        syncGyroImuAnchorToLatestPoint();
+        gyroPathState.imuLastMs = now;
+        return false;
+      }
+
+      const dtSec = (gyroPathState.imuLastMs > 0) ? ((now - gyroPathState.imuLastMs) / 1000) : 0;
+      gyroPathState.imuLastMs = now;
+      if(!isFinite(dtSec) || dtSec <= 0 || dtSec > GYRO_IMU_MAX_DT_SEC) return false;
+
+      const rollRad = gyroRollDeg * DEG_TO_RAD;
+      const pitchRad = gyroPitchDeg * DEG_TO_RAD;
+      const gravX = -Math.sin(pitchRad);
+      const gravY = Math.sin(rollRad) * Math.cos(pitchRad);
+      const gravZ = Math.cos(rollRad) * Math.cos(pitchRad);
+      const linX = ax - gravX;
+      const linY = ay - gravY;
+      const linZ = az - gravZ;
+
+      if(!gyroPathState.imuFiltReady){
+        gyroPathState.imuFiltX = linX;
+        gyroPathState.imuFiltY = linY;
+        gyroPathState.imuFiltZ = linZ;
+        gyroPathState.imuFiltReady = true;
+      }else{
+        const a = GYRO_IMU_ACCEL_FILTER_ALPHA;
+        gyroPathState.imuFiltX += (linX - gyroPathState.imuFiltX) * a;
+        gyroPathState.imuFiltY += (linY - gyroPathState.imuFiltY) * a;
+        gyroPathState.imuFiltZ += (linZ - gyroPathState.imuFiltZ) * a;
+      }
+      let accForwardG = gyroPathState.imuFiltX;
+      let accRightG = gyroPathState.imuFiltY;
+      let accUpG = gyroPathState.imuFiltZ;
+      if(Math.abs(accForwardG) < GYRO_IMU_ACCEL_DEADBAND_G) accForwardG = 0;
+      if(Math.abs(accRightG) < GYRO_IMU_ACCEL_DEADBAND_G) accRightG = 0;
+      if(Math.abs(accUpG) < (GYRO_IMU_ACCEL_DEADBAND_G * 0.8)) accUpG = 0;
+      accForwardG = clampLocal(accForwardG, -GYRO_IMU_ACCEL_CLAMP_G, GYRO_IMU_ACCEL_CLAMP_G);
+      accRightG = clampLocal(accRightG, -GYRO_IMU_ACCEL_CLAMP_G, GYRO_IMU_ACCEL_CLAMP_G);
+      accUpG = clampLocal(accUpG, -GYRO_IMU_ACCEL_CLAMP_G, GYRO_IMU_ACCEL_CLAMP_G);
+
+      const yawRad = gyroYawDeg * DEG_TO_RAD;
+      const sinY = Math.sin(yawRad);
+      const cosY = Math.cos(yawRad);
+      const accForward = accForwardG * GYRO_IMU_GRAVITY_MPS2;
+      const accRight = accRightG * GYRO_IMU_GRAVITY_MPS2;
+      const accUp = accUpG * GYRO_IMU_GRAVITY_MPS2;
+      const accWorldX = (sinY * accForward) + (cosY * accRight);
+      const accWorldZ = (cosY * accForward) - (sinY * accRight);
+      const accWorldY = accUp;
+      const accelMag = Math.hypot(accWorldX, accWorldY, accWorldZ);
+      const stateVal = Number(sample.st != null ? sample.st : (sample.state ?? currentSt));
+      const moving = (stateVal === 2) || (accelMag > GYRO_IMU_ACTIVE_ACCEL_MPS2);
+      const drag = moving ? GYRO_IMU_DRAG_ACTIVE : GYRO_IMU_DRAG_IDLE;
+      const damp = Math.exp(-drag * dtSec);
+
+      gyroPathState.imuVelX = (gyroPathState.imuVelX + (accWorldX * dtSec)) * damp;
+      gyroPathState.imuVelY = (gyroPathState.imuVelY + (accWorldY * dtSec)) * damp;
+      gyroPathState.imuVelZ = (gyroPathState.imuVelZ + (accWorldZ * dtSec)) * damp;
+      if(Math.abs(gyroPathState.imuVelX) < GYRO_IMU_VEL_EPS_MPS) gyroPathState.imuVelX = 0;
+      if(Math.abs(gyroPathState.imuVelY) < GYRO_IMU_VEL_EPS_MPS) gyroPathState.imuVelY = 0;
+      if(Math.abs(gyroPathState.imuVelZ) < GYRO_IMU_VEL_EPS_MPS) gyroPathState.imuVelZ = 0;
+
+      gyroPathState.imuPosX += gyroPathState.imuVelX * dtSec;
+      gyroPathState.imuPosY += gyroPathState.imuVelY * dtSec;
+      gyroPathState.imuPosZ += gyroPathState.imuVelZ * dtSec;
+      const horizLen = Math.hypot(gyroPathState.imuPosX, gyroPathState.imuPosZ);
+      if(horizLen > GYRO_IMU_RANGE_LIMIT_M){
+        const ratio = GYRO_IMU_RANGE_LIMIT_M / horizLen;
+        gyroPathState.imuPosX *= ratio;
+        gyroPathState.imuPosZ *= ratio;
+      }
+      gyroPathState.imuPosY = clampLocal(gyroPathState.imuPosY, GYRO_IMU_ALT_MIN_M, GYRO_IMU_ALT_MAX_M);
+
+      return pushGyroPathMeters(
+        gyroPathState.imuPosX,
+        gyroPathState.imuPosY,
+        gyroPathState.imuPosZ,
+        now,
+        {
+          alphaX: 0.44,
+          alphaY: 0.56,
+          alphaZ: 0.44,
+          minStepM: GYRO_TRAIL_MIN_STEP_M_IMU,
+          idleHoldMs: GYRO_TRAIL_IDLE_HOLD_MS_IMU,
+          idleDriftM: GYRO_TRAIL_IDLE_DRIFT_M_IMU,
+          jumpRejectM: GYRO_TRAIL_JUMP_REJECT_M_IMU,
+          jumpRejectMs: GYRO_TRAIL_JUMP_REJECT_MS_IMU,
+          altDeadbandM: 0.012
+        }
+      );
+    }
+
+    function updateGyroAttitudeEstimate(axRaw, ayRaw, azRaw, gxRaw, gyRaw, gzRaw, nowMs){
+      const now = nowMs || Date.now();
+      const ax = isFinite(axRaw) ? Number(axRaw) : 0;
+      const ay = isFinite(ayRaw) ? Number(ayRaw) : 0;
+      const az = isFinite(azRaw) ? Number(azRaw) : 0;
+      const gx = isFinite(gxRaw) ? Number(gxRaw) : 0;
+      const gy = isFinite(gyRaw) ? Number(gyRaw) : 0;
+      const gz = isFinite(gzRaw) ? Number(gzRaw) : 0;
+      let dtSec = (gyroAttitudeLastMs > 0) ? ((now - gyroAttitudeLastMs) / 1000) : 0;
+      if(!isFinite(dtSec) || dtSec < 0 || dtSec > 0.35) dtSec = 0;
+      gyroAttitudeLastMs = now;
+
+      const accelNorm = Math.hypot(ax, ay, az);
+      const accelRollDeg = Math.atan2(ay, az) * RAD_TO_DEG;
+      const accelPitchDeg = Math.atan2(-ax, Math.sqrt((ay * ay) + (az * az))) * RAD_TO_DEG;
+
+      if(!gyroAttitudeReady){
+        if(!isFinite(accelNorm) || accelNorm < 0.18 || accelNorm > 5) return;
+        gyroRollDeg = normalizeAngleDeg(accelRollDeg);
+        gyroPitchDeg = clampLocal(accelPitchDeg, -89.5, 89.5);
+        gyroYawDeg = normalizeAngleDeg(gyroYawDeg);
+        gyroAttitudeReady = true;
+        return;
+      }
+
+      if(dtSec > 0){
+        gyroRollDeg = normalizeAngleDeg(gyroRollDeg + (gx * dtSec));
+        gyroPitchDeg = clampLocal(gyroPitchDeg + (gy * dtSec), -89.5, 89.5);
+        gyroYawDeg = normalizeAngleDeg(gyroYawDeg + (gz * dtSec));
+      }
+
+      if(accelNorm > 0.01){
+        const gravityErr = Math.abs(accelNorm - 1);
+        const rateMag = Math.hypot(gx, gy, gz);
+        const trustFromG = 1 - clampLocal((gravityErr - 0.02) / GYRO_ATTITUDE_ACCEL_UNTRUSTED_ERR_G, 0, 1);
+        const trustFromRate = 1 - clampLocal((rateMag - 10) / GYRO_ATTITUDE_RATE_UNTRUSTED_DPS, 0, 1);
+        const trust = clampLocal(trustFromG * trustFromRate, 0, 1);
+        const baseBlend = simEnabled ? GYRO_ATTITUDE_ACCEL_BLEND_SIM : GYRO_ATTITUDE_ACCEL_BLEND;
+        const blend = baseBlend * trust;
+        if(blend > 0.0005){
+          gyroRollDeg = lerpAngleDeg(gyroRollDeg, accelRollDeg, blend);
+          gyroPitchDeg = clampLocal(gyroPitchDeg + ((accelPitchDeg - gyroPitchDeg) * blend), -89.5, 89.5);
+        }
+      }
+    }
+
+    function getGyroPathRenderData(){
+      const baseResult = {
+        current: {x:0, y:GYRO_WORLD_ALTITUDE_BASE, z:0},
+        trailPos: [],
+        trailCol: [],
+        trailGlowCol: [],
+        trailAuraCol: [],
+        trailHotCol: [],
+        trailVertexCount: 0,
+        gridSpan: GYRO_GRID_MIN_SPAN,
+        gridCenter: {x:0, z:0},
+        lookTarget: {x:0, y:GYRO_WORLD_ALTITUDE_BASE, z:0},
+        cameraDistance: GYRO_CAMERA_DEFAULT.distance
+      };
+      const pts = gyroPathState.points;
+      if(!pts || !pts.length){
+        gyroPathState.renderScaleXZ += (GYRO_TRAIL_BASE_METERS_PER_UNIT_XZ - gyroPathState.renderScaleXZ) * GYRO_TRAIL_ZOOM_IN_SMOOTH;
+        gyroPathState.renderScaleY += (GYRO_TRAIL_BASE_METERS_PER_UNIT_Y - gyroPathState.renderScaleY) * GYRO_TRAIL_ZOOM_IN_SMOOTH;
+        gyroPathState.smoothPath = [];
+        return baseResult;
+      }
+
+      const subset = pts.slice(Math.max(0, pts.length - GYRO_TRAIL_MAX_POINTS));
+      const currentRaw = subset[subset.length - 1];
+      let maxAbsX = 0;
+      let maxAbsY = 0;
+      let maxAbsZ = 0;
+      for(let i=0;i<subset.length;i++){
+        const p = subset[i];
+        maxAbsX = Math.max(maxAbsX, Math.abs(p.x));
+        maxAbsY = Math.max(maxAbsY, Math.abs(p.y));
+        maxAbsZ = Math.max(maxAbsZ, Math.abs(p.z));
+      }
+      const targetScaleXZ = Math.max(
+        GYRO_TRAIL_BASE_METERS_PER_UNIT_XZ,
+        maxAbsX / GYRO_TRAIL_HALF_SPAN_XZ,
+        maxAbsZ / GYRO_TRAIL_HALF_SPAN_XZ
+      );
+      const targetScaleY = Math.max(
+        GYRO_TRAIL_BASE_METERS_PER_UNIT_Y,
+        maxAbsY / GYRO_TRAIL_HALF_SPAN_Y
+      );
+      const smoothXZ = (targetScaleXZ > gyroPathState.renderScaleXZ) ? GYRO_TRAIL_ZOOM_OUT_SMOOTH : GYRO_TRAIL_ZOOM_IN_SMOOTH;
+      const smoothY = (targetScaleY > gyroPathState.renderScaleY) ? GYRO_TRAIL_ZOOM_OUT_SMOOTH : GYRO_TRAIL_ZOOM_IN_SMOOTH;
+      gyroPathState.renderScaleXZ += (targetScaleXZ - gyroPathState.renderScaleXZ) * smoothXZ;
+      gyroPathState.renderScaleY += (targetScaleY - gyroPathState.renderScaleY) * smoothY;
+
+      const worldPoints = subset.map((p)=>({
+        x: p.x / gyroPathState.renderScaleXZ,
+        y: GYRO_WORLD_ALTITUDE_BASE + (p.y / gyroPathState.renderScaleY),
+        z: p.z / gyroPathState.renderScaleXZ
+      }));
+      const currentWorld = {
+        x: currentRaw.x / gyroPathState.renderScaleXZ,
+        y: GYRO_WORLD_ALTITUDE_BASE + (currentRaw.y / gyroPathState.renderScaleY),
+        z: currentRaw.z / gyroPathState.renderScaleXZ
+      };
+      if(worldPoints.length) worldPoints[worldPoints.length - 1] = currentWorld;
+
+      const smoothPath = [];
+      if(worldPoints.length){
+        smoothPath.push(worldPoints[0]);
+      }
+      for(let i=1;i<worldPoints.length;i++){
+        const prev = worldPoints[i - 1];
+        const cur = worldPoints[i];
+        const segLen = Math.hypot(cur.x - prev.x, cur.y - prev.y, cur.z - prev.z);
+        const steps = clampLocal(Math.round(segLen * 4), 1, 4);
+        for(let s=1;s<=steps;s++){
+          const t = s / steps;
+          smoothPath.push({
+            x: prev.x + ((cur.x - prev.x) * t),
+            y: prev.y + ((cur.y - prev.y) * t),
+            z: prev.z + ((cur.z - prev.z) * t)
+          });
+        }
+      }
+      gyroPathState.smoothPath = smoothPath;
+
+      const trailPos = [];
+      const trailCol = [];
+      const trailGlowCol = [];
+      const trailAuraCol = [];
+      const trailHotCol = [];
+      const trailR = 0.98;
+      const trailG = 0.24;
+      const trailB = 0.2;
+      let minWX = Infinity, minWY = Infinity, minWZ = Infinity;
+      let maxWX = -Infinity, maxWY = -Infinity, maxWZ = -Infinity;
+      for(let i=0;i<smoothPath.length;i++){
+        const p = smoothPath[i];
+        trailPos.push(p.x, p.y, p.z);
+        trailCol.push(trailR, trailG, trailB, 0.98);
+        trailGlowCol.push(trailR, trailG, trailB, 0.92);
+        trailAuraCol.push(trailR, trailG, trailB, 0.86);
+        trailHotCol.push(trailR, trailG, trailB, 0.84);
+        if(p.x < minWX) minWX = p.x;
+        if(p.y < minWY) minWY = p.y;
+        if(p.z < minWZ) minWZ = p.z;
+        if(p.x > maxWX) maxWX = p.x;
+        if(p.y > maxWY) maxWY = p.y;
+        if(p.z > maxWZ) maxWZ = p.z;
+      }
+
+      if(!isFinite(minWX)){
+        minWX = maxWX = 0;
+        minWY = maxWY = GYRO_WORLD_ALTITUDE_BASE;
+        minWZ = maxWZ = 0;
+      }
+      const centerX = (minWX + maxWX) * 0.5;
+      const centerY = (minWY + maxWY) * 0.5;
+      const centerZ = (minWZ + maxWZ) * 0.5;
+      const extent = Math.max(
+        Math.abs(minWX), Math.abs(maxWX),
+        Math.abs(minWZ), Math.abs(maxWZ),
+        0.45
+      );
+      const gridSpan = clampLocal(extent * 6.8, GYRO_GRID_MIN_SPAN, GYRO_GRID_MAX_SPAN);
+      const heightSpread = Math.max(0.12, maxWY - minWY);
+      const cameraDistance = clampLocal(3.1 + (extent * 1.2) + (heightSpread * 0.55), GYRO_CAMERA_MIN_DISTANCE + 0.15, GYRO_CAMERA_MAX_DISTANCE - 2.2);
+      const lookTargetYMin = GYRO_WORLD_ALTITUDE_BASE + 0.08;
+      const lookTargetYMax = Math.max(2.65, currentWorld.y + 0.42);
+      const lookTarget = {
+        x: clampLocal(centerX * 0.4, -1.45, 1.45),
+        y: clampLocal(centerY + ((currentWorld.y - centerY) * 0.5), lookTargetYMin, lookTargetYMax),
+        z: clampLocal(centerZ * 0.4, -1.45, 1.45)
+      };
+      return {
+        current: currentWorld,
+        trailPos,
+        trailCol,
+        trailGlowCol,
+        trailAuraCol,
+        trailHotCol,
+        trailVertexCount: Math.floor(trailPos.length / 3),
+        gridSpan,
+        gridCenter: {
+          x: clampLocal(centerX * 0.2, -(gridSpan * 0.16), gridSpan * 0.16),
+          z: clampLocal(centerZ * 0.2, -(gridSpan * 0.16), gridSpan * 0.16)
+        },
+        lookTarget,
+        cameraDistance
+      };
+    }
+
+    function bindLineAttributes(posBuf, colBuf){
+      const gl = gyroGl.gl;
+      const line = gyroGl.line;
+      gl.useProgram(line.prog);
+      gl.bindBuffer(gl.ARRAY_BUFFER, posBuf);
+      gl.enableVertexAttribArray(line.aPos);
+      gl.vertexAttribPointer(line.aPos, 3, gl.FLOAT, false, 0, 0);
+      gl.bindBuffer(gl.ARRAY_BUFFER, colBuf);
+      gl.enableVertexAttribArray(line.aCol);
+      gl.vertexAttribPointer(line.aCol, 4, gl.FLOAT, false, 0, 0);
+    }
+
+    function drawLineBatch(posBuf, colBuf, mode, count, mvp){
+      if(!count || count < 2) return;
+      const gl = gyroGl.gl;
+      bindLineAttributes(posBuf, colBuf);
+      gl.uniformMatrix4fv(gyroGl.line.uMvp, false, new Float32Array(mvp));
+      gl.drawArrays(mode, 0, count);
+    }
+
+    function bindSolidAttributes(posBuf, normBuf, colBuf){
+      const gl = gyroGl.gl;
+      const solid = gyroGl.solid;
+      gl.useProgram(solid.prog);
+      gl.bindBuffer(gl.ARRAY_BUFFER, posBuf);
+      gl.enableVertexAttribArray(solid.aPos);
+      gl.vertexAttribPointer(solid.aPos, 3, gl.FLOAT, false, 0, 0);
+      gl.bindBuffer(gl.ARRAY_BUFFER, normBuf);
+      gl.enableVertexAttribArray(solid.aNorm);
+      gl.vertexAttribPointer(solid.aNorm, 3, gl.FLOAT, false, 0, 0);
+      gl.bindBuffer(gl.ARRAY_BUFFER, colBuf);
+      gl.enableVertexAttribArray(solid.aCol);
+      gl.vertexAttribPointer(solid.aCol, 4, gl.FLOAT, false, 0, 0);
+    }
+
+    function drawSolidBatch(posBuf, normBuf, colBuf, count, model, view, style){
+      if(!count || count < 3) return;
+      const gl = gyroGl.gl;
+      const solid = gyroGl.solid;
+      bindSolidAttributes(posBuf, normBuf, colBuf);
+      const fogColor = (style && style.fogColor) ? style.fogColor : [0.035, 0.055, 0.09];
+      const fogNear = (style && isFinite(style.fogNear)) ? style.fogNear : 4.8;
+      const fogFar = (style && isFinite(style.fogFar)) ? style.fogFar : 34;
+      const ambient = (style && isFinite(style.ambient)) ? style.ambient : 0.34;
+      const lightDir = (style && style.lightDir) ? style.lightDir : [0.34, 0.88, 0.29];
+      gl.uniformMatrix4fv(solid.uModel, false, new Float32Array(model));
+      gl.uniformMatrix4fv(solid.uView, false, new Float32Array(view));
+      gl.uniformMatrix4fv(solid.uProj, false, new Float32Array(gyroGl.proj));
+      gl.uniform3f(solid.uLightDir, lightDir[0], lightDir[1], lightDir[2]);
+      gl.uniform1f(solid.uAmbient, ambient);
+      gl.uniform3f(solid.uFogColor, fogColor[0], fogColor[1], fogColor[2]);
+      gl.uniform1f(solid.uFogNear, fogNear);
+      gl.uniform1f(solid.uFogFar, fogFar);
+      gl.drawArrays(gl.TRIANGLES, 0, count);
     }
 
     function renderGyroGl(pitchDeg, yawDeg, rollDeg){
       if(!gyroGl) return;
-      const gl = gyroGl.gl;
       resizeGyroGl();
-      gl.clearColor(0.97,0.98,0.99,1);
+      const gl = gyroGl.gl;
+      const pathRender = getGyroPathRenderData();
+      const inExpanded = isGyroViewportExpanded();
+      if(inExpanded){
+        updateGyroExpandedViewportBounds();
+        resizeGyroGl();
+      }
+      const darkTheme = document.documentElement.getAttribute("data-theme") === "dark";
+      const renderStyle = darkTheme ? {
+        fogColor:[0.035,0.055,0.09],
+        fogNear:4.8,
+        fogFar:34,
+        ambient:0.34,
+        lightDir:[0.34,0.88,0.29],
+        clear:[0.02,0.03,0.05,0.96]
+      } : {
+        fogColor:[0.76,0.82,0.89],
+        fogNear:5.2,
+        fogFar:36,
+        ambient:0.4,
+        lightDir:[0.25,0.92,0.24],
+        clear:[0.84,0.89,0.95,0.98]
+      };
+
+      if(!inExpanded){
+        gyroCameraState.panX *= 0.88;
+        gyroCameraState.panY *= 0.88;
+        gyroCameraState.panZ *= 0.88;
+        gyroCameraState.desiredDistance += (pathRender.cameraDistance - gyroCameraState.desiredDistance) * 0.1;
+      }
+      gyroCameraState.desiredDistance = clampLocal(gyroCameraState.desiredDistance, GYRO_CAMERA_MIN_DISTANCE, GYRO_CAMERA_MAX_DISTANCE);
+      gyroCameraState.distance += (gyroCameraState.desiredDistance - gyroCameraState.distance) * GYRO_CAMERA_DISTANCE_SMOOTH;
+
+      const targetX = pathRender.lookTarget.x + gyroCameraState.panX;
+      const targetY = pathRender.lookTarget.y + gyroCameraState.panY;
+      const targetZ = pathRender.lookTarget.z + gyroCameraState.panZ;
+      gyroCameraState.targetX += (targetX - gyroCameraState.targetX) * GYRO_CAMERA_TARGET_SMOOTH;
+      gyroCameraState.targetY += (targetY - gyroCameraState.targetY) * GYRO_CAMERA_TARGET_SMOOTH;
+      gyroCameraState.targetZ += (targetZ - gyroCameraState.targetZ) * GYRO_CAMERA_TARGET_SMOOTH;
+
+      const basis = getGyroCameraBasis();
+      const eye = [
+        gyroCameraState.targetX + (basis.orbitDir[0] * gyroCameraState.distance),
+        gyroCameraState.targetY + (basis.orbitDir[1] * gyroCameraState.distance),
+        gyroCameraState.targetZ + (basis.orbitDir[2] * gyroCameraState.distance)
+      ];
+      const center = [gyroCameraState.targetX, gyroCameraState.targetY, gyroCameraState.targetZ];
+      const view = mat4LookAt(eye, center, [0,1,0]);
+      const viewProj = mat4Mul(gyroGl.proj, view);
+      const rocketClip = mat4TransformVec4(
+        viewProj,
+        pathRender.current.x,
+        pathRender.current.y,
+        pathRender.current.z,
+        1
+      );
+      const clipW = rocketClip[3];
+      if(isFinite(clipW) && Math.abs(clipW) > 1e-5){
+        const invW = 1 / clipW;
+        const ndcX = rocketClip[0] * invW;
+        const ndcY = rocketClip[1] * invW;
+        gyroCameraState.previewRocketX = clampLocal((ndcX * 0.5) + 0.5, -0.5, 1.5);
+        gyroCameraState.previewRocketY = clampLocal(0.5 - (ndcY * 0.5), -0.5, 1.5);
+        gyroCameraState.previewRocketValid = true;
+      }else{
+        gyroCameraState.previewRocketValid = false;
+      }
+
+      gl.clearColor(renderStyle.clear[0], renderStyle.clear[1], renderStyle.clear[2], renderStyle.clear[3]);
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
       gl.enable(gl.DEPTH_TEST);
-      gl.lineWidth(2);
+      gl.depthFunc(gl.LEQUAL);
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
-      const identity = mat4Identity();
-      let mvp = mat4Mul(gyroGl.proj, mat4Mul(gyroGl.view, identity));
-      gl.uniformMatrix4fv(gyroGl.uMvp, false, new Float32Array(mvp));
-      gl.drawArrays(gl.LINES, 0, gyroGl.gridCount);
+      const floorModel = mat4Mul(
+        mat4Translate(pathRender.gridCenter.x, 0, pathRender.gridCenter.z),
+        mat4Scale(pathRender.gridSpan, 1, pathRender.gridSpan)
+      );
+      drawSolidBatch(
+        gyroGl.solid.floorPosBuf,
+        gyroGl.solid.floorNormBuf,
+        gyroGl.solid.floorColBuf,
+        gyroGl.solid.floorCount,
+        floorModel,
+        view,
+        renderStyle
+      );
 
-      const rx = mat4RotateX(pitchDeg * DEG_TO_RAD);
-      const ry = mat4RotateY(yawDeg * DEG_TO_RAD);
-      const rz = mat4RotateZ(rollDeg * DEG_TO_RAD);
-      const model = mat4Mul(rz, mat4Mul(ry, rx));
-      mvp = mat4Mul(gyroGl.proj, mat4Mul(gyroGl.view, model));
-      gl.uniformMatrix4fv(gyroGl.uMvp, false, new Float32Array(mvp));
-      gl.drawArrays(gl.LINES, gyroGl.gridCount, gyroGl.bodyCount);
+      const mvpGrid = mat4Mul(viewProj, floorModel);
+      drawLineBatch(
+        gyroGl.line.staticPosBuf,
+        gyroGl.line.staticColBuf,
+        gl.LINES,
+        gyroGl.sections.gridCount,
+        mvpGrid
+      );
+
+      const axisModel = mat4Identity();
+      const axisMvp = mat4Mul(viewProj, axisModel);
+      bindLineAttributes(gyroGl.line.staticPosBuf, gyroGl.line.staticColBuf);
+      gl.uniformMatrix4fv(gyroGl.line.uMvp, false, new Float32Array(axisMvp));
+      gl.drawArrays(gl.LINES, gyroGl.sections.axisStart, gyroGl.sections.axisCount);
+
+      if(pathRender.trailVertexCount >= 2){
+        const trailMvp = viewProj;
+        gl.bindBuffer(gl.ARRAY_BUFFER, gyroGl.line.trailPosBuf);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(pathRender.trailPos), gl.DYNAMIC_DRAW);
+        gl.bindBuffer(gl.ARRAY_BUFFER, gyroGl.line.trailColBuf);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(pathRender.trailCol), gl.DYNAMIC_DRAW);
+        gl.disable(gl.DEPTH_TEST);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        gl.lineWidth(12);
+        drawLineBatch(
+          gyroGl.line.trailPosBuf,
+          gyroGl.line.trailColBuf,
+          gl.LINE_STRIP,
+          pathRender.trailVertexCount,
+          trailMvp
+        );
+        gl.enable(gl.DEPTH_TEST);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      }
+
+      const yawRad = yawDeg * DEG_TO_RAD;
+      const headingDir = [Math.sin(yawRad), 0, Math.cos(yawRad)];
+      const headingSide = [-headingDir[2], 0, headingDir[0]];
+      const currentY = pathRender.current.y;
+      const h0 = [0, 0.04, 0];
+      const h1 = [headingDir[0] * 1.36, 0.04, headingDir[2] * 1.36];
+      const ha = [h1[0] - (headingDir[0] * 0.24) + (headingSide[0] * 0.12), 0.04, h1[2] - (headingDir[2] * 0.24) + (headingSide[2] * 0.12)];
+      const hb = [h1[0] - (headingDir[0] * 0.24) - (headingSide[0] * 0.12), 0.04, h1[2] - (headingDir[2] * 0.24) - (headingSide[2] * 0.12)];
+      const markerPos = [
+        h0[0],h0[1],h0[2], h1[0],h1[1],h1[2],
+        h1[0],h1[1],h1[2], ha[0],ha[1],ha[2],
+        h1[0],h1[1],h1[2], hb[0],hb[1],hb[2],
+        0,currentY,0, 0,0.04,0,
+        -0.08,currentY,0, 0.08,currentY,0,
+        0,currentY,-0.08, 0,currentY,0.08
+      ];
+      const markerCol = [];
+      for(let i=0;i<markerPos.length/3;i++){
+        if(i < 6) markerCol.push(1,0.84,0.24,0.92);
+        else markerCol.push(0.34,0.86,0.98,0.74);
+      }
+      gl.bindBuffer(gl.ARRAY_BUFFER, gyroGl.line.headingPosBuf);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(markerPos), gl.DYNAMIC_DRAW);
+      gl.bindBuffer(gl.ARRAY_BUFFER, gyroGl.line.headingColBuf);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(markerCol), gl.DYNAMIC_DRAW);
+      drawLineBatch(
+        gyroGl.line.headingPosBuf,
+        gyroGl.line.headingColBuf,
+        gl.LINES,
+        markerPos.length / 3,
+        viewProj
+      );
+
+      const rx = mat4RotateX(gyroRenderPitchDeg(pitchDeg) * DEG_TO_RAD);
+      const ry = mat4RotateY((yawDeg || 0) * DEG_TO_RAD);
+      const rz = mat4RotateZ((rollDeg || 0) * DEG_TO_RAD);
+      const rot = mat4Mul(rz, mat4Mul(ry, rx));
+      const rocketModel = mat4Mul(
+        mat4Translate(pathRender.current.x, pathRender.current.y, pathRender.current.z),
+        mat4Mul(rot, mat4Scale(GYRO_ROCKET_SCALE, GYRO_ROCKET_SCALE, GYRO_ROCKET_SCALE))
+      );
+      drawSolidBatch(
+        gyroGl.solid.rocketPosBuf,
+        gyroGl.solid.rocketNormBuf,
+        gyroGl.solid.rocketColBuf,
+        gyroGl.solid.rocketCount,
+        rocketModel,
+        view,
+        renderStyle
+      );
+
+      bindLineAttributes(gyroGl.line.staticPosBuf, gyroGl.line.staticColBuf);
+      gl.uniformMatrix4fv(gyroGl.line.uMvp, false, new Float32Array(mat4Mul(viewProj, rocketModel)));
+      gl.drawArrays(gl.LINES, gyroGl.sections.bodyStart, gyroGl.sections.bodyCount);
     }
 
-    function renderGyroPreview(){
+    function pathGyroPreviewRoundRect(ctx, x, y, w, h, r){
+      const rr = Math.max(0, Math.min(r, Math.min(w, h) * 0.5));
+      ctx.beginPath();
+      ctx.moveTo(x + rr, y);
+      ctx.lineTo(x + w - rr, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + rr);
+      ctx.lineTo(x + w, y + h - rr);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - rr, y + h);
+      ctx.lineTo(x + rr, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - rr);
+      ctx.lineTo(x, y + rr);
+      ctx.quadraticCurveTo(x, y, x + rr, y);
+      ctx.closePath();
+    }
+
+    function renderGyroPreview(pitchDeg, yawDeg, rollDeg){
       if(!el.gyroGlPreview || !el.gyroGl) return;
       if(el.gyroGlPreview === el.gyroGl) return;
       if(!document.documentElement.classList.contains("mode-flight")) return;
@@ -513,7 +2070,61 @@
         el.gyroGlPreview.height = h;
       }
       ctx.clearRect(0,0,w,h);
-      ctx.drawImage(el.gyroGl, 0, 0, w, h);
+      const frameRadius = Math.max(12, Math.round(Math.min(w, h) * 0.08));
+      const framePad = Math.max(3, Math.round(Math.min(w, h) * 0.03));
+      const innerX = framePad;
+      const innerY = framePad;
+      const innerW = Math.max(12, w - framePad * 2);
+      const innerH = Math.max(12, h - framePad * 2);
+
+      ctx.save();
+      pathGyroPreviewRoundRect(ctx, 0, 0, w, h, frameRadius);
+      ctx.clip();
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0,0,w,h);
+      ctx.restore();
+
+      ctx.save();
+      pathGyroPreviewRoundRect(ctx, innerX, innerY, innerW, innerH, Math.max(8, frameRadius - 4));
+      ctx.clip();
+      const zoom = 1.08;
+      const drawW = innerW * zoom;
+      const drawH = innerH * zoom;
+      const overflowX = Math.max(0, (drawW - innerW) * 0.5);
+      const overflowY = Math.max(0, (drawH - innerH) * 0.5);
+      let dx = innerX - overflowX;
+      let dy = innerY - overflowY;
+      if(gyroCameraState.previewRocketValid){
+        gyroCameraState.previewSmoothX += (gyroCameraState.previewRocketX - gyroCameraState.previewSmoothX) * GYRO_PREVIEW_TRACK_SMOOTH;
+        gyroCameraState.previewSmoothY += (gyroCameraState.previewRocketY - gyroCameraState.previewSmoothY) * GYRO_PREVIEW_TRACK_SMOOTH;
+      }else{
+        gyroCameraState.previewSmoothX += (0.5 - gyroCameraState.previewSmoothX) * 0.1;
+        gyroCameraState.previewSmoothY += (0.5 - gyroCameraState.previewSmoothY) * 0.1;
+      }
+      const desiredX = innerX + (innerW * GYRO_PREVIEW_TRACK_TARGET_X);
+      const desiredY = innerY + (innerH * GYRO_PREVIEW_TRACK_TARGET_Y);
+      const rocketX = dx + (gyroCameraState.previewSmoothX * drawW);
+      const rocketY = dy + (gyroCameraState.previewSmoothY * drawH);
+      let shiftX = desiredX - rocketX;
+      let shiftY = desiredY - rocketY;
+      const deadbandX = innerW * GYRO_PREVIEW_TRACK_DEADBAND;
+      const deadbandY = innerH * GYRO_PREVIEW_TRACK_DEADBAND;
+      if(Math.abs(shiftX) < deadbandX) shiftX = 0;
+      if(Math.abs(shiftY) < deadbandY) shiftY = 0;
+      const maxShiftX = overflowX * GYRO_PREVIEW_TRACK_MAX_SHIFT_RATIO;
+      const maxShiftY = overflowY * GYRO_PREVIEW_TRACK_MAX_SHIFT_RATIO;
+      dx += clampLocal(shiftX, -maxShiftX, maxShiftX);
+      dy += clampLocal(shiftY, -maxShiftY, maxShiftY);
+      ctx.globalAlpha = 0.95;
+      ctx.drawImage(el.gyroGl, dx, dy, drawW, drawH);
+      ctx.restore();
+
+      ctx.save();
+      ctx.strokeStyle = "rgba(203,213,225,0.72)";
+      ctx.lineWidth = Math.max(1, Math.round(Math.min(w, h) * 0.005));
+      pathGyroPreviewRoundRect(ctx, 0.5, 0.5, w - 1, h - 1, frameRadius);
+      ctx.stroke();
+      ctx.restore();
     }
 
     function renderNavBallPreview(pitchDeg, yawDeg, rollDeg){
@@ -726,7 +2337,7 @@
     let serialLineBuf = "";
     let serialConnected = false;
     let simEnabled = false;
-    let simState = {st:0, cdMs:0, countdownStartMs:null, ignStartMs:null, countdownTotalMs:null};
+    let simState = createSimState();
 
     // ✅ 설비 점검/제어 권한
     let controlAuthority = false;
@@ -756,6 +2367,14 @@
     const THRUST_GAUGE_MAX_KGF = 10;
     const THRUST_GAUGE_MAX_LBF = 22;
     const PRESSURE_GAUGE_MAX_V = 5;
+    const quickFlightMetrics = {
+      originAlt: NaN,
+      lastLat: NaN,
+      lastLon: NaN,
+      lastAlt: NaN,
+      lastMs: 0,
+      speedMps: NaN
+    };
     let pendingLoadcellWeight = null;
     let pendingLoadcellZero = false;
     let lastBurnSeconds = null;
@@ -1045,6 +2664,8 @@
         viewTerminalLabel:"TERMINAL",
         labelThrust:"추력",
         labelPressure:"압력",
+        labelAltitude:"고도",
+        labelSpeed:"속도",
         labelSwitch:"스위치",
         labelRelay:"릴레이",
         labelIgniter:"이그나이터",
@@ -1255,6 +2876,11 @@
         hdrThrust:"추력_kgf",
         hdrThrustN:"추력_N",
         hdrPressure:"압력_v",
+        hdrGpsLat:"gps_위도_deg",
+        hdrGpsLon:"gps_경도_deg",
+        hdrGpsAlt:"gps_고도_m",
+        hdrAltitudeM:"고도_m",
+        hdrSpeedMps:"속도_mps",
         hdrAccelX:"가속도_x_g",
         hdrAccelY:"가속도_y_g",
         hdrAccelZ:"가속도_z_g",
@@ -1476,6 +3102,8 @@
         viewTerminalLabel:"TERMINAL",
         labelThrust:"Thrust",
         labelPressure:"Pressure",
+        labelAltitude:"Altitude",
+        labelSpeed:"Speed",
         labelSwitch:"Switch",
         labelRelay:"Relay",
         labelIgniter:"Igniter",
@@ -1701,6 +3329,11 @@
         hdrThrust:"thrust_kgf",
         hdrThrustN:"thrust_n",
         hdrPressure:"pressure_v",
+        hdrGpsLat:"gps_lat",
+        hdrGpsLon:"gps_lon",
+        hdrGpsAlt:"gps_alt",
+        hdrAltitudeM:"altitude_m",
+        hdrSpeedMps:"speed_mps",
         hdrAccelX:"accel_x_g",
         hdrAccelY:"accel_y_g",
         hdrAccelZ:"accel_z_g",
@@ -1930,6 +3563,7 @@
       currentLang = (lang === "en") ? "en" : "ko";
       document.documentElement.lang = currentLang;
       updateStaticTexts();
+      updateQuickMetricLabels();
       updateSerialControlTile();
       updateExportGuardUi();
     }
@@ -1987,11 +3621,8 @@
         updateRelaySafePill();
         setButtonsFromState(currentSt, lockoutLatched, sequenceActive);
         if(lockoutLatched){
-          simState.st = 0;
-          simState.countdownStartMs = null;
-          simState.ignStartMs = null;
-          simState.cdMs = 0;
-          simState.countdownTotalMs = null;
+          resetSimState();
+          resetGyroPathTracking();
         }
         if(any) showLockoutModal();
         else if(lockoutModalShown) hideLockoutModal();
@@ -2040,10 +3671,17 @@
       document.documentElement.classList.toggle("mode-daq", uiSettings.opMode !== "flight");
       document.documentElement.classList.toggle("preview-3d", (uiSettings.gyroPreview || "3d") === "3d");
       document.documentElement.classList.toggle("preview-navball", (uiSettings.gyroPreview || "3d") === "navball");
+      if(uiSettings.opMode !== "flight"){
+        resetQuickFlightMetricsState();
+      }
+      if((uiSettings.opMode !== "flight" || (uiSettings.gyroPreview || "3d") !== "3d") && isGyroViewportExpanded()){
+        setGyroViewportExpanded(false);
+      }
 
       updateRelaySafePill();
       updateSerialPill();
       updateStaticTexts();
+      updateQuickMetricLabels();
       updateSerialControlTile();
       updateExportGuardUi();
       refreshStatusMapMarkerContent();
@@ -2160,8 +3798,43 @@
       pillEl.classList.toggle("is-off", !checked);
     }
 
+    function createSimState(){
+      return {
+        st:0,
+        cdMs:0,
+        countdownStartMs:null,
+        ignStartMs:null,
+        countdownTotalMs:null,
+        flightStartMs:null,
+        lastGeo:null,
+        physicsLastMs:0,
+        posE:0,
+        posN:0,
+        altM:0,
+        velE:0,
+        velN:0,
+        velU:0,
+        accE:0,
+        accN:0,
+        accU:0,
+        rollDeg:0,
+        pitchDeg:82,
+        yawDeg:34,
+        apogeeMs:null,
+        drogueDeployed:false,
+        mainDeployed:false,
+        landed:false,
+        landedMs:null,
+        gpsNextMs:0,
+        gpsLat:null,
+        gpsLon:null,
+        gpsAlt:null,
+        gpsPhase:0
+      };
+    }
+
     function resetSimState(){
-      simState = {st:0, cdMs:0, countdownStartMs:null, ignStartMs:null, countdownTotalMs:null};
+      simState = createSimState();
     }
     function setSimEnabled(enabled, opts){
       const silent = !!(opts && opts.silent);
@@ -2172,6 +3845,13 @@
       }
       if(simEnabled){
         resetSimState();
+        resetGyroPathTracking();
+        gyroLastUiMs = 0;
+        gyroAttitudeLastMs = 0;
+        gyroAttitudeReady = false;
+        gyroYawDeg = 0;
+        gyroPitchDeg = 0;
+        gyroRollDeg = 0;
         lockoutLatched = false;
         lockoutRelayMask = 0;
         devLoadcellError = false;
@@ -2181,6 +3861,13 @@
         onIncomingSample(buildSimSample(), "SIMULATION");
       }else{
         resetSimState();
+        resetGyroPathTracking();
+        gyroLastUiMs = 0;
+        gyroAttitudeLastMs = 0;
+        gyroAttitudeReady = false;
+        gyroYawDeg = 0;
+        gyroPitchDeg = 0;
+        gyroRollDeg = 0;
         resetInspectionUI();
         connOk = false;
         updateConnectionUI(false);
@@ -2212,6 +3899,11 @@
         if(remain <= 0){
           simState.st = 2;
           simState.ignStartMs = now;
+          if(simState.flightStartMs == null){
+            simState.flightStartMs = now;
+            simState.physicsLastMs = 0;
+            resetGyroPathTracking();
+          }
           simState.countdownStartMs = null;
           simState.cdMs = 0;
           simState.countdownTotalMs = null;
@@ -2225,22 +3917,324 @@
         }
       }
 
-      let thrust = 0.15 + 0.05 * Math.sin(now / 420);
-      let pressure = 0.2 + 0.08 * Math.sin(now / 360);
-      if(simState.st === 1){
-        thrust = 0.35 + 0.08 * Math.sin(now / 240);
-        pressure = 0.4 + 0.12 * Math.sin(now / 260);
-      }else if(simState.st === 2){
-        thrust = 3.5 + 1.6 * Math.sin(now / 110);
-        pressure = 1.2 + 0.6 * Math.sin(now / 140);
-      }
+      const tSec = now / 1000;
+      const baseLat = STATUS_MAP_DEFAULT.lat;
+      const baseLon = STATUS_MAP_DEFAULT.lon;
+      const baseAlt = 55;
+      const metersPerLon = 111320 * Math.cos(baseLat * DEG_TO_RAD);
+      const burnSec = clampLocal(Number((uiSettings ? uiSettings.ignDurationSec : 5) || 5), 2.5, 7);
+      const hasFlight = (simState.flightStartMs != null);
+      const padHeadingDeg = 34;
+      const padPitchDeg = 88.6;
+      const mainDeployAltM = 120;
+      const simTargetApogeeM = 500;
+      const coastGravityMps2 = 9.7;
+      const burnSecSq = Math.max(0.6, burnSec * burnSec);
+      const verticalDragCoeff = 0.0018;
+      const boostMeanAccTarget = Math.max(
+        10,
+        (
+          -coastGravityMps2 +
+          Math.sqrt((coastGravityMps2 * coastGravityMps2) + ((8 * coastGravityMps2 * simTargetApogeeM) / burnSecSq))
+        ) * 0.5
+      ) * 1.41;
+      const gMps2 = 9.80665;
 
-      const ax = 0.02 * Math.sin(now / 260);
-      const ay = 0.02 * Math.cos(now / 300);
-      const az = 1.0 + 0.04 * Math.sin(now / 210);
-      const gx = 0.8 * Math.sin(now / 180);
-      const gy = 0.6 * Math.cos(now / 210);
-      const gz = 0.4 * Math.sin(now / 160);
+      let simLat = baseLat;
+      let simLon = baseLon;
+      let simAlt = baseAlt;
+      let ax = 0;
+      let ay = 0;
+      let az = 1;
+      let gx = 0;
+      let gy = 0;
+      let gz = 0;
+      let thrust = 0.12 + (0.02 * Math.sin((tSec * 1.9) + 0.4));
+      let pressure = 0.22 + (0.03 * Math.sin((tSec * 1.3) + 0.2));
+
+      if(hasFlight){
+        if(simState.physicsLastMs <= 0){
+          simState.physicsLastMs = now;
+          simState.posE = 0;
+          simState.posN = 0;
+          simState.altM = Math.max(0, simState.altM || 0);
+          simState.velE = 0;
+          simState.velN = 0;
+          simState.velU = 0;
+          simState.accE = 0;
+          simState.accN = 0;
+          simState.accU = 0;
+          simState.apogeeMs = null;
+          simState.drogueDeployed = false;
+          simState.mainDeployed = false;
+          simState.landed = false;
+          simState.landedMs = null;
+          simState.gpsNextMs = 0;
+          simState.gpsLat = null;
+          simState.gpsLon = null;
+          simState.gpsAlt = null;
+          simState.gpsPhase = 0;
+          simState.rollDeg = 0;
+          simState.pitchDeg = padPitchDeg;
+          simState.yawDeg = padHeadingDeg;
+        }
+        const prevPhysicsMs = simState.physicsLastMs || now;
+        const rawDtSec = (now - prevPhysicsMs) / 1000;
+        const dtSec = clampLocal(isFinite(rawDtSec) ? rawDtSec : 0.02, 0.005, 0.12);
+        const steps = clampLocal(Math.ceil(dtSec / 0.02), 1, 6);
+        const stepDt = dtSec / steps;
+        const rollStart = simState.rollDeg;
+        const pitchStart = simState.pitchDeg;
+        const yawStart = simState.yawDeg;
+
+        for(let i=0;i<steps;i++){
+          const stepMs = prevPhysicsMs + Math.round((i + 1) * stepDt * 1000);
+          const tFlight = Math.max(0, (stepMs - simState.flightStartMs) / 1000);
+          const burnActive = tFlight < burnSec;
+
+          if(!simState.apogeeMs && tFlight > Math.max(1.2, burnSec * 0.45) && simState.velU <= 0){
+            simState.apogeeMs = stepMs;
+          }
+          if(simState.apogeeMs && !simState.drogueDeployed && (stepMs - simState.apogeeMs) >= 900){
+            simState.drogueDeployed = true;
+          }
+          if(simState.drogueDeployed && !simState.mainDeployed && simState.altM <= mainDeployAltM){
+            simState.mainDeployed = true;
+          }
+
+          const headingTarget = padHeadingDeg;
+          const yawSmooth = simState.landed ? 5.2 : (burnActive ? 7.6 : (simState.mainDeployed ? 3.6 : 4.6));
+          simState.yawDeg = lerpAngleDeg(simState.yawDeg, headingTarget, clampLocal(stepDt * yawSmooth, 0, 1));
+
+          let targetForwardMps = 0;
+          if(simState.landed){
+            targetForwardMps = 0;
+          }else if(burnActive){
+            targetForwardMps = 0.08 + (0.18 * clampLocal(tFlight / Math.max(0.5, burnSec), 0, 1));
+          }else if(!simState.drogueDeployed){
+            targetForwardMps = 0.22;
+          }else if(!simState.mainDeployed){
+            targetForwardMps = 0.16;
+          }else{
+            targetForwardMps = 0.08;
+          }
+          if(tFlight < 1.2){
+            targetForwardMps *= 0.35;
+          }
+
+          const altFactor = clampLocal(simState.altM / 600, 0, 1);
+          let windE = 0;
+          let windN = 0;
+          if(!simState.landed){
+            windE = (0.012 + (0.018 * altFactor)) * Math.sin((tFlight * 0.08) + 0.8);
+            windN = (0.01 + (0.015 * altFactor)) * Math.cos((tFlight * 0.07) + 1.6);
+            if(tFlight < 1.2){
+              windE *= 0.3;
+              windN *= 0.3;
+            }
+          }
+          const yawRadVel = simState.yawDeg * DEG_TO_RAD;
+          const targetVelE = (Math.sin(yawRadVel) * targetForwardMps) + windE;
+          const targetVelN = (Math.cos(yawRadVel) * targetForwardMps) + windN;
+          const horizTau = simState.landed ? 0.52 : (simState.mainDeployed ? 0.78 : (simState.drogueDeployed ? 0.96 : 1.12));
+          const accE = (targetVelE - simState.velE) / horizTau;
+          const accN = (targetVelN - simState.velN) / horizTau;
+
+          const dragUp = verticalDragCoeff * simState.velU * Math.abs(simState.velU);
+          let accU = 0;
+          if(simState.landed){
+            accU = 0;
+          }else if(burnActive){
+            const u = clampLocal(tFlight / Math.max(0.5, burnSec), 0, 1);
+            const boostShape = Math.sin(Math.PI * Math.pow(u, 0.92));
+            const boostAcc = clampLocal(
+              boostMeanAccTarget * (0.74 + (0.42 * Math.max(0, boostShape))),
+              10,
+              52
+            );
+            accU = boostAcc - dragUp;
+          }else if(!simState.drogueDeployed){
+            accU = -9.72 - (dragUp * 0.65);
+          }else if(!simState.mainDeployed){
+            accU = (-14.5 - simState.velU) / 1.5;
+          }else{
+            const targetFall = -3.2;
+            const tau = (simState.altM < 40) ? 0.85 : 1.1;
+            accU = (targetFall - simState.velU) / tau;
+            if(simState.altM < 7){
+              const flare = clampLocal((7 - simState.altM) / 7, 0, 1);
+              accU += 3.2 * flare;
+            }
+          }
+
+          simState.velE += accE * stepDt;
+          simState.velN += accN * stepDt;
+          simState.velU += accU * stepDt;
+          simState.posE += simState.velE * stepDt;
+          simState.posN += simState.velN * stepDt;
+          simState.altM += simState.velU * stepDt;
+          simState.accE = accE;
+          simState.accN = accN;
+          simState.accU = accU;
+
+          if(simState.altM <= 0){
+            simState.altM = 0;
+            if(tFlight > (burnSec + 1.8) && simState.velU <= 0){
+              simState.landed = true;
+              if(!simState.landedMs) simState.landedMs = stepMs;
+              simState.velU = 0;
+            }
+          }
+          if(simState.landed){
+            simState.velU = 0;
+            simState.accU = 0;
+            const groundDamp = Math.exp(-stepDt * 6.2);
+            simState.velE *= groundDamp;
+            simState.velN *= groundDamp;
+            if(Math.hypot(simState.velE, simState.velN) < 0.01){
+              simState.velE = 0;
+              simState.velN = 0;
+            }
+          }
+
+          const speedH = Math.hypot(simState.velE, simState.velN);
+          const pathPitchDeg = Math.atan2(simState.velU, Math.max(0.1, speedH)) * RAD_TO_DEG;
+          let pitchTarget = 0;
+          if(simState.landed){
+            pitchTarget = 88.8;
+          }else if(burnActive){
+            const u = clampLocal(tFlight / Math.max(0.5, burnSec), 0, 1);
+            pitchTarget = padPitchDeg - (0.35 * Math.pow(u, 1.05));
+          }else if(!simState.mainDeployed){
+            pitchTarget = clampLocal(pathPitchDeg + (simState.velU > 0 ? 0.4 : -0.2), 78, 89.2);
+          }else{
+            pitchTarget = 84.5;
+          }
+          const pitchSmooth = simState.mainDeployed ? 2.6 : 3.2;
+          simState.pitchDeg += (pitchTarget - simState.pitchDeg) * clampLocal(stepDt * pitchSmooth, 0, 1);
+
+          let rollRateDps = 0;
+          if(simState.landed){
+            rollRateDps = 0;
+          }else if(burnActive){
+            rollRateDps = 0.12 + (0.08 * Math.sin((tFlight * 3.0) + 0.8));
+          }else if(!simState.drogueDeployed){
+            rollRateDps = 0.08 + (0.06 * Math.sin((tFlight * 2.4) + 0.4));
+          }else if(!simState.mainDeployed){
+            rollRateDps = 0.05 + (0.04 * Math.sin((tFlight * 1.6) + 1.1));
+          }else{
+            rollRateDps = 0.03 + (0.03 * Math.sin((tFlight * 0.8) + 0.2));
+          }
+          if(simState.landed){
+            simState.rollDeg = lerpAngleDeg(simState.rollDeg, 0, clampLocal(stepDt * 6.0, 0, 1));
+          }else{
+            simState.rollDeg = normalizeAngleDeg(simState.rollDeg + (rollRateDps * stepDt));
+          }
+        }
+        simState.physicsLastMs = now;
+
+        const dtRate = Math.max(0.001, (now - prevPhysicsMs) / 1000);
+        const tFlightNow = Math.max(0, (now - simState.flightStartMs) / 1000);
+        const burnNow = tFlightNow < burnSec;
+        const gyroNoiseAmp = burnNow ? 0.7 : (simState.mainDeployed ? 0.16 : 0.3);
+        gx = angleDeltaDeg(rollStart, simState.rollDeg) / dtRate;
+        gy = (simState.pitchDeg - pitchStart) / dtRate;
+        gz = angleDeltaDeg(yawStart, simState.yawDeg) / dtRate;
+        gx += gyroNoiseAmp * Math.sin((tSec * 18.0) + 0.2);
+        gy += (gyroNoiseAmp * 0.5) * Math.cos((tSec * 16.0) + 0.7);
+        gz += (gyroNoiseAmp * 0.45) * Math.sin((tSec * 15.0) + 1.1);
+        gx = clampLocal(gx, -140, 140);
+        gy = clampLocal(gy, -140, 140);
+        gz = clampLocal(gz, -140, 140);
+
+        const yawRad = simState.yawDeg * DEG_TO_RAD;
+        const forwardMps2 = (simState.accE * Math.sin(yawRad)) + (simState.accN * Math.cos(yawRad));
+        const rightMps2 = (simState.accE * Math.cos(yawRad)) - (simState.accN * Math.sin(yawRad));
+        const upMps2 = simState.accU;
+        const forwardG = forwardMps2 / gMps2;
+        const rightG = rightMps2 / gMps2;
+        const upG = upMps2 / gMps2;
+        const rollRad = simState.rollDeg * DEG_TO_RAD;
+        const pitchRad = simState.pitchDeg * DEG_TO_RAD;
+        const gravX = -Math.sin(pitchRad);
+        const gravY = Math.sin(rollRad) * Math.cos(pitchRad);
+        const gravZ = Math.cos(rollRad) * Math.cos(pitchRad);
+        const vibeAmp = burnNow ? 0.012 : (simState.mainDeployed ? 0.002 : 0.005);
+        const vibe = vibeAmp * (
+          Math.sin((tSec * 34) + 0.4) +
+          (0.6 * Math.sin((tSec * 47) + 0.9)) +
+          (0.3 * Math.sin((tSec * 68) + 1.4))
+        );
+        ax = gravX + forwardG + vibe;
+        ay = gravY + rightG + (vibe * 0.56);
+        az = gravZ + upG + (vibe * 0.32);
+        ax = clampLocal(ax, -4, 4);
+        ay = clampLocal(ay, -4, 4);
+        az = clampLocal(az, -4, 4);
+
+        const trueLat = baseLat + (simState.posN / 111320);
+        const trueLon = baseLon + (simState.posE / (Math.abs(metersPerLon) > 1 ? metersPerLon : 1));
+        const trueAlt = baseAlt + simState.altM;
+        if(simState.gpsNextMs <= 0 || now >= simState.gpsNextMs){
+          simState.gpsPhase += 1;
+          const phase = simState.gpsPhase;
+          const noiseH = simState.landed ? 0.03 : (simState.mainDeployed ? 0.05 : (burnNow ? 0.035 : 0.045));
+          const noiseV = simState.landed ? 0.02 : (simState.mainDeployed ? 0.05 : 0.035);
+          const noiseE = noiseH * Math.sin((phase * 1.37) + (tSec * 0.53));
+          const noiseN = noiseH * 0.8 * Math.cos((phase * 0.91) + (tSec * 0.31));
+          const noiseA = noiseV * Math.sin((phase * 1.11) + 0.4);
+          simState.gpsLat = baseLat + ((simState.posN + noiseN) / 111320);
+          simState.gpsLon = baseLon + ((simState.posE + noiseE) / (Math.abs(metersPerLon) > 1 ? metersPerLon : 1));
+          simState.gpsAlt = baseAlt + Math.max(0, simState.altM + noiseA);
+          const jitter = Math.floor((Math.sin((phase * 0.77) + 0.9) + 1) * 12);
+          simState.gpsNextMs = now + 220 + jitter;
+        }
+        simLat = simState.gpsLat != null ? simState.gpsLat : trueLat;
+        simLon = simState.gpsLon != null ? simState.gpsLon : trueLon;
+        simAlt = simState.gpsAlt != null ? simState.gpsAlt : trueAlt;
+
+        const u = clampLocal(tFlightNow / Math.max(0.5, burnSec), 0, 1);
+        const thrustShape = Math.pow(Math.sin(Math.PI * Math.pow(u, 0.85)), 1.08);
+        if(burnNow){
+          thrust = Math.max(0, 0.28 + (7.4 * Math.max(0, thrustShape)) + (0.25 * Math.sin((tSec * 41) + 0.3)));
+        }else if(!simState.landed){
+          thrust = 0.08 + (0.03 * Math.sin((tSec * 4.4) + 0.2));
+        }else{
+          thrust = 0.06 + (0.01 * Math.sin((tSec * 1.3) + 0.1));
+        }
+        const altNorm = clampLocal(simState.altM / 600, 0, 1);
+        if(burnNow){
+          pressure = 0.9 + (1.85 * Math.max(0, thrustShape)) + (0.08 * Math.sin((tSec * 18) + 0.4));
+        }else if(!simState.landed){
+          pressure = 0.24 + (0.16 * altNorm) + (simState.mainDeployed ? 0.02 : 0.06) + (0.04 * Math.sin((tSec * 2.4) + 0.9));
+        }else{
+          pressure = 0.22 + (0.02 * Math.sin((tSec * 1.4) + 0.2));
+        }
+        pressure = clampLocal(pressure, 0.1, 3.1);
+      }else{
+        const padPitchNow = padPitchDeg;
+        const padRollNow = 0;
+        simState.rollDeg = padRollNow;
+        simState.pitchDeg = padPitchNow;
+        simState.yawDeg = padHeadingDeg;
+        const rollRad = padRollNow * DEG_TO_RAD;
+        const pitchRad = padPitchNow * DEG_TO_RAD;
+        const gravX = -Math.sin(pitchRad);
+        const gravY = Math.sin(rollRad) * Math.cos(pitchRad);
+        const gravZ = Math.cos(rollRad) * Math.cos(pitchRad);
+        ax = gravX;
+        ay = gravY;
+        az = gravZ;
+        gx = 0;
+        gy = 0;
+        gz = 0;
+        simLat = baseLat;
+        simLon = baseLon;
+        simAlt = baseAlt;
+        pressure = 0.22 + (0.01 * Math.sin((tSec * 1.3) + 0.2));
+        thrust = 0.12 + (0.005 * Math.sin((tSec * 1.9) + 0.4));
+      }
+      simState.lastGeo = {lat:simLat, lon:simLon, alt:simAlt, ms:now};
 
       const simTd = (simState.st === 1)
         ? -Math.max(0, simState.cdMs)
@@ -2263,7 +4257,10 @@
         st: simState.st,
         td: simTd,
         gs: (uiSettings && uiSettings.igs) ? 1 : 0,
-        m: 2
+        m: 2,
+        gps_lat: simLat,
+        gps_lon: simLon,
+        gps_alt: simAlt
       };
     }
 
@@ -2670,6 +4667,115 @@
       statusMapState.offlineMarker.style.left = p.x.toFixed(3) + "%";
       statusMapState.offlineMarker.style.top = p.y.toFixed(3) + "%";
     }
+    function isStatusMapViewportExpanded(){
+      return !!(el.statusMapViewport && el.statusMapViewport.classList.contains("is-expanded"));
+    }
+    function moveStatusMapViewportToBody(){
+      if(!el.statusMapViewport || statusMapViewportPortalState.mountedToBody) return;
+      const parent = el.statusMapViewport.parentNode;
+      if(!parent) return;
+      statusMapViewportPortalState.homeParent = parent;
+      statusMapViewportPortalState.homeNextSibling = el.statusMapViewport.nextSibling;
+      document.body.appendChild(el.statusMapViewport);
+      statusMapViewportPortalState.mountedToBody = true;
+    }
+    function restoreStatusMapViewportFromBody(){
+      if(!el.statusMapViewport || !statusMapViewportPortalState.mountedToBody) return;
+      const parent = statusMapViewportPortalState.homeParent;
+      const nextSibling = statusMapViewportPortalState.homeNextSibling;
+      if(parent){
+        if(nextSibling && nextSibling.parentNode === parent){
+          parent.insertBefore(el.statusMapViewport, nextSibling);
+        }else{
+          parent.appendChild(el.statusMapViewport);
+        }
+      }
+      statusMapViewportPortalState.homeParent = null;
+      statusMapViewportPortalState.homeNextSibling = null;
+      statusMapViewportPortalState.mountedToBody = false;
+    }
+    function updateStatusMapExpandedViewportBounds(){
+      if(!el.statusMapViewport || !isStatusMapViewportExpanded()) return;
+      el.statusMapViewport.style.setProperty("--status-map-expand-left", "0px");
+      el.statusMapViewport.style.setProperty("--status-map-expand-top", "0px");
+      el.statusMapViewport.style.setProperty("--status-map-expand-right", "0px");
+      el.statusMapViewport.style.setProperty("--status-map-expand-bottom", "0px");
+
+      let hudLeft = window.innerWidth <= 900 ? 12 : 16;
+      if(window.innerWidth > 900){
+        const sideNavDesktop = document.querySelector(".side-nav-desktop");
+        if(sideNavDesktop){
+          const navRect = sideNavDesktop.getBoundingClientRect();
+          if(navRect.width > 20){
+            hudLeft = Math.max(hudLeft, Math.round(navRect.right + 10));
+          }
+        }
+      }
+      el.statusMapViewport.style.setProperty("--status-map-hud-left", hudLeft + "px");
+    }
+    function syncStatusMapExpandButton(){
+      if(!el.statusMapExpandBtn) return;
+      const expanded = isStatusMapViewportExpanded();
+      el.statusMapExpandBtn.textContent = expanded ? "↙ Close" : "⛶ Expand";
+      el.statusMapExpandBtn.setAttribute("aria-expanded", expanded ? "true" : "false");
+    }
+    function setStatusMapViewportExpanded(on){
+      if(!el.statusMapViewport) return;
+      const next = !!on;
+      if(next && isGyroViewportExpanded()){
+        setGyroViewportExpanded(false);
+      }
+      if(next){
+        moveStatusMapViewportToBody();
+      }
+      el.statusMapViewport.classList.toggle("is-expanded", next);
+      document.documentElement.classList.toggle("status-map-expanded", next);
+      if(el.statusMapExpandedHud){
+        el.statusMapExpandedHud.setAttribute("aria-hidden", next ? "false" : "true");
+      }
+      if(next){
+        updateStatusMapExpandedViewportBounds();
+        syncStatusMapExpandedHud();
+      }else{
+        el.statusMapViewport.style.removeProperty("--status-map-expand-left");
+        el.statusMapViewport.style.removeProperty("--status-map-expand-top");
+        el.statusMapViewport.style.removeProperty("--status-map-expand-right");
+        el.statusMapViewport.style.removeProperty("--status-map-expand-bottom");
+        el.statusMapViewport.style.removeProperty("--status-map-hud-left");
+        restoreStatusMapViewportFromBody();
+      }
+      syncStatusMapExpandButton();
+      refreshStatusMapSize();
+      setTimeout(refreshStatusMapSize, 80);
+    }
+    function bindStatusMapViewportInteractions(){
+      if(statusMapViewportBindingsReady || !el.statusMapViewport) return;
+      if(el.statusMapExpandBtn){
+        el.statusMapExpandBtn.addEventListener("click", (ev)=>{
+          ev.preventDefault();
+          ev.stopPropagation();
+          setStatusMapViewportExpanded(!isStatusMapViewportExpanded());
+        });
+      }
+      document.addEventListener("keydown", (ev)=>{
+        if(!isStatusMapViewportExpanded()) return;
+        if(ev.key === "Escape"){
+          ev.preventDefault();
+          setStatusMapViewportExpanded(false);
+        }
+      });
+      const sideNavDesktop = document.querySelector(".side-nav-desktop");
+      if(sideNavDesktop){
+        const refreshExpandedHudInset = ()=>{
+          if(isStatusMapViewportExpanded()) updateStatusMapExpandedViewportBounds();
+        };
+        sideNavDesktop.addEventListener("mouseenter", refreshExpandedHudInset);
+        sideNavDesktop.addEventListener("mouseleave", refreshExpandedHudInset);
+        sideNavDesktop.addEventListener("transitionend", refreshExpandedHudInset);
+      }
+      syncStatusMapExpandButton();
+      statusMapViewportBindingsReady = true;
+    }
     function bindStatusMapControls(){
       if(statusMapState.uiBound) return;
       statusMapState.uiBound = true;
@@ -2852,7 +4958,7 @@
         return false;
       }
     }
-    function extractTelemetryLatLon(data){
+    function extractTelemetryGeo(data, opt){
       if(!data || typeof data !== "object") return null;
       const gps = (data.gps && typeof data.gps === "object") ? data.gps : null;
       const latRaw = data.gps_lat ?? data.gpsLat ?? data.gpsLatitude ?? data.nav_lat ?? (gps ? (gps.lat ?? gps.latitude ?? null) : null);
@@ -2861,8 +4967,21 @@
       const lonNum = Number(lonRaw);
       if(!isFinite(latNum) || !isFinite(lonNum)) return null;
       if(Math.abs(latNum) > 90 || Math.abs(lonNum) > 180) return null;
-      if(!isStatusMapInKorea(latNum, lonNum)) return null;
-      return {lat:latNum, lon:lonNum};
+      if(Math.abs(latNum) < 1e-7 && Math.abs(lonNum) < 1e-7) return null;
+      if(opt && opt.koreaOnly && !isStatusMapInKorea(latNum, lonNum)) return null;
+      const altRaw = data.gps_alt ?? data.gpsAlt ?? data.gpsAltitude ?? data.nav_alt ??
+        (gps ? (gps.alt ?? gps.altitude ?? null) : null);
+      const altNum = Number(altRaw);
+      return {
+        lat: latNum,
+        lon: lonNum,
+        alt: isFinite(altNum) ? altNum : 0
+      };
+    }
+    function extractTelemetryLatLon(data){
+      const geo = extractTelemetryGeo(data, {koreaOnly:true});
+      if(!geo) return null;
+      return {lat:geo.lat, lon:geo.lon};
     }
     function updateStatusMapFromTelemetry(data){
       const pos = extractTelemetryLatLon(data);
@@ -2874,12 +4993,200 @@
       statusMapState.hasLiveFix = true;
       statusMapSetMarker(pos.lat, pos.lon, {recenter: shouldRecenter});
     }
+    function updateGyroPathFromTelemetry(data, nowMs, imuSample){
+      const stateHint = Number(
+        (imuSample && imuSample.st != null)
+          ? imuSample.st
+          : (data && typeof data === "object"
+              ? (data.st != null ? data.st : (data.state ?? currentSt))
+              : currentSt)
+      );
+      const motionActive = localTplusActive || (stateHint === 2);
+      if(!motionActive){
+        return;
+      }
+      const geo = extractTelemetryGeo(data, {koreaOnly:false}) ||
+        (simEnabled && !replaySourceActive && simState && simState.lastGeo ? simState.lastGeo : null);
+      const now = nowMs || Date.now();
+      if(geo){
+        updateGyroPathFromGeo(geo, now);
+        return;
+      }
+      const flight = getQuickFlightMetrics(data, now);
+      const altitudeOnlyM = Number(flight && flight.altitudeM);
+      if(isFinite(altitudeOnlyM)){
+        const last = getGyroPathLastPoint();
+        if(gyroPathState.source !== "alt"){
+          if(last){
+            gyroPathState.altAnchorX = last.x;
+            gyroPathState.altAnchorZ = last.z;
+            gyroPathState.altOffsetY = last.y - altitudeOnlyM;
+          }else{
+            gyroPathState.altAnchorX = 0;
+            gyroPathState.altAnchorZ = 0;
+            gyroPathState.altOffsetY = 0;
+          }
+          gyroPathState.source = "alt";
+        }else if(last){
+          gyroPathState.altAnchorX += (last.x - gyroPathState.altAnchorX) * 0.14;
+          gyroPathState.altAnchorZ += (last.z - gyroPathState.altAnchorZ) * 0.14;
+        }
+        pushGyroPathMeters(
+          gyroPathState.altAnchorX,
+          altitudeOnlyM + gyroPathState.altOffsetY,
+          gyroPathState.altAnchorZ,
+          now,
+          {
+            alphaX: 0.2,
+            alphaY: 0.34,
+            alphaZ: 0.2,
+            minStepM: 0.06,
+            idleHoldMs: 90,
+            idleDriftM: 0.012,
+            jumpRejectM: 180,
+            jumpRejectMs: 2600,
+            altDeadbandM: 0.008
+          }
+        );
+        return;
+      }
+      let sample = imuSample || null;
+      if(!sample && data && typeof data === "object"){
+        sample = {
+          ax: Number(data.ax != null ? data.ax : (data.accel_x ?? data.ax_g ?? 0)),
+          ay: Number(data.ay != null ? data.ay : (data.accel_y ?? data.ay_g ?? 0)),
+          az: Number(data.az != null ? data.az : (data.accel_z ?? data.az_g ?? 0)),
+          st: Number(data.st != null ? data.st : (data.state ?? currentSt))
+        };
+      }
+      updateGyroPathFromImuSample(sample, now);
+    }
+    function resetQuickFlightMetricsState(){
+      quickFlightMetrics.originAlt = NaN;
+      quickFlightMetrics.lastLat = NaN;
+      quickFlightMetrics.lastLon = NaN;
+      quickFlightMetrics.lastAlt = NaN;
+      quickFlightMetrics.lastMs = 0;
+      quickFlightMetrics.speedMps = NaN;
+    }
+    function readQuickTelemetrySpeedMps(data){
+      if(!data || typeof data !== "object") return NaN;
+      const candidates = [
+        data.gps_speed_mps, data.gpsSpeedMps,
+        data.ground_speed_mps, data.groundSpeedMps,
+        data.speed_mps, data.speedMps,
+        data.gps_speed, data.gpsSpeed,
+        data.speed, data.spd, data.vel, data.v
+      ];
+      for(let i=0;i<candidates.length;i++){
+        const val = Number(candidates[i]);
+        if(isFinite(val)) return Math.max(0, val);
+      }
+      return NaN;
+    }
+    function getQuickFlightMetrics(data, nowMs){
+      const now = nowMs || Date.now();
+      let altitudeM = NaN;
+      let speedMps = readQuickTelemetrySpeedMps(data);
+      const useSimFlightMetrics = !!(simEnabled && !replaySourceActive && simState);
+
+      if(useSimFlightMetrics){
+        if(isFinite(simState.altM)) altitudeM = simState.altM;
+        const vE = Number(simState.velE);
+        const vN = Number(simState.velN);
+        const vU = Number(simState.velU);
+        if(!isFinite(speedMps) && isFinite(vE) && isFinite(vN) && isFinite(vU)){
+          speedMps = Math.hypot(vE, vN, vU);
+        }
+      }
+      if(!isFinite(altitudeM) && data && typeof data === "object"){
+        const altCandidates = [
+          data.alt_m, data.altitude_m, data.altitude, data.alt,
+          data.gps_alt, data.gpsAlt, data.nav_alt
+        ];
+        let altAbs = NaN;
+        for(let i=0;i<altCandidates.length;i++){
+          const val = Number(altCandidates[i]);
+          if(isFinite(val)){
+            altAbs = val;
+            break;
+          }
+        }
+        if(isFinite(altAbs)){
+          if(!isFinite(quickFlightMetrics.originAlt)) quickFlightMetrics.originAlt = altAbs;
+          if(isFinite(quickFlightMetrics.originAlt)){
+            altitudeM = altAbs - quickFlightMetrics.originAlt;
+          }else{
+            altitudeM = altAbs;
+          }
+        }
+      }
+
+      const geo = extractTelemetryGeo(data, {koreaOnly:false}) ||
+        (useSimFlightMetrics && simState && simState.lastGeo ? simState.lastGeo : null);
+      if(geo){
+        if(!isFinite(quickFlightMetrics.originAlt)) quickFlightMetrics.originAlt = geo.alt;
+        if(isFinite(quickFlightMetrics.originAlt)){
+          altitudeM = geo.alt - quickFlightMetrics.originAlt;
+        }else if(isFinite(geo.alt)){
+          altitudeM = geo.alt;
+        }
+
+        if(
+          isFinite(quickFlightMetrics.lastLat) &&
+          isFinite(quickFlightMetrics.lastLon) &&
+          quickFlightMetrics.lastMs > 0
+        ){
+          const dtSec = (now - quickFlightMetrics.lastMs) / 1000;
+          if(isFinite(dtSec) && dtSec > 0.08 && dtSec < 4){
+            const latAvg = ((geo.lat + quickFlightMetrics.lastLat) * 0.5) * DEG_TO_RAD;
+            const dNorth = (geo.lat - quickFlightMetrics.lastLat) * 111320;
+            const dEast = (geo.lon - quickFlightMetrics.lastLon) * (111320 * Math.cos(latAvg));
+            const dUp = (isFinite(geo.alt) && isFinite(quickFlightMetrics.lastAlt))
+              ? (geo.alt - quickFlightMetrics.lastAlt)
+              : 0;
+            const rawSpeed = Math.hypot(dNorth, dEast, dUp) / dtSec;
+            if(isFinite(rawSpeed)){
+              if(isFinite(quickFlightMetrics.speedMps)){
+                quickFlightMetrics.speedMps += (rawSpeed - quickFlightMetrics.speedMps) * 0.34;
+              }else{
+                quickFlightMetrics.speedMps = rawSpeed;
+              }
+              if(!isFinite(speedMps)) speedMps = quickFlightMetrics.speedMps;
+            }
+          }
+        }
+
+        quickFlightMetrics.lastLat = geo.lat;
+        quickFlightMetrics.lastLon = geo.lon;
+        quickFlightMetrics.lastAlt = isFinite(geo.alt) ? geo.alt : NaN;
+        quickFlightMetrics.lastMs = now;
+      }
+
+      if(!isFinite(speedMps) && isFinite(quickFlightMetrics.speedMps)){
+        speedMps = quickFlightMetrics.speedMps;
+      }
+      return {altitudeM, speedMps};
+    }
+    function updateQuickMetricLabels(){
+      const inFlightMode = document.documentElement.classList.contains("mode-flight");
+      if(el.quickMetricPrimaryLabel){
+        el.quickMetricPrimaryLabel.textContent = inFlightMode ? t("labelAltitude") : t("labelThrust");
+      }
+      if(el.quickMetricSecondaryLabel){
+        el.quickMetricSecondaryLabel.textContent = inFlightMode ? t("labelSpeed") : t("labelPressure");
+      }
+    }
     function refreshStatusMapSize(){
+      if(isStatusMapViewportExpanded()){
+        updateStatusMapExpandedViewportBounds();
+      }
       if(!statusMapState.map) return;
       try{ statusMapState.map.invalidateSize(); }catch(e){}
     }
     function initStatusMap(){
       if(!el.statusMap || statusMapState.map) return;
+      bindStatusMapViewportInteractions();
       bindStatusMapControls();
       if(typeof window.L === "undefined"){
         initStatusMapOffline();
@@ -2987,6 +5294,125 @@
 
       const hasContent = !!(statusText || pillText);
       el.countdownInlineStatus.classList.toggle("hidden", !hasContent);
+      syncGyroExpandedHud();
+      syncStatusMapExpandedHud();
+    }
+
+    function syncGyroExpandedHud(){
+      if(!el.gyro3dHudCountdown || !el.gyro3dHudStatusText || !el.gyro3dHudStatusPill || !el.gyro3dHudConn || !el.gyro3dHudBattery) return;
+      if(el.gyro3dHudTitle) el.gyro3dHudTitle.textContent = "DASHBOARD";
+
+      const countdownText = (el.countdown && el.countdown.textContent) ? el.countdown.textContent.trim() : "T- --:--:--";
+      const statusTextRaw = (el.statusText && el.statusText.textContent) ? el.statusText.textContent.trim() : "";
+      const pillTextRaw = (el.statusPill && el.statusPill.textContent) ? el.statusPill.textContent.trim() : "";
+      const connText = (el.connStatusText && el.connStatusText.textContent) ? el.connStatusText.textContent.trim() : (connOk ? "CONNECTED · -- Hz" : "DISCONNECTED · -- Hz");
+      const battText = (el.batteryStatus && el.batteryStatus.textContent) ? el.batteryStatus.textContent.trim() : "--%";
+
+      el.gyro3dHudCountdown.textContent = countdownText || "T- --:--:--";
+      el.gyro3dHudStatusText.textContent = statusTextRaw || "--";
+      el.gyro3dHudConn.textContent = connText || "--";
+      el.gyro3dHudBattery.textContent = battText || "--%";
+
+      const pillClasses = ["countdown-inline-status-pill", "gyro3d-expanded-hud-pill"];
+      if(el.statusPill){
+        const clsList = (el.statusPill.className || "").split(/\s+/);
+        for(const cls of clsList){
+          if(!cls || cls === "hidden") continue;
+          if(/^status-/.test(cls)) pillClasses.push(cls);
+        }
+      }
+      el.gyro3dHudStatusPill.className = pillClasses.join(" ");
+      if(pillTextRaw){
+        el.gyro3dHudStatusPill.textContent = pillTextRaw;
+        el.gyro3dHudStatusPill.classList.remove("hidden");
+      }else{
+        el.gyro3dHudStatusPill.textContent = "--";
+        el.gyro3dHudStatusPill.classList.add("hidden");
+      }
+      if(el.gyro3dHudStatusInline){
+        const hasContent = !!(statusTextRaw || pillTextRaw);
+        el.gyro3dHudStatusInline.classList.toggle("hidden", !hasContent);
+      }
+      if(el.gyro3dHudStatusBar){
+        el.gyro3dHudStatusBar.className = "status-bar gyro3d-expanded-statusbar";
+        const online = !!(el.statusBar && el.statusBar.classList.contains("is-online"));
+        el.gyro3dHudStatusBar.classList.add(online ? "is-online" : "is-offline");
+      }
+      if(el.gyro3dHudBatteryWrap){
+        el.gyro3dHudBatteryWrap.className = "status-battery";
+        const sourceBatteryWrap = el.batteryStatus ? el.batteryStatus.closest(".status-battery") : null;
+        if(sourceBatteryWrap){
+          if(sourceBatteryWrap.classList.contains("status-ok")) el.gyro3dHudBatteryWrap.classList.add("status-ok");
+          else if(sourceBatteryWrap.classList.contains("status-warn")) el.gyro3dHudBatteryWrap.classList.add("status-warn");
+          else if(sourceBatteryWrap.classList.contains("status-bad")) el.gyro3dHudBatteryWrap.classList.add("status-bad");
+        }
+      }
+      if(el.gyro3dHudBatteryFill){
+        let fillWidth = "";
+        if(el.batteryFill && el.batteryFill.style && el.batteryFill.style.width){
+          fillWidth = el.batteryFill.style.width.trim();
+        }
+        if(!fillWidth) fillWidth = "45%";
+        el.gyro3dHudBatteryFill.style.width = fillWidth;
+      }
+    }
+    function syncStatusMapExpandedHud(){
+      if(!el.statusMapHudCountdown || !el.statusMapHudStatusText || !el.statusMapHudStatusPill || !el.statusMapHudConn || !el.statusMapHudBattery) return;
+      if(el.statusMapHudTitle) el.statusMapHudTitle.textContent = "DASHBOARD";
+
+      const countdownText = (el.countdown && el.countdown.textContent) ? el.countdown.textContent.trim() : "T- --:--:--";
+      const statusTextRaw = (el.statusText && el.statusText.textContent) ? el.statusText.textContent.trim() : "";
+      const pillTextRaw = (el.statusPill && el.statusPill.textContent) ? el.statusPill.textContent.trim() : "";
+      const connText = (el.connStatusText && el.connStatusText.textContent) ? el.connStatusText.textContent.trim() : (connOk ? "CONNECTED · -- Hz" : "DISCONNECTED · -- Hz");
+      const battText = (el.batteryStatus && el.batteryStatus.textContent) ? el.batteryStatus.textContent.trim() : "--%";
+
+      el.statusMapHudCountdown.textContent = countdownText || "T- --:--:--";
+      el.statusMapHudStatusText.textContent = statusTextRaw || "--";
+      el.statusMapHudConn.textContent = connText || "--";
+      el.statusMapHudBattery.textContent = battText || "--%";
+
+      const pillClasses = ["countdown-inline-status-pill", "gyro3d-expanded-hud-pill"];
+      if(el.statusPill){
+        const clsList = (el.statusPill.className || "").split(/\s+/);
+        for(const cls of clsList){
+          if(!cls || cls === "hidden") continue;
+          if(/^status-/.test(cls)) pillClasses.push(cls);
+        }
+      }
+      el.statusMapHudStatusPill.className = pillClasses.join(" ");
+      if(pillTextRaw){
+        el.statusMapHudStatusPill.textContent = pillTextRaw;
+        el.statusMapHudStatusPill.classList.remove("hidden");
+      }else{
+        el.statusMapHudStatusPill.textContent = "--";
+        el.statusMapHudStatusPill.classList.add("hidden");
+      }
+      if(el.statusMapHudStatusInline){
+        const hasContent = !!(statusTextRaw || pillTextRaw);
+        el.statusMapHudStatusInline.classList.toggle("hidden", !hasContent);
+      }
+      if(el.statusMapHudStatusBar){
+        el.statusMapHudStatusBar.className = "status-bar gyro3d-expanded-statusbar";
+        const online = !!(el.statusBar && el.statusBar.classList.contains("is-online"));
+        el.statusMapHudStatusBar.classList.add(online ? "is-online" : "is-offline");
+      }
+      if(el.statusMapHudBatteryWrap){
+        el.statusMapHudBatteryWrap.className = "status-battery";
+        const sourceBatteryWrap = el.batteryStatus ? el.batteryStatus.closest(".status-battery") : null;
+        if(sourceBatteryWrap){
+          if(sourceBatteryWrap.classList.contains("status-ok")) el.statusMapHudBatteryWrap.classList.add("status-ok");
+          else if(sourceBatteryWrap.classList.contains("status-warn")) el.statusMapHudBatteryWrap.classList.add("status-warn");
+          else if(sourceBatteryWrap.classList.contains("status-bad")) el.statusMapHudBatteryWrap.classList.add("status-bad");
+        }
+      }
+      if(el.statusMapHudBatteryFill){
+        let fillWidth = "";
+        if(el.batteryFill && el.batteryFill.style && el.batteryFill.style.width){
+          fillWidth = el.batteryFill.style.width.trim();
+        }
+        if(!fillWidth) fillWidth = "45%";
+        el.statusMapHudBatteryFill.style.width = fillWidth;
+      }
     }
 
     function updateConnectionUI(connected){
@@ -4587,6 +7013,12 @@
       reportExportedOnce = false;
       firstSampleMs = null;
       sampleCounter = 0;
+      gyroLastUiMs = 0;
+      gyroAttitudeLastMs = 0;
+      gyroAttitudeReady = false;
+      gyroYawDeg = 0;
+      gyroPitchDeg = 0;
+      gyroRollDeg = 0;
       rxWindowStartMs = 0;
       rxWindowCount = 0;
       rxHzWindow = 0;
@@ -4597,15 +7029,17 @@
       prevStForIgn = 0;
       ignitionAnalysis = {hasData:false,ignStartMs:null,thresholdMs:null,lastAboveMs:null,windowStartMs:null,windowEndMs:null,delaySec:null,durationSec:null,endNotified:false};
       lastBurnSeconds = null;
+      resetQuickFlightMetricsState();
       lastStatusCode = -1;
       currentSt = 0;
       sequenceActive = false;
       st2StartMs = null;
       localTplusActive = false;
       localTplusStartMs = null;
-      if(el.countdown) el.countdown.textContent = "T- --:--:??";
-      if(el.countdownMobile) el.countdownMobile.textContent = "T- --:--:??";
-      if(el.countdownBig) el.countdownBig.textContent = "T- --:--:??";
+      resetGyroPathTracking();
+      if(el.countdown) el.countdown.textContent = "T- --:--:--";
+      if(el.countdownMobile) el.countdownMobile.textContent = "T- --:--:--";
+      if(el.countdownBig) el.countdownBig.textContent = "T- --:--:--";
       updateAbortButtonLabel(false);
       autoScrollChart = true;
       chartView.startMs = null;
@@ -5176,6 +7610,26 @@
         timeIso: replayFindHeaderIndex(headers, ["time_iso", "시간_iso", "timestamp", "datetime", "time"]),
         thrust: replayFindHeaderIndex(headers, ["thrust_kgf", "추력_kgf", "thrust", "t"]),
         pressure: replayFindHeaderIndex(headers, ["pressure_v", "압력_v", "pressure", "p"]),
+        gpsLat: replayFindHeaderIndex(headers, [
+          "gps_lat", "gpslat", "gpslatitude", "nav_lat", "latitude", "lat",
+          "gps_위도_deg", "위도_deg", "위도"
+        ]),
+        gpsLon: replayFindHeaderIndex(headers, [
+          "gps_lon", "gpslng", "gpslong", "gpslongitude", "nav_lon", "nav_lng", "longitude", "lon", "lng",
+          "gps_경도_deg", "경도_deg", "경도"
+        ]),
+        gpsAlt: replayFindHeaderIndex(headers, [
+          "gps_alt", "gpsalt", "gpsaltitude", "nav_alt", "altitude_gps_m",
+          "gps_고도_m", "고도_gps_m"
+        ]),
+        altitudeM: replayFindHeaderIndex(headers, [
+          "altitude_m", "고도_m", "alt_m", "altitude", "alt", "gps_alt",
+          "altitude_msl", "altitudem", "고도m", "고도"
+        ]),
+        speedMps: replayFindHeaderIndex(headers, [
+          "speed_mps", "속도_mps", "gps_speed_mps", "ground_speed_mps", "velocity_mps", "speed",
+          "velocity", "speedms", "speedmps", "속도"
+        ]),
         accelX: replayFindHeaderIndex(headers, ["accel_x_g", "가속도_x_g", "ax", "accel_x"]),
         accelY: replayFindHeaderIndex(headers, ["accel_y_g", "가속도_y_g", "ay", "accel_y"]),
         accelZ: replayFindHeaderIndex(headers, ["accel_z_g", "가속도_z_g", "az", "accel_z"]),
@@ -5242,12 +7696,22 @@
           tsMs = prevTs + 1;
         }
         prevTs = tsMs;
+        const latReplay = replayToNumber(col.gpsLat >= 0 ? row[col.gpsLat] : null, NaN);
+        const lonReplay = replayToNumber(col.gpsLon >= 0 ? row[col.gpsLon] : null, NaN);
+        const gpsAltReplay = replayToNumber(col.gpsAlt >= 0 ? row[col.gpsAlt] : null, NaN);
+        const altReplay = replayToNumber(col.altitudeM >= 0 ? row[col.altitudeM] : null, NaN);
+        const speedReplay = replayToNumber(col.speedMps >= 0 ? row[col.speedMps] : null, NaN);
 
         samples.push({
           tsMs,
           sample: {
             t: isFinite(thrustVal) ? thrustVal : 0,
             p: isFinite(pressureVal) ? pressureVal : 0,
+            gps_lat: isFinite(latReplay) ? latReplay : null,
+            gps_lon: isFinite(lonReplay) ? lonReplay : null,
+            gps_alt: isFinite(gpsAltReplay) ? gpsAltReplay : null,
+            alt_m: isFinite(altReplay) ? altReplay : null,
+            speed_mps: isFinite(speedReplay) ? speedReplay : null,
             ax: replayToNumber(col.accelX >= 0 ? row[col.accelX] : null, 0),
             ay: replayToNumber(col.accelY >= 0 ? row[col.accelY] : null, 0),
             az: replayToNumber(col.accelZ >= 0 ? row[col.accelZ] : null, 0),
@@ -5705,7 +8169,16 @@
         gs,
         sm: (sm != null) ? (sm ? 1 : 0) : (safetyModeEnabled ? 1 : 0)
       };
+      const telemetryGeo = extractTelemetryGeo(data, {koreaOnly:false}) ||
+        ((simEnabled && !replaySourceActive && simState && simState.lastGeo) ? simState.lastGeo : null);
       updateStatusMapFromTelemetry(data);
+      updateGyroAttitudeEstimate(ax, ay, az, gx, gy, gz, timeMs);
+      updateGyroPathFromTelemetry(data, timeMs, {ax, ay, az, st});
+      const quickFlight = getQuickFlightMetrics(data, timeMs);
+      const quickAltitudeM = isFinite(quickFlight.altitudeM)
+        ? ((Math.abs(quickFlight.altitudeM) < 0.05) ? 0 : quickFlight.altitudeM)
+        : NaN;
+      const quickSpeedMps = isFinite(quickFlight.speedMps) ? Math.max(0, quickFlight.speedMps) : NaN;
       const fwBoard = data.fw_board ?? data.fwBoard ?? null;
       const fwProgram = data.fw_program ?? data.fwProgram ?? null;
       const fwProtocol = data.fw_protocol ?? data.fwProtocol ?? null;
@@ -5751,7 +8224,13 @@
         sampleHistory.splice(0,remove);
       }
 
-      logData.push({time:timeIso,t:thrustVal,p,ax,ay,az,gx,gy,gz,lt,elapsed:elapsedMs,hz:hxHz,ct:ctUs,s:sw?1:0,ic:ic?1:0,r:rly?1:0,gs,st,td});
+      logData.push({
+        time:timeIso,t:thrustVal,p,alt_m:quickAltitudeM,speed_mps:quickSpeedMps,
+        gps_lat:(telemetryGeo && isFinite(Number(telemetryGeo.lat))) ? Number(telemetryGeo.lat) : null,
+        gps_lon:(telemetryGeo && isFinite(Number(telemetryGeo.lon))) ? Number(telemetryGeo.lon) : null,
+        gps_alt:(telemetryGeo && isFinite(Number(telemetryGeo.alt))) ? Number(telemetryGeo.alt) : null,
+        ax,ay,az,gx,gy,gz,lt,elapsed:elapsedMs,hz:hxHz,ct:ctUs,s:sw?1:0,ic:ic?1:0,r:rly?1:0,gs,st,td
+      });
       logDataRevision += 1;
       if(logData.length > RAW_LOG_MAX) logData.splice(0, logData.length - RAW_LOG_MAX);
       updateExportGuardUi();
@@ -5815,8 +8294,9 @@
       prevStForIgn=st;
       updateMotorInfoPanel();
 
-      // UI 업데이트(스킵)
-      if(sampleCounter % UI_SAMPLE_SKIP === 0){
+      // UI 업데이트(시뮬레이션 모드에서는 더 부드럽게 갱신)
+      const shouldRefreshUi = simEnabled || (sampleCounter % UI_SAMPLE_SKIP === 0);
+      if(shouldRefreshUi){
         updateConnectionUI(true);
         disconnectedLogged=false;
 
@@ -5885,20 +8365,42 @@
 
         const thrustDisp=convertThrustForDisplay(thrustVal);
         const thrustUnit = (uiSettings && uiSettings.thrustUnit) ? uiSettings.thrustUnit : "kgf";
-
-      if(el.thrust){
-          const metric = el.thrust.closest(".status-metric");
-          if(thrustMissing){
-            el.thrust.innerHTML = "로드셀 시스템을<br>점검하세요";
-            if(metric) metric.classList.add("is-alert");
-            if(metric) metric.classList.toggle("loadcell-blink", loadcellErrorActive);
-          }else{
-            if(metric) metric.classList.remove("is-alert");
-            if(metric) metric.classList.remove("loadcell-blink");
-            el.thrust.innerHTML = `<span class="num">${thrustDisp.toFixed(3)}</span><span class="unit">${thrustUnit}</span>`;
+        const inFlightMode = document.documentElement.classList.contains("mode-flight");
+        updateQuickMetricLabels();
+        if(inFlightMode){
+          const altVal = quickAltitudeM;
+          const speedVal = quickSpeedMps;
+          if(el.thrust){
+            const metric = el.thrust.closest(".status-metric");
+            if(metric){
+              metric.classList.remove("is-alert");
+              metric.classList.remove("loadcell-blink");
+            }
+            el.thrust.innerHTML = isFinite(altVal)
+              ? `<span class="num">${altVal.toFixed(1)}</span><span class="unit">m</span>`
+              : `<span class="num">--</span><span class="unit">m</span>`;
           }
+          if(el.pressure){
+            el.pressure.innerHTML = isFinite(speedVal)
+              ? `<span class="num">${speedVal.toFixed(1)}</span><span class="unit">m/s</span>`
+              : `<span class="num">--</span><span class="unit">m/s</span>`;
+          }
+        }else{
+          resetQuickFlightMetricsState();
+          if(el.thrust){
+            const metric = el.thrust.closest(".status-metric");
+            if(thrustMissing){
+              el.thrust.innerHTML = "로드셀 시스템을<br>점검하세요";
+              if(metric) metric.classList.add("is-alert");
+              if(metric) metric.classList.toggle("loadcell-blink", loadcellErrorActive);
+            }else{
+              if(metric) metric.classList.remove("is-alert");
+              if(metric) metric.classList.remove("loadcell-blink");
+              el.thrust.innerHTML = `<span class="num">${thrustDisp.toFixed(3)}</span><span class="unit">${thrustUnit}</span>`;
+            }
+          }
+          if(el.pressure) el.pressure.innerHTML = `<span class="num">${p.toFixed(3)}</span><span class="unit">V</span>`;
         }
-        if(el.pressure) el.pressure.innerHTML = `<span class="num">${p.toFixed(3)}</span><span class="unit">V</span>`;
       if(el.accelX) el.accelX.innerHTML = `<span class="num">${ax.toFixed(3)}</span><span class="unit">g</span>`;
       if(el.accelY) el.accelY.innerHTML = `<span class="num">${ay.toFixed(3)}</span><span class="unit">g</span>`;
       if(el.accelZ) el.accelZ.innerHTML = `<span class="num">${az.toFixed(3)}</span><span class="unit">g</span>`;
@@ -5915,23 +8417,11 @@
         }
         if(gyroGl){
           const nowUi = Date.now();
-          if(gyroLastUiMs === 0 || (nowUi - gyroLastUiMs) >= 120){
-            const axV = isFinite(ax) ? ax : 0;
-            const ayV = isFinite(ay) ? ay : 0;
-            const azV = isFinite(az) ? az : 0;
-            const rollDeg = Math.atan2(ayV, azV) * RAD_TO_DEG;
-            const pitchDeg = Math.atan2(-axV, Math.sqrt((ayV * ayV) + (azV * azV))) * RAD_TO_DEG;
-            const dtSec = (gyroLastUiMs > 0) ? ((nowUi - gyroLastUiMs) / 1000) : 0;
-            if(isFinite(gz) && dtSec > 0){
-              gyroYawDeg += gz * dtSec;
-              gyroYawDeg = ((gyroYawDeg + 180) % 360) - 180;
-            }
-            const alpha = 0.22;
-            gyroRollDeg += alpha * (rollDeg - gyroRollDeg);
-            gyroPitchDeg += alpha * (pitchDeg - gyroPitchDeg);
+          const gyroUiIntervalMs = simEnabled ? 40 : 80;
+          if(gyroLastUiMs === 0 || (nowUi - gyroLastUiMs) >= gyroUiIntervalMs){
             renderGyroGl(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
             renderNavBall(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
-            renderGyroPreview();
+            renderGyroPreview(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
             renderNavBallPreview(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
             updateLauncherPitchAngle(gyroPitchDeg, gy, nowUi);
             if(el.gyroRollDeg) el.gyroRollDeg.innerHTML = `<span class="num">${gyroRollDeg.toFixed(1)}</span><span class="unit">deg</span>`;
@@ -6703,6 +9193,8 @@
       setQuickItemStatus(el.commStatus, connOk ? "ok" : "bad");
       updateStatusMotor();
       updateGyroMetaFromMain();
+      syncGyroExpandedHud();
+      syncStatusMapExpandedHud();
     }
     function showMissionRequired(){
       hideMobileControlsPanel();
@@ -7504,28 +9996,32 @@
       }
 
       if(path.startsWith("/countdown_start")){
+        resetSimState();
         simState.st = 1;
         simState.countdownTotalMs = (uiSettings ? uiSettings.countdownSec : 10) * 1000;
         simState.cdMs = simState.countdownTotalMs;
         simState.countdownStartMs = Date.now();
+        resetGyroPathTracking();
       }else if(path.startsWith("/force_ignite") || path.startsWith("/ignite")){
+        if(simState.flightStartMs == null || simState.landed){
+          resetSimState();
+        }
         simState.st = 2;
         simState.ignStartMs = Date.now();
+        if(simState.flightStartMs == null){
+          simState.flightStartMs = simState.ignStartMs;
+          simState.physicsLastMs = 0;
+          resetGyroPathTracking();
+        }
         simState.countdownStartMs = null;
         simState.cdMs = 0;
         simState.countdownTotalMs = null;
       }else if(path.startsWith("/sequence_end")){
-        simState.st = 0;
-        simState.countdownStartMs = null;
-        simState.ignStartMs = null;
-        simState.cdMs = 0;
-        simState.countdownTotalMs = null;
+        resetSimState();
+        resetGyroPathTracking();
       }else if(path.startsWith("/abort")){
-        simState.st = 0;
-        simState.countdownStartMs = null;
-        simState.ignStartMs = null;
-        simState.cdMs = 0;
-        simState.countdownTotalMs = null;
+        resetSimState();
+        resetGyroPathTracking();
       }
     }
     async function sendCommand(cmd, logIt){
@@ -7712,10 +10208,23 @@
       el.statusMotorGrain = document.getElementById("statusMotorGrain");
       el.statusMotorTest = document.getElementById("statusMotorTest");
       el.statusMap = document.getElementById("statusMap");
+      el.statusMapViewport = document.getElementById("statusMapViewport");
       el.statusMapCoordText = document.getElementById("statusMapCoordText");
       el.statusMapZoomText = document.getElementById("statusMapZoomText");
+      el.statusMapExpandBtn = document.getElementById("statusMapExpandBtn");
       el.statusMapRecenterBtn = document.getElementById("statusMapRecenterBtn");
       el.statusMapCopyBtn = document.getElementById("statusMapCopyBtn");
+      el.statusMapExpandedHud = document.getElementById("statusMapExpandedHud");
+      el.statusMapHudTitle = document.getElementById("statusMapHudTitle");
+      el.statusMapHudCountdown = document.getElementById("statusMapHudCountdown");
+      el.statusMapHudStatusInline = document.getElementById("statusMapHudStatusInline");
+      el.statusMapHudStatusText = document.getElementById("statusMapHudStatusText");
+      el.statusMapHudStatusPill = document.getElementById("statusMapHudStatusPill");
+      el.statusMapHudStatusBar = document.getElementById("statusMapHudStatusBar");
+      el.statusMapHudConn = document.getElementById("statusMapHudConn");
+      el.statusMapHudBatteryWrap = document.getElementById("statusMapHudBatteryWrap");
+      el.statusMapHudBatteryFill = document.getElementById("statusMapHudBatteryFill");
+      el.statusMapHudBattery = document.getElementById("statusMapHudBattery");
       el.countdown = document.getElementById("countdown");
       el.countdownInlineStatus = document.getElementById("countdownInlineStatus");
       el.countdownInlineStatusText = document.getElementById("countdownInlineStatusText");
@@ -7737,6 +10246,17 @@
       el.gyroView = document.getElementById("gyroView");
       el.countdownView = document.getElementById("countdownView");
       el.controlPanelView = document.getElementById("controlPanelView");
+      el.gyro3dExpandedHud = document.getElementById("gyro3dExpandedHud");
+      el.gyro3dHudTitle = document.getElementById("gyro3dHudTitle");
+      el.gyro3dHudCountdown = document.getElementById("gyro3dHudCountdown");
+      el.gyro3dHudStatusInline = document.getElementById("gyro3dHudStatusInline");
+      el.gyro3dHudStatusText = document.getElementById("gyro3dHudStatusText");
+      el.gyro3dHudStatusPill = document.getElementById("gyro3dHudStatusPill");
+      el.gyro3dHudStatusBar = document.getElementById("gyro3dHudStatusBar");
+      el.gyro3dHudConn = document.getElementById("gyro3dHudConn");
+      el.gyro3dHudBatteryWrap = document.getElementById("gyro3dHudBatteryWrap");
+      el.gyro3dHudBatteryFill = document.getElementById("gyro3dHudBatteryFill");
+      el.gyro3dHudBattery = document.getElementById("gyro3dHudBattery");
       el.homeHeroPill = document.getElementById("homeHeroPill");
       el.homeHeroBoard = document.getElementById("homeHeroBoard");
       el.homeFirmware = document.getElementById("homeFirmware");
@@ -7777,6 +10297,8 @@
       el.quickRelay1 = document.getElementById("quick-relay-1");
       el.quickRelay2 = document.getElementById("quick-relay-2");
       el.quickState = document.getElementById("quick-state");
+      el.quickMetricPrimaryLabel = document.getElementById("quickMetricPrimaryLabel");
+      el.quickMetricSecondaryLabel = document.getElementById("quickMetricSecondaryLabel");
 
       el.thrust = document.getElementById("thrust");
       el.pressure = document.getElementById("pressure");
@@ -7791,7 +10313,7 @@
       el.gyroRollDeg = document.getElementById("gyroRollDeg");
       el.gyroPitchDeg = document.getElementById("gyroPitchDeg");
       el.gyroYawDeg = document.getElementById("gyroYawDeg");
-      el.gyroGl = document.getElementById("gyroGl");
+      el.gyroGlHidden = document.getElementById("gyroGl");
       el.thrustGauge = document.querySelector(".status-gauge.thrust");
       el.pressureGauge = document.querySelector(".status-gauge.pressure");
       el.lt = document.getElementById("lt");
@@ -7878,14 +10400,11 @@
       el.ignTimeSave = document.getElementById("ignTimeSave");
       el.countdownSave = document.getElementById("countdownSave");
       el.opModeSelect = document.getElementById("opModeSelect");
+      el.gyro3dViewport = document.getElementById("gyro3dViewport");
       el.gyroGlPreview = document.getElementById("gyroGlPreview");
       el.navBallPreview = document.getElementById("navBallPreview");
       el.gyroPreviewSelect = document.getElementById("gyroPreviewSelect");
-      if(el.gyroGlPreview){
-        el.gyroGl = el.gyroGlPreview;
-        gyroGl = null;
-        initGyroGl();
-      }
+      el.gyroGl = el.gyroGlPreview || el.gyroGlHidden;
       if(el.navBallPreview) el.navBall = el.navBallPreview;
 
       buildMotorPresetInfo();
@@ -8304,11 +10823,8 @@
           sendCommand({http:"/set?safe="+(safetyModeEnabled?1:0), ser:"SAFE "+(safetyModeEnabled?1:0)}, true);
           if(safetyModeEnabled && currentSt !== 0){
             if(simEnabled){
-              simState.st = 0;
-              simState.countdownStartMs = null;
-              simState.ignStartMs = null;
-              simState.cdMs = 0;
-              simState.countdownTotalMs = null;
+              resetSimState();
+              resetGyroPathTracking();
             }else{
               sendCommand({http:"/abort", ser:"ABORT"}, true);
             }
@@ -8460,9 +10976,9 @@
             showToast(t("sequenceEndToast"), "info");
             localTplusActive = false;
             localTplusStartMs = null;
-            if(el.countdown) el.countdown.textContent = "T- --:--:??";
-            if(el.countdownMobile) el.countdownMobile.textContent = "T- --:--:??";
-            if(el.countdownBig) el.countdownBig.textContent = "T- --:--:??";
+            if(el.countdown) el.countdown.textContent = "T- --:--:--";
+            if(el.countdownMobile) el.countdownMobile.textContent = "T- --:--:--";
+            if(el.countdownBig) el.countdownBig.textContent = "T- --:--:--";
             updateAbortButtonLabel(false);
             hideConfirm();
             return;
@@ -8806,6 +11322,8 @@
 
           const rawRows = [[
             t("hdrTimeIso"), t("hdrThrust"), t("hdrThrustN"), t("hdrPressure"),
+            t("hdrGpsLat"), t("hdrGpsLon"), t("hdrGpsAlt"),
+            t("hdrAltitudeM"), t("hdrSpeedMps"),
             t("hdrAccelX"), t("hdrAccelY"), t("hdrAccelZ"),
             t("hdrGyroX"), t("hdrGyroY"), t("hdrGyroZ"),
             t("hdrLoopMs"), t("hdrElapsedMs"), t("hdrHxHz"), t("hdrCpuUs"), t("hdrSwitch"), t("hdrIgnOk"), t("hdrRelay"),
@@ -8872,6 +11390,11 @@
               isFinite(tVal) ? Number(tVal.toFixed(3)) : "",
               isFinite(tNVal) ? Number(tNVal.toFixed(3)) : "",
               isFinite(pVal) ? Number(pVal.toFixed(3)) : "",
+              (row.gps_lat != null && isFinite(Number(row.gps_lat))) ? Number(Number(row.gps_lat).toFixed(7)) : "",
+              (row.gps_lon != null && isFinite(Number(row.gps_lon))) ? Number(Number(row.gps_lon).toFixed(7)) : "",
+              (row.gps_alt != null && isFinite(Number(row.gps_alt))) ? Number(Number(row.gps_alt).toFixed(2)) : "",
+              (row.alt_m != null && isFinite(Number(row.alt_m))) ? Number(Number(row.alt_m).toFixed(2)) : "",
+              (row.speed_mps != null && isFinite(Number(row.speed_mps))) ? Number(Number(row.speed_mps).toFixed(2)) : "",
               (row.ax != null && isFinite(Number(row.ax))) ? Number(Number(row.ax).toFixed(3)) : "",
               (row.ay != null && isFinite(Number(row.ay))) ? Number(Number(row.ay).toFixed(3)) : "",
               (row.az != null && isFinite(Number(row.az))) ? Number(Number(row.az).toFixed(3)) : "",
@@ -9105,6 +11628,9 @@
         const isCountdown = lower === "countdown";
         const isControl = lower === "control";
         const isDashboard = !isHome && !isTerminal && !isHardware && !isGyro && !isCountdown && !isControl;
+        if(!isDashboard && isStatusMapViewportExpanded()){
+          setStatusMapViewportExpanded(false);
+        }
         if(el.pageKicker){
           const name = el.hwBoardName?.textContent?.trim();
           setBoardNameDisplay(el.pageKicker, name, "FLASH6");
@@ -9190,6 +11716,7 @@
         });
         window.addEventListener("resize", ()=>{
           resizeGyroGl();
+          if(gyroGl) renderGyroGl(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
           refreshStatusMapSize();
         });
         const active = Array.from(sideNavItems).find(item=>item.classList.contains("active"));
@@ -9596,6 +12123,9 @@
           if(!uiSettings) return;
           const before = uiSettings.opMode;
           uiSettings.opMode = el.opModeSelect.value || "daq";
+          if(before !== uiSettings.opMode){
+            resetQuickFlightMetricsState();
+          }
           saveSettings();
           applySettingsToUI();
           if(before !== uiSettings.opMode){
@@ -9723,6 +12253,10 @@
       }
       window.addEventListener("beforeunload", handleBeforeUnload);
       window.addEventListener("resize",()=>{
+        if(gyroGl){
+          resizeGyroGl();
+          renderGyroGl(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
+        }
         refreshChartLayout();
         refreshStatusMapSize();
       });
