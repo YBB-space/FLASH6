@@ -638,13 +638,41 @@
       background:linear-gradient(180deg,#f8fafc,#e2e8f0);
       box-shadow:0 8px 16px rgba(15,23,42,0.10), inset 0 1px 0 rgba(255,255,255,0.85);
     }
-    .status-card .status-map-canvas{
+    .status-map-panel.is-expanded{
+      position:fixed;
+      left:var(--status-map-expand-left, 0px);
+      top:var(--status-map-expand-top, 0px);
+      right:var(--status-map-expand-right, 0px);
+      bottom:var(--status-map-expand-bottom, 0px);
+      width:auto !important;
+      height:auto !important;
+      margin:0;
+      overflow:hidden;
+      border-radius:0;
+      border:0;
+      box-shadow:none;
+      z-index:2;
+      background:linear-gradient(180deg,#d8e4f1,#c6d5e6);
+    }
+    .status-map-panel.is-expanded::before{
+      content:"";
+      position:absolute;
+      top:0;
+      left:0;
+      right:0;
+      height:118px;
+      pointer-events:none;
+      z-index:1201;
+      background:linear-gradient(180deg, rgba(15,23,42,0.26) 0%, rgba(15,23,42,0.12) 48%, rgba(15,23,42,0) 100%);
+    }
+    html.status-map-expanded body{overflow:hidden}
+    .status-map-canvas{
       display:block;
       width:100%;
       height:100%;
       border:0;
     }
-    .status-card .status-map-canvas.status-map-canvas--offline{
+    .status-map-canvas.status-map-canvas--offline{
       position:relative;
       overflow:hidden;
       background:linear-gradient(180deg,#dbeafe,#bfdbfe);
@@ -724,45 +752,45 @@
       z-index:5;
       pointer-events:none;
     }
-    .status-card .status-map-tint{
+    .status-map-tint{
       position:absolute;
       inset:0;
       pointer-events:none;
       background:rgba(255,255,255,0.03);
       z-index:200;
     }
-    .status-card .status-map-panel .leaflet-control-attribution{
+    .status-map-panel .leaflet-control-attribution{
       background:rgba(255,255,255,.86);
       color:#334155;
       border:none;
       box-shadow:none;
     }
-    .status-card .status-map-panel .leaflet-container a{color:#2563eb}
-    .status-card .status-map-panel .leaflet-popup-content-wrapper{
+    .status-map-panel .leaflet-container a{color:#2563eb}
+    .status-map-panel .leaflet-popup-content-wrapper{
       background:rgba(255,255,255,.92);
       color:#0f172a;
       border-radius:12px;
       backdrop-filter:blur(12px) saturate(170%);
     }
-    .status-card .status-map-panel .leaflet-popup-tip{
+    .status-map-panel .leaflet-popup-tip{
       background:rgba(255,255,255,.92);
     }
-    .status-card .status-map-panel .leaflet-popup.status-map-popup .leaflet-popup-content-wrapper{
+    .status-map-panel .leaflet-popup.status-map-popup .leaflet-popup-content-wrapper{
       border-radius:12px;
       border:1px solid rgba(148,163,184,0.32);
       background:linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.95));
       box-shadow:0 10px 18px rgba(15,23,42,0.18), inset 0 1px 0 rgba(255,255,255,0.75);
       backdrop-filter:blur(8px) saturate(150%);
     }
-    .status-card .status-map-panel .leaflet-popup.status-map-popup .leaflet-popup-content{
+    .status-map-panel .leaflet-popup.status-map-popup .leaflet-popup-content{
       margin:0;
       min-width:140px;
     }
-    .status-card .status-map-panel .leaflet-popup.status-map-popup .leaflet-popup-tip{
+    .status-map-panel .leaflet-popup.status-map-popup .leaflet-popup-tip{
       background:rgba(248,250,252,0.96);
       box-shadow:0 6px 10px rgba(15,23,42,0.14);
     }
-    .status-card .status-map-panel .leaflet-popup.status-map-popup .leaflet-popup-close-button{
+    .status-map-panel .leaflet-popup.status-map-popup .leaflet-popup-close-button{
       width:20px;
       height:20px;
       border-radius:999px;
@@ -778,7 +806,7 @@
       padding:0;
       text-align:center;
     }
-    .status-card .status-map-panel .leaflet-popup.status-map-popup .leaflet-popup-close-button:hover{
+    .status-map-panel .leaflet-popup.status-map-popup .leaflet-popup-close-button:hover{
       color:#1e40af;
       background:#ffffff;
     }
@@ -866,6 +894,28 @@
       line-height:1;
     }
     .status-map-btn:hover{background:#ffffff}
+    .status-map-btn--expand{
+      font-weight:700;
+      letter-spacing:.04em;
+    }
+    .status-map-expanded-hud{
+      position:absolute;
+      top:calc(12px + env(safe-area-inset-top, 0px));
+      left:calc(var(--status-map-hud-left, 92px) + env(safe-area-inset-left, 0px));
+      right:calc(16px + env(safe-area-inset-right, 0px));
+      display:none;
+      pointer-events:none;
+      z-index:1204;
+    }
+    .status-map-panel.is-expanded .status-map-expanded-hud{
+      display:block;
+    }
+    .status-map-panel.is-expanded .status-map-hud{
+      top:calc(86px + env(safe-area-inset-top, 0px));
+      left:calc(var(--status-map-hud-left, 16px) + env(safe-area-inset-left, 0px));
+      right:calc(12px + env(safe-area-inset-right, 0px));
+      z-index:1203;
+    }
     .status-map-rocket-icon{
       background:transparent;
       border:none;
@@ -1072,10 +1122,250 @@
     .status-gyro-canvas{
       width:180px;
       height:180px;
-      border-radius:14px;
-      background:linear-gradient(135deg,#ffffff,#f8fafc);
-      border:1px solid rgba(148,163,184,0.4);
+      border-radius:16px;
       display:block;
+      position:relative;
+      overflow:hidden;
+    }
+    .status-gyro-canvas--3d{
+      background:
+        radial-gradient(120% 100% at 50% 0%, #dce6f1 0%, #cad8e8 68%),
+        linear-gradient(180deg,#e3ebf4,#cfdae9);
+      border:1px solid rgba(120,142,166,0.42);
+      box-shadow:0 10px 18px rgba(15,23,42,0.12);
+      cursor:zoom-in;
+      outline:none;
+    }
+    .status-gyro-canvas--3d:focus-visible{
+      box-shadow:0 0 0 2px rgba(59,130,246,0.4), 0 10px 18px rgba(15,23,42,0.12);
+    }
+    .gyro3d-canvas{
+      width:100%;
+      height:100%;
+      display:block;
+      background:transparent;
+    }
+    .status-gyro-canvas--3d.is-expanded{
+      position:fixed;
+      left:0;
+      top:0;
+      right:0;
+      bottom:0;
+      width:auto !important;
+      height:auto !important;
+      border-radius:0;
+      border:0;
+      box-shadow:none;
+      cursor:grab;
+      z-index:2;
+      background:
+        radial-gradient(120% 100% at 50% 0%, #d6e2ef 0%, #c4d3e4 66%),
+        linear-gradient(180deg,#dde7f2,#cbd8e8);
+    }
+    .status-gyro-canvas--3d.is-expanded::before{
+      content:"";
+      position:absolute;
+      top:0;
+      left:0;
+      right:0;
+      height:112px;
+      pointer-events:none;
+      z-index:3;
+      background:linear-gradient(180deg, rgba(15,23,42,0.26) 0%, rgba(15,23,42,0.12) 46%, rgba(15,23,42,0) 100%);
+    }
+    .status-gyro-canvas--3d.is-expanded.is-dragging{cursor:grabbing}
+    html.gyro3d-expanded body{overflow:hidden}
+    @media(max-width:900px){
+      .status-gyro-canvas--3d.is-expanded{
+        border-radius:0;
+      }
+    }
+    html[data-theme="dark"] .status-gyro-canvas--3d{
+      background:
+        radial-gradient(140% 110% at 50% 0%, rgba(66,94,134,0.46), rgba(6,14,27,0.94) 66%),
+        linear-gradient(165deg, rgba(12,24,41,0.96), rgba(4,9,18,0.96));
+      border:1px solid rgba(96,165,250,0.44);
+      box-shadow:0 18px 30px rgba(2,6,23,0.44), inset 0 1px 0 rgba(148,197,255,0.24);
+    }
+    html[data-theme="dark"] .status-gyro-canvas--3d:focus-visible{
+      box-shadow:0 0 0 2px rgba(125,211,252,0.55), 0 18px 30px rgba(2,6,23,0.44);
+    }
+    html[data-theme="dark"] .status-gyro-canvas--3d.is-expanded{
+      border-color:rgba(96,165,250,0.54);
+      box-shadow:none;
+    }
+    html[data-theme="dark"] .status-gyro-canvas--3d.is-expanded::before{
+      background:linear-gradient(180deg, rgba(2,6,23,0.62) 0%, rgba(2,6,23,0.34) 48%, rgba(2,6,23,0) 100%);
+    }
+    .gyro3d-expanded-hud{
+      position:absolute;
+      top:calc(12px + env(safe-area-inset-top, 0px));
+      left:calc(var(--gyro3d-hud-left, 92px) + env(safe-area-inset-left, 0px));
+      right:calc(16px + env(safe-area-inset-right, 0px));
+      display:none;
+      pointer-events:none;
+      z-index:4;
+    }
+    .status-gyro-canvas--3d.is-expanded .gyro3d-expanded-hud{
+      display:block;
+    }
+    .gyro3d-expanded-topbar{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:16px;
+      padding:10px 12px;
+      background:transparent;
+      border:0;
+      box-shadow:none;
+      backdrop-filter:none;
+    }
+    .gyro3d-expanded-left{
+      flex:1 1 auto;
+      min-width:0;
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+    }
+    .gyro3d-expanded-label{
+      font-size:12px;
+      font-weight:700;
+      letter-spacing:.32em;
+      text-transform:uppercase;
+      color:var(--ui-muted);
+      line-height:1;
+    }
+    .gyro3d-expanded-mainline{
+      align-items:flex-end;
+      gap:14px;
+      flex-wrap:wrap;
+    }
+    .gyro3d-expanded-countdown{
+      font-family:SFMono-Regular,ui-monospace,Menlo,Monaco,Consolas,"Courier New",monospace;
+      font-size:clamp(26px,3.05vw,34px);
+      font-weight:600;
+      letter-spacing:.06em;
+      font-variant-numeric:tabular-nums;
+      font-feature-settings:"tnum" 1;
+      color:var(--ui-text);
+      line-height:.98;
+      text-shadow:none;
+      white-space:nowrap;
+    }
+    .gyro3d-expanded-mainline .countdown-inline-status{
+      min-height:30px;
+      padding-left:13px;
+      border-left:1px solid rgba(148,163,184,0.34);
+      gap:7px;
+    }
+    .gyro3d-expanded-mainline .countdown-inline-status-text{
+      font-size:clamp(14px,1.45vw,17px);
+      white-space:nowrap;
+    }
+    .gyro3d-expanded-hud-pill{
+      min-height:26px;
+      font-size:10px;
+    }
+    .gyro3d-expanded-statusbar{
+      align-self:flex-start;
+      flex-shrink:0;
+      gap:8px;
+    }
+    .gyro3d-expanded-statusbar .status-conn-block,
+    .gyro3d-expanded-statusbar .status-battery{
+      height:22px;
+      padding:0 9px;
+    }
+    .gyro3d-expanded-statusbar .status-conn-text,
+    .gyro3d-expanded-statusbar .battery-text{
+      font-size:10px;
+      font-weight:600;
+    }
+    .gyro3d-expanded-statusbar .battery-icon{
+      width:26px;
+      height:12px;
+    }
+    html[data-theme="dark"] .gyro3d-expanded-topbar{
+      background:transparent;
+      border:0;
+      box-shadow:none;
+      backdrop-filter:none;
+    }
+    html[data-theme="dark"] .gyro3d-expanded-label{color:#94a3b8}
+    html[data-theme="dark"] .gyro3d-expanded-countdown{color:#f8fafc}
+    html[data-theme="dark"] .gyro3d-expanded-mainline .countdown-inline-status-text{color:#cbd5e1}
+    html[data-theme="dark"] .gyro3d-expanded-statusbar .status-conn-block,
+    html[data-theme="dark"] .gyro3d-expanded-statusbar .status-battery{
+      background:rgba(15,23,42,0.72);
+      border-color:rgba(148,163,184,0.42);
+      box-shadow:none;
+    }
+    html[data-theme="dark"] .gyro3d-expanded-statusbar .status-conn-text,
+    html[data-theme="dark"] .gyro3d-expanded-statusbar .battery-text{color:#e2e8f0}
+    html[data-theme="dark"] .gyro3d-expanded-statusbar .battery-icon{
+      border-color:#e2e8f0;
+      opacity:.75;
+    }
+    html[data-theme="dark"] .gyro3d-expanded-statusbar .battery-icon::after{
+      background:#e2e8f0;
+      opacity:.65;
+    }
+    html[data-theme="dark"] .gyro3d-expanded-statusbar .battery-fill{
+      background:#e2e8f0;
+      opacity:.6;
+    }
+    @media(max-width:900px){
+      .status-map-expanded-hud{
+        left:calc(var(--status-map-hud-left, 12px) + env(safe-area-inset-left, 0px));
+        right:calc(12px + env(safe-area-inset-right, 0px));
+      }
+      .status-map-panel.is-expanded .status-map-hud{
+        top:calc(84px + env(safe-area-inset-top, 0px));
+        left:calc(var(--status-map-hud-left, 12px) + env(safe-area-inset-left, 0px));
+      }
+      .gyro3d-expanded-hud{
+        top:calc(12px + env(safe-area-inset-top, 0px));
+        left:calc(var(--gyro3d-hud-left, 12px) + env(safe-area-inset-left, 0px));
+        right:calc(12px + env(safe-area-inset-right, 0px));
+      }
+      .gyro3d-expanded-topbar{
+        padding:10px 12px;
+        gap:10px;
+      }
+      .gyro3d-expanded-countdown{
+        font-size:clamp(26px,3.05vw,34px);
+      }
+      .gyro3d-expanded-mainline .countdown-inline-status{
+        min-height:30px;
+        padding-left:13px;
+      }
+      .gyro3d-expanded-mainline .countdown-inline-status-text{
+        font-size:clamp(14px,1.45vw,17px);
+      }
+      .gyro3d-expanded-statusbar .status-conn-block,
+      .gyro3d-expanded-statusbar .status-battery{
+        height:22px;
+        padding:0 9px;
+      }
+      .gyro3d-expanded-statusbar .status-conn-text,
+      .gyro3d-expanded-statusbar .battery-text{font-size:10px}
+      .gyro3d-expanded-statusbar .battery-icon{width:26px;height:12px}
+    }
+    @media(max-width:640px){
+      .status-map-panel.is-expanded .status-map-hud{
+        top:calc(126px + env(safe-area-inset-top, 0px));
+      }
+      .gyro3d-expanded-topbar{
+        flex-direction:column;
+        align-items:flex-start;
+      }
+      .gyro3d-expanded-statusbar{
+        justify-content:flex-start;
+      }
+    }
+    .status-gyro-canvas--navball{
+      border:1px solid rgba(148,163,184,0.4);
+      background:linear-gradient(135deg,#ffffff,#f8fafc);
       box-shadow:0 10px 18px rgba(15,23,42,0.12);
     }
     .preview-navball .status-gyro-canvas--3d{display:none}
@@ -4858,7 +5148,15 @@
       background:#111827;
       box-shadow:inset 0 1px 0 rgba(148,163,184,0.2);
     }
-    html[data-theme="dark"] .status-card .status-map-canvas.status-map-canvas--offline{
+    html[data-theme="dark"] .status-map-panel.is-expanded{
+      border:0;
+      box-shadow:none;
+      background:linear-gradient(180deg,#101a2b,#0c1523);
+    }
+    html[data-theme="dark"] .status-map-panel.is-expanded::before{
+      background:linear-gradient(180deg, rgba(2,6,23,0.64) 0%, rgba(2,6,23,0.34) 48%, rgba(2,6,23,0) 100%);
+    }
+    html[data-theme="dark"] .status-map-canvas.status-map-canvas--offline{
       background:linear-gradient(180deg,#0f172a,#1e293b);
     }
     html[data-theme="dark"] .status-map-offline{
@@ -4925,25 +5223,25 @@
       border:none;
       box-shadow:none;
     }
-    html[data-theme="dark"] .status-card .status-map-panel .leaflet-control-attribution{
+    html[data-theme="dark"] .status-map-panel .leaflet-control-attribution{
       background:rgba(15,23,42,0.72);
       color:#cbd5e1;
     }
-    html[data-theme="dark"] .status-card .status-map-panel .leaflet-popup.status-map-popup .leaflet-popup-content-wrapper{
+    html[data-theme="dark"] .status-map-panel .leaflet-popup.status-map-popup .leaflet-popup-content-wrapper{
       border-color:rgba(100,116,139,0.65);
       background:linear-gradient(180deg,rgba(15,23,42,0.96),rgba(30,41,59,0.94));
       box-shadow:0 16px 30px rgba(2,6,23,0.65), inset 0 1px 0 rgba(148,163,184,0.2);
     }
-    html[data-theme="dark"] .status-card .status-map-panel .leaflet-popup.status-map-popup .leaflet-popup-tip{
+    html[data-theme="dark"] .status-map-panel .leaflet-popup.status-map-popup .leaflet-popup-tip{
       background:rgba(30,41,59,0.95);
     }
-    html[data-theme="dark"] .status-card .status-map-panel .leaflet-popup.status-map-popup .leaflet-popup-close-button{
+    html[data-theme="dark"] .status-map-panel .leaflet-popup.status-map-popup .leaflet-popup-close-button{
       color:#93c5fd;
       border-color:rgba(96,165,250,0.42);
       background:rgba(15,23,42,0.9);
       box-shadow:0 3px 10px rgba(2,6,23,0.45);
     }
-    html[data-theme="dark"] .status-card .status-map-panel .leaflet-popup.status-map-popup .leaflet-popup-close-button:hover{
+    html[data-theme="dark"] .status-map-panel .leaflet-popup.status-map-popup .leaflet-popup-close-button:hover{
       color:#bfdbfe;
       background:rgba(15,23,42,0.98);
     }
@@ -5864,7 +6162,7 @@
       <div class="row-top">
         <section class="card-base main-card status-card status-map-only">
         <div class="status-map-layout">
-          <div class="status-map-panel">
+          <div id="statusMapViewport" class="status-map-panel">
             <div id="statusMap" class="status-map-canvas" aria-label="Status map"></div>
             <div class="status-map-tint" aria-hidden="true"></div>
             <div class="status-map-hud">
@@ -5872,12 +6170,65 @@
                 <span class="status-map-coords" id="statusMapCoordText">🚀 35.15424, 128.09293</span>
                 <small class="status-map-zoom" id="statusMapZoomText">zoom 12</small>
               </div>
+              <button class="status-map-btn status-map-btn--expand" id="statusMapExpandBtn" type="button" aria-expanded="false">⛶ Expand</button>
               <button class="status-map-btn" id="statusMapRecenterBtn" type="button">↺ Recenter</button>
               <button class="status-map-btn" id="statusMapCopyBtn" type="button">⧉ Copy</button>
             </div>
+            <div id="statusMapExpandedHud" class="status-map-expanded-hud" aria-hidden="true">
+              <div class="gyro3d-expanded-topbar">
+                <div class="gyro3d-expanded-left">
+                  <div id="statusMapHudTitle" class="gyro3d-expanded-label">DASHBOARD</div>
+                  <div class="countdown-mainline gyro3d-expanded-mainline">
+                    <div id="statusMapHudCountdown" class="gyro3d-expanded-countdown">T- --:--:--</div>
+                    <div id="statusMapHudStatusInline" class="countdown-inline-status">
+                      <span id="statusMapHudStatusText" class="countdown-inline-status-text">System ready</span>
+                      <span id="statusMapHudStatusPill" class="countdown-inline-status-pill gyro3d-expanded-hud-pill status-ready">READY</span>
+                    </div>
+                  </div>
+                </div>
+                <div id="statusMapHudStatusBar" class="status-bar gyro3d-expanded-statusbar is-offline" aria-label="Expanded map status">
+                  <div class="status-conn-block">
+                    <span id="statusMapHudConn" class="status-conn-text">DISCONNECTED · -- Hz</span>
+                  </div>
+                  <div id="statusMapHudBatteryWrap" class="status-battery" aria-label="Battery">
+                    <span class="battery-icon" aria-hidden="true">
+                      <span id="statusMapHudBatteryFill" class="battery-fill"></span>
+                    </span>
+                    <span id="statusMapHudBattery" class="battery-text">--%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
           <div class="status-gyro status-flight-preview">
-            <canvas id="gyroGlPreview" class="status-gyro-canvas status-gyro-canvas--3d" width="180" height="180" aria-label="gyro preview"></canvas>
+            <div id="gyro3dViewport" class="status-gyro-canvas status-gyro-canvas--3d" role="button" tabindex="0" aria-label="Open 3D attitude view">
+              <canvas id="gyroGlPreview" class="gyro3d-canvas" width="180" height="180" aria-label="gyro preview"></canvas>
+              <div id="gyro3dExpandedHud" class="gyro3d-expanded-hud" aria-hidden="true">
+                <div class="gyro3d-expanded-topbar">
+                  <div class="gyro3d-expanded-left">
+                    <div id="gyro3dHudTitle" class="gyro3d-expanded-label">DASHBOARD</div>
+                    <div class="countdown-mainline gyro3d-expanded-mainline">
+                      <div id="gyro3dHudCountdown" class="gyro3d-expanded-countdown">T- --:--:--</div>
+                      <div id="gyro3dHudStatusInline" class="countdown-inline-status">
+                        <span id="gyro3dHudStatusText" class="countdown-inline-status-text">System ready</span>
+                        <span id="gyro3dHudStatusPill" class="countdown-inline-status-pill gyro3d-expanded-hud-pill status-ready">READY</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div id="gyro3dHudStatusBar" class="status-bar gyro3d-expanded-statusbar is-offline" aria-label="Expanded device status">
+                    <div class="status-conn-block">
+                      <span id="gyro3dHudConn" class="status-conn-text">DISCONNECTED · -- Hz</span>
+                    </div>
+                    <div id="gyro3dHudBatteryWrap" class="status-battery" aria-label="Battery">
+                      <span class="battery-icon" aria-hidden="true">
+                        <span id="gyro3dHudBatteryFill" class="battery-fill"></span>
+                      </span>
+                      <span id="gyro3dHudBattery" class="battery-text">--%</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
             <canvas id="navBallPreview" class="status-gyro-canvas status-gyro-canvas--navball" width="180" height="180" aria-label="navball preview"></canvas>
           </div>
         </div>
