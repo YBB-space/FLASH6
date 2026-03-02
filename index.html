@@ -125,7 +125,14 @@
       color:#3b82f6;
       box-shadow:none;
     }
-    .side-nav-action:hover{background:#f1f5f9;color:#0f172a}
+    .side-nav-item:hover,
+    .side-nav-action:hover,
+    .side-nav-btn:hover{
+      background:#f3f4f6;
+      color:#475569;
+      box-shadow:none;
+      transform:none;
+    }
     .side-nav-action.disabled{opacity:.45;pointer-events:none}
     .side-nav-spacer{flex:1}
     .side-nav-btn{
@@ -139,7 +146,6 @@
       transform:scale(1);
       stroke-linecap:round;stroke-linejoin:round;
     }
-    .side-nav-btn:hover{background:#f1f5f9;color:#0f172a}
     .mobile-controls-panel{
       display:none;
     }
@@ -841,14 +847,16 @@
       position:absolute;
       top:12px;
       left:12px;
+      right:12px;
+      bottom:12px;
       z-index:1000;
-      display:flex;
-      gap:8px;
-      align-items:center;
-      flex-wrap:wrap;
+      display:block;
       pointer-events:none;
     }
     .status-map-card{
+      position:absolute;
+      left:0;
+      top:0;
       pointer-events:auto;
       background:rgba(255,255,255,0.14);
       border:1px solid rgba(255,255,255,0.34);
@@ -856,9 +864,32 @@
       border-radius:12px;
       padding:7px 11px;
       box-shadow:0 10px 22px rgba(0,0,0,.2);
-      display:flex;
+      display:inline-flex;
       align-items:center;
       gap:8px;
+      width:fit-content;
+      max-width:100%;
+    }
+    .status-map-panel.is-expanded .status-map-card{
+      padding:10px 14px;
+      border-radius:14px;
+      box-shadow:0 12px 26px rgba(0,0,0,.24);
+    }
+    .status-map-panel.is-expanded .status-map-coords{
+      font-size:14px;
+    }
+    .status-map-panel.is-expanded .status-map-zoom{
+      font-size:13px;
+    }
+    .status-map-actions{
+      position:absolute;
+      left:0;
+      bottom:0;
+      display:flex;
+      gap:8px;
+      align-items:center;
+      flex-wrap:wrap;
+      pointer-events:none;
     }
     .status-map-coords{
       font-size:12px;
@@ -909,6 +940,98 @@
     }
     .status-map-panel.is-expanded .status-map-expanded-hud{
       display:block;
+    }
+    .status-map-expanded-hud .gyro3d-expanded-label{
+      color:rgba(15,23,42,0.72);
+      text-shadow:0 2px 10px rgba(255,255,255,0.28);
+    }
+    .status-map-expanded-hud .gyro3d-expanded-countdown{
+      color:#0f172a;
+      text-shadow:0 4px 18px rgba(255,255,255,0.34);
+    }
+    .status-map-expanded-hud .gyro3d-expanded-mainline .countdown-inline-status{
+      border-left-color:rgba(15,23,42,0.14);
+    }
+    .status-map-expanded-hud .gyro3d-expanded-mainline .countdown-inline-status-text{
+      color:#334155;
+      text-shadow:0 2px 10px rgba(255,255,255,0.24);
+    }
+    .status-expanded-metrics{
+      position:absolute;
+      right:calc(16px + env(safe-area-inset-right, 0px));
+      bottom:calc(16px + env(safe-area-inset-bottom, 0px));
+      display:flex;
+      align-items:stretch;
+      justify-content:flex-start;
+      flex-direction:row;
+      gap:10px;
+      flex-wrap:nowrap;
+      pointer-events:none;
+      z-index:1204;
+    }
+    .status-expanded-metric{
+      width:min(178px, calc((100vw - 52px) / 2));
+      min-height:92px;
+      padding:16px 18px 14px;
+      border-radius:16px;
+      border:1px solid #cfd6df;
+      background:#f3f4f6;
+      box-shadow:none;
+      display:flex;
+      flex-direction:column;
+      justify-content:space-between;
+    }
+    .status-expanded-metric-label{
+      font-size:10px;
+      letter-spacing:.28em;
+      text-transform:uppercase;
+      color:#7a8aa1;
+      margin-bottom:10px;
+      font-weight:700;
+    }
+    .status-expanded-metric-value{
+      font-size:18px;
+      font-weight:800;
+      color:#0f172a;
+      letter-spacing:.02em;
+      text-align:right;
+      line-height:1;
+    }
+    .status-expanded-metric-value .unit{
+      margin-left:6px;
+      font-size:11px;
+      color:#64748b;
+      letter-spacing:.12em;
+      text-transform:uppercase;
+      font-weight:800;
+    }
+    .status-expanded-metric.is-alert{
+      border-color:rgba(239,68,68,0.55);
+      box-shadow:none;
+    }
+    .status-expanded-metric.is-alert .status-expanded-metric-value{
+      color:#b91c1c;
+      font-size:11px;
+      line-height:1.25;
+      text-align:left;
+      display:-webkit-box;
+      -webkit-line-clamp:2;
+      -webkit-box-orient:vertical;
+      overflow:hidden;
+      word-break:keep-all;
+    }
+    .status-map-expanded-hud .status-expanded-metrics{
+      position:fixed;
+      right:calc(16px + env(safe-area-inset-right, 0px));
+      top:auto;
+      bottom:calc(16px + env(safe-area-inset-bottom, 0px));
+    }
+    .status-gyro-canvas--3d > .status-expanded-metrics{
+      display:none;
+      z-index:4;
+    }
+    .status-gyro-canvas--3d.is-expanded > .status-expanded-metrics{
+      display:flex;
     }
     .status-map-panel.is-expanded .status-map-hud{
       top:calc(86px + env(safe-area-inset-top, 0px));
@@ -1127,6 +1250,9 @@
       position:relative;
       overflow:hidden;
     }
+    .status-flight-preview{
+      position:relative;
+    }
     .status-gyro-canvas--3d{
       background:
         radial-gradient(120% 100% at 50% 0%, #dce6f1 0%, #cad8e8 68%),
@@ -1168,10 +1294,10 @@
       top:0;
       left:0;
       right:0;
-      height:112px;
+      height:148px;
       pointer-events:none;
       z-index:3;
-      background:linear-gradient(180deg, rgba(15,23,42,0.26) 0%, rgba(15,23,42,0.12) 46%, rgba(15,23,42,0) 100%);
+      background:linear-gradient(180deg, rgba(15,23,42,0.62) 0%, rgba(15,23,42,0.30) 50%, rgba(15,23,42,0.08) 72%, rgba(15,23,42,0) 100%);
     }
     .status-gyro-canvas--3d.is-expanded.is-dragging{cursor:grabbing}
     html.gyro3d-expanded body{overflow:hidden}
@@ -1179,6 +1305,25 @@
       .status-gyro-canvas--3d.is-expanded{
         border-radius:0;
       }
+      .status-expanded-metrics{
+        right:calc(12px + env(safe-area-inset-right, 0px));
+        bottom:calc(12px + env(safe-area-inset-bottom, 0px));
+        gap:8px;
+      }
+      .status-map-expanded-hud .status-expanded-metrics{
+        position:fixed;
+        top:auto;
+        bottom:calc(12px + env(safe-area-inset-bottom, 0px));
+      }
+      .status-expanded-metric{
+        width:min(158px, calc((100vw - 36px) / 2));
+        min-height:84px;
+        padding:14px 14px 12px;
+      }
+      .status-expanded-metric-value{
+        font-size:16px;
+      }
+      .status-expanded-metric-value .unit{font-size:10px}
     }
     html[data-theme="dark"] .status-gyro-canvas--3d{
       background:
@@ -1195,7 +1340,7 @@
       box-shadow:none;
     }
     html[data-theme="dark"] .status-gyro-canvas--3d.is-expanded::before{
-      background:linear-gradient(180deg, rgba(2,6,23,0.62) 0%, rgba(2,6,23,0.34) 48%, rgba(2,6,23,0) 100%);
+      background:linear-gradient(180deg, rgba(2,6,23,0.94) 0%, rgba(2,6,23,0.64) 50%, rgba(2,6,23,0.18) 72%, rgba(2,6,23,0) 100%);
     }
     .gyro3d-expanded-hud{
       position:absolute;
@@ -1214,11 +1359,14 @@
       align-items:flex-start;
       justify-content:space-between;
       gap:16px;
-      padding:10px 12px;
+      padding:12px 14px;
       background:transparent;
       border:0;
+      border-radius:0;
       box-shadow:none;
       backdrop-filter:none;
+      -webkit-backdrop-filter:none;
+      pointer-events:none;
     }
     .gyro3d-expanded-left{
       flex:1 1 auto;
@@ -1232,8 +1380,9 @@
       font-weight:700;
       letter-spacing:.32em;
       text-transform:uppercase;
-      color:var(--ui-muted);
+      color:rgba(226,232,240,0.76);
       line-height:1;
+      text-shadow:0 2px 10px rgba(2,6,23,0.24);
     }
     .gyro3d-expanded-mainline{
       align-items:flex-end;
@@ -1247,24 +1396,58 @@
       letter-spacing:.06em;
       font-variant-numeric:tabular-nums;
       font-feature-settings:"tnum" 1;
-      color:var(--ui-text);
+      color:#f8fafc;
       line-height:.98;
-      text-shadow:none;
+      text-shadow:0 4px 18px rgba(2,6,23,0.34);
       white-space:nowrap;
     }
     .gyro3d-expanded-mainline .countdown-inline-status{
       min-height:30px;
       padding-left:13px;
-      border-left:1px solid rgba(148,163,184,0.34);
+      border-left:1px solid rgba(226,232,240,0.18);
       gap:7px;
     }
     .gyro3d-expanded-mainline .countdown-inline-status-text{
       font-size:clamp(14px,1.45vw,17px);
+      color:#e2e8f0;
+      text-shadow:0 2px 10px rgba(2,6,23,0.24);
       white-space:nowrap;
     }
     .gyro3d-expanded-hud-pill{
       min-height:26px;
+      padding:2px 12px;
       font-size:10px;
+      font-weight:800;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,0.08);
+    }
+    .gyro3d-expanded-hud-pill.status-ready{
+      background:rgba(22,163,74,0.24);
+      color:#dcfce7;
+      border-color:rgba(74,222,128,0.42);
+      box-shadow:inset 0 1px 0 rgba(255,255,255,0.14), 0 8px 18px rgba(22,163,74,0.14);
+    }
+    .gyro3d-expanded-hud-pill.status-count{
+      background:rgba(245,158,11,0.22);
+      color:#fef3c7;
+      border-color:rgba(251,191,36,0.38);
+    }
+    .gyro3d-expanded-hud-pill.status-seq{
+      background:rgba(37,99,235,0.22);
+      color:#dbeafe;
+      border-color:rgba(96,165,250,0.4);
+    }
+    .gyro3d-expanded-hud-pill.status-fire,
+    .gyro3d-expanded-hud-pill.status-abort,
+    .gyro3d-expanded-hud-pill.status-lock,
+    .gyro3d-expanded-hud-pill.status-loadcell{
+      background:rgba(239,68,68,0.22);
+      color:#fee2e2;
+      border-color:rgba(248,113,113,0.42);
+    }
+    .gyro3d-expanded-hud-pill.status-disc{
+      background:rgba(30,41,59,0.72);
+      color:#e2e8f0;
+      border-color:rgba(148,163,184,0.34);
     }
     .gyro3d-expanded-statusbar{
       align-self:flex-start;
@@ -1289,11 +1472,13 @@
       background:transparent;
       border:0;
       box-shadow:none;
-      backdrop-filter:none;
     }
-    html[data-theme="dark"] .gyro3d-expanded-label{color:#94a3b8}
+    html[data-theme="dark"] .gyro3d-expanded-label{color:rgba(226,232,240,0.74)}
     html[data-theme="dark"] .gyro3d-expanded-countdown{color:#f8fafc}
-    html[data-theme="dark"] .gyro3d-expanded-mainline .countdown-inline-status-text{color:#cbd5e1}
+    html[data-theme="dark"] .gyro3d-expanded-mainline .countdown-inline-status{
+      border-left-color:rgba(226,232,240,0.16);
+    }
+    html[data-theme="dark"] .gyro3d-expanded-mainline .countdown-inline-status-text{color:#e2e8f0}
     html[data-theme="dark"] .gyro3d-expanded-statusbar .status-conn-block,
     html[data-theme="dark"] .gyro3d-expanded-statusbar .status-battery{
       background:rgba(15,23,42,0.72);
@@ -1322,6 +1507,8 @@
       .status-map-panel.is-expanded .status-map-hud{
         top:calc(84px + env(safe-area-inset-top, 0px));
         left:calc(var(--status-map-hud-left, 12px) + env(safe-area-inset-left, 0px));
+        right:calc(12px + env(safe-area-inset-right, 0px));
+        bottom:calc(12px + env(safe-area-inset-bottom, 0px));
       }
       .gyro3d-expanded-hud{
         top:calc(12px + env(safe-area-inset-top, 0px));
@@ -2381,6 +2568,47 @@
       white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
     }
     .controls-header-actions{display:flex;align-items:center;gap:6px}
+    .tablet-controls-fab,
+    .tablet-controls-close{display:none!important}
+    html:not(.tablet-controls-layout) .tablet-controls-fab,
+    html:not(.tablet-controls-layout) .tablet-controls-close{
+      display:none!important;
+    }
+    .tablet-controls-fab{
+      width:62px;
+      height:62px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,0.32);
+      background:linear-gradient(145deg,#0f172a,#1e293b);
+      color:#f8fafc;
+      box-shadow:0 14px 28px rgba(15,23,42,0.24);
+      align-items:center;
+      justify-content:center;
+      padding:0;
+    }
+    .tablet-controls-fab svg{
+      width:24px;
+      height:24px;
+      stroke:currentColor;
+      fill:none;
+      stroke-width:1.8;
+      stroke-linecap:round;
+      stroke-linejoin:round;
+    }
+    .tablet-controls-close{
+      width:30px;
+      height:30px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,0.34);
+      background:#ffffff;
+      color:#475569;
+      align-items:center;
+      justify-content:center;
+      padding:0;
+      font-size:18px;
+      line-height:1;
+      box-shadow:0 6px 14px rgba(15,23,42,0.1);
+    }
     .controls-gear-btn{
       width:26px;height:26px;border-radius:999px;border:1px solid rgba(148,163,184,0.75);
       background:radial-gradient(circle at 30% 20%,#f9fafb,#e5e7eb);
@@ -4416,8 +4644,8 @@
       .row-top{grid-template-columns:minmax(0,1.45fr) minmax(320px,1.35fr)}
       .row-bottom{grid-template-columns:minmax(0,2.55fr) minmax(220px,0.9fr)}
     }
-    @media(min-width:768px) and (max-width:1100px){
-      :root{
+    @media (min-width:768px) and (max-width:1100px){
+      html.tablet-controls-layout{
         --page-pad-x:32px;
         --page-pad-y:20px;
         --page-pad-bottom:44px;
@@ -4426,15 +4654,66 @@
         --chart-height:clamp(360px,44vh,500px);
         --log-height:clamp(160px,20vh,230px);
       }
-      body{overflow-y:auto}
-      .page-wrap{height:auto;overflow:visible}
-      .row-bottom{min-height:var(--chart-height)}
-      .charts-card{height:100%;min-height:var(--chart-height)}
-      .page-title{font-size:32px}
+      html.tablet-controls-layout body{overflow-y:auto}
+      html.tablet-controls-layout .page-wrap{height:auto;overflow:visible}
+      html.tablet-controls-layout .row-bottom{
+        min-height:var(--chart-height);
+        grid-template-columns:minmax(0,1fr);
+        position:relative;
+      }
+      html.tablet-controls-layout .charts-card{height:100%;min-height:var(--chart-height)}
+      html.tablet-controls-layout .row-bottom > .controls-card{
+        position:absolute;
+        top:0;
+        right:0;
+        width:min(360px,42vw);
+        max-height:var(--chart-height);
+        height:auto;
+        min-height:0;
+        z-index:8;
+        overflow:hidden;
+        transition:width .22s ease,height .22s ease,transform .22s ease,box-shadow .22s ease,background .22s ease,border-color .22s ease;
+      }
+      html.tablet-controls-layout #controlsCard.tablet-collapsed{
+        width:62px;
+        height:62px;
+        min-height:62px;
+        max-height:62px;
+        padding:0;
+        border-radius:999px;
+        border-color:transparent;
+        background:transparent;
+        box-shadow:none;
+      }
+      html.tablet-controls-layout #controlsCard.tablet-collapsed::before,
+      html.tablet-controls-layout #controlsCard.tablet-collapsed::after{
+        content:none;
+      }
+      html.tablet-controls-layout #controlsCard.tablet-collapsed #controlsHeader,
+      html.tablet-controls-layout #controlsCard.tablet-collapsed #controlsMain,
+      html.tablet-controls-layout #controlsCard.tablet-collapsed #replayPanel,
+      html.tablet-controls-layout #controlsCard.tablet-collapsed #devToolsPanel{
+        display:none!important;
+      }
+      html.tablet-controls-layout #controlsCard.tablet-collapsed .tablet-controls-fab{
+        display:inline-flex;
+      }
+      html.tablet-controls-layout #controlsCard:not(.tablet-collapsed){
+        padding:14px;
+        border-color:rgba(148,163,184,0.42);
+        background:rgba(255,255,255,0.98);
+        box-shadow:0 18px 42px rgba(15,23,42,0.18);
+        backdrop-filter:blur(10px);
+        -webkit-backdrop-filter:blur(10px);
+      }
+      html.tablet-controls-layout #controlsCard:not(.tablet-collapsed) .tablet-controls-close{
+        display:inline-flex;
+      }
+      html.tablet-controls-layout .page-title{font-size:32px}
     }
-    @media (hover: none) and (pointer: coarse) and (min-width: 768px) and (max-width: 1100px){
-      :root{--chart-height:clamp(360px,44vh,500px)}
-      .chart-box{min-height:clamp(160px,24vh,220px)}
+    @media (min-width: 768px) and (max-width: 1100px){
+      html.tablet-controls-layout{--chart-height:clamp(360px,44vh,500px)}
+      html.tablet-controls-layout .chart-box{min-height:clamp(160px,24vh,220px)}
     }
     @media(max-width:980px){
       .app-shell{flex-direction:row}
@@ -5711,6 +5990,22 @@
       color:#3b82f6;
       box-shadow:none;
     }
+    .side-nav-item:hover:not(.active),
+    .side-nav-action:hover,
+    .side-nav-btn:hover{
+      background:#f3f4f6;
+      color:#475569;
+      box-shadow:none;
+      transform:none;
+    }
+    html[data-theme="dark"] .side-nav-item:hover:not(.active),
+    html[data-theme="dark"] .side-nav-action:hover,
+    html[data-theme="dark"] .side-nav-btn:hover{
+      background:rgba(148,163,184,0.14);
+      color:#cbd5e1;
+      box-shadow:none;
+      transform:none;
+    }
     .page-wrap{
       max-width:none;
       height:100dvh;
@@ -5873,6 +6168,7 @@
       .status-map-card{padding:6px 9px}
       .status-map-coords{font-size:11px}
       .status-map-zoom{font-size:11px}
+      .status-map-actions{gap:6px}
       .status-map-btn{padding:6px 9px;font-size:11px}
       .countdown-inline-status{
         min-height:24px;
@@ -6171,9 +6467,11 @@
                 <span class="status-map-coords" id="statusMapCoordText">🚀 35.15424, 128.09293</span>
                 <small class="status-map-zoom" id="statusMapZoomText">zoom 12</small>
               </div>
-              <button class="status-map-btn status-map-btn--expand" id="statusMapExpandBtn" type="button" aria-expanded="false">⛶ Expand</button>
-              <button class="status-map-btn" id="statusMapRecenterBtn" type="button">↺ Recenter</button>
-              <button class="status-map-btn" id="statusMapCopyBtn" type="button">⧉ Copy</button>
+              <div class="status-map-actions">
+                <button class="status-map-btn status-map-btn--expand" id="statusMapExpandBtn" type="button" aria-expanded="false">⛶</button>
+                <button class="status-map-btn" id="statusMapRecenterBtn" type="button">↺</button>
+                <button class="status-map-btn" id="statusMapCopyBtn" type="button">⧉</button>
+              </div>
             </div>
             <div id="statusMapExpandedHud" class="status-map-expanded-hud" aria-hidden="true">
               <div class="gyro3d-expanded-topbar">
@@ -6197,6 +6495,16 @@
                     </span>
                     <span id="statusMapHudBattery" class="battery-text">--%</span>
                   </div>
+                </div>
+              </div>
+              <div class="status-expanded-metrics" aria-hidden="true">
+                <div id="statusMapHudMetricPrimaryCard" class="status-expanded-metric">
+                  <div id="statusMapHudMetricPrimaryLabel" class="status-expanded-metric-label">Thrust</div>
+                  <div id="statusMapHudMetricPrimaryValue" class="status-expanded-metric-value">--</div>
+                </div>
+                <div id="statusMapHudMetricSecondaryCard" class="status-expanded-metric">
+                  <div id="statusMapHudMetricSecondaryLabel" class="status-expanded-metric-label">Pressure</div>
+                  <div id="statusMapHudMetricSecondaryValue" class="status-expanded-metric-value">--</div>
                 </div>
               </div>
             </div>
@@ -6227,6 +6535,16 @@
                       <span id="gyro3dHudBattery" class="battery-text">--%</span>
                     </div>
                   </div>
+                </div>
+              </div>
+              <div class="status-expanded-metrics" aria-hidden="true">
+                <div id="gyro3dHudMetricPrimaryCard" class="status-expanded-metric">
+                  <div id="gyro3dHudMetricPrimaryLabel" class="status-expanded-metric-label">Thrust</div>
+                  <div id="gyro3dHudMetricPrimaryValue" class="status-expanded-metric-value">--</div>
+                </div>
+                <div id="gyro3dHudMetricSecondaryCard" class="status-expanded-metric">
+                  <div id="gyro3dHudMetricSecondaryLabel" class="status-expanded-metric-label">Pressure</div>
+                  <div id="gyro3dHudMetricSecondaryValue" class="status-expanded-metric-value">--</div>
                 </div>
               </div>
             </div>
@@ -6356,12 +6674,20 @@
         </div>
       </section>
         <section id="controlsCard" class="card-base controls-card controls-mobile-hidden status-frame">
+          <button id="tabletControlsFab" class="tablet-controls-fab" type="button" aria-label="Open control panel">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 7h16"></path>
+              <path d="M7 12h10"></path>
+              <path d="M10 17h4"></path>
+            </svg>
+          </button>
           <div id="controlsHeader" class="card-header">
             <div>
             <div id="controlsCardTitle" class="card-title">CONTROL PANEL</div>
             <div class="controls-subtitle">Command & Safety</div>
           </div>
             <div class="controls-header-actions">
+              <button id="tabletControlsClose" class="tablet-controls-close" type="button" aria-label="Close control panel">×</button>
               <button id="replayOpenBtn" class="toolbar-btn" type="button">Replay</button>
             </div>
           </div>
