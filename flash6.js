@@ -956,9 +956,12 @@
       }
       el.gyro3dViewport.classList.toggle("is-expanded", next);
       document.documentElement.classList.toggle("gyro3d-expanded", next);
+      if(el.gyro3dExpandedHud){
+        el.gyro3dExpandedHud.setAttribute("aria-hidden", next ? "false" : "true");
+      }
       if(next){
         updateGyroExpandedViewportBounds();
-        syncGyroExpandedHud();
+        syncExpandedHud();
       }else{
         el.gyro3dViewport.style.removeProperty("--gyro3d-expand-left");
         el.gyro3dViewport.style.removeProperty("--gyro3d-expand-top");
@@ -1062,8 +1065,10 @@
         if(!document.documentElement.classList.contains("preview-3d")) return;
         if(ev.key === "Enter" || ev.key === " "){
           ev.preventDefault();
-          setGyroViewportExpanded(!isGyroViewportExpanded());
-          redraw();
+          if(!isGyroViewportExpanded()){
+            setGyroViewportExpanded(true);
+            redraw();
+          }
         }
       });
       document.addEventListener("keydown", (ev)=>{
@@ -4723,7 +4728,7 @@
     function syncStatusMapExpandButton(){
       if(!el.statusMapExpandBtn) return;
       const expanded = isStatusMapViewportExpanded();
-      el.statusMapExpandBtn.textContent = expanded ? "↙ Close" : "⛶ Expand";
+      el.statusMapExpandBtn.textContent = expanded ? "↙ Close" : "⛶";
       el.statusMapExpandBtn.setAttribute("aria-expanded", expanded ? "true" : "false");
     }
     function setStatusMapViewportExpanded(on){
@@ -4742,7 +4747,7 @@
       }
       if(next){
         updateStatusMapExpandedViewportBounds();
-        syncStatusMapExpandedHud();
+        syncExpandedHud();
       }else{
         el.statusMapViewport.style.removeProperty("--status-map-expand-left");
         el.statusMapViewport.style.removeProperty("--status-map-expand-top");
@@ -5177,12 +5182,40 @@
     }
     function updateQuickMetricLabels(){
       const inFlightMode = document.documentElement.classList.contains("mode-flight");
+      const primaryLabel = inFlightMode ? "Altitude" : "Thrust";
+      const secondaryLabel = inFlightMode ? "Speed" : "Pressure";
       if(el.quickMetricPrimaryLabel){
-        el.quickMetricPrimaryLabel.textContent = inFlightMode ? t("labelAltitude") : t("labelThrust");
+        el.quickMetricPrimaryLabel.textContent = primaryLabel;
       }
       if(el.quickMetricSecondaryLabel){
-        el.quickMetricSecondaryLabel.textContent = inFlightMode ? t("labelSpeed") : t("labelPressure");
+        el.quickMetricSecondaryLabel.textContent = secondaryLabel;
       }
+      if(el.statusMapHudMetricPrimaryLabel) el.statusMapHudMetricPrimaryLabel.textContent = primaryLabel;
+      if(el.statusMapHudMetricSecondaryLabel) el.statusMapHudMetricSecondaryLabel.textContent = secondaryLabel;
+      if(el.gyro3dHudMetricPrimaryLabel) el.gyro3dHudMetricPrimaryLabel.textContent = primaryLabel;
+      if(el.gyro3dHudMetricSecondaryLabel) el.gyro3dHudMetricSecondaryLabel.textContent = secondaryLabel;
+    }
+    function syncExpandedQuickMetrics(){
+      const primaryHtml = el.thrust ? el.thrust.innerHTML : "--";
+      const secondaryHtml = el.pressure ? el.pressure.innerHTML : "--";
+      const primaryAlert = !!(el.thrust && el.thrust.closest(".status-metric") && el.thrust.closest(".status-metric").classList.contains("is-alert"));
+      const secondaryAlert = !!(el.pressure && el.pressure.closest(".status-metric") && el.pressure.closest(".status-metric").classList.contains("is-alert"));
+
+      if(el.statusMapHudMetricPrimaryValue) el.statusMapHudMetricPrimaryValue.innerHTML = primaryHtml;
+      if(el.statusMapHudMetricSecondaryValue) el.statusMapHudMetricSecondaryValue.innerHTML = secondaryHtml;
+      if(el.gyro3dHudMetricPrimaryValue) el.gyro3dHudMetricPrimaryValue.innerHTML = primaryHtml;
+      if(el.gyro3dHudMetricSecondaryValue) el.gyro3dHudMetricSecondaryValue.innerHTML = secondaryHtml;
+
+      if(el.statusMapHudMetricPrimaryCard) el.statusMapHudMetricPrimaryCard.classList.toggle("is-alert", primaryAlert);
+      if(el.statusMapHudMetricSecondaryCard) el.statusMapHudMetricSecondaryCard.classList.toggle("is-alert", secondaryAlert);
+      if(el.gyro3dHudMetricPrimaryCard) el.gyro3dHudMetricPrimaryCard.classList.toggle("is-alert", primaryAlert);
+      if(el.gyro3dHudMetricSecondaryCard) el.gyro3dHudMetricSecondaryCard.classList.toggle("is-alert", secondaryAlert);
+    }
+    function syncExpandedHud(){
+      updateQuickMetricLabels();
+      syncExpandedQuickMetrics();
+      syncGyroExpandedHud();
+      syncStatusMapExpandedHud();
     }
     function refreshStatusMapSize(){
       if(isStatusMapViewportExpanded()){
@@ -5301,8 +5334,7 @@
 
       const hasContent = !!(statusText || pillText);
       el.countdownInlineStatus.classList.toggle("hidden", !hasContent);
-      syncGyroExpandedHud();
-      syncStatusMapExpandedHud();
+      syncExpandedHud();
     }
 
     function syncGyroExpandedHud(){
@@ -6213,10 +6245,46 @@
     }
 
     const MOBILE_PANEL_MEDIA = window.matchMedia("(max-width: 600px)");
+    const TABLET_CONTROLS_MEDIA = window.matchMedia("(min-width: 768px) and (max-width: 1100px)");
     let mobileControlsActive = false;
+    let tabletControlsOpen = false;
 
     function isMobileLayout(){
       return MOBILE_PANEL_MEDIA.matches;
+    }
+    function hasTouchInput(){
+      return !!((navigator && navigator.maxTouchPoints > 0) || ("ontouchstart" in window));
+    }
+    function isTabletControlsLayout(){
+      return TABLET_CONTROLS_MEDIA.matches && hasTouchInput();
+    }
+    function applyTabletControlsLayout(){
+      if(!el.controlsCard) return;
+      const active = isTabletControlsLayout();
+      document.documentElement.classList.toggle("tablet-controls-layout", active);
+      if(!active){
+        tabletControlsOpen = false;
+        el.controlsCard.classList.remove("tablet-collapsed");
+        el.controlsCard.setAttribute("aria-expanded", "true");
+        return;
+      }
+      el.controlsCard.classList.toggle("tablet-collapsed", !tabletControlsOpen);
+      el.controlsCard.setAttribute("aria-expanded", tabletControlsOpen ? "true" : "false");
+    }
+    function showTabletControlsPanel(){
+      if(!isTabletControlsLayout()) return;
+      tabletControlsOpen = true;
+      applyTabletControlsLayout();
+    }
+    function hideTabletControlsPanel(){
+      if(!isTabletControlsLayout()) return;
+      tabletControlsOpen = false;
+      applyTabletControlsLayout();
+    }
+    function toggleTabletControlsPanel(){
+      if(!isTabletControlsLayout()) return;
+      tabletControlsOpen = !tabletControlsOpen;
+      applyTabletControlsLayout();
     }
 
     function showMobileControlsPanel(){
@@ -6245,6 +6313,15 @@
     }else if(MOBILE_PANEL_MEDIA.addListener){
       MOBILE_PANEL_MEDIA.addListener((event)=>{
         if(!event.matches) hideMobileControlsPanel();
+      });
+    }
+    if(TABLET_CONTROLS_MEDIA.addEventListener){
+      TABLET_CONTROLS_MEDIA.addEventListener("change",()=>{
+        applyTabletControlsLayout();
+      });
+    }else if(TABLET_CONTROLS_MEDIA.addListener){
+      TABLET_CONTROLS_MEDIA.addListener(()=>{
+        applyTabletControlsLayout();
       });
     }
 
@@ -8408,6 +8485,7 @@
           }
           if(el.pressure) el.pressure.innerHTML = `<span class="num">${p.toFixed(3)}</span><span class="unit">V</span>`;
         }
+      syncExpandedQuickMetrics();
       if(el.accelX) el.accelX.innerHTML = `<span class="num">${ax.toFixed(3)}</span><span class="unit">g</span>`;
       if(el.accelY) el.accelY.innerHTML = `<span class="num">${ay.toFixed(3)}</span><span class="unit">g</span>`;
       if(el.accelZ) el.accelZ.innerHTML = `<span class="num">${az.toFixed(3)}</span><span class="unit">g</span>`;
@@ -10232,6 +10310,12 @@
       el.statusMapHudBatteryWrap = document.getElementById("statusMapHudBatteryWrap");
       el.statusMapHudBatteryFill = document.getElementById("statusMapHudBatteryFill");
       el.statusMapHudBattery = document.getElementById("statusMapHudBattery");
+      el.statusMapHudMetricPrimaryCard = document.getElementById("statusMapHudMetricPrimaryCard");
+      el.statusMapHudMetricPrimaryLabel = document.getElementById("statusMapHudMetricPrimaryLabel");
+      el.statusMapHudMetricPrimaryValue = document.getElementById("statusMapHudMetricPrimaryValue");
+      el.statusMapHudMetricSecondaryCard = document.getElementById("statusMapHudMetricSecondaryCard");
+      el.statusMapHudMetricSecondaryLabel = document.getElementById("statusMapHudMetricSecondaryLabel");
+      el.statusMapHudMetricSecondaryValue = document.getElementById("statusMapHudMetricSecondaryValue");
       el.countdown = document.getElementById("countdown");
       el.countdownInlineStatus = document.getElementById("countdownInlineStatus");
       el.countdownInlineStatusText = document.getElementById("countdownInlineStatusText");
@@ -10264,6 +10348,12 @@
       el.gyro3dHudBatteryWrap = document.getElementById("gyro3dHudBatteryWrap");
       el.gyro3dHudBatteryFill = document.getElementById("gyro3dHudBatteryFill");
       el.gyro3dHudBattery = document.getElementById("gyro3dHudBattery");
+      el.gyro3dHudMetricPrimaryCard = document.getElementById("gyro3dHudMetricPrimaryCard");
+      el.gyro3dHudMetricPrimaryLabel = document.getElementById("gyro3dHudMetricPrimaryLabel");
+      el.gyro3dHudMetricPrimaryValue = document.getElementById("gyro3dHudMetricPrimaryValue");
+      el.gyro3dHudMetricSecondaryCard = document.getElementById("gyro3dHudMetricSecondaryCard");
+      el.gyro3dHudMetricSecondaryLabel = document.getElementById("gyro3dHudMetricSecondaryLabel");
+      el.gyro3dHudMetricSecondaryValue = document.getElementById("gyro3dHudMetricSecondaryValue");
       el.homeHeroPill = document.getElementById("homeHeroPill");
       el.homeHeroBoard = document.getElementById("homeHeroBoard");
       el.homeFirmware = document.getElementById("homeFirmware");
@@ -10428,6 +10518,8 @@
       el.serialControlTitle = document.getElementById("serialControlTitle");
       el.serialControlSub = document.getElementById("serialControlSub");
       el.controlsCard = document.getElementById("controlsCard");
+      el.tabletControlsFab = document.getElementById("tabletControlsFab");
+      el.tabletControlsClose = document.getElementById("tabletControlsClose");
       el.controlsCardTitle = document.getElementById("controlsCardTitle");
       el.controlsHeader = document.getElementById("controlsHeader");
       el.controlsMain = document.getElementById("controlsMain");
@@ -11060,8 +11152,24 @@
               showMobileControlsPanel();
               return;
             }
+            if(isTabletControlsLayout()){
+              showTabletControlsPanel();
+              return;
+            }
             showControlsModal();
           });
+        });
+      }
+      if(el.tabletControlsFab){
+        el.tabletControlsFab.addEventListener("click",(ev)=>{
+          ev.preventDefault();
+          toggleTabletControlsPanel();
+        });
+      }
+      if(el.tabletControlsClose){
+        el.tabletControlsClose.addEventListener("click",(ev)=>{
+          ev.preventDefault();
+          hideTabletControlsPanel();
         });
       }
       if(el.controlsOverlayClose){
@@ -11072,11 +11180,22 @@
       }
 
       document.addEventListener("pointerdown",(ev)=>{
+        if(tabletControlsOpen && isTabletControlsLayout()){
+          if(el.controlsCard && el.controlsCard.contains(ev.target)) return;
+          if(ev.target.closest && ev.target.closest(".js-controls-open")) return;
+          hideTabletControlsPanel();
+        }
         if(!mobileControlsActive) return;
         if(el.mobileControlsPanel && el.mobileControlsPanel.contains(ev.target)) return;
         if(ev.target.closest && ev.target.closest(".js-controls-open")) return;
         hideMobileControlsPanel();
       });
+      document.addEventListener("keydown",(ev)=>{
+        if(ev.key === "Escape" && tabletControlsOpen && isTabletControlsLayout()){
+          hideTabletControlsPanel();
+        }
+      });
+      applyTabletControlsLayout();
       if(el.mobileAbortBtn){
         el.mobileAbortBtn.addEventListener("click",(ev)=>{
           ev.preventDefault();
