@@ -37,9 +37,9 @@
       --warn:#f59e0b;--warn-soft:rgba(245,158,11,0.16);
       --border-subtle:rgba(148,163,184,0.42);--border-strong:rgba(148,163,184,0.82);
       --radius-xl:10px;--radius-lg:8px;--radius-md:6px;--radius-pill:999px;
-      --page-pad-x:48px;--page-pad-y:24px;--page-pad-bottom:24px;
+      --page-pad-x:48px;--page-pad-y:24px;--page-pad-bottom:56px;
       --shell-gap:14px;--card-pad:16px;
-      --chart-height:620px;
+      --chart-height:540px;
       --log-height:clamp(180px,24vh,260px);
       --mobile-nav-height:72px;
       --mobile-nav-gap:12px;
@@ -120,9 +120,9 @@
       stroke-linecap:round;stroke-linejoin:round;
     }
     .side-nav-item.active{
-      border-color:#e2e8f0;
-      background:#eef2f7;
-      color:#475569;
+      border-color:transparent;
+      background:transparent;
+      color:#3b82f6;
       box-shadow:none;
     }
     .side-nav-action:hover{background:#f1f5f9;color:#0f172a}
@@ -631,7 +631,7 @@
     .status-card .status-map-panel{
       margin-top:8px;
       position:relative;
-      border-radius:14px;
+      border-radius:var(--radius-xl);
       border:1px solid rgba(148,163,184,0.45);
       overflow:hidden;
       height:220px;
@@ -1122,7 +1122,7 @@
     .status-gyro-canvas{
       width:180px;
       height:180px;
-      border-radius:16px;
+      border-radius:var(--radius-xl);
       display:block;
       position:relative;
       overflow:hidden;
@@ -2022,6 +2022,15 @@
       box-shadow:0 16px 28px rgba(15,23,42,0.08);
     }
     .motor-card .card-header{margin-bottom:14px}
+    .motor-card .card-header.quick-data-header{
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+    }
+    .motor-card .quick-data-header .status-bar{
+      margin-left:auto;
+      flex-shrink:0;
+    }
     .motor-card .card-title{
       letter-spacing:.28em;
       color:#475569;
@@ -2794,7 +2803,7 @@
     .devtools-warning.show{display:block}
     .charts-card{
       padding:12px;
-      padding-bottom:18px;
+      padding-bottom:12px;
       overflow:hidden;
       display:grid;
       grid-template-rows:auto 1fr;
@@ -4390,12 +4399,13 @@
         min-height:0;
       }
       .item-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-      #dashboardView{flex:1;min-height:0}
+      #dashboardView{flex:0 0 auto;min-height:0}
       #dashboardView .shell{
-        height:100%;
+        height:auto;
         min-height:0;
         display:grid;
-        grid-template-rows:auto minmax(0,1fr);
+        grid-template-rows:auto auto;
+        align-content:start;
         gap:var(--shell-gap);
       }
       #dashboardView .row-top,
@@ -4410,10 +4420,10 @@
       :root{
         --page-pad-x:32px;
         --page-pad-y:20px;
-        --page-pad-bottom:24px;
+        --page-pad-bottom:44px;
         --shell-gap:12px;
         --card-pad:14px;
-        --chart-height:clamp(400px,48vh,560px);
+        --chart-height:clamp(360px,44vh,500px);
         --log-height:clamp(160px,20vh,230px);
       }
       body{overflow-y:auto}
@@ -4423,7 +4433,7 @@
       .page-title{font-size:32px}
     }
     @media (hover: none) and (pointer: coarse) and (min-width: 768px) and (max-width: 1100px){
-      :root{--chart-height:clamp(400px,48vh,560px)}
+      :root{--chart-height:clamp(360px,44vh,500px)}
       .chart-box{min-height:clamp(160px,24vh,220px)}
     }
     @media(max-width:980px){
@@ -4486,8 +4496,9 @@
         box-shadow:none;
       }
       .side-nav-mobile .side-nav-item.active{
-        background:#cfe3ff;color:#3b82f6;
-        box-shadow:0 6px 12px rgba(59,130,246,0.18);
+        background:transparent;
+        color:#3b82f6;
+        box-shadow:none;
       }
       .mobile-abort-wrapper{
         position:absolute;
@@ -4546,6 +4557,14 @@
       .top-left{width:100%}
       .top-right{width:100%;display:flex;justify-content:flex-end}
       .status-bar{width:100%;justify-content:flex-end}
+      .motor-card .card-header.quick-data-header{
+        flex-direction:column;
+        align-items:flex-start;
+      }
+      .motor-card .quick-data-header .status-bar{
+        width:100%;
+        justify-content:flex-start;
+      }
       .logo-img{height:40px}
       .title-main{font-size:16px}
       .title-sub{font-size:11px}
@@ -4726,7 +4745,7 @@
       :root{
         --page-pad-y:20px;
         --card-pad:14px;
-        --chart-height:clamp(400px,56vh,620px);
+        --chart-height:clamp(360px,50vh,500px);
         --log-height:clamp(170px,22vh,230px);
       }
       .page-title{font-size:32px}
@@ -4738,7 +4757,7 @@
         --page-pad-y:16px;
         --card-pad:12px;
         --shell-gap:10px;
-        --chart-height:clamp(340px,52vh,520px);
+        --chart-height:clamp(300px,46vh,420px);
         --log-height:clamp(140px,18vh,200px);
       }
       .page-title{font-size:28px}
@@ -5687,10 +5706,10 @@
       }
     }
     .side-nav-item.active{
-      border-color:rgba(59,130,246,0.25);
-      background:#cfe3ff;
+      border-color:transparent;
+      background:transparent;
       color:#3b82f6;
-      box-shadow:0 10px 20px rgba(59,130,246,0.25);
+      box-shadow:none;
     }
     .page-wrap{
       max-width:none;
@@ -6065,24 +6084,6 @@
         </div>
         <div id="viewLabel" class="view-label hidden">Dashboard</div>
       </div>
-      <div class="top-right">
-        <div id="statusBar" class="status-bar is-offline" aria-label="Device status">
-          <div id="connStatusLabel" class="status-conn-block">
-            <svg class="conn-icon" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M10 13a5 5 0 0 1 0-7l1.5-1.5a5 5 0 1 1 7 7L17 13"/>
-              <path d="M14 11a5 5 0 0 1 0 7L12.5 19.5a5 5 0 1 1-7-7L7 11"/>
-            </svg>
-            <span id="connStatusText" class="status-conn-text">DISCONNECTED</span>
-          </div>
-          <div class="status-battery" aria-label="Battery">
-            <span class="battery-icon" aria-hidden="true">
-              <span id="batteryFill" class="battery-fill"></span>
-            </span>
-            <span id="batteryStatus" class="battery-text">--%</span>
-          </div>
-          <span id="commStatus" class="sr-only">DISCONNECTED</span>
-        </div>
-      </div>
     </header>
     <div class="status-runtime-cache" aria-hidden="true">
       <div id="statusText">System ready</div>
@@ -6234,9 +6235,24 @@
         </div>
       </section>
         <section class="card-base motor-card status-frame">
-          <div class="card-header">
+          <div class="card-header quick-data-header">
             <div class="card-title">QUICK DATA</div>
-            <div class="card-badge">LIVE Telemetry</div>
+            <div id="statusBar" class="status-bar is-offline" aria-label="Device status">
+              <div id="connStatusLabel" class="status-conn-block">
+                <svg class="conn-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M10 13a5 5 0 0 1 0-7l1.5-1.5a5 5 0 1 1 7 7L17 13"/>
+                  <path d="M14 11a5 5 0 0 1 0 7L12.5 19.5a5 5 0 1 1-7-7L7 11"/>
+                </svg>
+                <span id="connStatusText" class="status-conn-text">DISCONNECTED</span>
+              </div>
+              <div class="status-battery" aria-label="Battery">
+                <span class="battery-icon" aria-hidden="true">
+                  <span id="batteryFill" class="battery-fill"></span>
+                </span>
+                <span id="batteryStatus" class="battery-text">--%</span>
+              </div>
+              <span id="commStatus" class="sr-only">DISCONNECTED</span>
+            </div>
           </div>
           <div class="quick-data-body">
             <div class="status-metrics quick-metrics">
