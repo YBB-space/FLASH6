@@ -175,8 +175,8 @@
     const GYRO_TRAIL_ZOOM_IN_SMOOTH = 0.025;
     const GYRO_WORLD_ALTITUDE_BASE = 0.23;
     const GYRO_FOV_DEG = 44;
-    const GYRO_CAMERA_DEFAULT = Object.freeze({yawDeg:42, pitchDeg:24, distance:1});
-    const GYRO_CAMERA_MIN_DISTANCE = 2.3;
+    const GYRO_CAMERA_DEFAULT = Object.freeze({yawDeg:42, pitchDeg:24, distance:1.95});
+    const GYRO_CAMERA_MIN_DISTANCE = 1.9;
     const GYRO_CAMERA_MAX_DISTANCE = 30;
     const GYRO_CAMERA_TARGET_SMOOTH = 0.16;
     const GYRO_CAMERA_DISTANCE_SMOOTH = 0.12;
@@ -188,11 +188,11 @@
     const GYRO_PREVIEW_TRACK_MAX_SHIFT_RATIO = 0.92;
     const GYRO_GRID_MIN_SPAN = 10.5;
     const GYRO_GRID_MAX_SPAN = 140;
-    const GYRO_ROCKET_SCALE = 0.36;
+    const GYRO_ROCKET_SCALE = 0.3;
     const GYRO_ROCKET_STL_PATH = "img/Gyro_model_rocket.stl";
     const GYRO_ROCKET_STL_TARGET_LENGTH = 1.56;
     const GYRO_ROCKET_STL_Y_OFFSET = 0.16;
-    const GYRO_ROCKET_STL_COLOR = [0.79,0.84,0.93,1];
+    const GYRO_ROCKET_STL_COLOR = [0.9,0.94,0.99,1];
     const GYRO_ROCKET_RENDER_PITCH_UPRIGHT_DEG = 90;
     const GYRO_TRAIL_FILTER_ALPHA = 0.16;
     const GYRO_TRAIL_FILTER_ALPHA_ALT = 0.22;
@@ -611,15 +611,22 @@
       const axisLen = 1.45;
       const axisTail = 0.9;
       const arrow = 0.13;
+      const tipMarker = 0.06;
       pushGyroLine(data, -axisTail,0,0, axisLen,0,0, 0.95,0.37,0.35,0.95);
       pushGyroLine(data, 0,-axisTail,0, 0,axisLen,0, 0.23,0.84,0.48,0.95);
       pushGyroLine(data, 0,0,-axisTail, 0,0,axisLen, 0.26,0.66,0.98,0.95);
       pushGyroLine(data, axisLen,0,0, axisLen-arrow, arrow*0.55,0, 0.95,0.37,0.35,0.95);
       pushGyroLine(data, axisLen,0,0, axisLen-arrow,-arrow*0.55,0, 0.95,0.37,0.35,0.95);
+      pushGyroLine(data, axisLen, tipMarker,0, axisLen,-tipMarker,0, 1,0.48,0.44,0.98);
+      pushGyroLine(data, axisLen,0,tipMarker, axisLen,0,-tipMarker, 1,0.48,0.44,0.98);
       pushGyroLine(data, 0,axisLen,0, arrow*0.55,axisLen-arrow,0, 0.23,0.84,0.48,0.95);
       pushGyroLine(data, 0,axisLen,0,-arrow*0.55,axisLen-arrow,0, 0.23,0.84,0.48,0.95);
+      pushGyroLine(data, tipMarker,axisLen,0, -tipMarker,axisLen,0, 0.38,0.92,0.56,0.98);
+      pushGyroLine(data, 0,axisLen,tipMarker, 0,axisLen,-tipMarker, 0.38,0.92,0.56,0.98);
       pushGyroLine(data, 0,0,axisLen, 0,arrow*0.55,axisLen-arrow, 0.26,0.66,0.98,0.95);
       pushGyroLine(data, 0,0,axisLen, 0,-arrow*0.55,axisLen-arrow, 0.26,0.66,0.98,0.95);
+      pushGyroLine(data, tipMarker,0,axisLen, -tipMarker,0,axisLen, 0.37,0.74,1,0.98);
+      pushGyroLine(data, 0,tipMarker,axisLen, 0,-tipMarker,axisLen, 0.37,0.74,1,0.98);
       sections.axisCount = (data.pos.length / 3) - sections.axisStart;
 
       sections.bodyStart = data.pos.length / 3;
@@ -643,7 +650,7 @@
       const floorN = [0,1,0];
       pushSolidQuad(floor,
         [-1,0,-1],[1,0,-1],[1,0,1],[-1,0,1],
-        [0.2,0.28,0.4,0.9],
+        [0.12,0.16,0.22,0.94],
         floorN,floorN,floorN,floorN
       );
 
