@@ -3630,6 +3630,9 @@
       if(!el.controlsCard || !el.controlsMain || !el.devToolsPanel || !el.controlsHeader) return;
       el.controlsCard.classList.toggle("devtools-mode", !!show);
       el.controlsHeader.classList.toggle("hidden", !!show);
+      if(el.controlsCardTitle){
+        el.controlsCardTitle.textContent = show ? "DEV TOOLS" : (replayUiActive ? "DATA REPLAY" : (launcherPanelActive ? "LAUNCHER CONTROL" : "CONTROL PANEL"));
+      }
       if(show && isTabletControlsLayout() && !tabletControlsOpen){
         tabletControlsOpen = true;
         applyTabletControlsLayout();
@@ -6275,7 +6278,7 @@
     }
 
     const MOBILE_PANEL_MEDIA = window.matchMedia("(max-width: 600px)");
-    const TABLET_CONTROLS_MEDIA = window.matchMedia("(min-width: 768px) and (max-width: 1280px)");
+    const TABLET_CONTROLS_MEDIA = window.matchMedia("(min-width: 768px) and (max-width: 1440px)");
     let mobileControlsActive = false;
     let tabletControlsOpen = false;
     let gyroViewportExpandedAt = 0;
@@ -6287,8 +6290,11 @@
     function isMobileLayout(){
       return MOBILE_PANEL_MEDIA.matches;
     }
+    function isTouchCapableDevice(){
+      return (navigator.maxTouchPoints || 0) > 0 || ("ontouchstart" in window);
+    }
     function isTabletControlsLayout(){
-      return TABLET_CONTROLS_MEDIA.matches;
+      return TABLET_CONTROLS_MEDIA.matches && isTouchCapableDevice();
     }
     function isControlsModalVisible(){
       return !!(el.controlsOverlay && !el.controlsOverlay.classList.contains("hidden"));
@@ -6299,9 +6305,11 @@
     function updateNavActionState(){
       const replayActive = !!replayUiActive;
       const launcherActive = !!launcherPanelActive || isLauncherOverlayVisible();
-      const controlsActive = (isTabletControlsLayout()
-        ? (tabletControlsOpen && !replayActive && !launcherActive)
-        : (isControlsModalVisible() && !replayActive && !launcherActive));
+      const controlsActive = isMobileLayout()
+        ? false
+        : (isTabletControlsLayout()
+            ? (tabletControlsOpen && !replayActive && !launcherActive)
+            : (!replayActive && !launcherActive));
       if(el.replayOpenBtns && el.replayOpenBtns.length){
         el.replayOpenBtns.forEach(btn=>btn.classList.toggle("is-active", replayActive));
       }
@@ -9611,6 +9619,10 @@
         setLauncherPanelVisible(true);
         return;
       }
+      if(!isMobileLayout()){
+        setLauncherPanelVisible(true);
+        return;
+      }
       setLauncherPanelVisible(false);
       setOverlayVisible(launcherOverlayEl, true);
       updateNavActionState();
@@ -10793,11 +10805,8 @@
       if(el.replayOpenBtns && el.replayOpenBtns.length){
         el.replayOpenBtns.forEach(btn=>{
           btn.addEventListener("click",()=>{
-            if(replayUiActive){
-              exitReplayMode();
-            }else{
-              enterReplayMode();
-            }
+            if(replayUiActive) return;
+            enterReplayMode();
           });
         });
       }
