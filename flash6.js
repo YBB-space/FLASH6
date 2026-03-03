@@ -6229,6 +6229,16 @@
     function isControlUnlocked(){
       return controlAuthority && inspectionState==="passed" && !lockoutLatched;
     }
+    function isSequenceBusyForPanelModes(){
+      return sequenceActive || currentSt === 1 || currentSt === 2 || localTplusActive || tplusUiActive;
+    }
+    function isTabletPanelModeBlocked(){
+      return isTabletControlsLayout() && isSequenceBusyForPanelModes();
+    }
+    function showTabletPanelBlockedToast(mode){
+      const label = mode === "launcher" ? "발사대" : "리플레이";
+      showToast("시퀀스 진행 중에는 " + label + "를 열 수 없습니다.", "notice", {key:"tablet-panel-lock-" + mode});
+    }
     function canOperateLauncher(){
       const relayOn = latestTelemetry && latestTelemetry.rly === 1;
       const switchOn = latestTelemetry && latestTelemetry.sw === 1;
@@ -6267,6 +6277,13 @@
       if(el.launcherOpenBtns && el.launcherOpenBtns.length){
         const blocked = !canOperateLauncher();
         el.launcherOpenBtns.forEach(btn=>{
+          btn.classList.toggle("disabled", blocked);
+          btn.setAttribute("aria-disabled", blocked ? "true" : "false");
+        });
+      }
+      if(el.replayOpenBtns && el.replayOpenBtns.length){
+        const blocked = isTabletPanelModeBlocked();
+        el.replayOpenBtns.forEach(btn=>{
           btn.classList.toggle("disabled", blocked);
           btn.setAttribute("aria-disabled", blocked ? "true" : "false");
         });
@@ -6374,7 +6391,9 @@
           refreshChartLayout();
           redrawCharts();
         }, 0);
+        updateControlAccessUI(currentSt);
         updateNavActionState();
+        updateTabletAbortButton();
         return;
       }
       el.controlsCard.classList.toggle("tablet-collapsed", !tabletControlsOpen);
@@ -6383,7 +6402,9 @@
         refreshChartLayout();
         redrawCharts();
       }, 0);
+      updateControlAccessUI(currentSt);
       updateNavActionState();
+      updateTabletAbortButton();
     }
     function showTabletControlsPanel(){
       if(!isTabletControlsLayout()) return;
@@ -6486,12 +6507,23 @@
       if(!isMobileLayout() || !el.mobileAbortBtn) return false;
       return sequenceActive || currentSt === 1 || currentSt === 2 || localTplusActive || forceSlideActive;
     }
+    function shouldShowTabletAbortButton(){
+      if(!isTabletControlsLayout() || !el.tabletAbortBtn) return false;
+      return sequenceActive || currentSt === 1 || currentSt === 2 || localTplusActive || tplusUiActive;
+    }
     function updateMobileAbortButton(){
       if(!el.mobileAbortBtn) return;
       const show = shouldShowMobileAbortButton();
       el.mobileAbortBtn.classList.toggle("is-visible", show);
       if(el.mobileAbortPanel) el.mobileAbortPanel.classList.toggle("is-visible", show);
       el.mobileAbortBtn.disabled = !!(el.abortBtn && el.abortBtn.disabled);
+      updateTabletAbortButton();
+    }
+    function updateTabletAbortButton(){
+      if(!el.tabletAbortBtn) return;
+      const show = shouldShowTabletAbortButton();
+      el.tabletAbortBtn.classList.toggle("hidden", !show);
+      el.tabletAbortBtn.disabled = !!(el.abortBtn && el.abortBtn.disabled);
     }
 
     function updateAbortButtonLabel(isTplus){
@@ -6499,6 +6531,8 @@
       tplusUiActive = !!isTplus;
       if(el.abortBtn) el.abortBtn.textContent = label;
       if(el.mobileAbortBtn) el.mobileAbortBtn.textContent = label;
+      if(el.tabletAbortBtn) el.tabletAbortBtn.textContent = label;
+      updateTabletAbortButton();
     }
 
     function setIgniteButtonLabel(key){
@@ -7576,6 +7610,10 @@
 
     function enterReplayMode(){
       hideMobileControlsPanel();
+      if(isTabletPanelModeBlocked()){
+        showTabletPanelBlockedToast("replay");
+        return;
+      }
       if(isTabletControlsLayout()){
         showTabletControlsPanel();
       }
@@ -9605,6 +9643,10 @@
     }
     function showLauncher(){
       hideMobileControlsPanel();
+      if(isTabletPanelModeBlocked()){
+        showTabletPanelBlockedToast("launcher");
+        return;
+      }
       if(lockoutLatched){
         showToast(t("lockoutControlDenied"), "error");
         return;
@@ -10765,6 +10807,7 @@
       el.mobileControlsHandle = el.mobileControlsPanel ? el.mobileControlsPanel.querySelector(".mobile-controls-handle") : null;
       el.mobileAbortBtn = document.getElementById("mobileAbortBtn");
       el.mobileAbortPanel = document.getElementById("mobileAbortPanel");
+      el.tabletAbortBtn = document.getElementById("tabletAbortBtn");
       el.mobileSequenceLabel = document.getElementById("mobileSequenceLabel");
       el.mobileControlButtons = el.mobileControlsPanel ? el.mobileControlsPanel.querySelectorAll("[data-mobile-control]") : null;
       el.mobileControlButtonMap = {};
@@ -11334,7 +11377,21 @@
         el.tabletControlsClose.addEventListener("click",(ev)=>{
           ev.preventDefault();
           ev.stopPropagation();
-          hideTabletControlsPanel();
+          if(isTabletControlsLayout()){
+            hideTabletControlsPanel();
+            return;
+          }
+          if(replayUiActive){
+            exitReplayMode();
+            return;
+          }
+          if(launcherPanelActive){
+            hideLauncher();
+            return;
+          }
+          if(el.controlsCard && el.controlsCard.classList.contains("devtools-mode")){
+            setDevToolsVisible(false);
+          }
         });
       }
       if(el.controlsCard){
@@ -11367,6 +11424,14 @@
       updateNavActionState();
       if(el.mobileAbortBtn){
         el.mobileAbortBtn.addEventListener("click",(ev)=>{
+          ev.preventDefault();
+          if(el.abortBtn && !el.abortBtn.disabled){
+            el.abortBtn.click();
+          }
+        });
+      }
+      if(el.tabletAbortBtn){
+        el.tabletAbortBtn.addEventListener("click",(ev)=>{
           ev.preventDefault();
           if(el.abortBtn && !el.abortBtn.disabled){
             el.abortBtn.click();
