@@ -2611,6 +2611,13 @@
     .controls-card.launcher-mode .controls-grid,
     .controls-card.launcher-mode .replay-panel,
     .controls-card.launcher-mode .devtools-panel{display:none!important}
+    .controls-card.replay-mode .controls-subtitle,
+    .controls-card.launcher-mode .controls-subtitle,
+    .controls-card.devtools-mode .controls-subtitle{display:none}
+    .controls-card.launcher-mode{
+      display:flex;
+      flex-direction:column;
+    }
     .replay-panel{
       display:none;
       margin-top:8px;
@@ -2638,7 +2645,9 @@
       box-shadow:none;
     }
     .controls-card.launcher-mode .launcher-panel{
-      display:flex;
+      display:flex!important;
+      flex:1 1 auto;
+      min-height:0;
       animation:replayPanelEnter .24s ease;
     }
     .launcher-panel-note{
@@ -2987,6 +2996,7 @@
     .controls-card.devtools-mode .controls-grid{display:none}
     .controls-card.devtools-mode .devtools-panel{display:flex}
     .devtools-header{display:flex;align-items:center;justify-content:space-between}
+    .controls-card.devtools-mode .devtools-header{display:none}
     .devtools-title{font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#4b5563}
     .devtools-close-btn{
       width:26px;height:26px;border-radius:999px;border:1px solid rgba(148,163,184,0.75);
@@ -4641,7 +4651,7 @@
       .row-top{grid-template-columns:minmax(0,1.45fr) minmax(320px,1.35fr)}
       .row-bottom{grid-template-columns:minmax(0,2.55fr) minmax(220px,0.9fr)}
     }
-    @media (min-width:768px) and (max-width:1280px){
+    @media (min-width:768px) and (max-width:1440px){
       html.tablet-controls-layout{
         --page-pad-x:32px;
         --page-pad-y:20px;
@@ -4704,7 +4714,7 @@
       }
       html.tablet-controls-layout .page-title{font-size:32px}
     }
-    @media (min-width: 768px) and (max-width: 1280px){
+    @media (min-width: 768px) and (max-width: 1440px){
       html.tablet-controls-layout{--chart-height:clamp(440px,52vh,640px)}
       html.tablet-controls-layout .chart-box{min-height:clamp(190px,27vh,260px)}
     }
@@ -6241,10 +6251,9 @@
         <div class="side-nav-divider" aria-hidden="true"></div>
         <button class="side-nav-btn js-replay-open" aria-label="Replay" title="Replay">
           <svg viewBox="0 0 24 24">
-            <path d="M6 5h12"></path>
-            <path d="M6 12h12"></path>
-            <path d="M6 19h12"></path>
-            <path d="m16 9 3 3-3 3"></path>
+            <path d="M7 8H4V5"></path>
+            <path d="M4 5a8 8 0 1 1-1 8"></path>
+            <path d="m10 9 5 3-5 3z"></path>
           </svg>
         </button>
         <button id="tabletControlsNavBtn" class="side-nav-btn js-controls-open tablet-controls-nav-btn" aria-label="Control panel">
@@ -6259,10 +6268,12 @@
         </button>
         <button id="launcherOpenBtn" class="side-nav-action js-launcher-open launcher-desktop-only" aria-label="Launcher">
           <svg viewBox="0 0 24 24">
-            <path d="M6 18 18 6"></path>
-            <path d="M14 6h4v4"></path>
-            <path d="M9 15 6 18"></path>
-            <path d="M5 19h4"></path>
+            <path d="M5 19h14"></path>
+            <path d="M9 19v-7"></path>
+            <path d="M9 15h4"></path>
+            <path d="M13 15 17 9"></path>
+            <path d="M15 9h3"></path>
+            <path d="M16.5 9v3"></path>
           </svg>
         </button>
       </div>
@@ -6356,9 +6367,12 @@
         </button>
         <button class="side-nav-btn js-launcher-open" aria-label="Launcher">
           <svg viewBox="0 0 24 24">
-            <path d="M7 17l10-10"/>
-            <path d="M9 7h8v8"/>
-            <path d="M6 18l-2 2"/>
+            <path d="M5 19h14"></path>
+            <path d="M9 19v-7"></path>
+            <path d="M9 15h4"></path>
+            <path d="M13 15 17 9"></path>
+            <path d="M15 9h3"></path>
+            <path d="M16.5 9v3"></path>
           </svg>
         </button>
         <button class="side-nav-btn js-sidebar-settings" aria-label="Settings">
