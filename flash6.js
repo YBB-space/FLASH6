@@ -960,9 +960,13 @@
         el.gyro3dExpandedHud.setAttribute("aria-hidden", next ? "false" : "true");
       }
       if(next){
+        gyroViewportExpandedAt = Date.now();
+        gyroViewportLastTapAt = 0;
         updateGyroExpandedViewportBounds();
         syncExpandedHud();
       }else{
+        gyroViewportExpandedAt = 0;
+        gyroViewportLastTapAt = 0;
         el.gyro3dViewport.style.removeProperty("--gyro3d-expand-left");
         el.gyro3dViewport.style.removeProperty("--gyro3d-expand-top");
         el.gyro3dViewport.style.removeProperty("--gyro3d-expand-right");
@@ -1054,10 +1058,24 @@
       const canControl = ()=>{
         return isGyroViewportExpanded() && document.documentElement.classList.contains("preview-3d");
       };
-      view.addEventListener("click", ()=>{
+      view.addEventListener("click", (ev)=>{
         if(!document.documentElement.classList.contains("preview-3d")) return;
         if(!isGyroViewportExpanded()){
           setGyroViewportExpanded(true);
+          redraw();
+          return;
+        }
+        if(Date.now() - gyroViewportExpandedAt < 420) return;
+        const now = Date.now();
+        const dx = (ev.clientX || 0) - gyroViewportLastTapX;
+        const dy = (ev.clientY || 0) - gyroViewportLastTapY;
+        const isDoubleTap = (now - gyroViewportLastTapAt) < 360 && Math.hypot(dx, dy) < 28;
+        gyroViewportLastTapAt = now;
+        gyroViewportLastTapX = ev.clientX || 0;
+        gyroViewportLastTapY = ev.clientY || 0;
+        if(isDoubleTap){
+          gyroViewportLastTapAt = 0;
+          setGyroViewportExpanded(false);
           redraw();
         }
       });
@@ -1185,7 +1203,9 @@
       view.addEventListener("dblclick", (ev)=>{
         if(!canControl()) return;
         ev.preventDefault();
-        resetGyroCameraPose(true);
+        if(Date.now() - gyroViewportExpandedAt < 420) return;
+        gyroViewportLastTapAt = 0;
+        setGyroViewportExpanded(false);
         redraw();
       });
       const sideNavDesktop = document.querySelector(".side-nav-desktop");
@@ -2278,7 +2298,7 @@
     }
 
     function updateLauncherPitchAngle(pitchDeg, gyroPitchRate, nowMs){
-      if(!el.launcherPitchAngle) return;
+      if(!el.launcherPitchAngle && !el.launcherPitchAngleTablet) return;
       let value = isFinite(pitchDeg) ? -pitchDeg : null;
       if(launcherAutoActive && value != null && isFinite(gyroPitchRate)){
         if(launcherPitchEst == null){
@@ -2294,7 +2314,9 @@
         }
         value = launcherPitchEst;
       }
-      el.launcherPitchAngle.textContent = (value == null) ? "--°" : (value.toFixed(1) + "°");
+      const text = (value == null) ? "--°" : (value.toFixed(1) + "°");
+      if(el.launcherPitchAngle) el.launcherPitchAngle.textContent = text;
+      if(el.launcherPitchAngleTablet) el.launcherPitchAngleTablet.textContent = text;
       if(launcherAutoActive && value != null && Math.abs(value) >= 115){
         launcherAutoActive = false;
         stopLauncherHold("up");
@@ -3608,6 +3630,14 @@
       if(!el.controlsCard || !el.controlsMain || !el.devToolsPanel || !el.controlsHeader) return;
       el.controlsCard.classList.toggle("devtools-mode", !!show);
       el.controlsHeader.classList.toggle("hidden", !!show);
+      if(show && isTabletControlsLayout() && !tabletControlsOpen){
+        tabletControlsOpen = true;
+        applyTabletControlsLayout();
+      }
+      setTimeout(()=>{
+        refreshChartLayout();
+        redrawCharts();
+      }, 0);
     }
     function updateDevToolsUI(){
       const any = devRelay1Locked || devRelay2Locked;
@@ -6245,31 +6275,107 @@
     }
 
     const MOBILE_PANEL_MEDIA = window.matchMedia("(max-width: 600px)");
-    const TABLET_CONTROLS_MEDIA = window.matchMedia("(min-width: 768px) and (max-width: 1100px)");
+    const TABLET_CONTROLS_MEDIA = window.matchMedia("(min-width: 768px) and (max-width: 1280px)");
     let mobileControlsActive = false;
     let tabletControlsOpen = false;
+    let gyroViewportExpandedAt = 0;
+    let gyroViewportLastTapAt = 0;
+    let gyroViewportLastTapX = 0;
+    let gyroViewportLastTapY = 0;
+    let launcherPanelActive = false;
 
     function isMobileLayout(){
       return MOBILE_PANEL_MEDIA.matches;
     }
-    function hasTouchInput(){
-      return !!((navigator && navigator.maxTouchPoints > 0) || ("ontouchstart" in window));
-    }
     function isTabletControlsLayout(){
-      return TABLET_CONTROLS_MEDIA.matches && hasTouchInput();
+      return TABLET_CONTROLS_MEDIA.matches;
+    }
+    function isControlsModalVisible(){
+      return !!(el.controlsOverlay && !el.controlsOverlay.classList.contains("hidden"));
+    }
+    function isLauncherOverlayVisible(){
+      return !!(launcherOverlayEl && !launcherOverlayEl.classList.contains("hidden"));
+    }
+    function updateNavActionState(){
+      const replayActive = !!replayUiActive;
+      const launcherActive = !!launcherPanelActive || isLauncherOverlayVisible();
+      const controlsActive = (isTabletControlsLayout()
+        ? (tabletControlsOpen && !replayActive && !launcherActive)
+        : (isControlsModalVisible() && !replayActive && !launcherActive));
+      if(el.replayOpenBtns && el.replayOpenBtns.length){
+        el.replayOpenBtns.forEach(btn=>btn.classList.toggle("is-active", replayActive));
+      }
+      if(el.controlsToggleBtns && el.controlsToggleBtns.length){
+        el.controlsToggleBtns.forEach(btn=>btn.classList.toggle("is-active", controlsActive));
+      }
+      if(el.launcherOpenBtns && el.launcherOpenBtns.length){
+        el.launcherOpenBtns.forEach(btn=>btn.classList.toggle("is-active", launcherActive));
+      }
+    }
+    function setLauncherPanelVisible(show){
+      launcherPanelActive = !!show;
+      if(launcherPanelActive){
+        if(replayUiActive){
+          exitReplayMode();
+        }
+        if(el.controlsCard){
+          el.controlsCard.classList.remove("devtools-mode");
+        }
+        if(el.controlsHeader){
+          el.controlsHeader.classList.remove("hidden");
+        }
+      }
+      if(el.controlsCard){
+        el.controlsCard.classList.toggle("launcher-mode", launcherPanelActive);
+      }
+      if(el.launcherPanel){
+        el.launcherPanel.setAttribute("aria-hidden", launcherPanelActive ? "false" : "true");
+      }
+      if(launcherPanelActive){
+        if(el.controlsCardTitle) el.controlsCardTitle.textContent = "LAUNCHER CONTROL";
+      }else if(!replayUiActive && el.controlsCardTitle){
+        el.controlsCardTitle.textContent = "CONTROL PANEL";
+      }
+      if(!launcherPanelActive){
+        launcherAutoActive = false;
+        launcherPitchEst = null;
+        launcherPitchEstMs = 0;
+        stopLauncherHold("up");
+        stopLauncherHold("down");
+      }
+      updateNavActionState();
+    }
+    function resetControlsModesOnClose(){
+      if(replayUiActive){
+        exitReplayMode();
+      }
+      setLauncherPanelVisible(false);
     }
     function applyTabletControlsLayout(){
       if(!el.controlsCard) return;
       const active = isTabletControlsLayout();
       document.documentElement.classList.toggle("tablet-controls-layout", active);
+      document.documentElement.classList.toggle("tablet-controls-open", active && tabletControlsOpen);
       if(!active){
         tabletControlsOpen = false;
         el.controlsCard.classList.remove("tablet-collapsed");
         el.controlsCard.setAttribute("aria-expanded", "true");
+        document.documentElement.classList.remove("tablet-controls-open");
+        resetControlsModesOnClose();
+        setTimeout(()=>{
+          refreshChartLayout();
+          redrawCharts();
+        }, 0);
+        updateNavActionState();
         return;
       }
       el.controlsCard.classList.toggle("tablet-collapsed", !tabletControlsOpen);
       el.controlsCard.setAttribute("aria-expanded", tabletControlsOpen ? "true" : "false");
+      setTimeout(()=>{
+        refreshChartLayout();
+        redrawCharts();
+      }, 0);
+      updateNavActionState();
     }
     function showTabletControlsPanel(){
       if(!isTabletControlsLayout()) return;
@@ -6279,6 +6385,7 @@
     function hideTabletControlsPanel(){
       if(!isTabletControlsLayout()) return;
       tabletControlsOpen = false;
+      resetControlsModesOnClose();
       applyTabletControlsLayout();
     }
     function toggleTabletControlsPanel(){
@@ -6554,9 +6661,11 @@
         el.controlsCard.appendChild(el.controlsOverlayClose);
       }
       el.controlsOverlay.classList.remove("hidden");
+      updateNavActionState();
     }
     function hideControlsModal(){
       if(!el.controlsOverlay || !el.controlsCard || !controlsCardParent) return;
+      resetControlsModesOnClose();
       el.controlsOverlay.classList.add("hidden");
       if(controlsCardNext && controlsCardNext.parentNode === controlsCardParent){
         controlsCardParent.insertBefore(el.controlsCard, controlsCardNext);
@@ -6569,6 +6678,7 @@
       if(el.controlsOverlayClose){
         el.controlsOverlay.appendChild(el.controlsOverlayClose);
       }
+      updateNavActionState();
     }
 
     // ✅ KST 시각 표시
@@ -6872,6 +6982,7 @@
     function syncChartHeightToControls(attempt=0){
       if(chartSyncTimer) clearTimeout(chartSyncTimer);
       refreshChartLayout();
+      if(isTabletControlsLayout()) return;
       if(!window.matchMedia("(min-width: 1100px)").matches) return;
       const chartsCard = document.querySelector(".charts-card");
       const controlsCard = document.getElementById("controlsCard");
@@ -6893,11 +7004,23 @@
       if(row) row.style.height = "";
       const chartsCard = document.querySelector(".charts-card");
       const controlsCard = document.getElementById("controlsCard");
+      const rowBottom = document.querySelector(".row-bottom");
+      const tabletLayoutActive = isTabletControlsLayout();
       if(chartsCard){
         chartsCard.style.height = "";
         chartsCard.style.minHeight = "";
       }
-      if(chartsCard && controlsCard && window.matchMedia("(min-width: 1100px)").matches){
+      if(rowBottom){
+        rowBottom.style.minHeight = "";
+      }
+      if(chartsCard && tabletLayoutActive){
+        chartsCard.style.height = "var(--chart-height)";
+        chartsCard.style.minHeight = "var(--chart-height)";
+      }
+      if(rowBottom && tabletLayoutActive){
+        rowBottom.style.minHeight = "var(--chart-height)";
+      }
+      if(chartsCard && controlsCard && !tabletLayoutActive && window.matchMedia("(min-width: 1100px)").matches){
         const controlsRect = controlsCard.getBoundingClientRect();
         if(controlsRect.height > 0){
           const targetHeight = Math.round(controlsRect.height);
@@ -7187,15 +7310,17 @@
         el.replayPanel.classList.toggle("hidden", !replayUiActive);
         el.replayPanel.setAttribute("aria-hidden", replayUiActive ? "false" : "true");
       }
-      if(el.replayOpenBtn){
-        el.replayOpenBtn.classList.toggle("is-active", replayUiActive);
-        el.replayOpenBtn.textContent = replayUiActive ? "실시간 복귀" : "Replay";
+      if(el.replayOpenBtns && el.replayOpenBtns.length){
+        el.replayOpenBtns.forEach(btn=>{
+          btn.setAttribute("aria-label", "Replay");
+          btn.setAttribute("title", "Replay");
+        });
       }
       if(el.replayFileBtn){
         el.replayFileBtn.classList.toggle("is-loaded", !!replayState.fileName);
       }
       if(el.controlsCardTitle){
-        el.controlsCardTitle.textContent = replayUiActive ? "DATA REPLAY" : "CONTROL PANEL";
+        el.controlsCardTitle.textContent = replayUiActive ? "DATA REPLAY" : (launcherPanelActive ? "LAUNCHER CONTROL" : "CONTROL PANEL");
       }
       if(el.replayDropTitle){
         el.replayDropTitle.textContent = replayState.fileName ? replayState.fileName : "Replay 파일 업로드";
@@ -7222,6 +7347,7 @@
       }
       updateReplaySeekUi();
       updateReplaySpeedUi();
+      updateNavActionState();
     }
 
     function clearReplayTimer(){
@@ -7442,6 +7568,10 @@
 
     function enterReplayMode(){
       hideMobileControlsPanel();
+      if(isTabletControlsLayout()){
+        showTabletControlsPanel();
+      }
+      setLauncherPanelVisible(false);
       replayUiActive = true;
       if(!replayState.samples.length){
         showToast("리플레이 파일을 선택하세요.", "notice", {key:"replay-select-file"});
@@ -9475,9 +9605,21 @@
         if(safetyModeEnabled) showToast(t("safetyModeOnToast"), "notice");
         return;
       }
+      if(isTabletControlsLayout()){
+        tabletControlsOpen = true;
+        applyTabletControlsLayout();
+        setLauncherPanelVisible(true);
+        return;
+      }
+      setLauncherPanelVisible(false);
       setOverlayVisible(launcherOverlayEl, true);
+      updateNavActionState();
     }
     function hideLauncher(){
+      if(launcherPanelActive){
+        setLauncherPanelVisible(false);
+        return;
+      }
       if(launcherOverlayEl){
         setOverlayVisible(launcherOverlayEl, false);
         launcherOverlayEl.classList.remove("auto-active");
@@ -9488,6 +9630,7 @@
       hideLauncherAutoConfirm();
       stopLauncherHold("up");
       stopLauncherHold("down");
+      updateNavActionState();
     }
     function launcherStep(dir){
       sendCommand({http:"/launcher?dir="+dir, ser:"LAUNCHER "+dir.toUpperCase()}, false);
@@ -10523,7 +10666,9 @@
       el.controlsCardTitle = document.getElementById("controlsCardTitle");
       el.controlsHeader = document.getElementById("controlsHeader");
       el.controlsMain = document.getElementById("controlsMain");
-      el.replayOpenBtn = document.getElementById("replayOpenBtn");
+      el.launcherPanel = document.getElementById("launcherPanel");
+      el.launcherPitchAngleTablet = document.getElementById("launcherPitchAngleTablet");
+      el.replayOpenBtns = document.querySelectorAll(".js-replay-open");
       el.replayPanel = document.getElementById("replayPanel");
       el.replayFileInput = document.getElementById("replayFileInput");
       el.replayFileBtn = document.getElementById("replayFileBtn");
@@ -10645,13 +10790,15 @@
       el.tetrisPrizeClose = document.getElementById("tetrisPrizeClose");
       el.tetrisPrizeCode = document.getElementById("tetrisPrizeCode");
 
-      if(el.replayOpenBtn){
-        el.replayOpenBtn.addEventListener("click",()=>{
-          if(replayUiActive){
-            exitReplayMode();
-          }else{
-            enterReplayMode();
-          }
+      if(el.replayOpenBtns && el.replayOpenBtns.length){
+        el.replayOpenBtns.forEach(btn=>{
+          btn.addEventListener("click",()=>{
+            if(replayUiActive){
+              exitReplayMode();
+            }else{
+              enterReplayMode();
+            }
+          });
         });
       }
       const loadReplayFile = async (file)=>{
@@ -10885,6 +11032,9 @@
       const launcherUpBtn=document.getElementById("launcherUpModalBtn");
       const launcherDownBtn=document.getElementById("launcherDownModalBtn");
       const launcherAutoBtn=document.getElementById("launcherAutoBtn");
+      const launcherUpPanelBtn=document.getElementById("launcherUpPanelBtn");
+      const launcherDownPanelBtn=document.getElementById("launcherDownPanelBtn");
+      const launcherAutoPanelBtn=document.getElementById("launcherAutoPanelBtn");
       launcherAutoOverlayEl = el.launcherAutoOverlay || document.getElementById("launcherAutoOverlay");
       launcherAutoConfirmBtn = el.launcherAutoConfirm || document.getElementById("launcherAutoConfirm");
       launcherAutoCancelBtn = el.launcherAutoCancel || document.getElementById("launcherAutoCancel");
@@ -11148,6 +11298,10 @@
         el.controlsToggleBtns.forEach(btn=>{
           btn.addEventListener("click",(ev)=>{
             ev.preventDefault();
+            setLauncherPanelVisible(false);
+            if(replayUiActive){
+              exitReplayMode();
+            }
             if(isMobileLayout() && el.mobileControlsPanel){
               showMobileControlsPanel();
               return;
@@ -11163,13 +11317,23 @@
       if(el.tabletControlsFab){
         el.tabletControlsFab.addEventListener("click",(ev)=>{
           ev.preventDefault();
+          ev.stopPropagation();
           toggleTabletControlsPanel();
         });
       }
       if(el.tabletControlsClose){
         el.tabletControlsClose.addEventListener("click",(ev)=>{
           ev.preventDefault();
+          ev.stopPropagation();
           hideTabletControlsPanel();
+        });
+      }
+      if(el.controlsCard){
+        el.controlsCard.addEventListener("click",(ev)=>{
+          if(!isTabletControlsLayout()) return;
+          if(!el.controlsCard.classList.contains("tablet-collapsed")) return;
+          ev.preventDefault();
+          showTabletControlsPanel();
         });
       }
       if(el.controlsOverlayClose){
@@ -11180,11 +11344,6 @@
       }
 
       document.addEventListener("pointerdown",(ev)=>{
-        if(tabletControlsOpen && isTabletControlsLayout()){
-          if(el.controlsCard && el.controlsCard.contains(ev.target)) return;
-          if(ev.target.closest && ev.target.closest(".js-controls-open")) return;
-          hideTabletControlsPanel();
-        }
         if(!mobileControlsActive) return;
         if(el.mobileControlsPanel && el.mobileControlsPanel.contains(ev.target)) return;
         if(ev.target.closest && ev.target.closest(".js-controls-open")) return;
@@ -11196,6 +11355,7 @@
         }
       });
       applyTabletControlsLayout();
+      updateNavActionState();
       if(el.mobileAbortBtn){
         el.mobileAbortBtn.addEventListener("click",(ev)=>{
           ev.preventDefault();
@@ -12269,7 +12429,7 @@
         });
       }
 
-      if(el.launcherOpenBtns && el.launcherOpenBtns.length && launcherOverlayEl){
+      if(el.launcherOpenBtns && el.launcherOpenBtns.length){
         el.launcherOpenBtns.forEach(btn=>{
           btn.addEventListener("click",()=>showLauncher());
           btn.addEventListener("keydown",(e)=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); showLauncher(); }});
@@ -12278,30 +12438,31 @@
       if(launcherCloseBtn){ launcherCloseBtn.addEventListener("click",()=>hideLauncher()); }
       if(launcherOverlayEl){ launcherOverlayEl.addEventListener("click",(ev)=>{ if(ev.target===launcherOverlayEl) hideLauncher(); }); }
 
-      if(launcherUpBtn || launcherDownBtn){
+      if(launcherUpBtn || launcherDownBtn || launcherUpPanelBtn || launcherDownPanelBtn){
         const startEvents=["mousedown","touchstart"];
         const endEvents=["mouseup","mouseleave","touchend","touchcancel"];
-
-        if(launcherUpBtn){
+        const bindLauncherHold = (node, dir)=>{
+          if(!node) return;
           startEvents.forEach(evName=>{
-            launcherUpBtn.addEventListener(evName,(ev)=>{ ev.preventDefault(); launcherUpBtn.classList.add("pressed"); startLauncherHold("up"); },{passive:false});
+            node.addEventListener(evName,(ev)=>{ ev.preventDefault(); node.classList.add("pressed"); startLauncherHold(dir); },{passive:false});
           });
           endEvents.forEach(evName=>{
-            launcherUpBtn.addEventListener(evName,(ev)=>{ ev.preventDefault(); launcherUpBtn.classList.remove("pressed"); stopLauncherHold("up"); },{passive:false});
+            node.addEventListener(evName,(ev)=>{ ev.preventDefault(); node.classList.remove("pressed"); stopLauncherHold(dir); },{passive:false});
           });
-        }
+        };
 
-        if(launcherDownBtn){
-          startEvents.forEach(evName=>{
-            launcherDownBtn.addEventListener(evName,(ev)=>{ ev.preventDefault(); launcherDownBtn.classList.add("pressed"); startLauncherHold("down"); },{passive:false});
-          });
-          endEvents.forEach(evName=>{
-            launcherDownBtn.addEventListener(evName,(ev)=>{ ev.preventDefault(); launcherDownBtn.classList.remove("pressed"); stopLauncherHold("down"); },{passive:false});
-          });
-        }
+        bindLauncherHold(launcherUpBtn, "up");
+        bindLauncherHold(launcherDownBtn, "down");
+        bindLauncherHold(launcherUpPanelBtn, "up");
+        bindLauncherHold(launcherDownPanelBtn, "down");
       }
       if(launcherAutoBtn){
         launcherAutoBtn.addEventListener("click",()=>{
+          showLauncherAutoConfirm();
+        });
+      }
+      if(launcherAutoPanelBtn){
+        launcherAutoPanelBtn.addEventListener("click",()=>{
           showLauncherAutoConfirm();
         });
       }
