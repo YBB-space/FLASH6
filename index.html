@@ -146,6 +146,12 @@
       transform:scale(1);
       stroke-linecap:round;stroke-linejoin:round;
     }
+    .side-nav-btn.is-active,
+    .side-nav-action.is-active{
+      background:rgba(59,130,246,0.12);
+      color:#2563eb;
+      border-color:rgba(59,130,246,0.22);
+    }
     .mobile-controls-panel{
       display:none;
     }
@@ -973,7 +979,7 @@
       width:min(178px, calc((100vw - 52px) / 2));
       min-height:92px;
       padding:16px 18px 14px;
-      border-radius:16px;
+      border-radius:10px;
       border:1px solid #cfd6df;
       background:#f3f4f6;
       box-shadow:none;
@@ -982,16 +988,16 @@
       justify-content:space-between;
     }
     .status-expanded-metric-label{
-      font-size:10px;
+      font-size:11px;
       letter-spacing:.28em;
       text-transform:uppercase;
       color:#7a8aa1;
       margin-bottom:10px;
-      font-weight:700;
+      font-weight:600;
     }
     .status-expanded-metric-value{
-      font-size:18px;
-      font-weight:800;
+      font-size:20px;
+      font-weight:700;
       color:#0f172a;
       letter-spacing:.02em;
       text-align:right;
@@ -999,11 +1005,11 @@
     }
     .status-expanded-metric-value .unit{
       margin-left:6px;
-      font-size:11px;
+      font-size:12px;
       color:#64748b;
       letter-spacing:.12em;
       text-transform:uppercase;
-      font-weight:800;
+      font-weight:700;
     }
     .status-expanded-metric.is-alert{
       border-color:rgba(239,68,68,0.55);
@@ -2441,10 +2447,10 @@
       align-items:center;
       justify-content:space-between;
       gap:10px;
-      border:1px solid rgba(148,163,184,0.3);
-      border-radius:12px;
-      background:rgba(248,250,252,0.92);
-      padding:9px 12px;
+      border:none;
+      border-radius:0;
+      background:transparent;
+      padding:0;
       margin-bottom:10px;
     }
     #controlsCardTitle{
@@ -2568,46 +2574,24 @@
       white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
     }
     .controls-header-actions{display:flex;align-items:center;gap:6px}
-    .tablet-controls-fab,
-    .tablet-controls-close{display:none!important}
-    html:not(.tablet-controls-layout) .tablet-controls-fab,
+    .tablet-controls-nav-btn,
+    .tablet-controls-close{display:none}
+    html:not(.tablet-controls-layout) .tablet-controls-nav-btn,
     html:not(.tablet-controls-layout) .tablet-controls-close{
       display:none!important;
     }
-    .tablet-controls-fab{
-      width:62px;
-      height:62px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,0.32);
-      background:linear-gradient(145deg,#0f172a,#1e293b);
-      color:#f8fafc;
-      box-shadow:0 14px 28px rgba(15,23,42,0.24);
-      align-items:center;
-      justify-content:center;
-      padding:0;
-    }
-    .tablet-controls-fab svg{
-      width:24px;
-      height:24px;
-      stroke:currentColor;
-      fill:none;
-      stroke-width:1.8;
-      stroke-linecap:round;
-      stroke-linejoin:round;
-    }
     .tablet-controls-close{
-      width:30px;
-      height:30px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,0.34);
-      background:#ffffff;
+      width:28px;
+      height:28px;
+      border-radius:0;
+      border:none;
+      background:transparent;
       color:#475569;
       align-items:center;
       justify-content:center;
       padding:0;
-      font-size:18px;
+      font-size:20px;
       line-height:1;
-      box-shadow:0 6px 14px rgba(15,23,42,0.1);
     }
     .controls-gear-btn{
       width:26px;height:26px;border-radius:999px;border:1px solid rgba(148,163,184,0.75);
@@ -2624,31 +2608,9 @@
     .controls-gear-btn:hover{background:#0f172a;color:#e5e7eb}
     .controls-card.replay-mode .controls-grid{display:none}
     .controls-card.replay-mode .devtools-panel{display:none!important}
-    #replayOpenBtn{
-      border:1px solid rgba(148,163,184,0.5);
-      background:#ffffff;
-      box-shadow:0 4px 10px rgba(148,163,184,0.16);
-      border-radius:999px;
-      height:30px;
-      min-height:30px;
-      padding:0 12px;
-      color:#334155;
-      font-size:11px;
-      font-weight:700;
-      letter-spacing:.08em;
-      text-transform:uppercase;
-    }
-    #replayOpenBtn:hover:not(:disabled){
-      background:#f8fafc;
-      color:#0f172a;
-      border-color:rgba(59,130,246,0.45);
-    }
-    #replayOpenBtn.is-active{
-      border:1px solid rgba(59,130,246,0.42);
-      background:rgba(59,130,246,0.14);
-      color:#1d4ed8;
-      box-shadow:none;
-    }
+    .controls-card.launcher-mode .controls-grid,
+    .controls-card.launcher-mode .replay-panel,
+    .controls-card.launcher-mode .devtools-panel{display:none!important}
     .replay-panel{
       display:none;
       margin-top:8px;
@@ -2663,6 +2625,37 @@
     .controls-card.replay-mode .replay-panel{
       display:flex;
       animation:replayPanelEnter .24s ease;
+    }
+    .launcher-panel{
+      display:none;
+      margin-top:8px;
+      flex-direction:column;
+      gap:12px;
+      padding:0;
+      border:none;
+      border-radius:0;
+      background:transparent;
+      box-shadow:none;
+    }
+    .controls-card.launcher-mode .launcher-panel{
+      display:flex;
+      animation:replayPanelEnter .24s ease;
+    }
+    .launcher-panel-note{
+      font-size:11px;
+      color:#64748b;
+      line-height:1.45;
+    }
+    .launcher-panel .launcher-arrow-row{
+      gap:12px;
+      padding:8px 0 2px;
+    }
+    .launcher-panel .launcher-angle{
+      display:flex;
+    }
+    .launcher-panel .launcher-auto-desc{
+      display:block;
+      margin-top:0;
     }
     @keyframes replayPanelEnter{
       from{opacity:0;transform:translateY(6px)}
@@ -2984,10 +2977,14 @@
       box-shadow:0 0 0 3px rgba(71,85,105,0.36);
     }
     .devtools-panel{
-      display:none;flex-direction:column;gap:12px;
-      position:absolute;left:14px;right:14px;top:16px;bottom:14px;
+      display:none;
+      flex-direction:column;
+      gap:12px;
+      flex:1 1 auto;
+      min-height:0;
+      overflow:auto;
     }
-    .controls-card.devtools-mode .controls-grid{opacity:0;pointer-events:none}
+    .controls-card.devtools-mode .controls-grid{display:none}
     .controls-card.devtools-mode .devtools-panel{display:flex}
     .devtools-header{display:flex;align-items:center;justify-content:space-between}
     .devtools-title{font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#4b5563}
@@ -4644,7 +4641,7 @@
       .row-top{grid-template-columns:minmax(0,1.45fr) minmax(320px,1.35fr)}
       .row-bottom{grid-template-columns:minmax(0,2.55fr) minmax(220px,0.9fr)}
     }
-    @media (min-width:768px) and (max-width:1100px){
+    @media (min-width:768px) and (max-width:1280px){
       html.tablet-controls-layout{
         --page-pad-x:32px;
         --page-pad-y:20px;
@@ -4658,47 +4655,43 @@
       html.tablet-controls-layout .page-wrap{height:auto;overflow:visible}
       html.tablet-controls-layout .row-bottom{
         min-height:var(--chart-height);
-        grid-template-columns:minmax(0,1fr);
         position:relative;
       }
-      html.tablet-controls-layout .charts-card{height:100%;min-height:var(--chart-height)}
+      html.tablet-controls-layout .row-bottom > .charts-card{
+        height:var(--chart-height)!important;
+        min-height:var(--chart-height)!important;
+      }
+      html.tablet-controls-layout:not(.tablet-controls-open) .row-bottom{
+        grid-template-columns:minmax(0,1fr);
+      }
+      html.tablet-controls-layout.tablet-controls-open .row-bottom{
+        grid-template-columns:minmax(0,1fr) minmax(300px,340px);
+      }
       html.tablet-controls-layout .row-bottom > .controls-card{
-        position:absolute;
-        top:0;
-        right:0;
-        width:min(360px,42vw);
+        width:100%;
+        max-width:340px;
+        width:min(340px,38vw);
         max-height:var(--chart-height);
-        height:auto;
+        height:var(--chart-height);
         min-height:0;
         z-index:8;
         overflow:hidden;
-        transition:width .22s ease,height .22s ease,transform .22s ease,box-shadow .22s ease,background .22s ease,border-color .22s ease;
+        align-self:stretch;
+        justify-self:end;
+        transition:width .22s ease,height .22s ease,transform .22s ease,box-shadow .22s ease,background .22s ease,border-color .22s ease,bottom .22s ease,right .22s ease;
       }
-      html.tablet-controls-layout #controlsCard.tablet-collapsed{
-        width:62px;
-        height:62px;
-        min-height:62px;
-        max-height:62px;
-        padding:0;
-        border-radius:999px;
-        border-color:transparent;
-        background:transparent;
-        box-shadow:none;
+      html.tablet-controls-layout:not(.tablet-controls-open) .row-bottom > .controls-card{display:none}
+      html.tablet-controls-layout.tablet-controls-open #controlsCard{
+        position:relative;
+        right:auto;
+        bottom:auto;
+        top:auto;
       }
-      html.tablet-controls-layout #controlsCard.tablet-collapsed::before,
-      html.tablet-controls-layout #controlsCard.tablet-collapsed::after{
-        content:none;
+      html.tablet-controls-layout .chart-row{
+        min-height:0;
       }
-      html.tablet-controls-layout #controlsCard.tablet-collapsed #controlsHeader,
-      html.tablet-controls-layout #controlsCard.tablet-collapsed #controlsMain,
-      html.tablet-controls-layout #controlsCard.tablet-collapsed #replayPanel,
-      html.tablet-controls-layout #controlsCard.tablet-collapsed #devToolsPanel{
-        display:none!important;
-      }
-      html.tablet-controls-layout #controlsCard.tablet-collapsed .tablet-controls-fab{
-        display:inline-flex;
-      }
-      html.tablet-controls-layout #controlsCard:not(.tablet-collapsed){
+      html.tablet-controls-layout .tablet-controls-nav-btn{display:flex}
+      html.tablet-controls-layout #controlsCard{
         padding:14px;
         border-color:rgba(148,163,184,0.42);
         background:rgba(255,255,255,0.98);
@@ -4706,14 +4699,14 @@
         backdrop-filter:blur(10px);
         -webkit-backdrop-filter:blur(10px);
       }
-      html.tablet-controls-layout #controlsCard:not(.tablet-collapsed) .tablet-controls-close{
+      html.tablet-controls-layout.tablet-controls-open #controlsCard .tablet-controls-close{
         display:inline-flex;
       }
       html.tablet-controls-layout .page-title{font-size:32px}
     }
-    @media (min-width: 768px) and (max-width: 1100px){
-      html.tablet-controls-layout{--chart-height:clamp(360px,44vh,500px)}
-      html.tablet-controls-layout .chart-box{min-height:clamp(160px,24vh,220px)}
+    @media (min-width: 768px) and (max-width: 1280px){
+      html.tablet-controls-layout{--chart-height:clamp(440px,52vh,640px)}
+      html.tablet-controls-layout .chart-box{min-height:clamp(190px,27vh,260px)}
     }
     @media(max-width:980px){
       .app-shell{flex-direction:row}
@@ -5308,20 +5301,10 @@
     html[data-theme="dark"] .controls-card .control-tile-sub{
       color:#94a3b8;
     }
-    html[data-theme="dark"] #replayOpenBtn{
-      background:rgba(15,23,42,0.86);
-      border-color:rgba(71,85,105,0.8);
-      color:#cbd5e1;
-      box-shadow:none;
-    }
-    html[data-theme="dark"] #replayOpenBtn:hover:not(:disabled){
-      background:rgba(30,41,59,0.92);
-      border-color:rgba(96,165,250,0.6);
-      color:#e2e8f0;
-    }
-    html[data-theme="dark"] #replayOpenBtn.is-active{
-      border-color:rgba(96,165,250,0.62);
-      background:rgba(30,64,175,0.3);
+    html[data-theme="dark"] .side-nav-btn.is-active,
+    html[data-theme="dark"] .side-nav-action.is-active{
+      background:rgba(37,99,235,0.22);
+      border-color:rgba(96,165,250,0.28);
       color:#bfdbfe;
     }
     html[data-theme="dark"] .settings-dialog{
@@ -6256,11 +6239,30 @@
           <svg viewBox="0 0 24 24"><path d="M3 6h18v12H3z"/><path d="M7 10l3 2-3 2"/><path d="M12 14h5"/></svg>
         </button>
         <div class="side-nav-divider" aria-hidden="true"></div>
+        <button class="side-nav-btn js-replay-open" aria-label="Replay" title="Replay">
+          <svg viewBox="0 0 24 24">
+            <path d="M6 5h12"></path>
+            <path d="M6 12h12"></path>
+            <path d="M6 19h12"></path>
+            <path d="m16 9 3 3-3 3"></path>
+          </svg>
+        </button>
+        <button id="tabletControlsNavBtn" class="side-nav-btn js-controls-open tablet-controls-nav-btn" aria-label="Control panel">
+          <svg viewBox="0 0 24 24">
+            <path d="M5 7h14"></path>
+            <path d="M5 12h14"></path>
+            <path d="M5 17h14"></path>
+            <circle cx="9" cy="7" r="1.5"></circle>
+            <circle cx="15" cy="12" r="1.5"></circle>
+            <circle cx="11" cy="17" r="1.5"></circle>
+          </svg>
+        </button>
         <button id="launcherOpenBtn" class="side-nav-action js-launcher-open launcher-desktop-only" aria-label="Launcher">
           <svg viewBox="0 0 24 24">
-            <path d="M7 17l10-10"/>
-            <path d="M9 7h8v8"/>
-            <path d="M6 18l-2 2"/>
+            <path d="M6 18 18 6"></path>
+            <path d="M14 6h4v4"></path>
+            <path d="M9 15 6 18"></path>
+            <path d="M5 19h4"></path>
           </svg>
         </button>
       </div>
@@ -6346,17 +6348,17 @@
           <svg viewBox="0 0 24 24"><path d="M3 6h18v12H3z"/><path d="M7 10l3 2-3 2"/><path d="M12 14h5"/></svg>
         </button>
         <div class="side-nav-divider side-nav-divider-mobile" aria-hidden="true"></div>
+        <button class="side-nav-btn js-controls-open" aria-label="Control panel">
+          <svg viewBox="0 0 24 24">
+            <rect x="4" y="5" width="16" height="6" rx="2"/>
+            <rect x="4" y="13" width="10" height="6" rx="2"/>
+          </svg>
+        </button>
         <button class="side-nav-btn js-launcher-open" aria-label="Launcher">
           <svg viewBox="0 0 24 24">
             <path d="M7 17l10-10"/>
             <path d="M9 7h8v8"/>
             <path d="M6 18l-2 2"/>
-          </svg>
-        </button>
-        <button class="side-nav-btn js-controls-open" aria-label="Control panel">
-          <svg viewBox="0 0 24 24">
-            <rect x="4" y="5" width="16" height="6" rx="2"/>
-            <rect x="4" y="13" width="10" height="6" rx="2"/>
           </svg>
         </button>
         <button class="side-nav-btn js-sidebar-settings" aria-label="Settings">
@@ -6674,13 +6676,6 @@
         </div>
       </section>
         <section id="controlsCard" class="card-base controls-card controls-mobile-hidden status-frame">
-          <button id="tabletControlsFab" class="tablet-controls-fab" type="button" aria-label="Open control panel">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M4 7h16"></path>
-              <path d="M7 12h10"></path>
-              <path d="M10 17h4"></path>
-            </svg>
-          </button>
           <div id="controlsHeader" class="card-header">
             <div>
             <div id="controlsCardTitle" class="card-title">CONTROL PANEL</div>
@@ -6688,7 +6683,6 @@
           </div>
             <div class="controls-header-actions">
               <button id="tabletControlsClose" class="tablet-controls-close" type="button" aria-label="Close control panel">×</button>
-              <button id="replayOpenBtn" class="toolbar-btn" type="button">Replay</button>
             </div>
           </div>
 
@@ -6807,6 +6801,28 @@
             <div class="replay-control-row">
               <button id="replayStartBtn" class="primary-btn" type="button">Replay 시작</button>
               <button id="replayStopBtn" class="toolbar-btn" type="button">정지</button>
+            </div>
+          </div>
+
+          <div id="launcherPanel" class="launcher-panel" aria-hidden="true">
+            <div class="launcher-panel-note" data-i18n-html="launcherNote">
+              발사대 모터/액추에이터와 연결된 후 실제 높이 제어가 적용됩니다.<br>
+              현재는 UI 수준의 제어 모킹입니다.
+            </div>
+            <div class="launcher-divider"></div>
+            <div class="launcher-controls">
+              <div id="launcherTabletControls" class="launcher-arrow-row">
+                <button id="launcherUpPanelBtn" class="launcher-arrow-btn" type="button">▲</button>
+                <button id="launcherDownPanelBtn" class="launcher-arrow-btn" type="button">▼</button>
+              </div>
+              <div class="launcher-angle">
+                <div id="launcherPitchAngleTablet" class="launcher-angle-value">--°</div>
+                <div class="launcher-angle-label">PITCH</div>
+              </div>
+              <div class="launcher-auto-row">
+                <button id="launcherAutoPanelBtn" class="launcher-auto-btn launcher-text-btn" type="button" data-i18n="launcherAutoBtn">자동 기립</button>
+              </div>
+              <div class="launcher-auto-desc" data-i18n="launcherAutoDesc">발사대를 자동으로 세우는 1회 동작입니다.</div>
             </div>
           </div>
 
