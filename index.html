@@ -2614,13 +2614,23 @@
     .controls-card.replay-mode .controls-subtitle,
     .controls-card.launcher-mode .controls-subtitle,
     .controls-card.devtools-mode .controls-subtitle{display:none}
+    html:not(.tablet-controls-layout) .controls-card.replay-mode .tablet-controls-close,
+    html:not(.tablet-controls-layout) .controls-card.launcher-mode .tablet-controls-close,
+    html:not(.tablet-controls-layout) .controls-card.devtools-mode .tablet-controls-close{
+      display:inline-flex!important;
+    }
     .controls-card.launcher-mode{
       display:flex;
       flex-direction:column;
     }
+    .controls-card.replay-mode #controlsHeader,
+    .controls-card.launcher-mode #controlsHeader,
+    .controls-card.devtools-mode #controlsHeader{
+      margin-bottom:4px;
+    }
     .replay-panel{
       display:none;
-      margin-top:8px;
+      margin-top:2px;
       flex-direction:column;
       gap:9px;
       padding:0;
@@ -2635,9 +2645,9 @@
     }
     .launcher-panel{
       display:none;
-      margin-top:8px;
+      margin-top:2px;
       flex-direction:column;
-      gap:12px;
+      gap:8px;
       padding:0;
       border:none;
       border-radius:0;
@@ -6147,6 +6157,34 @@
     .countdown-inline-status-pill.status-lock{background:rgba(239,68,68,0.10);color:#991b1b;border-color:rgba(239,68,68,0.38)}
     .countdown-inline-status-pill.status-loadcell{background:rgba(239,68,68,0.10);color:#b91c1c;border-color:rgba(239,68,68,0.38)}
     .countdown-inline-status-pill.status-disc{background:#f3f4f6;color:#4b5563;border-color:rgba(148,163,184,0.34)}
+    .tablet-header-abort{
+      display:none;
+      align-items:center;
+      justify-content:center;
+      min-height:42px;
+      padding:0 18px;
+      border:none;
+      border-radius:14px;
+      background:#dc2626;
+      color:#fff;
+      font-size:13px;
+      font-weight:700;
+      letter-spacing:.12em;
+      text-transform:uppercase;
+      box-shadow:0 12px 28px rgba(220,38,38,0.22);
+      transition:opacity .18s ease,transform .18s ease;
+    }
+    .tablet-header-abort:not(.hidden){
+      display:inline-flex;
+    }
+    .tablet-header-abort:disabled{
+      opacity:.55;
+      box-shadow:none;
+      cursor:not-allowed;
+    }
+    html:not(.tablet-controls-layout) .tablet-header-abort{
+      display:none !important;
+    }
     @keyframes homeRise{
       from{opacity:0;transform:translateY(16px)}
       to{opacity:1;transform:translateY(0)}
@@ -6395,6 +6433,9 @@
           </div>
         </div>
         <div id="viewLabel" class="view-label hidden">Dashboard</div>
+      </div>
+      <div class="top-right">
+        <button id="tabletAbortBtn" class="tablet-header-abort hidden" type="button" aria-label="Abort sequence">ABORT</button>
       </div>
     </header>
     <div class="status-runtime-cache" aria-hidden="true">
