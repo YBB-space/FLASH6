@@ -5033,6 +5033,417 @@
       #countdown{margin-top:6px;justify-self:end}
       .item-grid{grid-template-columns:1fr}
     }
+
+    html.phone-landscape-layout .side-nav-desktop{display:none}
+    html.phone-landscape-layout .side-nav-mobile{
+      display:flex;
+      position:fixed;
+      top:calc(12px + env(safe-area-inset-top, 0px));
+      right:calc(12px + env(safe-area-inset-right, 0px));
+      left:auto;
+      bottom:auto;
+      width:60px;
+      height:auto;
+      min-height:0;
+      padding:8px;
+      border-radius:20px;
+      border:1px solid rgba(255,255,255,0.16);
+      background:rgba(7,12,22,0.56);
+      box-shadow:0 16px 36px rgba(2,6,23,0.36);
+      backdrop-filter:blur(18px) saturate(1.08);
+      -webkit-backdrop-filter:blur(18px) saturate(1.08);
+      z-index:80;
+    }
+    html.phone-landscape-layout .side-nav-mobile .side-nav-menu{
+      width:100%;
+      flex-direction:column;
+      align-items:center;
+      justify-content:flex-start;
+      gap:8px;
+    }
+    html.phone-landscape-layout .side-nav-mobile .side-nav-divider-mobile{
+      width:28px;
+      height:1px;
+      margin:4px 0;
+      background:rgba(255,255,255,0.14);
+    }
+    html.phone-landscape-layout .side-nav-mobile .side-nav-item,
+    html.phone-landscape-layout .side-nav-mobile .side-nav-btn{
+      width:44px;
+      height:44px;
+      color:rgba(226,232,240,0.82);
+      background:transparent;
+      border-color:transparent;
+    }
+    html.phone-landscape-layout .side-nav-mobile .side-nav-item:not(.active){
+      display:none;
+    }
+    html.phone-landscape-layout .side-nav-mobile .side-nav-item.active,
+    html.phone-landscape-layout .side-nav-mobile .side-nav-btn.is-active{
+      background:rgba(255,255,255,0.12);
+      color:#f8fafc;
+      border-color:rgba(255,255,255,0.14);
+    }
+    html.phone-landscape-layout .mobile-abort-wrapper{
+      position:fixed;
+      top:calc(12px + env(safe-area-inset-top, 0px));
+      right:calc(84px + env(safe-area-inset-right, 0px));
+      left:auto;
+      bottom:auto;
+      width:min(220px, 34vw);
+      transform:none;
+      justify-content:flex-end;
+      z-index:79;
+      pointer-events:none;
+    }
+    html.phone-landscape-layout .mobile-abort-panel{
+      width:100%;
+      background:rgba(7,12,22,0.8);
+      border:1px solid rgba(255,255,255,0.14);
+      backdrop-filter:blur(18px) saturate(1.06);
+      -webkit-backdrop-filter:blur(18px) saturate(1.06);
+      box-shadow:0 16px 36px rgba(2,6,23,0.32);
+    }
+    html.phone-landscape-layout .mobile-abort-help{
+      color:rgba(226,232,240,0.7);
+    }
+    html.phone-landscape-layout .mobile-controls-panel{
+      display:flex;
+      position:fixed;
+      top:calc(12px + env(safe-area-inset-top, 0px));
+      right:calc(84px + env(safe-area-inset-right, 0px));
+      bottom:calc(12px + env(safe-area-inset-bottom, 0px));
+      left:auto;
+      width:min(340px, 42vw);
+      max-width:none;
+      min-height:0;
+      height:auto;
+      margin:0;
+      padding:18px 16px 16px;
+      border-radius:24px;
+      border:1px solid rgba(255,255,255,0.14);
+      background:linear-gradient(180deg,rgba(14,22,36,0.94),rgba(8,14,26,0.92));
+      box-shadow:0 24px 48px rgba(2,6,23,0.45);
+      backdrop-filter:blur(20px) saturate(1.08);
+      -webkit-backdrop-filter:blur(20px) saturate(1.08);
+      transform:translateX(calc(100% + 28px));
+      transition:transform .32s cubic-bezier(0.22,0.61,0.36,1),opacity .28s ease;
+      opacity:0;
+      pointer-events:none;
+      overflow:hidden;
+      z-index:90;
+    }
+    html.phone-landscape-layout .mobile-controls-panel.is-open{
+      transform:translateX(0);
+      opacity:1;
+      pointer-events:auto;
+    }
+    html.phone-landscape-layout .mobile-controls-handle{
+      top:50%;
+      left:10px;
+      width:5px;
+      height:56px;
+      transform:translateY(-50%);
+      background:rgba(255,255,255,0.18);
+    }
+    html.phone-landscape-layout .mobile-controls-head{
+      padding-left:10px;
+      color:rgba(148,163,184,0.9);
+    }
+    html.phone-landscape-layout .mobile-controls-head-title{
+      color:rgba(226,232,240,0.7);
+    }
+    html.phone-landscape-layout .mobile-controls-toolbar{
+      gap:8px;
+      padding-left:10px;
+    }
+    html.phone-landscape-layout .mobile-toolbar-btn{
+      flex:1 1 100%;
+      min-height:38px;
+      border-color:rgba(255,255,255,0.12);
+      background:rgba(255,255,255,0.07);
+      color:#f8fafc;
+    }
+    html.phone-landscape-layout .mobile-controls-slot{
+      grid-template-columns:1fr;
+      gap:8px;
+      max-height:none;
+      padding:0 0 0 10px;
+      overflow-y:auto;
+    }
+    html.phone-landscape-layout .mobile-controls-slot .control-tile{
+      min-height:60px;
+      border-color:rgba(255,255,255,0.12);
+      background:rgba(255,255,255,0.06);
+      color:#f8fafc;
+    }
+    html.phone-landscape-layout .mobile-control-status{
+      border-color:rgba(255,255,255,0.16);
+      background:rgba(255,255,255,0.08);
+      color:#e2e8f0;
+    }
+    html.phone-landscape-layout.mobile-controls-active body.dashboard-view-active #gyro3dViewport::after{
+      content:"";
+      position:absolute;
+      inset:0;
+      background:rgba(2,6,23,0.22);
+      pointer-events:none;
+      z-index:2;
+    }
+    html.phone-landscape-layout body.dashboard-view-active{
+      overflow:hidden;
+      background:#08101d;
+    }
+    html.phone-landscape-layout body.dashboard-view-active .page-wrap{
+      height:100dvh;
+      overflow:hidden;
+      padding:0;
+    }
+    html.phone-landscape-layout body.dashboard-view-active .top-bar,
+    html.phone-landscape-layout body.dashboard-view-active .status-runtime-cache,
+    html.phone-landscape-layout body.dashboard-view-active .charts-card,
+    html.phone-landscape-layout body.dashboard-view-active #controlsCard.controls-mobile-hidden{
+      display:none !important;
+    }
+    html.phone-landscape-layout body.dashboard-view-active #dashboardView,
+    html.phone-landscape-layout body.dashboard-view-active #dashboardView .shell{
+      width:100%;
+      height:100%;
+      min-height:100%;
+      display:block;
+    }
+    html.phone-landscape-layout body.dashboard-view-active #dashboardView .row-top,
+    html.phone-landscape-layout body.dashboard-view-active #dashboardView .row-bottom{
+      display:contents;
+    }
+    html.phone-landscape-layout body.dashboard-view-active .main-card.status-card.status-map-only{
+      position:fixed;
+      inset:0;
+      padding:0;
+      border:0;
+      border-radius:0;
+      background:transparent;
+      box-shadow:none;
+      overflow:visible;
+      z-index:1;
+    }
+    html.phone-landscape-layout body.dashboard-view-active .main-card.status-card.status-map-only::before,
+    html.phone-landscape-layout body.dashboard-view-active .main-card.status-card.status-map-only::after{
+      display:none;
+    }
+    html.phone-landscape-layout body.dashboard-view-active .status-map-layout{
+      display:block;
+      width:100%;
+      height:100%;
+    }
+    html.phone-landscape-layout body.dashboard-view-active .status-flight-preview{
+      display:block;
+      position:static;
+    }
+    html.phone-landscape-layout body.dashboard-view-active .preview-navball .status-gyro-canvas--3d,
+    html.phone-landscape-layout body.dashboard-view-active .status-flight-preview .status-gyro-canvas--3d{
+      display:block !important;
+    }
+    html.phone-landscape-layout body.dashboard-view-active .status-flight-preview .status-gyro-canvas--navball{
+      display:none !important;
+    }
+    html.phone-landscape-layout body.dashboard-view-active #gyro3dViewport{
+      position:fixed;
+      inset:0;
+      width:100vw;
+      height:100dvh;
+      border:0;
+      border-radius:0;
+      box-shadow:none;
+      cursor:default;
+      z-index:1;
+      background:
+        radial-gradient(130% 120% at 50% 0%, #36506f 0%, #263750 55%, #182536 100%),
+        linear-gradient(180deg,#314763,#182536);
+    }
+    html.phone-landscape-layout body.dashboard-view-active .gyro3d-canvas{
+      width:100%;
+      height:100%;
+    }
+    html.phone-landscape-layout body.dashboard-view-active .status-gyro-canvas--3d .gyro3d-expanded-hud{
+      display:block;
+      position:absolute;
+      top:calc(10px + env(safe-area-inset-top, 0px));
+      left:calc(12px + env(safe-area-inset-left, 0px));
+      right:calc(82px + env(safe-area-inset-right, 0px));
+      z-index:4;
+    }
+    html.phone-landscape-layout body.dashboard-view-active .status-gyro-canvas--3d .gyro3d-expanded-topbar{
+      padding:12px 14px;
+    }
+    html.phone-landscape-layout body.dashboard-view-active .status-gyro-canvas--3d .gyro3d-expanded-countdown{
+      font-size:clamp(30px,4.8vw,44px);
+    }
+    html.phone-landscape-layout body.dashboard-view-active .status-gyro-canvas--3d .gyro3d-expanded-mainline .countdown-inline-status-text{
+      font-size:clamp(12px,1.8vw,15px);
+    }
+    html.phone-landscape-layout body.dashboard-view-active .status-gyro-canvas--3d > .status-expanded-metrics{
+      display:flex;
+      right:calc(16px + env(safe-area-inset-right, 0px));
+      bottom:calc(16px + env(safe-area-inset-bottom, 0px));
+      z-index:4;
+    }
+    html.phone-landscape-layout body.dashboard-view-active .status-expanded-metric{
+      width:min(144px, 24vw);
+      min-height:82px;
+      padding:12px 14px;
+      border-radius:18px;
+      background:rgba(7,12,22,0.62);
+      border:1px solid rgba(255,255,255,0.12);
+      box-shadow:0 18px 30px rgba(2,6,23,0.28);
+      backdrop-filter:blur(16px);
+      -webkit-backdrop-filter:blur(16px);
+    }
+    html.phone-landscape-layout body.dashboard-view-active .status-expanded-metric-label{
+      color:rgba(226,232,240,0.64);
+    }
+    html.phone-landscape-layout body.dashboard-view-active .status-expanded-metric-value{
+      color:#f8fafc;
+      font-size:32px;
+    }
+    html.phone-landscape-layout body.dashboard-view-active #statusMapViewport{
+      position:fixed;
+      left:calc(16px + env(safe-area-inset-left, 0px));
+      bottom:calc(16px + env(safe-area-inset-bottom, 0px));
+      width:clamp(150px, 24vw, 196px);
+      height:clamp(108px, 30vh, 136px);
+      margin:0;
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,0.18);
+      background:rgba(7,12,22,0.24);
+      box-shadow:0 18px 34px rgba(2,6,23,0.34);
+      backdrop-filter:blur(12px);
+      -webkit-backdrop-filter:blur(12px);
+      overflow:hidden;
+      z-index:6;
+    }
+    html.phone-landscape-layout body.dashboard-view-active .status-map-hud{
+      top:8px;
+      left:8px;
+      right:8px;
+      bottom:8px;
+    }
+    html.phone-landscape-layout body.dashboard-view-active .status-map-card{
+      top:auto;
+      bottom:0;
+      left:0;
+      gap:6px;
+      padding:6px 8px;
+      border-radius:12px;
+      background:rgba(7,12,22,0.62);
+      border:1px solid rgba(255,255,255,0.14);
+      box-shadow:none;
+    }
+    html.phone-landscape-layout body.dashboard-view-active .status-map-coords{
+      font-size:10px;
+      color:#f8fafc;
+      letter-spacing:.03em;
+    }
+    html.phone-landscape-layout body.dashboard-view-active .status-map-zoom{
+      display:none;
+    }
+    html.phone-landscape-layout body.dashboard-view-active .status-map-actions{
+      top:0;
+      right:0;
+      left:auto;
+      bottom:auto;
+      gap:6px;
+    }
+    html.phone-landscape-layout body.dashboard-view-active .status-map-btn{
+      width:30px;
+      height:30px;
+      padding:0;
+      justify-content:center;
+      border-radius:999px;
+      box-shadow:0 8px 18px rgba(2,6,23,0.24);
+    }
+    html.phone-landscape-layout body.dashboard-view-active .motor-card{
+      position:fixed;
+      right:calc(16px + env(safe-area-inset-right, 0px));
+      bottom:calc(116px + env(safe-area-inset-bottom, 0px));
+      width:min(286px, 35vw);
+      padding:12px;
+      border-radius:22px;
+      border:1px solid rgba(255,255,255,0.14);
+      background:rgba(7,12,22,0.62);
+      box-shadow:0 18px 40px rgba(2,6,23,0.34);
+      backdrop-filter:blur(18px) saturate(1.06);
+      -webkit-backdrop-filter:blur(18px) saturate(1.06);
+      z-index:5;
+    }
+    html.phone-landscape-layout body.dashboard-view-active .motor-card .card-header{
+      display:none;
+    }
+    html.phone-landscape-layout body.dashboard-view-active .quick-data-body{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+    html.phone-landscape-layout body.dashboard-view-active .quick-data-body .quick-metrics{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+      margin:0;
+    }
+    html.phone-landscape-layout body.dashboard-view-active .quick-data-body .quick-metrics .status-metric{
+      min-height:78px;
+      padding:12px;
+      background:rgba(255,255,255,0.08);
+      border-color:rgba(255,255,255,0.12);
+    }
+    html.phone-landscape-layout body.dashboard-view-active .quick-data-body .quick-metrics .status-metric-label{
+      color:rgba(226,232,240,0.62);
+    }
+    html.phone-landscape-layout body.dashboard-view-active .quick-data-body .quick-metrics .status-metric-value{
+      color:#f8fafc;
+      font-size:26px;
+    }
+    html.phone-landscape-layout body.dashboard-view-active .quick-data-body .quick-metrics .status-metric-value .unit{
+      color:rgba(226,232,240,0.58);
+    }
+    html.phone-landscape-layout body.dashboard-view-active .quick-data-body .item-grid{
+      gap:8px;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+    }
+    html.phone-landscape-layout body.dashboard-view-active .quick-data-body .item-grid .item:nth-child(n+5){
+      display:none;
+    }
+    html.phone-landscape-layout body.dashboard-view-active .quick-data-body .item-grid .item{
+      min-height:0;
+      padding:10px 12px;
+      border-radius:14px;
+      border-color:rgba(255,255,255,0.12);
+      background:rgba(255,255,255,0.06);
+      box-shadow:none;
+    }
+    html.phone-landscape-layout body.dashboard-view-active .quick-data-body .item-grid .label{
+      color:rgba(226,232,240,0.6);
+    }
+    html.phone-landscape-layout body.dashboard-view-active .quick-data-body .item-grid .value,
+    html.phone-landscape-layout body.dashboard-view-active .quick-data-body .item-grid .num{
+      color:#f8fafc;
+    }
+    html.phone-landscape-layout body.dashboard-view-active .quick-data-body .item-grid .unit{
+      color:rgba(226,232,240,0.58);
+    }
+    html.phone-landscape-layout #launcherOverlay{
+      align-items:stretch !important;
+      justify-content:flex-end !important;
+      padding:12px 84px 12px 12px !important;
+    }
+    html.phone-landscape-layout .launcher-dialog{
+      width:min(340px, 42vw);
+      max-width:none;
+      max-height:none;
+      height:auto;
+      border-radius:24px;
+    }
+
     @media(max-height:900px){
       :root{
         --page-pad-y:20px;
