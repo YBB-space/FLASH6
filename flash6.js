@@ -252,6 +252,9 @@
     let gyroRocketMeshPromise = null;
     let gyroViewportBindingsReady = false;
     let statusMapViewportBindingsReady = false;
+    let statusMapResizeObserver = null;
+    let statusMapRefreshRaf = null;
+    let statusMapRefreshTimers = [];
     const gyroCameraState = {
       yawDeg: GYRO_CAMERA_DEFAULT.yawDeg,
       pitchDeg: GYRO_CAMERA_DEFAULT.pitchDeg,
@@ -4791,7 +4794,7 @@
       }
       syncStatusMapExpandButton();
       refreshStatusMapSize();
-      setTimeout(refreshStatusMapSize, 80);
+      scheduleStatusMapRefresh();
     }
     function bindStatusMapViewportInteractions(){
       if(statusMapViewportBindingsReady || !el.statusMapViewport) return;
@@ -5257,6 +5260,17 @@
       if(!statusMapState.map) return;
       try{ statusMapState.map.invalidateSize(); }catch(e){}
     }
+    function scheduleStatusMapRefresh(){
+      if(statusMapRefreshRaf) cancelAnimationFrame(statusMapRefreshRaf);
+      statusMapRefreshRaf = requestAnimationFrame(()=>{
+        statusMapRefreshRaf = null;
+        refreshStatusMapSize();
+      });
+      if(statusMapRefreshTimers.length){
+        statusMapRefreshTimers.forEach(timer=>clearTimeout(timer));
+      }
+      statusMapRefreshTimers = [120, 320, 720].map(delay=>setTimeout(refreshStatusMapSize, delay));
+    }
     function initStatusMap(){
       if(!el.statusMap || statusMapState.map) return;
       bindStatusMapViewportInteractions();
@@ -5335,7 +5349,11 @@
         updateStatusMapHud();
       });
       updateStatusMapHud();
-      setTimeout(refreshStatusMapSize, 120);
+      scheduleStatusMapRefresh();
+      if(window.ResizeObserver && el.statusMapViewport && !statusMapResizeObserver){
+        statusMapResizeObserver = new ResizeObserver(()=>{ scheduleStatusMapRefresh(); });
+        statusMapResizeObserver.observe(el.statusMapViewport);
+      }
     }
 
     function syncCountdownInlineStatus(){
@@ -10849,6 +10867,7 @@
         el.replayOpenBtns.forEach(btn=>{
           btn.addEventListener("click",()=>{
             if(replayUiActive) return;
+            ensureDashboardViewForPanels();
             enterReplayMode();
           });
         });
@@ -11350,6 +11369,7 @@
         el.controlsToggleBtns.forEach(btn=>{
           btn.addEventListener("click",(ev)=>{
             ev.preventDefault();
+            ensureDashboardViewForPanels();
             setLauncherPanelVisible(false);
             if(replayUiActive){
               exitReplayMode();
@@ -11991,6 +12011,9 @@
         if(!isDashboard && isStatusMapViewportExpanded()){
           setStatusMapViewportExpanded(false);
         }
+        if(!isDashboard && isGyroViewportExpanded()){
+          setGyroViewportExpanded(false);
+        }
         if(el.pageKicker){
           const name = el.hwBoardName?.textContent?.trim();
           setBoardNameDisplay(el.pageKicker, name, "FLASH6");
@@ -12025,7 +12048,7 @@
         if(isHome) updateHomeUI();
         if(isDashboard){
           syncChartHeightToControls(0);
-          setTimeout(refreshStatusMapSize, 60);
+          scheduleStatusMapRefresh();
         }
       };
       const activateNavItem = (title)=>{
@@ -12042,6 +12065,12 @@
           match.classList.add("active");
         }
         setActiveView(title);
+      };
+      const ensureDashboardViewForPanels = ()=>{
+        const active = Array.from(sideNavItems).find(item=>item.classList.contains("active"));
+        const activeTitle = (active && (active.dataset.pageTitle || active.textContent || "").trim().toLowerCase()) || "";
+        if(activeTitle === "dashboard") return;
+        activateNavItem("Dashboard");
       };
       if(el.sidebarSettingsBtns && el.sidebarSettingsBtns.length){
         el.sidebarSettingsBtns.forEach(btn=>{
@@ -12505,8 +12534,17 @@
 
       if(el.launcherOpenBtns && el.launcherOpenBtns.length){
         el.launcherOpenBtns.forEach(btn=>{
-          btn.addEventListener("click",()=>showLauncher());
-          btn.addEventListener("keydown",(e)=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); showLauncher(); }});
+          btn.addEventListener("click",()=>{
+            ensureDashboardViewForPanels();
+            showLauncher();
+          });
+          btn.addEventListener("keydown",(e)=>{
+            if(e.key==="Enter"||e.key===" "){
+              e.preventDefault();
+              ensureDashboardViewForPanels();
+              showLauncher();
+            }
+          });
         });
       }
       if(launcherCloseBtn){ launcherCloseBtn.addEventListener("click",()=>hideLauncher()); }
@@ -12619,8 +12657,9 @@
           renderGyroGl(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
         }
         refreshChartLayout();
-        refreshStatusMapSize();
+        scheduleStatusMapRefresh();
       });
+      window.addEventListener("orientationchange",()=>{ scheduleStatusMapRefresh(); });
       syncChartHeightToControls(0);
       setTimeout(()=>syncChartHeightToControls(1), 180);
       if(document.fonts && document.fonts.ready){
