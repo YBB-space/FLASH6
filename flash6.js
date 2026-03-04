@@ -1051,6 +1051,16 @@
       }
     }
 
+    function isPhoneLandscapeLayout(){
+      return document.documentElement.classList.contains("phone-landscape-layout");
+    }
+    function shouldUseGyro3dPreview(){
+      return document.documentElement.classList.contains("preview-3d") || isPhoneLandscapeLayout();
+    }
+    function shouldUseNavBallPreview(){
+      return document.documentElement.classList.contains("preview-navball") && !isPhoneLandscapeLayout();
+    }
+
     function bindGyroViewportInteractions(){
       if(gyroViewportBindingsReady || !el.gyro3dViewport) return;
       const view = el.gyro3dViewport;
@@ -1059,10 +1069,11 @@
         renderGyroGl(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
       };
       const canControl = ()=>{
-        return isGyroViewportExpanded() && document.documentElement.classList.contains("preview-3d");
+        return shouldUseGyro3dPreview() && (isGyroViewportExpanded() || isPhoneLandscapeLayout());
       };
       view.addEventListener("click", (ev)=>{
-        if(!document.documentElement.classList.contains("preview-3d")) return;
+        if(!shouldUseGyro3dPreview()) return;
+        if(isPhoneLandscapeLayout()) return;
         if(!isGyroViewportExpanded()){
           setGyroViewportExpanded(true);
           redraw();
@@ -1083,7 +1094,8 @@
         }
       });
       view.addEventListener("keydown", (ev)=>{
-        if(!document.documentElement.classList.contains("preview-3d")) return;
+        if(!shouldUseGyro3dPreview()) return;
+        if(isPhoneLandscapeLayout()) return;
         if(ev.key === "Enter" || ev.key === " "){
           ev.preventDefault();
           if(!isGyroViewportExpanded()){
@@ -1099,7 +1111,7 @@
           redraw();
           return;
         }
-        if(!document.documentElement.classList.contains("preview-3d")) return;
+        if(!shouldUseGyro3dPreview()) return;
         const activeEl = document.activeElement;
         const tag = activeEl && activeEl.tagName ? activeEl.tagName.toLowerCase() : "";
         if(tag === "input" || tag === "textarea" || tag === "select" || (activeEl && activeEl.isContentEditable)) return;
@@ -1193,9 +1205,7 @@
       };
       view.addEventListener("pointerup", endDrag);
       view.addEventListener("pointercancel", endDrag);
-      view.addEventListener("pointerleave", (ev)=>{
-        if(!isGyroViewportExpanded()) endDrag(ev);
-      });
+      view.addEventListener("pointerleave", endDrag);
       view.addEventListener("wheel", (ev)=>{
         if(!canControl()) return;
         ev.preventDefault();
@@ -2093,8 +2103,8 @@
     function renderGyroPreview(pitchDeg, yawDeg, rollDeg){
       if(!el.gyroGlPreview || !el.gyroGl) return;
       if(el.gyroGlPreview === el.gyroGl) return;
-      if(!document.documentElement.classList.contains("mode-flight")) return;
-      if(!document.documentElement.classList.contains("preview-3d")) return;
+      if(!document.documentElement.classList.contains("mode-flight") && !isPhoneLandscapeLayout()) return;
+      if(!shouldUseGyro3dPreview()) return;
       const ctx = el.gyroGlPreview.getContext("2d");
       if(!ctx) return;
       const dpr = window.devicePixelRatio || 1;
@@ -2165,8 +2175,8 @@
     function renderNavBallPreview(pitchDeg, yawDeg, rollDeg){
       if(!el.navBallPreview) return;
       if(el.navBallPreview === el.navBall) return;
-      if(!document.documentElement.classList.contains("mode-flight")) return;
-      if(!document.documentElement.classList.contains("preview-navball")) return;
+      if(!document.documentElement.classList.contains("mode-flight") && !isPhoneLandscapeLayout()) return;
+      if(!shouldUseNavBallPreview()) return;
       renderNavBallToCanvas(el.navBallPreview, pitchDeg, yawDeg, rollDeg);
     }
 
@@ -6312,7 +6322,8 @@
       updateMobileSequenceStatusLabel(sequenceActive, state, lockoutLatched);
     }
 
-    const MOBILE_PANEL_MEDIA = window.matchMedia("(max-width: 600px)");
+    const MOBILE_PANEL_MEDIA = window.matchMedia("(max-width: 600px), ((max-height: 540px) and (orientation: landscape))");
+    const PHONE_LANDSCAPE_MEDIA = window.matchMedia("(orientation: landscape) and (max-height: 540px)");
     const TABLET_CONTROLS_MEDIA = window.matchMedia("(min-width: 768px) and (max-width: 1440px)");
     let mobileControlsActive = false;
     let tabletControlsOpen = false;
@@ -6323,13 +6334,13 @@
     let launcherPanelActive = false;
 
     function isMobileLayout(){
-      return MOBILE_PANEL_MEDIA.matches;
+      return MOBILE_PANEL_MEDIA.matches && isTouchCapableDevice();
     }
     function isTouchCapableDevice(){
       return (navigator.maxTouchPoints || 0) > 0 || ("ontouchstart" in window);
     }
     function isTabletControlsLayout(){
-      return TABLET_CONTROLS_MEDIA.matches && isTouchCapableDevice();
+      return !isMobileLayout() && TABLET_CONTROLS_MEDIA.matches && isTouchCapableDevice();
     }
     function isControlsModalVisible(){
       return !!(el.controlsOverlay && !el.controlsOverlay.classList.contains("hidden"));
@@ -6441,6 +6452,36 @@
       applyTabletControlsLayout();
     }
 
+    function applyPhoneLandscapeLayout(){
+      const active = PHONE_LANDSCAPE_MEDIA.matches && isTouchCapableDevice();
+      const wasActive = document.documentElement.classList.contains("phone-landscape-layout");
+      document.documentElement.classList.toggle("phone-landscape-layout", active);
+      if(active && isGyroViewportExpanded()){
+        setGyroViewportExpanded(false);
+      }
+      if(wasActive !== active){
+        setTimeout(()=>{
+          resizeGyroGl();
+          if(gyroGl){
+            renderGyroGl(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
+          }
+          renderGyroPreview(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
+          renderNavBallPreview(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
+          scheduleStatusMapRefresh();
+          refreshChartLayout();
+          redrawCharts();
+          syncExpandedHud();
+        }, 0);
+      }else if(active){
+        setTimeout(()=>{
+          scheduleStatusMapRefresh();
+          syncExpandedHud();
+        }, 0);
+      }
+      updateNavActionState();
+      updateMobileAbortButton();
+    }
+
     function showMobileControlsPanel(){
       if(!el.mobileControlsPanel || mobileControlsActive) return;
       updateMobileControlPills();
@@ -6463,19 +6504,32 @@
     if(MOBILE_PANEL_MEDIA.addEventListener){
       MOBILE_PANEL_MEDIA.addEventListener("change",(event)=>{
         if(!event.matches) hideMobileControlsPanel();
+        applyPhoneLandscapeLayout();
       });
     }else if(MOBILE_PANEL_MEDIA.addListener){
       MOBILE_PANEL_MEDIA.addListener((event)=>{
         if(!event.matches) hideMobileControlsPanel();
+        applyPhoneLandscapeLayout();
+      });
+    }
+    if(PHONE_LANDSCAPE_MEDIA.addEventListener){
+      PHONE_LANDSCAPE_MEDIA.addEventListener("change",()=>{
+        applyPhoneLandscapeLayout();
+      });
+    }else if(PHONE_LANDSCAPE_MEDIA.addListener){
+      PHONE_LANDSCAPE_MEDIA.addListener(()=>{
+        applyPhoneLandscapeLayout();
       });
     }
     if(TABLET_CONTROLS_MEDIA.addEventListener){
       TABLET_CONTROLS_MEDIA.addEventListener("change",()=>{
         applyTabletControlsLayout();
+        applyPhoneLandscapeLayout();
       });
     }else if(TABLET_CONTROLS_MEDIA.addListener){
       TABLET_CONTROLS_MEDIA.addListener(()=>{
         applyTabletControlsLayout();
+        applyPhoneLandscapeLayout();
       });
     }
 
@@ -11441,6 +11495,7 @@
         }
       });
       applyTabletControlsLayout();
+      applyPhoneLandscapeLayout();
       updateNavActionState();
       if(el.mobileAbortBtn){
         el.mobileAbortBtn.addEventListener("click",(ev)=>{
@@ -12104,6 +12159,7 @@
           });
         });
         window.addEventListener("resize", ()=>{
+          applyPhoneLandscapeLayout();
           resizeGyroGl();
           if(gyroGl) renderGyroGl(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
           refreshStatusMapSize();
@@ -12652,6 +12708,7 @@
       }
       window.addEventListener("beforeunload", handleBeforeUnload);
       window.addEventListener("resize",()=>{
+        applyPhoneLandscapeLayout();
         if(gyroGl){
           resizeGyroGl();
           renderGyroGl(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
@@ -12659,7 +12716,10 @@
         refreshChartLayout();
         scheduleStatusMapRefresh();
       });
-      window.addEventListener("orientationchange",()=>{ scheduleStatusMapRefresh(); });
+      window.addEventListener("orientationchange",()=>{
+        applyPhoneLandscapeLayout();
+        scheduleStatusMapRefresh();
+      });
       syncChartHeightToControls(0);
       setTimeout(()=>syncChartHeightToControls(1), 180);
       if(document.fonts && document.fonts.ready){
