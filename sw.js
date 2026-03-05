@@ -1,11 +1,14 @@
-const CACHE_NAME = "flash6-shell-v1";
+const CACHE_NAME = "flash6-shell-v2";
+const SHELL_URL = "/flash6.html";
 const APP_SHELL = [
-  "./flash6.html",
-  "./flash6.js",
-  "./manifest.webmanifest",
-  "./img/Flash_logo.svg",
-  "./img/Flash_logo_plain.svg",
-  "./img/hanwool_logo.png"
+  "/",
+  "/index.html",
+  "/flash6.html",
+  "/flash6.js",
+  "/manifest.webmanifest",
+  "/img/Flash_logo.svg",
+  "/img/Flash_logo_plain.svg",
+  "/img/hanwool_logo.png"
 ];
 
 self.addEventListener("install", (event) => {
@@ -39,11 +42,14 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(req)
         .then((res) => {
+          if (!res || !res.ok) {
+            return caches.match(SHELL_URL);
+          }
           const cloned = res.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put("./flash6.html", cloned));
+          caches.open(CACHE_NAME).then((cache) => cache.put(SHELL_URL, cloned));
           return res;
         })
-        .catch(() => caches.match("./flash6.html"))
+        .catch(() => caches.match(SHELL_URL))
     );
     return;
   }
