@@ -283,6 +283,16 @@
       homeNextSibling: null,
       mountedToBody: false
     };
+    const mobileAbortPanelPortalState = {
+      homeParent: null,
+      homeNextSibling: null,
+      mountedToBody: false
+    };
+    const mobileControlsPanelPortalState = {
+      homeParent: null,
+      homeNextSibling: null,
+      mountedToBody: false
+    };
     let gyroPathState = {
       originLat: null,
       originLon: null,
@@ -2311,7 +2321,7 @@
     }
 
     function updateLauncherPitchAngle(pitchDeg, gyroPitchRate, nowMs){
-      if(!el.launcherPitchAngle && !el.launcherPitchAngleTablet) return;
+      if(!el.launcherPitchAngle && !el.launcherPitchAngleTablet && !el.launcherPitchAngleMobile) return;
       let value = isFinite(pitchDeg) ? -pitchDeg : null;
       if(launcherAutoActive && value != null && isFinite(gyroPitchRate)){
         if(launcherPitchEst == null){
@@ -2330,6 +2340,7 @@
       const text = (value == null) ? "--°" : (value.toFixed(1) + "°");
       if(el.launcherPitchAngle) el.launcherPitchAngle.textContent = text;
       if(el.launcherPitchAngleTablet) el.launcherPitchAngleTablet.textContent = text;
+      if(el.launcherPitchAngleMobile) el.launcherPitchAngleMobile.textContent = text;
       if(launcherAutoActive && value != null && Math.abs(value) >= 115){
         launcherAutoActive = false;
         stopLauncherHold("up");
@@ -2634,6 +2645,8 @@
         countdownSec:10,
         opMode:"daq",
         gyroPreview:"3d",
+        mobileHudPreview:false,
+        mobileImmersive:false,
         relaySafe: true,
         safetyMode: false,
         igs: 0,
@@ -2785,6 +2798,10 @@
         settingsGyroPreviewHint:"플라이트 모드 프리뷰 형태를 선택합니다.",
         settingsGyroPreview3d:"3D Attitude",
         settingsGyroPreviewNav:"Navball",
+        settingsMobileHudPreviewLabel:"모바일 HUD 미리보기",
+        settingsMobileHudPreviewHint:"데스크톱이나 태블릿에서도 휴대폰 가로 인터페이스를 강제로 표시합니다.",
+        settingsMobileFullscreenLabel:"모바일 전체화면",
+        settingsMobileFullscreenHint:"지원 브라우저에서 휴대폰 가로 HUD를 전체화면으로 표시합니다.",
         langOptionKo:"한국어",
         langOptionEn:"영어",
         settingsGroupSequence:"점화 시퀀스",
@@ -3223,6 +3240,10 @@
         settingsGyroPreviewHint:"Choose the preview for Flight mode.",
         settingsGyroPreview3d:"3D Attitude",
         settingsGyroPreviewNav:"Navball",
+        settingsMobileHudPreviewLabel:"Mobile HUD Preview",
+        settingsMobileHudPreviewHint:"Force the phone landscape interface even on desktop or tablet.",
+        settingsMobileFullscreenLabel:"Mobile fullscreen",
+        settingsMobileFullscreenHint:"Show the phone landscape HUD in fullscreen on supported browsers.",
         langOptionKo:"Korean",
         langOptionEn:"English",
         settingsGroupSequence:"Ignition Sequence",
@@ -3708,6 +3729,8 @@
       if(el.countdownSecInput) el.countdownSecInput.value = uiSettings.countdownSec;
       if(el.opModeSelect) el.opModeSelect.value = uiSettings.opMode || "daq";
       if(el.gyroPreviewSelect) el.gyroPreviewSelect.value = uiSettings.gyroPreview || "3d";
+      if(el.mobileHudPreviewToggle) el.mobileHudPreviewToggle.checked = !!uiSettings.mobileHudPreview;
+      if(el.mobileFullscreenToggle) el.mobileFullscreenToggle.checked = !!uiSettings.mobileImmersive;
 
       if(el.relaySafeToggle) el.relaySafeToggle.checked = !!uiSettings.relaySafe;
       if(el.safeModeToggle){
@@ -3744,6 +3767,7 @@
       updateExportGuardUi();
       refreshStatusMapMarkerContent();
       refreshStatusMapSize();
+      applyPhoneLandscapeLayout();
     }
     const delay = (ms)=>new Promise(resolve=>setTimeout(resolve, ms));
     function setOverlayVisible(node, visible, displayMode){
@@ -4785,6 +4809,9 @@
       }
       if(next){
         moveStatusMapViewportToBody();
+        if(isPhoneLandscapeLayout()){
+          moveGyroViewportToBody();
+        }
       }
       el.statusMapViewport.classList.toggle("is-expanded", next);
       document.documentElement.classList.toggle("status-map-expanded", next);
@@ -4801,10 +4828,19 @@
         el.statusMapViewport.style.removeProperty("--status-map-expand-bottom");
         el.statusMapViewport.style.removeProperty("--status-map-hud-left");
         restoreStatusMapViewportFromBody();
+        if(isPhoneLandscapeLayout() && !isGyroViewportExpanded()){
+          restoreGyroViewportFromBody();
+        }
       }
       syncStatusMapExpandButton();
       refreshStatusMapSize();
       scheduleStatusMapRefresh();
+      if(isPhoneLandscapeLayout()){
+        requestAnimationFrame(()=>{
+          resizeGyroGl();
+          renderGyroPreview();
+        });
+      }
     }
     function bindStatusMapViewportInteractions(){
       if(statusMapViewportBindingsReady || !el.statusMapViewport) return;
@@ -5241,16 +5277,35 @@
       if(el.gyro3dHudMetricPrimaryLabel) el.gyro3dHudMetricPrimaryLabel.textContent = primaryLabel;
       if(el.gyro3dHudMetricSecondaryLabel) el.gyro3dHudMetricSecondaryLabel.textContent = secondaryLabel;
     }
+    function buildPhoneLandscapeMetricCaption(metricHtml, fallback){
+      if(!metricHtml) return fallback || "--";
+      const temp = document.createElement("div");
+      temp.innerHTML = metricHtml;
+      const num = temp.querySelector(".num") ? temp.querySelector(".num").textContent.trim() : temp.textContent.trim();
+      const unit = temp.querySelector(".unit") ? temp.querySelector(".unit").textContent.trim().toLowerCase() : "";
+      const value = [num, unit].filter(Boolean).join(" ").trim();
+      return value ? ("max " + value) : (fallback || "--");
+    }
     function syncExpandedQuickMetrics(){
       const primaryHtml = el.thrust ? el.thrust.innerHTML : "--";
       const secondaryHtml = el.pressure ? el.pressure.innerHTML : "--";
       const primaryAlert = !!(el.thrust && el.thrust.closest(".status-metric") && el.thrust.closest(".status-metric").classList.contains("is-alert"));
       const secondaryAlert = !!(el.pressure && el.pressure.closest(".status-metric") && el.pressure.closest(".status-metric").classList.contains("is-alert"));
+      const phoneFlightMode = isPhoneLandscapeLayout() && document.documentElement.classList.contains("mode-flight");
 
       if(el.statusMapHudMetricPrimaryValue) el.statusMapHudMetricPrimaryValue.innerHTML = primaryHtml;
       if(el.statusMapHudMetricSecondaryValue) el.statusMapHudMetricSecondaryValue.innerHTML = secondaryHtml;
       if(el.gyro3dHudMetricPrimaryValue) el.gyro3dHudMetricPrimaryValue.innerHTML = primaryHtml;
       if(el.gyro3dHudMetricSecondaryValue) el.gyro3dHudMetricSecondaryValue.innerHTML = secondaryHtml;
+
+      if(phoneFlightMode){
+        const primaryCaption = buildPhoneLandscapeMetricCaption(primaryHtml, "max --");
+        const secondaryCaption = buildPhoneLandscapeMetricCaption(secondaryHtml, "max --");
+        if(el.statusMapHudMetricPrimaryLabel) el.statusMapHudMetricPrimaryLabel.textContent = primaryCaption;
+        if(el.statusMapHudMetricSecondaryLabel) el.statusMapHudMetricSecondaryLabel.textContent = secondaryCaption;
+        if(el.gyro3dHudMetricPrimaryLabel) el.gyro3dHudMetricPrimaryLabel.textContent = primaryCaption;
+        if(el.gyro3dHudMetricSecondaryLabel) el.gyro3dHudMetricSecondaryLabel.textContent = secondaryCaption;
+      }
 
       if(el.statusMapHudMetricPrimaryCard) el.statusMapHudMetricPrimaryCard.classList.toggle("is-alert", primaryAlert);
       if(el.statusMapHudMetricSecondaryCard) el.statusMapHudMetricSecondaryCard.classList.toggle("is-alert", secondaryAlert);
@@ -5368,7 +5423,8 @@
 
     function syncCountdownInlineStatus(){
       if(!el.countdownInlineStatus || !el.countdownInlineStatusText || !el.countdownInlineStatusPill) return;
-      const statusText = (el.statusText && el.statusText.textContent) ? el.statusText.textContent.trim() : "";
+      const statusTextRaw = (el.statusText && el.statusText.textContent) ? el.statusText.textContent.trim() : "";
+      const statusText = resolveMobileHudStatusText(statusTextRaw);
       const pillText = (el.statusPill && el.statusPill.textContent) ? el.statusPill.textContent.trim() : "";
 
       if(statusText){
@@ -5404,14 +5460,23 @@
 
       const countdownText = (el.countdown && el.countdown.textContent) ? el.countdown.textContent.trim() : "T- --:--:--";
       const statusTextRaw = (el.statusText && el.statusText.textContent) ? el.statusText.textContent.trim() : "";
+      const statusText = resolveMobileHudStatusText(statusTextRaw);
       const pillTextRaw = (el.statusPill && el.statusPill.textContent) ? el.statusPill.textContent.trim() : "";
       const connText = (el.connStatusText && el.connStatusText.textContent) ? el.connStatusText.textContent.trim() : (connOk ? "CONNECTED · -- Hz" : "DISCONNECTED · -- Hz");
       const battText = (el.batteryStatus && el.batteryStatus.textContent) ? el.batteryStatus.textContent.trim() : "--%";
+      const compactConnText = connOk ? (((rxHzWindow > 0 && isFinite(rxHzWindow)) ? rxHzWindow.toFixed(0) : "--") + "Hz") : "--Hz";
+      const compactBatteryText = battText.replace(/[^0-9]/g, "").slice(0, 3) || "--";
+      const compactTimeText = getCompactHudClockText();
+      const showCompactClock = !!(sequenceActive || currentSt === 1 || currentSt === 2 || localTplusActive || tplusUiActive || forceSlideActive);
 
       el.gyro3dHudCountdown.textContent = countdownText || "T- --:--:--";
-      el.gyro3dHudStatusText.textContent = statusTextRaw || "--";
+      el.gyro3dHudStatusText.textContent = statusText || "--";
       el.gyro3dHudConn.textContent = connText || "--";
       el.gyro3dHudBattery.textContent = battText || "--%";
+      if(el.gyro3dHudConnCompact) el.gyro3dHudConnCompact.textContent = compactConnText;
+      if(el.gyro3dHudBatteryCompact) el.gyro3dHudBatteryCompact.textContent = compactBatteryText;
+      if(el.gyro3dHudTimeCompact) el.gyro3dHudTimeCompact.textContent = compactTimeText;
+      if(el.gyro3dHudClockCompact) el.gyro3dHudClockCompact.classList.toggle("hidden", !showCompactClock);
 
       const pillClasses = ["countdown-inline-status-pill", "gyro3d-expanded-hud-pill"];
       if(el.statusPill){
@@ -5430,7 +5495,7 @@
         el.gyro3dHudStatusPill.classList.add("hidden");
       }
       if(el.gyro3dHudStatusInline){
-        const hasContent = !!(statusTextRaw || pillTextRaw);
+        const hasContent = !!(statusText || pillTextRaw);
         el.gyro3dHudStatusInline.classList.toggle("hidden", !hasContent);
       }
       if(el.gyro3dHudStatusBar){
@@ -5462,14 +5527,23 @@
 
       const countdownText = (el.countdown && el.countdown.textContent) ? el.countdown.textContent.trim() : "T- --:--:--";
       const statusTextRaw = (el.statusText && el.statusText.textContent) ? el.statusText.textContent.trim() : "";
+      const statusText = resolveMobileHudStatusText(statusTextRaw);
       const pillTextRaw = (el.statusPill && el.statusPill.textContent) ? el.statusPill.textContent.trim() : "";
       const connText = (el.connStatusText && el.connStatusText.textContent) ? el.connStatusText.textContent.trim() : (connOk ? "CONNECTED · -- Hz" : "DISCONNECTED · -- Hz");
       const battText = (el.batteryStatus && el.batteryStatus.textContent) ? el.batteryStatus.textContent.trim() : "--%";
+      const compactConnText = connOk ? (((rxHzWindow > 0 && isFinite(rxHzWindow)) ? rxHzWindow.toFixed(0) : "--") + "Hz") : "--Hz";
+      const compactBatteryText = battText.replace(/[^0-9]/g, "").slice(0, 3) || "--";
+      const compactTimeText = getCompactHudClockText();
+      const showCompactClock = !!(sequenceActive || currentSt === 1 || currentSt === 2 || localTplusActive || tplusUiActive || forceSlideActive);
 
       el.statusMapHudCountdown.textContent = countdownText || "T- --:--:--";
-      el.statusMapHudStatusText.textContent = statusTextRaw || "--";
+      el.statusMapHudStatusText.textContent = statusText || "--";
       el.statusMapHudConn.textContent = connText || "--";
       el.statusMapHudBattery.textContent = battText || "--%";
+      if(el.statusMapHudConnCompact) el.statusMapHudConnCompact.textContent = compactConnText;
+      if(el.statusMapHudBatteryCompact) el.statusMapHudBatteryCompact.textContent = compactBatteryText;
+      if(el.statusMapHudTimeCompact) el.statusMapHudTimeCompact.textContent = compactTimeText;
+      if(el.statusMapHudClockCompact) el.statusMapHudClockCompact.classList.toggle("hidden", !showCompactClock);
 
       const pillClasses = ["countdown-inline-status-pill", "gyro3d-expanded-hud-pill"];
       if(el.statusPill){
@@ -5488,7 +5562,7 @@
         el.statusMapHudStatusPill.classList.add("hidden");
       }
       if(el.statusMapHudStatusInline){
-        const hasContent = !!(statusTextRaw || pillTextRaw);
+        const hasContent = !!(statusText || pillTextRaw);
         el.statusMapHudStatusInline.classList.toggle("hidden", !hasContent);
       }
       if(el.statusMapHudStatusBar){
@@ -5875,6 +5949,50 @@
       return t("toastTitleInfo");
     }
 
+    function compactMobileHudAlertText(message, toastType){
+      const raw = String(message || "").replace(/\s+/g, " ").trim();
+      if(!raw) return "";
+      if(/(inspection|점검).*(완료|통과|ok|passed)/i.test(raw)) return "시스템 준비 완료";
+      if(/(sequence|시퀀스).*(완료|complete)/i.test(raw)) return "시스템 준비 완료";
+      if(/(lockout|락아웃)/i.test(raw)) return "LOCKOUT 감지";
+      if(/(abort|중단)/i.test(raw)) return "시퀀스 중단";
+      if(/(countdown|카운트다운)/i.test(raw)) return "카운트다운 시작";
+      if(/(ignite|ignition|점화)/i.test(raw)) return "점화 진행";
+      if(/(disconnected|연결 해제|연결 끊)/i.test(raw)) return "연결 끊김";
+      if(/(connected|연결됨|연결 완료)/i.test(raw)) return "연결됨";
+      if(toastType === "success") return "시스템 준비 완료";
+      let shortText = raw.split(/[.!?\n]/)[0].split("·")[0].trim();
+      if(shortText.length > 20) shortText = shortText.slice(0, 19).trim() + "…";
+      return shortText || "알림";
+    }
+
+    function resolveMobileHudStatusText(defaultText){
+      if(!isMobileLayout()) return defaultText;
+      if(!mobileHudAlertText || Date.now() > mobileHudAlertUntilMs) return defaultText;
+      return mobileHudAlertText;
+    }
+
+    function showMobileHudAlert(message, toastType, durationMs){
+      if(!isMobileLayout()) return false;
+      const shortText = compactMobileHudAlertText(message, toastType);
+      if(!shortText) return false;
+      const holdMs = clampLocal(durationMs || 1500, 900, 2600);
+      mobileHudAlertText = shortText;
+      mobileHudAlertUntilMs = Date.now() + holdMs;
+      if(mobileHudAlertTimer){
+        clearTimeout(mobileHudAlertTimer);
+        mobileHudAlertTimer = null;
+      }
+      mobileHudAlertTimer = setTimeout(()=>{
+        mobileHudAlertText = "";
+        mobileHudAlertUntilMs = 0;
+        mobileHudAlertTimer = null;
+        syncCountdownInlineStatus();
+      }, holdMs + 40);
+      syncCountdownInlineStatus();
+      return true;
+    }
+
     function showToast(message, type, opts){
       if(!el.toastContainer) return;
       const rawType = type || "info";
@@ -5884,6 +6002,11 @@
       const key = (opts && opts.key) ? String(opts.key) : null;
       const titleText = (opts && opts.title) ? String(opts.title) : getToastTitle(titleType, message);
       const sticky = !!(opts && opts.sticky);
+      const forceToast = !!(opts && opts.forceToast);
+
+      if(!forceToast && !sticky && showMobileHudAlert(message, toastType, duration)){
+        return;
+      }
 
       const keepExisting = opts && opts.keep;
       if(!keepExisting){
@@ -6322,8 +6445,8 @@
       updateMobileSequenceStatusLabel(sequenceActive, state, lockoutLatched);
     }
 
-    const MOBILE_PANEL_MEDIA = window.matchMedia("(max-width: 600px), ((max-height: 540px) and (orientation: landscape))");
-    const PHONE_LANDSCAPE_MEDIA = window.matchMedia("(orientation: landscape) and (max-height: 540px)");
+    const MOBILE_PANEL_MEDIA = window.matchMedia("(max-width: 900px) and (orientation: landscape), (max-width: 600px)");
+    const PHONE_LANDSCAPE_MEDIA = window.matchMedia("(orientation: landscape) and (max-width: 900px)");
     const TABLET_CONTROLS_MEDIA = window.matchMedia("(min-width: 768px) and (max-width: 1440px)");
     let mobileControlsActive = false;
     let tabletControlsOpen = false;
@@ -6332,9 +6455,123 @@
     let gyroViewportLastTapX = 0;
     let gyroViewportLastTapY = 0;
     let launcherPanelActive = false;
+    let mobileHudAlertText = "";
+    let mobileHudAlertUntilMs = 0;
+    let mobileHudAlertTimer = null;
 
+    function isForcedMobileHudPreview(){
+      return !!(uiSettings && uiSettings.mobileHudPreview);
+    }
+    function getFullscreenElement(){
+      return document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement || null;
+    }
+    function isDocumentFullscreen(){
+      return !!getFullscreenElement();
+    }
+    function requestDocumentFullscreen(){
+      const root = document.documentElement;
+      if(!root) return Promise.resolve(false);
+      const fn = root.requestFullscreen || root.webkitRequestFullscreen || root.msRequestFullscreen;
+      if(typeof fn !== "function") return Promise.resolve(false);
+      try{
+        const ret = fn.call(root);
+        if(ret && typeof ret.then === "function"){
+          return ret.then(()=>true).catch(()=>false);
+        }
+        return Promise.resolve(true);
+      }catch(e){
+        return Promise.resolve(false);
+      }
+    }
+    function exitDocumentFullscreen(){
+      const fn = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+      if(typeof fn !== "function") return Promise.resolve(false);
+      try{
+        const ret = fn.call(document);
+        if(ret && typeof ret.then === "function"){
+          return ret.then(()=>true).catch(()=>false);
+        }
+        return Promise.resolve(true);
+      }catch(e){
+        return Promise.resolve(false);
+      }
+    }
+    function isMobileImmersiveEnabled(){
+      return !!(uiSettings && uiSettings.mobileImmersive);
+    }
+    function shouldUseMobileImmersive(){
+      if(!isMobileImmersiveEnabled()) return false;
+      return document.documentElement.classList.contains("phone-landscape-layout");
+    }
+    function applyMobileImmersiveMode(fromUserGesture){
+      if(shouldUseMobileImmersive()){
+        if(!isDocumentFullscreen() && fromUserGesture){
+          requestDocumentFullscreen();
+        }
+        return;
+      }
+      if(isDocumentFullscreen()){
+        exitDocumentFullscreen();
+      }
+    }
+    function syncMobileImmersiveToggleState(){
+      if(!uiSettings || !el.mobileFullscreenToggle) return;
+      if(uiSettings.mobileImmersive && !isDocumentFullscreen()){
+        uiSettings.mobileImmersive = false;
+        saveSettings();
+      }
+      el.mobileFullscreenToggle.checked = !!uiSettings.mobileImmersive;
+    }
+    function moveMobileAbortPanelToBody(){
+      if(!el.mobileAbortPanel || mobileAbortPanelPortalState.mountedToBody) return;
+      const parent = el.mobileAbortPanel.parentNode;
+      if(!parent) return;
+      mobileAbortPanelPortalState.homeParent = parent;
+      mobileAbortPanelPortalState.homeNextSibling = el.mobileAbortPanel.nextSibling;
+      document.body.appendChild(el.mobileAbortPanel);
+      mobileAbortPanelPortalState.mountedToBody = true;
+    }
+    function restoreMobileAbortPanelFromBody(){
+      if(!el.mobileAbortPanel || !mobileAbortPanelPortalState.mountedToBody) return;
+      const parent = mobileAbortPanelPortalState.homeParent;
+      const nextSibling = mobileAbortPanelPortalState.homeNextSibling;
+      if(parent){
+        if(nextSibling && nextSibling.parentNode === parent){
+          parent.insertBefore(el.mobileAbortPanel, nextSibling);
+        }else{
+          parent.appendChild(el.mobileAbortPanel);
+        }
+      }
+      mobileAbortPanelPortalState.homeParent = null;
+      mobileAbortPanelPortalState.homeNextSibling = null;
+      mobileAbortPanelPortalState.mountedToBody = false;
+    }
+    function moveMobileControlsPanelToBody(){
+      if(!el.mobileControlsPanel || mobileControlsPanelPortalState.mountedToBody) return;
+      const parent = el.mobileControlsPanel.parentNode;
+      if(!parent) return;
+      mobileControlsPanelPortalState.homeParent = parent;
+      mobileControlsPanelPortalState.homeNextSibling = el.mobileControlsPanel.nextSibling;
+      document.body.appendChild(el.mobileControlsPanel);
+      mobileControlsPanelPortalState.mountedToBody = true;
+    }
+    function restoreMobileControlsPanelFromBody(){
+      if(!el.mobileControlsPanel || !mobileControlsPanelPortalState.mountedToBody) return;
+      const parent = mobileControlsPanelPortalState.homeParent;
+      const nextSibling = mobileControlsPanelPortalState.homeNextSibling;
+      if(parent){
+        if(nextSibling && nextSibling.parentNode === parent){
+          parent.insertBefore(el.mobileControlsPanel, nextSibling);
+        }else{
+          parent.appendChild(el.mobileControlsPanel);
+        }
+      }
+      mobileControlsPanelPortalState.homeParent = null;
+      mobileControlsPanelPortalState.homeNextSibling = null;
+      mobileControlsPanelPortalState.mountedToBody = false;
+    }
     function isMobileLayout(){
-      return MOBILE_PANEL_MEDIA.matches && isTouchCapableDevice();
+      return isForcedMobileHudPreview() || (MOBILE_PANEL_MEDIA.matches && isTouchCapableDevice());
     }
     function isTouchCapableDevice(){
       return (navigator.maxTouchPoints || 0) > 0 || ("ontouchstart" in window);
@@ -6348,9 +6585,21 @@
     function isLauncherOverlayVisible(){
       return !!(launcherOverlayEl && !launcherOverlayEl.classList.contains("hidden"));
     }
+    function isMobileLauncherPanelVisible(){
+      return !!(el.mobileControlsPanel && el.mobileControlsPanel.classList.contains("is-launcher-view"));
+    }
+    function setMobileLauncherPanelVisible(show){
+      if(!el.mobileControlsPanel) return;
+      const next = !!show;
+      el.mobileControlsPanel.classList.toggle("is-launcher-view", next);
+      if(el.mobileLauncherPanel){
+        el.mobileLauncherPanel.setAttribute("aria-hidden", next ? "false" : "true");
+      }
+      updateNavActionState();
+    }
     function updateNavActionState(){
       const replayActive = !!replayUiActive;
-      const launcherActive = !!launcherPanelActive || isLauncherOverlayVisible();
+      const launcherActive = !!launcherPanelActive || isLauncherOverlayVisible() || isMobileLauncherPanelVisible();
       const controlsActive = isMobileLayout()
         ? false
         : (isTabletControlsLayout()
@@ -6453,9 +6702,17 @@
     }
 
     function applyPhoneLandscapeLayout(){
-      const active = PHONE_LANDSCAPE_MEDIA.matches && isTouchCapableDevice();
+      const active = isForcedMobileHudPreview() || (PHONE_LANDSCAPE_MEDIA.matches && isTouchCapableDevice());
       const wasActive = document.documentElement.classList.contains("phone-landscape-layout");
       document.documentElement.classList.toggle("phone-landscape-layout", active);
+      if(active){
+        moveMobileAbortPanelToBody();
+        moveMobileControlsPanelToBody();
+      }else{
+        setMobileLauncherPanelVisible(false);
+        restoreMobileAbortPanelFromBody();
+        restoreMobileControlsPanelFromBody();
+      }
       if(active && isGyroViewportExpanded()){
         setGyroViewportExpanded(false);
       }
@@ -6480,6 +6737,10 @@
       }
       updateNavActionState();
       updateMobileAbortButton();
+      applyMobileImmersiveMode(false);
+      if(!active && !isMobileLayout()){
+        hideMobileControlsPanel();
+      }
     }
 
     function showMobileControlsPanel(){
@@ -6487,6 +6748,7 @@
       updateMobileControlPills();
       syncMobileControlButtons();
       updateMobileSequenceStatusLabel(sequenceActive, currentSt, lockoutLatched);
+      setMobileLauncherPanelVisible(false);
       mobileControlsActive = true;
       el.mobileControlsPanel.classList.add("is-open");
       el.mobileControlsPanel.setAttribute("aria-hidden","false");
@@ -6495,6 +6757,7 @@
 
     function hideMobileControlsPanel(){
       if(!el.mobileControlsPanel || !mobileControlsActive) return;
+      setMobileLauncherPanelVisible(false);
       mobileControlsActive = false;
       el.mobileControlsPanel.classList.remove("is-open");
       el.mobileControlsPanel.setAttribute("aria-hidden","true");
@@ -6532,27 +6795,42 @@
         applyPhoneLandscapeLayout();
       });
     }
+    const FULLSCREEN_EVENTS = ["fullscreenchange", "webkitfullscreenchange", "MSFullscreenChange"];
+    FULLSCREEN_EVENTS.forEach((evtName)=>{
+      document.addEventListener(evtName, ()=>{
+        syncMobileImmersiveToggleState();
+      });
+    });
 
     function updateMobileControlPills(){
       if(!el.mobileControlsPanel) return;
+      const setMobileQuickPillTone = (node, tone)=>{
+        if(!node) return;
+        node.classList.remove("pill-green", "pill-red", "pill-gray");
+        node.classList.add("mobile-quick-state", "pill");
+        if(tone) node.classList.add(tone);
+      };
       const serialPill = el.mobileControlPills ? el.mobileControlPills.serial : null;
       if(serialPill){
         const serialLabel = serialEnabled
           ? (serialConnected ? t("serialConnected") : t("serialDisconnected"))
           : t("serialOff");
         serialPill.textContent = serialLabel;
-        serialPill.className = "pill " + (serialEnabled ? (serialConnected ? "pill-green" : "pill-red") : "pill-gray");
+        setMobileQuickPillTone(serialPill, serialEnabled ? (serialConnected ? "pill-green" : "pill-red") : "pill-gray");
       }
       const safetyPill = el.mobileControlPills ? el.mobileControlPills.safety : null;
       if(safetyPill){
         const safetyOn = el.safeModeToggle ? el.safeModeToggle.checked : safetyModeEnabled;
         safetyPill.textContent = safetyOn ? "ON" : "OFF";
-        safetyPill.className = "pill " + (safetyOn ? "pill-green" : "pill-gray");
+        setMobileQuickPillTone(safetyPill, safetyOn ? "pill-green" : "pill-gray");
       }
       const inspectionPill = el.mobileControlPills ? el.mobileControlPills.inspection : null;
       if(inspectionPill && el.inspectionStatusPill){
         inspectionPill.textContent = el.inspectionStatusPill.textContent;
-        inspectionPill.className = el.inspectionStatusPill.className;
+        let tone = "pill-gray";
+        if(el.inspectionStatusPill.classList.contains("pill-green")) tone = "pill-green";
+        else if(el.inspectionStatusPill.classList.contains("pill-red")) tone = "pill-red";
+        setMobileQuickPillTone(inspectionPill, tone);
       }
     }
 
@@ -6796,11 +7074,20 @@
     }
 
     // ✅ KST 시각 표시
+    function getCompactHudClockText(){
+      const now = new Date();
+      const opts = { hour:"2-digit", minute:"2-digit", hour12:false, timeZone:"Asia/Seoul" };
+      return now.toLocaleTimeString("ko-KR", opts);
+    }
+
     function updateKstClock(){
       if(!el.kstTime) return;
       const now = new Date();
       const opts = { hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false, timeZone:"Asia/Seoul" };
       el.kstTime.textContent = now.toLocaleTimeString("ko-KR", opts);
+      const compactTimeText = getCompactHudClockText();
+      if(el.statusMapHudTimeCompact) el.statusMapHudTimeCompact.textContent = compactTimeText;
+      if(el.gyro3dHudTimeCompact) el.gyro3dHudTimeCompact.textContent = compactTimeText;
     }
 
     function getViewIndices(data, view){
@@ -7292,7 +7579,7 @@
     function updateMobileSequenceStatusLabel(seqActive, st, lockout){
       const running = !!(seqActive || st === 1 || st === 2 || localTplusActive);
       const readyEligible = !replaySourceActive && isControlUnlocked() && connOk && hasMissionSelected() && !safetyModeEnabled && !loadcellErrorActive && st === 0 && !running;
-      let label = "진행 불가";
+      let label = "불가";
       if(lockout){
         label = "제한";
       }else if(running){
@@ -9714,7 +10001,6 @@
       resetForceSlide();
     }
     function showLauncher(){
-      hideMobileControlsPanel();
       if(isTabletPanelModeBlocked()){
         showTabletPanelBlockedToast("launcher");
         return;
@@ -9725,6 +10011,18 @@
       }
       if(!canOperateLauncher()){
         if(safetyModeEnabled) showToast(t("safetyModeOnToast"), "notice");
+        return;
+      }
+      if(isPhoneLandscapeLayout()){
+        setLauncherPanelVisible(false);
+        if(launcherOverlayEl){
+          setOverlayVisible(launcherOverlayEl, false);
+          launcherOverlayEl.classList.remove("auto-active");
+        }
+        if(!mobileControlsActive){
+          showMobileControlsPanel();
+        }
+        setMobileLauncherPanelVisible(true);
         return;
       }
       if(isTabletControlsLayout()){
@@ -9742,6 +10040,9 @@
       updateNavActionState();
     }
     function hideLauncher(){
+      if(isMobileLauncherPanelVisible()){
+        setMobileLauncherPanelVisible(false);
+      }
       if(launcherPanelActive){
         setLauncherPanelVisible(false);
         return;
@@ -10576,9 +10877,13 @@
       el.statusMapHudStatusPill = document.getElementById("statusMapHudStatusPill");
       el.statusMapHudStatusBar = document.getElementById("statusMapHudStatusBar");
       el.statusMapHudConn = document.getElementById("statusMapHudConn");
+      el.statusMapHudConnCompact = document.getElementById("statusMapHudConnCompact");
+      el.statusMapHudClockCompact = document.getElementById("statusMapHudClockCompact");
+      el.statusMapHudTimeCompact = document.getElementById("statusMapHudTimeCompact");
       el.statusMapHudBatteryWrap = document.getElementById("statusMapHudBatteryWrap");
       el.statusMapHudBatteryFill = document.getElementById("statusMapHudBatteryFill");
       el.statusMapHudBattery = document.getElementById("statusMapHudBattery");
+      el.statusMapHudBatteryCompact = document.getElementById("statusMapHudBatteryCompact");
       el.statusMapHudMetricPrimaryCard = document.getElementById("statusMapHudMetricPrimaryCard");
       el.statusMapHudMetricPrimaryLabel = document.getElementById("statusMapHudMetricPrimaryLabel");
       el.statusMapHudMetricPrimaryValue = document.getElementById("statusMapHudMetricPrimaryValue");
@@ -10614,9 +10919,13 @@
       el.gyro3dHudStatusPill = document.getElementById("gyro3dHudStatusPill");
       el.gyro3dHudStatusBar = document.getElementById("gyro3dHudStatusBar");
       el.gyro3dHudConn = document.getElementById("gyro3dHudConn");
+      el.gyro3dHudConnCompact = document.getElementById("gyro3dHudConnCompact");
+      el.gyro3dHudClockCompact = document.getElementById("gyro3dHudClockCompact");
+      el.gyro3dHudTimeCompact = document.getElementById("gyro3dHudTimeCompact");
       el.gyro3dHudBatteryWrap = document.getElementById("gyro3dHudBatteryWrap");
       el.gyro3dHudBatteryFill = document.getElementById("gyro3dHudBatteryFill");
       el.gyro3dHudBattery = document.getElementById("gyro3dHudBattery");
+      el.gyro3dHudBatteryCompact = document.getElementById("gyro3dHudBatteryCompact");
       el.gyro3dHudMetricPrimaryCard = document.getElementById("gyro3dHudMetricPrimaryCard");
       el.gyro3dHudMetricPrimaryLabel = document.getElementById("gyro3dHudMetricPrimaryLabel");
       el.gyro3dHudMetricPrimaryValue = document.getElementById("gyro3dHudMetricPrimaryValue");
@@ -10770,6 +11079,8 @@
       el.gyroGlPreview = document.getElementById("gyroGlPreview");
       el.navBallPreview = document.getElementById("navBallPreview");
       el.gyroPreviewSelect = document.getElementById("gyroPreviewSelect");
+      el.mobileHudPreviewToggle = document.getElementById("mobileHudPreviewToggle");
+      el.mobileFullscreenToggle = document.getElementById("mobileFullscreenToggle");
       el.gyroGl = el.gyroGlPreview || el.gyroGlHidden;
       if(el.navBallPreview) el.navBall = el.navBallPreview;
 
@@ -10793,6 +11104,7 @@
       el.controlsHeader = document.getElementById("controlsHeader");
       el.controlsMain = document.getElementById("controlsMain");
       el.launcherPanel = document.getElementById("launcherPanel");
+      el.mobileLauncherPanel = document.getElementById("mobileLauncherPanel");
       el.launcherPitchAngleTablet = document.getElementById("launcherPitchAngleTablet");
       el.replayOpenBtns = document.querySelectorAll(".js-replay-open");
       el.replayPanel = document.getElementById("replayPanel");
@@ -10831,6 +11143,7 @@
       el.wifiStaCount = document.getElementById("wifiStaCount");
       el.wifiRssi = document.getElementById("wifiRssi");
       el.launcherPitchAngle = document.getElementById("launcherPitchAngle");
+      el.launcherPitchAngleMobile = document.getElementById("launcherPitchAngleMobile");
       el.langSelect = document.getElementById("langSelect");
       el.themeToggle = document.getElementById("themeToggle");
       el.loadcellCalOpen = document.getElementById("loadcellCalOpen");
@@ -11160,6 +11473,10 @@
       const launcherUpPanelBtn=document.getElementById("launcherUpPanelBtn");
       const launcherDownPanelBtn=document.getElementById("launcherDownPanelBtn");
       const launcherAutoPanelBtn=document.getElementById("launcherAutoPanelBtn");
+      const launcherUpMobileBtn=document.getElementById("launcherUpMobileBtn");
+      const launcherDownMobileBtn=document.getElementById("launcherDownMobileBtn");
+      const launcherAutoMobileBtn=document.getElementById("launcherAutoMobileBtn");
+      const mobileLauncherBackBtn=document.getElementById("mobileLauncherBackBtn");
       launcherAutoOverlayEl = el.launcherAutoOverlay || document.getElementById("launcherAutoOverlay");
       launcherAutoConfirmBtn = el.launcherAutoConfirm || document.getElementById("launcherAutoConfirm");
       launcherAutoCancelBtn = el.launcherAutoCancel || document.getElementById("launcherAutoCancel");
@@ -12215,6 +12532,7 @@
         serial: ()=>{ toggleInput(el.serialToggle); },
         inspection: ()=>{ if(el.inspectionOpenBtn) el.inspectionOpenBtn.click(); },
         safety: ()=>{ toggleInput(el.safeModeToggle); },
+        launcher: ()=>{ ensureDashboardViewForPanels(); showLauncher(); },
         mission: ()=>{ if(el.missionOpenBtn) el.missionOpenBtn.click(); },
         export: ()=>{ if(el.exportCsvBtn) el.exportCsvBtn.click(); },
       };
@@ -12225,7 +12543,7 @@
             const type = btn.getAttribute("data-mobile-control");
             const action = mobileControlActions[type];
             if(!action) return;
-            if(type === "mission" || type === "export"){
+            if(type === "mission" || type === "export" || (type === "launcher" && !isPhoneLandscapeLayout())){
               hideMobileControlsPanel();
             }
             action();
@@ -12587,6 +12905,24 @@
           applySettingsToUI();
         });
       }
+      if(el.mobileHudPreviewToggle){
+        el.mobileHudPreviewToggle.addEventListener("change",()=>{
+          if(!uiSettings) return;
+          uiSettings.mobileHudPreview = !!el.mobileHudPreviewToggle.checked;
+          saveSettings();
+          applySettingsToUI();
+        });
+      }
+      if(el.mobileFullscreenToggle){
+        el.mobileFullscreenToggle.addEventListener("change",()=>{
+          if(!uiSettings) return;
+          uiSettings.mobileImmersive = !!el.mobileFullscreenToggle.checked;
+          saveSettings();
+          applySettingsToUI();
+          applyMobileImmersiveMode(true);
+          setTimeout(syncMobileImmersiveToggleState, 250);
+        });
+      }
 
       if(el.launcherOpenBtns && el.launcherOpenBtns.length){
         el.launcherOpenBtns.forEach(btn=>{
@@ -12606,7 +12942,7 @@
       if(launcherCloseBtn){ launcherCloseBtn.addEventListener("click",()=>hideLauncher()); }
       if(launcherOverlayEl){ launcherOverlayEl.addEventListener("click",(ev)=>{ if(ev.target===launcherOverlayEl) hideLauncher(); }); }
 
-      if(launcherUpBtn || launcherDownBtn || launcherUpPanelBtn || launcherDownPanelBtn){
+      if(launcherUpBtn || launcherDownBtn || launcherUpPanelBtn || launcherDownPanelBtn || launcherUpMobileBtn || launcherDownMobileBtn){
         const startEvents=["mousedown","touchstart"];
         const endEvents=["mouseup","mouseleave","touchend","touchcancel"];
         const bindLauncherHold = (node, dir)=>{
@@ -12623,6 +12959,8 @@
         bindLauncherHold(launcherDownBtn, "down");
         bindLauncherHold(launcherUpPanelBtn, "up");
         bindLauncherHold(launcherDownPanelBtn, "down");
+        bindLauncherHold(launcherUpMobileBtn, "up");
+        bindLauncherHold(launcherDownMobileBtn, "down");
       }
       if(launcherAutoBtn){
         launcherAutoBtn.addEventListener("click",()=>{
@@ -12632,6 +12970,16 @@
       if(launcherAutoPanelBtn){
         launcherAutoPanelBtn.addEventListener("click",()=>{
           showLauncherAutoConfirm();
+        });
+      }
+      if(launcherAutoMobileBtn){
+        launcherAutoMobileBtn.addEventListener("click",()=>{
+          showLauncherAutoConfirm();
+        });
+      }
+      if(mobileLauncherBackBtn){
+        mobileLauncherBackBtn.addEventListener("click",()=>{
+          hideLauncher();
         });
       }
       if(launcherAutoConfirmBtn){
