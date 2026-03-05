@@ -397,6 +397,7 @@
       box-shadow:none;
       backdrop-filter:none;
     }
+    .status-compact-hud{display:none}
     .status-conn-block{
       display:flex;align-items:center;gap:6px;
       height:22px;padding:0 9px;
@@ -781,7 +782,7 @@
     .status-map-panel .leaflet-popup-content-wrapper{
       background:rgba(255,255,255,.92);
       color:#0f172a;
-      border-radius:12px;
+      border-radius:8px;
       backdrop-filter:blur(12px) saturate(170%);
     }
     .status-map-panel .leaflet-popup-tip{
@@ -979,7 +980,7 @@
       width:min(178px, calc((100vw - 52px) / 2));
       min-height:92px;
       padding:16px 18px 14px;
-      border-radius:10px;
+      border-radius:8px;
       border:1px solid #cfd6df;
       background:#f3f4f6;
       box-shadow:none;
@@ -1420,17 +1421,17 @@
       white-space:nowrap;
     }
     .gyro3d-expanded-hud-pill{
-      min-height:26px;
-      padding:2px 12px;
-      font-size:10px;
+      min-height:24px;
+      padding:1px 10px;
+      font-size:9px;
       font-weight:800;
       box-shadow:inset 0 1px 0 rgba(255,255,255,0.08);
     }
     .gyro3d-expanded-hud-pill.status-ready{
-      background:rgba(22,163,74,0.24);
-      color:#dcfce7;
-      border-color:rgba(74,222,128,0.42);
-      box-shadow:inset 0 1px 0 rgba(255,255,255,0.14), 0 8px 18px rgba(22,163,74,0.14);
+      background:#16a34a;
+      color:#f0fdf4;
+      border-color:#4ade80;
+      box-shadow:0 6px 14px rgba(22,163,74,0.2);
     }
     .gyro3d-expanded-hud-pill.status-count{
       background:rgba(245,158,11,0.22);
@@ -1875,7 +1876,7 @@
       text-overflow:ellipsis;
       white-space:nowrap;
     }
-    .status-ready{background:rgba(22,163,74,0.08);color:#15803d;border-color:rgba(22,163,74,0.35)}
+    .status-ready{background:#16a34a;color:#f0fdf4;border-color:#4ade80}
     .status-count{background:rgba(245,158,11,0.10);color:#b45309;border-color:rgba(245,158,11,0.35)}
     .status-loadcell{background:rgba(239,68,68,0.10);color:#b91c1c;border-color:rgba(239,68,68,0.4)}
     .status-fire{background:rgba(239,68,68,0.08);color:#b91c1c;border-color:rgba(239,68,68,0.35)}
@@ -5038,21 +5039,22 @@
     html.phone-landscape-layout .side-nav-mobile{
       display:flex;
       position:fixed;
-      top:calc(12px + env(safe-area-inset-top, 0px));
+      top:50%;
       right:calc(12px + env(safe-area-inset-right, 0px));
       left:auto;
       bottom:auto;
-      width:60px;
+      width:auto;
       height:auto;
       min-height:0;
-      padding:8px;
-      border-radius:20px;
-      border:1px solid rgba(255,255,255,0.16);
-      background:rgba(7,12,22,0.56);
-      box-shadow:0 16px 36px rgba(2,6,23,0.36);
-      backdrop-filter:blur(18px) saturate(1.08);
-      -webkit-backdrop-filter:blur(18px) saturate(1.08);
+      padding:0;
+      border-radius:0;
+      border:none;
+      background:transparent;
+      box-shadow:none;
+      backdrop-filter:none;
+      -webkit-backdrop-filter:none;
       z-index:80;
+      transform:translateY(-50%);
     }
     html.phone-landscape-layout .side-nav-mobile .side-nav-menu{
       width:100%;
@@ -5084,53 +5086,149 @@
       color:#f8fafc;
       border-color:rgba(255,255,255,0.14);
     }
+    html.phone-landscape-layout .side-nav-mobile .side-nav-item,
+    html.phone-landscape-layout .side-nav-mobile .side-nav-divider-mobile,
+    html.phone-landscape-layout .side-nav-mobile .js-launcher-open,
+    html.phone-landscape-layout .side-nav-mobile .js-sidebar-settings{
+      display:none;
+    }
+    html.phone-landscape-layout .side-nav-mobile .js-controls-open{
+      display:inline-flex;
+      background:rgba(255,255,255,0.12);
+      color:#f8fafc;
+      border-color:rgba(255,255,255,0.14);
+    }
+    html.phone-landscape-layout.mobile-controls-active .side-nav-mobile .js-controls-open{
+      display:none;
+    }
     html.phone-landscape-layout .mobile-abort-wrapper{
-      position:fixed;
-      top:calc(12px + env(safe-area-inset-top, 0px));
-      right:calc(84px + env(safe-area-inset-right, 0px));
-      left:auto;
-      bottom:auto;
-      width:min(220px, 34vw);
-      transform:none;
-      justify-content:flex-end;
-      z-index:79;
+      position:static !important;
+      top:auto !important;
+      left:auto !important;
+      right:auto !important;
+      bottom:auto !important;
+      width:0 !important;
+      height:0 !important;
+      transform:none !important;
+      justify-content:flex-start !important;
+      z-index:1210;
       pointer-events:none;
     }
     html.phone-landscape-layout .mobile-abort-panel{
-      width:100%;
-      background:rgba(7,12,22,0.8);
-      border:1px solid rgba(255,255,255,0.14);
-      backdrop-filter:blur(18px) saturate(1.06);
-      -webkit-backdrop-filter:blur(18px) saturate(1.06);
-      box-shadow:0 16px 36px rgba(2,6,23,0.32);
+      display:none;
+      position:fixed;
+      top:50% !important;
+      left:calc(12px + env(safe-area-inset-left, 0px)) !important;
+      right:auto !important;
+      transform:translateY(-50%);
+      width:auto;
+      max-width:min(74vw, 280px);
+      background:transparent;
+      border:none;
+      backdrop-filter:none;
+      -webkit-backdrop-filter:none;
+      box-shadow:none;
+      padding:0;
+      border-radius:0;
+      flex-direction:row;
+      align-items:center;
+      gap:8px;
+      pointer-events:auto;
+      z-index:1210;
     }
+    html.phone-landscape-layout .mobile-abort-panel.is-visible{display:flex}
     html.phone-landscape-layout .mobile-abort-help{
-      color:rgba(226,232,240,0.7);
+      display:block !important;
+      order:2;
+      color:rgba(248,250,252,0.96);
+      font-size:11px;
+      font-weight:600;
+      line-height:1.2;
+      text-align:left;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      background:rgba(7,12,22,0.86);
+      border:1px solid rgba(255,255,255,0.16);
+      border-radius:10px;
+      padding:10px 12px;
+      box-shadow:0 10px 20px rgba(2,6,23,0.28);
+    }
+    html.phone-landscape-layout .mobile-abort-help br{
+      display:none !important;
+    }
+    html.phone-landscape-layout .mobile-abort-btn{
+      display:none;
+      order:1;
+      width:46px;
+      height:46px;
+      padding:0;
+      position:relative;
+      border-radius:999px;
+      font-size:0;
+      color:transparent;
+      border:1px solid rgba(248,113,113,0.45);
+      background:linear-gradient(135deg,rgba(220,38,38,0.95),rgba(239,68,68,0.92));
+      box-shadow:0 10px 24px rgba(220,38,38,0.28);
+      pointer-events:auto;
+      align-items:center;
+      justify-content:center;
+    }
+    html.phone-landscape-layout .mobile-abort-btn::before{
+      content:"";
+      position:absolute;
+      left:50%;
+      top:50%;
+      width:23px;
+      height:3px;
+      border-radius:999px;
+      background:rgba(255,255,255,0.96);
+      transform:translate(-50%,-50%) rotate(45deg);
+    }
+    html.phone-landscape-layout .mobile-abort-btn::after{
+      content:"";
+      position:absolute;
+      left:50%;
+      top:50%;
+      width:23px;
+      height:3px;
+      border-radius:999px;
+      background:rgba(255,255,255,0.96);
+      transform:translate(-50%,-50%) rotate(-45deg);
+    }
+    html.phone-landscape-layout .mobile-abort-btn.is-visible{display:inline-flex}
+    html.phone-landscape-layout.status-map-expanded .mobile-abort-wrapper{
+      z-index:1210 !important;
     }
     html.phone-landscape-layout .mobile-controls-panel{
       display:flex;
       position:fixed;
       top:calc(12px + env(safe-area-inset-top, 0px));
-      right:calc(84px + env(safe-area-inset-right, 0px));
+      right:calc(8px + env(safe-area-inset-right, 0px));
       bottom:calc(12px + env(safe-area-inset-bottom, 0px));
       left:auto;
-      width:min(340px, 42vw);
+      width:min(380px, calc(100vw - 24px));
       max-width:none;
       min-height:0;
       height:auto;
       margin:0;
-      padding:18px 16px 16px;
-      border-radius:24px;
+      padding:14px 14px;
+      border-radius:16px;
       border:1px solid rgba(255,255,255,0.14);
-      background:linear-gradient(180deg,rgba(14,22,36,0.94),rgba(8,14,26,0.92));
-      box-shadow:0 24px 48px rgba(2,6,23,0.45);
+      background:linear-gradient(180deg,rgba(14,22,36,0.64),rgba(8,14,26,0.58));
+      box-shadow:0 18px 36px rgba(2,6,23,0.24);
       backdrop-filter:blur(20px) saturate(1.08);
       -webkit-backdrop-filter:blur(20px) saturate(1.08);
+      flex-direction:column;
+      align-items:stretch;
+      justify-content:center;
+      gap:12px;
       transform:translateX(calc(100% + 28px));
       transition:transform .32s cubic-bezier(0.22,0.61,0.36,1),opacity .28s ease;
       opacity:0;
       pointer-events:none;
-      overflow:hidden;
+      overflow-y:auto;
+      overflow-x:hidden;
       z-index:90;
     }
     html.phone-landscape-layout .mobile-controls-panel.is-open{
@@ -5139,48 +5237,218 @@
       pointer-events:auto;
     }
     html.phone-landscape-layout .mobile-controls-handle{
-      top:50%;
-      left:10px;
-      width:5px;
-      height:56px;
-      transform:translateY(-50%);
-      background:rgba(255,255,255,0.18);
+      display:none;
     }
     html.phone-landscape-layout .mobile-controls-head{
-      padding-left:10px;
-      color:rgba(148,163,184,0.9);
-    }
-    html.phone-landscape-layout .mobile-controls-head-title{
-      color:rgba(226,232,240,0.7);
+      display:none;
     }
     html.phone-landscape-layout .mobile-controls-toolbar{
-      gap:8px;
-      padding-left:10px;
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px 8px;
+      padding-left:0;
+      margin:0;
+    }
+    html.phone-landscape-layout .mobile-controls-toolbar-top{
+      margin:0;
     }
     html.phone-landscape-layout .mobile-toolbar-btn{
-      flex:1 1 100%;
-      min-height:38px;
-      border-color:rgba(255,255,255,0.12);
-      background:rgba(255,255,255,0.07);
+      min-width:0;
+      min-height:0;
+      border:none;
+      background:transparent;
       color:#f8fafc;
+      padding:0;
+      border-radius:0;
     }
     html.phone-landscape-layout .mobile-controls-slot{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px 8px;
+      width:100%;
+      max-height:none;
+      padding:0;
+      overflow:visible;
+      grid-auto-flow:row dense;
+    }
+    html.phone-landscape-layout .mobile-controls-panel .mobile-launcher-panel{
+      display:none;
+    }
+    html.phone-landscape-layout .mobile-controls-panel.is-launcher-view .mobile-controls-slot{
+      display:none;
+    }
+    html.phone-landscape-layout .mobile-controls-panel.is-launcher-view{
+      width:min(300px, calc(100vw - 24px));
+    }
+    html.phone-landscape-layout .mobile-controls-panel.is-launcher-view .mobile-launcher-panel{
+      display:flex !important;
+      flex:1 1 auto;
+      min-height:0;
+      margin-top:0;
+      gap:10px;
+      padding:2px 2px 0;
+      animation:replayPanelEnter .2s ease;
+    }
+    html.phone-landscape-layout .mobile-launcher-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    }
+    html.phone-landscape-layout .mobile-launcher-title{
+      font-size:12px;
+      font-weight:700;
+      letter-spacing:.14em;
+      text-transform:uppercase;
+      color:#e2e8f0;
+    }
+    html.phone-landscape-layout .mobile-launcher-back{
+      width:26px;
+      height:26px;
+      border:none;
+      border-radius:8px;
+      background:rgba(255,255,255,0.1);
+      color:#f8fafc;
+      font-size:18px;
+      line-height:1;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      cursor:pointer;
+    }
+    html.phone-landscape-layout .mobile-launcher-panel .launcher-panel-note{
+      color:rgba(226,232,240,0.82);
+      font-size:10px;
+      line-height:1.4;
+    }
+    html.phone-landscape-layout .mobile-launcher-panel .launcher-divider{
+      background:rgba(255,255,255,0.12);
+      margin:4px 0 2px;
+    }
+    html.phone-landscape-layout .mobile-launcher-panel .launcher-arrow-row{
+      display:grid;
       grid-template-columns:1fr;
       gap:8px;
-      max-height:none;
-      padding:0 0 0 10px;
-      overflow-y:auto;
+      padding:4px 0;
+    }
+    html.phone-landscape-layout .mobile-launcher-panel .launcher-arrow-btn{
+      width:100%;
+      height:44px;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,0.2);
+      background:rgba(255,255,255,0.1);
+      color:#f8fafc;
+      box-shadow:none;
+    }
+    html.phone-landscape-layout .mobile-launcher-panel .launcher-angle{
+      display:flex;
+      padding:2px 0;
+    }
+    html.phone-landscape-layout .mobile-launcher-panel .launcher-angle-value{
+      color:#f8fafc;
+      font-size:20px;
+    }
+    html.phone-landscape-layout .mobile-launcher-panel .launcher-angle-label{
+      color:rgba(148,163,184,0.9);
+    }
+    html.phone-landscape-layout .mobile-launcher-panel .launcher-auto-btn{
+      display:inline-flex;
+      border-radius:10px;
+      border:1px solid rgba(255,255,255,0.2);
+      background:rgba(255,255,255,0.08);
+      color:#f8fafc;
+      padding:8px 10px;
+      text-decoration:none;
+      text-transform:none;
+      letter-spacing:.02em;
+    }
+    html.phone-landscape-layout .mobile-launcher-panel .launcher-auto-desc{
+      display:block;
+      color:rgba(148,163,184,0.92);
+      font-size:10px;
+    }
+    html.phone-landscape-layout .mobile-controls-slot .control-tile:first-of-type{
+      grid-column:auto;
     }
     html.phone-landscape-layout .mobile-controls-slot .control-tile{
-      min-height:60px;
-      border-color:rgba(255,255,255,0.12);
-      background:rgba(255,255,255,0.06);
+      min-height:0;
+      border:none;
+      background:transparent;
       color:#f8fafc;
+      min-width:0;
+      width:100%;
+      gap:6px;
+      align-items:flex-start;
+      justify-content:flex-start;
+      padding:0;
+      border-radius:0;
     }
-    html.phone-landscape-layout .mobile-control-status{
-      border-color:rgba(255,255,255,0.16);
-      background:rgba(255,255,255,0.08);
+    html.phone-landscape-layout .mobile-controls-panel .mobile-quick-btn{
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      gap:6px;
+      text-align:center;
+      cursor:pointer;
+    }
+    html.phone-landscape-layout .mobile-controls-panel .mobile-quick-icon{
+      width:48px;
+      height:48px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,0.12);
+      background:rgba(255,255,255,0.1);
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,0.08);
+    }
+    html.phone-landscape-layout .mobile-controls-panel .mobile-quick-icon svg{
+      width:24px;
+      height:24px;
+      stroke:rgba(241,245,249,0.95);
+      fill:none;
+      stroke-width:2.2;
+      stroke-linecap:round;
+      stroke-linejoin:round;
+    }
+    html.phone-landscape-layout .mobile-controls-panel .mobile-quick-label{
+      font-size:10px;
+      font-weight:600;
       color:#e2e8f0;
+      line-height:1.2;
+      min-height:22px;
+      letter-spacing:0;
+      white-space:normal;
+      word-break:keep-all;
+    }
+    html.phone-landscape-layout .mobile-controls-panel .mobile-quick-state{
+      min-height:12px;
+      font-size:9px;
+      font-weight:700;
+      line-height:1;
+      color:#94a3b8;
+      padding:0;
+      border:none;
+      background:transparent;
+      text-transform:uppercase;
+      letter-spacing:.02em;
+    }
+    html.phone-landscape-layout .mobile-controls-panel .mobile-quick-state.pill-green{
+      color:#22c55e;
+    }
+    html.phone-landscape-layout .mobile-controls-panel .mobile-quick-state.pill-red{
+      color:#f87171;
+    }
+    html.phone-landscape-layout .mobile-controls-panel .mobile-quick-state.pill-gray{
+      color:#94a3b8;
+    }
+    html.phone-landscape-layout .mobile-controls-panel .mobile-quick-btn:disabled,
+    html.phone-landscape-layout .mobile-controls-panel .mobile-quick-btn.disabled{
+      opacity:.45;
+    }
+    html.phone-landscape-layout .mobile-controls-panel .mobile-quick-btn:active{
+      opacity:.78;
     }
     html.phone-landscape-layout.mobile-controls-active body.dashboard-view-active #gyro3dViewport::after{
       content:"";
@@ -5191,6 +5459,14 @@
       z-index:2;
     }
     html.phone-landscape-layout body.dashboard-view-active{
+      --hud-inset-left:calc(16px + env(safe-area-inset-left, 0px));
+      --hud-inset-bottom:calc(16px + env(safe-area-inset-bottom, 0px));
+      --hud-inset-width:clamp(176px, 24.5vw, 232px);
+      --hud-inset-height:clamp(96px, 22vh, 122px);
+      --hud-inset-radius:4px;
+      --hud-inset-border:1px solid rgba(255,255,255,0.18);
+      --hud-inset-shadow:0 18px 34px rgba(2,6,23,0.34);
+      --hud-inset-aspect:2.35 / 1;
       overflow:hidden;
       background:#08101d;
     }
@@ -5261,66 +5537,338 @@
         radial-gradient(130% 120% at 50% 0%, #36506f 0%, #263750 55%, #182536 100%),
         linear-gradient(180deg,#314763,#182536);
     }
+    html.phone-landscape-layout.status-map-expanded body.dashboard-view-active #gyro3dViewport{
+      inset:auto;
+      left:var(--hud-inset-left);
+      bottom:var(--hud-inset-bottom);
+      width:var(--hud-inset-width);
+      height:var(--hud-inset-height);
+      border:var(--hud-inset-border);
+      border-radius:var(--hud-inset-radius);
+      box-shadow:var(--hud-inset-shadow);
+      aspect-ratio:var(--hud-inset-aspect);
+      overflow:hidden;
+      z-index:1202;
+      background:
+        radial-gradient(130% 120% at 50% 0%, #36506f 0%, #263750 55%, #182536 100%),
+        linear-gradient(180deg,#314763,#182536);
+    }
     html.phone-landscape-layout body.dashboard-view-active .gyro3d-canvas{
       width:100%;
       height:100%;
     }
+    html.phone-landscape-layout.status-map-expanded body.dashboard-view-active .status-gyro-canvas--3d .gyro3d-expanded-hud,
+    html.phone-landscape-layout.status-map-expanded body.dashboard-view-active .status-gyro-canvas--3d > .status-expanded-metrics{
+      display:none !important;
+    }
     html.phone-landscape-layout body.dashboard-view-active .status-gyro-canvas--3d .gyro3d-expanded-hud{
       display:block;
       position:absolute;
-      top:calc(10px + env(safe-area-inset-top, 0px));
+      top:calc(12px + env(safe-area-inset-top, 0px));
       left:calc(12px + env(safe-area-inset-left, 0px));
-      right:calc(82px + env(safe-area-inset-right, 0px));
+      right:calc(8px + env(safe-area-inset-right, 0px));
       z-index:4;
     }
-    html.phone-landscape-layout body.dashboard-view-active .status-gyro-canvas--3d .gyro3d-expanded-topbar{
-      padding:12px 14px;
+    html.phone-landscape-layout body.dashboard-view-active .status-gyro-canvas--3d .gyro3d-expanded-label{
+      display:none;
     }
-    html.phone-landscape-layout body.dashboard-view-active .status-gyro-canvas--3d .gyro3d-expanded-countdown{
-      font-size:clamp(30px,4.8vw,44px);
+    html.phone-landscape-layout body.dashboard-view-active .status-gyro-canvas--3d .gyro3d-expanded-topbar{
+      padding:0;
+      align-items:flex-start;
+      gap:14px;
+    }
+    html.phone-landscape-layout body.dashboard-view-active .status-gyro-canvas--3d .gyro3d-expanded-left{
+      gap:0;
+    }
+    html.phone-landscape-layout body.dashboard-view-active .status-gyro-canvas--3d .gyro3d-expanded-mainline{
+      align-items:center;
+      gap:10px;
+      flex-wrap:nowrap;
+    }
+    html.phone-landscape-layout body.dashboard-view-active .gyro3d-expanded-countdown{
+      font-family:"SF Pro Text","Apple SD Gothic Neo","Noto Sans KR","Segoe UI",system-ui,sans-serif;
+      font-size:clamp(13px,1.9vw,16px);
+      font-weight:500;
+      letter-spacing:.01em;
+      line-height:1.05;
+      font-variant-numeric:tabular-nums;
+      font-feature-settings:"tnum" 1;
+    }
+    html.phone-landscape-layout body.dashboard-view-active .status-gyro-canvas--3d .gyro3d-expanded-mainline .countdown-inline-status{
+      min-height:auto;
+      padding-left:10px;
+      gap:6px;
     }
     html.phone-landscape-layout body.dashboard-view-active .status-gyro-canvas--3d .gyro3d-expanded-mainline .countdown-inline-status-text{
-      font-size:clamp(12px,1.8vw,15px);
+      font-size:clamp(12px,1.6vw,14px);
+      font-weight:700;
+      color:rgba(248,250,252,0.9);
+      max-width:200px;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+    html.phone-landscape-layout body.dashboard-view-active .status-gyro-canvas--3d .gyro3d-expanded-hud-pill{
+      min-height:20px;
+      padding:1px 8px;
+      font-size:8px;
+    }
+    html.phone-landscape-layout body.dashboard-view-active .status-gyro-canvas--3d .gyro3d-expanded-statusbar{
+      gap:6px;
+      transform:translateY(-2px);
+      display:flex;
+      align-items:center;
+    }
+    html.phone-landscape-layout body.dashboard-view-active .status-compact-hud{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:0 2px;
+      color:#f8fafc;
+      pointer-events:auto;
+    }
+    html.phone-landscape-layout body.dashboard-view-active .status-compact-clock{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      color:rgba(248,250,252,0.92);
+      opacity:.94;
+    }
+    html.phone-landscape-layout body.dashboard-view-active .status-compact-clock svg{
+      width:14px;
+      height:14px;
+      stroke:currentColor;
+      fill:none;
+      stroke-width:1.8;
+      stroke-linecap:round;
+      stroke-linejoin:round;
+    }
+    html.phone-landscape-layout body.dashboard-view-active .status-compact-link{
+      display:inline-flex;
+      align-items:center;
+      color:rgba(248,250,252,0.9);
+    }
+    html.phone-landscape-layout body.dashboard-view-active .status-compact-link svg{
+      width:15px;
+      height:15px;
+      stroke:currentColor;
+      fill:none;
+      stroke-width:1.8;
+      stroke-linecap:round;
+      stroke-linejoin:round;
+      opacity:.92;
+    }
+    html.phone-landscape-layout body.dashboard-view-active .status-compact-battery{
+      display:inline-flex;
+      align-items:center;
+    }
+    html.phone-landscape-layout body.dashboard-view-active .status-compact-battery-icon{
+      position:relative;
+      width:28px;
+      height:14px;
+      border-radius:4px;
+      border:1.4px solid rgba(248,250,252,0.88);
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      font-size:8px;
+      font-weight:800;
+      letter-spacing:.02em;
+      color:#f8fafc;
+      background:rgba(255,255,255,0.06);
+      box-shadow:inset 0 1px 0 rgba(255,255,255,0.08);
+    }
+    html.phone-landscape-layout body.dashboard-view-active .status-compact-battery-icon::after{
+      content:"";
+      position:absolute;
+      right:-3px;
+      top:3px;
+      width:2px;
+      height:6px;
+      border-radius:2px;
+      background:rgba(248,250,252,0.88);
+    }
+    html.phone-landscape-layout body.dashboard-view-active .status-compact-battery-level{
+      position:relative;
+      z-index:1;
+      line-height:1;
+    }
+    html.phone-landscape-layout body.dashboard-view-active .status-compact-value{
+      font-size:11px;
+      font-weight:700;
+      line-height:1;
+      color:#f8fafc;
+      white-space:nowrap;
+      min-width:34px;
+      text-align:left;
+    }
+    html.phone-landscape-layout body.dashboard-view-active .status-compact-sep{
+      width:1px;
+      height:14px;
+      border-radius:1px;
+      background:rgba(248,250,252,0.34);
+      margin:0 1px;
+    }
+    html.phone-landscape-layout body.dashboard-view-active .status-compact-time{
+      font-size:11px;
+      font-weight:650;
+      line-height:1;
+      color:#f8fafc;
+      white-space:nowrap;
+    }
+    html.phone-landscape-layout body.dashboard-view-active .status-compact-settings{
+      width:20px;
+      height:20px;
+      margin-left:2px;
+      padding:0;
+      border:none;
+      border-radius:0;
+      background:transparent;
+      color:rgba(248,250,252,0.9);
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      pointer-events:auto;
+      cursor:pointer;
+    }
+    html.phone-landscape-layout body.dashboard-view-active .status-compact-settings svg{
+      width:16px;
+      height:16px;
+      stroke:currentColor;
+      fill:none;
+      stroke-width:1.8;
+      stroke-linecap:round;
+      stroke-linejoin:round;
+      opacity:.96;
+    }
+    html.phone-landscape-layout body.dashboard-view-active .status-compact-settings:active{
+      opacity:.72;
+    }
+    html.phone-landscape-layout body.dashboard-view-active .gyro3d-expanded-statusbar .status-conn-block,
+    html.phone-landscape-layout body.dashboard-view-active .gyro3d-expanded-statusbar .status-battery{
+      display:none;
     }
     html.phone-landscape-layout body.dashboard-view-active .status-gyro-canvas--3d > .status-expanded-metrics{
       display:flex;
       right:calc(16px + env(safe-area-inset-right, 0px));
       bottom:calc(16px + env(safe-area-inset-bottom, 0px));
-      z-index:4;
+      z-index:6;
+      gap:22px;
+      align-items:flex-end;
     }
     html.phone-landscape-layout body.dashboard-view-active .status-expanded-metric{
-      width:min(144px, 24vw);
-      min-height:82px;
-      padding:12px 14px;
-      border-radius:18px;
-      background:rgba(7,12,22,0.62);
-      border:1px solid rgba(255,255,255,0.12);
-      box-shadow:0 18px 30px rgba(2,6,23,0.28);
-      backdrop-filter:blur(16px);
-      -webkit-backdrop-filter:blur(16px);
+      width:auto;
+      min-height:0;
+      padding:0;
+      border-radius:0;
+      background:transparent;
+      border:none;
+      box-shadow:none;
+      backdrop-filter:none;
+      -webkit-backdrop-filter:none;
+      align-items:flex-start;
     }
     html.phone-landscape-layout body.dashboard-view-active .status-expanded-metric-label{
-      color:rgba(226,232,240,0.64);
+      order:2;
+      color:rgba(226,232,240,0.78);
+      font-size:10px;
+      margin:6px 0 0;
+      letter-spacing:0;
+      text-transform:none;
+      font-weight:500;
     }
     html.phone-landscape-layout body.dashboard-view-active .status-expanded-metric-value{
+      order:1;
       color:#f8fafc;
-      font-size:32px;
+      font-size:24px;
+      line-height:1;
+      text-align:left;
+      font-weight:600;
+      text-shadow:0 8px 18px rgba(2,6,23,0.22);
+    }
+    html.phone-landscape-layout body.dashboard-view-active .status-expanded-metric-value .unit{
+      font-size:.62em;
+      color:#f8fafc;
+      margin-left:4px;
+      letter-spacing:0;
+      text-transform:none;
+      font-weight:500;
     }
     html.phone-landscape-layout body.dashboard-view-active #statusMapViewport{
       position:fixed;
-      left:calc(16px + env(safe-area-inset-left, 0px));
-      bottom:calc(16px + env(safe-area-inset-bottom, 0px));
-      width:clamp(150px, 24vw, 196px);
-      height:clamp(108px, 30vh, 136px);
+      left:var(--hud-inset-left);
+      bottom:var(--hud-inset-bottom);
+      width:var(--hud-inset-width) !important;
+      height:var(--hud-inset-height) !important;
+      min-height:0 !important;
+      max-height:var(--hud-inset-height) !important;
       margin:0;
-      border-radius:18px;
-      border:1px solid rgba(255,255,255,0.18);
+      border-radius:var(--hud-inset-radius) !important;
+      border:var(--hud-inset-border);
       background:rgba(7,12,22,0.24);
-      box-shadow:0 18px 34px rgba(2,6,23,0.34);
+      box-shadow:var(--hud-inset-shadow);
       backdrop-filter:blur(12px);
       -webkit-backdrop-filter:blur(12px);
       overflow:hidden;
       z-index:6;
+      aspect-ratio:var(--hud-inset-aspect);
+      flex:none !important;
+    }
+    html.phone-landscape-layout body.dashboard-view-active #statusMapViewport,
+    html.phone-landscape-layout body.dashboard-view-active #statusMapViewport .status-map-canvas,
+    html.phone-landscape-layout body.dashboard-view-active #statusMapViewport .status-map-tint,
+    html.phone-landscape-layout body.dashboard-view-active #statusMapViewport .leaflet-container,
+    html.phone-landscape-layout body.dashboard-view-active #statusMapViewport .leaflet-pane,
+    html.phone-landscape-layout body.dashboard-view-active #statusMapViewport .leaflet-map-pane,
+    html.phone-landscape-layout body.dashboard-view-active #statusMapViewport .leaflet-control-container{
+      border-radius:4px !important;
+    }
+    html.phone-landscape-layout body.dashboard-view-active #statusMapViewport.is-expanded{
+      left:0 !important;
+      top:0 !important;
+      right:0 !important;
+      bottom:0 !important;
+      width:100vw !important;
+      height:100dvh !important;
+      max-width:none !important;
+      max-height:none !important;
+      border-radius:0 !important;
+      border:0 !important;
+      aspect-ratio:auto !important;
+      box-shadow:none !important;
+      background:linear-gradient(180deg,#d8e4f1,#c6d5e6) !important;
+      z-index:1200 !important;
+    }
+    html.phone-landscape-layout body.dashboard-view-active #statusMapViewport.is-expanded::before{
+      content:"";
+      position:absolute;
+      top:0;
+      left:0;
+      right:0;
+      height:146px;
+      pointer-events:none;
+      z-index:1202;
+      background:linear-gradient(180deg, rgba(2,6,23,0.58) 0%, rgba(2,6,23,0.29) 52%, rgba(2,6,23,0) 100%);
+    }
+    html.phone-landscape-layout body.dashboard-view-active #gyro3dViewport::before{
+      content:"";
+      position:absolute;
+      top:0;
+      left:0;
+      right:0;
+      height:126px;
+      pointer-events:none;
+      z-index:3;
+      background:linear-gradient(180deg, rgba(2,6,23,0.4) 0%, rgba(2,6,23,0.18) 54%, rgba(2,6,23,0) 100%);
+    }
+    html.phone-landscape-layout body.dashboard-view-active #statusMapViewport.is-expanded,
+    html.phone-landscape-layout body.dashboard-view-active #statusMapViewport.is-expanded .status-map-canvas,
+    html.phone-landscape-layout body.dashboard-view-active #statusMapViewport.is-expanded .status-map-tint,
+    html.phone-landscape-layout body.dashboard-view-active #statusMapViewport.is-expanded .leaflet-container,
+    html.phone-landscape-layout body.dashboard-view-active #statusMapViewport.is-expanded .leaflet-pane,
+    html.phone-landscape-layout body.dashboard-view-active #statusMapViewport.is-expanded .leaflet-map-pane,
+    html.phone-landscape-layout body.dashboard-view-active #statusMapViewport.is-expanded .leaflet-control-container{
+      border-radius:0 !important;
     }
     html.phone-landscape-layout body.dashboard-view-active .status-map-hud{
       top:8px;
@@ -5328,21 +5876,24 @@
       right:8px;
       bottom:8px;
     }
+    html.phone-landscape-layout body.dashboard-view-active .status-map-expanded-hud .gyro3d-expanded-label{
+      display:none;
+    }
     html.phone-landscape-layout body.dashboard-view-active .status-map-card{
       top:auto;
       bottom:0;
       left:0;
       gap:6px;
-      padding:6px 8px;
-      border-radius:12px;
-      background:rgba(7,12,22,0.62);
+      padding:7px 10px;
+      border-radius:4px !important;
+      background:rgba(7,12,22,0.74);
       border:1px solid rgba(255,255,255,0.14);
-      box-shadow:none;
+      box-shadow:0 8px 16px rgba(2,6,23,0.2);
     }
     html.phone-landscape-layout body.dashboard-view-active .status-map-coords{
-      font-size:10px;
+      font-size:9px;
       color:#f8fafc;
-      letter-spacing:.03em;
+      letter-spacing:.02em;
     }
     html.phone-landscape-layout body.dashboard-view-active .status-map-zoom{
       display:none;
@@ -5359,77 +5910,21 @@
       height:30px;
       padding:0;
       justify-content:center;
-      border-radius:999px;
+      border-radius:8px !important;
       box-shadow:0 8px 18px rgba(2,6,23,0.24);
     }
+    html.phone-landscape-layout.status-map-expanded body.dashboard-view-active .status-expanded-metric-label{
+      color:rgba(15,23,42,0.68);
+    }
+    html.phone-landscape-layout.status-map-expanded body.dashboard-view-active .status-expanded-metric-value{
+      color:#0f172a;
+      text-shadow:0 3px 10px rgba(255,255,255,0.5);
+    }
+    html.phone-landscape-layout.status-map-expanded body.dashboard-view-active .status-expanded-metric-value .unit{
+      color:#334155;
+    }
     html.phone-landscape-layout body.dashboard-view-active .motor-card{
-      position:fixed;
-      right:calc(16px + env(safe-area-inset-right, 0px));
-      bottom:calc(116px + env(safe-area-inset-bottom, 0px));
-      width:min(286px, 35vw);
-      padding:12px;
-      border-radius:22px;
-      border:1px solid rgba(255,255,255,0.14);
-      background:rgba(7,12,22,0.62);
-      box-shadow:0 18px 40px rgba(2,6,23,0.34);
-      backdrop-filter:blur(18px) saturate(1.06);
-      -webkit-backdrop-filter:blur(18px) saturate(1.06);
-      z-index:5;
-    }
-    html.phone-landscape-layout body.dashboard-view-active .motor-card .card-header{
-      display:none;
-    }
-    html.phone-landscape-layout body.dashboard-view-active .quick-data-body{
-      display:flex;
-      flex-direction:column;
-      gap:10px;
-    }
-    html.phone-landscape-layout body.dashboard-view-active .quick-data-body .quick-metrics{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:10px;
-      margin:0;
-    }
-    html.phone-landscape-layout body.dashboard-view-active .quick-data-body .quick-metrics .status-metric{
-      min-height:78px;
-      padding:12px;
-      background:rgba(255,255,255,0.08);
-      border-color:rgba(255,255,255,0.12);
-    }
-    html.phone-landscape-layout body.dashboard-view-active .quick-data-body .quick-metrics .status-metric-label{
-      color:rgba(226,232,240,0.62);
-    }
-    html.phone-landscape-layout body.dashboard-view-active .quick-data-body .quick-metrics .status-metric-value{
-      color:#f8fafc;
-      font-size:26px;
-    }
-    html.phone-landscape-layout body.dashboard-view-active .quick-data-body .quick-metrics .status-metric-value .unit{
-      color:rgba(226,232,240,0.58);
-    }
-    html.phone-landscape-layout body.dashboard-view-active .quick-data-body .item-grid{
-      gap:8px;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-    }
-    html.phone-landscape-layout body.dashboard-view-active .quick-data-body .item-grid .item:nth-child(n+5){
-      display:none;
-    }
-    html.phone-landscape-layout body.dashboard-view-active .quick-data-body .item-grid .item{
-      min-height:0;
-      padding:10px 12px;
-      border-radius:14px;
-      border-color:rgba(255,255,255,0.12);
-      background:rgba(255,255,255,0.06);
-      box-shadow:none;
-    }
-    html.phone-landscape-layout body.dashboard-view-active .quick-data-body .item-grid .label{
-      color:rgba(226,232,240,0.6);
-    }
-    html.phone-landscape-layout body.dashboard-view-active .quick-data-body .item-grid .value,
-    html.phone-landscape-layout body.dashboard-view-active .quick-data-body .item-grid .num{
-      color:#f8fafc;
-    }
-    html.phone-landscape-layout body.dashboard-view-active .quick-data-body .item-grid .unit{
-      color:rgba(226,232,240,0.58);
+      display:none !important;
     }
     html.phone-landscape-layout #launcherOverlay{
       align-items:stretch !important;
@@ -5442,6 +5937,151 @@
       max-height:none;
       height:auto;
       border-radius:24px;
+    }
+    html.phone-landscape-layout #settingsOverlay{
+      z-index:95;
+      align-items:stretch !important;
+      justify-content:flex-end !important;
+      padding:0 0 0 env(safe-area-inset-left, 0px) !important;
+      background:rgba(2,6,23,0.62);
+      overflow:hidden;
+    }
+    html.phone-landscape-layout #settingsOverlay .settings-dialog{
+      width:min(620px, 58vw);
+      max-width:none;
+      height:100dvh;
+      max-height:none;
+      margin:0;
+      border-radius:0;
+      padding:10px 12px max(10px, env(safe-area-inset-bottom, 8px));
+      background:linear-gradient(180deg, rgba(8,13,21,0.96), rgba(7,12,20,0.98));
+      border:1px solid rgba(148,163,184,0.24);
+      box-shadow:0 24px 48px rgba(2,6,23,0.45);
+      color:#e2e8f0;
+    }
+    html.phone-landscape-layout #settingsOverlay .settings-dialog::before{
+      background:linear-gradient(145deg,rgba(148,163,184,0.18),rgba(30,41,59,0.2));
+      opacity:1;
+    }
+    html.phone-landscape-layout #settingsOverlay .settings-header{
+      margin-bottom:8px;
+      padding:0 2px;
+    }
+    html.phone-landscape-layout #settingsOverlay .settings-title{
+      color:rgba(226,232,240,0.78);
+      letter-spacing:.16em;
+      font-size:11px;
+    }
+    html.phone-landscape-layout #settingsOverlay .settings-close-btn{
+      color:#cbd5e1;
+    }
+    html.phone-landscape-layout #settingsOverlay .settings-body{
+      flex-direction:column;
+      gap:10px;
+      margin-top:0;
+    }
+    html.phone-landscape-layout #settingsOverlay .settings-nav{
+      width:100%;
+      border-right:none;
+      border-bottom:1px solid rgba(148,163,184,0.24);
+      padding:0 0 6px;
+      display:flex;
+      flex-direction:row;
+      gap:4px;
+      overflow-x:auto;
+      overflow-y:hidden;
+      scrollbar-width:none;
+    }
+    html.phone-landscape-layout #settingsOverlay .settings-nav::-webkit-scrollbar{
+      display:none;
+    }
+    html.phone-landscape-layout #settingsOverlay .settings-nav-title,
+    html.phone-landscape-layout #settingsOverlay .settings-nav-badge{
+      display:none;
+    }
+    html.phone-landscape-layout #settingsOverlay .settings-nav-btn{
+      flex:0 0 auto;
+      min-width:74px;
+      min-height:38px;
+      padding:6px 8px 10px;
+      border:none;
+      border-radius:0;
+      justify-content:center;
+      text-align:center;
+      color:rgba(226,232,240,0.72);
+      background:transparent;
+      line-height:1.1;
+    }
+    html.phone-landscape-layout #settingsOverlay .settings-nav-btn:hover{
+      background:transparent;
+      color:#f8fafc;
+    }
+    html.phone-landscape-layout #settingsOverlay .settings-nav-btn.active{
+      background:transparent;
+      color:#f8fafc;
+      border-color:transparent;
+    }
+    html.phone-landscape-layout #settingsOverlay .settings-nav-btn::after{
+      content:"";
+      position:absolute;
+      left:8px;
+      right:8px;
+      bottom:0;
+      height:2px;
+      border-radius:999px;
+      background:transparent;
+    }
+    html.phone-landscape-layout #settingsOverlay .settings-nav-btn.active::after{
+      background:#f8fafc;
+    }
+    html.phone-landscape-layout #settingsOverlay .settings-panels{
+      padding-left:0;
+      padding-right:2px;
+      overflow-y:auto;
+    }
+    html.phone-landscape-layout #settingsOverlay .settings-group{
+      border-top:none;
+      padding:0 2px 8px;
+    }
+    html.phone-landscape-layout #settingsOverlay .settings-group-title{
+      color:rgba(148,163,184,0.72);
+      letter-spacing:.12em;
+      margin:0 0 4px;
+      font-size:10px;
+    }
+    html.phone-landscape-layout #settingsOverlay .settings-row{
+      padding:9px 0;
+      border-bottom:1px solid rgba(148,163,184,0.18);
+      align-items:center;
+    }
+    html.phone-landscape-layout #settingsOverlay .settings-row:last-child{
+      border-bottom:none;
+    }
+    html.phone-landscape-layout #settingsOverlay .settings-label{
+      color:#f8fafc;
+      font-size:13px;
+      font-weight:600;
+    }
+    html.phone-landscape-layout #settingsOverlay .settings-desc{
+      color:#cbd5e1;
+    }
+    html.phone-landscape-layout #settingsOverlay .hint-mini{
+      color:#94a3b8;
+      font-size:10px;
+      line-height:1.35;
+    }
+    html.phone-landscape-layout #settingsOverlay .settings-select,
+    html.phone-landscape-layout #settingsOverlay .settings-number{
+      background:rgba(15,23,42,0.84);
+      border-color:rgba(148,163,184,0.4);
+      color:#f8fafc;
+    }
+    html.phone-landscape-layout #settingsOverlay .settings-btn,
+    html.phone-landscape-layout #settingsOverlay .settings-inline-btn{
+      background:rgba(15,23,42,0.84);
+      border-color:rgba(148,163,184,0.4);
+      color:#f8fafc;
+      box-shadow:none;
     }
 
     @media(max-height:900px){
@@ -5787,6 +6427,11 @@
       border-color:rgba(100,116,139,0.5);
       background:rgba(30,41,59,0.78);
       color:#cbd5e1;
+    }
+    html[data-theme="dark"] .countdown-inline-status-pill.status-ready{
+      background:#16a34a;
+      color:#f0fdf4;
+      border-color:#4ade80;
     }
     html[data-theme="dark"] .card-title,
     html[data-theme="dark"] .section-label,
@@ -6560,7 +7205,7 @@
       color:#475569;
       white-space:nowrap;
     }
-    .countdown-inline-status-pill.status-ready{background:rgba(22,163,74,0.08);color:#15803d;border-color:rgba(22,163,74,0.34)}
+    .countdown-inline-status-pill.status-ready{background:#16a34a;color:#f0fdf4;border-color:#4ade80}
     .countdown-inline-status-pill.status-count{background:rgba(245,158,11,0.10);color:#b45309;border-color:rgba(245,158,11,0.34)}
     .countdown-inline-status-pill.status-seq{background:rgba(37,99,235,0.10);color:#1d4ed8;border-color:rgba(37,99,235,0.34)}
     .countdown-inline-status-pill.status-fire{background:rgba(239,68,68,0.10);color:#b91c1c;border-color:rgba(239,68,68,0.34)}
@@ -6632,6 +7277,211 @@
         --page-pad-bottom:calc(108px + env(safe-area-inset-bottom, 0px));
       }
       .page-wrap{height:auto;min-height:auto;overflow:visible}
+    }
+    @media(max-width:900px), (max-height:720px){
+      .confirm-overlay,
+      .settings-overlay,
+      .ws-alert-overlay,
+      .disconnect-overlay{
+        align-items:flex-start;
+        justify-content:center;
+        padding:max(10px, env(safe-area-inset-top, 10px)) 10px max(10px, env(safe-area-inset-bottom, 10px));
+        overflow-y:auto;
+      }
+      .warning-fullscreen{
+        align-items:stretch !important;
+        justify-content:stretch !important;
+        padding:0 !important;
+        overflow:hidden !important;
+      }
+      .settings-dialog,
+      .mission-dialog,
+      .loadcell-dialog,
+      .inspection-dialog{
+        width:min(100%, 440px);
+        max-width:calc(100vw - 28px);
+        min-height:0;
+        height:auto;
+        max-height:calc(100dvh - max(20px, env(safe-area-inset-top, 10px) + env(safe-area-inset-bottom, 10px)));
+      }
+      .launcher-dialog{
+        width:min(100%, 340px);
+        max-width:calc(100vw - 28px);
+        min-height:0;
+        height:auto;
+        max-height:calc(100dvh - max(20px, env(safe-area-inset-top, 10px) + env(safe-area-inset-bottom, 10px)));
+      }
+      .confirm-dialog{
+        width:min(100%, 360px);
+        max-width:calc(100vw - 28px);
+        min-height:0;
+        height:auto;
+        max-height:calc(100dvh - max(20px, env(safe-area-inset-top, 10px) + env(safe-area-inset-bottom, 10px)));
+      }
+      .ws-alert-dialog{
+        width:min(100%, 390px);
+        max-width:calc(100vw - 28px);
+        min-height:0;
+        height:auto;
+        max-height:calc(100dvh - max(20px, env(safe-area-inset-top, 10px) + env(safe-area-inset-bottom, 10px)));
+      }
+      .disconnect-dialog{
+        width:min(100%, 340px);
+        max-width:calc(100vw - 28px);
+        min-height:0;
+        height:auto;
+        max-height:calc(100dvh - max(20px, env(safe-area-inset-top, 10px) + env(safe-area-inset-bottom, 10px)));
+      }
+      .confirm-dialog,
+      .ws-alert-dialog,
+      .disconnect-dialog{
+        overflow-y:auto;
+      }
+      #settingsOverlay .settings-dialog{
+        padding:12px 14px 12px;
+      }
+      #settingsOverlay .settings-body{
+        min-height:0;
+        gap:10px;
+      }
+      #settingsOverlay .settings-panels{
+        padding-right:4px;
+      }
+
+      #missionOverlay .mission-dialog{
+        padding:14px 14px 12px;
+        border-radius:16px;
+        overflow:hidden;
+      }
+      #missionOverlay #missionPresetBlock,
+      #missionOverlay #missionFields,
+      #missionOverlay #missionReview{
+        min-height:0;
+        overflow-y:auto;
+      }
+      #missionOverlay #missionPresetWrap{
+        transform:none;
+      }
+      #missionOverlay .mission-preset-viewport{
+        flex:1 1 auto;
+        max-width:100%;
+        padding:14px 0 10px;
+      }
+      #missionOverlay .mission-footer{
+        margin-top:10px;
+        padding-top:10px;
+        flex-wrap:wrap;
+      }
+      #missionOverlay .mission-review-grid{
+        margin-top:8px;
+        margin-bottom:0;
+      }
+
+      #inspectionOverlay .inspection-dialog{
+        padding:14px 14px 12px;
+        border-radius:16px;
+        overflow:hidden;
+      }
+      #inspectionOverlay .inspection-body{
+        min-height:0;
+        overflow-y:auto;
+        justify-content:flex-start;
+        padding:8px 0 6px;
+      }
+      #inspectionOverlay .inspection-footer{
+        margin-top:8px;
+        padding-top:8px;
+        flex-wrap:wrap;
+        justify-content:center;
+      }
+
+      #loadcellOverlay .loadcell-dialog{
+        padding:14px 14px 12px;
+        border-radius:16px;
+        overflow:hidden;
+      }
+      #loadcellOverlay .loadcell-body{
+        min-height:0;
+        overflow-y:auto;
+        justify-content:flex-start;
+        padding-bottom:8px;
+      }
+      #loadcellOverlay .loadcell-main{
+        justify-content:flex-start;
+      }
+      #loadcellOverlay .loadcell-actions{
+        position:static;
+        padding:10px 0 0;
+        border-top:1px solid rgba(226,232,240,0.7);
+        flex-wrap:wrap;
+      }
+      #loadcellOverlay .loadcell-warning{
+        position:relative;
+        inset:auto;
+        min-height:0;
+        height:auto;
+        padding-bottom:0;
+      }
+      #loadcellOverlay .loadcell-warning::before{
+        top:-8px;
+        height:140px;
+      }
+    }
+    @media(max-width:600px){
+      #settingsOverlay .settings-body{
+        flex-direction:column;
+      }
+      #settingsOverlay .settings-nav{
+        width:100%;
+        border-right:none;
+        border-bottom:1px solid rgba(209,213,219,0.9);
+        padding-right:0;
+        padding-bottom:8px;
+        margin-bottom:2px;
+        max-height:36vh;
+        overflow:auto;
+      }
+      #settingsOverlay .settings-nav-title{
+        margin-bottom:2px;
+      }
+      #settingsOverlay .settings-nav-btn{
+        min-height:34px;
+      }
+      #settingsOverlay .settings-panels{
+        padding-left:0;
+      }
+      #missionOverlay .mission-header{
+        padding-bottom:8px;
+        margin-bottom:8px;
+      }
+      #missionOverlay .mission-sub{
+        margin-top:4px;
+      }
+      #missionOverlay .mission-preset-row{
+        gap:4px;
+      }
+      #missionOverlay .mission-scroll-btn{
+        width:34px;
+        height:34px;
+      }
+      #missionOverlay .mission-preset-grid{
+        --preset-card:136px;
+        --preset-gap:8px;
+      }
+      #missionOverlay .mission-preset-photo{
+        min-height:118px;
+      }
+      #missionOverlay .mission-preset-btn.has-spec .mission-preset-photo,
+      #missionOverlay .mission-preset-btn.no-spec .mission-preset-photo{
+        min-height:118px;
+      }
+      #missionOverlay .mission-review-grid{
+        grid-template-columns:1fr;
+        max-width:none;
+      }
+      #loadcellOverlay .loadcell-value{
+        font-size:24px;
+      }
     }
 
     .confirm-overlay,
@@ -6717,12 +7567,8 @@
         </button>
         <button id="launcherOpenBtn" class="side-nav-action js-launcher-open launcher-desktop-only" aria-label="Launcher">
           <svg viewBox="0 0 24 24">
-            <path d="M5 19h14"></path>
-            <path d="M9 19v-7"></path>
-            <path d="M9 15h4"></path>
-            <path d="M13 15 17 9"></path>
-            <path d="M15 9h3"></path>
-            <path d="M16.5 9v3"></path>
+            <path d="M12 5 18 11H6z" style="fill:currentColor;stroke:none"></path>
+            <path d="M12 19 6 13h12z" style="fill:currentColor;stroke:none"></path>
           </svg>
         </button>
       </div>
@@ -6737,60 +7583,89 @@
         <div class="mobile-controls-head">
           <div class="mobile-controls-head-title">CONTROL PANEL</div>
         </div>
-        <div class="mobile-controls-toolbar mobile-controls-toolbar-top">
-          <button type="button" class="toolbar-btn mobile-toolbar-btn" data-mobile-control="mission">미션 지정</button>
-          <button type="button" class="toolbar-btn mobile-toolbar-btn" data-mobile-control="export">보고서 내보내기</button>
-        </div>
         <div class="mobile-controls-slot">
-          <button type="button" class="control-tile mobile-control mobile-control-primary" data-mobile-control="sequence">
-            <div class="mobile-control-main">
-              <div class="mobile-control-text">
-              <div id="mobileSequenceLabel" class="control-tile-label" data-i18n="sequenceStartBtn">SEQUENCE START</div>
-                <div class="control-tile-sub">시퀀스 작동 시작/종료</div>
-              </div>
-              <span class="mobile-control-status" data-mobile-status="sequence">준비</span>
-            </div>
+          <button type="button" class="control-tile mobile-control mobile-quick-btn" data-mobile-control="mission">
+            <span class="mobile-quick-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><rect x="6" y="4.5" width="12" height="15" rx="2"/><path d="M9 8.5h6"/><path d="M9 12h6"/><path d="M9 15.5h4"/></svg>
+            </span>
+            <span class="mobile-quick-label">미션</span>
           </button>
-          <button type="button" class="control-tile mobile-control" data-mobile-control="force">
-            <div>
-              <div class="control-tile-label" data-i18n="forceIgniteBtn">강제 점화</div>
-              <div class="control-tile-sub" data-i18n="forceIgniteSub">고위험 동작</div>
-            </div>
-            <div class="control-tile-actions">
-              <span class="pill pill-gray" data-mobile-pill="force" data-i18n="forceIgniteDanger">위험</span>
-            </div>
+          <button type="button" class="control-tile mobile-control mobile-quick-btn" data-mobile-control="launcher">
+            <span class="mobile-quick-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M12 5.2 17.6 10.8H6.4z" style="fill:rgba(241,245,249,0.95);stroke:none"/><path d="M12 18.8 6.4 13.2h11.2z" style="fill:rgba(241,245,249,0.95);stroke:none"/></svg>
+            </span>
+            <span class="mobile-quick-label" data-i18n="controlLauncherLabel">발사대</span>
           </button>
-          <button type="button" class="control-tile mobile-control" data-mobile-control="serial">
-            <div>
-              <div class="control-tile-label" data-i18n="controlSerialLabel">WebSerial</div>
-              <div class="control-tile-sub" data-i18n="controlSerialSub">시리얼 연결</div>
-            </div>
-            <div class="control-tile-actions">
-              <span class="pill pill-gray" data-mobile-pill="serial">OFF</span>
-            </div>
+          <button type="button" class="control-tile mobile-control mobile-quick-btn" data-mobile-control="export">
+            <span class="mobile-quick-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M12 5v9"/><path d="m8.5 11 3.5 3.5 3.5-3.5"/><path d="M6.5 18.5h11"/></svg>
+            </span>
+            <span class="mobile-quick-label">보고서</span>
           </button>
-          <button type="button" class="control-tile mobile-control" data-mobile-control="inspection">
-            <div>
-              <div class="control-tile-label" data-i18n="controlInspectionLabel">설비 점검</div>
-            </div>
-            <div class="control-tile-actions">
-              <span class="pill pill-gray" data-mobile-pill="inspection">대기</span>
-            </div>
+          <button type="button" class="control-tile mobile-control mobile-control-primary mobile-quick-btn" data-mobile-control="sequence">
+            <span class="mobile-quick-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M10 8.8 15.8 12 10 15.2z"/></svg>
+            </span>
+            <span id="mobileSequenceLabel" class="mobile-quick-label" data-i18n="sequenceStartBtn">SEQUENCE</span>
+            <span class="mobile-quick-state" data-mobile-status="sequence">준비</span>
           </button>
-          <button type="button" class="control-tile mobile-control" data-mobile-control="safety">
-            <div>
-              <div class="control-tile-label" data-i18n="controlSafetyLabel">안전 모드</div>
-              <div class="control-tile-sub" data-i18n="controlSafetySub">Safety Mode</div>
-            </div>
-            <div class="control-tile-actions">
-              <span class="pill pill-gray" data-mobile-pill="safety">OFF</span>
-            </div>
+          <button type="button" class="control-tile mobile-control mobile-quick-btn" data-mobile-control="force">
+            <span class="mobile-quick-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M12 3c1.3 2 2.1 3.2 3.5 4.5 1.9 1.8 3.1 3.8 3.1 6.2a6.6 6.6 0 1 1-13.2 0c0-3 1.6-5.2 3.8-7.1C10 5.8 10.8 5 12 3z"/><path d="M12.1 10.1c1.8 1.4 2.9 2.8 2.9 4.4a3 3 0 1 1-6 0c0-1.7 1.1-3.1 3.1-4.4z"/></svg>
+            </span>
+            <span class="mobile-quick-label" data-i18n="forceIgniteBtn">강제 점화</span>
+            <span class="mobile-quick-state pill pill-gray" data-mobile-pill="force" data-i18n="forceIgniteDanger">위험</span>
           </button>
+          <button type="button" class="control-tile mobile-control mobile-quick-btn" data-mobile-control="serial">
+            <span class="mobile-quick-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M12 4v12"/><path d="m9.5 6.5 2.5-2.5 2.5 2.5"/><path d="M12 9.5H8.8"/><circle cx="7.2" cy="9.5" r="1.2"/><path d="M12 13.5h3.1"/><rect x="15.1" y="12.2" width="2.8" height="2.6" rx=".5"/><path d="M12 16.2v3.3"/><path d="M10.2 19.5h3.6"/></svg>
+            </span>
+            <span class="mobile-quick-label" data-i18n="controlSerialLabel">WebSerial</span>
+            <span class="mobile-quick-state pill pill-gray" data-mobile-pill="serial">OFF</span>
+          </button>
+          <button type="button" class="control-tile mobile-control mobile-quick-btn" data-mobile-control="inspection">
+            <span class="mobile-quick-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="4.5"/><path d="m14 14 4.5 4.5"/><path d="M10.5 8.8v3.4"/><path d="M8.8 10.5h3.4"/></svg>
+            </span>
+            <span class="mobile-quick-label" data-i18n="controlInspectionLabel">설비 점검</span>
+            <span class="mobile-quick-state pill pill-gray" data-mobile-pill="inspection">대기</span>
+          </button>
+          <button type="button" class="control-tile mobile-control mobile-quick-btn" data-mobile-control="safety">
+            <span class="mobile-quick-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M12 4 5.7 7v5c0 3.8 2.8 6.5 6.3 7.6 3.5-1.1 6.3-3.8 6.3-7.6V7z"/><path d="m9.2 12.1 1.9 1.9 3.6-3.6"/></svg>
+            </span>
+            <span class="mobile-quick-label" data-i18n="controlSafetyLabel">안전 모드</span>
+            <span class="mobile-quick-state pill pill-gray" data-mobile-pill="safety">OFF</span>
+          </button>
+        </div>
+        <div id="mobileLauncherPanel" class="launcher-panel mobile-launcher-panel" aria-hidden="true">
+          <div class="mobile-launcher-head">
+            <div class="mobile-launcher-title">LAUNCHER CONTROL</div>
+            <button id="mobileLauncherBackBtn" class="mobile-launcher-back" type="button" aria-label="Back">×</button>
+          </div>
+          <div class="launcher-panel-note" data-i18n-html="launcherNote">
+            발사대 모터/액추에이터와 연결된 후 실제 높이 제어가 적용됩니다.<br>
+            현재는 UI 수준의 제어 모킹입니다.
+          </div>
+          <div class="launcher-divider"></div>
+          <div class="launcher-controls">
+            <div class="launcher-arrow-row">
+              <button id="launcherUpMobileBtn" class="launcher-arrow-btn" type="button">▲</button>
+              <button id="launcherDownMobileBtn" class="launcher-arrow-btn" type="button">▼</button>
+            </div>
+            <div class="launcher-angle">
+              <div id="launcherPitchAngleMobile" class="launcher-angle-value">--°</div>
+              <div class="launcher-angle-label">PITCH</div>
+            </div>
+            <div class="launcher-auto-row">
+              <button id="launcherAutoMobileBtn" class="launcher-auto-btn launcher-text-btn" type="button" data-i18n="launcherAutoBtn">자동 기립</button>
+            </div>
+          </div>
         </div>
       </div>
       <div class="mobile-abort-wrapper">
         <div id="mobileAbortPanel" class="mobile-abort-panel">
-          <div class="mobile-abort-help">시퀀스를 중단하시려면<br>아래 버튼을 클릭하세요</div>
+          <div class="mobile-abort-help">중단하려면 버튼을 누르세요</div>
           <button id="mobileAbortBtn" class="mobile-abort-btn" type="button" aria-label="Abort sequence">ABORT</button>
         </div>
       </div>
@@ -6810,18 +7685,18 @@
         <div class="side-nav-divider side-nav-divider-mobile" aria-hidden="true"></div>
         <button class="side-nav-btn js-controls-open" aria-label="Control panel">
           <svg viewBox="0 0 24 24">
-            <rect x="4" y="5" width="16" height="6" rx="2"/>
-            <rect x="4" y="13" width="10" height="6" rx="2"/>
+            <path d="M5 7h14"></path>
+            <path d="M5 12h14"></path>
+            <path d="M5 17h14"></path>
+            <circle cx="9" cy="7" r="1.5"></circle>
+            <circle cx="15" cy="12" r="1.5"></circle>
+            <circle cx="11" cy="17" r="1.5"></circle>
           </svg>
         </button>
         <button class="side-nav-btn js-launcher-open" aria-label="Launcher">
           <svg viewBox="0 0 24 24">
-            <path d="M5 19h14"></path>
-            <path d="M9 19v-7"></path>
-            <path d="M9 15h4"></path>
-            <path d="M13 15 17 9"></path>
-            <path d="M15 9h3"></path>
-            <path d="M16.5 9v3"></path>
+            <path d="M12 5 18 11H6z" style="fill:currentColor;stroke:none"></path>
+            <path d="M12 19 6 13h12z" style="fill:currentColor;stroke:none"></path>
           </svg>
         </button>
         <button class="side-nav-btn js-sidebar-settings" aria-label="Settings">
@@ -6954,6 +7829,25 @@
                   </div>
                 </div>
                 <div id="statusMapHudStatusBar" class="status-bar gyro3d-expanded-statusbar is-offline" aria-label="Expanded map status">
+                  <div class="status-compact-hud" aria-hidden="false">
+                    <span id="statusMapHudClockCompact" class="status-compact-clock">
+                      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.8v4.5l3 1.8"/><path d="M4.8 6.2 3.2 4.6"/><path d="M19.2 6.2l1.6-1.6"/></svg>
+                    </span>
+                    <span class="status-compact-link">
+                      <svg viewBox="0 0 24 24"><path d="M4 18h2"/><path d="M8 14h2v4H8z"/><path d="M12 10h2v8h-2z"/><path d="M16 6h2v12h-2z"/></svg>
+                    </span>
+                    <span id="statusMapHudConnCompact" class="status-compact-value">--Hz</span>
+                    <span class="status-compact-battery">
+                      <span class="status-compact-battery-icon">
+                        <span id="statusMapHudBatteryCompact" class="status-compact-battery-level">--</span>
+                      </span>
+                    </span>
+                    <span class="status-compact-sep" aria-hidden="true"></span>
+                    <span id="statusMapHudTimeCompact" class="status-compact-time">--:--</span>
+                    <button class="status-compact-settings js-sidebar-settings" type="button" aria-label="Settings">
+                      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06A1.65 1.65 0 0 0 15 19.4a1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09A1.65 1.65 0 0 0 15 4.6a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09A1.65 1.65 0 0 0 19.4 15z"/></svg>
+                    </button>
+                  </div>
                   <div class="status-conn-block">
                     <span id="statusMapHudConn" class="status-conn-text">DISCONNECTED · -- Hz</span>
                   </div>
@@ -6991,12 +7885,31 @@
                         <span id="gyro3dHudStatusPill" class="countdown-inline-status-pill gyro3d-expanded-hud-pill status-ready">READY</span>
                       </div>
                     </div>
+                </div>
+                <div id="gyro3dHudStatusBar" class="status-bar gyro3d-expanded-statusbar is-offline" aria-label="Expanded device status">
+                  <div class="status-compact-hud" aria-hidden="false">
+                    <span id="gyro3dHudClockCompact" class="status-compact-clock">
+                      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.8v4.5l3 1.8"/><path d="M4.8 6.2 3.2 4.6"/><path d="M19.2 6.2l1.6-1.6"/></svg>
+                    </span>
+                    <span class="status-compact-link">
+                      <svg viewBox="0 0 24 24"><path d="M4 18h2"/><path d="M8 14h2v4H8z"/><path d="M12 10h2v8h-2z"/><path d="M16 6h2v12h-2z"/></svg>
+                    </span>
+                    <span id="gyro3dHudConnCompact" class="status-compact-value">--Hz</span>
+                    <span class="status-compact-battery">
+                      <span class="status-compact-battery-icon">
+                        <span id="gyro3dHudBatteryCompact" class="status-compact-battery-level">--</span>
+                      </span>
+                    </span>
+                    <span class="status-compact-sep" aria-hidden="true"></span>
+                    <span id="gyro3dHudTimeCompact" class="status-compact-time">--:--</span>
+                    <button class="status-compact-settings js-sidebar-settings" type="button" aria-label="Settings">
+                      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06A1.65 1.65 0 0 0 15 19.4a1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09A1.65 1.65 0 0 0 15 4.6a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09A1.65 1.65 0 0 0 19.4 15z"/></svg>
+                    </button>
                   </div>
-                  <div id="gyro3dHudStatusBar" class="status-bar gyro3d-expanded-statusbar is-offline" aria-label="Expanded device status">
-                    <div class="status-conn-block">
-                      <span id="gyro3dHudConn" class="status-conn-text">DISCONNECTED · -- Hz</span>
-                    </div>
-                    <div id="gyro3dHudBatteryWrap" class="status-battery" aria-label="Battery">
+                  <div class="status-conn-block">
+                    <span id="gyro3dHudConn" class="status-conn-text">DISCONNECTED · -- Hz</span>
+                  </div>
+                  <div id="gyro3dHudBatteryWrap" class="status-battery" aria-label="Battery">
                       <span class="battery-icon" aria-hidden="true">
                         <span id="gyro3dHudBatteryFill" class="battery-fill"></span>
                       </span>
@@ -7531,6 +8444,26 @@
                 </div>
                 <div class="settings-row">
                   <div>
+                    <div class="settings-label" data-i18n="settingsMobileHudPreviewLabel">모바일 HUD 미리보기</div>
+                    <div class="hint-mini" data-i18n="settingsMobileHudPreviewHint">데스크톱이나 태블릿에서도 휴대폰 가로 인터페이스를 강제로 표시합니다.</div>
+                  </div>
+                  <label class="switch">
+                    <input type="checkbox" id="mobileHudPreviewToggle">
+                    <span class="slider"></span>
+                  </label>
+                </div>
+                <div class="settings-row">
+                  <div>
+                    <div class="settings-label" data-i18n="settingsMobileFullscreenLabel">모바일 전체화면</div>
+                    <div class="hint-mini" data-i18n="settingsMobileFullscreenHint">지원 브라우저에서 휴대폰 가로 HUD를 전체화면으로 표시합니다.</div>
+                  </div>
+                  <label class="switch">
+                    <input type="checkbox" id="mobileFullscreenToggle">
+                    <span class="slider"></span>
+                  </label>
+                </div>
+                <div class="settings-row">
+                  <div>
                     <div class="settings-label" data-i18n="settingsSimLabel">가상 기기 (개발자 모드)</div>
                     <div class="hint-mini" data-i18n="settingsSimHint">가상 센서 값을 생성해 모든 기능을 테스트합니다.</div>
                   </div>
@@ -8016,9 +8949,8 @@
       <div class="confirm-dialog">
         <div class="confirm-icon is-launcher" aria-hidden="true">
           <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M12 4v12"/>
-            <path d="M7 9l5-5 5 5"/>
-            <path d="M5 19h14"/>
+            <path d="M12 5 18 11H6z" style="fill:currentColor;stroke:none"/>
+            <path d="M12 19 6 13h12z" style="fill:currentColor;stroke:none"/>
           </svg>
         </div>
         <div class="confirm-title" data-i18n="launcherAutoConfirmTitle">자동 기립을 실행할까요?</div>
