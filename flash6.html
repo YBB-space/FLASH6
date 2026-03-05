@@ -5134,6 +5134,9 @@
       color:#f8fafc;
       border-color:rgba(255,255,255,0.14);
     }
+    html.phone-landscape-layout.settings-open .side-nav-mobile .js-controls-open{
+      display:none;
+    }
     html.phone-landscape-layout.mobile-controls-active .side-nav-mobile .js-controls-open{
       display:none;
     }
@@ -5497,12 +5500,12 @@
     html.phone-landscape-layout body.dashboard-view-active{
       --hud-inset-left:calc(16px + env(safe-area-inset-left, 0px));
       --hud-inset-bottom:calc(16px + env(safe-area-inset-bottom, 0px));
-      --hud-inset-width:clamp(176px, 24.5vw, 232px);
-      --hud-inset-height:clamp(96px, 22vh, 122px);
+      --hud-inset-width:clamp(164px, 23vw, 214px);
+      --hud-inset-height:clamp(104px, 23.5vh, 132px);
       --hud-inset-radius:4px;
       --hud-inset-border:1px solid rgba(255,255,255,0.18);
       --hud-inset-shadow:0 18px 34px rgba(2,6,23,0.34);
-      --hud-inset-aspect:2.35 / 1;
+      --hud-inset-aspect:2 / 1;
       overflow:hidden;
       background:#08101d;
     }
@@ -5950,9 +5953,7 @@
       pointer-events:none;
     }
     html.phone-landscape-layout.status-map-expanded body.dashboard-view-active #statusMapExpandBtn{
-      position:absolute;
-      top:0;
-      right:0;
+      display:none !important;
     }
     html.phone-landscape-layout.status-map-expanded body.dashboard-view-active #statusMapRecenterBtn{
       position:absolute;
@@ -6040,7 +6041,7 @@
       font-size:11px;
     }
     html.phone-landscape-layout #settingsOverlay .settings-close-btn{
-      color:#cbd5e1;
+      display:none !important;
     }
     html.phone-landscape-layout #settingsOverlay .settings-body{
       flex-direction:column;
