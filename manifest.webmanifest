@@ -1,0 +1,31 @@
+{
+  "id": "./",
+  "name": "FLASH6",
+  "short_name": "FLASH6",
+  "description": "FLASH6 control dashboard",
+  "lang": "ko-KR",
+  "start_url": "./flash6.html",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": [
+    "fullscreen",
+    "standalone"
+  ],
+  "orientation": "landscape",
+  "background_color": "#0b1220",
+  "theme_color": "#0b1220",
+  "icons": [
+    {
+      "src": "img/Flash_logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "img/Flash_logo_plain.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
