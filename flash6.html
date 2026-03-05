@@ -972,6 +972,9 @@
       font-weight:700;
       line-height:1;
     }
+    .status-gyro-btn--map-close{
+      display:none;
+    }
     .status-map-expanded-hud{
       position:absolute;
       top:calc(12px + env(safe-area-inset-top, 0px));
@@ -5140,6 +5143,12 @@
     html.phone-landscape-layout.mobile-controls-active .side-nav-mobile .js-controls-open{
       display:none;
     }
+    html.settings-open .js-controls-open{
+      display:none !important;
+      pointer-events:none !important;
+      opacity:0 !important;
+      visibility:hidden !important;
+    }
     html.phone-landscape-layout .mobile-abort-wrapper{
       position:static !important;
       top:auto !important;
@@ -5977,6 +5986,9 @@
     }
     html.phone-landscape-layout.status-map-expanded body.dashboard-view-active #gyro3dViewport .status-gyro-actions{
       display:flex;
+    }
+    html.phone-landscape-layout.status-map-expanded body.dashboard-view-active #gyro3dViewport .status-gyro-btn--map-close{
+      display:inline-flex;
     }
     html.phone-landscape-layout.status-map-expanded body.dashboard-view-active #gyro3dViewport.is-expanded .status-gyro-actions{
       display:none;
@@ -7943,6 +7955,7 @@
             <div id="gyro3dViewport" class="status-gyro-canvas status-gyro-canvas--3d" role="button" tabindex="0" aria-label="Open 3D attitude view">
               <canvas id="gyroGlPreview" class="gyro3d-canvas" width="180" height="180" aria-label="gyro preview"></canvas>
               <div class="status-gyro-actions">
+                <button class="status-gyro-btn status-gyro-btn--map-close" id="gyro3dMapCloseBtn" type="button" aria-label="Close map">↙</button>
                 <button class="status-gyro-btn status-gyro-btn--expand" id="gyro3dExpandBtn" type="button" aria-expanded="false">⛶</button>
               </div>
               <div id="gyro3dExpandedHud" class="gyro3d-expanded-hud" aria-hidden="true">
