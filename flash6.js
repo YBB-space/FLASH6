@@ -959,8 +959,15 @@
     }
     function syncGyroExpandButton(){
       if(!el.gyro3dExpandBtn) return;
+      if(isPhoneLandscapeLayout() && isStatusMapViewportExpanded()){
+        el.gyro3dExpandBtn.textContent = "↙";
+        el.gyro3dExpandBtn.setAttribute("aria-label", "Close map");
+        el.gyro3dExpandBtn.setAttribute("aria-expanded", "true");
+        return;
+      }
       const expanded = isGyroViewportExpanded();
       el.gyro3dExpandBtn.textContent = expanded ? "↙ Close" : "⛶";
+      el.gyro3dExpandBtn.removeAttribute("aria-label");
       el.gyro3dExpandBtn.setAttribute("aria-expanded", expanded ? "true" : "false");
     }
 
@@ -1089,6 +1096,11 @@
         el.gyro3dExpandBtn.addEventListener("click", (ev)=>{
           ev.preventDefault();
           ev.stopPropagation();
+          if(isPhoneLandscapeLayout() && isStatusMapViewportExpanded()){
+            setStatusMapViewportExpanded(false);
+            redraw();
+            return;
+          }
           if(isGyroViewportExpanded()){
             setGyroViewportExpanded(false);
           }else{
@@ -4852,6 +4864,7 @@
         }
       }
       syncStatusMapExpandButton();
+      syncGyroExpandButton();
       refreshStatusMapSize();
       scheduleStatusMapRefresh();
       if(isPhoneLandscapeLayout()){
@@ -9651,9 +9664,11 @@
     // =====================
     function showSettings(){
       hideMobileControlsPanel();
+      document.documentElement.classList.add("settings-open");
       setOverlayVisible(el.settingsOverlay, true);
     }
     function hideSettings(){
+      document.documentElement.classList.remove("settings-open");
       setOverlayVisible(el.settingsOverlay, false);
     }
     function setMissionCloseLabel(isBack){
