@@ -10,8 +10,8 @@
   <meta name="apple-mobile-web-app-title" content="FLASH6">
   <title>FLASH6 - Intellignet platform</title>
   <link rel="icon" href="img/Flash_logo.svg" type="image/svg+xml" />
-  <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="apple-touch-icon" href="img/hanwool_logo.png" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="/img/hanwool_logo.png" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
   <!-- ✅ 이미지 프리로드(LOCKOUT/토스트/아이콘 늦게 뜨는거 방지) -->
@@ -942,6 +942,35 @@
     .status-map-btn--expand{
       font-weight:700;
       letter-spacing:.04em;
+    }
+    .status-gyro-actions{
+      position:absolute;
+      top:6px;
+      right:6px;
+      z-index:6;
+      display:none;
+      pointer-events:none;
+    }
+    .status-gyro-btn{
+      pointer-events:auto;
+      appearance:none;
+      -webkit-appearance:none;
+      border:1px solid rgba(255,255,255,0.4);
+      background:rgba(255,255,255,0.9);
+      width:30px;
+      height:30px;
+      padding:0;
+      border-radius:8px;
+      color:#0f172a;
+      box-shadow:0 8px 18px rgba(0,0,0,.2);
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      cursor:pointer;
+      font:inherit;
+      font-size:13px;
+      font-weight:700;
+      line-height:1;
     }
     .status-map-expanded-hud{
       position:absolute;
@@ -5912,6 +5941,31 @@
       bottom:auto;
       gap:6px;
     }
+    html.phone-landscape-layout.status-map-expanded body.dashboard-view-active .status-map-actions{
+      top:0;
+      right:0;
+      left:0;
+      bottom:0;
+      gap:0;
+      pointer-events:none;
+    }
+    html.phone-landscape-layout.status-map-expanded body.dashboard-view-active #statusMapExpandBtn{
+      position:absolute;
+      top:0;
+      right:0;
+    }
+    html.phone-landscape-layout.status-map-expanded body.dashboard-view-active #statusMapRecenterBtn{
+      position:absolute;
+      top:50%;
+      right:0;
+      transform:translateY(calc(-100% - 6px));
+    }
+    html.phone-landscape-layout.status-map-expanded body.dashboard-view-active #statusMapCopyBtn{
+      position:absolute;
+      top:50%;
+      right:0;
+      transform:translateY(6px);
+    }
     html.phone-landscape-layout body.dashboard-view-active .status-map-btn{
       width:30px;
       height:30px;
@@ -5919,6 +5973,12 @@
       justify-content:center;
       border-radius:8px !important;
       box-shadow:0 8px 18px rgba(2,6,23,0.24);
+    }
+    html.phone-landscape-layout.status-map-expanded body.dashboard-view-active #gyro3dViewport .status-gyro-actions{
+      display:flex;
+    }
+    html.phone-landscape-layout.status-map-expanded body.dashboard-view-active #gyro3dViewport.is-expanded .status-gyro-actions{
+      display:none;
     }
     html.phone-landscape-layout.status-map-expanded body.dashboard-view-active .status-expanded-metric-label{
       color:rgba(15,23,42,0.68);
@@ -7881,6 +7941,9 @@
           <div class="status-gyro status-flight-preview">
             <div id="gyro3dViewport" class="status-gyro-canvas status-gyro-canvas--3d" role="button" tabindex="0" aria-label="Open 3D attitude view">
               <canvas id="gyroGlPreview" class="gyro3d-canvas" width="180" height="180" aria-label="gyro preview"></canvas>
+              <div class="status-gyro-actions">
+                <button class="status-gyro-btn status-gyro-btn--expand" id="gyro3dExpandBtn" type="button" aria-expanded="false">⛶</button>
+              </div>
               <div id="gyro3dExpandedHud" class="gyro3d-expanded-hud" aria-hidden="true">
                 <div class="gyro3d-expanded-topbar">
                   <div class="gyro3d-expanded-left">
@@ -9106,7 +9169,7 @@
   <script>
     if ("serviceWorker" in navigator && window.isSecureContext) {
       window.addEventListener("load", () => {
-        navigator.serviceWorker.register("./sw.js").catch((err) => {
+        navigator.serviceWorker.register("/sw.js").catch((err) => {
           console.warn("Service worker registration failed:", err);
         });
       });
