@@ -957,6 +957,12 @@
       }
       el.gyro3dViewport.style.setProperty("--gyro3d-hud-left", hudLeft + "px");
     }
+    function syncGyroExpandButton(){
+      if(!el.gyro3dExpandBtn) return;
+      const expanded = isGyroViewportExpanded();
+      el.gyro3dExpandBtn.textContent = expanded ? "↙ Close" : "⛶";
+      el.gyro3dExpandBtn.setAttribute("aria-expanded", expanded ? "true" : "false");
+    }
 
     function setGyroViewportExpanded(on){
       if(!el.gyro3dViewport) return;
@@ -991,6 +997,7 @@
         gyroCameraState.drag = null;
         setGyroViewportDragActive(false);
       }
+      syncGyroExpandButton();
       resizeGyroGl();
     }
 
@@ -1078,6 +1085,18 @@
         if(!gyroGl) return;
         renderGyroGl(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
       };
+      if(el.gyro3dExpandBtn){
+        el.gyro3dExpandBtn.addEventListener("click", (ev)=>{
+          ev.preventDefault();
+          ev.stopPropagation();
+          if(isGyroViewportExpanded()){
+            setGyroViewportExpanded(false);
+          }else{
+            setGyroViewportExpanded(true);
+          }
+          redraw();
+        });
+      }
       const canControl = ()=>{
         return shouldUseGyro3dPreview() && (isGyroViewportExpanded() || isPhoneLandscapeLayout());
       };
@@ -11076,6 +11095,7 @@
       el.countdownSave = document.getElementById("countdownSave");
       el.opModeSelect = document.getElementById("opModeSelect");
       el.gyro3dViewport = document.getElementById("gyro3dViewport");
+      el.gyro3dExpandBtn = document.getElementById("gyro3dExpandBtn");
       el.gyroGlPreview = document.getElementById("gyroGlPreview");
       el.navBallPreview = document.getElementById("navBallPreview");
       el.gyroPreviewSelect = document.getElementById("gyroPreviewSelect");
