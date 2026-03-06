@@ -2745,6 +2745,50 @@
       min-height:0;
       animation:replayPanelEnter .24s ease;
     }
+    .panel-action-note{
+      font-size:11px;
+      color:#94a3b8;
+      line-height:1.45;
+      margin:2px 0 6px;
+    }
+    .panel-action-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+      width:100%;
+    }
+    .panel-action-btn{
+      border:1px solid rgba(148,163,184,0.34);
+      background:linear-gradient(180deg, rgba(31,41,55,0.52), rgba(15,23,42,0.42));
+      color:#e2e8f0;
+      border-radius:12px;
+      font-size:13px;
+      font-weight:700;
+      letter-spacing:.01em;
+      min-height:46px;
+      padding:10px 12px;
+      cursor:pointer;
+      transition:transform .14s ease, border-color .14s ease, background .14s ease;
+    }
+    .panel-action-btn:hover{
+      border-color:rgba(96,165,250,0.62);
+      background:linear-gradient(180deg, rgba(37,99,235,0.28), rgba(15,23,42,0.52));
+      transform:translateY(-1px);
+    }
+    .panel-action-btn:active{
+      transform:translateY(0);
+      filter:brightness(.95);
+    }
+    .panel-action-status{
+      margin-top:10px;
+      font-size:12px;
+      font-weight:700;
+      color:#94a3b8;
+      line-height:1.4;
+    }
+    .panel-action-status.ok{color:#22c55e}
+    .panel-action-status.error{color:#f87171}
+    .panel-action-status.running{color:#fbbf24}
     .panel-dialog-mount{
       display:flex;
       flex:1 1 auto;
@@ -4858,7 +4902,7 @@
         border-right:none;border-bottom:none;
         background:rgba(255,255,255,0.98);
         border:1px solid rgba(148,163,184,0.25);
-        border-radius:28px;
+        border-radius:18px;
         box-shadow:0 18px 40px rgba(15,23,42,0.18);
         padding:10px 12px;
         overflow:visible;
@@ -4995,6 +5039,7 @@
       .primary-btn,.secondary-btn{height:44px}
       .controls-mobile-only{display:inline-flex}
       .launcher-desktop-only{display:none}
+      .side-nav-mobile .js-launcher-open{display:none !important}
       .chart-row{flex-direction:column}
       .chart-box{flex:1 1 auto}
       .settings-overlay{align-items:center;justify-content:center;padding:12px}
@@ -5005,20 +5050,25 @@
       .mobile-controls-panel{
         display:flex;
         position:fixed;
+        top:auto;
         left:12px;
         right:12px;
         bottom:calc(12px + env(safe-area-inset-bottom, 0px));
         max-width:640px;
         margin:0 auto;
         width:auto;
-        border-radius:28px 28px 18px 18px;
-        padding:44px 20px 28px;
-        background:linear-gradient(180deg,#ffffff,#f7f8fc);
-        border:1px solid rgba(148,163,184,0.26);
-        box-shadow:0 18px 30px rgba(15,23,42,0.12);
+        border-radius:16px;
+        padding:30px 14px 12px;
+        background:linear-gradient(180deg,rgba(14,22,36,0.88),rgba(8,14,26,0.82));
+        border:1px solid rgba(255,255,255,0.14);
+        box-shadow:0 18px 36px rgba(2,6,23,0.28);
+        backdrop-filter:blur(20px) saturate(1.08);
+        -webkit-backdrop-filter:blur(20px) saturate(1.08);
         flex-direction:column;
-        gap:18px;
-        min-height:360px;
+        justify-content:flex-start;
+        gap:12px;
+        min-height:0;
+        max-height:min(58dvh, 435px);
         transform:translateY(calc(100% + 20px));
         transition:transform .32s cubic-bezier(0.22,0.61,0.36,1),opacity .28s ease;
         opacity:0;
@@ -5033,96 +5083,256 @@
         pointer-events:auto;
       }
       .mobile-controls-handle{
+        display:block;
         position:absolute;
         top:10px;
         left:50%;
         transform:translateX(-50%);
-        width:48px;
-        height:5px;
+        width:44px;
+        height:4px;
         border-radius:999px;
-        background:rgba(15,23,42,0.15);
+        background:rgba(226,232,240,0.32);
       }
-      .mobile-controls-head{
-        display:flex;
-        flex-direction:column;
-        gap:4px;
-        font-size:12px;
-        text-transform:uppercase;
-        letter-spacing:.2em;
-        color:#94a3b8;
-      }
+      .mobile-controls-head{display:none}
       .mobile-controls-head-title{font-weight:600;color:#94a3b8}
       .mobile-controls-head-sub{font-size:14px;font-weight:700;color:var(--text-main);letter-spacing:0;text-transform:none}
       .mobile-controls-slot{
         display:grid;
-        grid-template-columns:repeat(2,minmax(0,1fr));
-        gap:10px;
+        grid-template-columns:repeat(4,minmax(0,1fr));
+        gap:10px 8px;
+        flex:1 1 auto;
+        min-height:0;
         width:100%;
-        max-height:calc(60vh);
+        max-height:none;
         overflow-y:auto;
-        padding-right:4px;
+        overflow-x:hidden;
+        padding-right:2px;
         grid-auto-flow:row dense;
+        align-content:start;
       }
       .mobile-controls-slot .control-tile:first-of-type{
-        grid-column:1 / -1;
+        grid-column:auto;
       }
       .mobile-controls-slot .control-tile{
+        min-height:0;
+        border:none;
+        background:transparent;
+        color:#f8fafc;
+        min-width:0;
         width:100%;
-        padding:14px 16px;
-        border-radius:16px;
-        border:1px solid rgba(148,163,184,0.25);
-        justify-content:space-between;
-        min-height:56px;
-        background:#fff;
+        gap:6px;
+        align-items:flex-start;
+        justify-content:flex-start;
+        padding:0;
+        border-radius:0;
       }
-      .mobile-control-main{
-        display:flex;
-        align-items:center;
-        justify-content:space-between;
-        gap:12px;
-        width:100%;
+      .mobile-controls-panel .control-tile-actions{margin-left:auto}
+      .mobile-controls-toolbar{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 8px}
+      .mobile-controls-toolbar-top{
+        margin:0;
       }
-      .mobile-control-text{
-        flex:1;
+      .mobile-toolbar-btn{
+        min-width:0;
+        min-height:0;
+        border:none;
+        background:transparent;
+        color:#f8fafc;
+        padding:0;
+        border-radius:0;
+      }
+      .mobile-controls-panel .mobile-quick-btn{
         display:flex;
         flex-direction:column;
-        align-items:flex-start;
-        text-align:left;
-        gap:4px;
+        align-items:center;
+        justify-content:center;
+        gap:6px;
+        text-align:center;
+        cursor:pointer;
       }
-      .mobile-control-text .control-tile-label,
-      .mobile-control-text .control-tile-sub{
-        width:100%;
-        text-align:left;
-      }
-      .mobile-control-status{
+      .mobile-controls-panel .mobile-quick-icon{
+        width:48px;
+        height:48px;
+        border-radius:999px;
+        border:1px solid rgba(255,255,255,0.12);
+        background:rgba(255,255,255,0.1);
         display:inline-flex;
         align-items:center;
         justify-content:center;
-        padding:4px 10px;
-        border-radius:999px;
-        font-size:11px;
-        font-weight:700;
-        letter-spacing:0.08em;
-        border:1px solid rgba(148,163,184,0.4);
-        color:#475569;
-        background:rgba(148,163,184,0.08);
-        flex-shrink:0;
-        line-height:1.2;
+        box-shadow:inset 0 1px 0 rgba(255,255,255,0.08);
       }
-      .mobile-controls-panel .control-tile-actions{margin-left:auto}
-      .mobile-controls-toolbar{
+      .mobile-controls-panel .mobile-quick-icon.tone-gray{
+        border-color:rgba(148,163,184,0.26);
+        background:rgba(148,163,184,0.16);
+      }
+      .mobile-controls-panel .mobile-quick-icon.tone-gray svg{
+        stroke:rgba(203,213,225,0.92);
+      }
+      .mobile-controls-panel .mobile-quick-icon.tone-green{
+        border-color:rgba(74,222,128,0.5);
+        background:rgba(22,163,74,0.26);
+        box-shadow:0 0 0 1px rgba(74,222,128,0.24), inset 0 1px 0 rgba(255,255,255,0.1);
+      }
+      .mobile-controls-panel .mobile-quick-icon.tone-green svg{
+        stroke:#dcfce7;
+      }
+      .mobile-controls-panel .mobile-quick-icon.tone-red{
+        border-color:rgba(248,113,113,0.52);
+        background:rgba(220,38,38,0.3);
+        box-shadow:0 0 0 1px rgba(248,113,113,0.26), inset 0 1px 0 rgba(255,255,255,0.1);
+      }
+      .mobile-controls-panel .mobile-quick-icon.tone-red svg{
+        stroke:#fee2e2;
+      }
+      .mobile-controls-panel .mobile-quick-icon.tone-blue{
+        border-color:rgba(96,165,250,0.55);
+        background:rgba(30,64,175,0.3);
+        box-shadow:0 0 0 1px rgba(96,165,250,0.24), inset 0 1px 0 rgba(255,255,255,0.1);
+      }
+      .mobile-controls-panel .mobile-quick-icon.tone-blue svg{
+        stroke:#dbeafe;
+      }
+      .mobile-controls-panel .mobile-quick-icon svg{
+        width:24px;
+        height:24px;
+        stroke:rgba(241,245,249,0.95);
+        fill:none;
+        stroke-width:2.2;
+        stroke-linecap:round;
+        stroke-linejoin:round;
+      }
+      .mobile-controls-panel [data-mobile-control="launcher"] .mobile-quick-icon{
+        border-radius:12px;
+        border-color:rgba(226,232,240,0.95);
+        background:#f8fafc;
+        box-shadow:0 8px 16px rgba(2,6,23,0.2), inset 0 1px 0 rgba(255,255,255,0.95);
+      }
+      .mobile-controls-panel [data-mobile-control="launcher"] .mobile-quick-icon svg{
+        stroke:#0f172a;
+      }
+      .mobile-controls-panel [data-mobile-control="launcher"] .mobile-quick-icon svg path{
+        fill:#0f172a !important;
+        stroke:none !important;
+      }
+      .mobile-controls-panel .mobile-quick-label{
+        font-size:10px;
+        font-weight:600;
+        color:#e2e8f0;
+        line-height:1.2;
+        min-height:22px;
+        letter-spacing:0;
+        white-space:normal;
+        word-break:keep-all;
+      }
+      .mobile-controls-panel .mobile-quick-state{
+        display:none !important;
+      }
+      .mobile-controls-panel .mobile-quick-btn:disabled,
+      .mobile-controls-panel .mobile-quick-btn.disabled{
+        opacity:.45;
+      }
+      .mobile-controls-panel .mobile-quick-btn:active{
+        opacity:.78;
+      }
+      .mobile-controls-panel .mobile-launcher-panel,
+      .mobile-controls-panel .mobile-mission-panel,
+      .mobile-controls-panel .mobile-inspection-panel{
+        display:none;
+      }
+      .mobile-controls-panel.is-launcher-view .mobile-controls-slot,
+      .mobile-controls-panel.is-mission-view .mobile-controls-slot,
+      .mobile-controls-panel.is-inspection-view .mobile-controls-slot{
+        display:none;
+      }
+      .mobile-controls-panel.is-launcher-view .mobile-launcher-panel,
+      .mobile-controls-panel.is-mission-view .mobile-mission-panel,
+      .mobile-controls-panel.is-inspection-view .mobile-inspection-panel{
+        display:flex !important;
+        flex:1 1 auto;
+        min-height:0;
+        margin-top:0;
+        gap:10px;
+        padding:2px 2px 0;
+        animation:replayPanelEnter .2s ease;
+      }
+      .mobile-controls-panel.is-launcher-view .panel-action-grid,
+      .mobile-controls-panel.is-mission-view .panel-action-grid,
+      .mobile-controls-panel.is-inspection-view .panel-action-grid{
+        grid-template-columns:1fr;
+        gap:8px;
+      }
+      .mobile-controls-panel.is-launcher-view .panel-action-btn,
+      .mobile-controls-panel.is-mission-view .panel-action-btn,
+      .mobile-controls-panel.is-inspection-view .panel-action-btn{
+        min-height:42px;
+        border-radius:10px;
+        font-size:12px;
+        padding:8px 10px;
+      }
+      .mobile-controls-panel .mobile-launcher-head{
         display:flex;
-        flex-wrap:wrap;
+        align-items:center;
+        justify-content:space-between;
         gap:10px;
       }
-      .mobile-controls-toolbar-top{
-        margin-top:6px;
-        margin-bottom:-2px;
+      .mobile-controls-panel .mobile-launcher-title{
+        font-size:11px;
+        font-weight:700;
+        letter-spacing:.12em;
+        text-transform:uppercase;
+        color:#f1f5f9;
       }
-      .mobile-toolbar-btn{
-        flex:1 1 calc(50% - 5px);
-        min-width:0;
+      .mobile-controls-panel .mobile-launcher-back{
+        display:none !important;
+      }
+      .mobile-controls-panel.is-launcher-view{
+        background:
+          radial-gradient(circle at 82% 8%, rgba(56,189,248,0.09), transparent 48%),
+          linear-gradient(180deg, rgba(9,16,30,0.9), rgba(7,13,24,0.86));
+        border-color:rgba(148,163,184,0.24);
+      }
+      .mobile-controls-panel.is-launcher-view .mobile-launcher-panel .launcher-panel-note{
+        color:rgba(203,213,225,0.9);
+        font-size:10px;
+        line-height:1.5;
+      }
+      .mobile-controls-panel.is-launcher-view .mobile-launcher-panel .launcher-divider{
+        background:rgba(148,163,184,0.38);
+        margin:4px 0 6px;
+      }
+      .mobile-controls-panel.is-launcher-view .mobile-launcher-panel .launcher-arrow-row{
+        display:grid;
+        grid-template-columns:1fr;
+        gap:10px;
+        padding:4px 0;
+      }
+      .mobile-controls-panel.is-launcher-view .mobile-launcher-panel .launcher-arrow-btn{
+        width:min(176px, 68%);
+        height:54px;
+        margin:0 auto;
+        border-radius:999px;
+        border:1px solid rgba(203,213,225,0.55);
+        background:linear-gradient(180deg, rgba(248,250,252,0.96), rgba(226,232,240,0.94));
+        color:#0f172a;
+        font-size:18px;
+        box-shadow:0 10px 20px rgba(2,6,23,0.2), inset 0 1px 0 rgba(255,255,255,0.96);
+      }
+      .mobile-controls-panel.is-launcher-view .mobile-launcher-panel .launcher-angle{
+        display:flex;
+        padding:2px 0 0;
+      }
+      .mobile-controls-panel.is-launcher-view .mobile-launcher-panel .launcher-angle-value{
+        color:#f8fafc;
+        font-size:34px;
+        text-shadow:0 6px 14px rgba(2,6,23,0.4);
+      }
+      .mobile-controls-panel.is-launcher-view .mobile-launcher-panel .launcher-angle-label{
+        color:rgba(148,163,184,0.95);
+      }
+      .mobile-controls-panel.is-launcher-view .mobile-launcher-panel .launcher-auto-btn{
+        border-radius:11px;
+        border:1px solid rgba(148,163,184,0.52);
+        background:rgba(30,41,59,0.55);
+        color:#e2e8f0;
       }
       .replay-control-row{grid-template-columns:1fr}
       .settings-body{flex-direction:column;overflow:hidden;padding-right:2px}
@@ -5144,6 +5354,7 @@
       .countdown-wrap{grid-template-columns:1fr}
       #countdown{margin-top:6px;justify-self:end}
       .item-grid{grid-template-columns:1fr}
+      .mobile-controls-slot{grid-template-columns:repeat(3,minmax(0,1fr))}
     }
 
     html.phone-landscape-layout .side-nav-desktop{display:none}
@@ -5440,6 +5651,16 @@
       padding:2px 2px 0;
       animation:replayPanelEnter .2s ease;
     }
+    html.phone-landscape-layout .mobile-controls-panel .panel-action-grid{
+      grid-template-columns:1fr;
+      gap:8px;
+    }
+    html.phone-landscape-layout .mobile-controls-panel .panel-action-btn{
+      min-height:42px;
+      border-radius:10px;
+      font-size:12px;
+      padding:8px 10px;
+    }
     html.phone-landscape-layout .mobile-launcher-head{
       display:flex;
       align-items:center;
@@ -5454,18 +5675,7 @@
       color:#e2e8f0;
     }
     html.phone-landscape-layout .mobile-launcher-back{
-      width:26px;
-      height:26px;
-      border:none;
-      border-radius:8px;
-      background:rgba(255,255,255,0.1);
-      color:#f8fafc;
-      font-size:18px;
-      line-height:1;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      cursor:pointer;
+      display:none !important;
     }
     html.phone-landscape-layout .mobile-launcher-panel .launcher-panel-note{
       color:rgba(226,232,240,0.82);
@@ -5483,12 +5693,14 @@
       padding:4px 0;
     }
     html.phone-landscape-layout .mobile-launcher-panel .launcher-arrow-btn{
-      width:100%;
+      width:min(188px, 74%);
+      margin:0 auto;
       height:44px;
       border-radius:12px;
       border:1px solid rgba(255,255,255,0.2);
       background:rgba(255,255,255,0.1);
       color:#f8fafc;
+      font-size:17px;
       box-shadow:none;
     }
     html.phone-landscape-layout .mobile-launcher-panel .launcher-angle{
@@ -5497,7 +5709,7 @@
     }
     html.phone-landscape-layout .mobile-launcher-panel .launcher-angle-value{
       color:#f8fafc;
-      font-size:20px;
+      font-size:16px;
     }
     html.phone-landscape-layout .mobile-launcher-panel .launcher-angle-label{
       color:rgba(148,163,184,0.9);
@@ -7910,6 +8122,18 @@
         width:min(330px, calc(100vw - 24px));
         max-width:calc(100vw - 24px);
       }
+      html:not(.phone-landscape-layout) #launcherOverlay .launcher-dialog{
+        background:linear-gradient(180deg,#ffffff,#f8fafc);
+        border-color:rgba(148,163,184,0.45);
+        color:#0f172a;
+        box-shadow:0 16px 30px rgba(15,23,42,0.22), inset 0 1px 0 rgba(255,255,255,0.85);
+      }
+      html:not(.phone-landscape-layout) #launcherOverlay .launcher-dialog::before{
+        background:linear-gradient(145deg,rgba(255,255,255,0.92),rgba(148,163,184,0.46));
+      }
+      html:not(.phone-landscape-layout) #launcherOverlay .launcher-dialog::after{
+        background:radial-gradient(circle at 15% 0,rgba(148,163,184,0.18),transparent 60%);
+      }
       .confirm-overlay:not(.warning-fullscreen) .confirm-dialog,
       .ws-alert-dialog,
       .disconnect-dialog{
@@ -7934,6 +8158,14 @@
       .confirm-note,
       .disconnect-text{
         color:#94a3b8;
+      }
+      html:not(.phone-landscape-layout) #launcherOverlay .launcher-title{
+        color:#0f172a;
+      }
+      html:not(.phone-landscape-layout) #launcherOverlay .launcher-note,
+      html:not(.phone-landscape-layout) #launcherOverlay .launcher-hint,
+      html:not(.phone-landscape-layout) #launcherOverlay .launcher-angle-label{
+        color:#64748b;
       }
       .settings-select,
       .settings-number,
@@ -7968,6 +8200,48 @@
       #settingsOverlay .settings-nav-btn.active{color:#f8fafc}
       #settingsOverlay .settings-panels{
         padding-left:0;
+      }
+      html:not(.phone-landscape-layout) #settingsOverlay{
+        align-items:center;
+        justify-content:center;
+      }
+      html:not(.phone-landscape-layout) #settingsOverlay .settings-dialog{
+        width:calc(100vw - 18px);
+        max-width:calc(100vw - 18px);
+        height:min(68dvh, 620px);
+        max-height:min(68dvh, 620px);
+        background:#ffffff;
+        border:none;
+        box-shadow:0 14px 30px rgba(15,23,42,0.24);
+        color:#0f172a;
+      }
+      html:not(.phone-landscape-layout) #settingsOverlay .settings-dialog::before{
+        content:none;
+      }
+      html:not(.phone-landscape-layout) #settingsOverlay .settings-title,
+      html:not(.phone-landscape-layout) #settingsOverlay .settings-label{
+        color:#0f172a;
+      }
+      html:not(.phone-landscape-layout) #settingsOverlay .settings-desc,
+      html:not(.phone-landscape-layout) #settingsOverlay .hint-mini{
+        color:#64748b;
+      }
+      html:not(.phone-landscape-layout) #settingsOverlay .settings-nav{
+        border-bottom:1px solid rgba(148,163,184,0.28);
+      }
+      html:not(.phone-landscape-layout) #settingsOverlay .settings-nav-btn{
+        color:#334155;
+      }
+      html:not(.phone-landscape-layout) #settingsOverlay .settings-nav-btn.active{
+        color:#f8fafc;
+      }
+      html:not(.phone-landscape-layout) #settingsOverlay .settings-select,
+      html:not(.phone-landscape-layout) #settingsOverlay .settings-number,
+      html:not(.phone-landscape-layout) #settingsOverlay .settings-inline-btn,
+      html:not(.phone-landscape-layout) #settingsOverlay .settings-btn{
+        background:#f8fafc;
+        border-color:rgba(148,163,184,0.62);
+        color:#0f172a;
       }
       #missionOverlay .mission-header{
         padding-bottom:8px;
@@ -8186,14 +8460,26 @@
             <div class="mobile-launcher-title">MISSION PROFILE</div>
             <button id="mobileMissionBackBtn" class="mobile-launcher-back" type="button" aria-label="Back">×</button>
           </div>
-          <div id="mobileMissionPanelMount" class="mobile-dialog-mount"></div>
+          <div class="panel-action-note">패널에서 미션을 바로 지정합니다.</div>
+          <div class="panel-action-grid">
+            <button class="panel-action-btn" type="button" data-mission-quick="frontier2025">frontier2025</button>
+            <button class="panel-action-btn" type="button" data-mission-quick="frontier2026 stg2 pvc">frontier2026 stg2 pvc</button>
+            <button class="panel-action-btn" type="button" data-mission-quick="QUAIL1 motor">QUAIL1 motor</button>
+            <button class="panel-action-btn" type="button" data-mission-quick="no-motor">메타데이터 없음</button>
+          </div>
         </div>
         <div id="mobileInspectionPanel" class="inspection-panel mobile-inspection-panel" aria-hidden="true">
           <div class="mobile-launcher-head">
             <div class="mobile-launcher-title" data-i18n="inspectionTitle">설비 점검</div>
             <button id="mobileInspectionBackBtn" class="mobile-launcher-back" type="button" aria-label="Back">×</button>
           </div>
-          <div id="mobileInspectionPanelMount" class="mobile-dialog-mount"></div>
+          <div class="panel-action-note">점검을 패널에서 직접 실행합니다.</div>
+          <div class="panel-action-grid">
+            <button class="panel-action-btn" type="button" data-inspection-action="run">점검 시작</button>
+            <button class="panel-action-btn" type="button" data-inspection-action="retry">다시 점검</button>
+            <button class="panel-action-btn" type="button" data-inspection-action="close">닫기</button>
+          </div>
+          <div class="panel-action-status" data-inspection-panel-result>점검 대기중…</div>
         </div>
       </div>
       <div class="mobile-abort-wrapper">
@@ -8742,10 +9028,22 @@
             </div>
           </div>
           <div id="missionPanel" class="mission-panel" aria-hidden="true">
-            <div id="missionPanelMount" class="panel-dialog-mount"></div>
+            <div class="panel-action-note">패널에서 미션을 바로 지정합니다.</div>
+            <div class="panel-action-grid">
+              <button class="panel-action-btn" type="button" data-mission-quick="frontier2025">frontier2025</button>
+              <button class="panel-action-btn" type="button" data-mission-quick="frontier2026 stg2 pvc">frontier2026 stg2 pvc</button>
+              <button class="panel-action-btn" type="button" data-mission-quick="QUAIL1 motor">QUAIL1 motor</button>
+              <button class="panel-action-btn" type="button" data-mission-quick="no-motor">메타데이터 없음</button>
+            </div>
           </div>
           <div id="inspectionPanel" class="inspection-panel" aria-hidden="true">
-            <div id="inspectionPanelMount" class="panel-dialog-mount"></div>
+            <div class="panel-action-note">점검을 패널에서 직접 실행합니다.</div>
+            <div class="panel-action-grid">
+              <button class="panel-action-btn" type="button" data-inspection-action="run">점검 시작</button>
+              <button class="panel-action-btn" type="button" data-inspection-action="retry">다시 점검</button>
+              <button class="panel-action-btn" type="button" data-inspection-action="close">닫기</button>
+            </div>
+            <div class="panel-action-status" data-inspection-panel-result>점검 대기중…</div>
           </div>
 
           <div id="devToolsPanel" class="devtools-panel">
@@ -9440,6 +9738,16 @@
         </div>
       </div>
     </div>
+    <div id="inspectionWarnOverlay" class="confirm-overlay hidden" style="display:none;">
+      <div class="confirm-dialog">
+        <div class="confirm-icon" aria-hidden="true"><span>!</span></div>
+        <div class="confirm-title">설비 점검 경고</div>
+        <div id="inspectionWarnText" class="confirm-text">점검 실패 항목이 있습니다. 상태를 확인하세요.</div>
+        <div class="confirm-actions">
+          <button id="inspectionWarnOk" class="loadcell-primary">확인</button>
+        </div>
+      </div>
+    </div>
 
     <!-- 페이지 이동 전 보고서 내보내기 확인 -->
     <div id="exportLeaveOverlay" class="confirm-overlay hidden" style="display:none;">
@@ -9638,7 +9946,7 @@
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="flash6.js?v=20260306-2"></script>
+  <script src="flash6.js?v=20260306-16"></script>
   <script>
     if ("serviceWorker" in navigator && window.isSecureContext) {
       window.addEventListener("load", () => {
