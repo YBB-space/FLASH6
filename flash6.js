@@ -959,15 +959,8 @@
     }
     function syncGyroExpandButton(){
       if(!el.gyro3dExpandBtn) return;
-      if(isPhoneLandscapeLayout() && isStatusMapViewportExpanded()){
-        el.gyro3dExpandBtn.textContent = "↙";
-        el.gyro3dExpandBtn.setAttribute("aria-label", "Close map");
-        el.gyro3dExpandBtn.setAttribute("aria-expanded", "true");
-        return;
-      }
       const expanded = isGyroViewportExpanded();
       el.gyro3dExpandBtn.textContent = expanded ? "↙ Close" : "⛶";
-      el.gyro3dExpandBtn.removeAttribute("aria-label");
       el.gyro3dExpandBtn.setAttribute("aria-expanded", expanded ? "true" : "false");
     }
 
@@ -1092,21 +1085,33 @@
         if(!gyroGl) return;
         renderGyroGl(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
       };
+      const closeExpandedMapFromGyro = (ev)=>{
+        if(ev){
+          ev.preventDefault();
+          ev.stopPropagation();
+        }
+        if(!isStatusMapViewportExpanded()) return;
+        setStatusMapViewportExpanded(false);
+        redraw();
+      };
       if(el.gyro3dExpandBtn){
         el.gyro3dExpandBtn.addEventListener("click", (ev)=>{
           ev.preventDefault();
           ev.stopPropagation();
-          if(isPhoneLandscapeLayout() && isStatusMapViewportExpanded()){
-            setStatusMapViewportExpanded(false);
-            redraw();
-            return;
-          }
           if(isGyroViewportExpanded()){
             setGyroViewportExpanded(false);
           }else{
             setGyroViewportExpanded(true);
           }
           redraw();
+        });
+      }
+      if(el.gyro3dMapCloseBtn){
+        el.gyro3dMapCloseBtn.addEventListener("click", (ev)=>{
+          closeExpandedMapFromGyro(ev);
+        });
+        el.gyro3dMapCloseBtn.addEventListener("pointerdown", (ev)=>{
+          closeExpandedMapFromGyro(ev);
         });
       }
       const canControl = ()=>{
@@ -2442,6 +2447,9 @@
       zoom: STATUS_MAP_DEFAULT.zoom,
       map: null,
       marker: null,
+      userMarker: null,
+      userAccuracyCircle: null,
+      userWatchId: null,
       markerExpanded: false,
       offlineMode: false,
       offlineRoot: null,
@@ -4776,9 +4784,95 @@
     }
     function updateStatusMapOfflineMarker(){
       if(!statusMapState.offlineMode || !statusMapState.offlineMarker) return;
+      if(isPhoneLandscapeLayout() && !isStatusMapViewportExpanded()){
+        statusMapState.offlineMarker.style.left = "50%";
+        statusMapState.offlineMarker.style.top = "50%";
+        return;
+      }
       const p = projectStatusMapOffline(statusMapState.lat, statusMapState.lon);
       statusMapState.offlineMarker.style.left = p.x.toFixed(3) + "%";
       statusMapState.offlineMarker.style.top = p.y.toFixed(3) + "%";
+    }
+    function syncStatusMapInteractionMode(){
+      if(!statusMapState.map) return;
+      const expanded = isStatusMapViewportExpanded();
+      const lockCollapsed = isPhoneLandscapeLayout() && !expanded;
+      const allow = !lockCollapsed;
+      const map = statusMapState.map;
+      const setLeafletHandler = (handler, on)=>{
+        if(!handler || typeof handler.enable !== "function" || typeof handler.disable !== "function") return;
+        if(on) handler.enable();
+        else handler.disable();
+      };
+      setLeafletHandler(map.dragging, allow);
+      setLeafletHandler(map.touchZoom, allow);
+      setLeafletHandler(map.doubleClickZoom, allow);
+      setLeafletHandler(map.scrollWheelZoom, allow);
+      setLeafletHandler(map.boxZoom, allow);
+      setLeafletHandler(map.keyboard, allow);
+      if(map.tap) setLeafletHandler(map.tap, allow);
+      if(lockCollapsed && statusMapState.hasLiveFix){
+        const zoomVal = isFinite(map.getZoom()) ? map.getZoom() : statusMapState.zoom;
+        map.setView([statusMapState.lat, statusMapState.lon], zoomVal, {animate:false});
+      }
+    }
+    function updateStatusMapUserLocationMarker(lat, lon, accuracyM){
+      if(!statusMapState.map || typeof window.L === "undefined") return;
+      const latNum = Number(lat);
+      const lonNum = Number(lon);
+      if(!isFinite(latNum) || !isFinite(lonNum)) return;
+      const ll = [latNum, lonNum];
+      const acc = Math.max(6, Math.min(4000, Number(accuracyM) || 16));
+      if(!statusMapState.userAccuracyCircle){
+        statusMapState.userAccuracyCircle = window.L.circle(ll, {
+          radius: acc,
+          color: "rgba(56,189,248,0.75)",
+          weight: 1,
+          fillColor: "rgba(56,189,248,0.26)",
+          fillOpacity: 0.26,
+          interactive: false
+        }).addTo(statusMapState.map);
+      }else{
+        statusMapState.userAccuracyCircle.setLatLng(ll);
+        statusMapState.userAccuracyCircle.setRadius(acc);
+      }
+      if(!statusMapState.userMarker){
+        statusMapState.userMarker = window.L.circleMarker(ll, {
+          radius: 5,
+          color: "rgba(191,219,254,0.96)",
+          weight: 2,
+          fillColor: "#2563eb",
+          fillOpacity: 0.95,
+          interactive: false
+        }).addTo(statusMapState.map);
+      }else{
+        statusMapState.userMarker.setLatLng(ll);
+      }
+      if(statusMapState.marker && statusMapState.marker.getElement){
+        const markerEl = statusMapState.marker.getElement();
+        if(markerEl && markerEl.parentNode && markerEl.parentNode.appendChild){
+          markerEl.parentNode.appendChild(markerEl);
+        }
+      }
+    }
+    function startStatusMapUserLocationWatch(){
+      if(!statusMapState.map || statusMapState.offlineMode) return;
+      if(statusMapState.userWatchId != null) return;
+      if(!navigator.geolocation || !window.isSecureContext) return;
+      try{
+        statusMapState.userWatchId = navigator.geolocation.watchPosition((pos)=>{
+          if(!pos || !pos.coords) return;
+          updateStatusMapUserLocationMarker(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
+        }, ()=>{
+          statusMapState.userWatchId = null;
+        }, {
+          enableHighAccuracy: true,
+          maximumAge: 12000,
+          timeout: 14000
+        });
+      }catch(e){
+        statusMapState.userWatchId = null;
+      }
     }
     function isStatusMapViewportExpanded(){
       return !!(el.statusMapViewport && el.statusMapViewport.classList.contains("is-expanded"));
@@ -4853,6 +4947,9 @@
         updateStatusMapExpandedViewportBounds();
         syncExpandedHud();
       }else{
+        if(statusMapState.hasLiveFix){
+          statusMapSetMarker(statusMapState.lat, statusMapState.lon, {recenter:true});
+        }
         el.statusMapViewport.style.removeProperty("--status-map-expand-left");
         el.statusMapViewport.style.removeProperty("--status-map-expand-top");
         el.statusMapViewport.style.removeProperty("--status-map-expand-right");
@@ -4863,6 +4960,7 @@
           restoreGyroViewportFromBody();
         }
       }
+      syncStatusMapInteractionMode();
       syncStatusMapExpandButton();
       syncGyroExpandButton();
       refreshStatusMapSize();
@@ -4935,6 +5033,12 @@
     }
     function initStatusMapOffline(){
       if(!el.statusMap) return;
+      if(statusMapState.userWatchId != null && navigator.geolocation && typeof navigator.geolocation.clearWatch === "function"){
+        try{ navigator.geolocation.clearWatch(statusMapState.userWatchId); }catch(e){}
+      }
+      statusMapState.userWatchId = null;
+      statusMapState.userMarker = null;
+      statusMapState.userAccuracyCircle = null;
       statusMapState.offlineMode = true;
       statusMapState.map = null;
       statusMapState.marker = null;
@@ -5115,7 +5219,7 @@
       const now = Date.now();
       if((now - statusMapState.lastUpdateMs) < 700 && statusMapState.hasLiveFix) return;
       statusMapState.lastUpdateMs = now;
-      const shouldRecenter = !statusMapState.hasLiveFix;
+      const shouldRecenter = !isStatusMapViewportExpanded() || !statusMapState.hasLiveFix;
       statusMapState.hasLiveFix = true;
       statusMapSetMarker(pos.lat, pos.lon, {recenter: shouldRecenter});
     }
@@ -5445,6 +5549,8 @@
       map.on("moveend", ()=>{
         updateStatusMapHud();
       });
+      syncStatusMapInteractionMode();
+      startStatusMapUserLocationWatch();
       updateStatusMapHud();
       scheduleStatusMapRefresh();
       if(window.ResizeObserver && el.statusMapViewport && !statusMapResizeObserver){
@@ -5499,7 +5605,7 @@
       const compactConnText = connOk ? (((rxHzWindow > 0 && isFinite(rxHzWindow)) ? rxHzWindow.toFixed(0) : "--") + "Hz") : "--Hz";
       const compactBatteryText = battText.replace(/[^0-9]/g, "").slice(0, 3) || "--";
       const compactTimeText = getCompactHudClockText();
-      const showCompactClock = !!(sequenceActive || currentSt === 1 || currentSt === 2 || localTplusActive || tplusUiActive || forceSlideActive);
+      const showCompactClock = !!(sequenceActive || currentSt === 1 || currentSt === 2 || localTplusActive);
 
       el.gyro3dHudCountdown.textContent = countdownText || "T- --:--:--";
       el.gyro3dHudStatusText.textContent = statusText || "--";
@@ -5566,7 +5672,7 @@
       const compactConnText = connOk ? (((rxHzWindow > 0 && isFinite(rxHzWindow)) ? rxHzWindow.toFixed(0) : "--") + "Hz") : "--Hz";
       const compactBatteryText = battText.replace(/[^0-9]/g, "").slice(0, 3) || "--";
       const compactTimeText = getCompactHudClockText();
-      const showCompactClock = !!(sequenceActive || currentSt === 1 || currentSt === 2 || localTplusActive || tplusUiActive || forceSlideActive);
+      const showCompactClock = !!(sequenceActive || currentSt === 1 || currentSt === 2 || localTplusActive);
 
       el.statusMapHudCountdown.textContent = countdownText || "T- --:--:--";
       el.statusMapHudStatusText.textContent = statusText || "--";
@@ -6770,6 +6876,8 @@
       updateNavActionState();
       updateMobileAbortButton();
       applyMobileImmersiveMode(false);
+      syncControlsToggleButtonsForSettings();
+      syncStatusMapInteractionMode();
       if(!active && !isMobileLayout()){
         hideMobileControlsPanel();
       }
@@ -6836,12 +6944,22 @@
 
     function updateMobileControlPills(){
       if(!el.mobileControlsPanel) return;
+      const setMobileQuickIconTone = (type, toneClass)=>{
+        if(!el.mobileControlButtonMap) return;
+        const btn = el.mobileControlButtonMap[type];
+        if(!btn || !btn.querySelector) return;
+        const icon = btn.querySelector(".mobile-quick-icon");
+        if(!icon) return;
+        icon.classList.remove("tone-green", "tone-red", "tone-gray", "tone-blue");
+        if(toneClass) icon.classList.add(toneClass);
+      };
       const setMobileQuickPillTone = (node, tone)=>{
         if(!node) return;
         node.classList.remove("pill-green", "pill-red", "pill-gray");
         node.classList.add("mobile-quick-state", "pill");
         if(tone) node.classList.add(tone);
       };
+      setMobileQuickIconTone("force", "tone-red");
       const serialPill = el.mobileControlPills ? el.mobileControlPills.serial : null;
       if(serialPill){
         const serialLabel = serialEnabled
@@ -6849,12 +6967,14 @@
           : t("serialOff");
         serialPill.textContent = serialLabel;
         setMobileQuickPillTone(serialPill, serialEnabled ? (serialConnected ? "pill-green" : "pill-red") : "pill-gray");
+        setMobileQuickIconTone("serial", serialEnabled ? (serialConnected ? "tone-green" : "tone-red") : "tone-gray");
       }
       const safetyPill = el.mobileControlPills ? el.mobileControlPills.safety : null;
       if(safetyPill){
         const safetyOn = el.safeModeToggle ? el.safeModeToggle.checked : safetyModeEnabled;
         safetyPill.textContent = safetyOn ? "ON" : "OFF";
         setMobileQuickPillTone(safetyPill, safetyOn ? "pill-green" : "pill-gray");
+        setMobileQuickIconTone("safety", safetyOn ? "tone-green" : "tone-gray");
       }
       const inspectionPill = el.mobileControlPills ? el.mobileControlPills.inspection : null;
       if(inspectionPill && el.inspectionStatusPill){
@@ -6863,6 +6983,7 @@
         if(el.inspectionStatusPill.classList.contains("pill-green")) tone = "pill-green";
         else if(el.inspectionStatusPill.classList.contains("pill-red")) tone = "pill-red";
         setMobileQuickPillTone(inspectionPill, tone);
+        setMobileQuickIconTone("inspection", tone === "pill-green" ? "tone-green" : (tone === "pill-red" ? "tone-red" : "tone-gray"));
       }
     }
 
@@ -7612,15 +7733,26 @@
       const running = !!(seqActive || st === 1 || st === 2 || localTplusActive);
       const readyEligible = !replaySourceActive && isControlUnlocked() && connOk && hasMissionSelected() && !safetyModeEnabled && !loadcellErrorActive && st === 0 && !running;
       let label = "불가";
+      let iconTone = "tone-gray";
       if(lockout){
         label = "제한";
+        iconTone = "tone-red";
       }else if(running){
         label = "진행중";
+        iconTone = "tone-blue";
       }else if(readyEligible){
         label = "준비";
+        iconTone = "tone-green";
       }
       if(el.sequenceStatusLabel) el.sequenceStatusLabel.textContent = label;
       if(el.sequenceStatusDesktop) el.sequenceStatusDesktop.textContent = label;
+      if(el.mobileControlButtonMap && el.mobileControlButtonMap.sequence){
+        const icon = el.mobileControlButtonMap.sequence.querySelector(".mobile-quick-icon");
+        if(icon){
+          icon.classList.remove("tone-green", "tone-red", "tone-gray", "tone-blue");
+          icon.classList.add(iconTone);
+        }
+      }
     }
 
     function setReplayStatus(text){
@@ -9663,13 +9795,39 @@
     // 설정/발사대
     // =====================
     function showSettings(){
+      if(isStatusMapViewportExpanded()){
+        setStatusMapViewportExpanded(false);
+      }
       hideMobileControlsPanel();
       document.documentElement.classList.add("settings-open");
+      syncControlsToggleButtonsForSettings();
       setOverlayVisible(el.settingsOverlay, true);
     }
     function hideSettings(){
       document.documentElement.classList.remove("settings-open");
       setOverlayVisible(el.settingsOverlay, false);
+      syncControlsToggleButtonsForSettings();
+    }
+    function syncControlsToggleButtonsForSettings(){
+      const shouldHide = isPhoneLandscapeLayout() && document.documentElement.classList.contains("settings-open");
+      const controlsBtns = Array.from(new Set([
+        ...(el.controlsToggleBtns ? Array.from(el.controlsToggleBtns) : []),
+        ...Array.from(document.querySelectorAll(".js-controls-open, #tabletControlsNavBtn, .side-nav-btn[aria-label='Control panel']"))
+      ]));
+      controlsBtns.forEach((btn)=>{
+        if(!btn) return;
+        if(shouldHide){
+          btn.style.setProperty("display", "none", "important");
+          btn.style.setProperty("pointer-events", "none", "important");
+          btn.style.setProperty("visibility", "hidden", "important");
+          btn.style.setProperty("opacity", "0", "important");
+        }else{
+          btn.style.removeProperty("display");
+          btn.style.removeProperty("pointer-events");
+          btn.style.removeProperty("visibility");
+          btn.style.removeProperty("opacity");
+        }
+      });
     }
     function setMissionCloseLabel(isBack){
       if(!el.missionCloseBtn) return;
@@ -11110,6 +11268,7 @@
       el.countdownSave = document.getElementById("countdownSave");
       el.opModeSelect = document.getElementById("opModeSelect");
       el.gyro3dViewport = document.getElementById("gyro3dViewport");
+      el.gyro3dMapCloseBtn = document.getElementById("gyro3dMapCloseBtn");
       el.gyro3dExpandBtn = document.getElementById("gyro3dExpandBtn");
       el.gyroGlPreview = document.getElementById("gyroGlPreview");
       el.navBallPreview = document.getElementById("navBallPreview");
