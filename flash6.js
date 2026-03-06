@@ -6807,11 +6807,8 @@
       if(next){
         setMobileLauncherPanelVisible(false);
         setMobileInspectionPanelVisible(false);
-        mountDialogToPanel(el.missionDialog, el.mobileMissionPanelMount, missionDialogDockState);
-      }else{
-        if(el.missionDialog && el.mobileMissionPanelMount && el.missionDialog.parentNode === el.mobileMissionPanelMount){
-          restoreDialogFromPanel(el.missionDialog, missionDialogDockState);
-        }
+        setOverlayVisible(el.missionOverlay, false);
+        resetMissionToPresetList();
       }
       el.mobileControlsPanel.classList.toggle("is-mission-view", next);
       if(el.mobileMissionPanel){
@@ -6826,11 +6823,7 @@
       if(next){
         setMobileLauncherPanelVisible(false);
         setMobileMissionPanelVisible(false);
-        mountDialogToPanel(el.inspectionDialog, el.mobileInspectionPanelMount, inspectionDialogDockState);
-      }else{
-        if(el.inspectionDialog && el.mobileInspectionPanelMount && el.inspectionDialog.parentNode === el.mobileInspectionPanelMount){
-          restoreDialogFromPanel(el.inspectionDialog, inspectionDialogDockState);
-        }
+        setOverlayVisible(el.inspectionOverlay, false);
       }
       el.mobileControlsPanel.classList.toggle("is-inspection-view", next);
       if(el.mobileInspectionPanel){
@@ -6906,11 +6899,7 @@
         if(el.controlsHeader){
           el.controlsHeader.classList.remove("hidden");
         }
-        mountDialogToPanel(el.missionDialog, el.missionPanelMount, missionDialogDockState);
-      }else{
-        if(el.missionDialog && el.missionPanelMount && el.missionDialog.parentNode === el.missionPanelMount){
-          restoreDialogFromPanel(el.missionDialog, missionDialogDockState);
-        }
+        resetMissionToPresetList();
       }
       if(el.controlsCard){
         el.controlsCard.classList.toggle("mission-mode", missionPanelActive);
@@ -6935,11 +6924,6 @@
         }
         if(el.controlsHeader){
           el.controlsHeader.classList.remove("hidden");
-        }
-        mountDialogToPanel(el.inspectionDialog, el.inspectionPanelMount, inspectionDialogDockState);
-      }else{
-        if(el.inspectionDialog && el.inspectionPanelMount && el.inspectionDialog.parentNode === el.inspectionPanelMount){
-          restoreDialogFromPanel(el.inspectionDialog, inspectionDialogDockState);
         }
       }
       if(el.controlsCard){
@@ -7271,10 +7255,17 @@
     }
 
     function setInspectionResult(text, state){
-      if(!el.inspectionResult) return;
-      el.inspectionResult.classList.remove("ok","error","running");
-      if(state) el.inspectionResult.classList.add(state);
-      el.inspectionResult.textContent=text;
+      const targets = [];
+      if(el.inspectionResult) targets.push(el.inspectionResult);
+      if(el.inspectionPanelResults && el.inspectionPanelResults.length){
+        el.inspectionPanelResults.forEach(node=>{ if(node) targets.push(node); });
+      }
+      if(!targets.length) return;
+      targets.forEach(node=>{
+        node.classList.remove("ok","error","running");
+        if(state) node.classList.add(state);
+        node.textContent = text;
+      });
     }
 
     function resetInspectionUI(){
@@ -7291,6 +7282,7 @@
 
     async function runInspectionSequence(){
       if(inspectionRunning) return;
+      hideInspectionWarning();
       inspectionRunning=true;
       inspectionState="running";
       controlAuthority=false;
@@ -7331,6 +7323,9 @@
         controlAuthority=false;
         setInspectionResult(t("inspectionFailText"),"error");
         showToast(t("inspectFailToast"),"notice");
+        if(isPhoneLandscapeLayout()){
+          showInspectionWarning();
+        }
         addLogLine(t("inspectFailLog"),"SAFE");
         playBeepPattern([
           {freq:440, dur:120, gap:80},
@@ -7350,6 +7345,7 @@
       }
       setButtonsFromState(currentSt, lockoutLatched, sequenceActive);
       updateInspectionPill();
+      return !hasFail;
     }
 
     function openInspectionFromUI(){
@@ -7363,10 +7359,8 @@
     function showInspection(){
       if(isPhoneLandscapeLayout()){
         setOverlayVisible(el.inspectionOverlay, false);
-        if(!mobileControlsActive){
-          showMobileControlsPanel();
-        }
-        setMobileInspectionPanelVisible(true);
+        setInspectionPanelVisible(false);
+        setMobileInspectionPanelVisible(false);
         resetInspectionUI();
         runInspectionSequence();
         return;
@@ -7390,6 +7384,7 @@
       runInspectionSequence();
     }
     function hideInspection(){
+      hideInspectionWarning();
       if(isMobileInspectionPanelVisible()){
         setMobileInspectionPanelVisible(false);
       }
@@ -10221,6 +10216,15 @@
     function hideMissionRequired(){
       setOverlayVisible(el.missionRequiredOverlay, false);
     }
+    function showInspectionWarning(){
+      if(el.inspectionWarnText){
+        el.inspectionWarnText.textContent = t("inspectionFailText");
+      }
+      setOverlayVisible(el.inspectionWarnOverlay, true);
+    }
+    function hideInspectionWarning(){
+      setOverlayVisible(el.inspectionWarnOverlay, false);
+    }
     function showNoMotorNotice(){
       hideMobileControlsPanel();
       setOverlayVisible(el.noMotorOverlay, true);
@@ -10434,15 +10438,15 @@
         showToast(t("lockoutControlDenied"), "error");
         return;
       }
-      if(!canOperateLauncher()){
-        if(safetyModeEnabled) showToast(t("safetyModeOnToast"), "notice");
-        return;
+      const launcherOperable = canOperateLauncher();
+      if(!launcherOperable && safetyModeEnabled){
+        showToast(t("safetyModeOnToast"), "notice");
       }
       setMissionPanelVisible(false);
       setInspectionPanelVisible(false);
       setMobileMissionPanelVisible(false);
       setMobileInspectionPanelVisible(false);
-      if(isPhoneLandscapeLayout()){
+      if(isMobileLayout()){
         setLauncherPanelVisible(false);
         if(launcherOverlayEl){
           setOverlayVisible(launcherOverlayEl, false);
@@ -10460,13 +10464,7 @@
         setLauncherPanelVisible(true);
         return;
       }
-      if(!isMobileLayout()){
-        setLauncherPanelVisible(true);
-        return;
-      }
-      setLauncherPanelVisible(false);
-      setOverlayVisible(launcherOverlayEl, true);
-      updateNavActionState();
+      setLauncherPanelVisible(true);
     }
     function hideLauncher(){
       if(isMobileLauncherPanelVisible()){
@@ -11601,6 +11599,9 @@
       el.loadcellWarningCancel = document.getElementById("loadcellWarningCancel");
       el.missionRequiredOverlay = document.getElementById("missionRequiredOverlay");
       el.missionRequiredOk = document.getElementById("missionRequiredOk");
+      el.inspectionWarnOverlay = document.getElementById("inspectionWarnOverlay");
+      el.inspectionWarnOk = document.getElementById("inspectionWarnOk");
+      el.inspectionWarnText = document.getElementById("inspectionWarnText");
       el.exportLeaveOverlay = document.getElementById("exportLeaveOverlay");
       el.exportLeaveConfirm = document.getElementById("exportLeaveConfirm");
       el.exportLeaveCancel = document.getElementById("exportLeaveCancel");
@@ -11618,6 +11619,7 @@
       el.inspectionStatusSingle = document.getElementById("inspectionStatusSingle");
       el.inspectionResult = document.getElementById("inspectionResult");
       el.inspectionRetry = document.getElementById("inspectionRetry");
+      el.inspectionPanelResults = document.querySelectorAll("[data-inspection-panel-result]");
       el.inspectionStatusPill = document.getElementById("inspectionStatusPill");
 
       el.longPressBtn = document.getElementById("longPressBtn");
@@ -12130,6 +12132,14 @@
       if(el.missionRequiredOverlay){
         el.missionRequiredOverlay.addEventListener("click",(ev)=>{
           if(ev.target===el.missionRequiredOverlay) hideMissionRequired();
+        });
+      }
+      if(el.inspectionWarnOk){
+        el.inspectionWarnOk.addEventListener("click", ()=>hideInspectionWarning());
+      }
+      if(el.inspectionWarnOverlay){
+        el.inspectionWarnOverlay.addEventListener("click",(ev)=>{
+          if(ev.target===el.inspectionWarnOverlay) hideInspectionWarning();
         });
       }
       if(el.exportLeaveCancel){
@@ -12996,8 +13006,7 @@
             const action = mobileControlActions[type];
             if(!action) return;
             if(type === "export" ||
-              (type === "mission" && !isPhoneLandscapeLayout()) ||
-              (type === "launcher" && !isPhoneLandscapeLayout())){
+              (type === "mission" && !isPhoneLandscapeLayout())){
               hideMobileControlsPanel();
             }
             action();
@@ -13057,6 +13066,64 @@
         if(el.missionTotalMass) el.missionTotalMass.value = spec.totalMassG;
         if(el.missionVendor) el.missionVendor.value = spec.vendor;
       };
+      const assignMissionQuick = (name)=>{
+        const missionName = String(name || "").trim();
+        if(!missionName) return;
+        if(el.missionName){
+          el.missionName.value = missionName === "no-motor" ? "" : missionName;
+        }
+        if(missionName === "no-motor"){
+          selectedMotorName = "no-motor";
+          if(el.missionMotorDia) el.missionMotorDia.value = "";
+          if(el.missionMotorLen) el.missionMotorLen.value = "";
+          if(el.missionIgnDelay) el.missionIgnDelay.value = "";
+          if(el.missionGrainMass) el.missionGrainMass.value = "";
+          if(el.missionTotalMass) el.missionTotalMass.value = "";
+          if(el.missionVendor) el.missionVendor.value = "";
+        }else{
+          selectedMotorName = missionName;
+          applyMotorSpec(missionName);
+        }
+        if(el.missionTestCount && (!el.missionTestCount.value || !el.missionTestCount.value.trim())){
+          el.missionTestCount.value = "1";
+        }
+        reportExportedRevision = 0;
+        reportExportedOnce = false;
+        updateExportGuardUi();
+        updateMotorInfoPanel();
+        updateExportButtonState();
+        resetMissionToPresetList();
+        if(isMobileMissionPanelVisible()) setMobileMissionPanelVisible(false);
+        if(missionPanelActive) setMissionPanelVisible(false);
+        const label = missionName === "no-motor" ? "메타데이터 없음" : missionName;
+        showToast("미션 지정: " + label, "success", {key:"mission-set"});
+      };
+      const missionQuickButtons = document.querySelectorAll("[data-mission-quick]");
+      if(missionQuickButtons.length){
+        missionQuickButtons.forEach(btn=>{
+          btn.addEventListener("click", ()=>{
+            const missionName = btn.getAttribute("data-mission-quick");
+            assignMissionQuick(missionName);
+          });
+        });
+      }
+      const inspectionPanelActionButtons = document.querySelectorAll("[data-inspection-action]");
+      if(inspectionPanelActionButtons.length){
+        inspectionPanelActionButtons.forEach(btn=>{
+          btn.addEventListener("click", ()=>{
+            const action = (btn.getAttribute("data-inspection-action") || "").trim();
+            if(action === "run" || action === "retry"){
+              resetInspectionUI();
+              runInspectionSequence();
+              return;
+            }
+            if(action === "close"){
+              if(isMobileInspectionPanelVisible()) setMobileInspectionPanelVisible(false);
+              if(inspectionPanelActive) setInspectionPanelVisible(false);
+            }
+          });
+        });
+      }
       const ensureExperimentCount = (onOk)=>{
         if(!el.missionTestCount || !el.missionTestPromptInput) { onOk(); return; }
         if(el.missionTestCount.value && el.missionTestCount.value.trim() !== "") { onOk(); return; }
