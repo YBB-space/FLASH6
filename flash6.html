@@ -2658,20 +2658,38 @@
     .controls-card.launcher-mode .controls-grid,
     .controls-card.launcher-mode .replay-panel,
     .controls-card.launcher-mode .devtools-panel{display:none!important}
+    .controls-card.mission-mode .controls-grid,
+    .controls-card.mission-mode .replay-panel,
+    .controls-card.mission-mode .devtools-panel,
+    .controls-card.mission-mode .launcher-panel,
+    .controls-card.mission-mode .inspection-panel{display:none!important}
+    .controls-card.inspection-mode .controls-grid,
+    .controls-card.inspection-mode .replay-panel,
+    .controls-card.inspection-mode .devtools-panel,
+    .controls-card.inspection-mode .launcher-panel,
+    .controls-card.inspection-mode .mission-panel{display:none!important}
     .controls-card.replay-mode .controls-subtitle,
     .controls-card.launcher-mode .controls-subtitle,
+    .controls-card.mission-mode .controls-subtitle,
+    .controls-card.inspection-mode .controls-subtitle,
     .controls-card.devtools-mode .controls-subtitle{display:none}
     html:not(.tablet-controls-layout) .controls-card.replay-mode .tablet-controls-close,
     html:not(.tablet-controls-layout) .controls-card.launcher-mode .tablet-controls-close,
+    html:not(.tablet-controls-layout) .controls-card.mission-mode .tablet-controls-close,
+    html:not(.tablet-controls-layout) .controls-card.inspection-mode .tablet-controls-close,
     html:not(.tablet-controls-layout) .controls-card.devtools-mode .tablet-controls-close{
       display:inline-flex!important;
     }
-    .controls-card.launcher-mode{
+    .controls-card.launcher-mode,
+    .controls-card.mission-mode,
+    .controls-card.inspection-mode{
       display:flex;
       flex-direction:column;
     }
     .controls-card.replay-mode #controlsHeader,
     .controls-card.launcher-mode #controlsHeader,
+    .controls-card.mission-mode #controlsHeader,
+    .controls-card.inspection-mode #controlsHeader,
     .controls-card.devtools-mode #controlsHeader{
       margin-bottom:4px;
     }
@@ -2706,6 +2724,53 @@
       flex:1 1 auto;
       min-height:0;
       animation:replayPanelEnter .24s ease;
+    }
+    .mission-panel,
+    .inspection-panel{
+      display:none;
+      margin-top:2px;
+      flex-direction:column;
+      gap:8px;
+      padding:0;
+      border:none;
+      border-radius:0;
+      background:transparent;
+      box-shadow:none;
+      min-height:0;
+    }
+    .controls-card.mission-mode .mission-panel,
+    .controls-card.inspection-mode .inspection-panel{
+      display:flex!important;
+      flex:1 1 auto;
+      min-height:0;
+      animation:replayPanelEnter .24s ease;
+    }
+    .panel-dialog-mount{
+      display:flex;
+      flex:1 1 auto;
+      min-height:0;
+      overflow:auto;
+      padding-right:2px;
+    }
+    .mission-dialog.is-embedded-panel,
+    .inspection-dialog.is-embedded-panel{
+      width:100%;
+      max-width:none;
+      min-height:0;
+      margin:0;
+    }
+    .controls-card .mission-dialog.is-embedded-panel,
+    .controls-card .inspection-dialog.is-embedded-panel{
+      border-radius:14px;
+      max-height:none;
+      height:auto;
+    }
+    .controls-card .mission-dialog.is-embedded-panel{
+      min-height:0;
+    }
+    .controls-card .inspection-dialog.is-embedded-panel{
+      min-height:0;
+      height:100%;
     }
     .launcher-panel-note{
       font-size:11px;
@@ -5336,13 +5401,37 @@
     html.phone-landscape-layout .mobile-controls-panel .mobile-launcher-panel{
       display:none;
     }
+    html.phone-landscape-layout .mobile-controls-panel .mobile-mission-panel,
+    html.phone-landscape-layout .mobile-controls-panel .mobile-inspection-panel{
+      display:none;
+    }
     html.phone-landscape-layout .mobile-controls-panel.is-launcher-view .mobile-controls-slot{
+      display:none;
+    }
+    html.phone-landscape-layout .mobile-controls-panel.is-mission-view .mobile-controls-slot,
+    html.phone-landscape-layout .mobile-controls-panel.is-inspection-view .mobile-controls-slot{
       display:none;
     }
     html.phone-landscape-layout .mobile-controls-panel.is-launcher-view{
       width:min(300px, calc(100vw - 24px));
     }
+    html.phone-landscape-layout .mobile-controls-panel.is-mission-view{
+      width:min(420px, calc(100vw - 24px));
+    }
+    html.phone-landscape-layout .mobile-controls-panel.is-inspection-view{
+      width:min(360px, calc(100vw - 24px));
+    }
     html.phone-landscape-layout .mobile-controls-panel.is-launcher-view .mobile-launcher-panel{
+      display:flex !important;
+      flex:1 1 auto;
+      min-height:0;
+      margin-top:0;
+      gap:10px;
+      padding:2px 2px 0;
+      animation:replayPanelEnter .2s ease;
+    }
+    html.phone-landscape-layout .mobile-controls-panel.is-mission-view .mobile-mission-panel,
+    html.phone-landscape-layout .mobile-controls-panel.is-inspection-view .mobile-inspection-panel{
       display:flex !important;
       flex:1 1 auto;
       min-height:0;
@@ -5428,6 +5517,29 @@
       display:block;
       color:rgba(148,163,184,0.92);
       font-size:10px;
+    }
+    html.phone-landscape-layout .mobile-dialog-mount{
+      display:flex;
+      flex:1 1 auto;
+      min-height:0;
+      overflow:auto;
+      padding-right:2px;
+    }
+    html.phone-landscape-layout .mobile-dialog-mount .mission-dialog.is-embedded-panel,
+    html.phone-landscape-layout .mobile-dialog-mount .inspection-dialog.is-embedded-panel{
+      width:100%;
+      max-width:none;
+      min-height:0;
+      height:auto;
+      max-height:none;
+      border-radius:12px;
+      margin:0;
+    }
+    .panel-dialog-mount .mission-dialog.is-embedded-panel .mission-header,
+    html.phone-landscape-layout .mobile-dialog-mount .mission-dialog.is-embedded-panel .mission-header,
+    .panel-dialog-mount .inspection-dialog.is-embedded-panel .inspection-header,
+    html.phone-landscape-layout .mobile-dialog-mount .inspection-dialog.is-embedded-panel .inspection-header{
+      display:none;
     }
     html.phone-landscape-layout .mobile-controls-slot .control-tile:first-of-type{
       grid-column:auto;
@@ -5554,9 +5666,9 @@
     }
     html.phone-landscape-layout body.dashboard-view-active{
       --hud-inset-left:calc(16px + env(safe-area-inset-left, 0px));
-      --hud-inset-bottom:calc(16px + env(safe-area-inset-bottom, 0px));
+      --hud-inset-bottom:calc(8px + env(safe-area-inset-bottom, 0px));
       --hud-inset-width:clamp(164px, 23vw, 214px);
-      --hud-inset-height:clamp(104px, 23.5vh, 132px);
+      --hud-inset-height:clamp(112px, 25vh, 140px);
       --hud-inset-radius:4px;
       --hud-inset-border:1px solid rgba(255,255,255,0.18);
       --hud-inset-shadow:0 18px 34px rgba(2,6,23,0.34);
@@ -8069,6 +8181,20 @@
             </div>
           </div>
         </div>
+        <div id="mobileMissionPanel" class="mission-panel mobile-mission-panel" aria-hidden="true">
+          <div class="mobile-launcher-head">
+            <div class="mobile-launcher-title">MISSION PROFILE</div>
+            <button id="mobileMissionBackBtn" class="mobile-launcher-back" type="button" aria-label="Back">×</button>
+          </div>
+          <div id="mobileMissionPanelMount" class="mobile-dialog-mount"></div>
+        </div>
+        <div id="mobileInspectionPanel" class="inspection-panel mobile-inspection-panel" aria-hidden="true">
+          <div class="mobile-launcher-head">
+            <div class="mobile-launcher-title" data-i18n="inspectionTitle">설비 점검</div>
+            <button id="mobileInspectionBackBtn" class="mobile-launcher-back" type="button" aria-label="Back">×</button>
+          </div>
+          <div id="mobileInspectionPanelMount" class="mobile-dialog-mount"></div>
+        </div>
       </div>
       <div class="mobile-abort-wrapper">
         <div id="mobileAbortPanel" class="mobile-abort-panel">
@@ -8614,6 +8740,12 @@
               </div>
               <div class="launcher-auto-desc" data-i18n="launcherAutoDesc">발사대를 자동으로 세우는 1회 동작입니다.</div>
             </div>
+          </div>
+          <div id="missionPanel" class="mission-panel" aria-hidden="true">
+            <div id="missionPanelMount" class="panel-dialog-mount"></div>
+          </div>
+          <div id="inspectionPanel" class="inspection-panel" aria-hidden="true">
+            <div id="inspectionPanelMount" class="panel-dialog-mount"></div>
           </div>
 
           <div id="devToolsPanel" class="devtools-panel">
@@ -9467,7 +9599,7 @@
 
     <!-- 설비 점검 모달 -->
     <div id="inspectionOverlay" class="settings-overlay hidden" style="display:none;">
-      <div class="inspection-dialog">
+      <div id="inspectionDialog" class="inspection-dialog">
         <div class="settings-header inspection-header">
           <div>
             <div class="settings-title" data-i18n="inspectionTitle">설비 점검</div>
@@ -9506,7 +9638,7 @@
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="flash6.js?v=20260305-3"></script>
+  <script src="flash6.js?v=20260306-2"></script>
   <script>
     if ("serviceWorker" in navigator && window.isSecureContext) {
       window.addEventListener("load", () => {
