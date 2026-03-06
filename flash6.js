@@ -2500,6 +2500,14 @@
     const el = {};
     let controlsCardParent = null;
     let controlsCardNext = null;
+    const missionDialogDockState = {
+      homeParent: null,
+      homeNextSibling: null
+    };
+    const inspectionDialogDockState = {
+      homeParent: null,
+      homeNextSibling: null
+    };
     const CONTROLS_MOBILE_CLASS = "controls-mobile-hidden";
     const MAX_VISIBLE_LOG = 500;
     const TETRIS_W = 10;
@@ -3704,7 +3712,7 @@
       el.controlsCard.classList.toggle("devtools-mode", !!show);
       el.controlsHeader.classList.toggle("hidden", !!show);
       if(el.controlsCardTitle){
-        el.controlsCardTitle.textContent = show ? "DEV TOOLS" : (replayUiActive ? "DATA REPLAY" : (launcherPanelActive ? "LAUNCHER CONTROL" : "CONTROL PANEL"));
+        el.controlsCardTitle.textContent = show ? "DEV TOOLS" : getControlsPanelTitle();
       }
       if(show && isTabletControlsLayout() && !tabletControlsOpen){
         tabletControlsOpen = true;
@@ -6593,6 +6601,8 @@
     let gyroViewportLastTapX = 0;
     let gyroViewportLastTapY = 0;
     let launcherPanelActive = false;
+    let missionPanelActive = false;
+    let inspectionPanelActive = false;
     let mobileHudAlertText = "";
     let mobileHudAlertUntilMs = 0;
     let mobileHudAlertTimer = null;
@@ -6723,26 +6733,123 @@
     function isLauncherOverlayVisible(){
       return !!(launcherOverlayEl && !launcherOverlayEl.classList.contains("hidden"));
     }
+    function isMissionOverlayVisible(){
+      return !!(el.missionOverlay && !el.missionOverlay.classList.contains("hidden"));
+    }
+    function isInspectionOverlayVisible(){
+      return !!(el.inspectionOverlay && !el.inspectionOverlay.classList.contains("hidden"));
+    }
+    function cacheDialogDockHome(dialogEl, dockState){
+      if(!dialogEl || !dockState || dockState.homeParent) return;
+      dockState.homeParent = dialogEl.parentNode || null;
+      dockState.homeNextSibling = dialogEl.nextSibling || null;
+    }
+    function mountDialogToPanel(dialogEl, mountEl, dockState){
+      if(!dialogEl || !mountEl || !dockState) return false;
+      cacheDialogDockHome(dialogEl, dockState);
+      if(dialogEl.parentNode !== mountEl){
+        mountEl.appendChild(dialogEl);
+      }
+      dialogEl.classList.add("is-embedded-panel");
+      return true;
+    }
+    function restoreDialogFromPanel(dialogEl, dockState){
+      if(!dialogEl || !dockState) return;
+      dialogEl.classList.remove("is-embedded-panel");
+      const parent = dockState.homeParent;
+      if(!parent) return;
+      if(dialogEl.parentNode === parent) return;
+      const nextSibling = dockState.homeNextSibling;
+      if(nextSibling && nextSibling.parentNode === parent){
+        parent.insertBefore(dialogEl, nextSibling);
+      }else{
+        parent.appendChild(dialogEl);
+      }
+    }
     function isMobileLauncherPanelVisible(){
       return !!(el.mobileControlsPanel && el.mobileControlsPanel.classList.contains("is-launcher-view"));
+    }
+    function isMobileMissionPanelVisible(){
+      return !!(el.mobileControlsPanel && el.mobileControlsPanel.classList.contains("is-mission-view"));
+    }
+    function isMobileInspectionPanelVisible(){
+      return !!(el.mobileControlsPanel && el.mobileControlsPanel.classList.contains("is-inspection-view"));
+    }
+    function getControlsPanelTitle(){
+      if(replayUiActive) return "DATA REPLAY";
+      if(launcherPanelActive || isMobileLauncherPanelVisible()) return "LAUNCHER CONTROL";
+      if(missionPanelActive || isMobileMissionPanelVisible()) return "MISSION PROFILE";
+      if(inspectionPanelActive || isMobileInspectionPanelVisible()) return "INSPECTION";
+      return "CONTROL PANEL";
+    }
+    function syncControlsPanelTitle(){
+      if(el.controlsCardTitle){
+        el.controlsCardTitle.textContent = getControlsPanelTitle();
+      }
     }
     function setMobileLauncherPanelVisible(show){
       if(!el.mobileControlsPanel) return;
       const next = !!show;
+      if(next){
+        setMobileMissionPanelVisible(false);
+        setMobileInspectionPanelVisible(false);
+      }
       el.mobileControlsPanel.classList.toggle("is-launcher-view", next);
       if(el.mobileLauncherPanel){
         el.mobileLauncherPanel.setAttribute("aria-hidden", next ? "false" : "true");
       }
+      syncControlsPanelTitle();
+      updateNavActionState();
+    }
+    function setMobileMissionPanelVisible(show){
+      if(!el.mobileControlsPanel) return;
+      const next = !!show;
+      if(next){
+        setMobileLauncherPanelVisible(false);
+        setMobileInspectionPanelVisible(false);
+        mountDialogToPanel(el.missionDialog, el.mobileMissionPanelMount, missionDialogDockState);
+      }else{
+        if(el.missionDialog && el.mobileMissionPanelMount && el.missionDialog.parentNode === el.mobileMissionPanelMount){
+          restoreDialogFromPanel(el.missionDialog, missionDialogDockState);
+        }
+      }
+      el.mobileControlsPanel.classList.toggle("is-mission-view", next);
+      if(el.mobileMissionPanel){
+        el.mobileMissionPanel.setAttribute("aria-hidden", next ? "false" : "true");
+      }
+      syncControlsPanelTitle();
+      updateNavActionState();
+    }
+    function setMobileInspectionPanelVisible(show){
+      if(!el.mobileControlsPanel) return;
+      const next = !!show;
+      if(next){
+        setMobileLauncherPanelVisible(false);
+        setMobileMissionPanelVisible(false);
+        mountDialogToPanel(el.inspectionDialog, el.mobileInspectionPanelMount, inspectionDialogDockState);
+      }else{
+        if(el.inspectionDialog && el.mobileInspectionPanelMount && el.inspectionDialog.parentNode === el.mobileInspectionPanelMount){
+          restoreDialogFromPanel(el.inspectionDialog, inspectionDialogDockState);
+        }
+      }
+      el.mobileControlsPanel.classList.toggle("is-inspection-view", next);
+      if(el.mobileInspectionPanel){
+        el.mobileInspectionPanel.setAttribute("aria-hidden", next ? "false" : "true");
+      }
+      syncControlsPanelTitle();
       updateNavActionState();
     }
     function updateNavActionState(){
       const replayActive = !!replayUiActive;
       const launcherActive = !!launcherPanelActive || isLauncherOverlayVisible() || isMobileLauncherPanelVisible();
+      const missionActive = !!missionPanelActive || isMissionOverlayVisible() || isMobileMissionPanelVisible();
+      const inspectionActive = !!inspectionPanelActive || isInspectionOverlayVisible() || isMobileInspectionPanelVisible();
+      const panelModeActive = replayActive || launcherActive || missionActive || inspectionActive;
       const controlsActive = isMobileLayout()
         ? false
         : (isTabletControlsLayout()
-            ? (tabletControlsOpen && !replayActive && !launcherActive)
-            : (!replayActive && !launcherActive));
+            ? (tabletControlsOpen && !panelModeActive)
+            : (!panelModeActive));
       if(el.replayOpenBtns && el.replayOpenBtns.length){
         el.replayOpenBtns.forEach(btn=>btn.classList.toggle("is-active", replayActive));
       }
@@ -6756,6 +6863,8 @@
     function setLauncherPanelVisible(show){
       launcherPanelActive = !!show;
       if(launcherPanelActive){
+        setMissionPanelVisible(false);
+        setInspectionPanelVisible(false);
         if(replayUiActive){
           exitReplayMode();
         }
@@ -6772,11 +6881,7 @@
       if(el.launcherPanel){
         el.launcherPanel.setAttribute("aria-hidden", launcherPanelActive ? "false" : "true");
       }
-      if(launcherPanelActive){
-        if(el.controlsCardTitle) el.controlsCardTitle.textContent = "LAUNCHER CONTROL";
-      }else if(!replayUiActive && el.controlsCardTitle){
-        el.controlsCardTitle.textContent = "CONTROL PANEL";
-      }
+      syncControlsPanelTitle();
       if(!launcherPanelActive){
         launcherAutoActive = false;
         launcherPitchEst = null;
@@ -6786,10 +6891,72 @@
       }
       updateNavActionState();
     }
+    function setMissionPanelVisible(show){
+      missionPanelActive = !!show;
+      if(missionPanelActive){
+        setOverlayVisible(el.missionOverlay, false);
+        setLauncherPanelVisible(false);
+        setInspectionPanelVisible(false);
+        if(replayUiActive){
+          exitReplayMode();
+        }
+        if(el.controlsCard){
+          el.controlsCard.classList.remove("devtools-mode");
+        }
+        if(el.controlsHeader){
+          el.controlsHeader.classList.remove("hidden");
+        }
+        mountDialogToPanel(el.missionDialog, el.missionPanelMount, missionDialogDockState);
+      }else{
+        if(el.missionDialog && el.missionPanelMount && el.missionDialog.parentNode === el.missionPanelMount){
+          restoreDialogFromPanel(el.missionDialog, missionDialogDockState);
+        }
+      }
+      if(el.controlsCard){
+        el.controlsCard.classList.toggle("mission-mode", missionPanelActive);
+      }
+      if(el.missionPanel){
+        el.missionPanel.setAttribute("aria-hidden", missionPanelActive ? "false" : "true");
+      }
+      syncControlsPanelTitle();
+      updateNavActionState();
+    }
+    function setInspectionPanelVisible(show){
+      inspectionPanelActive = !!show;
+      if(inspectionPanelActive){
+        setOverlayVisible(el.inspectionOverlay, false);
+        setLauncherPanelVisible(false);
+        setMissionPanelVisible(false);
+        if(replayUiActive){
+          exitReplayMode();
+        }
+        if(el.controlsCard){
+          el.controlsCard.classList.remove("devtools-mode");
+        }
+        if(el.controlsHeader){
+          el.controlsHeader.classList.remove("hidden");
+        }
+        mountDialogToPanel(el.inspectionDialog, el.inspectionPanelMount, inspectionDialogDockState);
+      }else{
+        if(el.inspectionDialog && el.inspectionPanelMount && el.inspectionDialog.parentNode === el.inspectionPanelMount){
+          restoreDialogFromPanel(el.inspectionDialog, inspectionDialogDockState);
+        }
+      }
+      if(el.controlsCard){
+        el.controlsCard.classList.toggle("inspection-mode", inspectionPanelActive);
+      }
+      if(el.inspectionPanel){
+        el.inspectionPanel.setAttribute("aria-hidden", inspectionPanelActive ? "false" : "true");
+      }
+      syncControlsPanelTitle();
+      updateNavActionState();
+    }
     function resetControlsModesOnClose(){
       if(replayUiActive){
         exitReplayMode();
       }
+      setMissionPanelVisible(false);
+      setInspectionPanelVisible(false);
       setLauncherPanelVisible(false);
     }
     function applyTabletControlsLayout(){
@@ -6843,11 +7010,17 @@
       const active = isForcedMobileHudPreview() || (PHONE_LANDSCAPE_MEDIA.matches && isTouchCapableDevice());
       const wasActive = document.documentElement.classList.contains("phone-landscape-layout");
       document.documentElement.classList.toggle("phone-landscape-layout", active);
+      if(active && !wasActive){
+        setMissionPanelVisible(false);
+        setInspectionPanelVisible(false);
+      }
       if(active){
         moveMobileAbortPanelToBody();
         moveMobileControlsPanelToBody();
       }else{
         setMobileLauncherPanelVisible(false);
+        setMobileMissionPanelVisible(false);
+        setMobileInspectionPanelVisible(false);
         restoreMobileAbortPanelFromBody();
         restoreMobileControlsPanelFromBody();
       }
@@ -6889,6 +7062,8 @@
       syncMobileControlButtons();
       updateMobileSequenceStatusLabel(sequenceActive, currentSt, lockoutLatched);
       setMobileLauncherPanelVisible(false);
+      setMobileMissionPanelVisible(false);
+      setMobileInspectionPanelVisible(false);
       mobileControlsActive = true;
       el.mobileControlsPanel.classList.add("is-open");
       el.mobileControlsPanel.setAttribute("aria-hidden","false");
@@ -6898,6 +7073,8 @@
     function hideMobileControlsPanel(){
       if(!el.mobileControlsPanel || !mobileControlsActive) return;
       setMobileLauncherPanelVisible(false);
+      setMobileMissionPanelVisible(false);
+      setMobileInspectionPanelVisible(false);
       mobileControlsActive = false;
       el.mobileControlsPanel.classList.remove("is-open");
       el.mobileControlsPanel.setAttribute("aria-hidden","true");
@@ -7184,12 +7361,41 @@
     }
 
     function showInspection(){
+      if(isPhoneLandscapeLayout()){
+        setOverlayVisible(el.inspectionOverlay, false);
+        if(!mobileControlsActive){
+          showMobileControlsPanel();
+        }
+        setMobileInspectionPanelVisible(true);
+        resetInspectionUI();
+        runInspectionSequence();
+        return;
+      }
+      if(isTabletControlsLayout() || !isMobileLayout()){
+        setOverlayVisible(el.inspectionOverlay, false);
+        if(isTabletControlsLayout()){
+          tabletControlsOpen = true;
+          applyTabletControlsLayout();
+        }
+        setInspectionPanelVisible(true);
+        resetInspectionUI();
+        runInspectionSequence();
+        return;
+      }
       hideMobileControlsPanel();
+      setInspectionPanelVisible(false);
+      setMobileInspectionPanelVisible(false);
       setOverlayVisible(el.inspectionOverlay, true);
       resetInspectionUI();
       runInspectionSequence();
     }
     function hideInspection(){
+      if(isMobileInspectionPanelVisible()){
+        setMobileInspectionPanelVisible(false);
+      }
+      if(inspectionPanelActive){
+        setInspectionPanelVisible(false);
+      }
       setOverlayVisible(el.inspectionOverlay, false);
     }
 
@@ -7884,9 +8090,7 @@
       if(el.replayFileBtn){
         el.replayFileBtn.classList.toggle("is-loaded", !!replayState.fileName);
       }
-      if(el.controlsCardTitle){
-        el.controlsCardTitle.textContent = replayUiActive ? "DATA REPLAY" : (launcherPanelActive ? "LAUNCHER CONTROL" : "CONTROL PANEL");
-      }
+      syncControlsPanelTitle();
       if(el.replayDropTitle){
         el.replayDropTitle.textContent = replayState.fileName ? replayState.fileName : "Replay 파일 업로드";
       }
@@ -8141,6 +8345,8 @@
         showTabletControlsPanel();
       }
       setLauncherPanelVisible(false);
+      setMissionPanelVisible(false);
+      setInspectionPanelVisible(false);
       replayUiActive = true;
       if(!replayState.samples.length){
         showToast("리플레이 파일을 선택하세요.", "notice", {key:"replay-select-file"});
@@ -10024,12 +10230,39 @@
       setOverlayVisible(el.noMotorOverlay, false);
     }
     function showMission(){
+      if(isPhoneLandscapeLayout()){
+        setOverlayVisible(el.missionOverlay, false);
+        if(!mobileControlsActive){
+          showMobileControlsPanel();
+        }
+        setMobileMissionPanelVisible(true);
+        resetMissionToPresetList();
+        return;
+      }
+      if(isTabletControlsLayout() || !isMobileLayout()){
+        setOverlayVisible(el.missionOverlay, false);
+        if(isTabletControlsLayout()){
+          tabletControlsOpen = true;
+          applyTabletControlsLayout();
+        }
+        setMissionPanelVisible(true);
+        resetMissionToPresetList();
+        return;
+      }
       hideMobileControlsPanel();
+      setMissionPanelVisible(false);
+      setMobileMissionPanelVisible(false);
       setOverlayVisible(el.missionOverlay, true);
       resetMissionToPresetList();
     }
     function hideMission(){
       resetMissionToPresetList();
+      if(isMobileMissionPanelVisible()){
+        setMobileMissionPanelVisible(false);
+      }
+      if(missionPanelActive){
+        setMissionPanelVisible(false);
+      }
       setOverlayVisible(el.missionOverlay, false);
     }
     function updateLoadcellLiveValue(val){
@@ -10205,6 +10438,10 @@
         if(safetyModeEnabled) showToast(t("safetyModeOnToast"), "notice");
         return;
       }
+      setMissionPanelVisible(false);
+      setInspectionPanelVisible(false);
+      setMobileMissionPanelVisible(false);
+      setMobileInspectionPanelVisible(false);
       if(isPhoneLandscapeLayout()){
         setLauncherPanelVisible(false);
         if(launcherOverlayEl){
@@ -11226,6 +11463,7 @@
       el.launcherAutoCancel = document.getElementById("launcherAutoCancel");
       el.missionOverlay = document.getElementById("missionOverlay");
       el.missionDialog = document.getElementById("missionDialog");
+      el.inspectionDialog = document.getElementById("inspectionDialog");
       el.missionClose = document.getElementById("missionClose");
       el.missionCloseBtn = document.getElementById("missionCloseBtn");
       el.missionConfirmBtn = document.getElementById("missionConfirmBtn");
@@ -11298,7 +11536,15 @@
       el.controlsHeader = document.getElementById("controlsHeader");
       el.controlsMain = document.getElementById("controlsMain");
       el.launcherPanel = document.getElementById("launcherPanel");
+      el.missionPanel = document.getElementById("missionPanel");
+      el.inspectionPanel = document.getElementById("inspectionPanel");
+      el.missionPanelMount = document.getElementById("missionPanelMount");
+      el.inspectionPanelMount = document.getElementById("inspectionPanelMount");
       el.mobileLauncherPanel = document.getElementById("mobileLauncherPanel");
+      el.mobileMissionPanel = document.getElementById("mobileMissionPanel");
+      el.mobileInspectionPanel = document.getElementById("mobileInspectionPanel");
+      el.mobileMissionPanelMount = document.getElementById("mobileMissionPanelMount");
+      el.mobileInspectionPanelMount = document.getElementById("mobileInspectionPanelMount");
       el.launcherPitchAngleTablet = document.getElementById("launcherPitchAngleTablet");
       el.replayOpenBtns = document.querySelectorAll(".js-replay-open");
       el.replayPanel = document.getElementById("replayPanel");
@@ -11671,6 +11917,8 @@
       const launcherDownMobileBtn=document.getElementById("launcherDownMobileBtn");
       const launcherAutoMobileBtn=document.getElementById("launcherAutoMobileBtn");
       const mobileLauncherBackBtn=document.getElementById("mobileLauncherBackBtn");
+      const mobileMissionBackBtn=document.getElementById("mobileMissionBackBtn");
+      const mobileInspectionBackBtn=document.getElementById("mobileInspectionBackBtn");
       launcherAutoOverlayEl = el.launcherAutoOverlay || document.getElementById("launcherAutoOverlay");
       launcherAutoConfirmBtn = el.launcherAutoConfirm || document.getElementById("launcherAutoConfirm");
       launcherAutoCancelBtn = el.launcherAutoCancel || document.getElementById("launcherAutoCancel");
@@ -11936,6 +12184,8 @@
             ev.preventDefault();
             ensureDashboardViewForPanels();
             setLauncherPanelVisible(false);
+            setMissionPanelVisible(false);
+            setInspectionPanelVisible(false);
             if(replayUiActive){
               exitReplayMode();
             }
@@ -11972,6 +12222,14 @@
           }
           if(launcherPanelActive){
             hideLauncher();
+            return;
+          }
+          if(missionPanelActive){
+            hideMission();
+            return;
+          }
+          if(inspectionPanelActive){
+            hideInspection();
             return;
           }
           if(el.controlsCard && el.controlsCard.classList.contains("devtools-mode")){
@@ -12737,7 +12995,9 @@
             const type = btn.getAttribute("data-mobile-control");
             const action = mobileControlActions[type];
             if(!action) return;
-            if(type === "mission" || type === "export" || (type === "launcher" && !isPhoneLandscapeLayout())){
+            if(type === "export" ||
+              (type === "mission" && !isPhoneLandscapeLayout()) ||
+              (type === "launcher" && !isPhoneLandscapeLayout())){
               hideMobileControlsPanel();
             }
             action();
@@ -13174,6 +13434,16 @@
       if(mobileLauncherBackBtn){
         mobileLauncherBackBtn.addEventListener("click",()=>{
           hideLauncher();
+        });
+      }
+      if(mobileMissionBackBtn){
+        mobileMissionBackBtn.addEventListener("click",()=>{
+          hideMission();
+        });
+      }
+      if(mobileInspectionBackBtn){
+        mobileInspectionBackBtn.addEventListener("click",()=>{
+          hideInspection();
         });
       }
       if(launcherAutoConfirmBtn){
