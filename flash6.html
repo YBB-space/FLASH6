@@ -949,7 +949,7 @@
       right:6px;
       z-index:6;
       display:none;
-      pointer-events:none;
+      pointer-events:auto;
     }
     .status-gyro-btn{
       pointer-events:auto;
@@ -1084,6 +1084,13 @@
       left:calc(var(--status-map-hud-left, 16px) + env(safe-area-inset-left, 0px));
       right:calc(12px + env(safe-area-inset-right, 0px));
       z-index:1203;
+    }
+    .status-map-panel:not(.is-expanded) #statusMapRecenterBtn,
+    .status-map-panel:not(.is-expanded) #statusMapCopyBtn{
+      display:none !important;
+    }
+    .status-map-panel.is-expanded #statusMapExpandBtn{
+      display:none !important;
     }
     .status-map-rocket-icon{
       background:transparent;
@@ -5140,10 +5147,17 @@
     html.phone-landscape-layout.settings-open .side-nav-mobile .js-controls-open{
       display:none;
     }
+    html.phone-landscape-layout.settings-open .side-nav-mobile .js-controls-open,
+    html.phone-landscape-layout.settings-open #tabletControlsNavBtn{
+      display:none !important;
+      pointer-events:none !important;
+      opacity:0 !important;
+      visibility:hidden !important;
+    }
     html.phone-landscape-layout.mobile-controls-active .side-nav-mobile .js-controls-open{
       display:none;
     }
-    html.settings-open .js-controls-open{
+    html.phone-landscape-layout.settings-open .js-controls-open{
       display:none !important;
       pointer-events:none !important;
       opacity:0 !important;
@@ -5451,6 +5465,37 @@
       justify-content:center;
       box-shadow:inset 0 1px 0 rgba(255,255,255,0.08);
     }
+    html.phone-landscape-layout .mobile-controls-panel .mobile-quick-icon.tone-gray{
+      border-color:rgba(148,163,184,0.26);
+      background:rgba(148,163,184,0.16);
+    }
+    html.phone-landscape-layout .mobile-controls-panel .mobile-quick-icon.tone-gray svg{
+      stroke:rgba(203,213,225,0.92);
+    }
+    html.phone-landscape-layout .mobile-controls-panel .mobile-quick-icon.tone-green{
+      border-color:rgba(74,222,128,0.5);
+      background:rgba(22,163,74,0.26);
+      box-shadow:0 0 0 1px rgba(74,222,128,0.24), inset 0 1px 0 rgba(255,255,255,0.1);
+    }
+    html.phone-landscape-layout .mobile-controls-panel .mobile-quick-icon.tone-green svg{
+      stroke:#dcfce7;
+    }
+    html.phone-landscape-layout .mobile-controls-panel .mobile-quick-icon.tone-red{
+      border-color:rgba(248,113,113,0.52);
+      background:rgba(220,38,38,0.3);
+      box-shadow:0 0 0 1px rgba(248,113,113,0.26), inset 0 1px 0 rgba(255,255,255,0.1);
+    }
+    html.phone-landscape-layout .mobile-controls-panel .mobile-quick-icon.tone-red svg{
+      stroke:#fee2e2;
+    }
+    html.phone-landscape-layout .mobile-controls-panel .mobile-quick-icon.tone-blue{
+      border-color:rgba(96,165,250,0.55);
+      background:rgba(30,64,175,0.3);
+      box-shadow:0 0 0 1px rgba(96,165,250,0.24), inset 0 1px 0 rgba(255,255,255,0.1);
+    }
+    html.phone-landscape-layout .mobile-controls-panel .mobile-quick-icon.tone-blue svg{
+      stroke:#dbeafe;
+    }
     html.phone-landscape-layout .mobile-controls-panel .mobile-quick-icon svg{
       width:24px;
       height:24px;
@@ -5471,6 +5516,7 @@
       word-break:keep-all;
     }
     html.phone-landscape-layout .mobile-controls-panel .mobile-quick-state{
+      display:none !important;
       min-height:12px;
       font-size:9px;
       font-weight:700;
@@ -5824,6 +5870,7 @@
       letter-spacing:0;
       text-transform:none;
       font-weight:500;
+      text-shadow:0 3px 10px rgba(2,6,23,0.34);
     }
     html.phone-landscape-layout body.dashboard-view-active .status-expanded-metric-value{
       order:1;
@@ -5832,7 +5879,7 @@
       line-height:1;
       text-align:left;
       font-weight:600;
-      text-shadow:0 8px 18px rgba(2,6,23,0.22);
+      text-shadow:0 2px 8px rgba(2,6,23,0.42), 0 10px 24px rgba(2,6,23,0.34);
     }
     html.phone-landscape-layout body.dashboard-view-active .status-expanded-metric-value .unit{
       font-size:.62em;
@@ -5918,6 +5965,29 @@
     html.phone-landscape-layout body.dashboard-view-active #statusMapViewport.is-expanded .leaflet-control-container{
       border-radius:0 !important;
     }
+    html.phone-landscape-layout body.dashboard-view-active #statusMapViewport:not(.is-expanded) .leaflet-control-attribution{
+      display:none !important;
+      opacity:0 !important;
+      pointer-events:none !important;
+    }
+    html.phone-landscape-layout body.dashboard-view-active #statusMapViewport.is-expanded .leaflet-control-attribution{
+      display:block;
+      opacity:.84;
+      background:rgba(7,12,22,0.42);
+      color:rgba(226,232,240,0.9);
+      border:none;
+      border-radius:4px;
+      padding:1px 6px;
+      font-size:10px;
+      line-height:1.2;
+      box-shadow:none;
+    }
+    html.phone-landscape-layout body.dashboard-view-active #statusMapViewport.is-expanded .leaflet-control-attribution a{
+      color:inherit;
+    }
+    html.phone-landscape-layout body.dashboard-view-active #statusMapViewport:not(.is-expanded) .status-map-card{
+      display:none !important;
+    }
     html.phone-landscape-layout body.dashboard-view-active .status-map-hud{
       top:8px;
       left:8px;
@@ -5927,31 +5997,98 @@
     html.phone-landscape-layout body.dashboard-view-active .status-map-expanded-hud .gyro3d-expanded-label{
       display:none;
     }
+    html.phone-landscape-layout body.dashboard-view-active #statusMapExpandedHud{
+      top:calc(12px + env(safe-area-inset-top, 0px));
+      left:calc(12px + env(safe-area-inset-left, 0px));
+      right:calc(8px + env(safe-area-inset-right, 0px));
+    }
+    html.phone-landscape-layout body.dashboard-view-active #statusMapExpandedHud .gyro3d-expanded-topbar{
+      padding:0;
+      align-items:flex-start;
+      gap:14px;
+    }
+    html.phone-landscape-layout body.dashboard-view-active #statusMapExpandedHud .gyro3d-expanded-left{
+      gap:0;
+    }
+    html.phone-landscape-layout body.dashboard-view-active #statusMapExpandedHud .gyro3d-expanded-mainline{
+      align-items:center;
+      gap:10px;
+      flex-wrap:nowrap;
+    }
+    html.phone-landscape-layout body.dashboard-view-active #statusMapExpandedHud .gyro3d-expanded-countdown{
+      font-family:"SF Pro Text","Apple SD Gothic Neo","Noto Sans KR","Segoe UI",system-ui,sans-serif;
+      font-size:clamp(13px,1.9vw,16px);
+      font-weight:500;
+      letter-spacing:.01em;
+      line-height:1.05;
+      font-variant-numeric:tabular-nums;
+      font-feature-settings:"tnum" 1;
+      color:#f8fafc;
+      text-shadow:0 8px 18px rgba(2,6,23,0.22);
+    }
+    html.phone-landscape-layout body.dashboard-view-active #statusMapExpandedHud .gyro3d-expanded-mainline .countdown-inline-status{
+      min-height:auto;
+      padding-left:10px;
+      gap:6px;
+      border-left:1px solid rgba(248,250,252,0.22);
+    }
+    html.phone-landscape-layout body.dashboard-view-active #statusMapExpandedHud .gyro3d-expanded-mainline .countdown-inline-status-text{
+      font-size:clamp(12px,1.6vw,14px);
+      font-weight:700;
+      color:rgba(248,250,252,0.9);
+      max-width:200px;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+      text-shadow:0 8px 18px rgba(2,6,23,0.22);
+    }
+    html.phone-landscape-layout body.dashboard-view-active #statusMapExpandedHud .gyro3d-expanded-hud-pill{
+      min-height:20px;
+      padding:1px 8px;
+      font-size:8px;
+    }
     html.phone-landscape-layout body.dashboard-view-active .status-map-card{
-      top:auto;
-      bottom:0;
-      left:0;
+      top:34px;
+      right:0;
+      left:auto;
+      bottom:auto;
       gap:6px;
       padding:7px 10px;
       border-radius:4px !important;
       background:rgba(7,12,22,0.74);
       border:1px solid rgba(255,255,255,0.14);
       box-shadow:0 8px 16px rgba(2,6,23,0.2);
+      max-width:min(58vw, 240px);
+      justify-content:flex-end;
+    }
+    html.phone-landscape-layout.status-map-expanded body.dashboard-view-active .status-map-card{
+      top:44px;
+      right:0;
     }
     html.phone-landscape-layout body.dashboard-view-active .status-map-coords{
       font-size:9px;
       color:#f8fafc;
       letter-spacing:.02em;
+      text-align:right;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
     }
     html.phone-landscape-layout body.dashboard-view-active .status-map-zoom{
       display:none;
     }
     html.phone-landscape-layout body.dashboard-view-active .status-map-actions{
-      top:0;
-      right:0;
-      left:auto;
-      bottom:auto;
+      top:auto;
+      right:auto;
+      left:0;
+      bottom:0;
       gap:6px;
+    }
+    html.phone-landscape-layout body.dashboard-view-active #statusMapViewport:not(.is-expanded) #statusMapExpandBtn{
+      width:26px;
+      height:26px;
+      font-size:12px;
+      border-radius:7px !important;
     }
     html.phone-landscape-layout.status-map-expanded body.dashboard-view-active .status-map-actions{
       top:0;
@@ -5984,21 +6121,36 @@
       border-radius:8px !important;
       box-shadow:0 8px 18px rgba(2,6,23,0.24);
     }
+    html.phone-landscape-layout body.dashboard-view-active .status-gyro-btn{
+      width:26px;
+      height:26px;
+      font-size:12px;
+      border-radius:7px;
+    }
     html.phone-landscape-layout.status-map-expanded body.dashboard-view-active #gyro3dViewport .status-gyro-actions{
       display:flex;
+      z-index:16;
+      top:auto;
+      right:auto;
+      left:8px;
+      bottom:8px;
     }
     html.phone-landscape-layout.status-map-expanded body.dashboard-view-active #gyro3dViewport .status-gyro-btn--map-close{
       display:inline-flex;
+    }
+    html.phone-landscape-layout.status-map-expanded body.dashboard-view-active #gyro3dViewport .status-gyro-btn--expand{
+      display:none !important;
     }
     html.phone-landscape-layout.status-map-expanded body.dashboard-view-active #gyro3dViewport.is-expanded .status-gyro-actions{
       display:none;
     }
     html.phone-landscape-layout.status-map-expanded body.dashboard-view-active .status-expanded-metric-label{
       color:rgba(15,23,42,0.68);
+      text-shadow:0 2px 8px rgba(255,255,255,0.5);
     }
     html.phone-landscape-layout.status-map-expanded body.dashboard-view-active .status-expanded-metric-value{
       color:#0f172a;
-      text-shadow:0 3px 10px rgba(255,255,255,0.5);
+      text-shadow:0 2px 8px rgba(255,255,255,0.62), 0 8px 20px rgba(255,255,255,0.34);
     }
     html.phone-landscape-layout.status-map-expanded body.dashboard-view-active .status-expanded-metric-value .unit{
       color:#334155;
@@ -6019,7 +6171,7 @@
       border-radius:24px;
     }
     html.phone-landscape-layout #settingsOverlay{
-      z-index:95;
+      z-index:1305;
       align-items:stretch !important;
       justify-content:flex-end !important;
       padding:0 0 0 env(safe-area-inset-left, 0px) !important;
@@ -6162,6 +6314,109 @@
       border-color:rgba(148,163,184,0.4);
       color:#f8fafc;
       box-shadow:none;
+    }
+    html.phone-landscape-layout #missionOverlay,
+    html.phone-landscape-layout #inspectionOverlay,
+    html.phone-landscape-layout #loadcellOverlay{
+      align-items:center !important;
+      justify-content:center !important;
+      padding:10px calc(74px + env(safe-area-inset-right, 0px)) 10px max(10px, env(safe-area-inset-left, 0px)) !important;
+      background:rgba(2,6,23,0.58);
+      backdrop-filter:blur(4px);
+      -webkit-backdrop-filter:blur(4px);
+    }
+    html.phone-landscape-layout #missionOverlay .mission-dialog,
+    html.phone-landscape-layout #inspectionOverlay .inspection-dialog,
+    html.phone-landscape-layout #loadcellOverlay .loadcell-dialog{
+      width:min(430px, 46vw);
+      max-width:calc(100vw - 98px);
+      min-height:0;
+      height:auto;
+      max-height:calc(100dvh - 20px);
+      border-radius:16px;
+      padding:14px 14px 12px;
+      background:linear-gradient(180deg,rgba(10,16,29,0.96),rgba(6,12,22,0.98));
+      border:1px solid rgba(148,163,184,0.28);
+      color:#e2e8f0;
+      box-shadow:0 18px 36px rgba(2,6,23,0.58),inset 0 1px 0 rgba(148,163,184,0.14);
+      backdrop-filter:blur(20px) saturate(1.12);
+      -webkit-backdrop-filter:blur(20px) saturate(1.12);
+      overflow:hidden;
+    }
+    html.phone-landscape-layout #launcherOverlay .launcher-dialog,
+    html.phone-landscape-layout .confirm-overlay:not(.warning-fullscreen) .confirm-dialog,
+    html.phone-landscape-layout .disconnect-dialog{
+      background:linear-gradient(180deg,rgba(10,16,29,0.96),rgba(6,12,22,0.98));
+      border:1px solid rgba(148,163,184,0.28);
+      color:#e2e8f0;
+      box-shadow:0 18px 36px rgba(2,6,23,0.58),inset 0 1px 0 rgba(148,163,184,0.14);
+      backdrop-filter:blur(20px) saturate(1.12);
+      -webkit-backdrop-filter:blur(20px) saturate(1.12);
+    }
+    html.phone-landscape-layout #launcherOverlay .launcher-dialog::before,
+    html.phone-landscape-layout #missionOverlay .mission-dialog::before,
+    html.phone-landscape-layout #inspectionOverlay .inspection-dialog::before,
+    html.phone-landscape-layout #loadcellOverlay .loadcell-dialog::before,
+    html.phone-landscape-layout .confirm-overlay:not(.warning-fullscreen) .confirm-dialog::before{
+      background:linear-gradient(145deg,rgba(148,163,184,0.24),rgba(30,41,59,0.35));
+      opacity:.95;
+    }
+    html.phone-landscape-layout #launcherOverlay .launcher-dialog::after,
+    html.phone-landscape-layout #inspectionOverlay .inspection-dialog::after,
+    html.phone-landscape-layout #loadcellOverlay .loadcell-dialog::after,
+    html.phone-landscape-layout .confirm-overlay:not(.warning-fullscreen) .confirm-dialog::after{
+      background:radial-gradient(circle at 16% 0,rgba(148,163,184,0.24),transparent 58%);
+      opacity:.55;
+    }
+    html.phone-landscape-layout .mission-title,
+    html.phone-landscape-layout .inspection-step-title,
+    html.phone-landscape-layout .launcher-title,
+    html.phone-landscape-layout .confirm-title,
+    html.phone-landscape-layout .disconnect-title{
+      color:#f8fafc;
+    }
+    html.phone-landscape-layout .mission-sub,
+    html.phone-landscape-layout .inspection-sub,
+    html.phone-landscape-layout .inspection-step-desc,
+    html.phone-landscape-layout .launcher-note,
+    html.phone-landscape-layout .confirm-text,
+    html.phone-landscape-layout .confirm-note,
+    html.phone-landscape-layout .disconnect-text{
+      color:#94a3b8;
+    }
+    html.phone-landscape-layout .mission-label,
+    html.phone-landscape-layout .settings-label{
+      color:#dbe4f1;
+    }
+    html.phone-landscape-layout .mission-input,
+    html.phone-landscape-layout .mission-test-input,
+    html.phone-landscape-layout .mission-unit,
+    html.phone-landscape-layout .loadcell-input,
+    html.phone-landscape-layout .loadcell-card,
+    html.phone-landscape-layout .inspection-kicker{
+      background:rgba(15,23,42,0.9);
+      border-color:rgba(71,85,105,0.72);
+      color:#e2e8f0;
+    }
+    html.phone-landscape-layout .mission-preset-viewport{
+      background:rgba(15,23,42,0.82);
+      border:1px solid rgba(71,85,105,0.7);
+    }
+    html.phone-landscape-layout .mission-preset-btn{
+      background:linear-gradient(180deg,rgba(15,23,42,0.92),rgba(11,18,32,0.94));
+      border-color:rgba(71,85,105,0.68);
+      box-shadow:0 8px 16px rgba(2,6,23,0.48);
+    }
+    html.phone-landscape-layout .mission-preset-name,
+    html.phone-landscape-layout .mission-review-value{
+      color:#e2e8f0;
+    }
+    html.phone-landscape-layout .mission-preset-sub,
+    html.phone-landscape-layout .mission-review-label,
+    html.phone-landscape-layout .mission-preset-vendor,
+    html.phone-landscape-layout .loadcell-note,
+    html.phone-landscape-layout .loadcell-steps{
+      color:#94a3b8;
     }
 
     @media(max-height:900px){
@@ -7511,10 +7766,80 @@
       #settingsOverlay .settings-body{
         flex-direction:column;
       }
+      .confirm-overlay,
+      .settings-overlay,
+      .ws-alert-overlay,
+      .disconnect-overlay{
+        background:rgba(2,6,23,0.64);
+        backdrop-filter:blur(4px);
+        -webkit-backdrop-filter:blur(4px);
+      }
+      .confirm-overlay:not(.warning-fullscreen) .confirm-dialog,
+      .ws-alert-dialog,
+      .disconnect-dialog,
+      #settingsOverlay .settings-dialog,
+      #missionOverlay .mission-dialog,
+      #inspectionOverlay .inspection-dialog,
+      #loadcellOverlay .loadcell-dialog,
+      #launcherOverlay .launcher-dialog{
+        background:linear-gradient(180deg,rgba(10,16,29,0.96),rgba(6,12,22,0.98));
+        border-color:rgba(148,163,184,0.3);
+        color:#e2e8f0;
+        box-shadow:0 16px 32px rgba(2,6,23,0.56),inset 0 1px 0 rgba(148,163,184,0.13);
+      }
+      #settingsOverlay .settings-dialog,
+      #missionOverlay .mission-dialog,
+      #inspectionOverlay .inspection-dialog,
+      #loadcellOverlay .loadcell-dialog{
+        width:calc(100vw - 18px);
+        max-width:calc(100vw - 18px);
+      }
+      #launcherOverlay .launcher-dialog{
+        width:min(330px, calc(100vw - 24px));
+        max-width:calc(100vw - 24px);
+      }
+      .confirm-overlay:not(.warning-fullscreen) .confirm-dialog,
+      .ws-alert-dialog,
+      .disconnect-dialog{
+        max-width:calc(100vw - 24px);
+      }
+      .settings-title,
+      .settings-label,
+      .mission-title,
+      .inspection-step-title,
+      .launcher-title,
+      .confirm-title,
+      .disconnect-title{
+        color:#f8fafc;
+      }
+      .settings-desc,
+      .hint-mini,
+      .mission-sub,
+      .inspection-sub,
+      .inspection-step-desc,
+      .launcher-note,
+      .confirm-text,
+      .confirm-note,
+      .disconnect-text{
+        color:#94a3b8;
+      }
+      .settings-select,
+      .settings-number,
+      .settings-inline-btn,
+      .settings-btn,
+      .mission-input,
+      .mission-test-input,
+      .mission-unit,
+      .loadcell-input,
+      .loadcell-card{
+        background:rgba(15,23,42,0.9);
+        border-color:rgba(71,85,105,0.7);
+        color:#e2e8f0;
+      }
       #settingsOverlay .settings-nav{
         width:100%;
         border-right:none;
-        border-bottom:1px solid rgba(209,213,219,0.9);
+        border-bottom:1px solid rgba(148,163,184,0.24);
         padding-right:0;
         padding-bottom:8px;
         margin-bottom:2px;
@@ -7526,7 +7851,9 @@
       }
       #settingsOverlay .settings-nav-btn{
         min-height:34px;
+        color:rgba(226,232,240,0.75);
       }
+      #settingsOverlay .settings-nav-btn.active{color:#f8fafc}
       #settingsOverlay .settings-panels{
         padding-left:0;
       }
@@ -7955,7 +8282,7 @@
             <div id="gyro3dViewport" class="status-gyro-canvas status-gyro-canvas--3d" role="button" tabindex="0" aria-label="Open 3D attitude view">
               <canvas id="gyroGlPreview" class="gyro3d-canvas" width="180" height="180" aria-label="gyro preview"></canvas>
               <div class="status-gyro-actions">
-                <button class="status-gyro-btn status-gyro-btn--map-close" id="gyro3dMapCloseBtn" type="button" aria-label="Close map">↙</button>
+                <button class="status-gyro-btn status-gyro-btn--map-close" id="gyro3dMapCloseBtn" type="button" aria-label="Close map">⛶</button>
                 <button class="status-gyro-btn status-gyro-btn--expand" id="gyro3dExpandBtn" type="button" aria-expanded="false">⛶</button>
               </div>
               <div id="gyro3dExpandedHud" class="gyro3d-expanded-hud" aria-hidden="true">
@@ -9179,7 +9506,7 @@
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="flash6.js"></script>
+  <script src="flash6.js?v=20260305-3"></script>
   <script>
     if ("serviceWorker" in navigator && window.isSecureContext) {
       window.addEventListener("load", () => {
