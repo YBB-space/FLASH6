@@ -13117,6 +13117,37 @@
       return Array.from(targets.entries()).map(([target, url])=>({target, url}));
     }
 
+    function localSdFetchCandidatesForAsset(rawUrl){
+      const out = [];
+      const seen = new Set();
+      const push = (url)=>{
+        const u = String(url || "").trim();
+        if(!u || seen.has(u)) return;
+        seen.add(u);
+        out.push(u);
+      };
+
+      let base;
+      try{
+        base = new URL(rawUrl, location.href);
+      }catch(_e){
+        return out;
+      }
+      push(base.toString());
+
+      // GitHub Pages(project site) often has broken absolute-path assets (/img, /vendor).
+      const repoPrefix = githubPagesRepoPrefix(); // e.g. "my-repo/"
+      if(repoPrefix && base.origin === location.origin){
+        const repoName = repoPrefix.slice(0, -1);
+        const p = String(base.pathname || "");
+        if(p && p[0] === "/" && p.indexOf("/" + repoName + "/") !== 0){
+          push(base.origin + "/" + repoName + p + (base.search || ""));
+        }
+      }
+
+      return out;
+    }
+
     async function deployCurrentWebAssetsToLocalSd(){
       if(!localSdDirHandle){
         showToast("먼저 SD 폴더를 선택하세요.", "notice", {key:"local-sd-no-dir"});
@@ -13141,6 +13172,7 @@
       let okCount = 0;
       let failCount = 0;
       let totalBytes = 0;
+      const failedTargets = [];
       try{
         for(let i = 0; i < assets.length; i++){
           const item = assets[i];
@@ -13148,17 +13180,32 @@
             "자동 배포 중... " + (i + 1) + "/" + assets.length + " · " + item.target,
             null
           );
-          try{
-            const resp = await fetch(item.url, {cache:"no-store"});
-            if(!resp.ok){
-              throw new Error("HTTP " + resp.status);
+
+          const candidates = localSdFetchCandidatesForAsset(item.url);
+          let done = false;
+          let lastReason = "";
+          for(let c = 0; c < candidates.length; c++){
+            const candidateUrl = candidates[c];
+            try{
+              const resp = await fetch(candidateUrl, {cache:"no-store"});
+              if(!resp.ok){
+                lastReason = "HTTP " + resp.status;
+                continue;
+              }
+              const bytes = new Uint8Array(await resp.arrayBuffer());
+              await localSdWriteBytes(localSdDirHandle, item.target, bytes);
+              okCount++;
+              totalBytes += bytes.byteLength;
+              done = true;
+              break;
+            }catch(err){
+              lastReason = (err && err.message) ? err.message : String(err || "unknown");
             }
-            const bytes = new Uint8Array(await resp.arrayBuffer());
-            await localSdWriteBytes(localSdDirHandle, item.target, bytes);
-            okCount++;
-            totalBytes += bytes.byteLength;
-          }catch(_assetErr){
+          }
+
+          if(!done){
             failCount++;
+            failedTargets.push(item.target + (lastReason ? (" (" + lastReason + ")") : ""));
           }
         }
 
@@ -13167,7 +13214,12 @@
           setLocalSdStatus("자동 배포 완료: " + okCount + "개 파일 · " + kb + "KB", "ok");
           showToast("SD 자동 배포 완료: " + okCount + "개 파일", "success", {key:"local-sd-deploy-ok"});
         }else if(okCount > 0){
-          setLocalSdStatus("자동 배포 부분 완료: 성공 " + okCount + " / 실패 " + failCount, "warn");
+          const preview = failedTargets.slice(0, 2).join(", ");
+          setLocalSdStatus(
+            "자동 배포 부분 완료: 성공 " + okCount + " / 실패 " + failCount +
+            (preview ? (" · 실패 예: " + preview) : ""),
+            "warn"
+          );
           showToast("자동 배포 부분 완료: 성공 " + okCount + " / 실패 " + failCount, "warn", {key:"local-sd-deploy-partial"});
         }else{
           setLocalSdStatus("자동 배포 실패: 다운로드 가능한 파일이 없습니다.", "error");
@@ -13227,20 +13279,32 @@
             await localSdDirHandle.removeEntry(name, {recursive:true});
             removed++;
           }catch(err){
+            const errName = String(err && err.name || "");
+            const errMsg = String(err && err.message || "").toLowerCase();
+            if(
+              errName === "NotFoundError" ||
+              errMsg.indexOf("could not be found") >= 0 ||
+              errMsg.indexOf("not be found") >= 0 ||
+              errMsg.indexOf("not found") >= 0
+            ){
+              // Entry disappeared during format; treat as already removed.
+              skipped++;
+              continue;
+            }
             failed++;
             failedNames.push(name);
           }
         }
 
         if(failed === 0){
-          const suffix = skipped > 0 ? (" · 시스템 항목 " + skipped + "개 제외") : "";
+          const suffix = skipped > 0 ? (" · 시스템/누락 항목 " + skipped + "개 스킵") : "";
           setLocalSdStatus("포맷 완료: " + removed + "개 항목 삭제" + suffix, "ok");
           showToast("SD 폴더 포맷 완료: " + removed + "개 항목 삭제", "success", {key:"local-sd-format-ok"});
         }else if(removed > 0){
           const preview = failedNames.slice(0, 2).join(", ");
           setLocalSdStatus(
             "포맷 부분 완료: 삭제 " + removed + "개 / 실패 " + failed + "개" +
-            (skipped > 0 ? (" / 제외 " + skipped + "개") : "") +
+            (skipped > 0 ? (" / 스킵 " + skipped + "개") : "") +
             (preview ? (" · 실패 예: " + preview) : ""),
             "warn"
           );

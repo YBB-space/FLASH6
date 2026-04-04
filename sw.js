@@ -1,11 +1,11 @@
-const CACHE_NAME = "flash6-shell-v212";
+const CACHE_NAME = "flash6-shell-v214";
 const SHELL_URL = "/flash6.html";
 const APP_SHELL = [
   "/",
   "/index.html",
   "/flash6.html",
   "/flash6.js",
-  "/flash6.js?v=20260404-006",
+  "/flash6.js?v=20260404-008",
   "/manifest.webmanifest",
   "/img/Flash_logo.svg",
   "/img/Flash_logo_plain.svg",
