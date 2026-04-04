@@ -1,3 +1,8 @@
+    if (typeof window !== "undefined") {
+      window.__flashBoot = window.__flashBoot || {};
+      window.__flashBoot.jsReady = true;
+    }
+
     // =====================
     // 상태/버퍼
     // =====================
@@ -7,10 +12,15 @@
     let eventLog = [];
     let thrustBaseHistory = [];
     let pressureBaseHistory = [];
+    let quickAltitudeHistory = [];
+    let gyroSpeedHistory = [];
     let accelMagHistory = [];
     let accelXHistory = [];
     let accelYHistory = [];
     let accelZHistory = [];
+    let gyroXHistory = [];
+    let gyroYHistory = [];
+    let gyroZHistory = [];
     let chartTimeHistory = [];
     let sampleHistory = [];
     const SAMPLE_HISTORY_MAX = 10000;
@@ -25,6 +35,10 @@
     let ignitionAnalysis = {hasData:false,ignStartMs:null,thresholdMs:null,lastAboveMs:null,windowStartMs:null,windowEndMs:null,delaySec:null,durationSec:null,endNotified:false};
     let selectedMotorName = "";
     let pendingMissionApply = null;
+    let missionProfileDoc = null;
+    let missionBlocksState = [];
+    let missionBoardSavePending = false;
+    let replayMissionRuntime = null;
     const motorSpecs = {
       "frontier2025": {
         name: "frontier2025",
@@ -189,11 +203,11 @@
     const GYRO_GRID_MIN_SPAN = 10.5;
     const GYRO_GRID_MAX_SPAN = 140;
     const GYRO_ROCKET_SCALE = 0.3;
-    const GYRO_ROCKET_STL_PATH = "img/Gyro_model_rocket.stl";
+    const GYRO_ROCKET_STL_PATH = "3d/Gyro_model_rocket.stl";
     const GYRO_ROCKET_STL_TARGET_LENGTH = 1.56;
     const GYRO_ROCKET_STL_Y_OFFSET = 0.16;
     const GYRO_ROCKET_STL_COLOR = [0.9,0.94,0.99,1];
-    const GYRO_ROCKET_RENDER_PITCH_UPRIGHT_DEG = 90;
+    const GYRO_ROCKET_RENDER_PITCH_UPRIGHT_DEG = 0;
     const GYRO_TRAIL_FILTER_ALPHA = 0.16;
     const GYRO_TRAIL_FILTER_ALPHA_ALT = 0.22;
     const GYRO_TRAIL_MIN_STEP_M = 0.45;
@@ -223,12 +237,18 @@
     const GYRO_IMU_RANGE_LIMIT_M = 260;
     const GYRO_IMU_ALT_MIN_M = -60;
     const GYRO_IMU_ALT_MAX_M = 420;
+    const GYRO_ALTGYRO_MIN_DT_SEC = 0.03;
+    const GYRO_ALTGYRO_MAX_DT_SEC = 0.45;
+    const GYRO_ALTGYRO_MIN_SIN_PITCH = 0.16;
+    const GYRO_ALTGYRO_VSPEED_FILTER_ALPHA = 0.28;
+    const GYRO_ALTGYRO_MAX_HSPEED_MPS = 48;
 
     // ✅ 너무 빡센 폴링(30ms)은 ESP 쪽 응답 흔들림(간헐 타임아웃/큐 적체)을 만들 수 있어서 완화
     const POLL_INTERVAL      = 80;
 
     const UI_SAMPLE_SKIP     = 3;
     const CHART_MIN_INTERVAL = 50;
+    const PARACHUTE_STATUS_HOLD_MS = 18000;
 
     let lastChartRedraw = 0;
     let sampleCounter = 0;
@@ -248,6 +268,11 @@
     let gyroYawDeg = 0;
     let gyroPitchDeg = 0;
     let gyroRollDeg = 0;
+    let gyroAttitudeQuat = [1,0,0,0];
+    let gyroZeroRollOffsetDeg = 0;
+    let gyroZeroPitchOffsetDeg = 0;
+    let gyroZeroYawOffsetDeg = 0;
+    let gyroZeroQuat = [1,0,0,0];
     let gyroGl = null;
     let gyroRocketMeshPromise = null;
     let gyroViewportBindingsReady = false;
@@ -322,7 +347,12 @@
       imuFiltReady: false,
       altOffsetY: 0,
       altAnchorX: 0,
-      altAnchorZ: 0
+      altAnchorZ: 0,
+      altGyroLastAlt: NaN,
+      altGyroLastMs: 0,
+      altGyroPosX: 0,
+      altGyroPosZ: 0,
+      altGyroVSpeedMps: 0
     };
     const DATA_SOURCE_LIVE = "live";
     const DATA_SOURCE_REPLAY = "replay";
@@ -463,30 +493,6 @@
         1
       ];
     }
-    function mat4RotateX(a){
-      const c = Math.cos(a);
-      const s = Math.sin(a);
-      return [1,0,0,0,
-              0,c,s,0,
-              0,-s,c,0,
-              0,0,0,1];
-    }
-    function mat4RotateY(a){
-      const c = Math.cos(a);
-      const s = Math.sin(a);
-      return [c,0,-s,0,
-              0,1,0,0,
-              s,0,c,0,
-              0,0,0,1];
-    }
-    function mat4RotateZ(a){
-      const c = Math.cos(a);
-      const s = Math.sin(a);
-      return [c,s,0,0,
-              -s,c,0,0,
-              0,0,1,0,
-              0,0,0,1];
-    }
     function mat4Translate(tx, ty, tz){
       return [1,0,0,0,
               0,1,0,0,
@@ -527,6 +533,96 @@
       const len = vec3Length(v) || 1;
       return [v[0] / len, v[1] / len, v[2] / len];
     }
+    function quatNormalize(q){
+      const qw = isFinite(q && q[0]) ? Number(q[0]) : 1;
+      const qx = isFinite(q && q[1]) ? Number(q[1]) : 0;
+      const qy = isFinite(q && q[2]) ? Number(q[2]) : 0;
+      const qz = isFinite(q && q[3]) ? Number(q[3]) : 0;
+      const len = Math.hypot(qw, qx, qy, qz) || 1;
+      return [qw / len, qx / len, qy / len, qz / len];
+    }
+    function quatMul(a, b){
+      const aw = a[0], ax = a[1], ay = a[2], az = a[3];
+      const bw = b[0], bx = b[1], by = b[2], bz = b[3];
+      return [
+        (aw * bw) - (ax * bx) - (ay * by) - (az * bz),
+        (aw * bx) + (ax * bw) + (ay * bz) - (az * by),
+        (aw * by) - (ax * bz) + (ay * bw) + (az * bx),
+        (aw * bz) + (ax * by) - (ay * bx) + (az * bw)
+      ];
+    }
+    function quatConjugate(q){
+      return [q[0], -q[1], -q[2], -q[3]];
+    }
+    function quatFromAxisAngle(axis, angleRad){
+      const v = vec3Normalize(axis || [1,0,0]);
+      const half = (isFinite(angleRad) ? angleRad : 0) * 0.5;
+      const s = Math.sin(half);
+      return quatNormalize([Math.cos(half), v[0] * s, v[1] * s, v[2] * s]);
+    }
+    function quatToMat4(q){
+      const nq = quatNormalize(q);
+      const w = nq[0], x = nq[1], y = nq[2], z = nq[3];
+      const xx = x * x, yy = y * y, zz = z * z;
+      const xy = x * y, xz = x * z, yz = y * z;
+      const wx = w * x, wy = w * y, wz = w * z;
+      return [
+        1 - (2 * (yy + zz)), 2 * (xy + wz),       2 * (xz - wy),       0,
+        2 * (xy - wz),       1 - (2 * (xx + zz)), 2 * (yz + wx),       0,
+        2 * (xz + wy),       2 * (yz - wx),       1 - (2 * (xx + yy)), 0,
+        0,                   0,                   0,                   1
+      ];
+    }
+    function quatFromRenderEuler(pitchDeg, yawDeg, rollDeg){
+      // Keep the 3D model aligned with the UI/board labels directly:
+      // X=roll, Y=pitch, Z=yaw.
+      const qx = quatFromAxisAngle([1,0,0], (Number(rollDeg) || 0) * DEG_TO_RAD);
+      const qy = quatFromAxisAngle([0,1,0], (Number(pitchDeg) || 0) * DEG_TO_RAD);
+      const qz = quatFromAxisAngle([0,0,1], (Number(yawDeg) || 0) * DEG_TO_RAD);
+      return quatNormalize(quatMul(qz, quatMul(qy, qx)));
+    }
+    function getGyroDisplayRollDeg(value){
+      const base = (value == null) ? gyroRollDeg : Number(value);
+      return normalizeAngleDeg((isFinite(base) ? base : 0) + gyroZeroRollOffsetDeg);
+    }
+    function getGyroDisplayPitchDeg(value){
+      const base = (value == null) ? gyroPitchDeg : Number(value);
+      return clampLocal((isFinite(base) ? base : 0) + gyroZeroPitchOffsetDeg, -90, 90);
+    }
+    function getGyroDisplayYawDeg(value){
+      const base = (value == null) ? gyroYawDeg : Number(value);
+      return normalizeAngleDeg((isFinite(base) ? base : 0) + gyroZeroYawOffsetDeg);
+    }
+    function applyGyroZeroReference(){
+      if(!gyroAttitudeReady) return false;
+      const targetPitchDeg = 90;
+      const targetYawDeg = 0;
+      const targetRollDeg = 0;
+      gyroZeroRollOffsetDeg = targetRollDeg - gyroRollDeg;
+      gyroZeroPitchOffsetDeg = targetPitchDeg - gyroPitchDeg;
+      gyroZeroYawOffsetDeg = -gyroYawDeg;
+      const targetQuat = quatFromRenderEuler(targetPitchDeg, targetYawDeg, targetRollDeg);
+      gyroZeroQuat = quatNormalize(quatMul(targetQuat, quatConjugate(quatNormalize(gyroAttitudeQuat))));
+      return true;
+    }
+    function getGyroRocketModelQuat(){
+      const baseQuat = quatFromAxisAngle([1,0,0], GYRO_ROCKET_RENDER_PITCH_UPRIGHT_DEG * DEG_TO_RAD);
+      const zeroedQuat = quatNormalize(quatMul(gyroZeroQuat, gyroAttitudeQuat));
+      return quatNormalize(quatMul(zeroedQuat, baseQuat));
+    }
+    function resetGyroAttitudeState(){
+      gyroLastUiMs = 0;
+      gyroAttitudeLastMs = 0;
+      gyroAttitudeReady = false;
+      gyroYawDeg = 0;
+      gyroPitchDeg = 0;
+      gyroRollDeg = 0;
+      gyroAttitudeQuat = [1,0,0,0];
+      gyroZeroRollOffsetDeg = 0;
+      gyroZeroPitchOffsetDeg = 0;
+      gyroZeroYawOffsetDeg = 0;
+      gyroZeroQuat = [1,0,0,0];
+    }
     function clampLocal(value, min, max){
       return Math.max(min, Math.min(max, value));
     }
@@ -546,10 +642,6 @@
     }
     function triNormal(a, b, c){
       return vec3Normalize(vec3Cross(vec3Sub(b, a), vec3Sub(c, a)));
-    }
-    function gyroRenderPitchDeg(pitchDeg){
-      const p = isFinite(pitchDeg) ? Number(pitchDeg) : 0;
-      return GYRO_ROCKET_RENDER_PITCH_UPRIGHT_DEG - p;
     }
     function compileGyroShader(gl, type, src){
       const sh = gl.createShader(type);
@@ -926,32 +1018,41 @@
     function updateGyroExpandedViewportBounds(){
       if(!el.gyro3dViewport || !isGyroViewportExpanded()) return;
       const pageWrap = document.querySelector(".page-wrap");
-      const fallbackInset = window.innerWidth <= 900 ? 8 : 12;
-      let left = fallbackInset;
-      let top = fallbackInset;
-      let right = fallbackInset;
-      let bottom = fallbackInset;
+      let left = 0;
+      let top = 0;
+      let right = 0;
+      let bottom = 0;
       if(pageWrap){
         const rect = pageWrap.getBoundingClientRect();
         if(rect.width > 32 && rect.height > 32){
-          left = Math.max(6, Math.round(rect.left + 6));
-          top = Math.max(6, Math.round(rect.top + 6));
-          right = Math.max(6, Math.round(window.innerWidth - rect.right + 6));
-          bottom = Math.max(6, Math.round(window.innerHeight - rect.bottom + 6));
+          left = Math.max(0, Math.round(rect.left));
+          top = Math.max(0, Math.round(rect.top));
+          right = Math.max(0, Math.round(window.innerWidth - rect.right));
+          bottom = Math.max(0, Math.round(window.innerHeight - rect.bottom));
         }
       }
       el.gyro3dViewport.style.setProperty("--gyro3d-expand-left", left + "px");
       el.gyro3dViewport.style.setProperty("--gyro3d-expand-top", top + "px");
       el.gyro3dViewport.style.setProperty("--gyro3d-expand-right", right + "px");
       el.gyro3dViewport.style.setProperty("--gyro3d-expand-bottom", bottom + "px");
+      el.gyro3dViewport.style.setProperty("position", "fixed", "important");
+      el.gyro3dViewport.style.setProperty("left", left + "px", "important");
+      el.gyro3dViewport.style.setProperty("top", top + "px", "important");
+      el.gyro3dViewport.style.setProperty("right", right + "px", "important");
+      el.gyro3dViewport.style.setProperty("bottom", bottom + "px", "important");
+      el.gyro3dViewport.style.setProperty("width", "auto", "important");
+      el.gyro3dViewport.style.setProperty("height", "auto", "important");
+      el.gyro3dViewport.style.setProperty("z-index", "4200", "important");
+      el.gyro3dViewport.style.setProperty("border-radius", "0", "important");
+      el.gyro3dViewport.style.setProperty("cursor", "grab", "important");
 
-      let hudLeft = window.innerWidth <= 900 ? 12 : 16;
+      let hudLeft = window.innerWidth <= 900 ? 12 : 14;
       if(window.innerWidth > 900){
         const sideNavDesktop = document.querySelector(".side-nav-desktop");
         if(sideNavDesktop){
           const navRect = sideNavDesktop.getBoundingClientRect();
           if(navRect.width > 20){
-            hudLeft = Math.max(hudLeft, Math.round(navRect.right + 10));
+            hudLeft = Math.max(hudLeft, Math.round(navRect.right + 2));
           }
         }
       }
@@ -981,6 +1082,15 @@
       if(next){
         gyroViewportExpandedAt = Date.now();
         gyroViewportLastTapAt = 0;
+        el.gyro3dViewport.style.setProperty("position", "fixed", "important");
+        el.gyro3dViewport.style.setProperty("left", "0px", "important");
+        el.gyro3dViewport.style.setProperty("top", "0px", "important");
+        el.gyro3dViewport.style.setProperty("right", "0px", "important");
+        el.gyro3dViewport.style.setProperty("bottom", "0px", "important");
+        el.gyro3dViewport.style.setProperty("width", "auto", "important");
+        el.gyro3dViewport.style.setProperty("height", "auto", "important");
+        el.gyro3dViewport.style.setProperty("z-index", "4200", "important");
+        el.gyro3dViewport.style.setProperty("border-radius", "0", "important");
         updateGyroExpandedViewportBounds();
         syncExpandedHud();
       }else{
@@ -991,6 +1101,16 @@
         el.gyro3dViewport.style.removeProperty("--gyro3d-expand-right");
         el.gyro3dViewport.style.removeProperty("--gyro3d-expand-bottom");
         el.gyro3dViewport.style.removeProperty("--gyro3d-hud-left");
+        el.gyro3dViewport.style.removeProperty("position");
+        el.gyro3dViewport.style.removeProperty("left");
+        el.gyro3dViewport.style.removeProperty("top");
+        el.gyro3dViewport.style.removeProperty("right");
+        el.gyro3dViewport.style.removeProperty("bottom");
+        el.gyro3dViewport.style.removeProperty("width");
+        el.gyro3dViewport.style.removeProperty("height");
+        el.gyro3dViewport.style.removeProperty("z-index");
+        el.gyro3dViewport.style.removeProperty("border-radius");
+        el.gyro3dViewport.style.removeProperty("cursor");
         restoreGyroViewportFromBody();
       }
       if(!next){
@@ -1072,10 +1192,47 @@
       return document.documentElement.classList.contains("phone-landscape-layout");
     }
     function shouldUseGyro3dPreview(){
-      return document.documentElement.classList.contains("preview-3d") || isPhoneLandscapeLayout();
+      if(isPhoneLandscapeLayout()) return true;
+      if(document.documentElement.classList.contains("preview-3d")) return true;
+      if(document.documentElement.classList.contains("preview-navball")) return false;
+      if(el.gyro3dViewport){
+        const style = window.getComputedStyle(el.gyro3dViewport);
+        return style.display !== "none" && style.visibility !== "hidden";
+      }
+      return true;
     }
     function shouldUseNavBallPreview(){
-      return document.documentElement.classList.contains("preview-navball") && !isPhoneLandscapeLayout();
+      if(isPhoneLandscapeLayout()) return false;
+      if(document.documentElement.classList.contains("preview-navball")) return true;
+      if(document.documentElement.classList.contains("preview-3d")) return false;
+      if(el.navBallPreview){
+        const style = window.getComputedStyle(el.navBallPreview);
+        return style.display !== "none" && style.visibility !== "hidden";
+      }
+      return false;
+    }
+    function normalizeGyroPreviewMode(mode){
+      const raw = String(mode == null ? "" : mode).trim().toLowerCase();
+      if(raw === "navball") return "navball";
+      if(raw === "3d_basic" || raw === "3dbasic" || raw === "3d-basic") return "3d_basic";
+      if(raw === "3d_plus" || raw === "3dplus" || raw === "3d-plus") return "3d";
+      return "3d";
+    }
+    function getGyroPreviewMode(){
+      return normalizeGyroPreviewMode(uiSettings && uiSettings.gyroPreview);
+    }
+    function isGyroPreview3dPlusMode(){
+      return getGyroPreviewMode() === "3d";
+    }
+    function isGyroPreview3dBasicMode(){
+      return getGyroPreviewMode() === "3d_basic";
+    }
+    function isInteractiveViewportTarget(node){
+      if(!(node instanceof Element)) return false;
+      const closestInteractive = node.closest("button, a, input, select, textarea, label, [role='button'], .js-sidebar-settings, .status-map-btn, .status-gyro-btn");
+      if(!closestInteractive) return false;
+      if(el.gyro3dViewport && closestInteractive === el.gyro3dViewport) return false;
+      return true;
     }
 
     function bindGyroViewportInteractions(){
@@ -1095,7 +1252,7 @@
         redraw();
       };
       if(el.gyro3dExpandBtn){
-        el.gyro3dExpandBtn.addEventListener("click", (ev)=>{
+        const toggleExpandedFromButton = (ev)=>{
           ev.preventDefault();
           ev.stopPropagation();
           if(isGyroViewportExpanded()){
@@ -1104,12 +1261,10 @@
             setGyroViewportExpanded(true);
           }
           redraw();
-        });
+        };
+        el.gyro3dExpandBtn.addEventListener("pointerdown", toggleExpandedFromButton);
       }
       if(el.gyro3dMapCloseBtn){
-        el.gyro3dMapCloseBtn.addEventListener("click", (ev)=>{
-          closeExpandedMapFromGyro(ev);
-        });
         el.gyro3dMapCloseBtn.addEventListener("pointerdown", (ev)=>{
           closeExpandedMapFromGyro(ev);
         });
@@ -1118,6 +1273,7 @@
         return shouldUseGyro3dPreview() && (isGyroViewportExpanded() || isPhoneLandscapeLayout());
       };
       view.addEventListener("click", (ev)=>{
+        if(isInteractiveViewportTarget(ev.target)) return;
         if(!shouldUseGyro3dPreview()) return;
         if(isPhoneLandscapeLayout()) return;
         if(!isGyroViewportExpanded()){
@@ -1207,9 +1363,18 @@
         }
       });
       view.addEventListener("contextmenu", (ev)=>{
+        if(isInteractiveViewportTarget(ev.target)) return;
         if(canControl()) ev.preventDefault();
       });
       view.addEventListener("pointerdown", (ev)=>{
+        if(isInteractiveViewportTarget(ev.target)) return;
+        if(!shouldUseGyro3dPreview()) return;
+        if(!isPhoneLandscapeLayout() && !isGyroViewportExpanded()){
+          ev.preventDefault();
+          setGyroViewportExpanded(true);
+          redraw();
+          return;
+        }
         if(!canControl()) return;
         if(ev.button !== 0 && ev.button !== 1 && ev.button !== 2) return;
         ev.preventDefault();
@@ -1260,6 +1425,7 @@
         redraw();
       }, {passive:false});
       view.addEventListener("dblclick", (ev)=>{
+        if(isInteractiveViewportTarget(ev.target)) return;
         if(!canControl()) return;
         ev.preventDefault();
         if(Date.now() - gyroViewportExpandedAt < 420) return;
@@ -1461,11 +1627,33 @@
       gyroPathState.altOffsetY = 0;
       gyroPathState.altAnchorX = 0;
       gyroPathState.altAnchorZ = 0;
+      gyroPathState.altGyroLastAlt = NaN;
+      gyroPathState.altGyroLastMs = 0;
+      gyroPathState.altGyroPosX = 0;
+      gyroPathState.altGyroPosZ = 0;
+      gyroPathState.altGyroVSpeedMps = 0;
     }
 
     function getGyroPathLastPoint(){
       const pts = gyroPathState.points;
       return (pts && pts.length) ? pts[pts.length - 1] : null;
+    }
+
+    function getGyroPathSourceMeta(){
+      const source = String(gyroPathState.source || "none");
+      if(source === "gps"){
+        return { show:true, label:"PATH GPS", confidence:"HIGH", lowConfidence:false };
+      }
+      if(source === "alt_gyro"){
+        return { show:true, label:"PATH ALT+GYRO", confidence:"LOW", lowConfidence:true };
+      }
+      if(source === "imu"){
+        return { show:true, label:"PATH IMU", confidence:"LOW", lowConfidence:true };
+      }
+      if(source === "alt"){
+        return { show:true, label:"PATH ALT", confidence:"LOW", lowConfidence:true };
+      }
+      return { show:false, label:"", confidence:"", lowConfidence:false };
     }
 
     function syncGyroImuAnchorToLatestPoint(){
@@ -1687,6 +1875,7 @@
         gyroPathState.imuPosY,
         gyroPathState.imuPosZ,
         now,
+        
         {
           alphaX: 0.44,
           alphaY: 0.56,
@@ -1699,6 +1888,87 @@
           altDeadbandM: 0.012
         }
       );
+    }
+
+    function updateGyroPathFromAltGyro(altitudeM, nowMs){
+      if(!isFinite(altitudeM)) return false;
+      const now = nowMs || Date.now();
+      const last = getGyroPathLastPoint();
+
+      if(gyroPathState.source !== "alt_gyro"){
+        if(last){
+          gyroPathState.altGyroPosX = last.x;
+          gyroPathState.altGyroPosZ = last.z;
+          gyroPathState.altOffsetY = last.y - altitudeM;
+        }else{
+          gyroPathState.altGyroPosX = 0;
+          gyroPathState.altGyroPosZ = 0;
+          gyroPathState.altOffsetY = 0;
+        }
+        gyroPathState.altGyroLastAlt = altitudeM;
+        gyroPathState.altGyroLastMs = now;
+        gyroPathState.altGyroVSpeedMps = 0;
+        gyroPathState.source = "alt_gyro";
+      }else{
+        const dtSec = (gyroPathState.altGyroLastMs > 0) ? ((now - gyroPathState.altGyroLastMs) / 1000) : 0;
+        const dAlt = altitudeM - gyroPathState.altGyroLastAlt;
+        gyroPathState.altGyroLastAlt = altitudeM;
+        gyroPathState.altGyroLastMs = now;
+
+        if(isFinite(dtSec) && dtSec >= GYRO_ALTGYRO_MIN_DT_SEC && dtSec <= GYRO_ALTGYRO_MAX_DT_SEC){
+          let verticalSpeedMps = dAlt / dtSec;
+          if(!isFinite(verticalSpeedMps)) verticalSpeedMps = 0;
+          const a = GYRO_ALTGYRO_VSPEED_FILTER_ALPHA;
+          gyroPathState.altGyroVSpeedMps += (verticalSpeedMps - gyroPathState.altGyroVSpeedMps) * a;
+
+          if(gyroAttitudeReady){
+            const pitchRad = gyroPitchDeg * DEG_TO_RAD;
+            const yawRad = gyroYawDeg * DEG_TO_RAD;
+            const sinPitchAbs = Math.max(GYRO_ALTGYRO_MIN_SIN_PITCH, Math.abs(Math.sin(pitchRad)));
+            const cosPitchAbs = Math.abs(Math.cos(pitchRad));
+            let hSpeedMps = Math.abs(gyroPathState.altGyroVSpeedMps) * (cosPitchAbs / sinPitchAbs);
+            if(Math.abs(gyroPathState.altGyroVSpeedMps) < 0.08) hSpeedMps *= 0.15;
+            hSpeedMps = clampLocal(hSpeedMps, 0, GYRO_ALTGYRO_MAX_HSPEED_MPS);
+            const hDist = hSpeedMps * dtSec;
+            if(hDist > 0){
+              const sinY = Math.sin(yawRad);
+              const cosY = Math.cos(yawRad);
+              gyroPathState.altGyroPosX += sinY * hDist;
+              gyroPathState.altGyroPosZ += cosY * hDist;
+              const horizLen = Math.hypot(gyroPathState.altGyroPosX, gyroPathState.altGyroPosZ);
+              if(horizLen > GYRO_IMU_RANGE_LIMIT_M){
+                const ratio = GYRO_IMU_RANGE_LIMIT_M / horizLen;
+                gyroPathState.altGyroPosX *= ratio;
+                gyroPathState.altGyroPosZ *= ratio;
+              }
+            }
+          }
+        }
+      }
+
+      const pushed = pushGyroPathMeters(
+        gyroPathState.altGyroPosX,
+        altitudeM + gyroPathState.altOffsetY,
+        gyroPathState.altGyroPosZ,
+        now,
+        {
+          alphaX: 0.26,
+          alphaY: 0.34,
+          alphaZ: 0.26,
+          minStepM: 0.03,
+          idleHoldMs: 90,
+          idleDriftM: 0.01,
+          jumpRejectM: 180,
+          jumpRejectMs: 2400,
+          altDeadbandM: 0.008
+        }
+      );
+      if(pushed){
+        gyroPathState.imuPosX = gyroPathState.altGyroPosX;
+        gyroPathState.imuPosY = altitudeM + gyroPathState.altOffsetY;
+        gyroPathState.imuPosZ = gyroPathState.altGyroPosZ;
+      }
+      return pushed;
     }
 
     function updateGyroAttitudeEstimate(axRaw, ayRaw, azRaw, gxRaw, gyRaw, gzRaw, nowMs){
@@ -1722,11 +1992,26 @@
         gyroRollDeg = normalizeAngleDeg(accelRollDeg);
         gyroPitchDeg = clampLocal(accelPitchDeg, -89.5, 89.5);
         gyroYawDeg = normalizeAngleDeg(gyroYawDeg);
+        gyroAttitudeQuat = quatFromRenderEuler(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
         gyroAttitudeReady = true;
         return;
       }
 
       if(dtSec > 0){
+        const omegaLocal = [
+          -(gy * DEG_TO_RAD),
+          (gz * DEG_TO_RAD),
+          (gx * DEG_TO_RAD)
+        ];
+        const omegaMag = Math.hypot(omegaLocal[0], omegaLocal[1], omegaLocal[2]);
+        if(omegaMag > 1e-6){
+          const dq = quatFromAxisAngle([
+            omegaLocal[0] / omegaMag,
+            omegaLocal[1] / omegaMag,
+            omegaLocal[2] / omegaMag
+          ], omegaMag * dtSec);
+          gyroAttitudeQuat = quatNormalize(quatMul(gyroAttitudeQuat, dq));
+        }
         gyroRollDeg = normalizeAngleDeg(gyroRollDeg + (gx * dtSec));
         gyroPitchDeg = clampLocal(gyroPitchDeg + (gy * dtSec), -89.5, 89.5);
         gyroYawDeg = normalizeAngleDeg(gyroYawDeg + (gz * dtSec));
@@ -1747,6 +2032,20 @@
       }
     }
 
+    function applyFirmwareGyroAttitudeEstimate(rollRaw, pitchRaw, yawRaw, nowMs){
+      const rollDeg = isFinite(rollRaw) ? Number(rollRaw) : NaN;
+      const pitchDeg = isFinite(pitchRaw) ? Number(pitchRaw) : NaN;
+      const yawDeg = isFinite(yawRaw) ? Number(yawRaw) : NaN;
+      if(!isFinite(rollDeg) || !isFinite(pitchDeg) || !isFinite(yawDeg)) return false;
+      gyroRollDeg = normalizeAngleDeg(rollDeg);
+      gyroPitchDeg = clampLocal(pitchDeg, -89.5, 89.5);
+      gyroYawDeg = normalizeAngleDeg(yawDeg);
+      gyroAttitudeQuat = quatFromRenderEuler(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
+      gyroAttitudeReady = true;
+      gyroAttitudeLastMs = nowMs || Date.now();
+      return true;
+    }
+
     function getGyroPathRenderData(){
       const baseResult = {
         current: {x:0, y:GYRO_WORLD_ALTITUDE_BASE, z:0},
@@ -1755,6 +2054,7 @@
         trailGlowCol: [],
         trailAuraCol: [],
         trailHotCol: [],
+        trailWorldPoints: [],
         trailVertexCount: 0,
         gridSpan: GYRO_GRID_MIN_SPAN,
         gridCenter: {x:0, z:0},
@@ -1881,6 +2181,7 @@
         trailGlowCol,
         trailAuraCol,
         trailHotCol,
+        trailWorldPoints: smoothPath,
         trailVertexCount: Math.floor(trailPos.length / 3),
         gridSpan,
         gridCenter: {
@@ -1947,12 +2248,108 @@
       gl.uniform1f(solid.uFogFar, fogFar);
       gl.drawArrays(gl.TRIANGLES, 0, count);
     }
+    function buildGyroTrailRibbonGeometry(points, eye, width, colorFn){
+      const outPos = [];
+      const outCol = [];
+      if(!points || points.length < 2) return {pos:outPos, col:outCol, count:0};
+      const halfW = Math.max(0.0005, Number(width) || 0.01);
+      const total = points.length;
+      for(let i=0;i<total;i++){
+        const cur = points[i];
+        const prev = points[Math.max(0, i - 1)];
+        const next = points[Math.min(total - 1, i + 1)];
+        const p = [cur.x, cur.y, cur.z];
+        const tangent = vec3Normalize([next.x - prev.x, next.y - prev.y, next.z - prev.z]);
+        let toEye = vec3Normalize([eye[0] - p[0], eye[1] - p[1], eye[2] - p[2]]);
+        let side = vec3Cross(toEye, tangent);
+        let sideLen = vec3Length(side);
+        if(sideLen < 1e-5){
+          side = vec3Cross([0,1,0], tangent);
+          sideLen = vec3Length(side);
+        }
+        if(sideLen < 1e-5){
+          side = [1,0,0];
+          sideLen = 1;
+        }
+        const s = halfW / sideLen;
+        const off = [side[0] * s, side[1] * s, side[2] * s];
+        const t = (total <= 1) ? 0 : (i / (total - 1));
+        const rgba = (typeof colorFn === "function") ? (colorFn(t, i, total) || [1,1,1,1]) : [1,1,1,1];
+        outPos.push(p[0] - off[0], p[1] - off[1], p[2] - off[2]);
+        outCol.push(rgba[0], rgba[1], rgba[2], rgba[3]);
+        outPos.push(p[0] + off[0], p[1] + off[1], p[2] + off[2]);
+        outCol.push(rgba[0], rgba[1], rgba[2], rgba[3]);
+      }
+      return {pos:outPos, col:outCol, count:Math.floor(outPos.length / 3)};
+    }
+    function buildGyroTrailArrowGeometry(points, eye){
+      const outPos = [];
+      const outCol = [];
+      if(!points || points.length < 7) return {pos:outPos, col:outCol, count:0};
+      const step = clampLocal(Math.floor(points.length / 8), 10, 28);
+      for(let i=(step + 1); i<(points.length - 2); i+=step){
+        const cur = points[i];
+        const prev = points[Math.max(0, i - 2)];
+        const next = points[Math.min(points.length - 1, i + 2)];
+        const p = [cur.x, cur.y, cur.z];
+        const tangent = vec3Normalize([next.x - prev.x, next.y - prev.y, next.z - prev.z]);
+        let toEye = vec3Normalize([eye[0] - p[0], eye[1] - p[1], eye[2] - p[2]]);
+        let side = vec3Cross(toEye, tangent);
+        let sideLen = vec3Length(side);
+        if(sideLen < 1e-5){
+          side = vec3Cross([0,1,0], tangent);
+          sideLen = vec3Length(side);
+        }
+        if(sideLen < 1e-5){
+          side = [1,0,0];
+          sideLen = 1;
+        }
+        const nx = side[0] / sideLen;
+        const ny = side[1] / sideLen;
+        const nz = side[2] / sideLen;
+        const t = i / Math.max(1, points.length - 1);
+        const base = 0.01 + (0.005 * t);
+        const tip = [
+          p[0] + (tangent[0] * base * 1.95),
+          p[1] + (tangent[1] * base * 1.95),
+          p[2] + (tangent[2] * base * 1.95)
+        ];
+        const left = [
+          p[0] - (tangent[0] * base * 0.62) + (nx * base),
+          p[1] - (tangent[1] * base * 0.62) + (ny * base),
+          p[2] - (tangent[2] * base * 0.62) + (nz * base)
+        ];
+        const right = [
+          p[0] - (tangent[0] * base * 0.62) - (nx * base),
+          p[1] - (tangent[1] * base * 0.62) - (ny * base),
+          p[2] - (tangent[2] * base * 0.62) - (nz * base)
+        ];
+        outPos.push(
+          tip[0], tip[1], tip[2],
+          left[0], left[1], left[2],
+          right[0], right[1], right[2]
+        );
+        const alpha = 0.34 + (0.42 * t);
+        for(let k=0;k<3;k++){
+          outCol.push(1, 1, 1, alpha);
+        }
+      }
+      return {pos:outPos, col:outCol, count:Math.floor(outPos.length / 3)};
+    }
 
     function renderGyroGl(pitchDeg, yawDeg, rollDeg){
       if(!gyroGl) return;
+      yawDeg = getGyroDisplayYawDeg(yawDeg);
       resizeGyroGl();
       const gl = gyroGl.gl;
       const pathRender = getGyroPathRenderData();
+      const previewMode = getGyroPreviewMode();
+      const showWorldDecor = (previewMode === "3d");
+      const simpleRocketPos = {x:0, y:GYRO_WORLD_ALTITUDE_BASE + 0.34, z:0};
+      const rocketRenderPos = showWorldDecor ? pathRender.current : simpleRocketPos;
+      const lookTargetSource = showWorldDecor
+        ? pathRender.lookTarget
+        : {x:0, y:GYRO_WORLD_ALTITUDE_BASE + 0.46, z:0};
       const inExpanded = isGyroViewportExpanded();
       if(inExpanded){
         updateGyroExpandedViewportBounds();
@@ -1976,17 +2373,20 @@
       };
 
       if(!inExpanded){
-        gyroCameraState.panX *= 0.88;
-        gyroCameraState.panY *= 0.88;
-        gyroCameraState.panZ *= 0.88;
-        gyroCameraState.desiredDistance += (pathRender.cameraDistance - gyroCameraState.desiredDistance) * 0.1;
+        const panDamp = showWorldDecor ? 0.88 : 0.82;
+        const autoDistance = showWorldDecor ? pathRender.cameraDistance : (GYRO_CAMERA_DEFAULT.distance + 0.34);
+        const distanceEase = showWorldDecor ? 0.1 : 0.16;
+        gyroCameraState.panX *= panDamp;
+        gyroCameraState.panY *= panDamp;
+        gyroCameraState.panZ *= panDamp;
+        gyroCameraState.desiredDistance += (autoDistance - gyroCameraState.desiredDistance) * distanceEase;
       }
       gyroCameraState.desiredDistance = clampLocal(gyroCameraState.desiredDistance, GYRO_CAMERA_MIN_DISTANCE, GYRO_CAMERA_MAX_DISTANCE);
       gyroCameraState.distance += (gyroCameraState.desiredDistance - gyroCameraState.distance) * GYRO_CAMERA_DISTANCE_SMOOTH;
 
-      const targetX = pathRender.lookTarget.x + gyroCameraState.panX;
-      const targetY = pathRender.lookTarget.y + gyroCameraState.panY;
-      const targetZ = pathRender.lookTarget.z + gyroCameraState.panZ;
+      const targetX = lookTargetSource.x + gyroCameraState.panX;
+      const targetY = lookTargetSource.y + gyroCameraState.panY;
+      const targetZ = lookTargetSource.z + gyroCameraState.panZ;
       gyroCameraState.targetX += (targetX - gyroCameraState.targetX) * GYRO_CAMERA_TARGET_SMOOTH;
       gyroCameraState.targetY += (targetY - gyroCameraState.targetY) * GYRO_CAMERA_TARGET_SMOOTH;
       gyroCameraState.targetZ += (targetZ - gyroCameraState.targetZ) * GYRO_CAMERA_TARGET_SMOOTH;
@@ -2002,9 +2402,9 @@
       const viewProj = mat4Mul(gyroGl.proj, view);
       const rocketClip = mat4TransformVec4(
         viewProj,
-        pathRender.current.x,
-        pathRender.current.y,
-        pathRender.current.z,
+        rocketRenderPos.x,
+        rocketRenderPos.y,
+        rocketRenderPos.z,
         1
       );
       const clipW = rocketClip[3];
@@ -2026,28 +2426,30 @@
       gl.enable(gl.BLEND);
       gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
-      const floorModel = mat4Mul(
-        mat4Translate(pathRender.gridCenter.x, 0, pathRender.gridCenter.z),
-        mat4Scale(pathRender.gridSpan, 1, pathRender.gridSpan)
-      );
-      drawSolidBatch(
-        gyroGl.solid.floorPosBuf,
-        gyroGl.solid.floorNormBuf,
-        gyroGl.solid.floorColBuf,
-        gyroGl.solid.floorCount,
-        floorModel,
-        view,
-        renderStyle
-      );
+      if(showWorldDecor){
+        const floorModel = mat4Mul(
+          mat4Translate(pathRender.gridCenter.x, 0, pathRender.gridCenter.z),
+          mat4Scale(pathRender.gridSpan, 1, pathRender.gridSpan)
+        );
+        drawSolidBatch(
+          gyroGl.solid.floorPosBuf,
+          gyroGl.solid.floorNormBuf,
+          gyroGl.solid.floorColBuf,
+          gyroGl.solid.floorCount,
+          floorModel,
+          view,
+          renderStyle
+        );
 
-      const mvpGrid = mat4Mul(viewProj, floorModel);
-      drawLineBatch(
-        gyroGl.line.staticPosBuf,
-        gyroGl.line.staticColBuf,
-        gl.LINES,
-        gyroGl.sections.gridCount,
-        mvpGrid
-      );
+        const mvpGrid = mat4Mul(viewProj, floorModel);
+        drawLineBatch(
+          gyroGl.line.staticPosBuf,
+          gyroGl.line.staticColBuf,
+          gl.LINES,
+          gyroGl.sections.gridCount,
+          mvpGrid
+        );
+      }
 
       const axisModel = mat4Identity();
       const axisMvp = mat4Mul(viewProj, axisModel);
@@ -2055,65 +2457,92 @@
       gl.uniformMatrix4fv(gyroGl.line.uMvp, false, new Float32Array(axisMvp));
       gl.drawArrays(gl.LINES, gyroGl.sections.axisStart, gyroGl.sections.axisCount);
 
-      if(pathRender.trailVertexCount >= 2){
+      if(showWorldDecor && pathRender.trailWorldPoints && pathRender.trailWorldPoints.length >= 2){
         const trailMvp = viewProj;
-        gl.bindBuffer(gl.ARRAY_BUFFER, gyroGl.line.trailPosBuf);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(pathRender.trailPos), gl.DYNAMIC_DRAW);
-        gl.bindBuffer(gl.ARRAY_BUFFER, gyroGl.line.trailColBuf);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(pathRender.trailCol), gl.DYNAMIC_DRAW);
+        const trailPts = pathRender.trailWorldPoints;
+        const phase = Date.now() * 0.0058;
+        const drawTrailPrimitive = (geom, mode, additive)=>{
+          const needMin = (mode === gl.TRIANGLES) ? 3 : 4;
+          if(!geom || geom.count < needMin) return;
+          gl.bindBuffer(gl.ARRAY_BUFFER, gyroGl.line.trailPosBuf);
+          gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(geom.pos), gl.DYNAMIC_DRAW);
+          gl.bindBuffer(gl.ARRAY_BUFFER, gyroGl.line.trailColBuf);
+          gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(geom.col), gl.DYNAMIC_DRAW);
+          gl.blendFunc(gl.SRC_ALPHA, additive ? gl.ONE : gl.ONE_MINUS_SRC_ALPHA);
+          drawLineBatch(
+            gyroGl.line.trailPosBuf,
+            gyroGl.line.trailColBuf,
+            mode,
+            geom.count,
+            trailMvp
+          );
+        };
         gl.disable(gl.DEPTH_TEST);
-        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-        gl.lineWidth(12);
-        drawLineBatch(
-          gyroGl.line.trailPosBuf,
-          gyroGl.line.trailColBuf,
-          gl.LINE_STRIP,
-          pathRender.trailVertexCount,
-          trailMvp
-        );
+        const shellGeom = buildGyroTrailRibbonGeometry(trailPts, eye, 0.032, (t, i)=>{
+          const pulse = 0.82 + (0.18 * Math.sin((i * 0.28) + phase));
+          return [0.02, 0.02, 0.03, (0.22 + (0.55 * t)) * pulse];
+        });
+        const glowGeom = buildGyroTrailRibbonGeometry(trailPts, eye, 0.024, (t, i)=>{
+          const pulse = 0.76 + (0.24 * Math.sin((i * 0.34) + phase));
+          return [1.0, 0.12 + (0.18 * t), 0.1 + (0.12 * t), (0.08 + (0.36 * t)) * pulse];
+        });
+        const coreGeom = buildGyroTrailRibbonGeometry(trailPts, eye, 0.015, (t)=>{
+          const ease = t * t * (3 - (2 * t));
+          return [0.88 + (0.1 * ease), 0.05 + (0.1 * ease), 0.08 + (0.07 * ease), 0.66 + (0.32 * ease)];
+        });
+        const hotGeom = buildGyroTrailRibbonGeometry(trailPts, eye, 0.008, (t, i)=>{
+          const head = clampLocal((t - 0.74) / 0.26, 0, 1);
+          const pulse = 0.72 + (0.28 * Math.sin((i * 0.42) + phase));
+          return [1.0, 0.72, 0.42, (0.05 + (0.9 * head * head)) * pulse];
+        });
+        drawTrailPrimitive(shellGeom, gl.TRIANGLE_STRIP, false);
+        drawTrailPrimitive(glowGeom, gl.TRIANGLE_STRIP, true);
+        drawTrailPrimitive(coreGeom, gl.TRIANGLE_STRIP, false);
+        drawTrailPrimitive(hotGeom, gl.TRIANGLE_STRIP, true);
+        const arrowGeom = buildGyroTrailArrowGeometry(trailPts, eye);
+        drawTrailPrimitive(arrowGeom, gl.TRIANGLES, false);
         gl.enable(gl.DEPTH_TEST);
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
       }
 
-      const yawRad = yawDeg * DEG_TO_RAD;
-      const headingDir = [Math.sin(yawRad), 0, Math.cos(yawRad)];
-      const headingSide = [-headingDir[2], 0, headingDir[0]];
-      const currentY = pathRender.current.y;
-      const h0 = [0, 0.04, 0];
-      const h1 = [headingDir[0] * 1.36, 0.04, headingDir[2] * 1.36];
-      const ha = [h1[0] - (headingDir[0] * 0.24) + (headingSide[0] * 0.12), 0.04, h1[2] - (headingDir[2] * 0.24) + (headingSide[2] * 0.12)];
-      const hb = [h1[0] - (headingDir[0] * 0.24) - (headingSide[0] * 0.12), 0.04, h1[2] - (headingDir[2] * 0.24) - (headingSide[2] * 0.12)];
-      const markerPos = [
-        h0[0],h0[1],h0[2], h1[0],h1[1],h1[2],
-        h1[0],h1[1],h1[2], ha[0],ha[1],ha[2],
-        h1[0],h1[1],h1[2], hb[0],hb[1],hb[2],
-        0,currentY,0, 0,0.04,0,
-        -0.08,currentY,0, 0.08,currentY,0,
-        0,currentY,-0.08, 0,currentY,0.08
-      ];
-      const markerCol = [];
-      for(let i=0;i<markerPos.length/3;i++){
-        if(i < 6) markerCol.push(1,0.84,0.24,0.92);
-        else markerCol.push(0.34,0.86,0.98,0.74);
+      if(showWorldDecor){
+        const yawRad = yawDeg * DEG_TO_RAD;
+        const headingDir = [Math.sin(yawRad), 0, Math.cos(yawRad)];
+        const headingSide = [-headingDir[2], 0, headingDir[0]];
+        const currentY = rocketRenderPos.y;
+        const h0 = [0, 0.04, 0];
+        const h1 = [headingDir[0] * 1.36, 0.04, headingDir[2] * 1.36];
+        const ha = [h1[0] - (headingDir[0] * 0.24) + (headingSide[0] * 0.12), 0.04, h1[2] - (headingDir[2] * 0.24) + (headingSide[2] * 0.12)];
+        const hb = [h1[0] - (headingDir[0] * 0.24) - (headingSide[0] * 0.12), 0.04, h1[2] - (headingDir[2] * 0.24) - (headingSide[2] * 0.12)];
+        const markerPos = [
+          h0[0],h0[1],h0[2], h1[0],h1[1],h1[2],
+          h1[0],h1[1],h1[2], ha[0],ha[1],ha[2],
+          h1[0],h1[1],h1[2], hb[0],hb[1],hb[2],
+          0,currentY,0, 0,0.04,0,
+          -0.08,currentY,0, 0.08,currentY,0,
+          0,currentY,-0.08, 0,currentY,0.08
+        ];
+        const markerCol = [];
+        for(let i=0;i<markerPos.length/3;i++){
+          if(i < 6) markerCol.push(1,0.84,0.24,0.92);
+          else markerCol.push(0.34,0.86,0.98,0.74);
+        }
+        gl.bindBuffer(gl.ARRAY_BUFFER, gyroGl.line.headingPosBuf);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(markerPos), gl.DYNAMIC_DRAW);
+        gl.bindBuffer(gl.ARRAY_BUFFER, gyroGl.line.headingColBuf);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(markerCol), gl.DYNAMIC_DRAW);
+        drawLineBatch(
+          gyroGl.line.headingPosBuf,
+          gyroGl.line.headingColBuf,
+          gl.LINES,
+          markerPos.length / 3,
+          viewProj
+        );
       }
-      gl.bindBuffer(gl.ARRAY_BUFFER, gyroGl.line.headingPosBuf);
-      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(markerPos), gl.DYNAMIC_DRAW);
-      gl.bindBuffer(gl.ARRAY_BUFFER, gyroGl.line.headingColBuf);
-      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(markerCol), gl.DYNAMIC_DRAW);
-      drawLineBatch(
-        gyroGl.line.headingPosBuf,
-        gyroGl.line.headingColBuf,
-        gl.LINES,
-        markerPos.length / 3,
-        viewProj
-      );
 
-      const rx = mat4RotateX(gyroRenderPitchDeg(pitchDeg) * DEG_TO_RAD);
-      const ry = mat4RotateY((yawDeg || 0) * DEG_TO_RAD);
-      const rz = mat4RotateZ((rollDeg || 0) * DEG_TO_RAD);
-      const rot = mat4Mul(rz, mat4Mul(ry, rx));
+      const rot = quatToMat4(getGyroRocketModelQuat());
       const rocketModel = mat4Mul(
-        mat4Translate(pathRender.current.x, pathRender.current.y, pathRender.current.z),
+        mat4Translate(rocketRenderPos.x, rocketRenderPos.y, rocketRenderPos.z),
         mat4Mul(rot, mat4Scale(GYRO_ROCKET_SCALE, GYRO_ROCKET_SCALE, GYRO_ROCKET_SCALE))
       );
       drawSolidBatch(
@@ -2149,7 +2578,7 @@
     function renderGyroPreview(pitchDeg, yawDeg, rollDeg){
       if(!el.gyroGlPreview || !el.gyroGl) return;
       if(el.gyroGlPreview === el.gyroGl) return;
-      if(!document.documentElement.classList.contains("mode-flight") && !isPhoneLandscapeLayout()) return;
+      if(!isFlightModeUi() && !isPhoneLandscapeLayout()) return;
       if(!shouldUseGyro3dPreview()) return;
       const ctx = el.gyroGlPreview.getContext("2d");
       if(!ctx) return;
@@ -2221,7 +2650,7 @@
     function renderNavBallPreview(pitchDeg, yawDeg, rollDeg){
       if(!el.navBallPreview) return;
       if(el.navBallPreview === el.navBall) return;
-      if(!document.documentElement.classList.contains("mode-flight") && !isPhoneLandscapeLayout()) return;
+      if(!isFlightModeUi() && !isPhoneLandscapeLayout()) return;
       if(!shouldUseNavBallPreview()) return;
       renderNavBallToCanvas(el.navBallPreview, pitchDeg, yawDeg, rollDeg);
     }
@@ -2234,27 +2663,19 @@
     function renderNavBallToCanvas(canvas, pitchDeg, yawDeg, rollDeg){
       const size = ensureCanvasSize(canvas);
       if(!size) return;
+      pitchDeg = getGyroDisplayPitchDeg(pitchDeg);
+      yawDeg = getGyroDisplayYawDeg(yawDeg);
+      rollDeg = getGyroDisplayRollDeg(rollDeg);
       const { w: width, h: height, ctx } = size;
       ctx.clearRect(0,0,width,height);
       const cx = width / 2;
       const cy = height / 2;
-      const half = Math.max(40, Math.min(width, height) / 2 - 6);
+      const half = Math.max(40, Math.min(width, height) / 2);
       const radius = half;
 
       ctx.save();
-      ctx.translate(cx, cy);
-      const r = 10;
       ctx.beginPath();
-      ctx.moveTo(-half + r, -half);
-      ctx.lineTo(half - r, -half);
-      ctx.quadraticCurveTo(half, -half, half, -half + r);
-      ctx.lineTo(half, half - r);
-      ctx.quadraticCurveTo(half, half, half - r, half);
-      ctx.lineTo(-half + r, half);
-      ctx.quadraticCurveTo(-half, half, -half, half - r);
-      ctx.lineTo(-half, -half + r);
-      ctx.quadraticCurveTo(-half, -half, -half + r, -half);
-      ctx.closePath();
+      ctx.rect(0, 0, width, height);
       ctx.clip();
 
       const pitchClamped = Math.max(-45, Math.min(45, pitchDeg || 0));
@@ -2262,36 +2683,55 @@
       const rollRad = -(rollDeg || 0) * DEG_TO_RAD;
 
       ctx.save();
+      ctx.translate(cx, cy);
       ctx.rotate(rollRad);
       ctx.translate(0, pitchOffset);
 
       const skyGrad = ctx.createLinearGradient(0, -radius, 0, 0);
-      skyGrad.addColorStop(0, "#5ee7ff");
-      skyGrad.addColorStop(1, "#1e40ff");
+      skyGrad.addColorStop(0, "#3f6c96");
+      skyGrad.addColorStop(1, "#4c7fb0");
       const groundGrad = ctx.createLinearGradient(0, 0, 0, radius);
-      groundGrad.addColorStop(0, "#fb923c");
-      groundGrad.addColorStop(1, "#c2410c");
+      groundGrad.addColorStop(0, "#835744");
+      groundGrad.addColorStop(1, "#694535");
       ctx.fillStyle = skyGrad;
-      ctx.fillRect(-radius * 2, -radius * 2, radius * 4, radius * 2);
+      ctx.fillRect(-radius * 2.4, -radius * 2.4, radius * 4.8, radius * 2.4);
       ctx.fillStyle = groundGrad;
-      ctx.fillRect(-radius * 2, 0, radius * 4, radius * 2);
+      ctx.fillRect(-radius * 2.4, 0, radius * 4.8, radius * 2.4);
 
-      ctx.strokeStyle = "rgba(255,255,255,0.95)";
-      ctx.lineWidth = 2.2;
+      ctx.strokeStyle = "rgba(226,232,240,0.86)";
+      ctx.lineWidth = 1.8;
       ctx.beginPath();
       ctx.moveTo(-radius * 1.2, 0);
       ctx.lineTo(radius * 1.2, 0);
       ctx.stroke();
 
-      ctx.strokeStyle = "rgba(255,255,255,0.75)";
-      ctx.lineWidth = 1;
-      for(let p = -30; p <= 30; p += 10){
+      // Horizon ladder: major + minor ticks (like ruler half-step marks)
+      for(let p = -30; p <= 30; p += 5){
         if(p === 0) continue;
         const y = -(p / 45) * (radius * 0.65);
-        const w = (p % 20 === 0) ? radius * 0.7 : radius * 0.45;
+        const isMajor = (p % 10) === 0;
+        const w = isMajor ? radius * 0.72 : radius * 0.38;
+        ctx.strokeStyle = isMajor ? "rgba(203,213,225,0.58)" : "rgba(203,213,225,0.32)";
+        ctx.lineWidth = isMajor ? 1.05 : 0.85;
         ctx.beginPath();
         ctx.moveTo(-w, y);
         ctx.lineTo(w, y);
+        ctx.stroke();
+      }
+
+      // Extra short center ticks for denser instrument look
+      ctx.strokeStyle = "rgba(226,232,240,0.22)";
+      ctx.lineWidth = 0.9;
+      for(let p = -25; p <= 25; p += 5){
+        if(p === 0) continue;
+        const y = -(p / 45) * (radius * 0.65);
+        const inner = radius * 0.08;
+        const outer = radius * 0.19;
+        ctx.beginPath();
+        ctx.moveTo(-outer, y);
+        ctx.lineTo(-inner, y);
+        ctx.moveTo(inner, y);
+        ctx.lineTo(outer, y);
         ctx.stroke();
       }
       ctx.restore();
@@ -2300,59 +2740,14 @@
 
       ctx.save();
       ctx.translate(cx, cy);
-      const ringGrad = ctx.createLinearGradient(0, -radius, 0, radius);
-      ringGrad.addColorStop(0, "rgba(14,116,144,0.75)");
-      ringGrad.addColorStop(1, "rgba(14,116,144,0.35)");
-      ctx.strokeStyle = ringGrad;
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(-half + r, -half);
-      ctx.lineTo(half - r, -half);
-      ctx.quadraticCurveTo(half, -half, half, -half + r);
-      ctx.lineTo(half, half - r);
-      ctx.quadraticCurveTo(half, half, half - r, half);
-      ctx.lineTo(-half + r, half);
-      ctx.quadraticCurveTo(-half, half, -half, half - r);
-      ctx.lineTo(-half, -half + r);
-      ctx.quadraticCurveTo(-half, -half, -half + r, -half);
-      ctx.closePath();
-      ctx.stroke();
-
-      ctx.strokeStyle = "rgba(255,255,255,0.6)";
-      ctx.lineWidth = 1;
-      const heading = ((yawDeg || 0) % 360 + 360) % 360;
-      for(let deg = 0; deg < 360; deg += 30){
-        const rad = (deg - heading) * DEG_TO_RAD;
-        const inner = radius + 2;
-        const outer = radius + (deg % 90 === 0 ? 10 : 6);
-        ctx.beginPath();
-        ctx.moveTo(Math.sin(rad) * inner, -Math.cos(rad) * inner);
-        ctx.lineTo(Math.sin(rad) * outer, -Math.cos(rad) * outer);
-        ctx.stroke();
-      }
-
-      ctx.fillStyle = "#fef08a";
-      ctx.beginPath();
-      ctx.moveTo(0, -radius - 2);
-      ctx.lineTo(-6, -radius - 16);
-      ctx.lineTo(6, -radius - 16);
-      ctx.closePath();
-      ctx.fill();
-
-      ctx.strokeStyle = "rgba(15,23,42,0.8)";
-      ctx.lineWidth = 2;
+      ctx.strokeStyle = "rgba(148,163,184,0.84)";
+      ctx.lineWidth = 1.8;
       ctx.beginPath();
       ctx.moveTo(-18, 0);
       ctx.lineTo(-6, 0);
       ctx.moveTo(6, 0);
       ctx.lineTo(18, 0);
       ctx.stroke();
-
-      ctx.fillStyle = "rgba(15,23,42,0.85)";
-      ctx.font = "12px \"Space Grotesk\",\"Sora\",\"Manrope\",ui-sans-serif,system-ui,sans-serif";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(Math.round(heading) + "°", 0, radius + 12);
       ctx.restore();
     }
 
@@ -2414,6 +2809,11 @@
     let devRelay2Locked = false;
     let devWsOff = false;
     let devLoadcellError = false;
+    let devParachuteDrop = false;
+    let parachuteDeployLatched = false;
+    let parachuteDeployAtMs = 0;
+    let parachuteDeployChannel = 0;
+    let lastRelayMaskForParachute = 0;
     let loadcellErrorActive = false;
     let lastLoadcellErrorActive = null;
 
@@ -2430,6 +2830,7 @@
     let serialReadAbort = null;
     let serialLineBuf = "";
     let serialConnected = false;
+    let serialRxDisabledWarned = false;
     let simEnabled = false;
     let simState = createSimState();
 
@@ -2437,10 +2838,23 @@
     let controlAuthority = false;
     let inspectionState = "idle";
     let inspectionRunning = false;
-    let latestTelemetry = {sw:null, ic:null, rly:null, mode:null};
+    let inspectionLastFailedKeys = [];
+    let latestTelemetry = {sw:null, ic:null, rly:null, mode:null, uw:null, al:null};
     const STATUS_MAP_DEFAULT = Object.freeze({lat:35.154244, lon:128.09293, zoom:12});
     const STATUS_MAP_KR_BOUNDS = Object.freeze({south:33.0, west:124.5, north:38.9, east:131.9});
-    const STATUS_MAP_OFFLINE_VIEW = Object.freeze({left:30, top:8, width:40, height:84});
+    const STATUS_MAP_TILE_SOURCES = Object.freeze([
+      Object.freeze({
+        id: "local",
+        url: "/tiles/{z}/{x}/{y}.png",
+        attribution: "Offline tiles"
+      }),
+      Object.freeze({
+        id: "carto",
+        url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+        subdomains: "abcd",
+        attribution: "&copy; OSM contributors &copy; CARTO"
+      })
+    ]);
     const statusMapState = {
       lat: STATUS_MAP_DEFAULT.lat,
       lon: STATUS_MAP_DEFAULT.lon,
@@ -2451,21 +2865,30 @@
       userAccuracyCircle: null,
       userWatchId: null,
       markerExpanded: false,
-      offlineMode: false,
-      offlineRoot: null,
-      offlineMarker: null,
+      tileLayer: null,
+      tileLoadCount: 0,
+      tileErrorCount: 0,
+      tileOffline: false,
+      tileProbeTimer: null,
+      tileSourceIndex: -1,
+      leafletLoadInFlight: false,
+      leafletLoadFailed: false,
       uiBound: false,
       hasLiveFix: false,
       lastUpdateMs: 0
     };
     let lastBatteryV = null;
     let lastBatteryPct = null;
+    let spiFlashReadyState = null;
     let lastThrustKgf = null;
     const THRUST_GAUGE_MAX_KGF = 10;
     const THRUST_GAUGE_MAX_LBF = 22;
-    const PRESSURE_GAUGE_MAX_V = 5;
+    const PRESSURE_GAUGE_MAX_MPA = 10.0;
+    const SEA_LEVEL_PRESSURE_MPA = 0.1024; // 1024 hPa
+    const PRESSURE_LEGACY_VOLT_FULL_SCALE = 3.3;
     const quickFlightMetrics = {
       originAlt: NaN,
+      originPressureMpa: NaN,
       lastLat: NaN,
       lastLon: NaN,
       lastAlt: NaN,
@@ -2474,7 +2897,79 @@
     };
     let pendingLoadcellWeight = null;
     let pendingLoadcellZero = false;
+    let lastLoadcellCalWeight = null;
+    let lastLoadcellNoiseDeadband = null;
+    let lastLoadcellScale = null;
+    let lastLoadcellOffset = null;
+    let lastLoadcellRaw = null;
+    let lastLoadcellRawValid = false;
+    let lastLoadcellReadyFlag = null;
+    let lastLoadcellSaturated = false;
+    let lastLoadcellOffsetValid = null;
+    let lastLoadcellHz = 0;
+    let lastLoadcellHzDisplay = 0;
+    let lastLoadcellHzDisplayMs = 0;
+    let loadcellTelemetryHasRaw = false;
+    const LOADCELL_MODAL_STAGE_STABILIZE = "stabilize";
+    const LOADCELL_MODAL_STAGE_NOISE = "noise";
+    const LOADCELL_MODAL_STAGE_WEIGHT = "weight";
+    const LOADCELL_MODAL_STAGE_COMPLETE = "complete";
+    const LOADCELL_STABILIZE_MIN_MS = 5000;
+    const LOADCELL_STABILIZE_WINDOW_MS = 5000;
+    const LOADCELL_STABILIZE_MIN_SAMPLES = 8;
+    const LOADCELL_STABILITY_JUMP_GUARD_MS = 1200;
+    const LOADCELL_STABILITY_JUMP_MIN_SAMPLES = 18;
+    const LOADCELL_HZ_FAULT_MIN = 1;
+    const LOADCELL_HZ_FAULT_GRACE_MS = 2500;
+    const LOADCELL_HZ_FAULT_HOLD_MS = 4000;
+    const LOADCELL_HZ_DISPLAY_HOLD_MS = 1500;
+    const LOADCELL_ERROR_TOAST_HOLD_MS = 2500;
+    const LOADCELL_ERROR_TOAST_DEBOUNCE_MS = 30000;
+    const REBOOT_WAIT_MIN_VISIBLE_MS = 1200;
+    let loadcellModalStage = LOADCELL_MODAL_STAGE_STABILIZE;
+    let loadcellWarningMode = "";
+    let loadcellStabilitySamples = [];
+    let loadcellStabilityStartedMs = 0;
+    let loadcellStabilizedAtMs = 0;
+    let loadcellStabilityFailed = false;
+    let loadcellRateLowSinceMs = 0;
+    let loadcellErrorSinceMs = 0;
+    let lastLoadcellErrorToastMs = 0;
     let lastBurnSeconds = null;
+    const SERVO_MIN_DEG = 0;
+    const SERVO_MAX_DEG = 180;
+    const SERVO_DEFAULT_DEG = 90;
+    const SERVO_AUTO_APPLY_DELAY_MS = 140;
+    const SERVO_SERIAL_REPLY_TIMEOUT_MS = 1200;
+    const LOADCELL_SERIAL_REPLY_TIMEOUT_MS = 3000;
+    const MISSION_SERIAL_REPLY_TIMEOUT_MS = 3200;
+    const MISSION_SERIAL_CHUNK_B64_SIZE = 128;
+    const MISSION_CANVAS_ZOOM_MIN = 0.5;
+    const MISSION_CANVAS_ZOOM_MAX = 2.0;
+    const MISSION_CANVAS_ZOOM_STEP = 0.1;
+    const MISSION_DRAG_AUTOSCROLL_ZONE_PX = 56;
+    const MISSION_DRAG_AUTOSCROLL_MAX_STEP = 26;
+    const MISSION_BLOCK_POS_LIMIT = 6000;
+    const MISSION_RUNTIME_MAX_BLOCKS = 64;
+    const LOADCELL_SCALE_FALLBACK = 6510.0;
+    const LOADCELL_NOISE_DB_FALLBACK = 0.03;
+    const SERIAL_BAUD_RATE = 460800;
+    const SERIAL_BAUD_CANDIDATES = [SERIAL_BAUD_RATE, 250000, 115200];
+    const SERIAL_PROBE_TIMEOUT_MS = 2200;
+    const SERIAL_PARSE_ERROR_LOG_LIMIT = 3;
+    const SERVO_CHANNELS = [1, 2, 3, 4];
+    const servoUiMap = {};
+    let servoInfo = null;
+    let servoInfoLastMs = 0;
+    let servoInfoWarned = false;
+    let serialCurrentBaud = SERIAL_BAUD_RATE;
+    let serialParseErrorCount = 0;
+    let serialAckWaiters = [];
+    let serialConnectBusy = false;
+    let missionCanvasZoom = 1;
+    let missionCanvasPanState = null;
+    let missionDragAutoScrollRaf = 0;
+    let missionDragAutoScrollStep = 0;
     function isIgniterCheckEnabled(){
       if(latestTelemetry && latestTelemetry.gs != null) return !!latestTelemetry.gs;
       return !!(uiSettings && uiSettings.igs);
@@ -2484,7 +2979,6 @@
       {key:"serial",  check:()=>(!serialEnabled) || serialConnected},
       {key:"igniter", check:()=> isIgniterCheckEnabled() ? (latestTelemetry.ic===1) : true},
       {key:"loadcell", check:()=> (lastThrustKgf != null && isFinite(lastThrustKgf) && !loadcellErrorActive)},
-      {key:"switch",  check:()=>latestTelemetry.sw===0},
       {key:"relay",   check:()=>!lockoutLatched},
     ];
     const INSPECTION_STEP_INFO = {
@@ -2603,6 +3097,7 @@
     let wsLastMsgMs = 0;
     const WS_FRESH_MS = 300;
     const WS_RETRY_MAX_MS = 5000;
+    const BOARD_FALLBACK_HTTP = "http://192.168.4.1";
     let wsEverConnected = false;
     let wsAlertDismissed = false;
     let lastWsAlertActive = false;
@@ -2611,6 +3106,16 @@
       location.hostname === "localhost" ||
       location.hostname === "127.0.0.1"
     );
+    function isLocalPreviewHost(){
+      const host = String(location.hostname || "").toLowerCase();
+      if(!host) return true;
+      if(host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0") return true;
+      if(host.indexOf("vscode") >= 0) return true;
+      return false;
+    }
+    function getApiBaseForCommands(){
+      return isLocalPreviewHost() ? BOARD_FALLBACK_HTTP : "";
+    }
     let suppressCountdownToastUntil = 0;
     let suppressIgnitionToastUntil = 0;
 
@@ -2685,17 +3190,115 @@
     let lastOverlaySyncMs = 0;
     let uiSettings = null;
 
+    function normalizeDecimalDigits(value, fallback){
+      const digits = Math.round(Number(value));
+      if(!isFinite(digits)) return fallback;
+      return Math.max(0, Math.min(4, digits));
+    }
+    function getQuickDataDigits(){
+      return normalizeDecimalDigits(uiSettings && uiSettings.quickDataDigits, 1);
+    }
+    function getLoadcellChartDigits(){
+      return normalizeDecimalDigits(uiSettings && uiSettings.loadcellChartDigits, 3);
+    }
+    function getStorageExportDigits(){
+      return normalizeDecimalDigits(uiSettings && uiSettings.storageExportDigits, 3);
+    }
+    function buildDecimalPlaceholder(digits){
+      const safeDigits = normalizeDecimalDigits(digits, 1);
+      return safeDigits > 0 ? ("--." + "-".repeat(safeDigits)) : "--";
+    }
+    function formatFixedDisplay(value, digits, fallback){
+      if(value == null || value === "") return (fallback == null) ? "--" : String(fallback);
+      const num = Number(value);
+      if(!isFinite(num)) return (fallback == null) ? "--" : String(fallback);
+      return num.toFixed(normalizeDecimalDigits(digits, 1));
+    }
+    function normalizePyroChannel(value, fallback){
+      const channel = Math.round(Number(value));
+      if(!isFinite(channel)) return fallback;
+      return Math.max(1, Math.min(4, channel));
+    }
+    function resetParachuteDeployState(){
+      parachuteDeployLatched = false;
+      parachuteDeployAtMs = 0;
+      parachuteDeployChannel = 0;
+      lastRelayMaskForParachute = 0;
+    }
+    function updateParachuteDeployState(st, relayMask, aborted, nowMs){
+      const now = isFinite(Number(nowMs)) ? Number(nowMs) : Date.now();
+      const state = Number(st);
+      const mask = Number.isFinite(Number(relayMask)) ? Math.max(0, Math.trunc(Number(relayMask))) : 0;
+      if(state === 1){
+        resetParachuteDeployState();
+      }
+
+      const channel = normalizePyroChannel(uiSettings && uiSettings.daqSequencePyroChannel, 1);
+      const bit = (1 << (channel - 1));
+      const risingMask = (mask & (~lastRelayMaskForParachute));
+      const postFlight = !!localTplusActive || !!tplusUiActive || (simEnabled && !!devParachuteDrop);
+
+      if(state === 0 && !aborted && simEnabled && !!devParachuteDrop){
+        parachuteDeployLatched = true;
+        parachuteDeployAtMs = now;
+        parachuteDeployChannel = channel;
+      }else if(state === 0 && !aborted && postFlight && risingMask !== 0){
+        let detectedBit = (risingMask & bit) ? bit : (risingMask & -risingMask);
+        let detectedChannel = 1;
+        for(let ch=1; ch<=4; ch++){
+          if(detectedBit === (1 << (ch - 1))){
+            detectedChannel = ch;
+            break;
+          }
+        }
+        parachuteDeployLatched = true;
+        parachuteDeployAtMs = now;
+        parachuteDeployChannel = detectedChannel;
+      }
+
+      if(parachuteDeployLatched){
+        const simHold = (state === 0 && simEnabled && !!devParachuteDrop);
+        const expired = (now - parachuteDeployAtMs) > PARACHUTE_STATUS_HOLD_MS;
+        if((expired && !simHold) || aborted){
+          parachuteDeployLatched = false;
+        }
+      }
+
+      lastRelayMaskForParachute = mask;
+    }
+    function isParachuteDeployStatusActive(st, aborted){
+      if(aborted || Number(st) !== 0) return false;
+      if(simEnabled && !!devParachuteDrop) return true;
+      if(!parachuteDeployLatched) return false;
+      if((Date.now() - parachuteDeployAtMs) > PARACHUTE_STATUS_HOLD_MS){
+        parachuteDeployLatched = false;
+        return false;
+      }
+      return true;
+    }
+    function roundFixedNumber(value, digits){
+      if(value == null || value === "") return null;
+      const num = Number(value);
+      if(!isFinite(num)) return null;
+      return Number(num.toFixed(normalizeDecimalDigits(digits, 1)));
+    }
+
     function defaultSettings(){
       return {
         thrustUnit:"kgf",
-        ignDurationSec:5,
+        quickDataDigits:1,
+        loadcellChartDigits:3,
+        storageExportDigits:3,
+        ignDurationMs:1000,
         countdownSec:10,
+        daqSequencePyroChannel:1,
         opMode:"daq",
         gyroPreview:"3d",
         mobileHudPreview:false,
         mobileImmersive:false,
         relaySafe: true,
         safetyMode: false,
+        armLock: true,
         igs: 0,
         serialEnabled: false,
         serialRx: true,
@@ -2718,14 +3321,27 @@
         const raw = localStorage.getItem(SETTINGS_KEY);
         uiSettings = raw ? Object.assign(defaultSettings(), JSON.parse(raw)) : defaultSettings();
       }catch(e){ uiSettings = defaultSettings(); }
+      {
+        const ignMsRaw = Number(uiSettings.ignDurationMs);
+        const legacyIgnSec = Number(uiSettings.ignDurationSec);
+        const ignMs = isFinite(ignMsRaw)
+          ? ignMsRaw
+          : (isFinite(legacyIgnSec) ? (legacyIgnSec * 1000) : 1000);
+        uiSettings.ignDurationMs = Math.max(100, Math.min(3000, Math.round(ignMs)));
+        delete uiSettings.ignDurationSec;
+        const cd = Number(uiSettings.countdownSec);
+        uiSettings.countdownSec = (isFinite(cd) ? Math.max(3, Math.min(60, Math.round(cd))) : 10);
+        uiSettings.daqSequencePyroChannel = normalizePyroChannel(uiSettings.daqSequencePyroChannel, 1);
+        uiSettings.quickDataDigits = normalizeDecimalDigits(uiSettings.quickDataDigits, 1);
+        uiSettings.loadcellChartDigits = normalizeDecimalDigits(uiSettings.loadcellChartDigits, 3);
+        uiSettings.storageExportDigits = normalizeDecimalDigits(uiSettings.storageExportDigits, 3);
+        uiSettings.gyroPreview = normalizeGyroPreviewMode(uiSettings.gyroPreview);
+      }
       relaySafeEnabled = !!uiSettings.relaySafe;
       safetyModeEnabled = !!uiSettings.safetyMode;
+      uiSettings.armLock = !!uiSettings.armLock;
 
-      // WebSerial 기본 OFF 강제
-      serialEnabled = false;
-      uiSettings.serialEnabled = false;
-      saveSettings();
-
+      serialEnabled = !!uiSettings.serialEnabled;
       serialRxEnabled = uiSettings.serialRx !== false;
       serialTxEnabled = uiSettings.serialTx !== false;
       simEnabled = !!uiSettings.simEnabled;
@@ -2773,7 +3389,7 @@
         labelPressure:"압력",
         labelAltitude:"고도",
         labelSpeed:"속도",
-        labelSwitch:"스위치",
+        labelSwitch:"ARM",
         labelRelay:"릴레이",
         labelIgniter:"이그나이터",
         controlsHelpLink:"도움말로 바로가기",
@@ -2792,14 +3408,26 @@
         controlInspectionLabel:"설비 점검",
         controlSafetyLabel:"안전 모드",
         controlSafetySub:"Safty",
+        controlOpModeSub:"Flight / DAQ 전환",
+        controlRebootBtn:"재부팅",
+        gyroZeroBtn:"자이로 영점",
+        gyroZeroDoneToast:"자이로 영점이 설정되었습니다.",
+        gyroZeroUnavailableToast:"자이로 데이터가 아직 준비되지 않았습니다.",
+        rebootConfirmTitle:"보드를 재부팅할까요?",
+        rebootConfirmText:"재부팅 중에는 실시간 데이터 수신이 잠시 중단됩니다.<br>진행하시겠습니까?",
+        rebootPendingTitle:"재부팅 대기중",
+        rebootPendingText:"보드가 재부팅 중입니다.<br>잠시만 기다려주세요.",
+        rebootConfirmBtn:"재부팅",
         controlLauncherLabel:"발사대",
         controlLauncherSub:"발사대 모터/액추에이터제어",
+        missionToolbarBtn:"미션 지정",
         devToolsTitle:"DEV TOOLS",
         devRelayStatus:"SIM ER",
         devRelay1Btn:"1번 릴레이 오류",
         devRelay2Btn:"2번 릴레이 오류",
         devWsOffBtn:"WS 오류",
         devLoadcellErrBtn:"로드셀 오류",
+        devParachuteBtn:"낙하산 실험 (SIM)",
         settingsNavTitle:"섹션",
         settingsNavConnect:"하드웨어",
         settingsNavHardware:"하드웨어",
@@ -2840,10 +3468,17 @@
         settingsThrustUnitLabel:"추력 단위",
         settingsThrustUnitHint:"표시 단위만 변환됩니다. 저장 데이터(RAW)는 <strong>kgf 기준</strong>입니다.",
         settingsPressureUnitLabel:"압력 단위",
-        settingsPressureUnitHint:"현재는 Voltage(V) 기준. 센서 보정이 들어가면 kPa/psi로 확장 가능합니다.",
+        settingsPressureUnitHint:"현재는 MPa 기준입니다. 센서 보정은 config.h의 압력 변환 상수로 조정하세요.",
+        settingsQuickDigitsLabel:"퀵데이터 소수 자릿수",
+        settingsQuickDigitsHint:"추력/압력, Delay/Burn 카드 표시 자릿수입니다.",
+        settingsLoadcellChartDigitsLabel:"로드셀 차트 소수 자릿수",
+        settingsLoadcellChartDigitsHint:"차트의 AVG/MAX 추력 표시 자릿수입니다.",
+        settingsStorageExportDigitsLabel:"SD/내보내기 소수 자릿수",
+        settingsStorageExportDigitsHint:"SD 데이터 확인용 보고서와 Flash 내보내기 파일의 추력/압력 값 자릿수입니다. 시간축 정밀도는 유지됩니다.",
         settingsGyroPreviewLabel:"자이로 프리뷰",
         settingsGyroPreviewHint:"플라이트 모드 프리뷰 형태를 선택합니다.",
-        settingsGyroPreview3d:"3D Attitude",
+        settingsGyroPreview3dBasic:"3D",
+        settingsGyroPreview3d:"3D PLUS",
         settingsGyroPreviewNav:"Navball",
         settingsMobileHudPreviewLabel:"모바일 HUD 미리보기",
         settingsMobileHudPreviewHint:"데스크톱이나 태블릿에서도 휴대폰 가로 인터페이스를 강제로 표시합니다.",
@@ -2854,11 +3489,13 @@
         settingsGroupSequence:"점화 시퀀스",
         settingsIgnitionTimeLabel:"점화 시간 (릴레이 ON)",
         settingsIgnitionTimeHint:"보드에 <span class=\"mono\">/set?ign_ms=...</span> 전송. 과열/인가 시간에 주의.",
-        settingsIgnitionTimeRange:"1~10초",
+        settingsIgnitionTimeRange:"100~3000ms",
+        settingsDaqSequencePyroLabel:"DAQ 시퀀스 파이로 채널",
+        settingsDaqSequencePyroHint:"DAQ 모드에서 시퀀스 점화 시 사용할 기본 채널입니다.",
         settingsGroupCountdown:"카운트다운",
         settingsCountdownTimeLabel:"카운트다운 시간",
         settingsCountdownTimeHint:"보드에 <span class=\"mono\">/set?cd_ms=...</span> 전송. 인원 통제 시간을 충분히 확보.",
-        settingsCountdownTimeRange:"3~30초",
+        settingsCountdownTimeRange:"3~60초",
         settingsGroupSafety:"안전",
         settingsRelaySafeHint:"릴레이가 <strong>비정상</strong>일때 모든 제어권한 정지 + 재시작 후 제어 권한 반환",
         settingsIgniterSafetyHint:"이그나이터의 결선 확인/테스트",
@@ -2884,6 +3521,8 @@
         tetrisPrizeCopyFailToast:"복사에 실패했습니다.",
         simEnabledToast:"시뮬레이션 모드가 켜졌습니다.",
         simDisabledToast:"시뮬레이션 모드가 꺼졌습니다.",
+        devParachuteOnToast:"낙하산 하강 시뮬레이션 시작 (T-0, 6층 높이).",
+        devParachuteOffToast:"낙하산 하강 시뮬레이션 해제.",
         forceConfirmTitle:"강제 점화를 진행할까요?",
         forceConfirmText:"강제 점화는 고위험 동작입니다.<br>주변 인원 접근 금지 · 보호구 착용 권장 · 결선/단락 재확인.",
         forceLoadcellTitle:"로드셀을 점검하세요",
@@ -2913,12 +3552,13 @@
         inspectionDescIgniter:"연속성/오픈 여부",
         inspectionLabelLoadcell:"로드셀",
         inspectionDescLoadcell:"추력 데이터 정상 수신",
-        inspectionLabelSwitch:"스위치",
+        inspectionLabelSwitch:"ARM",
         inspectionDescSwitch:"저전위(LOW) 안전 상태",
         inspectionDescRelay:"비정상 릴레이 HIGH 여부",
         inspectionRetry:"다시 점검",
         footerMeta:"2026 ALTIS 추진팀 윤보배 - HANWOOL",
         inspectionFailText:"점검 실패 항목이 있습니다.",
+        inspectionFailItemsLabel:"문제 항목",
         inspectionPassText:"모든 항목 통과. 제어 권한 확보됨.",
         settingsLangLabel:"언어",
         settingsLangHint:"표시 언어를 변경합니다.",
@@ -2933,7 +3573,9 @@
         exportLeaveCancel:"취소",
         exportBeforeCloseConfirm:"보고서 내보내기가 완료되지 않았습니다. 정말 나가시겠습니까?",
         chartNoData:"데이터 없음",
-        labelDelay:"지연",
+        chartAxisTime:"시간",
+        chartAxisValue:"값",
+        labelDelay:"delay",
         labelBurn:"연소",
         modeSerial:"시리얼",
         modeWifi:"와이파이",
@@ -2978,15 +3620,15 @@
         hdrBurn:"유효_연소_s",
         hdrThreshold:"임계_kgf",
         hdrAvgThrust:"평균추력_kgf",
-        hdrAvgPressure:"평균압력_v",
+        hdrAvgPressure:"평균압력_mpa",
         hdrMaxThrust:"최대추력_kgf",
-        hdrMaxPressure:"최대압력_v",
+        hdrMaxPressure:"최대압력_mpa",
         hdrAvgThrustN:"평균추력_N",
         hdrMaxThrustN:"최대추력_N",
         hdrTag:"태그",
         hdrThrust:"추력_kgf",
         hdrThrustN:"추력_N",
-        hdrPressure:"압력_v",
+        hdrPressure:"압력_mpa",
         hdrGpsLat:"gps_위도_deg",
         hdrGpsLon:"gps_경도_deg",
         hdrGpsAlt:"gps_고도_m",
@@ -3003,7 +3645,7 @@
         hdrElapsedMs:"경과_ms",
         hdrHxHz:"hx_hz",
         hdrCpuUs:"cpu_us",
-        hdrSwitch:"스위치",
+        hdrSwitch:"ARM",
         hdrIgnOk:"점화_정상",
         hdrRelay:"릴레이",
         hdrIgs:"igs_모드",
@@ -3022,16 +3664,20 @@
         statusNotArmed:"NOT ARMED",
         statusReady:"READY",
         statusLoadcellCheck:"LOADCELL CHECK",
+        statusParachute:"PARACHUTE",
         statusSequence:"SEQUENCE",
         statusLockoutText:"비정상적인 릴레이 HIGH 감지 ({name})",
         statusAbortText:"시퀀스가 중단되었습니다.",
         statusAbortTextReason:"시퀀스가 중단되었습니다. ({reason})",
         statusIgnitionText:"점화 중입니다.",
         statusCountdownText:"카운트다운 진행 중",
+        statusParachuteText:"낙하산 사출 감지 (CH{ch})",
         statusSequenceText:"시퀀스 진행 중",
         statusNotArmedTextReady:"이그나이터 미연결 / 점화 시퀀스 가능",
         statusNotArmedTextBlocked:"이그나이터 미연결 / 점화 시퀀스 제한",
         statusReadyText:"시스템 준비 완료",
+        statusParachuteLog:"낙하산 사출 감지 (CH{ch})",
+        statusParachuteToast:"낙하산 사출 감지 (CH{ch})",
         sequenceReadyBtn:"READY",
         sequenceStartBtn:"SEQUENCE",
         sequenceEndBtn:"SEQUENCE END",
@@ -3063,7 +3709,8 @@
         alarmReplayAutoStop:"Replay 데이터 끝에 도달해 자동 정지되었습니다.",
         alarmInternalException:"내부 예외가 반복 발생했습니다. 소스={source}, 오류={err}",
         webserialUnsupported:"WebSerial조건이 아닙니다. (도움말 페이지를 확인하세요)",
-        webserialConnected:"WebSerial 연결됨 @460800.",
+        webserialInsecureToast:"WebSerial은 HTTPS 또는 localhost에서만 동작합니다. PC 크롬에서 localhost로 접속해 주세요.",
+        webserialConnected:"WebSerial 연결됨.",
         webserialConnectedToast:"시리얼(WebSerial) 연결 완료.",
         serialReadEnded:"시리얼 읽기 루프 종료: {err}",
         webserialConnectFailed:"WebSerial 연결 실패: {err}",
@@ -3081,10 +3728,10 @@
         ignitionEndToast:"유효추력 구간이 종료된 것으로 보입니다. 잔열/잔류가스 주의 후 접근하세요.",
         ignitionNoThrustLog:"점화 상태 종료. 임계값 이상 추력 미검출.",
         ignitionNoThrustToast:"점화 상태 종료. 유효추력이 감지되지 않았습니다. 결선/이그나이터 상태를 확인하세요. {safety}",
-        switchHighLog:"스위치 변경: HIGH(ON).",
-        switchHighToast:"스위치가 HIGH(ON) 상태입니다. 시퀀스 조건/주변 안전을 재확인하세요. {safety}",
-        switchLowLog:"스위치 변경: LOW(OFF).",
-        switchLowToast:"스위치가 LOW(OFF) 상태입니다. 안전 상태로 유지하세요. {safety}",
+        switchHighLog:"ARM 변경: HIGH(ON).",
+        switchHighToast:"ARM이 HIGH(ON) 상태입니다. 시퀀스 조건/주변 안전을 재확인하세요. {safety}",
+        switchLowLog:"ARM 변경: LOW(OFF).",
+        switchLowToast:"ARM이 LOW(OFF) 상태입니다. 안전 상태로 유지하세요. {safety}",
         igniterOkLog:"이그나이터 연속성: OK.",
         igniterOkToast:"이그나이터 상태가 OK로 변경되었습니다. 점화 전 결선/단락/극성을 재확인하세요. {safety}",
         igniterNoLog:"이그나이터 연속성: NO / OPEN.",
@@ -3162,24 +3809,44 @@
         xlsxExportLog:"보고서 내보내기 완료 (ZIP): {filename}",
         xlsxExportToast:"보고서를 .zip 파일로 내보냈습니다.",
         thrustUnitChangedToast:"추력 단위가 {from} → {to} 로 변경되었습니다. 표시 단위만 변경됩니다. {safety}",
-        ignTimeChangedToast:"점화 시간이 {from}s → {to}s 로 변경되었습니다. 과열/인가 시간에 주의하세요. {safety}",
+        ignTimeChangedToast:"점화 시간이 {from}ms → {to}ms 로 변경되었습니다. 과열/인가 시간에 주의하세요. {safety}",
         countdownChangedToast:"카운트다운 시간이 {from}s → {to}s 로 변경되었습니다. 인원 통제 시간을 충분히 두세요. {safety}",
-        settingsUpdatedLog:"설정 업데이트: thrustUnit={unit}, ignDuration={ign}s, countdown={cd}s",
+        settingsUpdatedLog:"설정 업데이트: thrustUnit={unit}, ignDuration={ign}ms, countdown={cd}s",
         loadcellSettingsTitle:"로드셀 보정",
-        loadcellSettingsLabel:"로드셀 영점/보정",
-        loadcellSettingsHint:"영점/보정 값을 보드에 저장합니다.",
-        loadcellOpenBtn:"로드셀 영점 조절",
-        loadcellModalTitle:"로드셀 영점 조절",
+        loadcellSettingsLabel:"로드셀 보정",
+        loadcellSettingsHint:"영점/스케일/노이즈 를 보정하고 데이터를 보드에 저장합니다.",
+        loadcellOpenBtn:"로드셀 보정",
+        loadcellResetLabel:"로드셀 초기화",
+        loadcellResetHint:"영점/스케일/노이즈 저장값을 처음 상태로 초기화합니다.",
+        loadcellResetBtn:"로드셀 초기화",
+        loadcellModalTitle:"로드셀 보정",
         loadcellModalBadge:"Calibration",
         loadcellModalGuide:"무게추를 올려놓고 값을 확인하세요. 다음을 누르세요.",
+        loadcellGuideStabilizing:"잠시만 대기해주세요. 로드셀 데이터 안정화중입니다. 로드셀을 건들이지 마세요!",
+        loadcellGuideStableReady:"안정화가 완료되었습니다. 영점 저장 버튼을 눌러주세요.",
+        loadcellGuideNoiseReady:"영점이 저장되었습니다! 무부하 상태 그대로 노이즈 영점을 저장해주세요.",
+        loadcellGuidePlaceWeight:"무게추를 올린 후 무게를 입력후 다음버튼을 클릭하세요.",
+        loadcellGuideComplete:"로드셀 보정이 완료되었습니다!",
         loadcellModalValueLabel:"현재 측정값 (kg)",
         loadcellModalValueHint:"보정은 kg 기준으로 저장됩니다.",
         loadcellModalInputLabel:"중량 입력 (kg)",
         loadcellModalInputHint:"1Kg = 1000g",
         loadcellModalNote:"이 값은 보드에 저장됩니다.",
+        loadcellCalcTitle:"보정 계산 값",
+        loadcellCalcWeightLabel:"입력 중량",
+        loadcellCalcScaleLabel:"계산 스케일",
+        loadcellCalcOffsetLabel:"영점 오프셋",
+        loadcellCompleteTitle:"로드셀 보정 완료",
+        loadcellCompleteText:"로드셀 보정이 완료되었습니다!",
+        loadcellCompleteCloseBtn:"확인",
+        loadcellStabilityFailTitle:"로드셀 안정화 실패",
+        loadcellStabilityFailText:"값이 갑자기 크게 변했습니다. 로드셀을 건드리거나 하중이 바뀐 것으로 판단됩니다.",
+        loadcellStabilityFailSub:"하중을 모두 제거한 뒤 5~10초 정도 다시 기다려주세요. 로드셀과 지그를 만지지 마세요.",
+        loadcellRetryBtn:"다시 측정",
         loadcellModalApply:"다음",
         loadcellModalCancel:"취소",
         loadcellZeroSaveBtn:"영점 저장",
+        loadcellNoiseSaveBtn:"노이즈 영점 저장",
         loadcellModalConfirmTitle:"보정값을 저장할까요?",
         loadcellModalConfirmText:"입력한 중량 {weight} kg로 보정값을 저장합니다. 이전 값은 삭제됩니다.",
         loadcellModalConfirmSub:"저장 후 측정 기준이 변경됩니다. 보정에 사용한 무게추를 제거한 뒤 값을 확인하세요.",
@@ -3188,13 +3855,20 @@
         loadcellZeroConfirmTitle:"영점을 저장할까요?",
         loadcellZeroConfirmText:"현재 상태를 영점으로 저장합니다. 이전 영점은 덮어씁니다.",
         loadcellWeightInvalidToast:"중량을 올바르게 입력하세요.",
-        loadcellZeroSaveSuccessToast:"로드셀 영점을 저장했습니다.",
+        loadcellZeroSaveSuccessToast:"영점이 저장되었습니다!",
         loadcellZeroSaveFailToast:"로드셀 영점 저장에 실패했습니다.",
-        loadcellSaveSuccessToast:"로드셀 보정값을 저장했습니다.",
+        loadcellNoiseSaveSuccessToast:"로드셀 노이즈 영점이 저장되었습니다!",
+        loadcellNoiseSaveFailToast:"로드셀 노이즈 영점 저장에 실패했습니다.",
+        loadcellSaveSuccessToast:"로드셀 보정이 완료되었습니다!",
         loadcellSaveFailToast:"로드셀 보정 저장에 실패했습니다.",
+        loadcellResetSuccessToast:"로드셀 초기화가 완료되었습니다!",
+        loadcellResetFailToast:"로드셀 초기화에 실패했습니다.",
         loadcellZeroSaveLog:"로드셀 영점 저장 요청",
+        loadcellNoiseSaveLog:"로드셀 노이즈 영점 저장 요청",
         loadcellSaveLog:"로드셀 보정 저장 요청 (weight={weight} kg)",
-        loadcellErrorToast:"로드셀 데이터 수신 오류입니다. 센서/배선을 점검하세요."
+        loadcellResetLog:"로드셀 초기화 요청",
+        loadcellErrorToast:"로드셀 데이터 수신 오류입니다. 센서/배선을 점검하세요.",
+        loadcellStabilityFailToast:"로드셀 값이 크게 변해 안정화에 실패했습니다. 하중을 제거하고 다시 시도하세요."
       },
       en: {
         toastTitleSuccess:"Success",
@@ -3215,7 +3889,7 @@
         labelPressure:"Pressure",
         labelAltitude:"Altitude",
         labelSpeed:"Speed",
-        labelSwitch:"Switch",
+        labelSwitch:"ARM",
         labelRelay:"Relay",
         labelIgniter:"Igniter",
         controlsHelpLink:"Open Help",
@@ -3234,14 +3908,26 @@
         controlInspectionLabel:"Inspection",
         controlSafetyLabel:"Safety",
         controlSafetySub:"Safety mode",
+        controlOpModeSub:"Switch Flight / DAQ",
+        controlRebootBtn:"Reboot",
+        gyroZeroBtn:"Gyro Zero",
+        gyroZeroDoneToast:"Gyro zero applied.",
+        gyroZeroUnavailableToast:"Gyro data is not ready yet.",
+        rebootConfirmTitle:"Reboot the board?",
+        rebootConfirmText:"Real-time data streaming will pause briefly during reboot.<br>Do you want to continue?",
+        rebootPendingTitle:"Waiting for reboot",
+        rebootPendingText:"The board is rebooting.<br>Please wait a moment.",
+        rebootConfirmBtn:"Reboot",
         controlLauncherLabel:"Launcher",
         controlLauncherSub:"Launcher motor/actuator control",
+        missionToolbarBtn:"Mission",
         devToolsTitle:"DEV TOOLS",
         devRelayStatus:"Relay Status",
         devRelay1Btn:"Relay 1",
         devRelay2Btn:"Relay 2",
         devWsOffBtn:"WS OFF (SIM)",
         devLoadcellErrBtn:"LOADCELL ERROR (SIM)",
+        devParachuteBtn:"PARACHUTE DROP (SIM)",
         settingsNavTitle:"Sections",
         settingsNavConnect:"Hardware",
         settingsNavHardware:"Hardware",
@@ -3282,10 +3968,17 @@
         settingsThrustUnitLabel:"Thrust unit",
         settingsThrustUnitHint:"Only the display unit is converted. Saved RAW data uses <strong>kgf</strong>.",
         settingsPressureUnitLabel:"Pressure unit",
-        settingsPressureUnitHint:"Currently based on Voltage (V). kPa/psi will be available after sensor calibration.",
+        settingsPressureUnitHint:"Pressure is now shown in MPa. Tune conversion constants in config.h for your sensor.",
+        settingsQuickDigitsLabel:"Quick data decimals",
+        settingsQuickDigitsHint:"Controls decimal places for thrust/pressure and Delay/Burn cards.",
+        settingsLoadcellChartDigitsLabel:"Loadcell chart decimals",
+        settingsLoadcellChartDigitsHint:"Controls decimal places for AVG/MAX thrust labels on the chart.",
+        settingsStorageExportDigitsLabel:"SD/export decimals",
+        settingsStorageExportDigitsHint:"Controls decimal places for thrust/pressure values in SD review reports and Flash exports. Time-axis precision stays unchanged.",
         settingsGyroPreviewLabel:"Gyro preview",
         settingsGyroPreviewHint:"Choose the preview for Flight mode.",
-        settingsGyroPreview3d:"3D Attitude",
+        settingsGyroPreview3dBasic:"3D",
+        settingsGyroPreview3d:"3D PLUS",
         settingsGyroPreviewNav:"Navball",
         settingsMobileHudPreviewLabel:"Mobile HUD Preview",
         settingsMobileHudPreviewHint:"Force the phone landscape interface even on desktop or tablet.",
@@ -3296,11 +3989,13 @@
         settingsGroupSequence:"Ignition Sequence",
         settingsIgnitionTimeLabel:"Ignition time (relay ON)",
         settingsIgnitionTimeHint:"Sends <span class=\"mono\">/set?ign_ms=...</span> to the board. Watch heat/energizing duration.",
-        settingsIgnitionTimeRange:"1–10 s",
+        settingsIgnitionTimeRange:"100-3000 ms",
+        settingsDaqSequencePyroLabel:"DAQ sequence pyro channel",
+        settingsDaqSequencePyroHint:"Default channel used for sequence/immediate ignition in DAQ mode. Default is PYRO1.",
         settingsGroupCountdown:"Countdown",
         settingsCountdownTimeLabel:"Countdown time",
         settingsCountdownTimeHint:"Sends <span class=\"mono\">/set?cd_ms=...</span> to the board. Allow enough time to clear personnel.",
-        settingsCountdownTimeRange:"3–30 s",
+        settingsCountdownTimeRange:"3–60 s",
         settingsGroupSafety:"Safety",
         settingsRelaySafeHint:"When relay is <strong>abnormal</strong>, all control is suspended; control returns after restart.",
         settingsIgniterSafetyHint:"Check/test igniter wiring.",
@@ -3326,6 +4021,8 @@
         tetrisPrizeCopyFailToast:"Copy failed.",
         simEnabledToast:"Simulation mode enabled.",
         simDisabledToast:"Simulation mode disabled.",
+        devParachuteOnToast:"Parachute descent simulation started (T-0, 6-floor height).",
+        devParachuteOffToast:"Parachute descent simulation disabled.",
         forceConfirmTitle:"Proceed with force ignition?",
         forceConfirmText:"Force ignition is high risk.<br>No personnel nearby · PPE recommended · Recheck wiring/shorts.",
         forceLoadcellTitle:"Check the loadcell",
@@ -3355,25 +4052,44 @@
         inspectionDescIgniter:"Continuity/open status",
         inspectionLabelLoadcell:"Loadcell",
         inspectionDescLoadcell:"Thrust data reception",
-        inspectionLabelSwitch:"Switch",
+        inspectionLabelSwitch:"ARM",
         inspectionDescSwitch:"LOW safety state",
         inspectionDescRelay:"Abnormal relay HIGH status",
         inspectionRetry:"Recheck",
         footerMeta:"2026 ALTIS Propulsion Team Yoon Bobae - HANWOOL",
         inspectionFailText:"Some inspection items failed.",
+        inspectionFailItemsLabel:"Failed items",
         inspectionPassText:"All checks passed. Control authority granted.",
         loadcellSettingsTitle:"Loadcell Calibration",
         loadcellSettingsLabel:"Loadcell Zero/Calibration",
         loadcellSettingsHint:"Save zero/calibration value to the board.",
         loadcellOpenBtn:"Adjust Loadcell Zero",
+        loadcellResetLabel:"Loadcell Reset",
+        loadcellResetHint:"Reset zero/scale/noise values back to the initial state.",
+        loadcellResetBtn:"Reset Loadcell",
         loadcellModalTitle:"Loadcell Zero Adjust",
         loadcellModalBadge:"Calibration",
         loadcellModalGuide:"Place the weight and check the value. Tap Next.",
+        loadcellGuideStabilizing:"Please wait. Stabilizing loadcell data. Do not touch the loadcell.",
+        loadcellGuideStableReady:"Stabilization complete. Press Save Zero.",
+        loadcellGuidePlaceWeight:"Place the reference weight, enter its mass, then tap Next.",
+        loadcellGuideComplete:"Loadcell calibration is complete.",
         loadcellModalValueLabel:"Current value (kg)",
         loadcellModalValueHint:"Calibration is saved in kg.",
         loadcellModalInputLabel:"Enter weight (kg)",
         loadcellModalInputHint:"1 kg = 1000 g",
         loadcellModalNote:"This value will be saved to the board.",
+        loadcellCalcTitle:"Calibration Result",
+        loadcellCalcWeightLabel:"Input weight",
+        loadcellCalcScaleLabel:"Calculated scale",
+        loadcellCalcOffsetLabel:"Zero offset",
+        loadcellCompleteTitle:"Calibration Complete",
+        loadcellCompleteText:"Loadcell calibration is complete.",
+        loadcellCompleteCloseBtn:"Close",
+        loadcellStabilityFailTitle:"Loadcell Stabilization Failed",
+        loadcellStabilityFailText:"The value changed too abruptly. The loadcell or fixture was likely touched or the load changed.",
+        loadcellStabilityFailSub:"Remove all load and wait 5–10 seconds again. Do not touch the loadcell or jig.",
+        loadcellRetryBtn:"Retry",
         loadcellModalApply:"Next",
         loadcellModalCancel:"Cancel",
         loadcellModalConfirmTitle:"Save calibration value?",
@@ -3382,10 +4098,16 @@
         loadcellModalConfirmProceed:"Proceed",
         loadcellModalConfirmCancel:"Cancel",
         loadcellWeightInvalidToast:"Enter a valid weight.",
-        loadcellSaveSuccessToast:"Loadcell calibration saved.",
+        loadcellZeroSaveSuccessToast:"Zero saved.",
+        loadcellZeroSaveFailToast:"Failed to save loadcell zero.",
+        loadcellSaveSuccessToast:"Loadcell calibration is complete.",
         loadcellSaveFailToast:"Failed to save loadcell calibration.",
+        loadcellResetSuccessToast:"Loadcell reset is complete.",
+        loadcellResetFailToast:"Failed to reset the loadcell.",
         loadcellSaveLog:"Loadcell calibration save request (weight={weight} kg)",
+        loadcellResetLog:"Loadcell reset requested",
         loadcellErrorToast:"Loadcell data error. Check sensor and wiring.",
+        loadcellStabilityFailToast:"Loadcell value jumped too much. Remove the load and retry.",
         settingsLangLabel:"Language",
         settingsLangHint:"Change display language.",
         settingsThemeLabel:"Dark mode",
@@ -3399,6 +4121,8 @@
         exportLeaveCancel:"Cancel",
         exportBeforeCloseConfirm:"Report export is not completed. Do you really want to leave?",
         chartNoData:"NO DATA",
+        chartAxisTime:"Time",
+        chartAxisValue:"Value",
         labelDelay:"Delay",
         labelBurn:"Burn",
         modeSerial:"SERIAL",
@@ -3435,15 +4159,15 @@
         hdrBurn:"effective_burn_s",
         hdrThreshold:"threshold_kgf",
         hdrAvgThrust:"avg_thrust_kgf",
-        hdrAvgPressure:"avg_pressure_v",
+        hdrAvgPressure:"avg_pressure_mpa",
         hdrMaxThrust:"max_thrust_kgf",
-        hdrMaxPressure:"max_pressure_v",
+        hdrMaxPressure:"max_pressure_mpa",
         hdrAvgThrustN:"avg_thrust_n",
         hdrMaxThrustN:"max_thrust_n",
         hdrTag:"tag",
         hdrThrust:"thrust_kgf",
         hdrThrustN:"thrust_n",
-        hdrPressure:"pressure_v",
+        hdrPressure:"pressure_mpa",
         hdrGpsLat:"gps_lat",
         hdrGpsLon:"gps_lon",
         hdrGpsAlt:"gps_alt",
@@ -3460,7 +4184,7 @@
         hdrElapsedMs:"elapsed_ms",
         hdrHxHz:"hx_hz",
         hdrCpuUs:"cpu_us",
-        hdrSwitch:"switch",
+        hdrSwitch:"arm",
         hdrIgnOk:"ign_ok",
         hdrRelay:"relay",
         hdrIgs:"igs_mode",
@@ -3479,16 +4203,20 @@
         statusNotArmed:"NOT ARMED",
         statusReady:"READY",
         statusLoadcellCheck:"LOADCELL CHECK",
+        statusParachute:"PARACHUTE",
         statusSequence:"SEQUENCE",
         statusLockoutText:"Abnormal relay HIGH detected ({name}). Control revoked. Restart the board.",
         statusAbortText:"Sequence aborted.",
         statusAbortTextReason:"Sequence aborted. ({reason})",
         statusIgnitionText:"Igniter firing.",
         statusCountdownText:"Launch countdown in progress",
+        statusParachuteText:"Parachute deployment detected (CH{ch})",
         statusSequenceText:"Sequence in progress",
         statusNotArmedTextReady:"Igniter open / ignition sequence allowed",
         statusNotArmedTextBlocked:"Igniter open / ignition sequence blocked",
         statusReadyText:"System ready",
+        statusParachuteLog:"Parachute deployment detected (CH{ch})",
+        statusParachuteToast:"Parachute deployment detected (CH{ch})",
         sequenceReadyBtn:"READY",
         sequenceStartBtn:"SEQUENCE START",
         sequenceEndBtn:"SEQUENCE END",
@@ -3529,7 +4257,8 @@
         alarmReplayAutoStop:"Replay reached end-of-data and stopped automatically.",
         alarmInternalException:"Repeated internal exceptions detected. source={source}, error={err}",
         webserialUnsupported:"This browser does not support WebSerial. (Chrome/Edge recommended)",
-        webserialConnected:"WebSerial connected @460800.",
+        webserialInsecureToast:"WebSerial requires HTTPS or localhost. Open this dashboard from localhost on desktop Chrome/Edge.",
+        webserialConnected:"WebSerial connected.",
         webserialConnectedToast:"Serial (WebSerial) connected.",
         serialReadEnded:"Serial read loop ended: {err}",
         webserialConnectFailed:"WebSerial connect failed: {err}",
@@ -3547,10 +4276,10 @@
         ignitionEndToast:"Effective thrust window ended. Approach after residual heat/gas.",
         ignitionNoThrustLog:"Ignition state finished. No thrust over threshold detected.",
         ignitionNoThrustToast:"Ignition ended. No effective thrust detected. Check wiring/igniter. {safety}",
-        switchHighLog:"Switch changed: HIGH (ON).",
-        switchHighToast:"Switch is HIGH (ON). Recheck sequence conditions and safety. {safety}",
-        switchLowLog:"Switch changed: LOW (OFF).",
-        switchLowToast:"Switch is LOW (OFF). Keep safe state. {safety}",
+        switchHighLog:"ARM changed: HIGH (ON).",
+        switchHighToast:"ARM is HIGH (ON). Recheck sequence conditions and safety. {safety}",
+        switchLowLog:"ARM changed: LOW (OFF).",
+        switchLowToast:"ARM is LOW (OFF). Keep safe state. {safety}",
         igniterOkLog:"Igniter continuity: OK.",
         igniterOkToast:"Igniter state changed to OK. Recheck wiring/short/polarity before ignition. {safety}",
         igniterNoLog:"Igniter continuity: NO / OPEN.",
@@ -3628,24 +4357,44 @@
         xlsxExportLog:"Report exported (ZIP): {filename}",
         xlsxExportToast:"Exported report as .zip file.",
         thrustUnitChangedToast:"Thrust unit changed {from} → {to}. Display only. {safety}",
-        ignTimeChangedToast:"Ignition time changed {from}s → {to}s. Watch heating/drive time. {safety}",
+        ignTimeChangedToast:"Ignition time changed {from}ms → {to}ms. Watch heating/drive time. {safety}",
         countdownChangedToast:"Countdown changed {from}s → {to}s. Allow enough clearance time. {safety}",
-        settingsUpdatedLog:"Settings updated: thrustUnit={unit}, ignDuration={ign}s, countdown={cd}s",
+        settingsUpdatedLog:"Settings updated: thrustUnit={unit}, ignDuration={ign}ms, countdown={cd}s",
         loadcellSettingsTitle:"Loadcell Calibration",
         loadcellSettingsLabel:"Loadcell zero/calibration",
         loadcellSettingsHint:"Save zero/calibration values to the board.",
         loadcellOpenBtn:"Loadcell Zero Adjust",
+        loadcellResetLabel:"Loadcell Reset",
+        loadcellResetHint:"Reset zero/scale/noise values back to the initial state.",
+        loadcellResetBtn:"Reset Loadcell",
         loadcellModalTitle:"Loadcell Zero Adjust",
         loadcellModalBadge:"Calibration",
         loadcellModalGuide:"Place the weight, verify the reading, then tap Next.",
+        loadcellGuideStabilizing:"Please wait. Stabilizing loadcell data. Do not touch the loadcell.",
+        loadcellGuideStableReady:"Stabilization complete. Press Save Zero.",
+        loadcellGuideNoiseReady:"Zero saved. Keep the loadcell unloaded and save the noise zero next.",
+        loadcellGuidePlaceWeight:"Place the reference weight, enter its mass, then tap Next.",
+        loadcellGuideComplete:"Loadcell calibration is complete.",
         loadcellModalValueLabel:"Current reading (kg)",
         loadcellModalValueHint:"Calibration is stored in kg.",
         loadcellModalInputLabel:"Enter weight (kg)",
         loadcellModalInputHint:"e.g. 1.250",
         loadcellModalNote:"This value is saved to the board.",
+        loadcellCalcTitle:"Calibration Result",
+        loadcellCalcWeightLabel:"Input weight",
+        loadcellCalcScaleLabel:"Calculated scale",
+        loadcellCalcOffsetLabel:"Zero offset",
+        loadcellCompleteTitle:"Calibration Complete",
+        loadcellCompleteText:"Loadcell calibration is complete.",
+        loadcellCompleteCloseBtn:"Close",
+        loadcellStabilityFailTitle:"Loadcell Stabilization Failed",
+        loadcellStabilityFailText:"The value changed too abruptly. The loadcell or fixture was likely touched or the load changed.",
+        loadcellStabilityFailSub:"Remove all load and wait 5–10 seconds again. Do not touch the loadcell or jig.",
+        loadcellRetryBtn:"Retry",
         loadcellModalApply:"Next",
         loadcellModalCancel:"Cancel",
         loadcellZeroSaveBtn:"Save Zero",
+        loadcellNoiseSaveBtn:"Save Noise Zero",
         loadcellModalConfirmTitle:"Save calibration?",
         loadcellModalConfirmText:"Save calibration using {weight} kg. Previous data will be overwritten.",
         loadcellModalConfirmSub:"Measurement baseline will change after saving. Remove the weight and verify the reading.",
@@ -3654,12 +4403,19 @@
         loadcellZeroConfirmTitle:"Save zero?",
         loadcellZeroConfirmText:"Save current state as zero. Previous zero will be overwritten.",
         loadcellWeightInvalidToast:"Enter a valid weight.",
-        loadcellZeroSaveSuccessToast:"Loadcell zero saved.",
+        loadcellZeroSaveSuccessToast:"Zero saved.",
         loadcellZeroSaveFailToast:"Failed to save loadcell zero.",
-        loadcellSaveSuccessToast:"Loadcell calibration saved.",
+        loadcellNoiseSaveSuccessToast:"Loadcell noise zero saved.",
+        loadcellNoiseSaveFailToast:"Failed to save loadcell noise zero.",
+        loadcellSaveSuccessToast:"Loadcell calibration is complete.",
         loadcellSaveFailToast:"Failed to save loadcell calibration.",
+        loadcellResetSuccessToast:"Loadcell reset is complete.",
+        loadcellResetFailToast:"Failed to reset the loadcell.",
         loadcellZeroSaveLog:"Loadcell zero save requested",
-        loadcellSaveLog:"Loadcell calibration requested (weight={weight} kg)"
+        loadcellNoiseSaveLog:"Loadcell noise zero save requested",
+        loadcellSaveLog:"Loadcell calibration requested (weight={weight} kg)",
+        loadcellResetLog:"Loadcell reset requested",
+        loadcellStabilityFailToast:"Loadcell value jumped too much. Remove the load and retry."
       }
     };
 
@@ -3681,6 +4437,18 @@
       updateQuickMetricLabels();
       updateSerialControlTile();
       updateExportGuardUi();
+      updateRebootConfirmUi();
+      if(isLoadcellModalVisible()){
+        updateLoadcellWorkflowUi();
+        if(loadcellWarningMode === "stability"){
+          if(el.loadcellDialog) el.loadcellDialog.classList.add("show-warning");
+          if(el.loadcellWarningTitle) el.loadcellWarningTitle.textContent = t("loadcellStabilityFailTitle");
+          if(el.loadcellWarningText) el.loadcellWarningText.textContent = t("loadcellStabilityFailText");
+          if(el.loadcellWarningSub) el.loadcellWarningSub.textContent = t("loadcellStabilityFailSub");
+          setLoadcellActionLabel(el.loadcellWarningProceed, t("loadcellRetryBtn"));
+          setLoadcellActionLabel(el.loadcellWarningCancel, t("loadcellModalCancel"));
+        }
+      }
     }
     function updateStaticTexts(){
       const nodes = document.querySelectorAll("[data-i18n],[data-i18n-html]");
@@ -3740,6 +4508,10 @@
         el.devLoadcellErrBtn.classList.toggle("is-on", devLoadcellError);
         el.devLoadcellErrBtn.classList.toggle("is-warning", devLoadcellError);
       }
+      if(el.devParachuteBtn){
+        el.devParachuteBtn.classList.toggle("is-on", devParachuteDrop);
+        el.devParachuteBtn.classList.toggle("is-warning", devParachuteDrop);
+      }
       if(simEnabled){
         lockoutLatched = devRelay1Locked || devRelay2Locked;
         lockoutRelayMask = (devRelay1Locked ? 1 : 0) | (devRelay2Locked ? 2 : 0);
@@ -3761,6 +4533,59 @@
       return (uiSettings.thrustUnit==="N") ? (t*9.80665) : t;
     }
 
+    function formatThrustDisplay(value){
+      return formatFixedDisplay(value, getQuickDataDigits(), "--");
+    }
+
+    function formatQuickPressureDisplay(value){
+      return formatFixedDisplay(value, getQuickDataDigits(), "--");
+    }
+
+    function formatQuickTimeDisplay(value){
+      return formatFixedDisplay(value, getQuickDataDigits(), buildDecimalPlaceholder(getQuickDataDigits()));
+    }
+
+    function pressureVoltToMpa(value){
+      const volt = Number(value);
+      if(!isFinite(volt)) return NaN;
+      const fullScaleVolt = PRESSURE_LEGACY_VOLT_FULL_SCALE;
+      if(!(fullScaleVolt > 0)) return NaN;
+      const clampedVolt = Math.max(0, Math.min(fullScaleVolt, volt));
+      return (clampedVolt / fullScaleVolt) * PRESSURE_GAUGE_MAX_MPA;
+    }
+
+    function parsePressureMpa(data){
+      const src = data || {};
+      if(!isFlightModeUi()){
+        const daqMpaCandidates = [src.dp, src.daq_pressure_mpa, src.motor_pressure_mpa, src.pressure_daq_mpa];
+        for(const raw of daqMpaCandidates){
+          const mpa = Number(raw);
+          if(isFinite(mpa)) return mpa;
+        }
+      }
+      const fromMpa = [src.p_mpa, src.pressure_mpa];
+      for(const raw of fromMpa){
+        const mpa = Number(raw);
+        if(isFinite(mpa)) return mpa;
+      }
+
+      const fromVolt = [src.p_v, src.pressure_v, src.pv, src.pressureV, src.pressureVolt];
+      for(const raw of fromVolt){
+        const mpa = pressureVoltToMpa(raw);
+        if(isFinite(mpa)) return mpa;
+      }
+
+      const pressureUnitRaw = (src.p_unit != null) ? src.p_unit : src.pressure_unit;
+      const pressureUnit = String(pressureUnitRaw == null ? "" : pressureUnitRaw).trim().toLowerCase();
+      const rawPressure = Number(src.p != null ? src.p : src.pressure);
+      if(!isFinite(rawPressure)) return 0;
+      if(pressureUnit === "v" || pressureUnit === "volt" || pressureUnit === "voltage"){
+        const mpa = pressureVoltToMpa(rawPressure);
+        if(isFinite(mpa)) return mpa;
+      }
+      return rawPressure;
+    }
+
     function applySettingsToUI(){
       if(!uiSettings) return;
       const thrustLabel = document.querySelector('[data-label="thrust-unit"]');
@@ -3769,13 +4594,22 @@
 
       if(thrustLabel) thrustLabel.textContent = uiSettings.thrustUnit;
       if(thrustBadge) thrustBadge.textContent = "RED · " + uiSettings.thrustUnit;
-      if(pressureBadge) pressureBadge.textContent = "BLUE · V";
+      if(pressureBadge) pressureBadge.textContent = "BLUE · MPa";
 
       if(el.unitThrust) el.unitThrust.value = uiSettings.thrustUnit;
-      if(el.ignTimeInput) el.ignTimeInput.value = uiSettings.ignDurationSec;
+      if(el.quickDataDigitsSelect) el.quickDataDigitsSelect.value = String(getQuickDataDigits());
+      if(el.loadcellChartDigitsSelect) el.loadcellChartDigitsSelect.value = String(getLoadcellChartDigits());
+      if(el.storageExportDigitsSelect) el.storageExportDigitsSelect.value = String(getStorageExportDigits());
+      if(el.ignTimeInput) el.ignTimeInput.value = uiSettings.ignDurationMs;
+      if(el.hardwarePyroDurationInput){
+        const ignMs = Math.max(10, Math.min(30000, Math.round(Number(uiSettings.ignDurationMs || 1000))));
+        el.hardwarePyroDurationInput.value = String(ignMs);
+      }
       if(el.countdownSecInput) el.countdownSecInput.value = uiSettings.countdownSec;
+      if(el.daqSequencePyroSelect) el.daqSequencePyroSelect.value = String(normalizePyroChannel(uiSettings.daqSequencePyroChannel, 1));
       if(el.opModeSelect) el.opModeSelect.value = uiSettings.opMode || "daq";
-      if(el.gyroPreviewSelect) el.gyroPreviewSelect.value = uiSettings.gyroPreview || "3d";
+      const previewMode = getGyroPreviewMode();
+      if(el.gyroPreviewSelect) el.gyroPreviewSelect.value = previewMode;
       if(el.mobileHudPreviewToggle) el.mobileHudPreviewToggle.checked = !!uiSettings.mobileHudPreview;
       if(el.mobileFullscreenToggle) el.mobileFullscreenToggle.checked = !!uiSettings.mobileImmersive;
 
@@ -3783,6 +4617,10 @@
       if(el.safeModeToggle){
         el.safeModeToggle.checked = !!uiSettings.safetyMode;
         updateTogglePill(el.safeModePill, el.safeModeToggle.checked);
+      }
+      if(el.armLockToggle){
+        el.armLockToggle.checked = !!uiSettings.armLock;
+        updateTogglePill(el.armLockPill, el.armLockToggle.checked);
       }
       if(el.igswitch) el.igswitch.checked = !!uiSettings.igs;
 
@@ -3797,12 +4635,12 @@
       if(el.themeToggle) el.themeToggle.checked = (uiSettings.theme === "dark");
       document.documentElement.classList.toggle("mode-flight", uiSettings.opMode === "flight");
       document.documentElement.classList.toggle("mode-daq", uiSettings.opMode !== "flight");
-      document.documentElement.classList.toggle("preview-3d", (uiSettings.gyroPreview || "3d") === "3d");
-      document.documentElement.classList.toggle("preview-navball", (uiSettings.gyroPreview || "3d") === "navball");
+      document.documentElement.classList.toggle("preview-3d", previewMode !== "navball");
+      document.documentElement.classList.toggle("preview-navball", previewMode === "navball");
       if(uiSettings.opMode !== "flight"){
         resetQuickFlightMetricsState();
       }
-      if((uiSettings.opMode !== "flight" || (uiSettings.gyroPreview || "3d") !== "3d") && isGyroViewportExpanded()){
+      if((uiSettings.opMode !== "flight" || previewMode === "navball") && isGyroViewportExpanded()){
         setGyroViewportExpanded(false);
       }
 
@@ -3810,11 +4648,63 @@
       updateSerialPill();
       updateStaticTexts();
       updateQuickMetricLabels();
+      updateQuickAuxLabels();
+      updateControlsToolbarLabels();
       updateSerialControlTile();
       updateExportGuardUi();
       refreshStatusMapMarkerContent();
       refreshStatusMapSize();
       applyPhoneLandscapeLayout();
+    }
+    function updateControlsToolbarLabels(){
+      if(el.missionOpenBtn){
+        el.missionOpenBtn.setAttribute("title", t("missionToolbarBtn"));
+        el.missionOpenBtn.setAttribute("aria-label", t("missionToolbarBtn"));
+      }
+      if(el.gyroZeroBtn){
+        el.gyroZeroBtn.setAttribute("title", t("gyroZeroBtn"));
+        el.gyroZeroBtn.setAttribute("aria-label", t("gyroZeroBtn"));
+      }
+      if(el.exportCsvBtn){
+        el.exportCsvBtn.setAttribute("title", t("exportXlsx"));
+        el.exportCsvBtn.setAttribute("aria-label", t("exportXlsx"));
+      }
+      if(el.rebootBoardBtn){
+        el.rebootBoardBtn.setAttribute("title", t("controlRebootBtn"));
+        el.rebootBoardBtn.setAttribute("aria-label", t("controlRebootBtn"));
+      }
+    }
+    function refreshPrecisionSensitiveUi(){
+      updateMotorInfoPanel();
+      if(!isFlightModeUi()){
+        if(el.thrust){
+          const metric = el.thrust.closest(".status-metric");
+          if(loadcellErrorActive){
+            el.thrust.innerHTML = "로드셀 시스템을<br>점검하세요";
+            if(metric) metric.classList.add("is-alert");
+            if(metric) metric.classList.toggle("loadcell-blink", loadcellErrorActive);
+          }else if(isFinite(Number(lastThrustKgf))){
+            const thrustDisp = convertThrustForDisplay(Number(lastThrustKgf));
+            const thrustUnit = (uiSettings && uiSettings.thrustUnit) ? uiSettings.thrustUnit : "kgf";
+            if(metric){
+              metric.classList.remove("is-alert");
+              metric.classList.remove("loadcell-blink");
+            }
+            el.thrust.innerHTML = `<span class="num">${formatThrustDisplay(thrustDisp)}</span><span class="unit">${thrustUnit}</span>`;
+          }
+        }
+        if(el.pressure){
+          const latestSample = (sampleHistory && sampleHistory.length) ? sampleHistory[sampleHistory.length - 1] : null;
+          const pressureVal = latestSample ? Number(latestSample.p) : NaN;
+          if(isFinite(pressureVal)){
+            el.pressure.innerHTML = `<span class="num">${formatQuickPressureDisplay(pressureVal)}</span><span class="unit">MPa</span>`;
+          }
+        }
+      }
+      if(el.loadcellLiveValue && isFinite(Number(lastThrustKgf))){
+        el.loadcellLiveValue.textContent = formatThrustDisplay(lastThrustKgf);
+      }
+      syncExpandedQuickMetrics();
     }
     const delay = (ms)=>new Promise(resolve=>setTimeout(resolve, ms));
     function setOverlayVisible(node, visible, displayMode){
@@ -3841,6 +4731,7 @@
       if(el.lockoutBg){
         el.lockoutBg.classList.remove("active");
       }
+      const inFlightMode = isFlightModeUi();
       const mask = on ? (lockoutRelayMask || 0) : 0;
       const blinkAll = on && mask === 0;
       const r1Blink = on && (blinkAll || ((mask & 1) !== 0));
@@ -3851,7 +4742,7 @@
       }
       if(el.quickRelay2){
         const item = el.quickRelay2.closest(".item");
-        if(item) item.classList.toggle("relay-lockout", !!r2Blink);
+        if(item) item.classList.toggle("relay-lockout", !inFlightMode && !!r2Blink);
       }
     }
 
@@ -3891,6 +4782,9 @@
     function showDisconnectOverlay(){
       hideMobileControlsPanel();
       if(!el.disconnectOverlay) return;
+      if(rebootConfirmWaiting){
+        hideRebootConfirm();
+      }
       if(el.disconnectTitle) el.disconnectTitle.textContent = t("deviceDisconnectedTitle");
       if(el.disconnectText) el.disconnectText.innerHTML = t("deviceDisconnectedText");
       setOverlayVisible(el.disconnectOverlay, true);
@@ -3968,19 +4862,16 @@
     function setSimEnabled(enabled, opts){
       const silent = !!(opts && opts.silent);
       simEnabled = !!enabled;
+      resetParachuteDeployState();
       if(uiSettings){
         uiSettings.simEnabled = simEnabled;
         saveSettings();
       }
       if(simEnabled){
         resetSimState();
+        devParachuteDrop = false;
         resetGyroPathTracking();
-        gyroLastUiMs = 0;
-        gyroAttitudeLastMs = 0;
-        gyroAttitudeReady = false;
-        gyroYawDeg = 0;
-        gyroPitchDeg = 0;
-        gyroRollDeg = 0;
+        resetGyroAttitudeState();
         lockoutLatched = false;
         lockoutRelayMask = 0;
         devLoadcellError = false;
@@ -3990,13 +4881,9 @@
         onIncomingSample(buildSimSample(), "SIMULATION");
       }else{
         resetSimState();
+        devParachuteDrop = false;
         resetGyroPathTracking();
-        gyroLastUiMs = 0;
-        gyroAttitudeLastMs = 0;
-        gyroAttitudeReady = false;
-        gyroYawDeg = 0;
-        gyroPitchDeg = 0;
-        gyroRollDeg = 0;
+        resetGyroAttitudeState();
         resetInspectionUI();
         connOk = false;
         updateConnectionUI(false);
@@ -4018,7 +4905,8 @@
     }
     function buildSimSample(){
       const now = Date.now();
-      if(simState.st === 1){
+      const parachuteMode = !!devParachuteDrop;
+      if(!parachuteMode && simState.st === 1){
         if(!simState.countdownStartMs) simState.countdownStartMs = now;
         const total = (simState.countdownTotalMs != null)
           ? simState.countdownTotalMs
@@ -4037,13 +4925,19 @@
           simState.cdMs = 0;
           simState.countdownTotalMs = null;
         }
-      }else if(simState.st === 2){
+      }else if(!parachuteMode && simState.st === 2){
         if(!simState.ignStartMs) simState.ignStartMs = now;
-        const ignMs = (uiSettings ? uiSettings.ignDurationSec : 5) * 1000;
+        const ignMs = Number((uiSettings ? uiSettings.ignDurationMs : 1000) || 1000);
         if(now - simState.ignStartMs >= ignMs){
           simState.st = 0;
           simState.ignStartMs = null;
         }
+      }else if(parachuteMode){
+        simState.st = 0;
+        simState.cdMs = 0;
+        simState.countdownStartMs = null;
+        simState.countdownTotalMs = null;
+        simState.ignStartMs = null;
       }
 
       const tSec = now / 1000;
@@ -4051,8 +4945,11 @@
       const baseLon = STATUS_MAP_DEFAULT.lon;
       const baseAlt = 55;
       const metersPerLon = 111320 * Math.cos(baseLat * DEG_TO_RAD);
-      const burnSec = clampLocal(Number((uiSettings ? uiSettings.ignDurationSec : 5) || 5), 2.5, 7);
-      const hasFlight = (simState.flightStartMs != null);
+      const burnSec = parachuteMode
+        ? 0
+        : clampLocal(Number((uiSettings ? uiSettings.ignDurationMs : 1000) || 1000) / 1000, 0.1, 3);
+      const parachuteDropAltM = 18; // 6-floor building equivalent (~3 m/floor)
+      let hasFlight = (simState.flightStartMs != null);
       const padHeadingDeg = 34;
       const padPitchDeg = 88.6;
       const mainDeployAltM = 120;
@@ -4068,6 +4965,11 @@
         ) * 0.5
       ) * 1.41;
       const gMps2 = 9.80665;
+      if(parachuteMode && simState.flightStartMs == null){
+        simState.flightStartMs = now; // T-0 release point
+        simState.physicsLastMs = 0;
+        hasFlight = true;
+      }
 
       let simLat = baseLat;
       let simLon = baseLon;
@@ -4086,16 +4988,16 @@
           simState.physicsLastMs = now;
           simState.posE = 0;
           simState.posN = 0;
-          simState.altM = Math.max(0, simState.altM || 0);
+          simState.altM = parachuteMode ? parachuteDropAltM : Math.max(0, simState.altM || 0);
           simState.velE = 0;
           simState.velN = 0;
-          simState.velU = 0;
+          simState.velU = parachuteMode ? -0.1 : 0;
           simState.accE = 0;
           simState.accN = 0;
           simState.accU = 0;
-          simState.apogeeMs = null;
-          simState.drogueDeployed = false;
-          simState.mainDeployed = false;
+          simState.apogeeMs = parachuteMode ? now : null;
+          simState.drogueDeployed = !!parachuteMode;
+          simState.mainDeployed = !!parachuteMode;
           simState.landed = false;
           simState.landedMs = null;
           simState.gpsNextMs = 0;
@@ -4104,8 +5006,8 @@
           simState.gpsAlt = null;
           simState.gpsPhase = 0;
           simState.rollDeg = 0;
-          simState.pitchDeg = padPitchDeg;
-          simState.yawDeg = padHeadingDeg;
+          simState.pitchDeg = parachuteMode ? 84.6 : padPitchDeg;
+          simState.yawDeg = parachuteMode ? (padHeadingDeg + 2.5) : padHeadingDeg;
         }
         const prevPhysicsMs = simState.physicsLastMs || now;
         const rawDtSec = (now - prevPhysicsMs) / 1000;
@@ -4179,7 +5081,7 @@
             const boostAcc = clampLocal(
               boostMeanAccTarget * (0.74 + (0.42 * Math.max(0, boostShape))),
               10,
-              52
+              120
             );
             accU = boostAcc - dragUp;
           }else if(!simState.drogueDeployed){
@@ -4781,25 +5683,146 @@
         lon: Math.max(STATUS_MAP_KR_BOUNDS.west, Math.min(STATUS_MAP_KR_BOUNDS.east, lon))
       };
     }
-    function projectStatusMapOffline(lat, lon){
-      const pos = clampStatusMapToKorea(lat, lon);
-      const nx = (pos.lon - STATUS_MAP_KR_BOUNDS.west) / (STATUS_MAP_KR_BOUNDS.east - STATUS_MAP_KR_BOUNDS.west);
-      const ny = (STATUS_MAP_KR_BOUNDS.north - pos.lat) / (STATUS_MAP_KR_BOUNDS.north - STATUS_MAP_KR_BOUNDS.south);
+    function clearStatusMapTileProbeTimer(){
+      if(statusMapState.tileProbeTimer){
+        clearTimeout(statusMapState.tileProbeTimer);
+        statusMapState.tileProbeTimer = null;
+      }
+    }
+    function getStatusMapOfflineMarkerPosition(){
+      const lonRange = STATUS_MAP_KR_BOUNDS.east - STATUS_MAP_KR_BOUNDS.west;
+      const latRange = STATUS_MAP_KR_BOUNDS.north - STATUS_MAP_KR_BOUNDS.south;
+      if(!(lonRange > 0) || !(latRange > 0)){
+        return {left: 50, top: 50};
+      }
+      const lonNorm = (statusMapState.lon - STATUS_MAP_KR_BOUNDS.west) / lonRange;
+      const latNorm = (STATUS_MAP_KR_BOUNDS.north - statusMapState.lat) / latRange;
       return {
-        x: STATUS_MAP_OFFLINE_VIEW.left + nx * STATUS_MAP_OFFLINE_VIEW.width,
-        y: STATUS_MAP_OFFLINE_VIEW.top + ny * STATUS_MAP_OFFLINE_VIEW.height
+        left: Math.max(8, Math.min(92, lonNorm * 100)),
+        top: Math.max(8, Math.min(92, latNorm * 100))
       };
     }
+    function ensureStatusMapOfflineLayer(){
+      if(!el.statusMap) return null;
+      let layer = el.statusMap.querySelector(".status-map-offline");
+      if(layer) return layer;
+      layer = document.createElement("div");
+      layer.className = "status-map-offline";
+      layer.setAttribute("aria-hidden", "true");
+      layer.innerHTML =
+        "<div class=\"status-map-offline-kr\"></div>" +
+        "<div class=\"status-map-offline-jeju\"></div>" +
+        "<div class=\"status-map-offline-marker\" aria-hidden=\"true\">🚀</div>" +
+        "<div class=\"status-map-offline-label\">Offline map</div>";
+      el.statusMap.appendChild(layer);
+      return layer;
+    }
     function updateStatusMapOfflineMarker(){
-      if(!statusMapState.offlineMode || !statusMapState.offlineMarker) return;
-      if(isPhoneLandscapeLayout() && !isStatusMapViewportExpanded()){
-        statusMapState.offlineMarker.style.left = "50%";
-        statusMapState.offlineMarker.style.top = "50%";
-        return;
+      if(!el.statusMap) return;
+      const layer = el.statusMap.querySelector(".status-map-offline");
+      if(!layer) return;
+      const marker = layer.querySelector(".status-map-offline-marker");
+      if(!marker) return;
+      const pos = getStatusMapOfflineMarkerPosition();
+      marker.style.left = pos.left.toFixed(2) + "%";
+      marker.style.top = pos.top.toFixed(2) + "%";
+    }
+    function setStatusMapTileOffline(offline){
+      const next = !!offline;
+      statusMapState.tileOffline = next;
+      if(!el.statusMap) return;
+      el.statusMap.classList.toggle("status-map-canvas--offline", next);
+      if(next){
+        ensureStatusMapOfflineLayer();
+        updateStatusMapOfflineMarker();
+      }else{
+        const layer = el.statusMap.querySelector(".status-map-offline");
+        if(layer) layer.remove();
       }
-      const p = projectStatusMapOffline(statusMapState.lat, statusMapState.lon);
-      statusMapState.offlineMarker.style.left = p.x.toFixed(3) + "%";
-      statusMapState.offlineMarker.style.top = p.y.toFixed(3) + "%";
+      updateStatusMapHud();
+    }
+    function scheduleStatusMapTileProbe(){
+      clearStatusMapTileProbeTimer();
+      statusMapState.tileProbeTimer = setTimeout(()=>{
+        statusMapState.tileProbeTimer = null;
+        if(statusMapState.tileLoadCount > 0){
+          setStatusMapTileOffline(false);
+          return;
+        }
+        setStatusMapTileOffline(true);
+      }, 2600);
+    }
+    function getStatusMapTileSource(index){
+      const idx = Number(index);
+      if(!Number.isInteger(idx)) return null;
+      if(idx < 0 || idx >= STATUS_MAP_TILE_SOURCES.length) return null;
+      return STATUS_MAP_TILE_SOURCES[idx];
+    }
+    function attachStatusMapTileLayer(map, koreaBounds, sourceIndex){
+      if(!map || typeof window.L === "undefined") return false;
+      const source = getStatusMapTileSource(sourceIndex);
+      if(!source) return false;
+      clearStatusMapTileProbeTimer();
+      if(statusMapState.tileLayer){
+        try{
+          statusMapState.tileLayer.off();
+          statusMapState.tileLayer.remove();
+        }catch(e){}
+        statusMapState.tileLayer = null;
+      }
+      statusMapState.tileLoadCount = 0;
+      statusMapState.tileErrorCount = 0;
+      statusMapState.tileSourceIndex = sourceIndex;
+      const layerOptions = {
+        bounds: koreaBounds,
+        noWrap: true,
+        minZoom: 6,
+        maxZoom: 19,
+        attribution: source.attribution || ""
+      };
+      if(source.subdomains) layerOptions.subdomains = source.subdomains;
+      const tileLayer = window.L.tileLayer(source.url, layerOptions);
+      const tryFallback = ()=>{
+        if(statusMapState.tileLoadCount > 0) return false;
+        const nextIndex = sourceIndex + 1;
+        const nextSource = getStatusMapTileSource(nextIndex);
+        if(!nextSource) return false;
+        console.warn("[MAP] tile source fallback -> " + nextSource.id);
+        return attachStatusMapTileLayer(map, koreaBounds, nextIndex);
+      };
+      tileLayer.on("loading", ()=>{
+        scheduleStatusMapTileProbe();
+      });
+      tileLayer.on("tileload", ()=>{
+        statusMapState.tileLoadCount += 1;
+        if(statusMapState.tileOffline){
+          setStatusMapTileOffline(false);
+        }
+      });
+      tileLayer.on("tileerror", ()=>{
+        statusMapState.tileErrorCount += 1;
+        if(statusMapState.tileLoadCount > 0) return;
+        if(statusMapState.tileErrorCount >= 2){
+          if(!tryFallback()){
+            setStatusMapTileOffline(true);
+          }
+        }
+      });
+      tileLayer.on("load", ()=>{
+        if(statusMapState.tileLoadCount > 0){
+          setStatusMapTileOffline(false);
+          return;
+        }
+        if(statusMapState.tileErrorCount > 0){
+          if(!tryFallback()){
+            setStatusMapTileOffline(true);
+          }
+        }
+      });
+      tileLayer.addTo(map);
+      statusMapState.tileLayer = tileLayer;
+      scheduleStatusMapTileProbe();
+      return true;
     }
     function syncStatusMapInteractionMode(){
       if(!statusMapState.map) return;
@@ -4864,7 +5887,7 @@
       }
     }
     function startStatusMapUserLocationWatch(){
-      if(!statusMapState.map || statusMapState.offlineMode) return;
+      if(!statusMapState.map) return;
       if(statusMapState.userWatchId != null) return;
       if(!navigator.geolocation || !window.isSecureContext) return;
       try{
@@ -5039,45 +6062,53 @@
         });
       }
     }
-    function initStatusMapOffline(){
-      if(!el.statusMap) return;
-      if(statusMapState.userWatchId != null && navigator.geolocation && typeof navigator.geolocation.clearWatch === "function"){
-        try{ navigator.geolocation.clearWatch(statusMapState.userWatchId); }catch(e){}
-      }
-      statusMapState.userWatchId = null;
-      statusMapState.userMarker = null;
-      statusMapState.userAccuracyCircle = null;
-      statusMapState.offlineMode = true;
-      statusMapState.map = null;
-      statusMapState.marker = null;
-      statusMapState.markerExpanded = false;
-      el.statusMap.innerHTML = "";
-      el.statusMap.classList.remove("leaflet-container");
-      el.statusMap.classList.add("status-map-canvas--offline");
-
-      const root = document.createElement("div");
-      root.className = "status-map-offline";
-
-      const kr = document.createElement("div");
-      kr.className = "status-map-offline-kr";
-      const jeju = document.createElement("div");
-      jeju.className = "status-map-offline-jeju";
-      const label = document.createElement("div");
-      label.className = "status-map-offline-label";
-      label.textContent = "KR OFFLINE";
-      const marker = document.createElement("div");
-      marker.className = "status-map-offline-marker";
-      marker.textContent = "🚀";
-
-      root.appendChild(kr);
-      root.appendChild(jeju);
-      root.appendChild(label);
-      root.appendChild(marker);
-      el.statusMap.appendChild(root);
-
-      statusMapState.offlineRoot = root;
-      statusMapState.offlineMarker = marker;
-      updateStatusMapOfflineMarker();
+    function ensureStatusMapLeafletCss(){
+      if(document.getElementById("statusMapLeafletCssFallback")) return;
+      const link = document.createElement("link");
+      link.id = "statusMapLeafletCssFallback";
+      link.rel = "stylesheet";
+      link.href = "vendor/leaflet/leaflet.css";
+      document.head.appendChild(link);
+    }
+    function tryLoadStatusMapLeafletScript(){
+      if(typeof window.L !== "undefined") return;
+      if(statusMapState.leafletLoadInFlight) return;
+      statusMapState.leafletLoadInFlight = true;
+      statusMapState.leafletLoadFailed = false;
+      const sources = [
+        "vendor/leaflet/leaflet.js",
+        "/vendor/leaflet/leaflet.js",
+        "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      ];
+      let idx = 0;
+      const tryNext = ()=>{
+        if(typeof window.L !== "undefined"){
+          statusMapState.leafletLoadInFlight = false;
+          statusMapState.leafletLoadFailed = false;
+          initStatusMap();
+          return;
+        }
+        if(idx >= sources.length){
+          statusMapState.leafletLoadInFlight = false;
+          statusMapState.leafletLoadFailed = true;
+          setStatusMapTileOffline(true);
+          updateStatusMapHud();
+          return;
+        }
+        const src = sources[idx++];
+        const script = document.createElement("script");
+        script.src = src;
+        script.async = true;
+        script.onload = ()=>{
+          tryNext();
+        };
+        script.onerror = ()=>{
+          if(script.parentNode) script.parentNode.removeChild(script);
+          tryNext();
+        };
+        document.head.appendChild(script);
+      };
+      tryNext();
     }
     function updateStatusMapHud(){
       if(!el.statusMapCoordText || !el.statusMapZoomText) return;
@@ -5086,12 +6117,22 @@
       }else{
         el.statusMapCoordText.textContent = "-- , --";
       }
-      if(statusMapState.offlineMode){
-        el.statusMapZoomText.textContent = "KR offline";
-      }else{
-        const zoomVal = (statusMapState.map && isFinite(statusMapState.map.getZoom())) ? statusMapState.map.getZoom() : statusMapState.zoom;
-        el.statusMapZoomText.textContent = "zoom " + String(zoomVal);
+      if(!statusMapState.map && typeof window.L === "undefined"){
+        if(statusMapState.leafletLoadInFlight){
+          el.statusMapZoomText.textContent = "map loading...";
+        }else if(statusMapState.leafletLoadFailed){
+          el.statusMapZoomText.textContent = "map unavailable";
+        }else{
+          el.statusMapZoomText.textContent = "zoom " + String(statusMapState.zoom);
+        }
+        return;
       }
+      if(statusMapState.tileOffline){
+        el.statusMapZoomText.textContent = "offline map";
+        return;
+      }
+      const zoomVal = (statusMapState.map && isFinite(statusMapState.map.getZoom())) ? statusMapState.map.getZoom() : statusMapState.zoom;
+      el.statusMapZoomText.textContent = "zoom " + String(zoomVal);
     }
     function escapeStatusMapPopupText(v){
       return String(v == null ? "" : v)
@@ -5113,6 +6154,17 @@
       if(document.documentElement.classList.contains("mode-daq")) return "daq";
       if(document.documentElement.classList.contains("mode-flight")) return "flight";
       return "daq";
+    }
+    function isFlightModeUi(){
+      return getStatusMapPopupMode() === "flight";
+    }
+    function syncOperationModeToBoard(logIt){
+      const mode = isFlightModeUi() ? "flight" : "daq";
+      sendCommand({http:"/set?op_mode=" + mode, ser:"/set?op_mode=" + mode}, !!logIt);
+    }
+    function syncDaqSequencePyroChannelToBoard(logIt){
+      const channel = normalizePyroChannel(uiSettings && uiSettings.daqSequencePyroChannel, 1);
+      sendCommand({http:"/set?daq_seq_pyro=" + channel, ser:"/set?daq_seq_pyro=" + channel}, !!logIt);
     }
     function getStatusMapMarkerMeta(){
       const mode = getStatusMapPopupMode();
@@ -5165,11 +6217,11 @@
       if(statusMapState.marker){
         statusMapState.marker.setLatLng([clamped.lat, clamped.lon]);
       }
+      updateStatusMapOfflineMarker();
       if(opt && opt.recenter && statusMapState.map){
         const zoomVal = isFinite(Number(opt.zoom)) ? Number(opt.zoom) : statusMapState.map.getZoom();
         statusMapState.map.setView([clamped.lat, clamped.lon], zoomVal);
       }
-      updateStatusMapOfflineMarker();
       updateStatusMapHud();
     }
     async function copyTextSafe(text){
@@ -5213,7 +6265,7 @@
       return {
         lat: latNum,
         lon: lonNum,
-        alt: isFinite(altNum) ? altNum : 0
+        alt: isFinite(altNum) ? altNum : NaN
       };
     }
     function extractTelemetryLatLon(data){
@@ -5253,39 +6305,7 @@
       const flight = getQuickFlightMetrics(data, now);
       const altitudeOnlyM = Number(flight && flight.altitudeM);
       if(isFinite(altitudeOnlyM)){
-        const last = getGyroPathLastPoint();
-        if(gyroPathState.source !== "alt"){
-          if(last){
-            gyroPathState.altAnchorX = last.x;
-            gyroPathState.altAnchorZ = last.z;
-            gyroPathState.altOffsetY = last.y - altitudeOnlyM;
-          }else{
-            gyroPathState.altAnchorX = 0;
-            gyroPathState.altAnchorZ = 0;
-            gyroPathState.altOffsetY = 0;
-          }
-          gyroPathState.source = "alt";
-        }else if(last){
-          gyroPathState.altAnchorX += (last.x - gyroPathState.altAnchorX) * 0.14;
-          gyroPathState.altAnchorZ += (last.z - gyroPathState.altAnchorZ) * 0.14;
-        }
-        pushGyroPathMeters(
-          gyroPathState.altAnchorX,
-          altitudeOnlyM + gyroPathState.altOffsetY,
-          gyroPathState.altAnchorZ,
-          now,
-          {
-            alphaX: 0.2,
-            alphaY: 0.34,
-            alphaZ: 0.2,
-            minStepM: 0.06,
-            idleHoldMs: 90,
-            idleDriftM: 0.012,
-            jumpRejectM: 180,
-            jumpRejectMs: 2600,
-            altDeadbandM: 0.008
-          }
-        );
+        updateGyroPathFromAltGyro(altitudeOnlyM, now);
         return;
       }
       let sample = imuSample || null;
@@ -5301,6 +6321,7 @@
     }
     function resetQuickFlightMetricsState(){
       quickFlightMetrics.originAlt = NaN;
+      quickFlightMetrics.originPressureMpa = SEA_LEVEL_PRESSURE_MPA;
       quickFlightMetrics.lastLat = NaN;
       quickFlightMetrics.lastLon = NaN;
       quickFlightMetrics.lastAlt = NaN;
@@ -5360,6 +6381,23 @@
         }
       }
 
+      // Fallback: derive relative altitude from absolute barometric pressure (BMP388).
+      if(!isFinite(altitudeM) && data && typeof data === "object"){
+        const pressureMpa = parsePressureMpa(data);
+        if(isFinite(pressureMpa) && pressureMpa > 0.03 && pressureMpa < 0.2){
+          const p0 = quickFlightMetrics.originPressureMpa;
+          if(isFinite(p0) && p0 > 0){
+            const ratio = pressureMpa / p0;
+            if(isFinite(ratio) && ratio > 0){
+              const h = 44330.0 * (1.0 - Math.pow(ratio, 0.19029495718363465));
+              if(isFinite(h)){
+                altitudeM = (Math.abs(h) < 0.05) ? 0 : h;
+              }
+            }
+          }
+        }
+      }
+
       const geo = extractTelemetryGeo(data, {koreaOnly:false}) ||
         (useSimFlightMetrics && simState && simState.lastGeo ? simState.lastGeo : null);
       if(geo){
@@ -5407,7 +6445,7 @@
       return {altitudeM, speedMps};
     }
     function updateQuickMetricLabels(){
-      const inFlightMode = document.documentElement.classList.contains("mode-flight");
+      const inFlightMode = isFlightModeUi();
       const primaryLabel = inFlightMode ? "Altitude" : "Thrust";
       const secondaryLabel = inFlightMode ? "Speed" : "Pressure";
       if(el.quickMetricPrimaryLabel){
@@ -5420,6 +6458,66 @@
       if(el.statusMapHudMetricSecondaryLabel) el.statusMapHudMetricSecondaryLabel.textContent = secondaryLabel;
       if(el.gyro3dHudMetricPrimaryLabel) el.gyro3dHudMetricPrimaryLabel.textContent = primaryLabel;
       if(el.gyro3dHudMetricSecondaryLabel) el.gyro3dHudMetricSecondaryLabel.textContent = secondaryLabel;
+    }
+    function formatQuickGyroDeg(value){
+      const deg = Number(value);
+      if(!isFinite(deg)){
+        return `<span class="num">0.0</span><span class="unit">deg</span>`;
+      }
+      return `<span class="num">${deg.toFixed(1)}</span><span class="unit">deg</span>`;
+    }
+    function updateQuickAuxLabels(){
+      const inFlightMode = isFlightModeUi();
+      const quickRelay2Item = el.quickRelay2 ? el.quickRelay2.closest(".item") : null;
+      const quickNull3Item = el.quickNull3Value ? el.quickNull3Value.closest(".item") : null;
+      if(el.quickDelayLabel){
+        el.quickDelayLabel.innerHTML = `<span class="label-icon"></span>${t("labelDelay")}`;
+      }
+      if(el.quickBurnLabel){
+        el.quickBurnLabel.innerHTML = `<span class="label-icon"></span>${inFlightMode ? "GYRO Y" : "Burn"}`;
+      }
+      if(el.quickRelay1Label){
+        el.quickRelay1Label.innerHTML = `<span class="label-icon"></span>PYRO`;
+      }
+      if(el.quickRelay2Label){
+        el.quickRelay2Label.innerHTML = `<span class="label-icon"></span>GYRO X`;
+      }
+      if(el.quickHxHzLabel){
+        el.quickHxHzLabel.innerHTML = `<span class="label-icon"></span>${inFlightMode ? "NULL" : "LOADCELL"}`;
+      }
+      if(el.quickNullLabel){
+        el.quickNullLabel.innerHTML = `<span class="label-icon"></span>${inFlightMode ? "GYRO Z" : "SD CARD"}`;
+      }
+      if(el.quickNull2Label){
+        el.quickNull2Label.innerHTML = `<span class="label-icon"></span>NULL`;
+      }
+      if(el.quickNull3Label){
+        el.quickNull3Label.innerHTML = `<span class="label-icon"></span>NULL`;
+      }
+      if(quickRelay2Item){
+        quickRelay2Item.classList.toggle("hidden", !inFlightMode);
+      }
+      if(quickNull3Item){
+        quickNull3Item.classList.toggle("hidden", inFlightMode);
+      }
+      if(inFlightMode){
+        if(el.quickRelay2) el.quickRelay2.innerHTML = formatQuickGyroDeg(NaN);
+        if(el.quickHxHz) el.quickHxHz.innerHTML = `<span class="num">null</span>`;
+        if(el.quickNullValue) el.quickNullValue.innerHTML = formatQuickGyroDeg(NaN);
+        if(el.quickNull2Value) el.quickNull2Value.innerHTML = `<span class="num">null</span>`;
+        if(el.quickNull3Value) el.quickNull3Value.innerHTML = `<span class="num">null</span>`;
+      }else{
+        if(el.quickHxHz) el.quickHxHz.innerHTML = `<span class="num">--</span><span class="unit">Hz</span>`;
+        if(el.quickNullValue){
+          el.quickNullValue.innerHTML = `<span class="num">--</span>`;
+        }
+        if(el.quickNull2Value){
+          el.quickNull2Value.innerHTML = `<span class="num">null</span>`;
+        }
+        if(el.quickNull3Value){
+          el.quickNull3Value.innerHTML = `<span class="num">null</span>`;
+        }
+      }
     }
     function buildPhoneLandscapeMetricCaption(metricHtml, fallback){
       if(!metricHtml) return fallback || "--";
@@ -5435,7 +6533,7 @@
       const secondaryHtml = el.pressure ? el.pressure.innerHTML : "--";
       const primaryAlert = !!(el.thrust && el.thrust.closest(".status-metric") && el.thrust.closest(".status-metric").classList.contains("is-alert"));
       const secondaryAlert = !!(el.pressure && el.pressure.closest(".status-metric") && el.pressure.closest(".status-metric").classList.contains("is-alert"));
-      const phoneFlightMode = isPhoneLandscapeLayout() && document.documentElement.classList.contains("mode-flight");
+      const phoneFlightMode = isPhoneLandscapeLayout() && isFlightModeUi();
 
       if(el.statusMapHudMetricPrimaryValue) el.statusMapHudMetricPrimaryValue.innerHTML = primaryHtml;
       if(el.statusMapHudMetricSecondaryValue) el.statusMapHudMetricSecondaryValue.innerHTML = secondaryHtml;
@@ -5484,15 +6582,19 @@
       if(!el.statusMap || statusMapState.map) return;
       bindStatusMapViewportInteractions();
       bindStatusMapControls();
+      ensureStatusMapLeafletCss();
       if(typeof window.L === "undefined"){
-        initStatusMapOffline();
+        tryLoadStatusMapLeafletScript();
+        console.warn("Status map init pending: Leaflet unavailable.");
         updateStatusMapHud();
         return;
       }
-      statusMapState.offlineMode = false;
-      el.statusMap.classList.remove("status-map-canvas--offline");
-      statusMapState.offlineRoot = null;
-      statusMapState.offlineMarker = null;
+      statusMapState.leafletLoadFailed = false;
+      statusMapState.tileLoadCount = 0;
+      statusMapState.tileErrorCount = 0;
+      statusMapState.tileLayer = null;
+      clearStatusMapTileProbeTimer();
+      setStatusMapTileOffline(false);
       el.statusMap.innerHTML = "";
       const koreaBounds = [
         [STATUS_MAP_KR_BOUNDS.south, STATUS_MAP_KR_BOUNDS.west],
@@ -5507,27 +6609,9 @@
         [statusMapState.lat, statusMapState.lon],
         statusMapState.zoom
       );
-      let tileOk = false;
-      let tileErrCount = 0;
-      const tileLayer = window.L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
-        subdomains: "abcd",
-        bounds: koreaBounds,
-        noWrap: true,
-        minZoom: 6,
-        maxZoom: 19,
-        attribution: "&copy; OSM contributors &copy; CARTO"
-      }).addTo(map);
-      tileLayer.on("tileload", ()=>{
-        tileOk = true;
-      });
-      tileLayer.on("tileerror", ()=>{
-        tileErrCount += 1;
-        if(tileOk) return;
-        if(tileErrCount < 8) return;
-        try{ map.remove(); }catch(e){}
-        initStatusMapOffline();
-        updateStatusMapHud();
-      });
+      if(!attachStatusMapTileLayer(map, koreaBounds, 0)){
+        setStatusMapTileOffline(true);
+      }
       const rocketIcon = window.L.divIcon({
         className: "status-map-rocket-icon",
         html: buildStatusMapRocketHtml(),
@@ -5609,15 +6693,19 @@
       const statusText = resolveMobileHudStatusText(statusTextRaw);
       const pillTextRaw = (el.statusPill && el.statusPill.textContent) ? el.statusPill.textContent.trim() : "";
       const connText = (el.connStatusText && el.connStatusText.textContent) ? el.connStatusText.textContent.trim() : (connOk ? "CONNECTED · -- Hz" : "DISCONNECTED · -- Hz");
+      const pathMeta = getGyroPathSourceMeta();
       const battText = (el.batteryStatus && el.batteryStatus.textContent) ? el.batteryStatus.textContent.trim() : "--%";
       const compactConnText = connOk ? (((rxHzWindow > 0 && isFinite(rxHzWindow)) ? rxHzWindow.toFixed(0) : "--") + "Hz") : "--Hz";
       const compactBatteryText = battText.replace(/[^0-9]/g, "").slice(0, 3) || "--";
       const compactTimeText = getCompactHudClockText();
       const showCompactClock = !!(sequenceActive || currentSt === 1 || currentSt === 2 || localTplusActive);
+      const pathText = pathMeta.show ? (pathMeta.label + " " + pathMeta.confidence) : "";
+      const statusDisplayText = pathText ? ((statusText || "--") + " · " + pathText) : (statusText || "--");
+      const connDisplayText = pathMeta.lowConfidence ? ((connText || "--") + " · EST") : (connText || "--");
 
       el.gyro3dHudCountdown.textContent = countdownText || "T- --:--:--";
-      el.gyro3dHudStatusText.textContent = statusText || "--";
-      el.gyro3dHudConn.textContent = connText || "--";
+      el.gyro3dHudStatusText.textContent = statusDisplayText;
+      el.gyro3dHudConn.textContent = connDisplayText;
       el.gyro3dHudBattery.textContent = battText || "--%";
       if(el.gyro3dHudConnCompact) el.gyro3dHudConnCompact.textContent = compactConnText;
       if(el.gyro3dHudBatteryCompact) el.gyro3dHudBatteryCompact.textContent = compactBatteryText;
@@ -5676,15 +6764,19 @@
       const statusText = resolveMobileHudStatusText(statusTextRaw);
       const pillTextRaw = (el.statusPill && el.statusPill.textContent) ? el.statusPill.textContent.trim() : "";
       const connText = (el.connStatusText && el.connStatusText.textContent) ? el.connStatusText.textContent.trim() : (connOk ? "CONNECTED · -- Hz" : "DISCONNECTED · -- Hz");
+      const pathMeta = getGyroPathSourceMeta();
       const battText = (el.batteryStatus && el.batteryStatus.textContent) ? el.batteryStatus.textContent.trim() : "--%";
       const compactConnText = connOk ? (((rxHzWindow > 0 && isFinite(rxHzWindow)) ? rxHzWindow.toFixed(0) : "--") + "Hz") : "--Hz";
       const compactBatteryText = battText.replace(/[^0-9]/g, "").slice(0, 3) || "--";
       const compactTimeText = getCompactHudClockText();
       const showCompactClock = !!(sequenceActive || currentSt === 1 || currentSt === 2 || localTplusActive);
+      const pathText = pathMeta.show ? (pathMeta.label + " " + pathMeta.confidence) : "";
+      const statusDisplayText = pathText ? ((statusText || "--") + " · " + pathText) : (statusText || "--");
+      const connDisplayText = pathMeta.lowConfidence ? ((connText || "--") + " · EST") : (connText || "--");
 
       el.statusMapHudCountdown.textContent = countdownText || "T- --:--:--";
-      el.statusMapHudStatusText.textContent = statusText || "--";
-      el.statusMapHudConn.textContent = connText || "--";
+      el.statusMapHudStatusText.textContent = statusDisplayText;
+      el.statusMapHudConn.textContent = connDisplayText;
       el.statusMapHudBattery.textContent = battText || "--%";
       if(el.statusMapHudConnCompact) el.statusMapHudConnCompact.textContent = compactConnText;
       if(el.statusMapHudBatteryCompact) el.statusMapHudBatteryCompact.textContent = compactBatteryText;
@@ -5830,6 +6922,286 @@
       if(el.wifiStaCount) el.wifiStaCount.textContent = staCount;
       if(el.wifiRssi) el.wifiRssi.textContent = rssiLabel;
     }
+    function clampServoAngle(value){
+      let deg = Number(value);
+      if(!isFinite(deg)) deg = SERVO_DEFAULT_DEG;
+      if(deg < SERVO_MIN_DEG) deg = SERVO_MIN_DEG;
+      if(deg > SERVO_MAX_DEG) deg = SERVO_MAX_DEG;
+      return Math.round(deg);
+    }
+    function setServoUiAngle(channel, angleDeg){
+      const row = servoUiMap[channel];
+      if(!row) return;
+      const deg = clampServoAngle(angleDeg);
+      if(row.range) row.range.value = String(deg);
+      if(row.value) row.value.textContent = deg + "°";
+    }
+    function setServoUiPin(channel, pin){
+      const row = servoUiMap[channel];
+      if(!row || !row.pin) return;
+      if(pin == null || !isFinite(Number(pin))) row.pin.textContent = "-";
+      else row.pin.textContent = String(Math.round(Number(pin)));
+    }
+    function updateServoInfoUI(info){
+      if(!info || !Array.isArray(info.channels)) return;
+      for(const item of info.channels){
+        const ch = Number(item && (item.id != null ? item.id : item.ch));
+        if(!isFinite(ch) || SERVO_CHANNELS.indexOf(ch) < 0) continue;
+        setServoUiPin(ch, item.pin);
+        setServoUiAngle(ch, item.angle);
+      }
+    }
+    async function fetchServoInfo(){
+      if(simEnabled) return;
+      if(isLocalPreviewHost()) return;
+      try{
+        const info = await fetchJsonTimeout("/servo", 700);
+        servoInfo = info;
+        servoInfoLastMs = Date.now();
+        servoInfoWarned = false;
+        updateServoInfoUI(info);
+      }catch(e){
+        if(!servoInfo || (Date.now() - servoInfoLastMs) > 5000){
+          updateServoInfoUI(null);
+          if(!servoInfoWarned){
+            servoInfoWarned = true;
+            showToast("서보 API 응답이 없습니다. 펌웨어/업로드 상태를 확인하세요.", "warn", {
+              key:"servo-api-offline",
+              duration:2800
+            });
+          }
+        }
+      }
+    }
+    async function sendServoCommand(channel, deg){
+      const path = "/servo?ch=" + channel + "&deg=" + deg;
+      if(simEnabled){
+        handleSimCommand({ http:path, ser:"SERVO " + channel + " " + deg });
+        return { ok:true, reason:"SIM" };
+      }
+
+      const serialMode = !!serialEnabled;
+      const canSerial = !!(serialMode && serialConnected && serialTxEnabled);
+      let serialReason = "";
+      if(canSerial){
+        try{
+          const ackPattern = new RegExp("^PWM" + String(channel) + "\\s*=\\s*(-?\\d+)$", "i");
+          const sendOneSerialServo = async (lineToSend)=>{
+            const waiter = createSerialAckWaiter((evt)=>{
+              if(evt.kind === "err") return true;
+              if(evt.kind !== "ack") return false;
+              const msg = String(evt.message || "").trim();
+              return ackPattern.test(msg);
+            }, SERVO_SERIAL_REPLY_TIMEOUT_MS);
+            const wrote = await serialWriteLine(lineToSend);
+            if(!wrote){
+              cancelSerialAckWaiter(waiter, "SERIAL_WRITE_FAIL");
+              return { ok:false, reason:"SERIAL_WRITE_FAIL" };
+            }
+            const reply = await waiter.promise;
+            if(!reply.ok){
+              return { ok:false, reason:reply.message || "SERIAL_NO_REPLY" };
+            }
+            const m = String(reply.message || "").trim().match(ackPattern);
+            const appliedDeg = m ? clampServoAngle(Number(m[1])) : deg;
+            return { ok:true, reason:"SERIAL_ACK", appliedDeg };
+          };
+
+          // 1차: REST 형태(/servo?...), 2차: 레거시(SERVO ch deg) 폴백
+          let serialResult = await sendOneSerialServo(path);
+          if(!serialResult.ok){
+            serialResult = await sendOneSerialServo("SERVO " + channel + " " + deg);
+          }
+          if(serialResult.ok){
+            return { ok:true, reason:serialResult.reason || "SERIAL_ACK", appliedDeg:serialResult.appliedDeg };
+          }
+          serialReason = serialResult.reason || "SERIAL_NO_REPLY";
+        }catch(e){
+          serialReason = (e && e.message) ? e.message : "SERIAL_ERROR";
+        }
+      }else if(serialMode && !serialConnected){
+        serialReason = "SERIAL_DISCONNECTED";
+      }else if(serialMode && serialConnected && !serialTxEnabled){
+        serialReason = "SERIAL_TX_DISABLED";
+      }
+
+      if(serialMode){
+        return { ok:false, reason:serialReason || "SERIAL_NOT_READY" };
+      }
+
+      const API_BASE = getApiBaseForCommands();
+      const url = API_BASE ? (API_BASE + path) : path;
+      const opt = API_BASE ? { mode:"no-cors", cache:"no-cache" } : { cache:"no-cache" };
+
+      try{
+        const res = await fetch(url, opt);
+        if(!API_BASE && !res.ok){
+          let bodyText = "";
+          try{ bodyText = (await res.text()) || ""; }catch(e){}
+          const reason = bodyText.trim() || ("HTTP " + res.status);
+          if(serialReason){
+            return { ok:false, reason:serialReason + " / " + reason };
+          }
+          return { ok:false, reason };
+        }
+      }catch(err){
+        reportSilentException("servo-http", err);
+        const reason = (err && err.message) ? err.message : "NETWORK_ERROR";
+        if(serialReason){
+          return { ok:false, reason:serialReason + " / " + reason };
+        }
+        return { ok:false, reason };
+      }
+      return { ok:true, reason:"HTTP" };
+    }
+    function scheduleServoAutoApply(channel, delayMs){
+      const row = servoUiMap[channel];
+      if(!row) return;
+      if(row.autoTimer){
+        clearTimeout(row.autoTimer);
+        row.autoTimer = null;
+      }
+      row.autoTimer = setTimeout(()=>{
+        row.autoTimer = null;
+        applyServoAngle(channel, { showFeedback:false, logIt:false });
+      }, Math.max(0, Number(delayMs) || 0));
+    }
+    async function applyServoAngle(channel, options){
+      const row = servoUiMap[channel];
+      if(!row || !row.range) return;
+      const opts = options || {};
+      const showFeedback = (opts.showFeedback !== false);
+      const logIt = (opts.logIt !== false);
+      const force = !!opts.force;
+      if(row.autoTimer){
+        clearTimeout(row.autoTimer);
+        row.autoTimer = null;
+      }
+      const deg = clampServoAngle(row.range.value);
+      setServoUiAngle(channel, deg);
+      if(!force && row.lastAppliedDeg === deg) return;
+      const result = await sendServoCommand(channel, deg);
+      if(!result.ok){
+        if(showFeedback){
+          const reason = String(result.reason || "UNKNOWN");
+          showToast("PWM" + channel + " 전송 실패: " + reason, "error", {
+            key:"servo-set-fail-" + channel,
+            duration:3200
+          });
+        }
+        return;
+      }
+      const appliedDeg = clampServoAngle(result.appliedDeg != null ? result.appliedDeg : deg);
+      row.lastAppliedDeg = appliedDeg;
+      setServoUiAngle(channel, appliedDeg);
+      if(logIt){
+        addLogLine("PWM" + channel + " servo -> " + appliedDeg + "°", "SERVO");
+      }
+      if(showFeedback){
+        showToast("PWM" + channel + " 각도 " + appliedDeg + "° 적용", "info", {
+          key:"servo-set-" + channel,
+          duration:1800
+        });
+      }
+      fetchServoInfo();
+    }
+    function renderHomeViewLayout(){
+      const homeView = document.getElementById("homeView");
+      if(!homeView || homeView.children.length) return;
+      homeView.innerHTML = `
+        <div class="home-ref-shell">
+          <aside class="home-ref-left">
+            <div class="home-ref-search" aria-hidden="true">
+              <span class="home-ref-search-icon">⌕</span>
+              <input type="text" value="" placeholder="Search" readonly>
+            </div>
+
+            <button id="homeFlyCardBtn" class="home-ref-fly" type="button">
+              <div class="home-ref-fly-title">Before You Fly</div>
+              <div class="home-ref-fly-sub" id="homeStatus">No Fly Spots available nearby</div>
+              <div class="home-ref-fly-zone">
+                <span class="home-ref-zone-dot"></span>
+                <span>Recommended Zone</span>
+              </div>
+            </button>
+
+            <section class="home-ref-tools">
+              <button id="homeDataExtractBtn" class="home-ref-tool home-ref-tool-compact" type="button">
+                <span class="home-ref-tool-icon">⇩</span>
+                <span class="home-ref-tool-label">Data Export</span>
+              </button>
+              <button id="homeFindSoundBtn" class="home-ref-tool home-ref-tool-compact" type="button">
+                <span class="home-ref-tool-icon">◉</span>
+                <span class="home-ref-tool-label">Find Sound</span>
+              </button>
+            </section>
+          </aside>
+
+          <section class="home-ref-right">
+            <header class="home-ref-head">
+              <div class="home-ref-title-wrap">
+                <h2 id="homeHeroBoard">ALTIS PCB PRO</h2>
+                <span id="homeHeroPill" class="home-ref-live is-offline">OFFLINE</span>
+              </div>
+              <div class="home-ref-head-icons"><span>⌖</span><span>☰</span></div>
+            </header>
+
+            <div class="home-ref-update">
+              <span>FlySafe requires update</span>
+              <strong>Update</strong>
+            </div>
+
+            <div class="home-ref-stage">
+              <img src="img/altis_logo1.png" alt="ALTIS Board">
+            </div>
+
+            <div class="home-ref-foot-icons">▲  ◔  ↔  ▭</div>
+            <button id="homeArmBtn" class="home-ref-go" type="button">GO FLY</button>
+          </section>
+        </div>
+
+        <nav class="home-ref-bottom-nav" aria-hidden="true">
+          <span>Create</span>
+          <span>SkyPixel</span>
+          <span>Service</span>
+          <span>Profile</span>
+        </nav>
+
+        <div class="home-ref-hidden" aria-hidden="true">
+          <span id="homeActionHint">점검 후 ARM 가능</span>
+          <span id="homeLog">-</span>
+          <button id="homeSafeBtn" type="button" tabindex="-1">SAFE</button>
+          <button id="homeIgniterBtn" type="button" tabindex="-1">IGNITER</button>
+          <span id="homeFirmware">--</span>
+          <span id="homeProtocol">--</span>
+          <span id="homeConnStatus">--</span>
+          <span id="homeWsStatus">--</span>
+          <span id="homeMode">--</span>
+          <span id="homeSerialStatus">--</span>
+          <span id="homeRelay">--</span>
+          <span id="homeSwitch">--</span>
+          <span id="homeIgniter">--</span>
+          <span id="homeSafety">--</span>
+          <span id="homeStatusBadge">OFF</span>
+          <span id="homeConnBadge">OFF</span>
+          <span id="homeWsBadge">OFF</span>
+          <span id="homeModeBadge">OFF</span>
+          <span id="homeSafetyBadge">OFF</span>
+          <span id="homeSerialBadge">OFF</span>
+          <span id="homeMissionName">--</span>
+          <span id="homeMissionMotor">--</span>
+          <span id="homeMissionDelay">--</span>
+          <span id="homeHealthBattery">--</span>
+          <span id="homeHealthBatteryBadge">--</span>
+          <span id="homeHealthIgniter">--</span>
+          <span id="homeHealthIgniterBadge">--</span>
+          <span id="homeHealthSwitch">--</span>
+          <span id="homeHealthSwitchBadge">--</span>
+          <span id="homeHealthRelay">--</span>
+          <span id="homeHealthRelayBadge">--</span>
+        </div>
+      `;
+    }
     function updateHomeLog(){
       if(!el.homeLog) return;
       if(!eventLog.length){
@@ -5857,6 +7229,23 @@
         return '<span class="board-name-strong">ALTIS</span> <span class="board-name-regular">INTELLIGNET</span> <span class="board-name-light">V1</span>';
       }
       return null;
+    }
+    function removeLegacyLuceText(){
+      const needles = [
+        "Luce in ALTIS",
+        "ALTIS 안의 빛",
+        "작은 점화 하나가",
+        "우주로 향하는 길이 됩니다"
+      ];
+      const nodes = document.querySelectorAll("body *");
+      nodes.forEach(node=>{
+        if(!node || node.children.length) return;
+        const text = String(node.textContent || "");
+        if(!text) return;
+        if(needles.some(k => text.indexOf(k) >= 0)){
+          node.textContent = "";
+        }
+      });
     }
 
     function setBoardNameDisplay(node, name, fallback){
@@ -5959,7 +7348,8 @@
 
       const armed = isControlUnlocked();
       if(el.homeArmBtn){
-        el.homeArmBtn.textContent = armed ? "DISARM" : "ARM";
+        const isRefHome = el.homeArmBtn.classList.contains("home-ref-go");
+        el.homeArmBtn.textContent = armed ? "DISARM" : (isRefHome ? "GO FLY" : "ARM");
         el.homeArmBtn.classList.toggle("is-active", armed);
       }
       if(el.homeSafeBtn) el.homeSafeBtn.classList.toggle("is-active", !!(el.safeModeToggle && el.safeModeToggle.checked));
@@ -6104,6 +7494,7 @@
       if(/(abort|중단)/i.test(raw)) return "시퀀스 중단";
       if(/(countdown|카운트다운)/i.test(raw)) return "카운트다운 시작";
       if(/(ignite|ignition|점화)/i.test(raw)) return "점화 진행";
+      if(/(parachute|낙하산|사출)/i.test(raw)) return "낙하산 사출";
       if(/(disconnected|연결 해제|연결 끊)/i.test(raw)) return "연결 끊김";
       if(/(connected|연결됨|연결 완료)/i.test(raw)) return "연결됨";
       if(toastType === "success") return "시스템 준비 완료";
@@ -6589,6 +7980,7 @@
       updateMobileControlPills();
       syncMobileControlButtons();
       updateMobileSequenceStatusLabel(sequenceActive, state, lockoutLatched);
+      updateMissionEditLockUI();
     }
 
     const MOBILE_PANEL_MEDIA = window.matchMedia("(max-width: 900px) and (orientation: landscape), (max-width: 600px)");
@@ -6726,9 +8118,6 @@
     }
     function isTabletControlsLayout(){
       return !isMobileLayout() && TABLET_CONTROLS_MEDIA.matches && isTouchCapableDevice();
-    }
-    function isControlsModalVisible(){
-      return !!(el.controlsOverlay && !el.controlsOverlay.classList.contains("hidden"));
     }
     function isLauncherOverlayVisible(){
       return !!(launcherOverlayEl && !launcherOverlayEl.classList.contains("hidden"));
@@ -6975,6 +8364,7 @@
     }
     function showTabletControlsPanel(){
       if(!isTabletControlsLayout()) return;
+      closeIgnitionModals();
       tabletControlsOpen = true;
       applyTabletControlsLayout();
     }
@@ -6986,7 +8376,9 @@
     }
     function toggleTabletControlsPanel(){
       if(!isTabletControlsLayout()) return;
-      tabletControlsOpen = !tabletControlsOpen;
+      const nextOpen = !tabletControlsOpen;
+      if(nextOpen) closeIgnitionModals();
+      tabletControlsOpen = nextOpen;
       applyTabletControlsLayout();
     }
 
@@ -7042,6 +8434,7 @@
 
     function showMobileControlsPanel(){
       if(!el.mobileControlsPanel || mobileControlsActive) return;
+      closeIgnitionModals();
       updateMobileControlPills();
       syncMobileControlButtons();
       updateMobileSequenceStatusLabel(sequenceActive, currentSt, lockoutLatched);
@@ -7120,7 +8513,6 @@
         node.classList.add("mobile-quick-state", "pill");
         if(tone) node.classList.add(tone);
       };
-      setMobileQuickIconTone("force", "tone-red");
       const serialPill = el.mobileControlPills ? el.mobileControlPills.serial : null;
       if(serialPill){
         const serialLabel = serialEnabled
@@ -7160,16 +8552,16 @@
     function syncMobileControlButtons(){
       if(!el.mobileControlButtonMap) return;
       const sequenceDisabled = !!(el.igniteBtn && el.igniteBtn.disabled);
-      const forceDisabled = !!(el.forceBtn && el.forceBtn.disabled);
       const inspectionDisabled = !!(el.inspectionOpenBtn && el.inspectionOpenBtn.classList.contains("disabled"));
+      const missionDisabled = !isMissionEditableNow();
       setMobileControlButtonState("sequence", sequenceDisabled);
-      setMobileControlButtonState("force", forceDisabled);
       setMobileControlButtonState("inspection", inspectionDisabled);
+      setMobileControlButtonState("mission", missionDisabled);
     }
 
     function shouldShowMobileAbortButton(){
       if(!isMobileLayout() || !el.mobileAbortBtn) return false;
-      return sequenceActive || currentSt === 1 || currentSt === 2 || localTplusActive || forceSlideActive;
+      return sequenceActive || currentSt === 1 || currentSt === 2 || localTplusActive;
     }
     function shouldShowTabletAbortButton(){
       if(!isTabletControlsLayout() || !el.tabletAbortBtn) return false;
@@ -7220,6 +8612,21 @@
       const desc = info.descKey ? t(info.descKey) : (info.desc || "");
       if(el.inspectionStepLabel) el.inspectionStepLabel.textContent = label;
       if(el.inspectionStepDesc) el.inspectionStepDesc.textContent = desc;
+    }
+    function getInspectionStepLabel(key){
+      const info = INSPECTION_STEP_INFO[key] || {};
+      return info.labelKey ? t(info.labelKey) : (info.label || key || "-");
+    }
+    function buildInspectionFailMessage(failedKeys){
+      const base = t("inspectionFailText");
+      if(!failedKeys || !failedKeys.length){
+        return base;
+      }
+      const labels = failedKeys.map(getInspectionStepLabel).filter(Boolean);
+      if(!labels.length){
+        return base;
+      }
+      return base + "<br>" + t("inspectionFailItemsLabel") + ": " + labels.join(", ");
     }
 
     function setInspectionStatusPills(state){
@@ -7272,6 +8679,7 @@
       inspectionRunning=false;
       controlAuthority=false;
       inspectionState="idle";
+      inspectionLastFailedKeys = [];
       if(INSPECTION_STEPS.length){
         setInspectionItemState(INSPECTION_STEPS[0].key,"", t("inspectionWait"));
       }
@@ -7286,11 +8694,13 @@
       inspectionRunning=true;
       inspectionState="running";
       controlAuthority=false;
+      inspectionLastFailedKeys = [];
       updateInspectionPill();
       setInspectionResult(t("inspectionRunningText"),"running");
       updateControlAccessUI(currentSt);
 
       let hasFail=false;
+      const failedKeys = [];
       for(const step of INSPECTION_STEPS){
         setInspectionItemState(step.key,"running", t("inspectionChecking"));
         await delay(320);
@@ -7308,25 +8718,24 @@
         }else{
           setInspectionItemState(step.key, ok ? "ok" : "bad", ok ? t("inspectionOk") : t("inspectionNeed"));
         }
-        if(!ok && !skipped) hasFail=true;
-        await delay(180);
         if(!ok && !skipped){
-          await delay(260);
-          break;
+          hasFail=true;
+          failedKeys.push(step.key);
         }
+        await delay(180);
       }
 
       inspectionRunning=false;
       inspectionState = hasFail ? "failed" : "passed";
+      inspectionLastFailedKeys = hasFail ? failedKeys.slice() : [];
 
       if(hasFail){
         controlAuthority=false;
         setInspectionResult(t("inspectionFailText"),"error");
         showToast(t("inspectFailToast"),"notice");
-        if(isPhoneLandscapeLayout()){
-          showInspectionWarning();
-        }
-        addLogLine(t("inspectFailLog"),"SAFE");
+        showInspectionWarning(inspectionLastFailedKeys);
+        const failLabels = inspectionLastFailedKeys.map(getInspectionStepLabel).filter(Boolean).join(", ");
+        addLogLine(failLabels ? (t("inspectFailLog") + " (" + failLabels + ")") : t("inspectFailLog"),"SAFE");
         playBeepPattern([
           {freq:440, dur:120, gap:80},
           {freq:440, dur:120, gap:80},
@@ -7357,29 +8766,10 @@
     }
 
     function showInspection(){
-      if(isPhoneLandscapeLayout()){
-        setOverlayVisible(el.inspectionOverlay, false);
-        setInspectionPanelVisible(false);
-        setMobileInspectionPanelVisible(false);
-        resetInspectionUI();
-        runInspectionSequence();
-        return;
-      }
-      if(isTabletControlsLayout() || !isMobileLayout()){
-        setOverlayVisible(el.inspectionOverlay, false);
-        if(isTabletControlsLayout()){
-          tabletControlsOpen = true;
-          applyTabletControlsLayout();
-        }
-        setInspectionPanelVisible(true);
-        resetInspectionUI();
-        runInspectionSequence();
-        return;
-      }
-      hideMobileControlsPanel();
+      hideInspectionWarning();
       setInspectionPanelVisible(false);
       setMobileInspectionPanelVisible(false);
-      setOverlayVisible(el.inspectionOverlay, true);
+      setOverlayVisible(el.inspectionOverlay, false);
       resetInspectionUI();
       runInspectionSequence();
     }
@@ -7396,6 +8786,7 @@
 
     function showControlsModal(){
       hideMobileControlsPanel();
+      closeIgnitionModals();
       if(!el.controlsOverlay || !el.controlsOverlaySlot || !el.controlsCard) return;
       if(!controlsCardParent){
         controlsCardParent = el.controlsCard.parentNode;
@@ -7527,6 +8918,171 @@
     // =====================
     // 차트
     // =====================
+    function getChartAxisDigits(canvasId, min, max){
+      if(canvasId === "thrustChart") return getLoadcellChartDigits();
+      if(canvasId === "pressureChart") return 3;
+      const span = Math.abs(Number(max || 0) - Number(min || 0));
+      const absMax = Math.max(Math.abs(Number(min || 0)), Math.abs(Number(max || 0)));
+      if(canvasId === "accelChartFlight") return absMax >= 100 ? 0 : 1;
+      if(canvasId === "accelXYZChart" || canvasId === "accelXYZChartFlight") return absMax >= 100 ? 0 : 1;
+      if(span >= 50 || absMax >= 100) return 0;
+      if(span >= 5 || absMax >= 10) return 1;
+      if(span >= 0.5 || absMax >= 1) return 2;
+      return 3;
+    }
+
+    function getChartPlotBox(width, height){
+      return {
+        left: Math.max(24, Math.min(32, Math.round(width * 0.058))),
+        top: 4,
+        right: Math.max(4, Math.min(12, Math.round(width * 0.02))),
+        bottom: 16
+      };
+    }
+
+    function getNiceStep(rawStep){
+      if(!(rawStep > 0) || !isFinite(rawStep)) return 1;
+      const exp = Math.floor(Math.log10(rawStep));
+      const base = rawStep / Math.pow(10, exp);
+      let niceBase = 1;
+      if(base <= 1) niceBase = 1;
+      else if(base <= 2) niceBase = 2;
+      else if(base <= 2.5) niceBase = 2.5;
+      else if(base <= 5) niceBase = 5;
+      else niceBase = 10;
+      return niceBase * Math.pow(10, exp);
+    }
+
+    function buildNiceTicks(min, max, targetCount){
+      let safeMin = Number(min);
+      let safeMax = Number(max);
+      if(!isFinite(safeMin) || !isFinite(safeMax)){
+        return {ticks:[], min:0, max:1, step:1};
+      }
+      if(safeMin === safeMax){
+        const pad = Math.abs(safeMin) > 0 ? Math.abs(safeMin) * 0.25 : 1;
+        safeMin -= pad;
+        safeMax += pad;
+      }
+      const span = safeMax - safeMin;
+      const step = getNiceStep(span / Math.max(2, Number(targetCount) || 4));
+      const niceMin = Math.floor(safeMin / step) * step;
+      const niceMax = Math.ceil(safeMax / step) * step;
+      const ticks = [];
+      for(let value = niceMin, i = 0; value <= niceMax + (step * 0.5) && i < 32; value += step, i++){
+        ticks.push(Number(value.toFixed(10)));
+      }
+      return {ticks, min:niceMin, max:niceMax, step};
+    }
+
+    function expandChartValueRange(min, max){
+      let safeMin = Number(min);
+      let safeMax = Number(max);
+      if(!isFinite(safeMin) || !isFinite(safeMax)){
+        return {min:0, max:1};
+      }
+      if(safeMin === safeMax){
+        const pad = Math.abs(safeMin) > 0 ? Math.abs(safeMin) * 0.18 : 1;
+        return {min:safeMin - pad, max:safeMax + pad};
+      }
+      const pad = (safeMax - safeMin) * 0.08;
+      return {min:safeMin - pad, max:safeMax + pad};
+    }
+
+    function getChartTimeMeta(dataLength, indices){
+      if(chartTimeHistory.length !== dataLength) return null;
+      if(indices.start < 0 || indices.end >= chartTimeHistory.length || indices.end <= indices.start) return null;
+      const originMs = isFinite(Number(firstSampleMs)) ? Number(firstSampleMs) : Number(chartTimeHistory[0] || 0);
+      const timesSec = [];
+      for(let i = indices.start; i <= indices.end; i++){
+        const ms = Number(chartTimeHistory[i]);
+        if(!isFinite(ms)) return null;
+        timesSec.push((ms - originMs) / 1000);
+      }
+      if(timesSec.length < 2) return null;
+      const min = timesSec[0];
+      const max = timesSec[timesSec.length - 1];
+      return {
+        values: timesSec,
+        min,
+        max: (max > min) ? max : (min + 1)
+      };
+    }
+
+    function formatChartAxisNumber(value, digits){
+      const out = formatFixedDisplay(value, digits, "--");
+      return /^-0(?:\.0+)?$/.test(out) ? out.slice(1) : out;
+    }
+
+    function formatChartTimeTick(sec, stepSec){
+      const step = Math.abs(Number(stepSec) || 0);
+      let digits = 0;
+      if(step > 0 && step < 0.2) digits = 2;
+      else if(step > 0 && step < 1) digits = 1;
+      const abs = Math.abs(Number(sec) || 0);
+      if(abs >= 60 && digits === 0){
+        const sign = sec < 0 ? "-" : "";
+        const totalSec = Math.abs(sec);
+        const minutes = Math.floor(totalSec / 60);
+        const seconds = Math.round(totalSec % 60);
+        return sign + minutes + ":" + String(seconds).padStart(2, "0");
+      }
+      return formatChartAxisNumber(sec, digits) + "s";
+    }
+
+    function drawChartAxes(ctx, width, height, plotBox, xTicks, yTicks, formatX, formatY){
+      const plotLeft = plotBox.left;
+      const plotTop = plotBox.top;
+      const plotRight = width - plotBox.right;
+      const plotBottom = height - plotBox.bottom;
+
+      ctx.save();
+      ctx.strokeStyle = "rgba(148,163,184,0.26)";
+      ctx.lineWidth = 0.8;
+      ctx.setLineDash([3,5]);
+      yTicks.forEach((tick)=>{
+        ctx.beginPath();
+        ctx.moveTo(plotLeft, tick.px);
+        ctx.lineTo(plotRight, tick.px);
+        ctx.stroke();
+      });
+      ctx.setLineDash([2,6]);
+      xTicks.forEach((tick)=>{
+        ctx.beginPath();
+        ctx.moveTo(tick.px, plotTop);
+        ctx.lineTo(tick.px, plotBottom);
+        ctx.stroke();
+      });
+      ctx.restore();
+
+      ctx.save();
+      ctx.strokeStyle = "rgba(100,116,139,0.18)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(plotLeft, plotTop);
+      ctx.lineTo(plotLeft, plotBottom);
+      ctx.lineTo(plotRight, plotBottom);
+      ctx.stroke();
+      ctx.restore();
+
+      ctx.save();
+      ctx.font = "10px -apple-system,BlinkMacSystemFont,system-ui,sans-serif";
+      ctx.fillStyle = "rgba(71,85,105,0.82)";
+      ctx.textBaseline = "middle";
+      ctx.textAlign = "right";
+      yTicks.forEach((tick)=>{
+        ctx.fillText(formatY(tick.value), plotLeft - 3, tick.px);
+      });
+      ctx.textBaseline = "top";
+      xTicks.forEach((tick, index)=>{
+        if(index === 0) ctx.textAlign = "left";
+        else if(index === xTicks.length - 1) ctx.textAlign = "right";
+        else ctx.textAlign = "center";
+        ctx.fillText(formatX(tick.value), tick.px, plotBottom + 4);
+      });
+      ctx.restore();
+    }
+
     function drawChart(canvasId, data, color, view){
       const canvas=document.getElementById(canvasId);
       if(!canvas) return;
@@ -7535,22 +9091,6 @@
       if(!size) return;
       const { w:width, h:height, ctx } = size;
       ctx.clearRect(0,0,width,height);
-      const padding=6;
-      ctx.save();
-      ctx.strokeStyle="rgba(148,163,184,0.3)";
-      ctx.lineWidth=0.8;
-      ctx.setLineDash([3,4]);
-      for(let i=0;i<=4;i++){
-        let y=padding+(height-2*padding)*(i/4);
-        y=height-y;
-        ctx.beginPath(); ctx.moveTo(padding,y); ctx.lineTo(width-padding,y); ctx.stroke();
-      }
-      ctx.setLineDash([2,6]);
-      for(let i=0;i<=4;i++){
-        let x=padding+(width-2*padding)*(i/4);
-        ctx.beginPath(); ctx.moveTo(x,padding); ctx.lineTo(x,height-padding); ctx.stroke();
-      }
-      ctx.restore();
 
       if(!data || data.length<2){
         ctx.save();
@@ -7567,22 +9107,60 @@
 
       const slice=data.slice(indices.start,indices.end+1);
       if(slice.length<2) return;
+      const timeMeta = getChartTimeMeta(data.length, indices);
+      const plotBox = getChartPlotBox(width, height);
+      const plotLeft = plotBox.left;
+      const plotTop = plotBox.top;
+      const plotRight = width - plotBox.right;
+      const plotBottom = height - plotBox.bottom;
+      const plotWidth = Math.max(24, plotRight - plotLeft);
+      const plotHeight = Math.max(24, plotBottom - plotTop);
 
       let min=slice[0], max=slice[0], sum=0;
       for(let v of slice){ if(v<min) min=v; if(v>max) max=v; sum+=v; }
       const avg=sum/slice.length;
+      const displayRange = expandChartValueRange(min, max);
+      const yAxis = buildNiceTicks(displayRange.min, displayRange.max, height < 220 ? 4 : 5);
+      const yMin = yAxis.min;
+      const yMax = yAxis.max;
+      const ySpan = (yMax - yMin) || 1;
+      const xMin = timeMeta ? timeMeta.min : 0;
+      const xMax = timeMeta ? timeMeta.max : Math.max(1, slice.length - 1);
+      const xSpan = (xMax - xMin) || 1;
+      const xAxis = buildNiceTicks(xMin, xMax, width < 260 ? 3 : (width < 420 ? 4 : 5));
+      const xTicks = xAxis.ticks.map((value)=>{
+        const px = plotLeft + (((value - xMin) / xSpan) * plotWidth);
+        return {value, px};
+      }).filter((tick)=>tick.px >= (plotLeft - 1) && tick.px <= (plotRight + 1));
+      const yTicks = yAxis.ticks.map((value)=>{
+        const px = plotBottom - (((value - yMin) / ySpan) * plotHeight);
+        return {value, px};
+      }).filter((tick)=>tick.px >= (plotTop - 1) && tick.px <= (plotBottom + 1));
+      const valueDigits = getChartAxisDigits(canvasId, yMin, yMax);
+      drawChartAxes(
+        ctx,
+        width,
+        height,
+        plotBox,
+        xTicks,
+        yTicks,
+        (value)=>formatChartTimeTick(value, xAxis.step),
+        (value)=>formatChartAxisNumber(value, valueDigits)
+      );
 
-      let range=max-min; if(range===0) range=1;
       const count=slice.length;
-      const stepX=(width-2*padding)/(count-1);
 
       function yPos(value){
-        return (height-padding) - ((value-min)/range)*(height-2*padding);
+        return plotBottom - ((value-yMin)/ySpan)*plotHeight;
+      }
+      function xPos(index){
+        const xValue = timeMeta ? timeMeta.values[index] : index;
+        return plotLeft + (((xValue - xMin) / xSpan) * plotWidth);
       }
 
       ctx.beginPath();
       for(let i=0;i<slice.length;i++){
-        const x=padding+i*stepX;
+        const x=xPos(i);
         const y=yPos(slice[i]);
         if(i===0) ctx.moveTo(x,y);
         else ctx.lineTo(x,y);
@@ -7591,10 +9169,10 @@
       ctx.lineWidth=1.4;
       ctx.stroke();
 
-      const lastX=padding+(slice.length-1)*stepX;
-      const bottomY=height-padding;
+      const lastX=xPos(slice.length-1);
+      const bottomY=plotBottom;
       ctx.lineTo(lastX,bottomY);
-      ctx.lineTo(padding,bottomY);
+      ctx.lineTo(plotLeft,bottomY);
       ctx.closePath();
 
       const grad=ctx.createLinearGradient(0,0,0,height);
@@ -7609,15 +9187,15 @@
       ctx.setLineDash([6,4]);
       ctx.strokeStyle=colorToRgba(color,0.7);
       ctx.lineWidth=1.0;
-      ctx.beginPath(); ctx.moveTo(padding,yAvg); ctx.lineTo(width-padding,yAvg); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(plotLeft,yAvg); ctx.lineTo(plotRight,yAvg); ctx.stroke();
       ctx.restore();
 
-      const yMax=yPos(max);
+      const yMaxLine=yPos(max);
       ctx.save();
       ctx.setLineDash([3,3]);
       ctx.strokeStyle=colorToRgba(color,0.9);
       ctx.lineWidth=0.9;
-      ctx.beginPath(); ctx.moveTo(padding,yMax); ctx.lineTo(width-padding,yMax); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(plotLeft,yMaxLine); ctx.lineTo(plotRight,yMaxLine); ctx.stroke();
       ctx.restore();
 
       ctx.save();
@@ -7625,9 +9203,9 @@
       ctx.fillStyle=colorToRgba(color,0.9);
       ctx.textAlign="right";
       ctx.textBaseline="bottom";
-      ctx.fillText("AVG "+avg.toFixed(3),width-padding-2,yAvg-2);
+      ctx.fillText("AVG "+formatFixedDisplay(avg, valueDigits, "--"),width-4,Math.max(plotTop + 10, yAvg - 2));
       ctx.textBaseline="top";
-      ctx.fillText("MAX "+max.toFixed(3),width-padding-2,yMax+2);
+      ctx.fillText("MAX "+formatFixedDisplay(max, valueDigits, "--"),width-4,Math.min(plotBottom - 10, yMaxLine + 2));
       ctx.restore();
     }
 
@@ -7639,22 +9217,6 @@
       if(!size) return;
       const { w:width, h:height, ctx } = size;
       ctx.clearRect(0,0,width,height);
-      const padding=6;
-      ctx.save();
-      ctx.strokeStyle="rgba(148,163,184,0.3)";
-      ctx.lineWidth=0.8;
-      ctx.setLineDash([3,4]);
-      for(let i=0;i<=4;i++){
-        let y=padding+(height-2*padding)*(i/4);
-        y=height-y;
-        ctx.beginPath(); ctx.moveTo(padding,y); ctx.lineTo(width-padding,y); ctx.stroke();
-      }
-      ctx.setLineDash([2,6]);
-      for(let i=0;i<=4;i++){
-        let x=padding+(width-2*padding)*(i/4);
-        ctx.beginPath(); ctx.moveTo(x,padding); ctx.lineTo(x,height-padding); ctx.stroke();
-      }
-      ctx.restore();
 
       const base = (series && series.length) ? series[0] : null;
       if(!base || base.length < 2){
@@ -7672,6 +9234,14 @@
       if(indices.end<indices.start) return;
 
       const slices = series.map((s)=>s.slice(indices.start, indices.end+1));
+      const timeMeta = getChartTimeMeta(base.length, indices);
+      const plotBox = getChartPlotBox(width, height);
+      const plotLeft = plotBox.left;
+      const plotTop = plotBox.top;
+      const plotRight = width - plotBox.right;
+      const plotBottom = height - plotBox.bottom;
+      const plotWidth = Math.max(24, plotRight - plotLeft);
+      const plotHeight = Math.max(24, plotBottom - plotTop);
       const count = slices[0].length;
       if(count < 2) return;
 
@@ -7685,11 +9255,41 @@
         }
       }
       if(!isFinite(min) || !isFinite(max)) return;
-      let range = max - min; if(range === 0) range = 1;
-      const stepX=(width-2*padding)/(count-1);
+      const displayRange = expandChartValueRange(min, max);
+      const yAxis = buildNiceTicks(displayRange.min, displayRange.max, height < 220 ? 4 : 5);
+      const yMin = yAxis.min;
+      const yMax = yAxis.max;
+      const ySpan = (yMax - yMin) || 1;
+      const xMin = timeMeta ? timeMeta.min : 0;
+      const xMax = timeMeta ? timeMeta.max : Math.max(1, count - 1);
+      const xSpan = (xMax - xMin) || 1;
+      const xAxis = buildNiceTicks(xMin, xMax, width < 260 ? 3 : (width < 420 ? 4 : 5));
+      const xTicks = xAxis.ticks.map((value)=>{
+        const px = plotLeft + (((value - xMin) / xSpan) * plotWidth);
+        return {value, px};
+      }).filter((tick)=>tick.px >= (plotLeft - 1) && tick.px <= (plotRight + 1));
+      const yTicks = yAxis.ticks.map((value)=>{
+        const px = plotBottom - (((value - yMin) / ySpan) * plotHeight);
+        return {value, px};
+      }).filter((tick)=>tick.px >= (plotTop - 1) && tick.px <= (plotBottom + 1));
+      const valueDigits = getChartAxisDigits(canvasId, yMin, yMax);
+      drawChartAxes(
+        ctx,
+        width,
+        height,
+        plotBox,
+        xTicks,
+        yTicks,
+        (value)=>formatChartTimeTick(value, xAxis.step),
+        (value)=>formatChartAxisNumber(value, valueDigits)
+      );
 
       function yPos(value){
-        return (height-padding) - ((value-min)/range)*(height-2*padding);
+        return plotBottom - ((value-yMin)/ySpan)*plotHeight;
+      }
+      function xPos(index){
+        const xValue = timeMeta ? timeMeta.values[index] : index;
+        return plotLeft + (((xValue - xMin) / xSpan) * plotWidth);
       }
 
       slices.forEach((arr, idx)=>{
@@ -7697,7 +9297,7 @@
         ctx.beginPath();
         for(let i=0;i<arr.length;i++){
           const v = arr[i];
-          const x=padding+i*stepX;
+          const x=xPos(i);
           const y=yPos(isFinite(v) ? v : min);
           if(i===0) ctx.moveTo(x,y);
           else ctx.lineTo(x,y);
@@ -7711,17 +9311,18 @@
     function redrawCharts(){
       const thrustDisplay=thrustBaseHistory.map(convertThrustForDisplay);
       const pressureDisplay=pressureBaseHistory.slice();
+      const altitudeDisplay=quickAltitudeHistory.slice();
       const accelDisplay=accelMagHistory.slice();
       drawChart("thrustChart", thrustDisplay, "#ef4444", chartView);
       drawChart("pressureChart", pressureDisplay, "#3b82f6", chartView);
       drawChart("accelChart", accelDisplay, "#f59e0b", chartView);
-      drawChart("accelChartFlight", accelDisplay, "#f59e0b", chartView);
+      drawChart("accelChartFlight", altitudeDisplay, "#16a34a", chartView);
       drawChartMulti("accelXYZChart",
-        [accelXHistory, accelYHistory, accelZHistory],
+        [gyroXHistory, gyroYHistory, gyroZHistory],
         ["#ef4444", "#22c55e", "#3b82f6"],
         chartView);
       drawChartMulti("accelXYZChartFlight",
-        [accelXHistory, accelYHistory, accelZHistory],
+        [gyroXHistory, gyroYHistory, gyroZHistory],
         ["#ef4444", "#22c55e", "#3b82f6"],
         chartView);
     }
@@ -7796,7 +9397,7 @@
     // =====================
     // 상태/버튼
     // =====================
-    function setStatusFromState(st, ignOK, aborted, lockout, seqActive){
+    function setStatusFromState(st, ignOK, aborted, lockout, seqActive, parachuteActive){
       if(!el.statusPill||!el.statusText) return 0;
       el.statusPill.classList.remove("hidden");
       if(el.statusPillMeta) el.statusPillMeta.classList.remove("hidden");
@@ -7838,6 +9439,16 @@
         syncGyroStatusFromMain();
         return 1;
       }
+      if(parachuteActive){
+        const chuteCh = parachuteDeployChannel || normalizePyroChannel(uiSettings && uiSettings.daqSequencePyroChannel, 1);
+        el.statusPill.className="status-parachute";
+        if(el.statusPillMeta) el.statusPillMeta.className="status-parachute";
+        el.statusPill.textContent = t("statusParachute");
+        if(el.statusPillMeta) el.statusPillMeta.textContent = t("statusParachute");
+        el.statusText.textContent = t("statusParachuteText", {ch:chuteCh});
+        syncGyroStatusFromMain();
+        return 7;
+      }
       if(seqActive){
         el.statusPill.className="status-seq";
         if(el.statusPillMeta) el.statusPillMeta.className="status-seq";
@@ -7878,7 +9489,7 @@
     function setButtonsFromState(st, lockout, seqActive){
       if(!el.igniteBtn||!el.abortBtn){ updateControlAccessUI(st); return; }
       const running = !!(seqActive || st===1 || st===2 || localTplusActive);
-      const readyEligible = !replaySourceActive && isControlUnlocked() && connOk && hasMissionSelected() && !safetyModeEnabled && !loadcellErrorActive && st === 0 && !running;
+      const readyEligible = !replaySourceActive && isControlUnlocked() && connOk && hasSequenceMissionRequirement() && !safetyModeEnabled && !loadcellErrorActive && st === 0 && !running;
       if(replaySourceActive){
         el.igniteBtn.disabled = true;
         el.abortBtn.disabled = true;
@@ -7932,7 +9543,7 @@
 
     function updateMobileSequenceStatusLabel(seqActive, st, lockout){
       const running = !!(seqActive || st === 1 || st === 2 || localTplusActive);
-      const readyEligible = !replaySourceActive && isControlUnlocked() && connOk && hasMissionSelected() && !safetyModeEnabled && !loadcellErrorActive && st === 0 && !running;
+      const readyEligible = !replaySourceActive && isControlUnlocked() && connOk && hasSequenceMissionRequirement() && !safetyModeEnabled && !loadcellErrorActive && st === 0 && !running;
       let label = "불가";
       let iconTone = "tone-gray";
       if(lockout){
@@ -7956,6 +9567,543 @@
       }
     }
 
+    function createReplayMissionRuntimeState(){
+      return {
+        prepared: false,
+        enabled: false,
+        blocks: [],
+        blockState: {},
+        pending: [],
+        vars: [0,0,0,0,0,0,0,0],
+        varsNamed: {},
+        lastSwitch: 0,
+        lastState: 0,
+        firingStartMs: null,
+        lastSampleMs: 0,
+        lastSensorCtx: {},
+        sensorHistory: {},
+        varPrev: [null,null,null,null,null,null,null,null],
+        varUpCount: [0,0,0,0,0,0,0,0],
+        varDownCount: [0,0,0,0,0,0,0,0],
+        varNamedPrev: {},
+        varNamedUpCount: {},
+        varNamedDownCount: {}
+      };
+    }
+
+    const MISSION_SENSOR_HISTORY_MAX = 10;
+    const MISSION_SENSOR_KEYS = [
+      "altitude_m",
+      "time_after_firing_ms",
+      "gyro_x_deg",
+      "gyro_y_deg",
+      "gyro_z_deg",
+      "thrust_kgf",
+      "pressure_mpa",
+      "acc_x_g",
+      "acc_y_g",
+      "acc_z_g",
+      "gyro_x_dps",
+      "gyro_y_dps",
+      "gyro_z_dps",
+      "switch_state"
+    ];
+
+    function resetReplayMissionRuntime(){
+      replayMissionRuntime = createReplayMissionRuntimeState();
+    }
+
+    function replayMissionRuntimeBlocks(){
+      const editorBlocks = buildMissionBlocksFromUi();
+      const compiled = compileMissionRuntimeBlocks(editorBlocks);
+      if(!Array.isArray(compiled)) return [];
+      return compiled.filter((block)=>block && block.enabled !== false);
+    }
+
+    function prepareReplayMissionRuntime(){
+      const runtimeBlocks = replayMissionRuntimeBlocks();
+      resetReplayMissionRuntime();
+      replayMissionRuntime.blocks = runtimeBlocks;
+      replayMissionRuntime.prepared = true;
+      replayMissionRuntime.enabled = runtimeBlocks.length > 0;
+      const modeLabel = replaySourceActive ? "Replay avionics" : "Mission runtime";
+      if(replayMissionRuntime.enabled){
+        addLogLine(modeLabel + " armed: " + runtimeBlocks.length + " mission blocks", replaySourceActive ? "RPL-MSN" : "MSN");
+      }else{
+        addLogLine(modeLabel + ": no mission blocks to run", replaySourceActive ? "RPL-MSN" : "MSN");
+      }
+    }
+
+    function replayMissionCompare(left, right, cmp){
+      const a = Number(left);
+      const b = Number(right);
+      if(!isFinite(a) || !isFinite(b)) return false;
+      const op = normalizeMissionComparator(cmp, "");
+      if(op === "lt") return a <= b;
+      if(op === "eq") return Math.abs(a - b) <= 1e-6;
+      return a >= b;
+    }
+    function replayMissionGetVarValue(rt, varName, channel){
+      const named = normalizeMissionVarName(varName);
+      if(named){
+        const val = Number(rt && rt.varsNamed ? rt.varsNamed[named] : 0);
+        return isFinite(val) ? val : 0;
+      }
+      const slot = Math.max(1, Math.min(8, Math.round(Number(channel || 1)))) - 1;
+      const val = Number(rt && rt.vars ? rt.vars[slot] : 0);
+      return isFinite(val) ? val : 0;
+    }
+    function replayMissionSetVarValue(rt, varName, channel, nextVal){
+      const value = Math.round(Number(nextVal) || 0);
+      const slot = Math.max(1, Math.min(8, Math.round(Number(channel || 1)))) - 1;
+      if(rt && Array.isArray(rt.vars)){
+        rt.vars[slot] = value;
+      }
+      const named = normalizeMissionVarName(varName);
+      if(named){
+        if(!rt.varsNamed || typeof rt.varsNamed !== "object") rt.varsNamed = {};
+        rt.varsNamed[named] = value;
+      }
+      return value;
+    }
+    function replayMissionUpdateVarChangeCounters(rt){
+      if(!rt) return;
+      if(!Array.isArray(rt.varPrev)) rt.varPrev = [null,null,null,null,null,null,null,null];
+      if(!Array.isArray(rt.varUpCount)) rt.varUpCount = [0,0,0,0,0,0,0,0];
+      if(!Array.isArray(rt.varDownCount)) rt.varDownCount = [0,0,0,0,0,0,0,0];
+      for(let i = 0; i < 8; i++){
+        const curr = Number((rt.vars && rt.vars[i]) || 0);
+        const prev = rt.varPrev[i];
+        if(isFinite(prev)){
+          if(curr >= prev){
+            rt.varUpCount[i] = Math.min(65535, Math.round(Number(rt.varUpCount[i] || 0) + 1));
+          }else{
+            rt.varUpCount[i] = 0;
+          }
+          if(curr <= prev){
+            rt.varDownCount[i] = Math.min(65535, Math.round(Number(rt.varDownCount[i] || 0) + 1));
+          }else{
+            rt.varDownCount[i] = 0;
+          }
+        }else{
+          rt.varUpCount[i] = 0;
+          rt.varDownCount[i] = 0;
+        }
+        rt.varPrev[i] = curr;
+      }
+      if(!rt.varNamedPrev || typeof rt.varNamedPrev !== "object") rt.varNamedPrev = {};
+      if(!rt.varNamedUpCount || typeof rt.varNamedUpCount !== "object") rt.varNamedUpCount = {};
+      if(!rt.varNamedDownCount || typeof rt.varNamedDownCount !== "object") rt.varNamedDownCount = {};
+      const named = (rt.varsNamed && typeof rt.varsNamed === "object") ? rt.varsNamed : {};
+      Object.keys(named).forEach((key)=>{
+        const name = normalizeMissionVarName(key);
+        if(!name) return;
+        const curr = Number(named[key] || 0);
+        const prev = Number(rt.varNamedPrev[name]);
+        if(isFinite(prev)){
+          if(curr >= prev){
+            rt.varNamedUpCount[name] = Math.min(65535, Math.round(Number(rt.varNamedUpCount[name] || 0) + 1));
+          }else{
+            rt.varNamedUpCount[name] = 0;
+          }
+          if(curr <= prev){
+            rt.varNamedDownCount[name] = Math.min(65535, Math.round(Number(rt.varNamedDownCount[name] || 0) + 1));
+          }else{
+            rt.varNamedDownCount[name] = 0;
+          }
+        }else{
+          rt.varNamedUpCount[name] = 0;
+          rt.varNamedDownCount[name] = 0;
+        }
+        rt.varNamedPrev[name] = curr;
+      });
+    }
+    function replayMissionGetVarChangeCount(rt, varName, channel, trendCmp){
+      const direction = normalizeMissionComparator(trendCmp, "var_change_count");
+      const named = normalizeMissionVarName(varName);
+      if(named){
+        if(direction === "lt"){
+          return Math.max(0, Math.round(Number((rt && rt.varNamedDownCount) ? rt.varNamedDownCount[named] : 0)));
+        }
+        return Math.max(0, Math.round(Number((rt && rt.varNamedUpCount) ? rt.varNamedUpCount[named] : 0)));
+      }
+      const slot = Math.max(1, Math.min(8, Math.round(Number(channel || 1)))) - 1;
+      if(direction === "lt"){
+        return Math.max(0, Math.round(Number(rt && rt.varDownCount ? rt.varDownCount[slot] : 0)));
+      }
+      return Math.max(0, Math.round(Number(rt && rt.varUpCount ? rt.varUpCount[slot] : 0)));
+    }
+    function replayMissionGetSensorValue(rt, sensorType){
+      const key = normalizeMissionExprSensorType(sensorType);
+      const s = (rt && rt.lastSensorCtx && typeof rt.lastSensorCtx === "object") ? rt.lastSensorCtx : {};
+      if(key === "altitude_m") return Number(s.altitudeM);
+      if(key === "time_after_firing_ms") return Number(s.timeAfterFiringMs);
+      if(key === "gyro_x_deg") return Number(s.gyroXDeg);
+      if(key === "gyro_y_deg") return Number(s.gyroYDeg);
+      if(key === "gyro_z_deg") return Number(s.gyroZDeg);
+      if(key === "thrust_kgf") return Number(s.thrustKgf);
+      if(key === "pressure_mpa") return Number(s.pressureMpa);
+      if(key === "acc_x_g") return Number(s.axG);
+      if(key === "acc_y_g") return Number(s.ayG);
+      if(key === "acc_z_g") return Number(s.azG);
+      if(key === "gyro_x_dps") return Number(s.gxDps);
+      if(key === "gyro_y_dps") return Number(s.gyDps);
+      if(key === "gyro_z_dps") return Number(s.gzDps);
+      if(key === "switch_state") return Number(s.switchState);
+      return 0;
+    }
+    function replayMissionPushSensorHistory(rt){
+      if(!rt) return;
+      if(!rt.sensorHistory || typeof rt.sensorHistory !== "object"){
+        rt.sensorHistory = {};
+      }
+      MISSION_SENSOR_KEYS.forEach((sensorKey)=>{
+        const value = Number(replayMissionGetSensorValue(rt, sensorKey));
+        if(!isFinite(value)) return;
+        let list = rt.sensorHistory[sensorKey];
+        if(!Array.isArray(list)){
+          list = [];
+          rt.sensorHistory[sensorKey] = list;
+        }
+        list.push(value);
+        if(list.length > MISSION_SENSOR_HISTORY_MAX){
+          list.splice(0, list.length - MISSION_SENSOR_HISTORY_MAX);
+        }
+      });
+    }
+    function replayMissionSensorAverage(rt, sensorType, sampleCount){
+      const key = normalizeMissionExprSensorType(sensorType);
+      const count = Math.max(1, Math.min(MISSION_SENSOR_HISTORY_MAX, Math.round(Number(sampleCount || 1))));
+      const list = (rt && rt.sensorHistory && Array.isArray(rt.sensorHistory[key])) ? rt.sensorHistory[key] : [];
+      if(!list.length){
+        const fallback = Number(replayMissionGetSensorValue(rt, key));
+        return Math.round(isFinite(fallback) ? fallback : 0);
+      }
+      const take = Math.max(1, Math.min(count, list.length));
+      let sum = 0;
+      for(let i = list.length - take; i < list.length; i++){
+        const v = Number(list[i]);
+        sum += isFinite(v) ? v : 0;
+      }
+      return Math.round(sum / take);
+    }
+    function replayMissionEvalThenValue(rt, then, fallbackChannel){
+      const action = (then && typeof then === "object") ? then : {};
+      const baseValue = Math.round(Number(action.value || 0));
+      const targetChannel = Math.max(1, Math.min(8, Math.round(Number(fallbackChannel || action.channel || 1))));
+      const expr = normalizeMissionExprObject(action.expr, baseValue, targetChannel);
+      if(!expr.enabled){
+        return normalizeMissionExprValue(baseValue, 0);
+      }
+      return evaluateMissionExprValue(expr, (varName, channel)=>replayMissionGetVarValue(
+        rt,
+        varName,
+        Math.max(1, Math.min(8, Math.round(Number(channel || targetChannel))))
+      ), baseValue, (sensor)=>replayMissionGetSensorValue(rt, sensor));
+    }
+
+    function replayMissionSingleWhenSatisfied(when, ctx, rt){
+      const cond = when && typeof when === "object" ? when : {};
+      const type = String(cond.type || "");
+      const cmp = cond.cmp;
+      let threshold = Number(cond.value);
+      if(type === "var_value"){
+        const rhsType = normalizeMissionVarWhenRhsType(cond.rhsType);
+        if(rhsType === "var"){
+          threshold = replayMissionGetVarValue(rt, cond.rhsVarName, cond.pin);
+        }else{
+          threshold = Number(cond.rhsValue != null ? cond.rhsValue : cond.value);
+        }
+      }
+
+      if(type === "switch_rising") return !!ctx.switchRising;
+      if(type === "switch_falling") return !!ctx.switchFalling;
+      if(type === "boot") return true;
+      if(type === "altitude_gte") return replayMissionCompare(ctx.altitudeM, threshold, cmp);
+      if(type === "time_after_firing_ms") return replayMissionCompare(ctx.timeAfterFiringMs, threshold, cmp);
+      if(type === "gyro_x_deg") return replayMissionCompare(ctx.gyroXDeg, threshold, cmp);
+      if(type === "gyro_y_deg") return replayMissionCompare(ctx.gyroYDeg, threshold, cmp);
+      if(type === "gyro_z_deg") return replayMissionCompare(ctx.gyroZDeg, threshold, cmp);
+      if(type === "var_value"){
+        const val = replayMissionGetVarValue(rt, cond.varName, cond.pin);
+        return replayMissionCompare(val, threshold, cmp);
+      }
+      if(type === "var_change_count"){
+        const trendCmp = normalizeMissionComparator(cmp, "var_change_count");
+        const count = replayMissionGetVarChangeCount(rt, cond.varName, cond.pin, trendCmp);
+        const need = Math.max(1, Math.round(Number(cond.value || 1)));
+        return count >= need;
+      }
+      return false;
+    }
+
+    function replayMissionWhenSatisfied(block, ctx, rt){
+      const whenAll = Array.isArray(block && block.whenAll) ? block.whenAll : null;
+      const chain = (whenAll && whenAll.length) ? whenAll : [((block && block.when) ? block.when : {})];
+      if(!chain.length) return false;
+      for(let i = 0; i < chain.length; i++){
+        if(!replayMissionSingleWhenSatisfied(chain[i], ctx, rt)){
+          return false;
+        }
+      }
+      return true;
+    }
+
+    function missionActionDispatchGate(actionType){
+      const type = String(actionType || "");
+      if(type === "pyro"){
+        if(lockoutLatched){
+          return {ok:false, reason:"LOCKOUT"};
+        }
+        if(safetyModeEnabled){
+          return {ok:false, reason:"SAFETY_MODE"};
+        }
+      }
+      return {ok:true, reason:""};
+    }
+
+    function replayMissionExecuteAction(item){
+      const rt = replayMissionRuntime;
+      if(!rt) return;
+      const then = (item && item.then) ? item.then : {};
+      const type = String(then.type || "");
+      const blockNo = Math.max(1, Number(item.blockIndex) + 1);
+      const ch = Math.max(1, Math.round(Number(then.channel || 1)));
+      const applyHardware = !!(item && item.applyHardware);
+      const isReplayItem = !!(item && item.isReplay);
+      const logTag = isReplayItem ? "RPL-MSN" : "MSN";
+      const logPrefix = isReplayItem ? "Replay" : "Mission";
+      if(type === "servo"){
+        const servoCh = Math.max(1, Math.min(4, ch));
+        const angle = clampServoAngle(then.angle);
+        setServoUiAngle(servoCh, angle);
+        if(applyHardware){
+          sendCommand({http:"/servo?ch=" + servoCh + "&deg=" + angle, ser:"SERVO " + servoCh + " " + angle}, false);
+          if(isReplayItem){
+            addLogLine("Replay block #" + blockNo + " → SERVO CH" + servoCh + " = " + angle + "° (HW)", logTag);
+          }else{
+            addLogLine("Mission block #" + blockNo + " → SERVO CH" + servoCh + " = " + angle + "°", logTag);
+          }
+        }else{
+          addLogLine("Replay block #" + blockNo + " → SERVO CH" + servoCh + " = " + angle + "°", logTag);
+        }
+        return;
+      }
+      if(type === "pyro"){
+        const pyroCh = Math.max(1, Math.min(4, ch));
+        const durationMs = Math.max(10, Math.round(Number(then.durationMs || 300)));
+        if(applyHardware){
+          sendCommand({http:"/pyro_test?ch=" + pyroCh + "&ms=" + durationMs, ser:"PYRO " + pyroCh + " " + durationMs}, false);
+          if(isReplayItem){
+            addLogLine("Replay block #" + blockNo + " → PYRO CH" + pyroCh + " for " + durationMs + "ms (HW)", logTag);
+          }else{
+            addLogLine("Mission block #" + blockNo + " → PYRO CH" + pyroCh + " for " + durationMs + "ms", logTag);
+          }
+        }else{
+          addLogLine("Replay block #" + blockNo + " → PYRO CH" + pyroCh + " for " + durationMs + "ms", logTag);
+        }
+        return;
+      }
+      if(type === "buzzer"){
+        const hz = Math.max(1, Math.min(10000, Math.round(Number(then.value || then.hz || 2000))));
+        if(applyHardware){
+          sendCommand({http:"/buzzer?hz=" + hz, ser:"BEEP " + hz}, false);
+          if(isReplayItem){
+            addLogLine("Replay block #" + blockNo + " → BUZZER " + hz + "Hz (HW)", logTag);
+          }else{
+            addLogLine("Mission block #" + blockNo + " → BUZZER " + hz + "Hz", logTag);
+          }
+        }else{
+          playTone(hz, 220, 0);
+          addLogLine("Replay block #" + blockNo + " → BUZZER " + hz + "Hz", logTag);
+        }
+        return;
+      }
+      if(type === "find_buzzer"){
+        if(applyHardware){
+          addLogLine("Mission block #" + blockNo + " → FIND_BUZZER pattern", logTag);
+        }else{
+          playTone(1760, 120, 0);
+          setTimeout(()=>playTone(2349, 160, 0), 220);
+          setTimeout(()=>playTone(1568, 120, 0), 500);
+          addLogLine("Replay block #" + blockNo + " → FIND_BUZZER pattern", logTag);
+        }
+        return;
+      }
+      if(type === "notone"){
+        if(applyHardware){
+          sendCommand({http:"/buzzer_stop", ser:"NOTONE"}, false);
+          if(isReplayItem){
+            addLogLine("Replay block #" + blockNo + " → NOTONE (HW)", logTag);
+          }else{
+            addLogLine("Mission block #" + blockNo + " → NOTONE", logTag);
+          }
+        }else{
+          addLogLine("Replay block #" + blockNo + " → NOTONE", logTag);
+        }
+        return;
+      }
+      if(type === "alarm"){
+        const title = normalizeMissionAlarmTitle(then.title);
+        const message = normalizeMissionAlarmMessage(then.message) || "알람이 발생했습니다.";
+        showToast(message, "notice", {
+          key:"mission-alarm-" + blockNo + "-" + Date.now(),
+          title:title
+        });
+        addLogLine(logPrefix + " block #" + blockNo + " → ALARM \"" + title + "\" : " + message, logTag);
+        return;
+      }
+      if(type === "var_set"){
+        const nextVal = replayMissionEvalThenValue(rt, then, ch);
+        const saved = replayMissionSetVarValue(rt, then.varName, ch, nextVal);
+        const named = normalizeMissionVarName(then.varName);
+        const label = named ? named : ("VAR" + Math.max(1, Math.min(8, ch)));
+        addLogLine(logPrefix + " block #" + blockNo + " → " + label + " = " + saved, logTag);
+        return;
+      }
+      if(type === "var_add"){
+        const delta = replayMissionEvalThenValue(rt, then, ch);
+        const base = replayMissionGetVarValue(rt, then.varName, ch);
+        const next = Math.round(base + delta);
+        const saved = replayMissionSetVarValue(rt, then.varName, ch, next);
+        const named = normalizeMissionVarName(then.varName);
+        const label = named ? named : ("VAR" + Math.max(1, Math.min(8, ch)));
+        addLogLine(logPrefix + " block #" + blockNo + " → " + label + " += " + delta + " (" + saved + ")", logTag);
+        return;
+      }
+      if(type === "var_avg"){
+        const sampleCount = Math.max(1, Math.min(MISSION_SENSOR_HISTORY_MAX, Math.round(Number(then.avgCount || then.samples || 1))));
+        const sensorType = normalizeMissionExprSensorType(then.sensor != null ? then.sensor : then.sensorType);
+        const avg = replayMissionSensorAverage(rt, sensorType, sampleCount);
+        const saved = replayMissionSetVarValue(rt, then.varName, ch, avg);
+        const named = normalizeMissionVarName(then.varName);
+        const label = named ? named : ("VAR" + Math.max(1, Math.min(8, ch)));
+        addLogLine(logPrefix + " block #" + blockNo + " → " + label + " = AVG(" + sensorType + ", " + sampleCount + ") = " + saved, logTag);
+      }
+    }
+
+    function replayMissionFlushPending(sampleTimeMs){
+      const rt = replayMissionRuntime;
+      if(!rt || !rt.pending.length) return;
+      rt.pending.sort((a, b)=>a.execAtMs - b.execAtMs);
+      while(rt.pending.length && rt.pending[0].execAtMs <= sampleTimeMs){
+        const item = rt.pending.shift();
+        replayMissionExecuteAction(item);
+      }
+    }
+
+    function processReplayMissionRuntime(sample, ctx, isReplayMode){
+      if(!replayMissionRuntime) resetReplayMissionRuntime();
+      if(!replayMissionRuntime.prepared) prepareReplayMissionRuntime();
+      const rt = replayMissionRuntime;
+      if(!rt.enabled) return;
+      const isReplay = !!isReplayMode;
+
+      const sampleTimeMsRaw = Number(ctx && ctx.sampleTimeMs);
+      const sampleTimeMs = isFinite(sampleTimeMsRaw) ? sampleTimeMsRaw : Date.now();
+      const swNow = Number(ctx && ctx.sw) ? 1 : 0;
+      const stNow = Math.round(Number(ctx && ctx.st));
+      const thrustNow = Number(ctx && ctx.thrustKgf);
+      const tdNow = Number(ctx && ctx.tdMs);
+      const switchRising = (rt.lastSwitch === 0 && swNow === 1);
+      const switchFalling = (rt.lastSwitch === 1 && swNow === 0);
+
+      if((stNow === 2 || (isFinite(thrustNow) && thrustNow >= IGN_THRUST_THRESHOLD)) && rt.firingStartMs == null){
+        rt.firingStartMs = sampleTimeMs;
+      }
+      let timeAfterFiringMs = NaN;
+      if(isFinite(tdNow) && tdNow >= 0){
+        timeAfterFiringMs = tdNow;
+      }else if(rt.firingStartMs != null){
+        timeAfterFiringMs = Math.max(0, sampleTimeMs - rt.firingStartMs);
+      }
+
+      rt.lastSensorCtx = {
+        switchState: swNow,
+        thrustKgf: isFinite(thrustNow) ? thrustNow : Number(sample && sample.t),
+        pressureMpa: Number(sample && sample.p),
+        altitudeM: Number(ctx && ctx.altitudeM),
+        timeAfterFiringMs: isFinite(timeAfterFiringMs) ? timeAfterFiringMs : 0,
+        gyroXDeg: Number(ctx && ctx.gyroXDeg),
+        gyroYDeg: Number(ctx && ctx.gyroYDeg),
+        gyroZDeg: Number(ctx && ctx.gyroZDeg),
+        axG: Number(sample && sample.ax),
+        ayG: Number(sample && sample.ay),
+        azG: Number(sample && sample.az),
+        gxDps: Number(sample && sample.gx),
+        gyDps: Number(sample && sample.gy),
+        gzDps: Number(sample && sample.gz)
+      };
+      replayMissionPushSensorHistory(rt);
+
+      replayMissionFlushPending(sampleTimeMs);
+      replayMissionUpdateVarChangeCounters(rt);
+
+      const condCtx = {
+        switchRising,
+        switchFalling,
+        altitudeM: Number(ctx && ctx.altitudeM),
+        timeAfterFiringMs,
+        gyroXDeg: Number(ctx && ctx.gyroXDeg),
+        gyroYDeg: Number(ctx && ctx.gyroYDeg),
+        gyroZDeg: Number(ctx && ctx.gyroZDeg)
+      };
+
+      for(let i = 0; i < rt.blocks.length; i++){
+        const block = rt.blocks[i];
+        if(!block || block.enabled === false) continue;
+        if(!rt.blockState[i]){
+          rt.blockState[i] = { lastWhen: false, fired: false, lastGateReason: "" };
+        }
+        const state = rt.blockState[i];
+        if(block.once && state.fired){
+          state.lastWhen = false;
+          continue;
+        }
+        const whenNow = replayMissionWhenSatisfied(block, condCtx, rt);
+        const actionType = String(((block && block.then) ? block.then.type : "") || "");
+        if(!whenNow){
+          state.lastWhen = false;
+          state.lastGateReason = "";
+          continue;
+        }
+        const gate = missionActionDispatchGate(actionType);
+        if(!gate.ok){
+          const blockedReason = String(gate.reason || "BLOCKED");
+          if(state.lastGateReason !== blockedReason){
+            addLogLine((isReplay ? "Replay" : "Mission") + " block #" + (i + 1) + " blocked: " + blockedReason, isReplay ? "RPL-MSN" : "MSN");
+            state.lastGateReason = blockedReason;
+          }
+          // Keep edge unconsumed so action can fire when gate is cleared.
+          state.lastWhen = false;
+          continue;
+        }
+        state.lastGateReason = "";
+        const triggered = !state.lastWhen;
+        state.lastWhen = true;
+        if(!triggered) continue;
+        const delayMs = Math.max(0, Math.round(Number(block.delayMs || 0)));
+        rt.pending.push({
+          blockIndex: i,
+          execAtMs: sampleTimeMs + delayMs,
+          then: block.then || {},
+          // Live mission: always hardware apply.
+          // Replay mission: allow SERVO/PYRO action to drive real hardware for ground test.
+          applyHardware: (!isReplay) || (actionType === "servo") || (actionType === "pyro"),
+          isReplay: isReplay
+        });
+        if(rt.pending.length > 64){
+          rt.pending.splice(0, rt.pending.length - 64);
+        }
+        if(block.once) state.fired = true;
+      }
+
+      replayMissionFlushPending(sampleTimeMs);
+      rt.lastSwitch = swNow;
+      rt.lastState = isFinite(stNow) ? stNow : 0;
+      rt.lastSampleMs = sampleTimeMs;
+    }
+
     function setReplayStatus(text){
       if(el.replayStatusText) el.replayStatusText.textContent = String(text || "");
     }
@@ -7965,6 +10113,11 @@
       if(activeDataSource === next) return;
       activeDataSource = next;
       replaySourceActive = (next === DATA_SOURCE_REPLAY);
+      if(replaySourceActive){
+        prepareReplayMissionRuntime();
+      }else{
+        resetReplayMissionRuntime();
+      }
       updateInspectionAccess();
       setButtonsFromState(currentSt, lockoutLatched, sequenceActive);
       updateControlAccessUI(currentSt);
@@ -7974,10 +10127,15 @@
     function resetReplayBuffers(){
       thrustBaseHistory = [];
       pressureBaseHistory = [];
+      quickAltitudeHistory = [];
+      gyroSpeedHistory = [];
       accelMagHistory = [];
       accelXHistory = [];
       accelYHistory = [];
       accelZHistory = [];
+      gyroXHistory = [];
+      gyroYHistory = [];
+      gyroZHistory = [];
       chartTimeHistory = [];
       sampleHistory = [];
       logData = [];
@@ -7986,12 +10144,7 @@
       reportExportedOnce = false;
       firstSampleMs = null;
       sampleCounter = 0;
-      gyroLastUiMs = 0;
-      gyroAttitudeLastMs = 0;
-      gyroAttitudeReady = false;
-      gyroYawDeg = 0;
-      gyroPitchDeg = 0;
-      gyroRollDeg = 0;
+      resetGyroAttitudeState();
       rxWindowStartMs = 0;
       rxWindowCount = 0;
       rxHzWindow = 0;
@@ -8009,7 +10162,9 @@
       st2StartMs = null;
       localTplusActive = false;
       localTplusStartMs = null;
+      resetParachuteDeployState();
       resetGyroPathTracking();
+      resetReplayMissionRuntime();
       if(el.countdown) el.countdown.textContent = "T- --:--:--";
       if(el.countdownMobile) el.countdownMobile.textContent = "T- --:--:--";
       if(el.countdownBig) el.countdownBig.textContent = "T- --:--:--";
@@ -8125,7 +10280,8 @@
       if(index < 0 || index >= replayState.samples.length) return false;
       const frame = replayState.samples[index];
       if(!frame || !frame.sample) return false;
-      onIncomingSample(frame.sample, "REPLAY");
+      const replaySample = Object.assign({}, frame.sample, {_replayTsMs: frame.tsMs});
+      onIncomingSample(replaySample, "REPLAY");
       replayState.lastIndex = index;
       updateReplaySeekUi(index);
       return true;
@@ -8196,7 +10352,7 @@
 
     function startReplayPlayback(){
       if(!replayState.samples.length){
-        showToast("리플레이 파일(.xlsx)을 먼저 선택하세요.", "notice", {key:"replay-no-file"});
+        showToast("리플레이 파일(.xlsx/.csv/.bin)을 먼저 선택하세요.", "notice", {key:"replay-no-file"});
         return;
       }
       if(replayState.playing) return;
@@ -8216,7 +10372,7 @@
 
     function restartReplayPlayback(){
       if(!replayState.samples.length){
-        showToast("리플레이 파일(.xlsx)을 먼저 선택하세요.", "notice", {key:"replay-no-file"});
+        showToast("리플레이 파일(.xlsx/.csv/.bin)을 먼저 선택하세요.", "notice", {key:"replay-no-file"});
         return;
       }
       pauseReplayPlayback({silent:true});
@@ -8315,7 +10471,7 @@
 
     function seekReplayToTminus10(){
       if(!replayState.samples.length){
-        showToast("리플레이 파일(.xlsx)을 먼저 선택하세요.", "notice", {key:"replay-no-file"});
+        showToast("리플레이 파일(.xlsx/.csv/.bin)을 먼저 선택하세요.", "notice", {key:"replay-no-file"});
         return;
       }
       const idx = findReplayTminusIndex(-10000);
@@ -8556,6 +10712,45 @@
       return isFinite(num) ? num : fallback;
     }
 
+    function replayConvertThrustToKgf(headerNorm, value){
+      const v = Number(value);
+      if(!isFinite(v)) return NaN;
+      const h = String(headerNorm || "");
+      if(h.includes("thrustn") || h.includes("motorthrustn")){
+        return v / 9.80665;
+      }
+      return v;
+    }
+
+    function replayConvertPressureToMpa(headerNorm, value){
+      const v = Number(value);
+      if(!isFinite(v)) return NaN;
+      const h = String(headerNorm || "");
+      if(h.includes("pressurev") || h === "pv"){
+        return pressureVoltToMpa(v);
+      }
+      if(h.includes("pressurepa")){
+        return v / 1000000;
+      }
+      if(h.includes("pressurekpa")){
+        return v / 1000;
+      }
+      if(h.includes("pressurebar")){
+        return v * 0.1;
+      }
+      return v;
+    }
+
+    function replayConvertAccelToG(headerNorm, value){
+      const v = Number(value);
+      if(!isFinite(v)) return NaN;
+      const h = String(headerNorm || "");
+      if(h.includes("ms2")){
+        return v / 9.80665;
+      }
+      return v;
+    }
+
     function replayToBinary(value, fallback){
       if(typeof value === "string"){
         const token = value.trim().toLowerCase();
@@ -8581,9 +10776,21 @@
       let headerRow = 0;
       for(let i = 0; i < Math.min(rows.length, 12); i++){
         const row = rows[i] || [];
-        const thrustIdx = replayFindHeaderIndex(row, ["thrust_kgf", "추력_kgf", "thrust", "t"]);
-        const pressureIdx = replayFindHeaderIndex(row, ["pressure_v", "압력_v", "pressure", "p"]);
-        if(thrustIdx >= 0 || pressureIdx >= 0){
+        const thrustIdx = replayFindHeaderIndex(row, [
+          "thrust_kgf", "추력_kgf", "thrustkgf", "thrustn", "motorthrustn", "thrust", "t"
+        ]);
+        const pressureIdx = replayFindHeaderIndex(row, [
+          "pressure_mpa", "압력_mpa", "pressure_v", "압력_v", "airpressurepa",
+          "airpressurekpa", "airpressurebar", "airpressure",
+          "pressurepa", "pressurekpa", "pressurebar", "pressure", "p"
+        ]);
+        const timeIdx = replayFindHeaderIndex(row, [
+          "time_iso", "timestamp", "datetime", "time", "times", "timesec", "timesecs", "time_s", "time_sec"
+        ]);
+        const altIdx = replayFindHeaderIndex(row, [
+          "altitude_m", "altitudem", "altitude", "alt_m", "alt"
+        ]);
+        if(thrustIdx >= 0 || pressureIdx >= 0 || timeIdx >= 0 || altIdx >= 0){
           headerRow = i;
           break;
         }
@@ -8591,9 +10798,17 @@
 
       const headers = rows[headerRow] || [];
       const col = {
-        timeIso: replayFindHeaderIndex(headers, ["time_iso", "시간_iso", "timestamp", "datetime", "time"]),
-        thrust: replayFindHeaderIndex(headers, ["thrust_kgf", "추력_kgf", "thrust", "t"]),
-        pressure: replayFindHeaderIndex(headers, ["pressure_v", "압력_v", "pressure", "p"]),
+        timeIso: replayFindHeaderIndex(headers, [
+          "time_iso", "시간_iso", "timestamp", "datetime", "utc_time", "time_iso8601", "date", "datetimeutc"
+        ]),
+        thrust: replayFindHeaderIndex(headers, [
+          "thrust_kgf", "추력_kgf", "thrustkgf", "thrustn", "motorthrustn", "thrust", "t"
+        ]),
+        pressure: replayFindHeaderIndex(headers, [
+          "pressure_mpa", "압력_mpa", "pressure_v", "압력_v", "pv",
+          "airpressurepa", "airpressurekpa", "airpressurebar", "airpressure",
+          "pressurepa", "pressurekpa", "pressurebar", "pressure", "p"
+        ]),
         gpsLat: replayFindHeaderIndex(headers, [
           "gps_lat", "gpslat", "gpslatitude", "nav_lat", "latitude", "lat",
           "gps_위도_deg", "위도_deg", "위도"
@@ -8612,14 +10827,27 @@
         ]),
         speedMps: replayFindHeaderIndex(headers, [
           "speed_mps", "속도_mps", "gps_speed_mps", "ground_speed_mps", "velocity_mps", "speed",
-          "velocity", "speedms", "speedmps", "속도"
+          "velocity", "speedms", "speedmps", "verticalvelocity", "verticalvelocityms", "totalvelocityms",
+          "velocityzms", "속도"
         ]),
-        accelX: replayFindHeaderIndex(headers, ["accel_x_g", "가속도_x_g", "ax", "accel_x"]),
-        accelY: replayFindHeaderIndex(headers, ["accel_y_g", "가속도_y_g", "ay", "accel_y"]),
-        accelZ: replayFindHeaderIndex(headers, ["accel_z_g", "가속도_z_g", "az", "accel_z"]),
-        gyroX: replayFindHeaderIndex(headers, ["gyro_x_dps", "자이로_x_dps", "gx", "gyro_x"]),
-        gyroY: replayFindHeaderIndex(headers, ["gyro_y_dps", "자이로_y_dps", "gy", "gyro_y"]),
-        gyroZ: replayFindHeaderIndex(headers, ["gyro_z_dps", "자이로_z_dps", "gz", "gyro_z"]),
+        accelX: replayFindHeaderIndex(headers, [
+          "accel_x_g", "가속도_x_g", "ax", "accel_x", "accelerationxms2", "accelerationx"
+        ]),
+        accelY: replayFindHeaderIndex(headers, [
+          "accel_y_g", "가속도_y_g", "ay", "accel_y", "accelerationyms2", "accelerationy"
+        ]),
+        accelZ: replayFindHeaderIndex(headers, [
+          "accel_z_g", "가속도_z_g", "az", "accel_z", "accelerationzms2", "accelerationz", "accelerationtotalms2"
+        ]),
+        gyroX: replayFindHeaderIndex(headers, [
+          "gyro_x_dps", "자이로_x_dps", "gx", "gyro_x", "rotationratex", "rotationratexs", "rotationratexdegs", "rollratedegs", "rollrate"
+        ]),
+        gyroY: replayFindHeaderIndex(headers, [
+          "gyro_y_dps", "자이로_y_dps", "gy", "gyro_y", "rotationratey", "rotationrateys", "rotationrateydegs", "pitchratedegs", "pitchrate"
+        ]),
+        gyroZ: replayFindHeaderIndex(headers, [
+          "gyro_z_dps", "자이로_z_dps", "gz", "gyro_z", "rotationratez", "rotationratezs", "rotationratezdegs", "yawratedegs", "yawrate"
+        ]),
         loopMs: replayFindHeaderIndex(headers, ["loop_ms", "루프_ms", "lt"]),
         hz: replayFindHeaderIndex(headers, ["hx_hz", "hz"]),
         cpuUs: replayFindHeaderIndex(headers, ["cpu_us", "cpu", "ct"]),
@@ -8630,12 +10858,27 @@
         state: replayFindHeaderIndex(headers, ["state", "상태", "st"]),
         tdMs: replayFindHeaderIndex(headers, ["td_ms", "tdms", "td"]),
         elapsedMs: replayFindHeaderIndex(headers, ["elapsed_ms", "경과_ms", "elapsed"]),
-        relTimeSec: replayFindHeaderIndex(headers, ["rel_time_s", "상대시간_s", "reltime", "time_axis"])
+        relTimeSec: replayFindHeaderIndex(headers, [
+          "rel_time_s", "상대시간_s", "reltime", "time_axis", "time", "times", "timesec", "timesecs", "timesseconds",
+          "time_s", "time_sec", "time_seconds"
+        ])
       };
 
-      if(col.thrust < 0 && col.pressure < 0){
-        throw new Error("RAW 시트에서 추력/압력 컬럼을 찾지 못했습니다.");
+      const hasFallbackSignal =
+        (col.timeIso >= 0 || col.relTimeSec >= 0 || col.elapsedMs >= 0) ||
+        (col.altitudeM >= 0 || col.speedMps >= 0) ||
+        (col.accelX >= 0 || col.accelY >= 0 || col.accelZ >= 0) ||
+        (col.gyroX >= 0 || col.gyroY >= 0 || col.gyroZ >= 0) ||
+        (col.gpsLat >= 0 || col.gpsLon >= 0 || col.gpsAlt >= 0);
+      if(col.thrust < 0 && col.pressure < 0 && !hasFallbackSignal){
+        throw new Error("리플레이 컬럼을 찾지 못했습니다. (추력/압력/시간/고도)");
       }
+
+      const thrustHeaderNorm = (col.thrust >= 0) ? replayNormalizeHeader(headers[col.thrust]) : "";
+      const pressureHeaderNorm = (col.pressure >= 0) ? replayNormalizeHeader(headers[col.pressure]) : "";
+      const accelXHeaderNorm = (col.accelX >= 0) ? replayNormalizeHeader(headers[col.accelX]) : "";
+      const accelYHeaderNorm = (col.accelY >= 0) ? replayNormalizeHeader(headers[col.accelY]) : "";
+      const accelZHeaderNorm = (col.accelZ >= 0) ? replayNormalizeHeader(headers[col.accelZ]) : "";
 
       const samples = [];
       let prevTs = null;
@@ -8643,18 +10886,55 @@
         const row = rows[r] || [];
         if(!row.length) continue;
 
-        const thrustVal = replayToNumber(col.thrust >= 0 ? row[col.thrust] : null, NaN);
-        const pressureVal = replayToNumber(col.pressure >= 0 ? row[col.pressure] : null, NaN);
-        if(!isFinite(thrustVal) && !isFinite(pressureVal)) continue;
+        const thrustRaw = replayToNumber(col.thrust >= 0 ? row[col.thrust] : null, NaN);
+        const thrustVal = replayConvertThrustToKgf(thrustHeaderNorm, thrustRaw);
+        const pressureRaw = replayToNumber(col.pressure >= 0 ? row[col.pressure] : null, NaN);
+        const pressureVal = replayConvertPressureToMpa(pressureHeaderNorm, pressureRaw);
+
+        const latReplay = replayToNumber(col.gpsLat >= 0 ? row[col.gpsLat] : null, NaN);
+        const lonReplay = replayToNumber(col.gpsLon >= 0 ? row[col.gpsLon] : null, NaN);
+        const gpsAltReplay = replayToNumber(col.gpsAlt >= 0 ? row[col.gpsAlt] : null, NaN);
+        const altReplay = replayToNumber(col.altitudeM >= 0 ? row[col.altitudeM] : null, NaN);
+        const speedReplay = replayToNumber(col.speedMps >= 0 ? row[col.speedMps] : null, NaN);
+
+        const accelXVal = replayConvertAccelToG(
+          accelXHeaderNorm,
+          replayToNumber(col.accelX >= 0 ? row[col.accelX] : null, NaN)
+        );
+        const accelYVal = replayConvertAccelToG(
+          accelYHeaderNorm,
+          replayToNumber(col.accelY >= 0 ? row[col.accelY] : null, NaN)
+        );
+        const accelZVal = replayConvertAccelToG(
+          accelZHeaderNorm,
+          replayToNumber(col.accelZ >= 0 ? row[col.accelZ] : null, NaN)
+        );
+        const gyroXVal = replayToNumber(col.gyroX >= 0 ? row[col.gyroX] : null, NaN);
+        const gyroYVal = replayToNumber(col.gyroY >= 0 ? row[col.gyroY] : null, NaN);
+        const gyroZVal = replayToNumber(col.gyroZ >= 0 ? row[col.gyroZ] : null, NaN);
+
+        const hasPayload =
+          isFinite(thrustVal) || isFinite(pressureVal) ||
+          isFinite(latReplay) || isFinite(lonReplay) || isFinite(gpsAltReplay) ||
+          isFinite(altReplay) || isFinite(speedReplay) ||
+          isFinite(accelXVal) || isFinite(accelYVal) || isFinite(accelZVal) ||
+          isFinite(gyroXVal) || isFinite(gyroYVal) || isFinite(gyroZVal);
+        if(!hasPayload) continue;
 
         let tsMs = null;
         if(col.timeIso >= 0){
           const rawTs = row[col.timeIso];
           if(typeof rawTs === "number"){
-            if(rawTs > 1000000000){
-              tsMs = (rawTs > 1000000000000) ? rawTs : (rawTs * 1000);
-            }else{
+            if(rawTs > 1000000000000){
+              tsMs = rawTs;
+            }else if(rawTs > 1000000000){
+              tsMs = rawTs * 1000;
+            }else if(rawTs > 30000){
               tsMs = replayExcelSerialToMs(rawTs);
+            }else if(rawTs >= 0){
+              tsMs = rawTs * 1000;
+            }else{
+              tsMs = (rawTs > 1000000000000) ? rawTs : (rawTs * 1000);
             }
           }else if(rawTs != null && rawTs !== ""){
             const parsed = Date.parse(String(rawTs));
@@ -8680,11 +10960,6 @@
           tsMs = prevTs + 1;
         }
         prevTs = tsMs;
-        const latReplay = replayToNumber(col.gpsLat >= 0 ? row[col.gpsLat] : null, NaN);
-        const lonReplay = replayToNumber(col.gpsLon >= 0 ? row[col.gpsLon] : null, NaN);
-        const gpsAltReplay = replayToNumber(col.gpsAlt >= 0 ? row[col.gpsAlt] : null, NaN);
-        const altReplay = replayToNumber(col.altitudeM >= 0 ? row[col.altitudeM] : null, NaN);
-        const speedReplay = replayToNumber(col.speedMps >= 0 ? row[col.speedMps] : null, NaN);
 
         samples.push({
           tsMs,
@@ -8696,12 +10971,12 @@
             gps_alt: isFinite(gpsAltReplay) ? gpsAltReplay : null,
             alt_m: isFinite(altReplay) ? altReplay : null,
             speed_mps: isFinite(speedReplay) ? speedReplay : null,
-            ax: replayToNumber(col.accelX >= 0 ? row[col.accelX] : null, 0),
-            ay: replayToNumber(col.accelY >= 0 ? row[col.accelY] : null, 0),
-            az: replayToNumber(col.accelZ >= 0 ? row[col.accelZ] : null, 0),
-            gx: replayToNumber(col.gyroX >= 0 ? row[col.gyroX] : null, 0),
-            gy: replayToNumber(col.gyroY >= 0 ? row[col.gyroY] : null, 0),
-            gz: replayToNumber(col.gyroZ >= 0 ? row[col.gyroZ] : null, 0),
+            ax: isFinite(accelXVal) ? accelXVal : 0,
+            ay: isFinite(accelYVal) ? accelYVal : 0,
+            az: isFinite(accelZVal) ? accelZVal : 0,
+            gx: isFinite(gyroXVal) ? gyroXVal : 0,
+            gy: isFinite(gyroYVal) ? gyroYVal : 0,
+            gz: isFinite(gyroZVal) ? gyroZVal : 0,
             lt: replayToNumber(col.loopMs >= 0 ? row[col.loopMs] : null, 0),
             hz: replayToNumber(col.hz >= 0 ? row[col.hz] : null, 0),
             ct: replayToNumber(col.cpuUs >= 0 ? row[col.cpuUs] : null, 0),
@@ -8781,12 +11056,321 @@
       throw (lastErr || new Error("리플레이 데이터를 해석하지 못했습니다."));
     }
 
+    function replayDetectCsvDelimiter(line){
+      const text = String(line || "");
+      const candidates = [",", ";", "\t", "|"];
+      let best = ",";
+      let bestScore = -1;
+      for(const d of candidates){
+        let inQuotes = false;
+        let score = 0;
+        for(let i = 0; i < text.length; i++){
+          const ch = text[i];
+          if(ch === "\""){
+            if(inQuotes && text[i + 1] === "\""){
+              i += 1;
+            }else{
+              inQuotes = !inQuotes;
+            }
+            continue;
+          }
+          if(!inQuotes && ch === d){
+            score += 1;
+          }
+        }
+        if(score > bestScore){
+          bestScore = score;
+          best = d;
+        }
+      }
+      return best;
+    }
+
+    function replayParseCsvLine(line, delimiter){
+      const delim = delimiter || ",";
+      const src = String(line == null ? "" : line);
+      const out = [];
+      let cur = "";
+      let inQuotes = false;
+      for(let i = 0; i < src.length; i++){
+        const ch = src[i];
+        if(ch === "\""){
+          if(inQuotes && src[i + 1] === "\""){
+            cur += "\"";
+            i += 1;
+          }else{
+            inQuotes = !inQuotes;
+          }
+          continue;
+        }
+        if(!inQuotes && ch === delim){
+          out.push(cur.trim());
+          cur = "";
+          continue;
+        }
+        cur += ch;
+      }
+      out.push(cur.trim());
+      return out;
+    }
+
+    function replayParseCsvText(csvText){
+      const text = String(csvText || "").replace(/^\uFEFF/, "");
+      const lines = text.split(/\r\n|\n|\r/).filter((line)=>String(line || "").trim() !== "");
+      if(!lines.length){
+        throw new Error("CSV 데이터가 비어 있습니다.");
+      }
+      const delimiter = replayDetectCsvDelimiter(lines[0]);
+      const rows = [];
+      for(const line of lines){
+        rows.push(replayParseCsvLine(line, delimiter));
+      }
+      return rows;
+    }
+
+    async function parseReplayCsv(file){
+      if(!file) throw new Error("리플레이 CSV 파일이 선택되지 않았습니다.");
+      const text = await file.text();
+      const rows = replayParseCsvText(text);
+      return replayBuildSamples(rows);
+    }
+
+    const REPLAY_BIN_HEADER_MIN_BYTES = 40;
+    const REPLAY_BIN_RECORD_HEADER_BYTES = 16;
+    const REPLAY_BIN_SAMPLE_PAYLOAD_BYTES = 70;
+    const REPLAY_BIN_RECORD_MARKER = 0xA55A;
+
+    function replayReadMagicText(dv, offset, len){
+      let out = "";
+      for(let i = 0; i < len; i++){
+        const c = dv.getUint8(offset + i);
+        if(c === 0) break;
+        out += String.fromCharCode(c);
+      }
+      return out;
+    }
+
+    function replayIsLikelyRawRecordStream(dv, startOffset, endOffset, marker){
+      if(!(dv instanceof DataView)) return false;
+      const start = Math.max(0, Number(startOffset) || 0);
+      const end = Math.min(dv.byteLength, Number(endOffset) || dv.byteLength);
+      if((start + REPLAY_BIN_RECORD_HEADER_BYTES) > end) return false;
+
+      const mk = dv.getUint16(start + 0, true);
+      const recVersion = dv.getUint8(start + 2);
+      const payloadSize = dv.getUint16(start + 4, true);
+      const nextOffset = start + REPLAY_BIN_RECORD_HEADER_BYTES + payloadSize;
+
+      if(mk !== marker) return false;
+      if(recVersion !== 1) return false;
+      if(payloadSize === 0 || payloadSize > 2048) return false;
+      if(nextOffset > end) return false;
+      return true;
+    }
+
+    function replayParseBinRecordRange(dv, startOffset, endOffset, marker){
+      const start = Math.max(0, Number(startOffset) || 0);
+      const end = Math.min(dv.byteLength, Number(endOffset) || dv.byteLength);
+      const samples = [];
+      let offset = start;
+      let prevTs = null;
+
+      while((offset + REPLAY_BIN_RECORD_HEADER_BYTES) <= end){
+        const mk = dv.getUint16(offset + 0, true);
+        const recVersion = dv.getUint8(offset + 2);
+        const recType = dv.getUint8(offset + 3);
+        const payloadSize = dv.getUint16(offset + 4, true);
+        let tsMs = dv.getUint32(offset + 8, true);
+        const payloadOffset = offset + REPLAY_BIN_RECORD_HEADER_BYTES;
+        const nextOffset = payloadOffset + payloadSize;
+
+        if(payloadSize === 0){
+          offset += 1;
+          continue;
+        }
+        if(nextOffset > end){
+          if(samples.length > 0) break;
+          throw new Error("BIN 레코드 경계가 손상되었습니다.");
+        }
+        if(mk !== marker){
+          if(samples.length > 0) break;
+          throw new Error("BIN 레코드 마커 오류");
+        }
+        if(recVersion !== 1){
+          if(samples.length > 0){
+            offset = nextOffset;
+            continue;
+          }
+          throw new Error("지원되지 않는 BIN 레코드 버전: " + recVersion);
+        }
+
+        if(recType === 1 && payloadSize >= REPLAY_BIN_SAMPLE_PAYLOAD_BYTES){
+          const base = payloadOffset;
+          const sample = {
+            t: dv.getFloat32(base + 0, true),
+            p: dv.getFloat32(base + 4, true),
+            ax: dv.getFloat32(base + 8, true),
+            ay: dv.getFloat32(base + 12, true),
+            az: dv.getFloat32(base + 16, true),
+            gx: dv.getFloat32(base + 20, true),
+            gy: dv.getFloat32(base + 24, true),
+            gz: dv.getFloat32(base + 28, true),
+            iv: dv.getFloat32(base + 32, true),
+            bp: dv.getUint8(base + 36),
+            ut: dv.getUint32(base + 37, true),
+            lt: dv.getUint16(base + 41, true),
+            ct: dv.getUint16(base + 43, true),
+            hz: dv.getUint16(base + 45, true),
+            s: dv.getUint8(base + 47),
+            ic: dv.getUint8(base + 48),
+            r: dv.getUint8(base + 49),
+            gs: dv.getUint8(base + 50),
+            st: dv.getUint8(base + 51),
+            td: dv.getInt32(base + 52, true),
+            uw: dv.getUint8(base + 56),
+            ab: dv.getUint8(base + 57),
+            ar: dv.getUint8(base + 58),
+            m: dv.getUint8(base + 59),
+            rs: dv.getUint8(base + 60),
+            rf: dv.getUint8(base + 61),
+            rm: dv.getUint8(base + 62),
+            ss: dv.getUint8(base + 63),
+            sm: dv.getUint8(base + 64),
+            wq: dv.getUint32(base + 65, true),
+            we: dv.getUint8(base + 69)
+          };
+
+          if(prevTs != null && tsMs <= prevTs){
+            tsMs = prevTs + 1;
+          }
+          prevTs = tsMs;
+          samples.push({tsMs, sample});
+        }
+
+        offset = nextOffset;
+      }
+
+      if(!samples.length){
+        throw new Error("BIN 파일에 리플레이 샘플이 없습니다.");
+      }
+      return samples;
+    }
+
+    function replayBuildSamplesFromBin(arrayBuffer){
+      if(!(arrayBuffer instanceof ArrayBuffer)){
+        throw new Error("BIN 버퍼가 유효하지 않습니다.");
+      }
+      if(arrayBuffer.byteLength < REPLAY_BIN_HEADER_MIN_BYTES){
+        throw new Error("BIN 헤더 길이가 너무 짧습니다.");
+      }
+
+      const dv = new DataView(arrayBuffer);
+      const magic = replayReadMagicText(dv, 0, 8);
+      if(magic === "HWLOGV1"){
+        const version = dv.getUint16(8, true);
+        const headerSize = dv.getUint16(10, true);
+        const dataBytes = dv.getUint32(12, true);
+        const declaredMarker = dv.getUint32(28, true) & 0xFFFF;
+        const marker = declaredMarker || REPLAY_BIN_RECORD_MARKER;
+        if(version !== 1){
+          throw new Error("지원되지 않는 BIN 버전: " + version);
+        }
+        if(headerSize < REPLAY_BIN_HEADER_MIN_BYTES){
+          throw new Error("BIN 헤더 크기가 잘못되었습니다.");
+        }
+
+        const dataStart = headerSize;
+        const dataEnd = dataStart + dataBytes;
+        if(dataEnd > arrayBuffer.byteLength){
+          throw new Error("BIN 데이터 길이가 손상되었습니다.");
+        }
+        return replayParseBinRecordRange(dv, dataStart, dataEnd, marker);
+      }
+
+      if(replayIsLikelyRawRecordStream(dv, 0, arrayBuffer.byteLength, REPLAY_BIN_RECORD_MARKER)){
+        return replayParseBinRecordRange(dv, 0, arrayBuffer.byteLength, REPLAY_BIN_RECORD_MARKER);
+      }
+
+      const scanLimit = Math.min(arrayBuffer.byteLength - 2, 4096);
+      for(let i = 0; i <= scanLimit; i++){
+        if(dv.getUint16(i, true) !== REPLAY_BIN_RECORD_MARKER) continue;
+        if(replayIsLikelyRawRecordStream(dv, i, arrayBuffer.byteLength, REPLAY_BIN_RECORD_MARKER)){
+          return replayParseBinRecordRange(dv, i, arrayBuffer.byteLength, REPLAY_BIN_RECORD_MARKER);
+        }
+      }
+
+      throw new Error("지원되지 않는 BIN 매직입니다.");
+    }
+
+    async function parseReplayBin(file){
+      if(!file) throw new Error("리플레이 BIN 파일이 선택되지 않았습니다.");
+      const arrayBuffer = await file.arrayBuffer();
+      return replayBuildSamplesFromBin(arrayBuffer);
+    }
+
+    function getReplayParserCandidates(file){
+      const lowerName = String((file && file.name) || "").toLowerCase();
+      const fileType = String((file && file.type) || "").toLowerCase();
+      const candidates = [];
+      const push = (id, label, parser)=>{
+        if(candidates.some((item)=>item.id === id)) return;
+        candidates.push({id, label, parser});
+      };
+
+      const isCsvExt = lowerName.endsWith(".csv");
+      const isBinExt = lowerName.endsWith(".bin");
+      const isXlsxExt = (
+        lowerName.endsWith(".xlsx") ||
+        lowerName.endsWith(".xlsm") ||
+        lowerName.endsWith(".xls")
+      );
+      const csvMime = fileType.includes("csv") || fileType.includes("text/plain");
+      const binMime = fileType.includes("octet-stream");
+
+      if(isBinExt || binMime){
+        push("bin", "BIN", parseReplayBin);
+        push("csv", "CSV", parseReplayCsv);
+        push("xlsx", "XLSX", parseReplayXlsx);
+      }else if(isCsvExt || csvMime){
+        push("csv", "CSV", parseReplayCsv);
+        push("xlsx", "XLSX", parseReplayXlsx);
+        push("bin", "BIN", parseReplayBin);
+      }else if(isXlsxExt){
+        push("xlsx", "XLSX", parseReplayXlsx);
+        push("csv", "CSV", parseReplayCsv);
+        push("bin", "BIN", parseReplayBin);
+      }else{
+        push("xlsx", "XLSX", parseReplayXlsx);
+        push("csv", "CSV", parseReplayCsv);
+        push("bin", "BIN", parseReplayBin);
+      }
+
+      return candidates;
+    }
+
+    async function parseReplayFileAuto(file){
+      if(!file) throw new Error("리플레이 파일이 선택되지 않았습니다.");
+      const candidates = getReplayParserCandidates(file);
+      const reasons = [];
+      for(const candidate of candidates){
+        try{
+          const samples = await candidate.parser(file);
+          return {samples, parserLabel: candidate.label};
+        }catch(err){
+          const reason = (err && err.message) ? err.message : String(err || "unknown");
+          reasons.push(candidate.label + ": " + reason);
+        }
+      }
+      throw new Error("자동 판별 실패 (" + reasons.join(" | ") + ")");
+    }
+
     // =====================
     // 통신: WebSocket 스트림
     // =====================
     function getWsUrl(){
-      const proto = (location.protocol === "https:") ? "wss" : "ws";
-      const host = location.host || "192.168.4.1";
+      const useFallback = isLocalPreviewHost();
+      const proto = (!useFallback && location.protocol === "https:") ? "wss" : "ws";
+      const host = useFallback ? "192.168.4.1" : (location.host || "192.168.4.1");
       return proto + "://" + host + "/ws";
     }
 
@@ -8822,6 +11406,8 @@
         updateWsUI();
         wsRetryMs = 300;
         addWsLog(t("wsConnected", {url}));
+        syncOperationModeToBoard(false);
+        syncDaqSequencePyroChannelToBoard(false);
       };
 
       wsSocket.onmessage = (ev)=>{
@@ -8880,13 +11466,15 @@
     }
 
     async function fetchJsonWithFallback(){
+      const API_BASE = getApiBaseForCommands();
       const order = [preferredEndpoint, ...ENDPOINTS.filter(e=>e!==preferredEndpoint)];
       let lastErr = null;
 
-      for(const url of order){
+      for(const path of order){
+        const url = API_BASE ? (API_BASE + path) : path;
         try{
           const obj = await fetchJsonTimeout(url, 700);
-          preferredEndpoint = url;
+          preferredEndpoint = path;
           return obj;
         }catch(e){
           lastErr = e;
@@ -8930,24 +11518,305 @@
     // =====================
     function serialSupported(){ return !!(navigator && navigator.serial); }
 
+    function serialBaudCandidates(){
+      const out = [];
+      const seen = new Set();
+      for(const raw of SERIAL_BAUD_CANDIDATES){
+        const baud = Math.round(Number(raw));
+        if(!isFinite(baud) || baud <= 0) continue;
+        if(seen.has(baud)) continue;
+        seen.add(baud);
+        out.push(baud);
+      }
+      if(!out.length){
+        out.push(SERIAL_BAUD_RATE);
+      }
+      return out;
+    }
+
+    async function closeSerialHandles(opts){
+      const closePort = !opts || opts.closePort !== false;
+      if(serialReadAbort){ try{ serialReadAbort.abort(); }catch(e){} serialReadAbort = null; }
+      if(serialReader){ try{ await serialReader.cancel(); }catch(e){} try{ serialReader.releaseLock(); }catch(e){} serialReader = null; }
+      if(serialWriter){ try{ serialWriter.releaseLock(); }catch(e){} serialWriter = null; }
+      if(closePort && serialPort){ try{ await serialPort.close(); }catch(e){} }
+      serialLineBuf = "";
+    }
+
+    function removeSerialAckWaiter(waiter){
+      if(!waiter) return;
+      const idx = serialAckWaiters.indexOf(waiter);
+      if(idx >= 0) serialAckWaiters.splice(idx, 1);
+    }
+
+    function settleSerialAckWaiter(waiter, result){
+      if(!waiter || waiter.done) return;
+      waiter.done = true;
+      if(waiter.timer){
+        clearTimeout(waiter.timer);
+        waiter.timer = null;
+      }
+      removeSerialAckWaiter(waiter);
+      waiter.resolve(result);
+    }
+
+    function cancelSerialAckWaiter(waiter, reason){
+      settleSerialAckWaiter(waiter, {
+        ok:false,
+        kind:"cancel",
+        message:reason || "SERIAL_CANCELLED"
+      });
+    }
+
+    function flushSerialAckWaiters(reason){
+      const pending = serialAckWaiters.slice();
+      for(const waiter of pending){
+        cancelSerialAckWaiter(waiter, reason || "SERIAL_DISCONNECTED");
+      }
+    }
+
+    function createSerialAckWaiter(matchFn, timeoutMs){
+      const safeMatch = (typeof matchFn === "function") ? matchFn : (()=>true);
+      const waiter = {
+        done:false,
+        match:safeMatch,
+        resolve:null,
+        timer:null,
+        promise:null
+      };
+      waiter.promise = new Promise(resolve=>{
+        waiter.resolve = resolve;
+      });
+      serialAckWaiters.push(waiter);
+      const waitMs = Math.max(120, Number(timeoutMs) || 800);
+      waiter.timer = setTimeout(()=>{
+        settleSerialAckWaiter(waiter, {
+          ok:false,
+          kind:"timeout",
+          message:"SERIAL_TIMEOUT"
+        });
+      }, waitMs);
+      return waiter;
+    }
+
+    function dispatchSerialAck(kind, message, rawLine){
+      if(!serialAckWaiters.length) return;
+      const waiters = serialAckWaiters.slice();
+      for(const waiter of waiters){
+        let matched = false;
+        try{
+          matched = !!waiter.match({
+            kind,
+            message:String(message || ""),
+            raw:String(rawLine || "")
+          });
+        }catch(e){
+          reportSilentException("serial-ack-match", e);
+        }
+        if(matched){
+          settleSerialAckWaiter(waiter, {
+            ok:(kind === "ack"),
+            kind,
+            message:String(message || ""),
+            raw:String(rawLine || "")
+          });
+        }
+      }
+    }
+
+    function handleSerialTextLine(line){
+      const raw = String(line || "").trim();
+      if(!raw) return;
+      const upper = raw.toUpperCase();
+      if(upper.startsWith("ACK ")){
+        const msg = raw.slice(4).trim();
+        const scale = parseLoadcellReplyValue(msg, "SCALE");
+        if(scale != null){
+          lastLoadcellScale = scale;
+          updateLoadcellCalcPanel(lastLoadcellCalWeight);
+        }
+        const offset = parseLoadcellReplyValue(msg, "OFFSET");
+        if(offset != null){
+          lastLoadcellOffset = offset;
+          updateLoadcellCalcPanel(lastLoadcellCalWeight);
+        }
+        const spiStatusInfo = parseSpiFlashStatusAckMessage(msg);
+        if(spiStatusInfo){
+          updateSpiFlashStatusUi(spiStatusInfo, null);
+        }
+        addLogLine("ACK " + msg, "SER");
+        dispatchSerialAck("ack", msg, raw);
+        return;
+      }
+      if(upper.startsWith("ERR ")){
+        const msg = raw.slice(4).trim();
+        addLogLine("ERR " + msg, "SER");
+        dispatchSerialAck("err", msg, raw);
+        return;
+      }
+      if(upper.startsWith("[SERVO]") || upper.startsWith("[BOOT]") || upper.startsWith("[WS]")){
+        addLogLine(raw, "SER");
+        return;
+      }
+      if(upper.indexOf("[SPI-STORAGE]") === 0){
+        if(upper.indexOf("SD REMOVED") >= 0 || upper.indexOf("MOUNT FAILED") >= 0){
+          spiFlashReadyState = false;
+          updateMotorInfoPanel();
+        }else if(upper.indexOf("SD READY") >= 0){
+          spiFlashReadyState = true;
+          updateMotorInfoPanel();
+        }
+        addLogLine(raw, "SER");
+        return;
+      }
+      addLogLine(raw, "SER");
+    }
+
+    function isLikelyReadableSerialLine(line){
+      const raw = String(line || "").trim();
+      if(!raw) return false;
+      if(!/^[\x09\x20-\x7E]+$/.test(raw)) return false;
+      const upper = raw.toUpperCase();
+      if(raw[0] === "[") return true;
+      if(upper.startsWith("ACK ") || upper.startsWith("ERR ")) return true;
+      if(upper.startsWith("=== ")) return true;
+      if(upper.indexOf("BOOT") >= 0 || upper.indexOf("WIFI") >= 0) return true;
+      return false;
+    }
+
+    async function setSerialStreamState(enabled){
+      if(!serialConnected || !serialWriter) return false;
+      const wrote = await serialWriteLine("/set?stream=" + (enabled ? "1" : "0"));
+      if(!wrote){
+        addLogLine("SER stream " + (enabled ? "ON" : "OFF") + " request failed", "SER");
+      }
+      return wrote;
+    }
+
+    async function serialProbeIncoming(timeoutMs){
+      if(!serialReader){
+        return { ok:false, reason:"NO_READER", sample:null, leftover:"" };
+      }
+      const decoder = new TextDecoder();
+      let probeBuf = "";
+      let sawReadableText = false;
+      const endAt = Date.now() + Math.max(600, Number(timeoutMs) || SERIAL_PROBE_TIMEOUT_MS);
+      while(Date.now() < endAt){
+        const remain = Math.max(1, endAt - Date.now());
+        const result = await Promise.race([
+          serialReader.read(),
+          new Promise(resolve=>setTimeout(()=>resolve({ __timeout:true }), remain))
+        ]);
+        if(result && result.__timeout){
+          return { ok:sawReadableText, reason:(sawReadableText ? "TEXT" : "TIMEOUT"), sample:null, leftover:probeBuf };
+        }
+        const value = result ? result.value : null;
+        const done = !!(result && result.done);
+        if(done){
+          return { ok:sawReadableText, reason:(sawReadableText ? "TEXT" : "DONE"), sample:null, leftover:probeBuf };
+        }
+        if(!value) continue;
+
+        probeBuf += decoder.decode(value, { stream:true }).replace(/\r/g, "\n");
+        let idx;
+        while((idx = probeBuf.indexOf("\n")) >= 0){
+          const line = probeBuf.slice(0, idx).trim();
+          probeBuf = probeBuf.slice(idx + 1);
+          if(!line) continue;
+          if(line[0] === "{" && line[line.length - 1] === "}"){
+            try{
+              const sample = JSON.parse(line);
+              return { ok:true, reason:"JSON", sample, leftover:probeBuf };
+            }catch(e){}
+          }
+          if(isLikelyReadableSerialLine(line)){
+            sawReadableText = true;
+          }
+        }
+      }
+      return { ok:sawReadableText, reason:(sawReadableText ? "TEXT" : "TIMEOUT"), sample:null, leftover:probeBuf };
+    }
+
     async function serialConnect(){
+      if(serialConnectBusy){
+        addLogLine("WebSerial connect already in progress", "SER");
+        return;
+      }
+      serialConnectBusy = true;
+      if(!window.isSecureContext && !isLocalPreviewHost()){
+        showToast(t("webserialInsecureToast"), "notice");
+        addLogLine("WebSerial blocked: insecure context (" + location.origin + ")", "SER");
+        serialConnectBusy = false;
+        return;
+      }
       if(!serialSupported()){
         showToast(t("webserialUnsupported"), "notice");
+        serialConnectBusy = false;
         return;
       }
       try{
-        serialPort = await navigator.serial.requestPort({});
-        await serialPort.open({ baudRate: 460800 });
-        serialWriter = serialPort.writable?.getWriter?.() || null;
+        await closeSerialHandles({ closePort:true });
+        const selectedPort = await navigator.serial.requestPort({});
+        if(!selectedPort){
+          throw new Error("SERIAL_PORT_UNAVAILABLE");
+        }
+        serialPort = selectedPort;
+        serialCurrentBaud = SERIAL_BAUD_RATE;
+        serialParseErrorCount = 0;
+        serialRxDisabledWarned = false;
 
-        serialReadAbort = new AbortController();
-        serialReader = serialPort.readable?.getReader?.({ signal: serialReadAbort.signal }) || null;
+        let probeSample = null;
+        let selected = false;
+        let lastProbeErr = null;
+        const candidates = serialBaudCandidates();
+        for(const baud of candidates){
+          try{
+            await selectedPort.open({ baudRate: baud });
+            serialWriter = serialPort.writable?.getWriter?.() || null;
+            serialReadAbort = new AbortController();
+            serialReader = serialPort.readable?.getReader?.() || null;
+            if(!serialReader){
+              throw new Error("SERIAL_READER_UNAVAILABLE");
+            }
+            const probe = await serialProbeIncoming(SERIAL_PROBE_TIMEOUT_MS);
+            serialLineBuf = String(probe.leftover || "");
+            if(probe.ok){
+              serialCurrentBaud = baud;
+              probeSample = probe.sample || null;
+              selected = true;
+              break;
+            }
+            await closeSerialHandles({ closePort:true });
+          }catch(err){
+            lastProbeErr = err;
+            await closeSerialHandles({ closePort:true });
+          }
+        }
+
+        if(!selected){
+          await selectedPort.open({ baudRate: SERIAL_BAUD_RATE });
+          serialWriter = serialPort.writable?.getWriter?.() || null;
+          serialReadAbort = new AbortController();
+          serialReader = serialPort.readable?.getReader?.() || null;
+          serialCurrentBaud = SERIAL_BAUD_RATE;
+          addLogLine("SER probe timeout, fallback baud " + serialCurrentBaud + "bps", "SER");
+          if(lastProbeErr){
+            reportSilentException("serial-probe", lastProbeErr);
+          }
+        }
+
         serialConnected = true;
         updateSerialPill();
         hideDisconnectOverlay();
 
-        addLogLine(t("webserialConnected"), "SER");
+        addLogLine(t("webserialConnected") + " @" + serialCurrentBaud + "bps", "SER");
         showToast(t("webserialConnectedToast"), "success");
+        await setSerialStreamState(true);
+        if(probeSample){
+          onIncomingSample(probeSample, "SER");
+        }
+        syncOperationModeToBoard(false);
+        syncDaqSequencePyroChannelToBoard(false);
 
         if(serialReader){
           readSerialLoop().catch(err=>{
@@ -8955,21 +11824,29 @@
           });
         }
       }catch(e){
+        await closeSerialHandles({ closePort:true });
+        serialPort = null;
         serialConnected = false;
         updateSerialPill();
         addLogLine(t("webserialConnectFailed", {err:(e?.message||e)}), "SER");
         showToast(t("webserialConnectFailedToast"), "error");
+      }finally{
+        serialConnectBusy = false;
       }
     }
 
     async function serialDisconnect(){
       try{
-        if(serialReadAbort){ try{ serialReadAbort.abort(); }catch(e){} serialReadAbort=null; }
-        if(serialReader){ try{ await serialReader.cancel(); }catch(e){} try{ serialReader.releaseLock(); }catch(e){} serialReader=null; }
-        if(serialWriter){ try{ serialWriter.releaseLock(); }catch(e){} serialWriter=null; }
-        if(serialPort){ try{ await serialPort.close(); }catch(e){} serialPort=null; }
+        if(serialConnected && serialWriter){
+          await setSerialStreamState(false);
+        }
+        await closeSerialHandles({ closePort:true });
+        serialPort = null;
       }finally{
+        flushSerialAckWaiters("SERIAL_DISCONNECTED");
         serialConnected = false;
+        serialParseErrorCount = 0;
+        serialRxDisabledWarned = false;
         updateSerialPill();
         addLogLine(t("webserialDisconnected"), "SER");
         if(serialEnabled) showDisconnectOverlay();
@@ -8979,8 +11856,10 @@
     async function serialWriteLine(line){
       if(!serialConnected || !serialWriter) return false;
       try{
-        const data = new TextEncoder().encode(line.endsWith("\n") ? line : (line + "\n"));
+        const outLine = String(line || "").trim();
+        const data = new TextEncoder().encode(outLine.endsWith("\n") ? outLine : (outLine + "\n"));
         await serialWriter.write(data);
+        if(outLine) addLogLine("TX " + outLine, "SER");
         return true;
       }catch(e){
         addLogLine(t("serialWriteFailed", {err:(e?.message||e)}), "SER");
@@ -8996,9 +11875,7 @@
           if(done) break;
           if(!value) continue;
 
-          if(!serialRxEnabled) continue;
-
-          const chunk = decoder.decode(value, { stream:true });
+          const chunk = decoder.decode(value, { stream:true }).replace(/\r/g, "\n");
           serialLineBuf += chunk;
 
           let idx;
@@ -9007,16 +11884,32 @@
             serialLineBuf = serialLineBuf.slice(idx+1);
             if(!line) continue;
             if(line[0] === "{" && line[line.length-1] === "}"){
+              if(!serialRxEnabled){
+                if(!serialRxDisabledWarned){
+                  serialRxDisabledWarned = true;
+                  addLogLine("SER JSON received but RX parsing is OFF", "SER");
+                }
+                continue;
+              }
               try{
                 const obj = JSON.parse(line);
+                serialParseErrorCount = 0;
+                serialRxDisabledWarned = false;
                 onIncomingSample(obj, "SER");
               }catch(e){
+                serialParseErrorCount += 1;
+                if(serialParseErrorCount <= SERIAL_PARSE_ERROR_LOG_LIMIT){
+                  addLogLine("SER JSON parse failed #" + serialParseErrorCount + " @" + serialCurrentBaud + "bps", "SER");
+                }
                 reportSilentException("serial-json", e);
               }
+              continue;
             }
+            handleSerialTextLine(line);
           }
         }
       } finally{
+        flushSerialAckWaiters("SERIAL_DISCONNECTED");
         if(serialConnected){
           serialConnected = false;
           updateSerialPill();
@@ -9048,6 +11941,14 @@
       }
       lastOkMs = nowOk;
       failStreak = 0;
+      if(
+        rebootConfirmWaiting &&
+        !isReplaySample &&
+        rebootConfirmStartedMs > 0 &&
+        (nowOk - rebootConfirmStartedMs) >= REBOOT_WAIT_MIN_VISIBLE_MS
+      ){
+        hideRebootConfirm();
+      }
 
       if(!connOk){
         connOk = true;
@@ -9064,36 +11965,95 @@
       const timeMs=nowDate.getTime();
       const timeIso=nowDate.toISOString();
       if(firstSampleMs === null) firstSampleMs = timeMs;
+      const elapsedMs = Math.max(0, timeMs - firstSampleMs);
 
       const thrustVal = Number(data.t  != null ? data.t  : (data.thrust   ?? 0));
       const thrustHasData = (data.t != null || data.thrust != null);
-      loadcellErrorActive = (simEnabled && devLoadcellError) || !thrustHasData || !isFinite(thrustVal);
+      const hxHz = Number(data.hz != null ? data.hz : (data.hx_hz ?? 0));
+      loadcellTelemetryHasRaw = (data.lc_raw != null || data.lc_raw_ok != null || data.lc_ready != null || data.lc_sat != null || data.lc_offset_ok != null);
+      const lcRawOkRaw = (data.lc_raw_ok != null) ? Number(data.lc_raw_ok) : null;
+      const lcRawOk = (lcRawOkRaw != null && isFinite(lcRawOkRaw)) ? (lcRawOkRaw !== 0) : false;
+      const lcRawNum = (data.lc_raw != null) ? Number(data.lc_raw) : NaN;
+      const lcReadyRaw = (data.lc_ready != null) ? Number(data.lc_ready) : null;
+      const lcSatRaw = (data.lc_sat != null) ? Number(data.lc_sat) : null;
+      const lcOffsetOkRaw = (data.lc_offset_ok != null) ? Number(data.lc_offset_ok) : null;
+      const lcNoiseRaw = (data.lc_noise != null) ? Number(data.lc_noise) : null;
+      lastLoadcellRawValid = lcRawOk && isFinite(lcRawNum);
+      lastLoadcellRaw = lastLoadcellRawValid ? lcRawNum : null;
+      lastLoadcellReadyFlag = (lcReadyRaw != null && isFinite(lcReadyRaw)) ? (lcReadyRaw !== 0 ? 1 : 0) : null;
+      lastLoadcellSaturated = !!(lcSatRaw != null && isFinite(lcSatRaw) && lcSatRaw !== 0);
+      lastLoadcellOffsetValid = (lcOffsetOkRaw != null && isFinite(lcOffsetOkRaw)) ? (lcOffsetOkRaw !== 0 ? 1 : 0) : null;
+      lastLoadcellNoiseDeadband = (lcNoiseRaw != null && isFinite(lcNoiseRaw)) ? lcNoiseRaw : lastLoadcellNoiseDeadband;
+      lastLoadcellHz = isFinite(hxHz) ? hxHz : 0;
+      if(isFinite(hxHz) && hxHz > 0){
+        lastLoadcellHzDisplay = hxHz;
+        lastLoadcellHzDisplayMs = timeMs;
+      }
+      const hzDisplayHoldAlive =
+        (!isReplaySample) &&
+        ((timeMs - lastLoadcellHzDisplayMs) <= LOADCELL_HZ_DISPLAY_HOLD_MS) &&
+        (lcRawOk || lastLoadcellRawValid) &&
+        isFinite(lastLoadcellHzDisplay) &&
+        lastLoadcellHzDisplay > 0;
+      const hxHzDisplay = (isFinite(hxHz) && hxHz > 0) ? hxHz : (hzDisplayHoldAlive ? lastLoadcellHzDisplay : 0);
+      const hasHxHz = (data.hz != null || data.hx_hz != null);
+      const loadcellRateLowNow = !isReplaySample && hasHxHz && elapsedMs >= LOADCELL_HZ_FAULT_GRACE_MS && isFinite(hxHz) && hxHz <= LOADCELL_HZ_FAULT_MIN;
+      if(loadcellRateLowNow){
+        if(loadcellRateLowSinceMs === 0) loadcellRateLowSinceMs = timeMs;
+      }else{
+        loadcellRateLowSinceMs = 0;
+      }
+      const loadcellRateFault = loadcellRateLowSinceMs !== 0 && (timeMs - loadcellRateLowSinceMs) >= LOADCELL_HZ_FAULT_HOLD_MS;
+      const loadcellOffsetFault = !isReplaySample && elapsedMs >= LOADCELL_HZ_FAULT_GRACE_MS && lastLoadcellOffsetValid === 0;
+      const loadcellHardFault = !thrustHasData || !isFinite(thrustVal) || lastLoadcellSaturated || loadcellOffsetFault;
+      const loadcellStreamFault = loadcellRateFault && !lastLoadcellRawValid;
+      loadcellErrorActive = (simEnabled && devLoadcellError) || loadcellHardFault || loadcellStreamFault;
+      if(loadcellErrorActive){
+        if(loadcellErrorSinceMs === 0) loadcellErrorSinceMs = timeMs;
+      }else{
+        loadcellErrorSinceMs = 0;
+      }
       if(lastLoadcellErrorActive === null){
         lastLoadcellErrorActive = loadcellErrorActive;
       }else if(loadcellErrorActive && !lastLoadcellErrorActive){
-        showToast(t("loadcellErrorToast"), "error", {key:"loadcell-error", duration:6000});
         lastLoadcellErrorActive = true;
       }else if(!loadcellErrorActive){
         lastLoadcellErrorActive = false;
       }
+      if(
+        loadcellErrorActive &&
+        loadcellErrorSinceMs !== 0 &&
+        (timeMs - loadcellErrorSinceMs) >= LOADCELL_ERROR_TOAST_HOLD_MS &&
+        (timeMs - lastLoadcellErrorToastMs) >= LOADCELL_ERROR_TOAST_DEBOUNCE_MS
+      ){
+        showToast(t("loadcellErrorToast"), "error", {key:"loadcell-error", duration:6000});
+        lastLoadcellErrorToastMs = timeMs;
+      }
       const thrustMissing = loadcellErrorActive;
-      updateLoadcellLiveValue(thrustVal);
-      const p   = Number(data.p  != null ? data.p  : (data.pressure ?? 0));
+      updateLoadcellLiveValue(loadcellErrorActive ? null : thrustVal);
+      const p   = parsePressureMpa(data);
       const ax  = Number(data.ax != null ? data.ax : (data.accel_x ?? data.ax_g ?? 0));
       const ay  = Number(data.ay != null ? data.ay : (data.accel_y ?? data.ay_g ?? 0));
       const az  = Number(data.az != null ? data.az : (data.accel_z ?? data.az_g ?? 0));
       const gx  = Number(data.gx != null ? data.gx : (data.gyro_x ?? data.gx_dps ?? 0));
       const gy  = Number(data.gy != null ? data.gy : (data.gyro_y ?? data.gy_dps ?? 0));
       const gz  = Number(data.gz != null ? data.gz : (data.gyro_z ?? data.gz_dps ?? 0));
+      const gr  = Number(data.gr != null ? data.gr : (data.gyro_roll_deg ?? data.roll_deg ?? NaN));
+      const gp  = Number(data.gp != null ? data.gp : (data.gyro_pitch_deg ?? data.pitch_deg ?? NaN));
+      const gyw = Number(data.gyw != null ? data.gyw : (data.gyro_yaw_deg ?? data.yaw_deg ?? NaN));
+      const ga  = Number(data.ga != null ? data.ga : (data.gyro_att_ok ?? 0));
       const lt  = Number(data.lt != null ? data.lt : (data.loop ?? data.loopTime ?? 0));
-      const elapsedMs = Math.max(0, timeMs - firstSampleMs);
-
-      const hxHz = Number(data.hz != null ? data.hz : (data.hx_hz ?? 0));
       const ctUs = Number(data.ct != null ? data.ct : (data.cpu_us ?? data.cpu ?? 0));
 
-      const sw  = (data.s  != null ? data.s  : data.sw  ?? 0);
-      const ic  = (data.ic != null ? data.ic : data.ign ?? 0);
-      const rly = (data.r  != null ? data.r  : data.rly ?? 0);
+      const swRaw  = (data.s  != null ? data.s  : data.sw  ?? 0);
+      const icRaw  = (data.ic != null ? data.ic : data.ign ?? 0);
+      const rlyRaw = (data.r  != null ? data.r  : data.rly ?? 0);
+      const sw = Number(swRaw);
+      const ic = Number(icRaw);
+      const rly = Number(rlyRaw);
+      const swOn = !!(Number.isFinite(sw) && sw !== 0);
+      const icOn = !!(Number.isFinite(ic) && ic !== 0);
+      const relayMask = Number.isFinite(rly) ? Math.max(0, Math.trunc(rly)) : 0;
       const st  = Number(data.st != null ? data.st : (data.state ?? 0));
       const td  = (data.td != null ? Number(data.td) : null);
       const uw  = Number(data.uw ?? 0);
@@ -9102,8 +12062,16 @@
       const gs  = Number(data.gs != null ? data.gs : data.igs ?? 0);
       const smRaw = (data.sm != null ? data.sm : (data.safe != null ? data.safe : null));
       const sm = (smRaw != null) ? Number(smRaw) : null;
+      const alRaw = (data.al != null ? data.al : (data.arm_lock != null ? data.arm_lock : null));
+      const al = (alRaw != null) ? Number(alRaw) : null;
+      const srRaw = (data.sr != null) ? data.sr : (data.storage_ready != null ? data.storage_ready : null);
+      const sr = (srRaw != null) ? Number(srRaw) : null;
       const mode = Number(data.m != null ? data.m : data.mode ?? -1);
       const wsQueueDropCount = Number(data.wq != null ? data.wq : (data.ws_queue_drop ?? 0));
+
+      if(sr != null && Number.isFinite(sr)){
+        spiFlashReadyState = (sr !== 0);
+      }
 
       if(!isReplaySample && isFinite(wsQueueDropCount)){
         handleWsBackpressureSignal(wsQueueDropCount);
@@ -9145,24 +12113,49 @@
       }else if(st===0 && localTplusStartMs!=null){
         localTplusActive = true;
       }
+      updateParachuteDeployState(st, relayMask, !!ab, timeMs);
       latestTelemetry = {
-        sw: sw?1:0,
-        ic: ic?1:0,
-        rly: rly?1:0,
+        sw: swOn ? 1 : 0,
+        ic: icOn ? 1 : 0,
+        rly: relayMask,
         mode,
         gs,
-        sm: (sm != null) ? (sm ? 1 : 0) : (safetyModeEnabled ? 1 : 0)
+        uw: uw?1:0,
+        sm: (sm != null) ? (sm ? 1 : 0) : (safetyModeEnabled ? 1 : 0),
+        al: (al != null) ? (al ? 1 : 0) : null,
+        lc_raw: lastLoadcellRaw,
+        lc_raw_ok: lastLoadcellRawValid ? 1 : 0,
+        lc_ready: lastLoadcellReadyFlag,
+        lc_sat: lastLoadcellSaturated ? 1 : 0,
+        lc_offset_ok: lastLoadcellOffsetValid
       };
       const telemetryGeo = extractTelemetryGeo(data, {koreaOnly:false}) ||
         ((simEnabled && !replaySourceActive && simState && simState.lastGeo) ? simState.lastGeo : null);
       updateStatusMapFromTelemetry(data);
-      updateGyroAttitudeEstimate(ax, ay, az, gx, gy, gz, timeMs);
+      if(!(ga !== 0 && applyFirmwareGyroAttitudeEstimate(gr, gp, gyw, timeMs))){
+        updateGyroAttitudeEstimate(ax, ay, az, gx, gy, gz, timeMs);
+      }
       updateGyroPathFromTelemetry(data, timeMs, {ax, ay, az, st});
       const quickFlight = getQuickFlightMetrics(data, timeMs);
       const quickAltitudeM = isFinite(quickFlight.altitudeM)
         ? ((Math.abs(quickFlight.altitudeM) < 0.05) ? 0 : quickFlight.altitudeM)
         : NaN;
       const quickSpeedMps = isFinite(quickFlight.speedMps) ? Math.max(0, quickFlight.speedMps) : NaN;
+      // Live mission execution is handled onboard (ESP32 internal flash runtime).
+      // Keep JS mission runtime only for replay/simulator validation.
+      if(isReplaySample || simEnabled){
+        processReplayMissionRuntime(data, {
+          sampleTimeMs: isReplaySample ? Number(data && data._replayTsMs) : timeMs,
+          altitudeM: quickAltitudeM,
+          sw: swOn ? 1 : 0,
+          st,
+          tdMs: td,
+          thrustKgf: thrustVal,
+          gyroXDeg: gyroRollDeg,
+          gyroYDeg: gyroPitchDeg,
+          gyroZDeg: gyroYawDeg
+        }, isReplaySample);
+      }
       const fwBoard = data.fw_board ?? data.fwBoard ?? null;
       const fwProgram = data.fw_program ?? data.fwProgram ?? null;
       const fwProtocol = data.fw_protocol ?? data.fwProtocol ?? null;
@@ -9183,11 +12176,17 @@
 
       thrustBaseHistory.push(thrustVal);
       pressureBaseHistory.push(p);
+      quickAltitudeHistory.push(isFinite(quickAltitudeM) ? quickAltitudeM : 0);
+      const gyroSpeedDps = Math.sqrt((gx * gx) + (gy * gy) + (gz * gz));
+      gyroSpeedHistory.push(isFinite(gyroSpeedDps) ? gyroSpeedDps : 0);
       const accelMagVal = Math.sqrt((ax * ax) + (ay * ay) + (az * az));
       accelMagHistory.push(accelMagVal);
       accelXHistory.push(ax);
       accelYHistory.push(ay);
       accelZHistory.push(az);
+      gyroXHistory.push(gx);
+      gyroYHistory.push(gy);
+      gyroZHistory.push(gz);
       chartTimeHistory.push(timeMs);
 
       const maxKeep=MAX_POINTS*4;
@@ -9195,14 +12194,19 @@
         const remove=thrustBaseHistory.length-maxKeep;
         thrustBaseHistory.splice(0,remove);
         pressureBaseHistory.splice(0,remove);
+        quickAltitudeHistory.splice(0,remove);
+        gyroSpeedHistory.splice(0,remove);
         accelMagHistory.splice(0,remove);
         accelXHistory.splice(0,remove);
         accelYHistory.splice(0,remove);
         accelZHistory.splice(0,remove);
+        gyroXHistory.splice(0,remove);
+        gyroYHistory.splice(0,remove);
+        gyroZHistory.splice(0,remove);
         chartTimeHistory.splice(0,remove);
       }
 
-      sampleHistory.push({timeMs,timeIso,t:thrustVal,p,lt,elapsed:elapsedMs,hz:hxHz,ct:ctUs,sw:sw?1:0,ic:ic?1:0,r:rly?1:0,st,td});
+      sampleHistory.push({timeMs,timeIso,t:thrustVal,p,lt,elapsed:elapsedMs,hz:hxHz,ct:ctUs,sw:swOn?1:0,ic:icOn?1:0,r:relayMask,st,td});
       if(sampleHistory.length>SAMPLE_HISTORY_MAX){
         const remove=sampleHistory.length-SAMPLE_HISTORY_MAX;
         sampleHistory.splice(0,remove);
@@ -9213,7 +12217,7 @@
         gps_lat:(telemetryGeo && isFinite(Number(telemetryGeo.lat))) ? Number(telemetryGeo.lat) : null,
         gps_lon:(telemetryGeo && isFinite(Number(telemetryGeo.lon))) ? Number(telemetryGeo.lon) : null,
         gps_alt:(telemetryGeo && isFinite(Number(telemetryGeo.alt))) ? Number(telemetryGeo.alt) : null,
-        ax,ay,az,gx,gy,gz,lt,elapsed:elapsedMs,hz:hxHz,ct:ctUs,s:sw?1:0,ic:ic?1:0,r:rly?1:0,gs,st,td
+        ax,ay,az,gx,gy,gz,lt,elapsed:elapsedMs,hz:hxHz,ct:ctUs,s:swOn?1:0,ic:icOn?1:0,r:relayMask,gs,st,td
       });
       logDataRevision += 1;
       if(logData.length > RAW_LOG_MAX) logData.splice(0, logData.length - RAW_LOG_MAX);
@@ -9284,16 +12288,12 @@
         updateConnectionUI(true);
         disconnectedLogged=false;
 
-        if(prevSwState===null) prevSwState=!!sw;
-        else if(prevSwState!==!!sw){
-          prevSwState=!!sw;
+        if(prevSwState===null) prevSwState=swOn;
+        else if(prevSwState!==swOn){
+          prevSwState=swOn;
           if(prevSwState){
-            if(currentSt === 0){
-              localTplusStartMs = Date.now();
-              localTplusActive = true;
-            }
             addLogLine(t("switchHighLog"), "SW");
-            if((uiSettings && uiSettings.igs) && !ic){
+            if((uiSettings && uiSettings.igs) && !icOn){
               showToast(t("countdownIgniterRequired", {safety:safetyLineSuffix()}), "notice");
             }else{
               showToast(t("switchHighToast", {safety:safetyLineSuffix()}),"warn");
@@ -9349,8 +12349,9 @@
 
         const thrustDisp=convertThrustForDisplay(thrustVal);
         const thrustUnit = (uiSettings && uiSettings.thrustUnit) ? uiSettings.thrustUnit : "kgf";
-        const inFlightMode = document.documentElement.classList.contains("mode-flight");
+        const inFlightMode = isFlightModeUi();
         updateQuickMetricLabels();
+        updateQuickAuxLabels();
         if(inFlightMode){
           const altVal = quickAltitudeM;
           const speedVal = quickSpeedMps;
@@ -9380,10 +12381,10 @@
             }else{
               if(metric) metric.classList.remove("is-alert");
               if(metric) metric.classList.remove("loadcell-blink");
-              el.thrust.innerHTML = `<span class="num">${thrustDisp.toFixed(3)}</span><span class="unit">${thrustUnit}</span>`;
+              el.thrust.innerHTML = `<span class="num">${formatThrustDisplay(thrustDisp)}</span><span class="unit">${thrustUnit}</span>`;
             }
           }
-          if(el.pressure) el.pressure.innerHTML = `<span class="num">${p.toFixed(3)}</span><span class="unit">V</span>`;
+          if(el.pressure) el.pressure.innerHTML = `<span class="num">${formatQuickPressureDisplay(p)}</span><span class="unit">MPa</span>`;
         }
       syncExpandedQuickMetrics();
       if(el.accelX) el.accelX.innerHTML = `<span class="num">${ax.toFixed(3)}</span><span class="unit">g</span>`;
@@ -9404,14 +12405,17 @@
           const nowUi = Date.now();
           const gyroUiIntervalMs = simEnabled ? 40 : 80;
           if(gyroLastUiMs === 0 || (nowUi - gyroLastUiMs) >= gyroUiIntervalMs){
+            const displayRollDeg = getGyroDisplayRollDeg();
+            const displayPitchDeg = getGyroDisplayPitchDeg();
+            const displayYawDeg = getGyroDisplayYawDeg();
             renderGyroGl(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
             renderNavBall(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
             renderGyroPreview(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
             renderNavBallPreview(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
-            updateLauncherPitchAngle(gyroPitchDeg, gy, nowUi);
-            if(el.gyroRollDeg) el.gyroRollDeg.innerHTML = `<span class="num">${gyroRollDeg.toFixed(1)}</span><span class="unit">deg</span>`;
-            if(el.gyroPitchDeg) el.gyroPitchDeg.innerHTML = `<span class="num">${gyroPitchDeg.toFixed(1)}</span><span class="unit">deg</span>`;
-            if(el.gyroYawDeg) el.gyroYawDeg.innerHTML = `<span class="num">${gyroYawDeg.toFixed(1)}</span><span class="unit">deg</span>`;
+            updateLauncherPitchAngle(displayPitchDeg, gy, nowUi);
+            if(el.gyroRollDeg) el.gyroRollDeg.innerHTML = `<span class="num">${displayRollDeg.toFixed(1)}</span><span class="unit">deg</span>`;
+            if(el.gyroPitchDeg) el.gyroPitchDeg.innerHTML = `<span class="num">${displayPitchDeg.toFixed(1)}</span><span class="unit">deg</span>`;
+            if(el.gyroYawDeg) el.gyroYawDeg.innerHTML = `<span class="num">${displayYawDeg.toFixed(1)}</span><span class="unit">deg</span>`;
             gyroLastUiMs = nowUi;
           }
         }
@@ -9423,7 +12427,7 @@
         }
         if(el.pressureGauge){
           const pressureVal = Math.max(0, p);
-          const pressurePct = Math.min(100, (PRESSURE_GAUGE_MAX_V > 0 ? (pressureVal / PRESSURE_GAUGE_MAX_V) * 100 : 0));
+          const pressurePct = Math.min(100, (PRESSURE_GAUGE_MAX_MPA > 0 ? (pressureVal / PRESSURE_GAUGE_MAX_MPA) * 100 : 0));
           el.pressureGauge.style.setProperty("--gauge-pct", pressurePct.toFixed(1) + "%");
         }
         if(el.lt){
@@ -9442,19 +12446,40 @@
             lastSnapHzUiMs = nowUi;
           }
         }
-        if(el.hxHz) el.hxHz.textContent = (hxHz>0 && isFinite(hxHz)) ? (hxHz.toFixed(0) + " Hz") : "-- Hz";
+        if(el.hxHz) el.hxHz.textContent = (hxHzDisplay>0 && isFinite(hxHzDisplay)) ? (hxHzDisplay.toFixed(0) + " Hz") : "-- Hz";
         if(el.quickHxHz){
-          const hxNum = (hxHz>0 && isFinite(hxHz)) ? hxHz.toFixed(0) : "--";
-          el.quickHxHz.innerHTML = `<span class="num">${hxNum}</span><span class="unit">Hz</span>`;
+          if(inFlightMode){
+            el.quickHxHz.innerHTML = `<span class="num">null</span>`;
+            setQuickItemStatus(el.quickHxHz, null);
+          }else{
+            const hxNum = (hxHzDisplay>0 && isFinite(hxHzDisplay)) ? hxHzDisplay.toFixed(0) : "--";
+            el.quickHxHz.innerHTML = `<span class="num">${hxNum}</span><span class="unit">Hz</span>`;
+            setQuickItemStatus(el.quickHxHz, null);
+          }
+        }
+        if(el.quickNullValue){
+          if(inFlightMode){
+            const displayYawDeg = getGyroDisplayYawDeg();
+            el.quickNullValue.innerHTML = formatQuickGyroDeg(displayYawDeg);
+            setQuickItemStatus(el.quickNullValue, null);
+          }else{
+            const sdText = (spiFlashReadyState == null) ? "--" : (spiFlashReadyState ? "READY" : "NOT READY");
+            el.quickNullValue.innerHTML = `<span class="num">${sdText}</span>`;
+            setQuickItemStatus(el.quickNullValue, (spiFlashReadyState == null) ? null : (spiFlashReadyState ? "ok" : "warn"));
+          }
+        }
+        if(el.quickNull2Value){
+          el.quickNull2Value.innerHTML = `<span class="num">null</span>`;
+          setQuickItemStatus(el.quickNull2Value, null);
+        }
+        if(el.quickNull3Value){
+          el.quickNull3Value.innerHTML = `<span class="num">null</span>`;
+          setQuickItemStatus(el.quickNull3Value, null);
         }
         if(el.cpuUs) el.cpuUs.textContent = (ctUs>0 && isFinite(ctUs)) ? (ctUs.toFixed(0) + " us") : "-- us";
 
-        if(el.ignDelayDisplay) el.ignDelayDisplay.textContent = (ignitionAnalysis.delaySec!=null)
-          ? (t("labelDelay") + " " + ignitionAnalysis.delaySec.toFixed(3) + "s")
-          : (t("labelDelay") + " --.-s");
-        if(el.burnDurationDisplay) el.burnDurationDisplay.textContent = (ignitionAnalysis.durationSec!=null)
-          ? (t("labelBurn") + " " + ignitionAnalysis.durationSec.toFixed(3) + "s")
-          : (t("labelBurn") + " --.-s");
+        if(el.ignDelayDisplay) el.ignDelayDisplay.textContent = (t("labelDelay") + " " + formatQuickTimeDisplay(ignitionAnalysis.delaySec) + "s");
+        if(el.burnDurationDisplay) el.burnDurationDisplay.textContent = (t("labelBurn") + " " + formatQuickTimeDisplay(ignitionAnalysis.durationSec) + "s");
 
         if(el.modePill){
           let label="-";
@@ -9467,31 +12492,25 @@
         updateRelaySafePill();
 
         if(el.sw){
-          if(sw){ el.sw.textContent = t("swHigh"); el.sw.className="pill pill-green"; }
-          else { el.sw.textContent = t("swLow"); el.sw.className="pill pill-gray"; }
+          if(swOn){ el.sw.textContent = "ON"; el.sw.className="pill pill-green"; }
+          else { el.sw.textContent = "OFF"; el.sw.className="pill pill-gray"; }
         }
         if(el.quickSw){
-          const swLabel = (sw == null) ? "--" : (sw ? t("swHigh") : t("swLow"));
+          const swLabel = (sw == null || !Number.isFinite(sw)) ? "--" : (swOn ? "ON" : "OFF");
           el.quickSw.innerHTML = `<span class="num">${swLabel}</span>`;
-          setQuickItemStatus(el.quickSw, (sw == null) ? null : (sw ? "ok" : "warn"));
+          setQuickItemStatus(el.quickSw, (sw == null || !Number.isFinite(sw)) ? null : (swOn ? "ok" : "warn"));
         }
 
         if(el.ic){
-          if(ic){ el.ic.textContent = t("icOk"); el.ic.className="pill pill-green"; }
+          if(icOn){ el.ic.textContent = t("icOk"); el.ic.className="pill pill-green"; }
           else { el.ic.textContent = t("icNo"); el.ic.className="pill pill-red"; }
         }
-        if(el.quickIgniter){
-          const icLabel = (ic == null) ? "--" : (ic ? t("icOk") : t("icNo"));
-          el.quickIgniter.innerHTML = `<span class="num">${icLabel}</span>`;
-          setQuickItemStatus(el.quickIgniter, (ic == null) ? null : (ic ? "ok" : "bad"));
-        }
-
         if(el.relay){
-          if(rly){ el.relay.textContent = t("relayOn"); el.relay.className="pill pill-green"; }
+          if(relayMask){ el.relay.textContent = t("relayOn"); el.relay.className="pill pill-green"; }
           else { el.relay.textContent = t("relayOff"); el.relay.className="pill pill-gray"; }
         }
         if(el.quickRelay1 || el.quickRelay2){
-          const rlyMask = (rly == null) ? null : Number(rly);
+          const rlyMask = (rly == null || !Number.isFinite(rly)) ? null : relayMask;
           const r1On = (rlyMask == null) ? null : ((rlyMask & 1) !== 0);
           const r2On = (rlyMask == null) ? null : ((rlyMask & 2) !== 0);
           const lockMask = lockoutLatched ? (lockoutRelayMask || 0) : 0;
@@ -9500,27 +12519,44 @@
           const r2Lock = lockoutLatched && (lockAll || ((lockMask & 2) !== 0));
 
           if(el.quickRelay1){
-            let r1Label = (r1On == null) ? "--" : (r1On ? t("relayOn") : t("relayOff"));
-            let r1Status = (r1On == null) ? null : (r1On ? "ok" : "warn");
-            if(r1Lock){
-              r1Label = "ERROR";
-              r1Status = "bad";
+            let pyroLabel = "--";
+            let pyroStatus = null;
+            if(rlyMask != null){
+              const active = [];
+              for(let ch=1; ch<=4; ch++){
+                if((rlyMask & (1 << (ch - 1))) !== 0){
+                  active.push("CH" + ch);
+                }
+              }
+              pyroLabel = active.length ? active.join(",") : "ALL OFF";
+              pyroStatus = active.length ? "ok" : "warn";
             }
-            el.quickRelay1.innerHTML = `<span class="num">${r1Label}</span>`;
-            setQuickItemStatus(el.quickRelay1, r1Status);
+            if(lockoutLatched){
+              pyroLabel = "ERROR";
+              pyroStatus = "bad";
+            }
+            el.quickRelay1.innerHTML = `<span class="num">${pyroLabel}</span>`;
+            setQuickItemStatus(el.quickRelay1, pyroStatus);
           }
           if(el.quickRelay2){
-            let r2Label = (r2On == null) ? "--" : (r2On ? t("relayOn") : t("relayOff"));
-            let r2Status = (r2On == null) ? null : (r2On ? "ok" : "warn");
-            if(r2Lock){
-              r2Label = "ERROR";
-              r2Status = "bad";
+            if(inFlightMode){
+              const displayRollDeg = getGyroDisplayRollDeg();
+              el.quickRelay2.innerHTML = formatQuickGyroDeg(displayRollDeg);
+              setQuickItemStatus(el.quickRelay2, null);
+            }else{
+              let r2Label = (r2On == null) ? "--" : (r2On ? t("relayOn") : t("relayOff"));
+              let r2Status = (r2On == null) ? null : (r2On ? "ok" : "warn");
+              if(r2Lock){
+                r2Label = "ERROR";
+                r2Status = "bad";
+              }
+              el.quickRelay2.innerHTML = `<span class="num">${r2Label}</span>`;
+              setQuickItemStatus(el.quickRelay2, r2Status);
             }
-            el.quickRelay2.innerHTML = `<span class="num">${r2Label}</span>`;
-            setQuickItemStatus(el.quickRelay2, r2Status);
           }
         }
         updateGyroMetaFromMain();
+        const parachuteStatusActive = isParachuteDeployStatusActive(st, !!ab);
         if(el.quickState){
           let stateLabel="--";
           let stateStatus=null;
@@ -9529,6 +12565,7 @@
           else if(ab) stateLabel = t("statusAbort");
           else if(st===2) stateLabel = t("statusIgnition");
           else if(st===1) stateLabel = t("statusCountdown");
+          else if(parachuteStatusActive) stateLabel = t("statusParachute");
           else if(sequenceActive) stateLabel = t("statusSequence");
           else if(st===0){
             if(loadcellErrorActive){
@@ -9539,6 +12576,7 @@
             }
           }
           if(lockoutLatched || ab || st===2) stateStatus = "bad";
+          else if(parachuteStatusActive) stateStatus = "ok";
           else if(st===1 || sequenceActive || (st===0 && (ic===0 || loadcellErrorActive))) stateStatus = "warn";
           else if(st===0) stateStatus = "ok";
           const loadcellLabel = t("statusLoadcellCheck");
@@ -9554,8 +12592,12 @@
 
         if(el.igswitch) el.igswitch.checked=!!gs;
         if(el.safeModeToggle && sm != null){
-          el.safeModeToggle.checked = !!sm;
+          el.safeModeToggle.checked = !!sm; 
           updateTogglePill(el.safeModePill, el.safeModeToggle.checked);
+        }
+        if(el.armLockToggle && al != null){
+          el.armLockToggle.checked = !!al;
+          updateTogglePill(el.armLockPill, el.armLockToggle.checked);
         }
 
         let tplusActive = false;
@@ -9610,7 +12652,7 @@
           if(el.countdownBig) el.countdownBig.textContent = cdLabel;
         }
         updateAbortButtonLabel(tplusActive && st !== 2);
-        const statusCode=setStatusFromState(st,!!ic,!!ab,lockoutLatched, sequenceActive);
+        const statusCode=setStatusFromState(st,!!ic,!!ab,lockoutLatched, sequenceActive, parachuteStatusActive);
         syncCountdownInlineStatus();
         if(el.countdownStatus && el.statusText){
           el.countdownStatus.textContent = el.statusText.textContent || "";
@@ -9638,6 +12680,10 @@
             lastAbortReason = null;
           }else if(statusCode===3){
             showToast(t("notArmedToast", {safety:safetyLineSuffix()}),"notice");
+          }else if(statusCode===7){
+            const chuteCh = parachuteDeployChannel || normalizePyroChannel(uiSettings && uiSettings.daqSequencePyroChannel, 1);
+            addLogLine(t("statusParachuteLog", {ch:chuteCh}), "PYRO");
+            showToast(t("statusParachuteToast", {ch:chuteCh}), "info", {key:"parachute-deploy"});
           }else if(statusCode===9){
             const now = Date.now();
             if(now - lastLockoutToastMs > 5000){
@@ -9699,7 +12745,9 @@
     async function fetchWifiInfo(){
       if(simEnabled) return;
       try{
-        const info = await fetchJsonTimeout("/wifi_info", 700);
+        const API_BASE = getApiBaseForCommands();
+        const url = (API_BASE ? API_BASE : "") + "/wifi_info";
+        const info = await fetchJsonTimeout(url, 700);
         wifiInfo = info;
         wifiInfoLastMs = Date.now();
         updateWifiInfoUI(info);
@@ -9707,6 +12755,404 @@
         if(!wifiInfo || (Date.now() - wifiInfoLastMs) > 5000){
           updateWifiInfoUI(null);
         }
+      }
+    }
+
+    function formatDurationHms(totalSec){
+      const sec = Math.max(0, Math.floor(Number(totalSec) || 0));
+      const h = Math.floor(sec / 3600);
+      const m = Math.floor((sec % 3600) / 60);
+      const s = sec % 60;
+      if(h > 0) return h + "h " + m + "m " + s + "s";
+      if(m > 0) return m + "m " + s + "s";
+      return s + "s";
+    }
+
+    function estimateSpiFlashRemainingSec(info){
+      const usedBytes = Number(info && info.used_bytes || 0);
+      const capBytes = Number(info && info.capacity_bytes || 0);
+      const queuedBytes = Number(info && info.queue_bytes || 0);
+      const recordCount = Number(info && info.record_count || 0);
+
+      const remainingBytes = Math.max(0, capBytes - usedBytes - queuedBytes);
+      const fallbackBytesPerRecord = 86; // header(16) + sample payload(70)
+      const bytesPerRecord = (recordCount > 0 && usedBytes > 0)
+        ? Math.max(1, usedBytes / recordCount)
+        : fallbackBytesPerRecord;
+
+      let samplePeriodMs = 10; // firmware SAMPLE_PERIOD_MS fallback
+      if(Array.isArray(sampleHistory) && sampleHistory.length){
+        const tail = sampleHistory[sampleHistory.length - 1];
+        const lt = Number(tail && tail.lt);
+        if(isFinite(lt) && lt > 0) samplePeriodMs = lt;
+      }
+      const remainRecords = remainingBytes / bytesPerRecord;
+      const remainSec = remainRecords * (samplePeriodMs / 1000.0);
+      return Math.max(0, Math.floor(remainSec));
+    }
+
+    function updateSpiFlashStatusUi(info, errMsg){
+      if(!el.spiFlashStatusLine) return;
+      if(errMsg){
+        spiFlashReadyState = null;
+        el.spiFlashStatusLine.textContent = "SD CARD 상태 확인 실패: " + String(errMsg);
+        return;
+      }
+      if(!info || !info.ready){
+        spiFlashReadyState = false;
+        el.spiFlashStatusLine.textContent = "SD CARD NOT READY";
+        return;
+      }
+      spiFlashReadyState = true;
+      const usedBytes = Number(info.used_bytes || 0);
+      const capBytes = Number(info.capacity_bytes || 0);
+      const queuedBytes = Number(info.queue_bytes || 0);
+      const recordCount = Number(info.record_count || 0);
+      const usedMb = (usedBytes / (1024 * 1024)).toFixed(2);
+      const capMb = (capBytes / (1024 * 1024)).toFixed(2);
+      const mfrHex = Number(info.jedec && info.jedec.mfr || 0).toString(16).toUpperCase().padStart(2, "0");
+      const capCodeHex = Number(info.jedec && info.jedec.cap_code || 0).toString(16).toUpperCase().padStart(2, "0");
+      const remainSec = estimateSpiFlashRemainingSec(info);
+      const remainHms = formatDurationHms(remainSec);
+      el.spiFlashStatusLine.textContent =
+        "SD CARD READY · " + usedMb + "MB / " + capMb + "MB · records " + recordCount +
+        " · queue " + queuedBytes + "B · 남은 약 " + remainSec + "초 (" + remainHms + ")" +
+        " · JEDEC " + mfrHex + ".." + capCodeHex;
+    }
+
+    function canUseSerialForSpiFlash(){
+      return !!(serialEnabled && serialConnected && serialTxEnabled);
+    }
+
+    const SPI_FLASH_SERIAL_CHUNK_BYTES = 96;
+
+    function parseSpiFlashStatusAckMessage(message){
+      const raw = String(message || "").trim();
+      const prefix = "SPI_FLASH_STATUS";
+      if(raw.indexOf(prefix) !== 0) return null;
+
+      const fields = {};
+      const tail = raw.slice(prefix.length).trim();
+      const kvRegex = /([A-Za-z0-9_]+)=([^\s]+)/g;
+      let match;
+      while((match = kvRegex.exec(tail))){
+        const key = String(match[1] || "").toLowerCase();
+        const value = String(match[2] || "");
+        fields[key] = value;
+      }
+      const parseNumber = (key, fallback)=>{
+        const v = fields[key];
+        if(v == null || v === "") return fallback;
+        const n = Number(v);
+        return isFinite(n) ? n : fallback;
+      };
+
+      return {
+        ok: 1,
+        ready: parseNumber("ready", 0) ? 1 : 0,
+        busy: parseNumber("busy", 0) ? 1 : 0,
+        jedec: {
+          mfr: parseNumber("mfr", 0),
+          type: parseNumber("type", 0),
+          cap_code: parseNumber("cap_code", 0)
+        },
+        capacity_bytes: parseNumber("capacity", 0),
+        used_bytes: parseNumber("used", 0),
+        queue_bytes: parseNumber("queue", 0),
+        record_count: parseNumber("records", 0),
+        dropped_records: parseNumber("dropped", 0),
+        flush_count: parseNumber("flush", 0)
+      };
+    }
+
+    function parseSpiFlashChunkAckMessage(message){
+      const raw = String(message || "").trim();
+      const prefix = "SPI_FLASH_CHUNK";
+      if(raw.indexOf(prefix) !== 0) return null;
+      const tail = raw.slice(prefix.length).trim();
+
+      let off = NaN;
+      let len = NaN;
+      let b64 = "";
+      const kvRegex = /([A-Za-z0-9_]+)=([^\s]+)/g;
+      let match;
+      while((match = kvRegex.exec(tail))){
+        const key = String(match[1] || "").toLowerCase();
+        const value = String(match[2] || "");
+        if(key === "off") off = Number(value);
+        else if(key === "len") len = Number(value);
+        else if(key === "b64") b64 = value;
+      }
+
+      if(!isFinite(off) || off < 0) return null;
+      if(!isFinite(len) || len <= 0) return null;
+      if(!b64) return null;
+      return {off:Math.floor(off), len:Math.floor(len), b64};
+    }
+
+    function decodeBase64ToBytes(b64){
+      const text = String(b64 || "").trim();
+      if(!text) return new Uint8Array(0);
+      const bin = atob(text);
+      const out = new Uint8Array(bin.length);
+      for(let i=0;i<bin.length;i++){
+        out[i] = bin.charCodeAt(i) & 0xFF;
+      }
+      return out;
+    }
+
+    function buildSpiFlashBinHeader(info){
+      const headerSize = 40;
+      const dataBytes = Math.max(0, Number(info && info.used_bytes || 0)) >>> 0;
+      const recordCount = Math.max(0, Number(info && info.record_count || 0)) >>> 0;
+      let samplePeriodMs = 10;
+      if(Array.isArray(sampleHistory) && sampleHistory.length){
+        const tail = sampleHistory[sampleHistory.length - 1];
+        const lt = Number(tail && tail.lt);
+        if(isFinite(lt) && lt > 0) samplePeriodMs = Math.max(1, Math.round(lt));
+      }
+
+      const header = new Uint8Array(headerSize);
+      const dv = new DataView(header.buffer);
+      const magic = "HWLOGV1";
+      for(let i=0;i<magic.length;i++) header[i] = magic.charCodeAt(i);
+      header[7] = 0;
+      dv.setUint16(8, 1, true); // version
+      dv.setUint16(10, headerSize, true);
+      dv.setUint32(12, dataBytes, true);
+      dv.setUint32(16, recordCount, true);
+      dv.setUint32(20, (Date.now() >>> 0), true); // exportedAtMs
+      dv.setUint32(24, (samplePeriodMs >>> 0), true);
+      dv.setUint32(28, (REPLAY_BIN_RECORD_MARKER >>> 0), true);
+      dv.setUint32(32, 0, true);
+      dv.setUint32(36, 0, true);
+      return header;
+    }
+
+    async function fetchSpiFlashStatusViaSerial(){
+      if(!canUseSerialForSpiFlash()){
+        throw new Error("SERIAL_NOT_READY");
+      }
+      const waiter = createSerialAckWaiter((evt)=>{
+        if(evt.kind === "err") return true;
+        return evt.kind === "ack" && String(evt.message || "").indexOf("SPI_FLASH_STATUS") === 0;
+      }, 1600);
+      const wrote = await serialWriteLine("/storage/spi_flash/status");
+      if(!wrote){
+        cancelSerialAckWaiter(waiter, "SERIAL_WRITE_FAIL");
+        throw new Error("SERIAL_WRITE_FAIL");
+      }
+      const reply = await waiter.promise;
+      if(!reply.ok){
+        throw new Error(reply.message || reply.kind || "SERIAL_FAIL");
+      }
+      const info = parseSpiFlashStatusAckMessage(reply.message);
+      if(!info){
+        throw new Error("SERIAL_PARSE_FAIL");
+      }
+      updateSpiFlashStatusUi(info, null);
+      return info;
+    }
+
+    async function fetchSpiFlashChunkViaSerial(off, len){
+      if(!canUseSerialForSpiFlash()){
+        throw new Error("SERIAL_NOT_READY");
+      }
+      const offInt = Math.max(0, Math.floor(Number(off) || 0));
+      const lenInt = Math.max(1, Math.min(SPI_FLASH_SERIAL_CHUNK_BYTES, Math.floor(Number(len) || 0)));
+      const cmd = "/storage/spi_flash/read?off=" + offInt + "&len=" + lenInt;
+      const waiter = createSerialAckWaiter((evt)=>{
+        if(evt.kind === "err") return true;
+        return evt.kind === "ack" && String(evt.message || "").indexOf("SPI_FLASH_CHUNK") === 0;
+      }, 2400);
+      const wrote = await serialWriteLine(cmd);
+      if(!wrote){
+        cancelSerialAckWaiter(waiter, "SERIAL_WRITE_FAIL");
+        throw new Error("SERIAL_WRITE_FAIL");
+      }
+      const reply = await waiter.promise;
+      if(!reply.ok){
+        throw new Error(reply.message || reply.kind || "SERIAL_FAIL");
+      }
+      const chunk = parseSpiFlashChunkAckMessage(reply.message);
+      if(!chunk){
+        throw new Error("SERIAL_CHUNK_PARSE_FAIL");
+      }
+      if(chunk.off !== offInt || chunk.len !== lenInt){
+        throw new Error("SERIAL_CHUNK_MISMATCH");
+      }
+      const bytes = decodeBase64ToBytes(chunk.b64);
+      if(bytes.length !== lenInt){
+        throw new Error("SERIAL_CHUNK_SIZE_FAIL");
+      }
+      return bytes;
+    }
+
+    async function downloadSpiFlashDumpViaSerial(){
+      const info = await fetchSpiFlashStatusViaSerial();
+      const dataBytes = Math.max(0, Number(info && info.used_bytes || 0));
+      const header = buildSpiFlashBinHeader(info);
+      const chunks = [header];
+      let off = 0;
+      while(off < dataBytes){
+        const len = Math.min(SPI_FLASH_SERIAL_CHUNK_BYTES, dataBytes - off);
+        const bytes = await fetchSpiFlashChunkViaSerial(off, len);
+        chunks.push(bytes);
+        off += len;
+        if(el.spiFlashStatusLine){
+          const pct = dataBytes > 0 ? Math.floor((off * 100) / dataBytes) : 100;
+          el.spiFlashStatusLine.textContent = "SPI Flash BIN 시리얼 다운로드 중... " + pct + "%";
+        }
+      }
+
+      const ts = new Date().toISOString().replace(/[:.]/g, "-");
+      const blob = new Blob(chunks, {type:"application/octet-stream"});
+      downloadBlobAsFile(blob, "spi_flash_log_" + ts + ".bin");
+      showToast("SPI Flash BIN(Serial) 다운로드 완료", "success", {key:"spi-flash-dump-serial"});
+      await fetchSpiFlashStatus();
+    }
+
+    async function fetchSpiFlashStatus(){
+      let serialReason = "";
+      if(canUseSerialForSpiFlash()){
+        try{
+          return await fetchSpiFlashStatusViaSerial();
+        }catch(err){
+          serialReason = (err && err.message) ? err.message : String(err || "SERIAL_ERROR");
+        }
+      }
+      const API_BASE = getApiBaseForCommands();
+      const url = (API_BASE ? API_BASE : "") + "/storage/spi_flash/status";
+      const ctrl = new AbortController();
+      const timer = setTimeout(()=>{ try{ ctrl.abort(); }catch(_e){} }, 3500);
+      const opt = API_BASE
+        ? {cache:"no-store", mode:"cors", signal:ctrl.signal}
+        : {cache:"no-store", signal:ctrl.signal};
+      try{
+        const res = await fetch(url, opt);
+        if(!res.ok){
+          throw new Error("HTTP " + res.status);
+        }
+        const info = await res.json();
+        updateSpiFlashStatusUi(info, null);
+        return info;
+      }catch(err){
+        const httpReason = (err && err.name === "AbortError")
+          ? "TIMEOUT(3.5s)"
+          : ((err && err.message) ? err.message : String(err || "unknown"));
+        const reason = serialReason ? ("SERIAL " + serialReason + " / HTTP " + httpReason) : httpReason;
+        updateSpiFlashStatusUi(null, reason);
+        return null;
+      }finally{
+        clearTimeout(timer);
+      }
+    }
+
+    async function resetSpiFlashStorage(){
+      let serialReason = "";
+      if(canUseSerialForSpiFlash()){
+        try{
+          if(el.spiFlashStatusLine) el.spiFlashStatusLine.textContent = "SPI Flash 저장소 초기화 중...(Serial)";
+          const waiter = createSerialAckWaiter((evt)=>{
+            if(evt.kind === "err") return true;
+            return evt.kind === "ack" && String(evt.message || "").indexOf("SPI_FLASH_INIT_OK") === 0;
+          }, 2400);
+          const wrote = await serialWriteLine("/storage/spi_flash/init");
+          if(!wrote){
+            cancelSerialAckWaiter(waiter, "SERIAL_WRITE_FAIL");
+            throw new Error("SERIAL_WRITE_FAIL");
+          }
+          const reply = await waiter.promise;
+          if(!reply.ok){
+            throw new Error(reply.message || reply.kind || "SERIAL_FAIL");
+          }
+          await fetchSpiFlashStatus();
+          showToast("SPI Flash 저장소를 초기화했습니다.", "success", {key:"spi-flash-init"});
+          return;
+        }catch(err){
+          serialReason = (err && err.message) ? err.message : String(err || "SERIAL_ERROR");
+        }
+      }
+      const API_BASE = getApiBaseForCommands();
+      const url = (API_BASE ? API_BASE : "") + "/storage/spi_flash/init";
+      const ctrl = new AbortController();
+      const timer = setTimeout(()=>{ try{ ctrl.abort(); }catch(_e){} }, 5000);
+      const opt = API_BASE
+        ? {method:"POST", mode:"cors", signal:ctrl.signal}
+        : {method:"POST", signal:ctrl.signal};
+      try{
+        if(el.spiFlashStatusLine) el.spiFlashStatusLine.textContent = "SPI Flash 저장소 초기화 중...";
+        const res = await fetch(url, opt);
+        if(!res.ok){
+          const text = await res.text();
+          throw new Error(text || ("HTTP " + res.status));
+        }
+        await fetchSpiFlashStatus();
+        showToast("SPI Flash 저장소를 초기화했습니다.", "success", {key:"spi-flash-init"});
+      }catch(err){
+        const httpReason = (err && err.name === "AbortError")
+          ? "TIMEOUT(5s)"
+          : ((err && err.message) ? err.message : String(err || "unknown"));
+        const reason = serialReason ? ("SERIAL " + serialReason + " / HTTP " + httpReason) : httpReason;
+        showToast("SPI Flash 초기화 실패: " + reason, "error", {key:"spi-flash-init-fail"});
+        updateSpiFlashStatusUi(null, reason);
+      }finally{
+        clearTimeout(timer);
+      }
+    }
+
+    async function downloadSpiFlashDump(){
+      if(canUseSerialForSpiFlash()){
+        try{
+          if(el.spiFlashStatusLine) el.spiFlashStatusLine.textContent = "SPI Flash BIN 시리얼 다운로드 준비 중...";
+          if(el.spiFlashDumpBtn) el.spiFlashDumpBtn.disabled = true;
+          await downloadSpiFlashDumpViaSerial();
+        }catch(err){
+          const reason = (err && err.message) ? err.message : String(err || "unknown");
+          showToast("SPI Flash BIN(Serial) 다운로드 실패: " + reason, "error", {key:"spi-flash-dump-serial-fail"});
+          if(el.spiFlashStatusLine){
+            el.spiFlashStatusLine.textContent = "SPI Flash BIN(Serial) 다운로드 실패: " + reason;
+          }
+        }finally{
+          if(el.spiFlashDumpBtn) el.spiFlashDumpBtn.disabled = false;
+        }
+        return;
+      }
+
+      const API_BASE = getApiBaseForCommands();
+      const url = (API_BASE ? API_BASE : "") + "/storage/spi_flash/export.bin";
+      const ctrl = new AbortController();
+      const timeoutMs = 30000;
+      const timer = setTimeout(()=>{ try{ ctrl.abort(); }catch(_e){} }, timeoutMs);
+      const opt = API_BASE
+        ? {cache:"no-store", mode:"cors", signal:ctrl.signal}
+        : {cache:"no-store", signal:ctrl.signal};
+      try{
+        if(el.spiFlashStatusLine) el.spiFlashStatusLine.textContent = "SPI Flash BIN 다운로드 준비 중...";
+        if(el.spiFlashDumpBtn) el.spiFlashDumpBtn.disabled = true;
+        const res = await fetch(url, opt);
+        if(!res.ok){
+          const text = await res.text();
+          throw new Error(text || ("HTTP " + res.status));
+        }
+        if(el.spiFlashStatusLine) el.spiFlashStatusLine.textContent = "SPI Flash BIN 다운로드 중...";
+        const blob = await res.blob();
+        const ts = new Date().toISOString().replace(/[:.]/g, "-");
+        downloadBlobAsFile(blob, "spi_flash_log_" + ts + ".bin");
+        showToast("SPI Flash BIN 다운로드 완료", "success", {key:"spi-flash-dump"});
+        await fetchSpiFlashStatus();
+      }catch(err){
+        const isAbort = !!(err && (err.name === "AbortError"));
+        const reason = isAbort
+          ? "TIMEOUT(30s) - 보드 Wi-Fi 연결 또는 192.168.4.1 접근 상태를 확인하세요"
+          : ((err && err.message) ? err.message : String(err || "unknown"));
+        showToast("SPI Flash BIN 다운로드 실패: " + reason, "error", {key:"spi-flash-dump-fail"});
+        if(el.spiFlashStatusLine){
+          el.spiFlashStatusLine.textContent = "SPI Flash BIN 다운로드 실패: " + reason;
+        }
+      }finally{
+        clearTimeout(timer);
+        if(el.spiFlashDumpBtn) el.spiFlashDumpBtn.disabled = false;
       }
     }
 
@@ -9820,6 +13266,14 @@
     let launcherAutoOverlayEl=null;
     let launcherAutoConfirmBtn=null;
     let launcherAutoCancelBtn=null;
+    let rebootConfirmOverlayEl=null;
+    let rebootConfirmBtnEl=null;
+    let rebootConfirmCancelBtnEl=null;
+    let rebootConfirmTitleEl=null;
+    let rebootConfirmTextEl=null;
+    let rebootConfirmActionsEl=null;
+    let rebootConfirmWaiting=false;
+    let rebootConfirmStartedMs=0;
     let easterOverlayEl=null;
     let easterEggOkEl=null;
     let easterEggPending=false;
@@ -9844,7 +13298,7 @@
     }
     function showConfirm(){
       hideMobileControlsPanel();
-      if(!hasMissionSelected()){
+      if(!hasSequenceMissionRequirement()){
         showMissionRequired();
         return;
       }
@@ -9856,6 +13310,10 @@
         showToast(t("inspectionRequiredToast"), "notice");
         return;
       }
+      if(latestTelemetry.sw === 1){
+        showToast(t("switchHighToast", {safety:safetyLineSuffix()}), "notice");
+        return;
+      }
       if((uiSettings && uiSettings.igs) && latestTelemetry.ic !== 1){
         showToast(t("countdownIgniterRequired", {safety:safetyLineSuffix()}), "notice");
         return;
@@ -9865,7 +13323,8 @@
       userWaitingLocal=true;
       lpLastSentSec=3;
       setOverlayVisible(confirmOverlayEl, true);
-      sendCommand({http:"/precount?uw=1&cd=3000", ser:"PRECOUNT 1 3000"}, false);
+      const cdMs = Math.max(3000, Math.min(60000, ((uiSettings ? uiSettings.countdownSec : 10) * 1000)));
+      sendCommand({http:"/precount?uw=1&cd="+cdMs, ser:"PRECOUNT 1 "+cdMs}, false);
       showToast(t("preSequenceToast", {safety:safetyLineSuffix()}),"warn");
     }
 
@@ -9933,6 +13392,10 @@
         showToast(t("inspectionRequiredShort"), "notice");
         return;
       }
+      if(latestTelemetry.sw === 1){
+        showToast(t("switchHighToast", {safety:safetyLineSuffix()}), "notice");
+        return;
+      }
       if((uiSettings && uiSettings.igs) && latestTelemetry.ic !== 1){
         showToast(t("countdownIgniterRequired", {safety:safetyLineSuffix()}), "notice");
         return;
@@ -9941,6 +13404,7 @@
       userWaitingLocal=true;
       lpStart=Date.now();
       lpLastSentSec=3;
+      const configuredCdMs = Math.max(3000, Math.min(60000, ((uiSettings ? uiSettings.countdownSec : 10) * 1000)));
 
       lpTimer=setInterval(()=>{
         const now=Date.now();
@@ -9959,12 +13423,17 @@
         }
         if(sec!==lpLastSentSec){
           lpLastSentSec=sec;
-          sendCommand({http:"/precount?uw=1&cd="+left, ser:"PRECOUNT 1 "+left}, false);
         }
 
         if(left===0){
           clearInterval(lpTimer); lpTimer=null;
           resetLongPressVisual(); userWaitingLocal=false;
+          if(latestTelemetry.sw === 1){
+            setOverlayVisible(confirmOverlayEl, false);
+            sendCommand({http:"/precount?uw=0&cd=0", ser:"PRECOUNT 0 0"}, false);
+            showToast(t("switchHighToast", {safety:safetyLineSuffix()}), "notice");
+            return;
+          }
           if((uiSettings && uiSettings.igs) && latestTelemetry.ic !== 1){
             setOverlayVisible(confirmOverlayEl, false);
             sendCommand({http:"/precount?uw=0&cd=0", ser:"PRECOUNT 0 0"}, false);
@@ -9972,7 +13441,7 @@
             return;
           }
           setOverlayVisible(confirmOverlayEl, false);
-          sendCommand({http:"/precount?uw=0&cd=0", ser:"PRECOUNT 0 0"}, false);
+          sendCommand({http:"/precount?uw=0&cd="+configuredCdMs, ser:"PRECOUNT 0 "+configuredCdMs}, false);
           sendCommand({http:"/countdown_start", ser:"COUNTDOWN"}, true);
           addLogLine(t("countdownRequestedLog"),"CMD");
           suppressCountdownToastUntil = Date.now() + 3000;
@@ -9986,7 +13455,7 @@
       clearInterval(lpTimer); lpTimer=null;
       resetLongPressVisual();
       if(userWaitingLocal){
-        const cdMs=(uiSettings?uiSettings.countdownSec:10)*1000;
+        const cdMs = Math.max(3000, Math.min(60000, ((uiSettings ? uiSettings.countdownSec : 10) * 1000)));
         lpLastSentSec=Math.ceil(cdMs/1000);
         sendCommand({http:"/precount?uw=1&cd="+cdMs, ser:"PRECOUNT 1 "+cdMs}, false);
       }
@@ -9999,6 +13468,7 @@
       if(isStatusMapViewportExpanded()){
         setStatusMapViewportExpanded(false);
       }
+      closeIgnitionModals();
       hideMobileControlsPanel();
       document.documentElement.classList.add("settings-open");
       syncControlsToggleButtonsForSettings();
@@ -10032,10 +13502,10 @@
     }
     function setMissionCloseLabel(isBack){
       if(!el.missionCloseBtn) return;
-      el.missionCloseBtn.textContent = isBack ? "뒤로" : "닫기";
+      el.missionCloseBtn.textContent = "닫기";
     }
     function resetMissionToPresetList(){
-      if(el.missionFields) el.missionFields.classList.add("hidden");
+      if(el.missionFields) el.missionFields.classList.remove("hidden");
       if(el.missionPresetBlock) el.missionPresetBlock.classList.remove("hidden");
       if(el.missionDialog){
         el.missionDialog.classList.remove("custom-mode");
@@ -10048,13 +13518,3042 @@
       }
       if(el.missionReview) el.missionReview.setAttribute("aria-hidden","true");
       if(el.missionConfirmBtn) el.missionConfirmBtn.textContent = "다음";
+      setMissionPresetSelectionUi(selectedMotorName || (el.missionName && el.missionName.value) || "");
       setMissionCloseLabel(false);
+      updateMissionEditLockUI();
+    }
+    function openMissionCustomEditor(){
+      resetMissionToPresetList();
     }
     function hasMissionSelected(){
       return !!(
         (selectedMotorName && selectedMotorName.trim()) ||
         (el.missionName && el.missionName.value && el.missionName.value.trim())
       );
+    }
+    function hasSequenceMissionRequirement(){
+      // DAQ 모드에서는 미션명이 없어도 시퀀스/강제점화를 허용.
+      if(!isFlightModeUi()) return true;
+      return hasMissionSelected();
+    }
+    function isMissionEditableNow(){
+      if(replaySourceActive) return false;
+      if(currentSt !== 0) return false;
+      return !(latestTelemetry && latestTelemetry.uw === 1);
+    }
+    function parseMissionNumber(raw){
+      const n = Number(raw);
+      return Number.isFinite(n) ? n : null;
+    }
+    function sanitizeMissionName(raw){
+      return String(raw || "").trim();
+    }
+    function setMissionPresetSelectionUi(name){
+      if(!el.missionPresetGrid) return;
+      const target = sanitizeMissionName(name).toLowerCase();
+      const presetCards = Array.from(el.missionPresetGrid.querySelectorAll(".mission-preset-btn[data-mission]"));
+      let matched = false;
+      presetCards.forEach((card)=>{
+        const cardName = sanitizeMissionName(card.getAttribute("data-mission")).toLowerCase();
+        const selected = !!target && cardName === target;
+        card.classList.toggle("is-selected", selected);
+        if(selected) matched = true;
+      });
+      if(el.missionCustomBtn){
+        el.missionCustomBtn.classList.toggle("is-selected", !matched);
+      }
+    }
+    function cloneMissionDocSafe(src){
+      if(!src || typeof src !== "object") return null;
+      try{
+        return JSON.parse(JSON.stringify(src));
+      }catch(_err){
+        return null;
+      }
+    }
+    function missionBlockTemplate(kind){
+      const block = {
+        level: 0,
+        uiX: 0,
+        uiY: 0,
+        rowType: "full",
+        loop: {mode:"count", count:3, gapMs:1000},
+        enabled: true,
+        once: true,
+        delayMs: 0,
+        when: {type:"altitude_gte", cmp:"gt", value:100, pin:1},
+        then: {type:"servo", channel:1, angle:90}
+      };
+      const k = String(kind || "");
+      if(k === "pyro"){
+        block.when = {type:"switch_falling", cmp:"eq", value:0, pin:2};
+        block.then = {type:"pyro", channel:1, durationMs:300};
+      }else if(k === "cond_altitude"){
+        block.rowType = "condition";
+        block.when = {type:"altitude_gte", cmp:"gt", value:120, pin:1};
+      }else if(k === "cond_start_arm_off"){
+        block.rowType = "condition";
+        block.once = true;
+        block.when = {type:"switch_falling", cmp:"eq", value:0, pin:2};
+      }else if(k === "cond_switch_falling"){
+        block.rowType = "condition";
+        block.when = {type:"switch_falling", cmp:"eq", value:0, pin:2};
+      }else if(k === "cond_switch_rising"){
+        block.rowType = "condition";
+        block.when = {type:"switch_rising", cmp:"eq", value:0, pin:2};
+      }else if(k === "cond_time_after_firing"){
+        block.rowType = "condition";
+        block.when = {type:"time_after_firing_ms", cmp:"gt", value:1800, pin:1};
+      }else if(k === "cond_gyro_angle"){
+        block.rowType = "condition";
+        block.when = {type:"gyro_x_deg", cmp:"gt", value:15, pin:1};
+      }else if(k === "cond_variable"){
+        block.rowType = "condition";
+        block.when = {type:"var_value", cmp:"gt", value:0, pin:1, varName:"stage"};
+      }else if(k === "cond_var_change_count"){
+        block.rowType = "condition";
+        block.when = {type:"var_change_count", cmp:"gt", value:3, pin:1, varName:"stage"};
+      }else if(k === "act_wait"){
+        block.rowType = "action";
+        block.when = {type:"time_after_firing_ms", cmp:"gt", value:0, pin:1};
+        block.delayMs = 2000;
+        block.then = {type:"wait"};
+      }else if(k === "act_servo"){
+        block.rowType = "action";
+        block.when = {type:"time_after_firing_ms", cmp:"gt", value:0, pin:1};
+        block.then = {type:"servo", channel:1, angle:90};
+      }else if(k === "act_servo_high"){
+        block.rowType = "action";
+        block.when = {type:"time_after_firing_ms", cmp:"gt", value:0, pin:1};
+        block.then = {type:"servo", channel:3, angle:150};
+      }else if(k === "act_pyro"){
+        block.rowType = "action";
+        block.when = {type:"time_after_firing_ms", cmp:"gt", value:0, pin:1};
+        block.then = {type:"pyro", channel:1, durationMs:300};
+      }else if(k === "act_var_set"){
+        block.rowType = "action";
+        block.when = {type:"time_after_firing_ms", cmp:"gt", value:0, pin:1};
+        block.then = {type:"var_set", channel:1, value:0, varName:"stage"};
+      }else if(k === "act_var_add"){
+        block.rowType = "action";
+        block.when = {type:"time_after_firing_ms", cmp:"gt", value:0, pin:1};
+        block.then = {type:"var_add", channel:1, value:1, varName:"stage"};
+      }else if(k === "act_var_avg"){
+        block.rowType = "action";
+        block.when = {type:"time_after_firing_ms", cmp:"gt", value:0, pin:1};
+        block.then = {type:"var_avg", channel:1, varName:"avg_alt", sensor:"altitude_m", avgCount:5};
+      }else if(k === "act_alarm"){
+        block.rowType = "action";
+        block.when = {type:"time_after_firing_ms", cmp:"gt", value:0, pin:1};
+        block.then = {type:"alarm", title:"미션 알람", message:"알람이 발생했습니다."};
+      }else if(k === "act_buzzer"){
+        block.rowType = "action";
+        block.when = {type:"time_after_firing_ms", cmp:"gt", value:0, pin:1};
+        block.then = {type:"buzzer", value:2000};
+      }else if(k === "act_find_buzzer"){
+        block.rowType = "action";
+        block.when = {type:"time_after_firing_ms", cmp:"gt", value:0, pin:1};
+        block.then = {type:"find_buzzer"};
+      }else if(k === "act_notone"){
+        block.rowType = "action";
+        block.when = {type:"time_after_firing_ms", cmp:"gt", value:0, pin:1};
+        block.then = {type:"notone"};
+      }else if(k === "loop_forever"){
+        block.rowType = "loop";
+        block.when = {type:"time_after_firing_ms", cmp:"gt", value:0, pin:1};
+        block.then = {type:"wait"};
+        block.loop = {mode:"forever", count:MISSION_RUNTIME_MAX_BLOCKS, gapMs:1000};
+      }else if(k === "loop_count"){
+        block.rowType = "loop";
+        block.when = {type:"time_after_firing_ms", cmp:"gt", value:0, pin:1};
+        block.then = {type:"wait"};
+        block.loop = {mode:"count", count:3, gapMs:1000};
+      }else if(k === "time_servo"){
+        block.when = {type:"time_after_firing_ms", cmp:"gt", value:1500, pin:1};
+        block.then = {type:"servo", channel:2, angle:120};
+      }else if(k === "time_pyro"){
+        block.when = {type:"time_after_firing_ms", cmp:"gt", value:2000, pin:1};
+        block.then = {type:"pyro", channel:1, durationMs:350};
+      }else if(k === "switch_servo"){
+        block.when = {type:"switch_rising", cmp:"eq", value:0, pin:2};
+        block.then = {type:"servo", channel:1, angle:100};
+      }else if(k === "altitude_pyro"){
+        block.when = {type:"altitude_gte", cmp:"gt", value:250, pin:1};
+        block.then = {type:"pyro", channel:2, durationMs:300};
+      }else if(k === "switch_pyro"){
+        block.when = {type:"switch_rising", cmp:"eq", value:0, pin:2};
+        block.then = {type:"pyro", channel:1, durationMs:280};
+      }else if(k === "altitude_servo_high"){
+        block.when = {type:"altitude_gte", cmp:"gt", value:450, pin:1};
+        block.then = {type:"servo", channel:3, angle:150};
+      }
+      return block;
+    }
+    function toFiniteNumber(v, fallback){
+      const n = Number(v);
+      return Number.isFinite(n) ? n : fallback;
+    }
+    function formatMissionDelaySec(delayMs){
+      const ms = Math.max(0, Math.round(toFiniteNumber(delayMs, 0)));
+      const sec = ms / 1000;
+      if(Math.abs(sec - Math.round(sec)) < 1e-6){
+        return String(Math.round(sec));
+      }
+      return sec.toFixed(1).replace(/\.0$/, "");
+    }
+    function normalizeMissionVarName(raw){
+      const base = String(raw == null ? "" : raw).trim().replace(/\s+/g, " ");
+      if(!base) return "";
+      return base.replace(/[<>"'`]/g, "").slice(0, 24);
+    }
+    function normalizeMissionAlarmTitle(raw){
+      const base = String(raw == null ? "" : raw).trim().replace(/\s+/g, " ");
+      if(!base) return "알람";
+      return base.replace(/[<>"'`]/g, "").slice(0, 40);
+    }
+    function normalizeMissionAlarmMessage(raw){
+      const base = String(raw == null ? "" : raw).trim().replace(/\s+/g, " ");
+      if(!base) return "";
+      return base.replace(/[<>"'`]/g, "").slice(0, 120);
+    }
+    function normalizeMissionExprOperandType(raw){
+      const t = String(raw || "").trim().toLowerCase();
+      if(t === "sensor" || t === "sens") return "sensor";
+      return t === "var" ? "var" : "const";
+    }
+    function normalizeMissionExprSensorType(raw){
+      const t = String(raw || "").trim().toLowerCase();
+      if(
+        t === "altitude_m" || t === "time_after_firing_ms" ||
+        t === "gyro_x_deg" || t === "gyro_y_deg" || t === "gyro_z_deg" ||
+        t === "thrust_kgf" || t === "pressure_mpa" ||
+        t === "acc_x_g" || t === "acc_y_g" || t === "acc_z_g" ||
+        t === "gyro_x_dps" || t === "gyro_y_dps" || t === "gyro_z_dps" ||
+        t === "switch_state"
+      ){
+        return t;
+      }
+      return "altitude_m";
+    }
+    function missionExprSensorOptionsHtml(selected){
+      const pick = normalizeMissionExprSensorType(selected);
+      const options = [
+        ["altitude_m", "고도(m)"],
+        ["time_after_firing_ms", "점화후시간(ms)"],
+        ["gyro_x_deg", "자이로X각도(deg)"],
+        ["gyro_y_deg", "자이로Y각도(deg)"],
+        ["gyro_z_deg", "자이로Z각도(deg)"],
+        ["thrust_kgf", "추력(kgf)"],
+        ["pressure_mpa", "압력(MPa)"],
+        ["acc_x_g", "가속도X(g)"],
+        ["acc_y_g", "가속도Y(g)"],
+        ["acc_z_g", "가속도Z(g)"],
+        ["gyro_x_dps", "자이로X속도(dps)"],
+        ["gyro_y_dps", "자이로Y속도(dps)"],
+        ["gyro_z_dps", "자이로Z속도(dps)"],
+        ["switch_state", "스위치(0/1)"]
+      ];
+      return options.map(([value, label])=>
+        "<option value=\"" + value + "\"" + (pick === value ? " selected" : "") + ">" + label + "</option>"
+      ).join("");
+    }
+    function normalizeMissionExprOperator(raw){
+      const op = String(raw || "").trim().toLowerCase();
+      if(op === "sub" || op === "-") return "sub";
+      if(op === "mul" || op === "*" || op === "x" || op === "×") return "mul";
+      if(op === "div" || op === "/") return "div";
+      return "add";
+    }
+    function normalizeMissionVarActionValueMode(raw){
+      const mode = String(raw || "").trim().toLowerCase();
+      if(mode === "expr") return "expr";
+      if(mode === "sensor") return "sensor";
+      return "direct";
+    }
+    function normalizeMissionExprValue(raw, fallback){
+      return Math.round(Math.max(-99999, Math.min(99999, toFiniteNumber(raw, fallback))));
+    }
+    function normalizeMissionExprObject(rawExpr, fallbackValue, fallbackChannel){
+      const fallbackNum = normalizeMissionExprValue(fallbackValue, 0);
+      const fallbackCh = Math.max(1, Math.min(8, Math.round(toFiniteNumber(fallbackChannel, 1))));
+      const src = (rawExpr && typeof rawExpr === "object") ? rawExpr : {};
+      const lhsSrc = (src.lhs && typeof src.lhs === "object") ? src.lhs : {};
+      const rhsSrc = (src.rhs && typeof src.rhs === "object") ? src.rhs : {};
+      const enabled = !!src.enabled;
+      const lhsType = normalizeMissionExprOperandType(src.lhsType != null ? src.lhsType : lhsSrc.type);
+      const rhsType = normalizeMissionExprOperandType(src.rhsType != null ? src.rhsType : rhsSrc.type);
+      return {
+        enabled,
+        op: normalizeMissionExprOperator(src.op != null ? src.op : src.operator),
+        lhsType,
+        lhsValue: normalizeMissionExprValue(src.lhsValue != null ? src.lhsValue : lhsSrc.value, fallbackNum),
+        lhsVarName: normalizeMissionVarName(src.lhsVarName != null ? src.lhsVarName : (lhsSrc.varName != null ? lhsSrc.varName : lhsSrc.name)),
+        lhsSensor: normalizeMissionExprSensorType(src.lhsSensor != null ? src.lhsSensor : (lhsSrc.sensor != null ? lhsSrc.sensor : lhsSrc.sensorType)),
+        lhsChannel: Math.max(1, Math.min(8, Math.round(toFiniteNumber(src.lhsChannel != null ? src.lhsChannel : lhsSrc.channel, fallbackCh)))),
+        rhsType,
+        rhsValue: normalizeMissionExprValue(src.rhsValue != null ? src.rhsValue : rhsSrc.value, 0),
+        rhsVarName: normalizeMissionVarName(src.rhsVarName != null ? src.rhsVarName : (rhsSrc.varName != null ? rhsSrc.varName : rhsSrc.name)),
+        rhsSensor: normalizeMissionExprSensorType(src.rhsSensor != null ? src.rhsSensor : (rhsSrc.sensor != null ? rhsSrc.sensor : rhsSrc.sensorType)),
+        rhsChannel: Math.max(1, Math.min(8, Math.round(toFiniteNumber(src.rhsChannel != null ? src.rhsChannel : rhsSrc.channel, fallbackCh))))
+      };
+    }
+    function evaluateMissionExprValue(expr, readVarValue, fallbackValue, readSensorValue){
+      const normalized = normalizeMissionExprObject(expr, fallbackValue, 1);
+      const fallbackNum = normalizeMissionExprValue(fallbackValue, 0);
+      if(!normalized.enabled) return fallbackNum;
+      const getter = (typeof readVarValue === "function")
+        ? readVarValue
+        : (()=>0);
+      const sensorGetter = (typeof readSensorValue === "function")
+        ? readSensorValue
+        : (()=>0);
+      const lhs = (normalized.lhsType === "var")
+        ? normalizeMissionExprValue(getter(normalized.lhsVarName, normalized.lhsChannel), 0)
+        : ((normalized.lhsType === "sensor")
+          ? normalizeMissionExprValue(sensorGetter(normalized.lhsSensor), 0)
+          : normalized.lhsValue);
+      const rhs = (normalized.rhsType === "var")
+        ? normalizeMissionExprValue(getter(normalized.rhsVarName, normalized.rhsChannel), 0)
+        : ((normalized.rhsType === "sensor")
+          ? normalizeMissionExprValue(sensorGetter(normalized.rhsSensor), 0)
+          : normalized.rhsValue);
+      let out = lhs;
+      if(normalized.op === "sub") out = lhs - rhs;
+      else if(normalized.op === "mul") out = lhs * rhs;
+      else if(normalized.op === "div"){
+        out = (rhs === 0) ? 0 : Math.round(lhs / rhs);
+      }else{
+        out = lhs + rhs;
+      }
+      return normalizeMissionExprValue(out, fallbackNum);
+    }
+    function missionHtmlEscape(value){
+      return String(value == null ? "" : value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+    function normalizeMissionRowType(raw){
+      const t = String(raw || "full");
+      if(t === "condition" || t === "action" || t === "full" || t === "loop") return t;
+      return "full";
+    }
+    function normalizeMissionLoopMode(raw){
+      const mode = String(raw || "").trim().toLowerCase();
+      if(mode === "forever" || mode === "infinite" || mode === "inf") return "forever";
+      return "count";
+    }
+    function normalizeMissionLoopObject(rawLoop){
+      const src = (rawLoop && typeof rawLoop === "object") ? rawLoop : {};
+      const mode = normalizeMissionLoopMode(src.mode != null ? src.mode : src.type);
+      const count = Math.max(1, Math.min(200, Math.round(toFiniteNumber(src.count, 3))));
+      const gapMs = Math.max(0, Math.min(60000, Math.round(toFiniteNumber(src.gapMs != null ? src.gapMs : src.intervalMs, 1000))));
+      return {mode, count, gapMs};
+    }
+    function normalizeMissionLevel(raw){
+      const n = Math.round(toFiniteNumber(raw, 0));
+      return Math.max(0, Math.min(6, n));
+    }
+    function normalizeMissionUiCoord(raw){
+      const n = Math.round(toFiniteNumber(raw, 0));
+      return Math.max(-MISSION_BLOCK_POS_LIMIT, Math.min(MISSION_BLOCK_POS_LIMIT, n));
+    }
+    function normalizeMissionComparator(raw, whenType){
+      const val = String(raw || "").trim();
+      if(val === "gt" || val === ">" || val === ">=") return "gt";
+      if(val === "lt" || val === "<" || val === "<=") return "lt";
+      if(val === "eq" || val === "=" || val === "=="){
+        if(String(whenType || "") === "var_change_count") return "gt";
+        return "eq";
+      }
+      if(String(whenType || "") === "var_change_count"){
+        return "gt";
+      }
+      if(
+        String(whenType || "") === "switch_falling" ||
+        String(whenType || "") === "switch_rising" ||
+        String(whenType || "") === "boot"
+      ){
+        return "eq";
+      }
+      return "gt";
+    }
+    function normalizeMissionTriggerValue(whenType, raw){
+      const t = String(whenType || "");
+      const n = toFiniteNumber(raw, 0);
+      if(t === "switch_falling" || t === "switch_rising" || t === "boot") return 0;
+      if(t === "var_value") return Math.max(-99999, Math.min(99999, n));
+      if(t === "var_change_count") return Math.max(1, Math.min(99999, Math.round(n)));
+      if(t === "gyro_x_deg" || t === "gyro_y_deg" || t === "gyro_z_deg"){
+        return Math.max(-360, Math.min(360, n));
+      }
+      return Math.max(0, n);
+    }
+    function normalizeMissionVarWhenRhsType(raw){
+      const t = String(raw || "").trim().toLowerCase();
+      return (t === "var" || t === "variable") ? "var" : "const";
+    }
+    function isMissionWhenTypeSupported(type){
+      const t = String(type || "");
+      return t === "altitude_gte" || t === "switch_falling" ||
+        t === "switch_rising" || t === "time_after_firing_ms" ||
+        t === "gyro_x_deg" || t === "gyro_y_deg" || t === "gyro_z_deg" ||
+        t === "var_value" || t === "var_change_count" || t === "boot";
+    }
+    function normalizeMissionWhenObject(rawWhen, fallbackType){
+      const srcWhen = (rawWhen && typeof rawWhen === "object") ? rawWhen : {};
+      let whenType = String(srcWhen.type || fallbackType || "altitude_gte");
+      if(!isMissionWhenTypeSupported(whenType)){
+        whenType = String(fallbackType || "altitude_gte");
+      }
+      if(!isMissionWhenTypeSupported(whenType)){
+        whenType = "altitude_gte";
+      }
+      const rawVarName = (srcWhen.varName != null) ? srcWhen.varName : srcWhen.name;
+      const varName = (whenType === "var_value" || whenType === "var_change_count") ? normalizeMissionVarName(rawVarName) : "";
+      let rhsType = "const";
+      let rhsValue = normalizeMissionTriggerValue(whenType, srcWhen.value);
+      let rhsVarName = "";
+      if(whenType === "var_value"){
+        rhsType = normalizeMissionVarWhenRhsType(srcWhen.rhsType != null ? srcWhen.rhsType : srcWhen.valueType);
+        rhsVarName = normalizeMissionVarName(
+          (srcWhen.rhsVarName != null) ? srcWhen.rhsVarName
+            : ((srcWhen.rhsName != null) ? srcWhen.rhsName : srcWhen.valueVarName)
+        );
+        if(rhsType === "var" && !rhsVarName){
+          const legacyValueName = normalizeMissionVarName(srcWhen.value);
+          if(legacyValueName){
+            rhsVarName = legacyValueName;
+          }else{
+            rhsType = "const";
+          }
+        }
+        if(rhsType === "var"){
+          rhsValue = 0;
+        }
+      }
+      const isSwitchWhen = (whenType === "switch_falling" || whenType === "switch_rising");
+      return {
+        type: whenType,
+        cmp: normalizeMissionComparator(srcWhen.cmp != null ? srcWhen.cmp : srcWhen.op, whenType),
+        value: rhsValue,
+        pin: isSwitchWhen ? 2 : Math.max(1, Math.round(toFiniteNumber(srcWhen.pin, 1))),
+        varName,
+        rhsType,
+        rhsValue,
+        rhsVarName
+      };
+    }
+    function normalizeMissionBlock(raw){
+      const src = (raw && typeof raw === "object") ? raw : {};
+      const when = (src.when && typeof src.when === "object") ? src.when : {};
+      const then = (src.then && typeof src.then === "object") ? src.then : {};
+      const normalizedWhen = normalizeMissionWhenObject(when, "altitude_gte");
+      const actionType = String(then.type || "servo");
+      const rowType = normalizeMissionRowType(src.rowType);
+      const loopRaw = (src.loop && typeof src.loop === "object")
+        ? src.loop
+        : {
+            mode: src.loopMode,
+            count: src.loopCount,
+            gapMs: src.loopGapMs != null ? src.loopGapMs : src.loopIntervalMs
+          };
+
+      const normalizedThenValue = Math.round(Math.max(-99999, Math.min(99999, toFiniteNumber(
+        then.value != null ? then.value : (then.hz != null ? then.hz : then.angle),
+        0
+      ))));
+      const out = {
+        level: normalizeMissionLevel(src.level),
+        uiX: normalizeMissionUiCoord(src.uiX),
+        uiY: normalizeMissionUiCoord(src.uiY),
+        rowType,
+        loop: normalizeMissionLoopObject(loopRaw),
+        enabled: src.enabled !== false,
+        once: src.once !== false,
+        delayMs: Math.max(0, Math.round(toFiniteNumber(src.delayMs, 0))),
+        when: normalizedWhen,
+        then: {
+          type: actionType,
+          channel: Math.max(1, Math.round(toFiniteNumber(then.channel, 1))),
+          angle: Math.max(0, Math.min(SERVO_MAX_DEG, Math.round(toFiniteNumber(then.angle, 90)))),
+          durationMs: Math.max(10, Math.round(toFiniteNumber(then.durationMs, 300))),
+          value: normalizedThenValue,
+          varName: normalizeMissionVarName((then.varName != null) ? then.varName : then.name),
+          sensor: normalizeMissionExprSensorType((then.sensor != null) ? then.sensor : then.sensorType),
+          avgCount: Math.max(1, Math.min(MISSION_SENSOR_HISTORY_MAX, Math.round(toFiniteNumber(then.avgCount != null ? then.avgCount : then.samples, 5)))),
+          title: normalizeMissionAlarmTitle(then.title),
+          message: normalizeMissionAlarmMessage((then.message != null) ? then.message : then.text),
+          expr: normalizeMissionExprObject(then.expr, normalizedThenValue, then.channel)
+        }
+      };
+      if(out.rowType === "loop"){
+        out.when = normalizeMissionWhenObject({type:"time_after_firing_ms", cmp:"gt", value:0, pin:1}, "time_after_firing_ms");
+        out.then.type = "wait";
+        out.then.channel = 0;
+        out.then.angle = 0;
+        out.then.durationMs = 0;
+        out.then.value = 0;
+        out.then.varName = "";
+        out.then.title = "";
+        out.then.message = "";
+        out.then.expr = normalizeMissionExprObject(null, 0, 1);
+      }else if(out.then.type === "pyro"){
+        out.then.channel = Math.max(1, Math.min(4, out.then.channel));
+        out.then.varName = "";
+        out.then.title = "";
+        out.then.message = "";
+        out.then.expr = normalizeMissionExprObject(null, 0, 1);
+      }else if(out.then.type === "var_set" || out.then.type === "var_add"){
+        out.then.channel = Math.max(1, Math.min(8, out.then.channel));
+        out.then.angle = 0;
+        out.then.durationMs = 0;
+        if(!out.then.varName){
+          out.then.varName = out.when.varName || "";
+        }
+        out.then.expr = normalizeMissionExprObject(then.expr, out.then.value, out.then.channel);
+        out.then.title = "";
+        out.then.message = "";
+      }else if(out.then.type === "var_avg"){
+        out.then.channel = Math.max(1, Math.min(8, out.then.channel));
+        out.then.angle = 0;
+        out.then.durationMs = 0;
+        out.then.value = Math.max(1, Math.min(MISSION_SENSOR_HISTORY_MAX, Math.round(toFiniteNumber(out.then.avgCount, 5))));
+        out.then.avgCount = out.then.value;
+        out.then.sensor = normalizeMissionExprSensorType(out.then.sensor);
+        if(!out.then.varName){
+          out.then.varName = out.when.varName || "";
+        }
+        out.then.title = "";
+        out.then.message = "";
+        out.then.expr = normalizeMissionExprObject(null, 0, 1);
+      }else if(out.then.type === "alarm"){
+        out.then.channel = 0;
+        out.then.angle = 0;
+        out.then.durationMs = 0;
+        out.then.value = 0;
+        out.then.varName = "";
+        out.then.title = normalizeMissionAlarmTitle(out.then.title);
+        out.then.message = normalizeMissionAlarmMessage(out.then.message);
+        out.then.expr = normalizeMissionExprObject(null, 0, 1);
+      }else if(out.then.type === "buzzer"){
+        out.then.type = "buzzer";
+        out.then.channel = 0;
+        out.then.angle = 0;
+        out.then.durationMs = 0;
+        out.then.value = Math.max(1, Math.min(10000, Math.round(toFiniteNumber(out.then.value, 2000))));
+        out.then.varName = "";
+        out.then.title = "";
+        out.then.message = "";
+        out.then.expr = normalizeMissionExprObject(null, 0, 1);
+      }else if(out.then.type === "find_buzzer"){
+        out.then.type = "find_buzzer";
+        out.then.channel = 0;
+        out.then.angle = 0;
+        out.then.durationMs = 0;
+        out.then.value = 0;
+        out.then.varName = "";
+        out.then.title = "";
+        out.then.message = "";
+        out.then.expr = normalizeMissionExprObject(null, 0, 1);
+      }else if(out.then.type === "notone"){
+        out.then.type = "notone";
+        out.then.channel = 0;
+        out.then.angle = 0;
+        out.then.durationMs = 0;
+        out.then.value = 0;
+        out.then.varName = "";
+        out.then.title = "";
+        out.then.message = "";
+        out.then.expr = normalizeMissionExprObject(null, 0, 1);
+      }else if(out.then.type === "wait"){
+        out.then.type = "wait";
+        out.then.channel = 0;
+        out.then.angle = 0;
+        out.then.durationMs = 0;
+        out.then.value = 0;
+        out.then.varName = "";
+        out.then.title = "";
+        out.then.message = "";
+        out.then.expr = normalizeMissionExprObject(null, 0, 1);
+      }else{
+        out.then.type = "servo";
+        out.then.channel = Math.max(1, Math.min(4, out.then.channel));
+        out.then.value = out.then.angle;
+        out.then.varName = "";
+        out.then.title = "";
+        out.then.message = "";
+        out.then.expr = normalizeMissionExprObject(null, 0, 1);
+      }
+      if(Array.isArray(src.whenAll)){
+        const chain = src.whenAll
+          .map((item)=>normalizeMissionWhenObject(item, out.when.type))
+          .filter((item)=>isMissionWhenTypeSupported(item.type));
+        if(chain.length){
+          const capped = chain.slice(0, 7);
+          out.whenAll = capped;
+          out.when = capped[capped.length - 1];
+        }
+      }
+      return out;
+    }
+    function normalizeMissionBlocks(list){
+      if(!Array.isArray(list)) return [];
+      return list.map((item)=>normalizeMissionBlock(item));
+    }
+    function toRuntimeMissionBlock(raw){
+      const block = normalizeMissionBlock(raw);
+      if(block.rowType === "loop"){
+        return null;
+      }
+      if(block.then.type === "wait"){
+        return null;
+      }
+      const out = {
+        enabled: block.enabled,
+        once: block.once,
+        delayMs: block.delayMs,
+        when: {
+          type: block.when.type,
+          cmp: normalizeMissionComparator(block.when.cmp, block.when.type),
+          value: block.when.value,
+          pin: block.when.pin,
+          varName: normalizeMissionVarName(block.when.varName),
+          rhsType: normalizeMissionVarWhenRhsType(block.when.rhsType),
+          rhsValue: Math.round(normalizeMissionTriggerValue(block.when.type, block.when.rhsValue != null ? block.when.rhsValue : block.when.value)),
+          rhsVarName: normalizeMissionVarName(block.when.rhsVarName)
+        },
+        then: {
+          type: block.then.type,
+          channel: block.then.channel,
+          varName: normalizeMissionVarName(block.then.varName)
+        }
+      };
+      if(Array.isArray(block.whenAll) && block.whenAll.length){
+        out.whenAll = block.whenAll.map((item)=>({
+          type: item.type,
+          cmp: normalizeMissionComparator(item.cmp, item.type),
+          value: item.value,
+          pin: item.pin,
+          varName: normalizeMissionVarName(item.varName),
+          rhsType: normalizeMissionVarWhenRhsType(item.rhsType),
+          rhsValue: Math.round(normalizeMissionTriggerValue(item.type, item.rhsValue != null ? item.rhsValue : item.value)),
+          rhsVarName: normalizeMissionVarName(item.rhsVarName)
+        }));
+      }
+      if(block.then.type === "pyro"){
+        out.then.durationMs = block.then.durationMs;
+      }else if(block.then.type === "var_set" || block.then.type === "var_add"){
+        out.then.value = block.then.value;
+        const expr = normalizeMissionExprObject(block.then.expr, block.then.value, block.then.channel);
+        if(expr.enabled){
+          out.then.expr = expr;
+        }
+      }else if(block.then.type === "var_avg"){
+        out.then.sensor = normalizeMissionExprSensorType(block.then.sensor);
+        out.then.avgCount = Math.max(1, Math.min(MISSION_SENSOR_HISTORY_MAX, Math.round(toFiniteNumber(block.then.avgCount, block.then.value || 5))));
+      }else if(block.then.type === "buzzer"){
+        out.then.value = Math.max(1, Math.min(10000, Math.round(toFiniteNumber(block.then.value, 2000))));
+      }else if(block.then.type === "find_buzzer"){
+        // no extra fields
+      }else if(block.then.type === "alarm"){
+        out.then.title = normalizeMissionAlarmTitle(block.then.title);
+        out.then.message = normalizeMissionAlarmMessage(block.then.message);
+      }else if(block.then.type === "notone"){
+        // no extra fields
+      }else{
+        out.then.angle = block.then.angle;
+      }
+      return out;
+    }
+    function compileMissionRuntimeBlocks(rows){
+      const srcRows = normalizeMissionBlocks(rows);
+      const compiled = [];
+      const conditionByLevel = [];
+      const loopByLevel = [];
+      let pendingDelayMs = 0;
+      const cloneWhen = (rawWhen)=>({
+        type: rawWhen.type,
+        cmp: normalizeMissionComparator(rawWhen.cmp, rawWhen.type),
+        value: rawWhen.value,
+        pin: rawWhen.pin,
+        varName: normalizeMissionVarName(rawWhen.varName),
+        rhsType: normalizeMissionVarWhenRhsType(rawWhen.rhsType),
+        rhsValue: Math.round(normalizeMissionTriggerValue(rawWhen.type, rawWhen.rhsValue != null ? rawWhen.rhsValue : rawWhen.value)),
+        rhsVarName: normalizeMissionVarName(rawWhen.rhsVarName)
+      });
+      const cloneLoop = (rawLoop)=>normalizeMissionLoopObject(rawLoop);
+      const collectParentWhenChainForActionLevel = (level)=>{
+        const lv = normalizeMissionLevel(level);
+        const chain = [];
+        for(let i = 0; i < lv; i++){
+          if(conditionByLevel[i]){
+            chain.push(cloneWhen(conditionByLevel[i]));
+          }
+        }
+        return chain;
+      };
+      const collectParentLoopsForActionLevel = (level)=>{
+        const lv = normalizeMissionLevel(level);
+        const chain = [];
+        for(let i = 0; i < lv; i++){
+          if(loopByLevel[i]){
+            chain.push(cloneLoop(loopByLevel[i]));
+          }
+        }
+        return chain;
+      };
+      const defaultWhen = ()=>({type:"time_after_firing_ms", cmp:"gt", value:0, pin:1});
+      const expandWithLoops = (runtime, loops)=>{
+        if(compiled.length >= MISSION_RUNTIME_MAX_BLOCKS) return;
+        const pushRuntime = (extraDelayMs)=>{
+          if(compiled.length >= MISSION_RUNTIME_MAX_BLOCKS) return;
+          const clone = JSON.parse(JSON.stringify(runtime));
+          clone.delayMs = Math.max(0, Math.round(toFiniteNumber(clone.delayMs, 0) + extraDelayMs));
+          compiled.push(clone);
+        };
+        if(!Array.isArray(loops) || loops.length === 0){
+          pushRuntime(0);
+          return;
+        }
+        const walk = (loopIndex, extraDelayMs)=>{
+          if(compiled.length >= MISSION_RUNTIME_MAX_BLOCKS) return;
+          if(loopIndex >= loops.length){
+            pushRuntime(extraDelayMs);
+            return;
+          }
+          const lp = normalizeMissionLoopObject(loops[loopIndex]);
+          const repeatCount = (lp.mode === "forever")
+            ? MISSION_RUNTIME_MAX_BLOCKS
+            : Math.max(1, Math.round(toFiniteNumber(lp.count, 1)));
+          const gapMs = Math.max(0, Math.round(toFiniteNumber(lp.gapMs, 1000)));
+          for(let i = 0; i < repeatCount; i++){
+            if(compiled.length >= MISSION_RUNTIME_MAX_BLOCKS) break;
+            walk(loopIndex + 1, extraDelayMs + (i * gapMs));
+          }
+        };
+        walk(0, 0);
+      };
+      const flushAction = (rawBlock, parentLoops)=>{
+        if(compiled.length >= MISSION_RUNTIME_MAX_BLOCKS) return;
+        const runtime = toRuntimeMissionBlock(rawBlock);
+        if(!runtime) return;
+        runtime.delayMs = Math.max(0, runtime.delayMs + pendingDelayMs);
+        expandWithLoops(runtime, parentLoops);
+      };
+      srcRows.forEach((row)=>{
+        if(compiled.length >= MISSION_RUNTIME_MAX_BLOCKS) return;
+        const rowLevel = normalizeMissionLevel(row.level);
+        const rowType = normalizeMissionRowType(row.rowType);
+        conditionByLevel.length = Math.min(conditionByLevel.length, rowLevel);
+        loopByLevel.length = Math.min(loopByLevel.length, rowLevel);
+        if(rowType === "condition"){
+          conditionByLevel[rowLevel] = cloneWhen(row.when);
+          return;
+        }
+        if(rowType === "loop"){
+          loopByLevel[rowLevel] = cloneLoop(row.loop);
+          return;
+        }
+        const isWaitAction = row.then && row.then.type === "wait";
+        const parentLoops = collectParentLoopsForActionLevel(rowLevel);
+        if(rowType === "action"){
+          if(isWaitAction){
+            pendingDelayMs += Math.max(0, row.delayMs);
+            return;
+          }
+          const parentWhenChain = collectParentWhenChainForActionLevel(rowLevel);
+          const whenAll = parentWhenChain.length ? parentWhenChain : [defaultWhen()];
+          const when = cloneWhen(whenAll[whenAll.length - 1]);
+          flushAction({
+            rowType: "full",
+            enabled: row.enabled,
+            once: row.once,
+            delayMs: row.delayMs,
+            when,
+            whenAll,
+            then: row.then
+          }, parentLoops);
+          return;
+        }
+        if(isWaitAction){
+          pendingDelayMs += Math.max(0, row.delayMs);
+          conditionByLevel[rowLevel] = cloneWhen(row.when);
+          return;
+        }
+        const parentWhenChain = collectParentWhenChainForActionLevel(rowLevel);
+        const whenAll = parentWhenChain.concat([cloneWhen(row.when)]);
+        flushAction({
+          rowType: "full",
+          enabled: row.enabled,
+          once: row.once,
+          delayMs: row.delayMs,
+          when: whenAll[whenAll.length - 1],
+          whenAll,
+          then: row.then
+        }, parentLoops);
+        conditionByLevel[rowLevel] = cloneWhen(row.when);
+      });
+      return compiled.slice(0, MISSION_RUNTIME_MAX_BLOCKS);
+    }
+    function expandRuntimeBlocksToEditorRows(runtimeBlocks){
+      const src = normalizeMissionBlocks(runtimeBlocks);
+      const expanded = [];
+      src.forEach((block)=>{
+        const chain = (Array.isArray(block.whenAll) && block.whenAll.length)
+          ? block.whenAll
+          : [block.when];
+        chain.forEach((whenItem, idx)=>{
+          expanded.push(normalizeMissionBlock({
+            level: idx,
+            uiX: normalizeMissionUiCoord(block.uiX),
+            uiY: normalizeMissionUiCoord(block.uiY),
+            rowType: "condition",
+            enabled: true,
+            once: true,
+            delayMs: 0,
+            when: whenItem,
+            then: {type:"servo", channel:1, angle:90}
+          }));
+        });
+        const actionLevel = Math.min(6, Math.max(1, chain.length));
+        expanded.push(normalizeMissionBlock({
+          level: actionLevel,
+          uiX: normalizeMissionUiCoord(block.uiX),
+          uiY: normalizeMissionUiCoord(block.uiY),
+          rowType: "action",
+          enabled: block.enabled,
+          once: block.once,
+          delayMs: block.delayMs,
+          when: block.when,
+          then: block.then
+        }));
+      });
+      return expanded;
+    }
+    function getTriggerLabelAndUnit(type){
+      if(type === "altitude_gte") return {phrase:"고도", unit:"m 이상", hasValue:true, keyMode:"none"};
+      if(type === "boot") return {phrase:"부팅", unit:"시작", hasValue:false, keyMode:"none"};
+      if(type === "time_after_firing_ms") return {phrase:"점화 후", unit:"ms 이후", hasValue:true, keyMode:"none"};
+      if(type === "switch_rising") return {phrase:"ARM", unit:"OFF→ON", hasValue:false, keyMode:"pin"};
+      if(type === "switch_falling") return {phrase:"ARM", unit:"ON→OFF", hasValue:false, keyMode:"pin"};
+      if(type === "gyro_x_deg") return {phrase:"자이로 X", unit:"deg", hasValue:true, keyMode:"none"};
+      if(type === "gyro_y_deg") return {phrase:"자이로 Y", unit:"deg", hasValue:true, keyMode:"none"};
+      if(type === "gyro_z_deg") return {phrase:"자이로 Z", unit:"deg", hasValue:true, keyMode:"none"};
+      if(type === "var_value") return {phrase:"변수", unit:"값", hasValue:true, keyMode:"var"};
+      if(type === "var_change_count") return {phrase:"변수 변화", unit:"이전값 대비 연속", hasValue:true, keyMode:"var"};
+      return {phrase:"조건", unit:"-", hasValue:true, keyMode:"none"};
+    }
+    function getActionLabelAndUnit(type){
+      if(type === "servo") return {phrase:"서보", unit:"deg"};
+      if(type === "pyro") return {phrase:"파이로", unit:"ms"};
+      if(type === "buzzer") return {phrase:"버저", unit:"Hz"};
+      if(type === "find_buzzer") return {phrase:"파인드 버저", unit:"패턴"};
+      if(type === "notone") return {phrase:"버저", unit:"정지"};
+      if(type === "var_set") return {phrase:"변수", unit:"값"};
+      if(type === "var_add") return {phrase:"변수", unit:"Δ"};
+      if(type === "var_avg") return {phrase:"변수", unit:"회 평균"};
+      if(type === "alarm") return {phrase:"알람", unit:"제목/내용"};
+      if(type === "wait") return {phrase:"기다리기", unit:"초"};
+      return {phrase:"동작", unit:"-"};
+    }
+    function updateMissionBlockRowUi(row){
+      if(!row) return;
+      const rowType = normalizeMissionRowType(row.getAttribute("data-row-type"));
+      const triggerTypeEl = row.querySelector("[data-role='triggerType']");
+      const triggerValueWrap = row.querySelector("[data-role='triggerValueWrap']");
+      const triggerPhraseEl = row.querySelector("[data-role='triggerPhrase']");
+      const triggerUnitEl = row.querySelector("[data-role='triggerUnit']");
+      const triggerValueLabelEl = row.querySelector("[data-role='triggerValueLabel']");
+      const triggerOpEl = row.querySelector("[data-role='triggerOp']");
+      const triggerValueTypeEl = row.querySelector("[data-role='triggerValueType']");
+      const triggerValueEl = row.querySelector("[data-role='triggerValue']");
+      const triggerValueVarNameEl = row.querySelector("[data-role='triggerValueVarName']");
+      const triggerKeyWrapEl = row.querySelector("[data-role='triggerKeyWrap']");
+      const triggerKeyLabelEl = row.querySelector("[data-role='triggerKeyLabel']");
+      const triggerPinEl = row.querySelector("[data-role='triggerPin']");
+      const triggerVarNameEl = row.querySelector("[data-role='triggerVarName']");
+      const actionTypeEl = row.querySelector("[data-role='actionType']");
+      const actionPhraseEl = row.querySelector("[data-role='actionPhrase']");
+      const actionUnitEl = row.querySelector("[data-role='actionUnit']");
+      const actionKeyLabelEl = row.querySelector("[data-role='actionKeyLabel']");
+      const actionChannelEl = row.querySelector("[data-role='actionChannel']");
+      const actionVarNameEl = row.querySelector("[data-role='actionVarName']");
+      const actionTextEl = row.querySelector("[data-role='actionText']");
+      const actionSubLabelEl = row.querySelector("[data-role='actionSubLabel']");
+      const actionTextSubEl = row.querySelector("[data-role='actionTextSub']");
+      const actionValueEl = row.querySelector("[data-role='actionValue']");
+      const actionValueModeEl = row.querySelector("[data-role='actionValueMode']");
+      const actionSensorEl = row.querySelector("[data-role='actionSensor']");
+      const actionExprWrapEl = row.querySelector("[data-role='actionExprWrap']");
+      const actionExprLhsTypeEl = row.querySelector("[data-role='actionExprLhsType']");
+      const actionExprLhsValueEl = row.querySelector("[data-role='actionExprLhsValue']");
+      const actionExprLhsVarNameEl = row.querySelector("[data-role='actionExprLhsVarName']");
+      const actionExprLhsSensorEl = row.querySelector("[data-role='actionExprLhsSensor']");
+      const actionExprOpEl = row.querySelector("[data-role='actionExprOp']");
+      const actionExprRhsTypeEl = row.querySelector("[data-role='actionExprRhsType']");
+      const actionExprRhsValueEl = row.querySelector("[data-role='actionExprRhsValue']");
+      const actionExprRhsVarNameEl = row.querySelector("[data-role='actionExprRhsVarName']");
+      const actionExprRhsSensorEl = row.querySelector("[data-role='actionExprRhsSensor']");
+      const actionConfigWrapEl = row.querySelector("[data-role='actionConfigWrap']");
+      const waitWrapEl = row.querySelector("[data-role='waitWrap']");
+      const actionHeadWrapEl = row.querySelector("[data-role='actionHeadWrap']");
+      const actionTypeWrapEl = row.querySelector("[data-role='actionTypeWrap']");
+      const delaySecEl = row.querySelector("[data-role='delaySec']");
+      const loopModeEl = row.querySelector("[data-role='loopMode']");
+      const loopCountWrapEl = row.querySelector("[data-role='loopCountWrap']");
+      const loopCountEl = row.querySelector("[data-role='loopCount']");
+      if(rowType === "loop"){
+        row.setAttribute("data-action-type", "loop");
+        const mode = normalizeMissionLoopMode((loopModeEl || {}).value);
+        if(loopModeEl) loopModeEl.value = mode;
+        if(loopCountWrapEl) loopCountWrapEl.style.display = (mode === "count") ? "" : "none";
+        if(loopCountEl){
+          const count = Math.max(1, Math.min(200, Math.round(toFiniteNumber(loopCountEl.value, 3))));
+          loopCountEl.value = String(count);
+        }
+        return;
+      }
+      if(triggerTypeEl){
+        const triggerInfo = getTriggerLabelAndUnit(triggerTypeEl.value);
+        if(triggerPhraseEl) triggerPhraseEl.textContent = triggerInfo.phrase;
+        if(triggerUnitEl) triggerUnitEl.textContent = triggerInfo.unit;
+        if(triggerValueWrap) triggerValueWrap.style.display = triggerInfo.hasValue ? "" : "none";
+        if(triggerOpEl && triggerInfo.hasValue){
+          triggerOpEl.value = normalizeMissionComparator((triggerOpEl || {}).value, triggerTypeEl.value);
+        }
+        if(triggerOpEl && !triggerInfo.hasValue){
+          triggerOpEl.value = "eq";
+        }
+        if(triggerValueLabelEl) triggerValueLabelEl.style.display = triggerInfo.hasValue ? "" : "none";
+        if(triggerOpEl) triggerOpEl.style.display = triggerInfo.hasValue ? "" : "none";
+        const varRhsMode = normalizeMissionVarWhenRhsType((triggerValueTypeEl || {}).value);
+        const useVarRhs = (triggerTypeEl.value === "var_value" && varRhsMode === "var");
+        if(triggerValueTypeEl){
+          triggerValueTypeEl.value = varRhsMode;
+          triggerValueTypeEl.style.display = (triggerTypeEl.value === "var_value") ? "" : "none";
+        }
+        if(triggerValueVarNameEl){
+          triggerValueVarNameEl.style.display = useVarRhs ? "" : "none";
+          if(useVarRhs){
+            triggerValueVarNameEl.value = normalizeMissionVarName(triggerValueVarNameEl.value);
+          }
+        }
+        if(triggerValueLabelEl && triggerTypeEl.value === "var_value"){
+          triggerValueLabelEl.textContent = "기준";
+        }else if(triggerValueLabelEl && triggerTypeEl.value === "var_change_count"){
+          triggerValueLabelEl.textContent = "연속횟수";
+        }else if(triggerValueLabelEl){
+          triggerValueLabelEl.textContent = "값";
+        }
+        if(triggerOpEl){
+          const opEq = triggerOpEl.querySelector("option[value='eq']");
+          const opGt = triggerOpEl.querySelector("option[value='gt']");
+          const opLt = triggerOpEl.querySelector("option[value='lt']");
+          if(triggerTypeEl.value === "var_change_count"){
+            if(opGt) opGt.textContent = "이상";
+            if(opLt) opLt.textContent = "이하";
+            if(opEq){
+              opEq.disabled = true;
+              opEq.hidden = true;
+            }
+            if(triggerOpEl.value === "eq"){
+              triggerOpEl.value = "gt";
+            }
+          }else{
+            if(opGt) opGt.textContent = ">";
+            if(opLt) opLt.textContent = "<";
+            if(opEq){
+              opEq.disabled = false;
+              opEq.hidden = false;
+              opEq.textContent = "==";
+            }
+          }
+        }
+        const triggerKeyMode = String(triggerInfo.keyMode || "none");
+        if(triggerKeyWrapEl) triggerKeyWrapEl.style.display = (triggerKeyMode === "none") ? "none" : "";
+        const isSwitchTriggerType = (triggerTypeEl.value === "switch_falling" || triggerTypeEl.value === "switch_rising");
+        if(triggerKeyLabelEl){
+          if(triggerKeyMode === "var"){
+            triggerKeyLabelEl.textContent = "VAR";
+          }else if(isSwitchTriggerType){
+            triggerKeyLabelEl.textContent = "IO";
+          }else{
+            triggerKeyLabelEl.textContent = "PIN";
+          }
+        }
+        if(triggerPinEl) triggerPinEl.style.display = (triggerKeyMode === "pin") ? "" : "none";
+        if(triggerVarNameEl){
+          triggerVarNameEl.style.display = (triggerKeyMode === "var") ? "" : "none";
+          if(triggerKeyMode === "var"){
+            triggerVarNameEl.value = normalizeMissionVarName(triggerVarNameEl.value);
+          }
+        }
+        if(triggerPinEl && triggerKeyMode !== "none"){
+          const current = Math.max(1, Math.round(toFiniteNumber(triggerPinEl.value, 1)));
+          triggerPinEl.innerHTML = "";
+          if(isSwitchTriggerType){
+            const option = document.createElement("option");
+            option.value = "5";
+            option.textContent = "5";
+            triggerPinEl.appendChild(option);
+            triggerPinEl.value = "5";
+          }else{
+            const max = (triggerKeyMode === "var") ? 8 : 4;
+            for(let i = 1; i <= max; i++){
+              const option = document.createElement("option");
+              option.value = String(i);
+              option.textContent = String(i);
+              triggerPinEl.appendChild(option);
+            }
+            triggerPinEl.value = String(Math.max(1, Math.min(max, current)));
+          }
+        }
+        if(triggerValueEl){
+          triggerValueEl.style.display = useVarRhs ? "none" : "";
+          if(triggerTypeEl.value === "gyro_x_deg" || triggerTypeEl.value === "gyro_y_deg" || triggerTypeEl.value === "gyro_z_deg"){
+            triggerValueEl.min = "-360";
+            triggerValueEl.max = "360";
+            triggerValueEl.step = "1";
+          }else if(triggerTypeEl.value === "var_value"){
+            triggerValueEl.min = "-99999";
+            triggerValueEl.max = "99999";
+            triggerValueEl.step = "1";
+          }else if(triggerTypeEl.value === "var_change_count"){
+            triggerValueEl.min = "1";
+            triggerValueEl.max = "99999";
+            triggerValueEl.step = "1";
+          }else{
+            triggerValueEl.min = "0";
+            triggerValueEl.max = "";
+            triggerValueEl.step = "1";
+          }
+          triggerValueEl.value = String(Math.round(normalizeMissionTriggerValue(triggerTypeEl.value, triggerValueEl.value)));
+        }
+      }
+        if(actionTypeEl){
+          const actionType = actionTypeEl.value;
+          const actionInfo = getActionLabelAndUnit(actionType);
+          row.setAttribute("data-action-type", actionType);
+          if(actionPhraseEl) actionPhraseEl.textContent = actionInfo.phrase;
+        if(actionUnitEl) actionUnitEl.textContent = actionInfo.unit;
+        if(waitWrapEl) waitWrapEl.style.display = (actionType === "wait") ? "" : "none";
+        if(actionHeadWrapEl) actionHeadWrapEl.style.display = (actionType === "wait") ? "none" : "";
+        if(actionTypeWrapEl) actionTypeWrapEl.style.display = (actionType === "wait") ? "none" : "";
+        if(actionConfigWrapEl){
+          actionConfigWrapEl.style.display = (actionType === "wait") ? "none" : "";
+        }
+        if(actionKeyLabelEl){
+          if(actionType === "var_set" || actionType === "var_add" || actionType === "var_avg") actionKeyLabelEl.textContent = "VAR";
+          else if(actionType === "buzzer") actionKeyLabelEl.textContent = "HZ";
+          else if(actionType === "find_buzzer") actionKeyLabelEl.textContent = "—";
+          else if(actionType === "notone") actionKeyLabelEl.textContent = "—";
+          else if(actionType === "alarm") actionKeyLabelEl.textContent = "제목";
+          else actionKeyLabelEl.textContent = "CH";
+        }
+        const useVarAvg = (actionType === "var_avg");
+        const useVarName = (actionType === "var_set" || actionType === "var_add" || useVarAvg);
+        const useAlarmTitle = (actionType === "alarm");
+        const useBuzzerHz = (actionType === "buzzer");
+        const useFindBuzzer = (actionType === "find_buzzer");
+        const useNoTone = (actionType === "notone");
+        let actionValueMode = "direct";
+        if(actionValueModeEl){
+          actionValueMode = normalizeMissionVarActionValueMode(actionValueModeEl.value);
+          actionValueModeEl.value = actionValueMode;
+          actionValueModeEl.style.display = (useVarName && !useVarAvg) ? "" : "none";
+        }
+        if(actionChannelEl){
+          actionChannelEl.style.display = (useVarName || useAlarmTitle || useBuzzerHz || useFindBuzzer || useNoTone) ? "none" : "";
+        }
+        if(actionVarNameEl){
+          actionVarNameEl.style.display = useVarName ? "" : "none";
+          if(useVarName){
+            actionVarNameEl.value = normalizeMissionVarName(actionVarNameEl.value);
+          }
+        }
+        if(actionTextEl){
+          actionTextEl.style.display = useAlarmTitle ? "" : "none";
+          if(useAlarmTitle){
+            actionTextEl.value = normalizeMissionAlarmTitle(actionTextEl.value);
+          }
+        }
+        if(actionSubLabelEl){
+          actionSubLabelEl.style.display = useAlarmTitle ? "" : "none";
+        }
+        if(actionTextSubEl){
+          actionTextSubEl.style.display = useAlarmTitle ? "" : "none";
+          if(useAlarmTitle){
+            actionTextSubEl.value = normalizeMissionAlarmMessage(actionTextSubEl.value);
+          }
+        }
+        const showRawActionValue = !(useAlarmTitle || useFindBuzzer || useNoTone) && (!useVarName || actionValueMode === "direct" || useVarAvg);
+        if(actionValueEl){
+          actionValueEl.style.display = showRawActionValue ? "" : "none";
+        }
+        if(actionSensorEl){
+          const showSensor = !!(useVarAvg || (useVarName && actionValueMode === "sensor"));
+          actionSensorEl.style.display = showSensor ? "" : "none";
+          if(showSensor){
+            actionSensorEl.value = normalizeMissionExprSensorType(actionSensorEl.value);
+          }
+        }
+        if(actionUnitEl){
+          actionUnitEl.style.display = showRawActionValue ? "" : "none";
+        }
+        if(actionExprWrapEl){
+          actionExprWrapEl.style.display = ((useVarName && !useVarAvg) && actionValueMode === "expr") ? "" : "none";
+        }
+        if(actionExprLhsTypeEl){
+          actionExprLhsTypeEl.value = normalizeMissionExprOperandType(actionExprLhsTypeEl.value);
+        }
+        if(actionExprRhsTypeEl){
+          actionExprRhsTypeEl.value = normalizeMissionExprOperandType(actionExprRhsTypeEl.value);
+        }
+        if(actionExprOpEl){
+          actionExprOpEl.value = normalizeMissionExprOperator(actionExprOpEl.value);
+        }
+        const lhsOperandType = normalizeMissionExprOperandType((actionExprLhsTypeEl || {}).value);
+        const rhsOperandType = normalizeMissionExprOperandType((actionExprRhsTypeEl || {}).value);
+        const showLhsVar = !!((useVarName && !useVarAvg) && actionValueMode === "expr" && lhsOperandType === "var");
+        const showRhsVar = !!((useVarName && !useVarAvg) && actionValueMode === "expr" && rhsOperandType === "var");
+        const showLhsSensor = !!((useVarName && !useVarAvg) && actionValueMode === "expr" && lhsOperandType === "sensor");
+        const showRhsSensor = !!((useVarName && !useVarAvg) && actionValueMode === "expr" && rhsOperandType === "sensor");
+        if(actionExprLhsValueEl){
+          actionExprLhsValueEl.style.display = (showLhsVar || showLhsSensor) ? "none" : "";
+          actionExprLhsValueEl.min = "-99999";
+          actionExprLhsValueEl.max = "99999";
+          actionExprLhsValueEl.step = "1";
+          actionExprLhsValueEl.value = String(normalizeMissionExprValue(actionExprLhsValueEl.value, 0));
+        }
+        if(actionExprRhsValueEl){
+          actionExprRhsValueEl.style.display = (showRhsVar || showRhsSensor) ? "none" : "";
+          actionExprRhsValueEl.min = "-99999";
+          actionExprRhsValueEl.max = "99999";
+          actionExprRhsValueEl.step = "1";
+          actionExprRhsValueEl.value = String(normalizeMissionExprValue(actionExprRhsValueEl.value, 0));
+        }
+        if(actionExprLhsVarNameEl){
+          actionExprLhsVarNameEl.style.display = showLhsVar ? "" : "none";
+          if(showLhsVar){
+            actionExprLhsVarNameEl.value = normalizeMissionVarName(actionExprLhsVarNameEl.value);
+          }
+        }
+        if(actionExprLhsSensorEl){
+          actionExprLhsSensorEl.style.display = showLhsSensor ? "" : "none";
+          if(showLhsSensor){
+            actionExprLhsSensorEl.value = normalizeMissionExprSensorType(actionExprLhsSensorEl.value);
+          }
+        }
+        if(actionExprRhsVarNameEl){
+          actionExprRhsVarNameEl.style.display = showRhsVar ? "" : "none";
+          if(showRhsVar){
+            actionExprRhsVarNameEl.value = normalizeMissionVarName(actionExprRhsVarNameEl.value);
+          }
+        }
+        if(actionExprRhsSensorEl){
+          actionExprRhsSensorEl.style.display = showRhsSensor ? "" : "none";
+          if(showRhsSensor){
+            actionExprRhsSensorEl.value = normalizeMissionExprSensorType(actionExprRhsSensorEl.value);
+          }
+        }
+        if(actionChannelEl && actionType !== "wait"){
+          const current = Math.max(1, Math.round(toFiniteNumber(actionChannelEl.value, 1)));
+          actionChannelEl.innerHTML = "";
+          let max = 4;
+          if(actionType === "pyro") max = 4;
+          if(actionType === "var_set" || actionType === "var_add" || actionType === "var_avg") max = 8;
+          for(let i = 1; i <= max; i++){
+            const option = document.createElement("option");
+            option.value = String(i);
+            option.textContent = String(i);
+            actionChannelEl.appendChild(option);
+          }
+          actionChannelEl.value = String(Math.max(1, Math.min(max, current)));
+        }
+        if(actionValueEl && actionType !== "wait"){
+          if(actionType === "pyro"){
+            actionValueEl.min = "10";
+            actionValueEl.max = "60000";
+            actionValueEl.step = "10";
+          }else if(actionType === "buzzer"){
+            actionValueEl.min = "1";
+            actionValueEl.max = "10000";
+            actionValueEl.step = "1";
+          }else if(actionType === "var_avg"){
+            actionValueEl.min = "1";
+            actionValueEl.max = String(MISSION_SENSOR_HISTORY_MAX);
+            actionValueEl.step = "1";
+            actionValueEl.value = String(Math.max(1, Math.min(MISSION_SENSOR_HISTORY_MAX, Math.round(toFiniteNumber(actionValueEl.value, 5)))));
+          }else if(actionType === "var_set" || actionType === "var_add"){
+            actionValueEl.min = "-99999";
+            actionValueEl.max = "99999";
+            actionValueEl.step = "1";
+          }else{
+            actionValueEl.min = "0";
+            actionValueEl.max = String(SERVO_MAX_DEG);
+            actionValueEl.step = "1";
+          }
+        }
+      }
+      if(delaySecEl){
+        const sec = Math.max(0, toFiniteNumber(delaySecEl.value, 0));
+        delaySecEl.value = formatMissionDelaySec(Math.round(sec * 1000));
+      }
+    }
+    function missionBlockRowHtml(block, index){
+      const level = normalizeMissionLevel(block.level);
+      const rowType = normalizeMissionRowType(block.rowType);
+      const hasLoop = (rowType === "loop");
+      const hasCondition = (rowType === "condition" || rowType === "full");
+      const hasAction = (rowType === "action" || rowType === "full");
+      const triggerType = String(block.when.type || "altitude_gte");
+      const triggerValue = Math.round(normalizeMissionTriggerValue(triggerType, block.when.value));
+      const triggerPin = Math.max(1, Math.round(toFiniteNumber(block.when.pin, 1)));
+      const triggerVarName = missionHtmlEscape(normalizeMissionVarName(block.when.varName));
+      const triggerRhsType = normalizeMissionVarWhenRhsType(block.when.rhsType);
+      const triggerRhsValue = Math.round(normalizeMissionTriggerValue(triggerType, block.when.rhsValue != null ? block.when.rhsValue : block.when.value));
+      const triggerRhsVarName = missionHtmlEscape(normalizeMissionVarName(block.when.rhsVarName));
+      const actionType = String(block.then.type || "servo");
+      const loopInfo = normalizeMissionLoopObject(block.loop);
+      const loopMode = loopInfo.mode;
+      const loopCount = Math.max(1, Math.round(toFiniteNumber(loopInfo.count, 3)));
+      const actionChannel = Math.max(1, Math.round(toFiniteNumber(block.then.channel, 1)));
+      const actionVarName = missionHtmlEscape(normalizeMissionVarName(block.then.varName || block.when.varName));
+      const actionTitle = missionHtmlEscape(normalizeMissionAlarmTitle(block.then.title));
+      const actionMessage = missionHtmlEscape(normalizeMissionAlarmMessage(block.then.message));
+      const actionSensorType = normalizeMissionExprSensorType(block.then.sensor != null ? block.then.sensor : block.then.sensorType);
+      let actionValue = 0;
+      if(actionType === "pyro"){
+        actionValue = Math.max(10, Math.round(toFiniteNumber(block.then.durationMs, 300)));
+      }else if(actionType === "buzzer"){
+        actionValue = Math.max(1, Math.min(10000, Math.round(toFiniteNumber(block.then.value, 2000))));
+      }else if(actionType === "var_avg"){
+        actionValue = Math.max(1, Math.min(MISSION_SENSOR_HISTORY_MAX, Math.round(toFiniteNumber(block.then.avgCount != null ? block.then.avgCount : block.then.value, 5))));
+      }else if(actionType === "var_set" || actionType === "var_add"){
+        actionValue = Math.round(Math.max(-99999, Math.min(99999, toFiniteNumber(block.then.value != null ? block.then.value : block.then.angle, 0))));
+      }else if(actionType === "alarm" || actionType === "find_buzzer" || actionType === "notone"){
+        actionValue = 0;
+      }else{
+        actionValue = Math.max(0, Math.min(SERVO_MAX_DEG, Math.round(toFiniteNumber(block.then.angle, 90))));
+      }
+      const actionExpr = normalizeMissionExprObject(block.then.expr, actionValue, actionChannel);
+      let actionValueMode = "direct";
+      if((actionType === "var_set" || actionType === "var_add") && actionExpr.enabled){
+        const rhsZero = normalizeMissionExprValue(actionExpr.rhsValue, 0) === 0;
+        const sensorShortcut = (actionExpr.lhsType === "sensor" && actionExpr.op === "add" && actionExpr.rhsType === "const" && rhsZero);
+        actionValueMode = sensorShortcut ? "sensor" : "expr";
+      }
+      const actionExprLhsVarName = missionHtmlEscape(normalizeMissionVarName(actionExpr.lhsVarName));
+      const actionExprRhsVarName = missionHtmlEscape(normalizeMissionVarName(actionExpr.rhsVarName));
+      const triggerCmp = normalizeMissionComparator(block.when.cmp, triggerType);
+      const delayMs = Math.max(0, Math.round(toFiniteNumber(block.delayMs, 0)));
+      const delaySec = formatMissionDelaySec(delayMs);
+      const enabledValue = block.enabled !== false ? "1" : "0";
+      const onceValue = block.once !== false ? "1" : "0";
+      const uiX = normalizeMissionUiCoord(block.uiX);
+      const uiY = normalizeMissionUiCoord(block.uiY);
+      let html = "" +
+        "<div class=\"mission-block-row scratch-stack\" data-block-index=\"" + index + "\" data-level=\"" + level + "\" data-ui-x=\"" + uiX + "\" data-ui-y=\"" + uiY + "\" data-row-type=\"" + rowType + "\" data-action-type=\"" + actionType + "\">";
+      if(hasLoop){
+        html +=
+          "<div class=\"scratch-block scratch-control scratch-control--if\">" +
+            "<span class=\"scratch-text scratch-text--if\">반복</span>" +
+            "<select class=\"scratch-field scratch-select scratch-input--xs\" data-role=\"loopMode\">" +
+              "<option value=\"forever\"" + (loopMode === "forever" ? " selected" : "") + ">무한</option>" +
+              "<option value=\"count\"" + (loopMode === "count" ? " selected" : "") + ">횟수</option>" +
+            "</select>" +
+            "<span class=\"scratch-inline\" data-role=\"loopCountWrap\"" + (loopMode === "count" ? "" : " style=\"display:none\"") + ">" +
+              "<input class=\"scratch-field scratch-input scratch-input--if-value\" data-role=\"loopCount\" type=\"number\" min=\"1\" max=\"200\" step=\"1\" value=\"" + loopCount + "\">" +
+              "<span class=\"scratch-badge\">회</span>" +
+            "</span>" +
+            "<button class=\"scratch-mini-btn scratch-mini-btn--close\" type=\"button\" data-role=\"remove\" aria-label=\"삭제\">×</button>" +
+          "</div>";
+      }
+      if(hasCondition){
+        html +=
+          "<div class=\"scratch-block scratch-control scratch-control--if\">" +
+            "<span class=\"scratch-text scratch-text--if\">만일</span>" +
+            "<select class=\"scratch-field scratch-select scratch-field--if-type\" data-role=\"triggerType\">" +
+              "<option value=\"altitude_gte\"" + (triggerType === "altitude_gte" ? " selected" : "") + ">고도</option>" +
+              "<option value=\"switch_falling\"" + (triggerType === "switch_falling" ? " selected" : "") + ">ARM OFF</option>" +
+              "<option value=\"switch_rising\"" + (triggerType === "switch_rising" ? " selected" : "") + ">ARM ON</option>" +
+              "<option value=\"time_after_firing_ms\"" + (triggerType === "time_after_firing_ms" ? " selected" : "") + ">점화 후 시간</option>" +
+              "<option value=\"gyro_x_deg\"" + (triggerType === "gyro_x_deg" ? " selected" : "") + ">자이로 X 각도</option>" +
+              "<option value=\"gyro_y_deg\"" + (triggerType === "gyro_y_deg" ? " selected" : "") + ">자이로 Y 각도</option>" +
+              "<option value=\"gyro_z_deg\"" + (triggerType === "gyro_z_deg" ? " selected" : "") + ">자이로 Z 각도</option>" +
+              "<option value=\"var_value\"" + (triggerType === "var_value" ? " selected" : "") + ">변수 값</option>" +
+              "<option value=\"var_change_count\"" + (triggerType === "var_change_count" ? " selected" : "") + ">변수 변화 횟수</option>" +
+            "</select>" +
+            "<span class=\"scratch-inline\" data-role=\"triggerKeyWrap\" style=\"display:none\">" +
+              "<span class=\"scratch-badge scratch-badge--if-key\" data-role=\"triggerKeyLabel\">IO</span>" +
+              "<select class=\"scratch-field scratch-select scratch-input--xs\" data-role=\"triggerPin\">" +
+                "<option value=\"" + triggerPin + "\" selected>" + triggerPin + "</option>" +
+              "</select>" +
+              "<input class=\"scratch-field scratch-input scratch-input--if-value\" data-role=\"triggerVarName\" type=\"text\" maxlength=\"24\" placeholder=\"변수명\" value=\"" + triggerVarName + "\" style=\"display:none\">" +
+            "</span>" +
+            "<span class=\"scratch-badge scratch-badge--if-key\" data-role=\"triggerValueLabel\">값</span>" +
+            "<select class=\"scratch-field scratch-select scratch-field--if-op\" data-role=\"triggerOp\">" +
+              "<option value=\"eq\"" + (triggerCmp === "eq" ? " selected" : "") + ">==</option>" +
+              "<option value=\"gt\"" + (triggerCmp === "gt" ? " selected" : "") + ">&gt;</option>" +
+              "<option value=\"lt\"" + (triggerCmp === "lt" ? " selected" : "") + ">&lt;</option>" +
+            "</select>" +
+            "<span class=\"scratch-inline\" data-role=\"triggerValueWrap\">" +
+              "<select class=\"scratch-field scratch-select scratch-input--xs\" data-role=\"triggerValueType\" style=\"display:none\">" +
+                "<option value=\"const\"" + (triggerRhsType === "const" ? " selected" : "") + ">값</option>" +
+                "<option value=\"var\"" + (triggerRhsType === "var" ? " selected" : "") + ">VAR</option>" +
+              "</select>" +
+              "<input class=\"scratch-field scratch-input scratch-input--if-value\" data-role=\"triggerValue\" type=\"number\" step=\"1\" value=\"" + triggerRhsValue + "\">" +
+              "<input class=\"scratch-field scratch-input scratch-input--if-value\" data-role=\"triggerValueVarName\" type=\"text\" maxlength=\"24\" placeholder=\"비교 변수\" value=\"" + triggerRhsVarName + "\" style=\"display:none\">" +
+            "</span>" +
+            "<span class=\"scratch-text\">이라면</span>" +
+            (!hasAction ? "<button class=\"scratch-mini-btn scratch-mini-btn--close\" type=\"button\" data-role=\"remove\" aria-label=\"삭제\">×</button>" : "") +
+          "</div>";
+      }
+      if(hasAction){
+        html +=
+          "<div class=\"scratch-block scratch-action\">" +
+            "<span class=\"scratch-inline\" data-role=\"waitWrap\">" +
+              "<span class=\"scratch-text\">몇 초 기다리기</span>" +
+              "<input class=\"scratch-field scratch-input scratch-input--delay\" data-role=\"delaySec\" type=\"number\" min=\"0\" step=\"0.1\" value=\"" + delaySec + "\">" +
+              "<span class=\"scratch-badge scratch-badge--delay\">초</span>" +
+            "</span>" +
+            "<span class=\"scratch-inline\" data-role=\"actionHeadWrap\">" +
+              "<span class=\"scratch-text\">실행</span>" +
+            "</span>" +
+            "<span class=\"scratch-inline\" data-role=\"actionTypeWrap\">" +
+              "<select class=\"scratch-field scratch-select\" data-role=\"actionType\">" +
+                "<option value=\"servo\"" + (actionType === "servo" ? " selected" : "") + ">서보 움직이기</option>" +
+                "<option value=\"pyro\"" + (actionType === "pyro" ? " selected" : "") + ">파이로 작동</option>" +
+                "<option value=\"var_set\"" + (actionType === "var_set" ? " selected" : "") + ">변수 설정</option>" +
+                "<option value=\"var_add\"" + (actionType === "var_add" ? " selected" : "") + ">변수 계산</option>" +
+                "<option value=\"var_avg\"" + (actionType === "var_avg" ? " selected" : "") + ">센서값 평균</option>" +
+                "<option value=\"alarm\"" + (actionType === "alarm" ? " selected" : "") + ">알람 띄우기</option>" +
+                "<option value=\"buzzer\"" + (actionType === "buzzer" ? " selected" : "") + ">버저 작동</option>" +
+                "<option value=\"find_buzzer\"" + (actionType === "find_buzzer" ? " selected" : "") + ">파인드 버저</option>" +
+                "<option value=\"notone\"" + (actionType === "notone" ? " selected" : "") + ">버저 정지</option>" +
+                "<option value=\"wait\"" + (actionType === "wait" ? " selected" : "") + ">몇 초 기다리기</option>" +
+              "</select>" +
+            "</span>" +
+            "<span class=\"scratch-inline\" data-role=\"actionConfigWrap\">" +
+              "<span class=\"scratch-text\" data-role=\"actionPhrase\">서보</span>" +
+              "<span class=\"scratch-text\" data-role=\"actionKeyLabel\">CH</span>" +
+              "<select class=\"scratch-field scratch-select scratch-input--xs\" data-role=\"actionChannel\">" +
+                "<option value=\"" + actionChannel + "\" selected>" + actionChannel + "</option>" +
+              "</select>" +
+              "<input class=\"scratch-field scratch-input scratch-input--if-value\" data-role=\"actionVarName\" type=\"text\" maxlength=\"24\" placeholder=\"변수명\" value=\"" + actionVarName + "\" style=\"display:none\">" +
+              "<input class=\"scratch-field scratch-input scratch-input--if-value\" data-role=\"actionText\" type=\"text\" maxlength=\"40\" placeholder=\"알람 제목\" value=\"" + actionTitle + "\" style=\"display:none\">" +
+              "<span class=\"scratch-badge\" data-role=\"actionSubLabel\" style=\"display:none\">내용</span>" +
+              "<input class=\"scratch-field scratch-input scratch-input--if-value\" data-role=\"actionTextSub\" type=\"text\" maxlength=\"120\" placeholder=\"알람 내용\" value=\"" + actionMessage + "\" style=\"display:none\">" +
+              "<input class=\"scratch-field scratch-input\" data-role=\"actionValue\" type=\"number\" min=\"0\" step=\"1\" value=\"" + actionValue + "\">" +
+              "<select class=\"scratch-field scratch-select scratch-input--xs\" data-role=\"actionValueMode\" style=\"display:none\">" +
+                "<option value=\"direct\"" + (actionValueMode === "direct" ? " selected" : "") + ">직접값</option>" +
+                "<option value=\"sensor\"" + (actionValueMode === "sensor" ? " selected" : "") + ">센서값</option>" +
+                "<option value=\"expr\"" + (actionValueMode === "expr" ? " selected" : "") + ">연산</option>" +
+              "</select>" +
+              "<select class=\"scratch-field scratch-select\" data-role=\"actionSensor\" style=\"display:none\">" +
+                missionExprSensorOptionsHtml(actionType === "var_avg" ? actionSensorType : actionExpr.lhsSensor) +
+              "</select>" +
+              "<span class=\"scratch-inline\" data-role=\"actionExprWrap\" style=\"display:none\">" +
+                "<select class=\"scratch-field scratch-select scratch-input--xs\" data-role=\"actionExprLhsType\">" +
+                  "<option value=\"const\"" + (actionExpr.lhsType === "const" ? " selected" : "") + ">값</option>" +
+                  "<option value=\"var\"" + (actionExpr.lhsType === "var" ? " selected" : "") + ">VAR</option>" +
+                  "<option value=\"sensor\"" + (actionExpr.lhsType === "sensor" ? " selected" : "") + ">센서</option>" +
+                "</select>" +
+                "<input class=\"scratch-field scratch-input scratch-input--if-value\" data-role=\"actionExprLhsValue\" type=\"number\" min=\"-99999\" max=\"99999\" step=\"1\" value=\"" + actionExpr.lhsValue + "\">" +
+                "<input class=\"scratch-field scratch-input scratch-input--if-value\" data-role=\"actionExprLhsVarName\" type=\"text\" maxlength=\"24\" placeholder=\"좌 변수\" value=\"" + actionExprLhsVarName + "\" style=\"display:none\">" +
+                "<select class=\"scratch-field scratch-select\" data-role=\"actionExprLhsSensor\" style=\"display:none\">" +
+                  missionExprSensorOptionsHtml(actionExpr.lhsSensor) +
+                "</select>" +
+                "<select class=\"scratch-field scratch-select scratch-field--if-op\" data-role=\"actionExprOp\">" +
+                  "<option value=\"add\"" + (actionExpr.op === "add" ? " selected" : "") + ">+</option>" +
+                  "<option value=\"sub\"" + (actionExpr.op === "sub" ? " selected" : "") + ">-</option>" +
+                  "<option value=\"mul\"" + (actionExpr.op === "mul" ? " selected" : "") + ">×</option>" +
+                  "<option value=\"div\"" + (actionExpr.op === "div" ? " selected" : "") + ">/</option>" +
+                "</select>" +
+                "<select class=\"scratch-field scratch-select scratch-input--xs\" data-role=\"actionExprRhsType\">" +
+                  "<option value=\"const\"" + (actionExpr.rhsType === "const" ? " selected" : "") + ">값</option>" +
+                  "<option value=\"var\"" + (actionExpr.rhsType === "var" ? " selected" : "") + ">VAR</option>" +
+                  "<option value=\"sensor\"" + (actionExpr.rhsType === "sensor" ? " selected" : "") + ">센서</option>" +
+                "</select>" +
+                "<input class=\"scratch-field scratch-input scratch-input--if-value\" data-role=\"actionExprRhsValue\" type=\"number\" min=\"-99999\" max=\"99999\" step=\"1\" value=\"" + actionExpr.rhsValue + "\">" +
+                "<input class=\"scratch-field scratch-input scratch-input--if-value\" data-role=\"actionExprRhsVarName\" type=\"text\" maxlength=\"24\" placeholder=\"우 변수\" value=\"" + actionExprRhsVarName + "\" style=\"display:none\">" +
+                "<select class=\"scratch-field scratch-select\" data-role=\"actionExprRhsSensor\" style=\"display:none\">" +
+                  missionExprSensorOptionsHtml(actionExpr.rhsSensor) +
+                "</select>" +
+              "</span>" +
+              "<span class=\"scratch-badge\" data-role=\"actionUnit\">deg</span>" +
+            "</span>" +
+            "<button class=\"scratch-mini-btn scratch-mini-btn--close\" type=\"button\" data-role=\"remove\" aria-label=\"삭제\">×</button>" +
+          "</div>";
+      }
+      html +=
+        "<input type=\"hidden\" data-role=\"enabled\" value=\"" + enabledValue + "\">" +
+        "<input type=\"hidden\" data-role=\"once\" value=\"" + onceValue + "\">" +
+        "<input type=\"hidden\" data-role=\"delayMs\" value=\"" + delayMs + "\">" +
+        "<input type=\"hidden\" data-role=\"loopGapMs\" value=\"" + Math.max(0, Math.round(toFiniteNumber(loopInfo.gapMs, 1000))) + "\">";
+      html += "</div>";
+      return html;
+    }
+    function readMissionBlockFromRow(row){
+      if(!row) return null;
+      const level = normalizeMissionLevel(row.getAttribute("data-level"));
+      const uiX = normalizeMissionUiCoord(row.getAttribute("data-ui-x"));
+      const uiY = normalizeMissionUiCoord(row.getAttribute("data-ui-y"));
+      const rowType = normalizeMissionRowType(row.getAttribute("data-row-type"));
+      const triggerTypeEl = row.querySelector("[data-role='triggerType']");
+      const triggerValueEl = row.querySelector("[data-role='triggerValue']");
+      const triggerPinEl = row.querySelector("[data-role='triggerPin']");
+      const triggerVarNameEl = row.querySelector("[data-role='triggerVarName']");
+      const triggerOpEl = row.querySelector("[data-role='triggerOp']");
+      const triggerValueTypeEl = row.querySelector("[data-role='triggerValueType']");
+      const triggerValueVarNameEl = row.querySelector("[data-role='triggerValueVarName']");
+      const actionTypeEl = row.querySelector("[data-role='actionType']");
+      const actionChannelEl = row.querySelector("[data-role='actionChannel']");
+      const actionVarNameEl = row.querySelector("[data-role='actionVarName']");
+      const actionTextEl = row.querySelector("[data-role='actionText']");
+      const actionTextSubEl = row.querySelector("[data-role='actionTextSub']");
+      const actionValueEl = row.querySelector("[data-role='actionValue']");
+      const actionValueModeEl = row.querySelector("[data-role='actionValueMode']");
+      const actionSensorEl = row.querySelector("[data-role='actionSensor']");
+      const actionExprLhsTypeEl = row.querySelector("[data-role='actionExprLhsType']");
+      const actionExprLhsValueEl = row.querySelector("[data-role='actionExprLhsValue']");
+      const actionExprLhsVarNameEl = row.querySelector("[data-role='actionExprLhsVarName']");
+      const actionExprLhsSensorEl = row.querySelector("[data-role='actionExprLhsSensor']");
+      const actionExprOpEl = row.querySelector("[data-role='actionExprOp']");
+      const actionExprRhsTypeEl = row.querySelector("[data-role='actionExprRhsType']");
+      const actionExprRhsValueEl = row.querySelector("[data-role='actionExprRhsValue']");
+      const actionExprRhsVarNameEl = row.querySelector("[data-role='actionExprRhsVarName']");
+      const actionExprRhsSensorEl = row.querySelector("[data-role='actionExprRhsSensor']");
+      const delaySecEl = row.querySelector("[data-role='delaySec']");
+      const delayMsEl = row.querySelector("[data-role='delayMs']");
+      const loopModeEl = row.querySelector("[data-role='loopMode']");
+      const loopCountEl = row.querySelector("[data-role='loopCount']");
+      const loopGapMsEl = row.querySelector("[data-role='loopGapMs']");
+      const enabledEl = row.querySelector("[data-role='enabled']");
+      const onceEl = row.querySelector("[data-role='once']");
+
+      const triggerType = String((triggerTypeEl || {}).value || (rowType === "action" ? "time_after_firing_ms" : "altitude_gte"));
+      const triggerCmp = normalizeMissionComparator((triggerOpEl || {}).value, triggerType);
+      const triggerRawValue = Math.round(normalizeMissionTriggerValue(triggerType, (triggerValueEl || {}).value));
+      const triggerRhsType = (triggerType === "var_value")
+        ? normalizeMissionVarWhenRhsType((triggerValueTypeEl || {}).value)
+        : "const";
+      const triggerRhsVarName = (triggerType === "var_value")
+        ? normalizeMissionVarName((triggerValueVarNameEl || {}).value)
+        : "";
+      const triggerValue = (triggerType === "var_value" && triggerRhsType === "var") ? 0 : triggerRawValue;
+      const triggerPinRaw = Math.max(1, Math.round(toFiniteNumber((triggerPinEl || {}).value, 1)));
+      const triggerPin = (triggerType === "switch_falling" || triggerType === "switch_rising") ? 2 : triggerPinRaw;
+      const triggerVarName = normalizeMissionVarName((triggerVarNameEl || {}).value);
+      const actionType = String((actionTypeEl || {}).value || "servo");
+      const actionChannelRaw = Math.max(1, Math.round(toFiniteNumber((actionChannelEl || {}).value, 1)));
+      const actionVarName = normalizeMissionVarName((actionVarNameEl || {}).value);
+      const actionTitle = normalizeMissionAlarmTitle((actionTextEl || {}).value);
+      const actionMessage = normalizeMissionAlarmMessage((actionTextSubEl || {}).value);
+      const actionValueDefault = (actionType === "pyro")
+        ? 300
+        : ((actionType === "var_set" || actionType === "var_add" || actionType === "alarm" || actionType === "find_buzzer" || actionType === "notone")
+            ? 0
+            : (actionType === "buzzer" ? 2000 : (actionType === "var_avg" ? 5 : 90)));
+      const actionValue = Math.round(toFiniteNumber((actionValueEl || {}).value, actionValueDefault));
+      const actionValueMode = normalizeMissionVarActionValueMode((actionValueModeEl || {}).value);
+      let actionExprRaw = {
+        enabled: false,
+        lhsType: "const",
+        lhsValue: actionValue,
+        lhsVarName: "",
+        lhsSensor: "altitude_m",
+        lhsChannel: actionChannelRaw,
+        op: "add",
+        rhsType: "const",
+        rhsValue: 0,
+        rhsVarName: "",
+        rhsSensor: "altitude_m",
+        rhsChannel: actionChannelRaw
+      };
+      if(actionValueMode === "expr"){
+        actionExprRaw = {
+          enabled: true,
+          lhsType: (actionExprLhsTypeEl || {}).value,
+          lhsValue: (actionExprLhsValueEl || {}).value,
+          lhsVarName: (actionExprLhsVarNameEl || {}).value,
+          lhsSensor: (actionExprLhsSensorEl || {}).value,
+          lhsChannel: actionChannelRaw,
+          op: (actionExprOpEl || {}).value,
+          rhsType: (actionExprRhsTypeEl || {}).value,
+          rhsValue: (actionExprRhsValueEl || {}).value,
+          rhsVarName: (actionExprRhsVarNameEl || {}).value,
+          rhsSensor: (actionExprRhsSensorEl || {}).value,
+          rhsChannel: actionChannelRaw
+        };
+      }else if(actionValueMode === "sensor"){
+        actionExprRaw = {
+          enabled: true,
+          lhsType: "sensor",
+          lhsValue: 0,
+          lhsVarName: "",
+          lhsSensor: normalizeMissionExprSensorType((actionSensorEl || {}).value),
+          lhsChannel: actionChannelRaw,
+          op: "add",
+          rhsType: "const",
+          rhsValue: 0,
+          rhsVarName: "",
+          rhsSensor: "altitude_m",
+          rhsChannel: actionChannelRaw
+        };
+      }
+      const actionExpr = normalizeMissionExprObject(actionExprRaw, actionValue, actionChannelRaw);
+      const delaySec = toFiniteNumber((delaySecEl || {}).value, NaN);
+      const parsedDelayMs = Number.isFinite(delaySec)
+        ? Math.max(0, Math.round(delaySec * 1000))
+        : Math.max(0, Math.round(toFiniteNumber((delayMsEl || {}).value, 0)));
+      const delayMs = (actionType === "wait") ? parsedDelayMs : 0;
+      const enabled = enabledEl
+        ? (enabledEl.type === "checkbox" ? !!enabledEl.checked : String(enabledEl.value || "1") !== "0")
+        : true;
+      let once = onceEl
+        ? (onceEl.type === "checkbox" ? !!onceEl.checked : String(onceEl.value || "1") !== "0")
+        : true;
+      if(triggerType === "boot") once = true;
+      if(rowType === "loop"){
+        const loopMode = normalizeMissionLoopMode((loopModeEl || {}).value);
+        const loopCount = Math.max(1, Math.min(200, Math.round(toFiniteNumber((loopCountEl || {}).value, 3))));
+        const loopGapMs = Math.max(0, Math.min(60000, Math.round(toFiniteNumber((loopGapMsEl || {}).value, 1000))));
+        return normalizeMissionBlock({
+          level,
+          uiX,
+          uiY,
+          rowType: "loop",
+          enabled,
+          once,
+          delayMs: 0,
+          when: {type:"time_after_firing_ms", cmp:"gt", value:0, pin:1},
+          then: {type:"wait"},
+          loop: {mode:loopMode, count:loopCount, gapMs:loopGapMs}
+        });
+      }
+      const next = {
+        level,
+        uiX,
+        uiY,
+        rowType,
+        enabled,
+        once,
+        delayMs,
+        when: {
+          type: triggerType,
+          cmp: triggerCmp,
+          value: triggerValue,
+          pin: triggerPin,
+          varName: (triggerType === "var_value" || triggerType === "var_change_count") ? triggerVarName : "",
+          rhsType: (triggerType === "var_value") ? triggerRhsType : "const",
+          rhsValue: (triggerType === "var_value") ? triggerRawValue : triggerValue,
+          rhsVarName: (triggerType === "var_value") ? triggerRhsVarName : ""
+        },
+        then: {
+          type: actionType,
+          channel: actionChannelRaw,
+          varName: (actionType === "var_set" || actionType === "var_add" || actionType === "var_avg")
+            ? (actionVarName || triggerVarName)
+            : "",
+          sensor: (actionType === "var_avg")
+            ? normalizeMissionExprSensorType((actionSensorEl || {}).value)
+            : "altitude_m",
+          avgCount: (actionType === "var_avg")
+            ? Math.max(1, Math.min(MISSION_SENSOR_HISTORY_MAX, actionValue))
+            : 1,
+          title: (actionType === "alarm") ? actionTitle : "",
+          message: (actionType === "alarm") ? actionMessage : "",
+          expr: normalizeMissionExprObject(null, actionValue, actionChannelRaw)
+        }
+      };
+      if(actionType === "pyro"){
+        next.then.channel = Math.max(1, Math.min(4, actionChannelRaw));
+        next.then.durationMs = Math.max(10, actionValue);
+      }else if(actionType === "buzzer"){
+        next.then.type = "buzzer";
+        next.then.channel = 0;
+        next.then.value = Math.max(1, Math.min(10000, actionValue));
+        next.then.durationMs = 0;
+        next.then.angle = 0;
+        next.then.varName = "";
+        next.then.title = "";
+        next.then.message = "";
+      }else if(actionType === "find_buzzer"){
+        next.then.type = "find_buzzer";
+        next.then.channel = 0;
+        next.then.value = 0;
+        next.then.durationMs = 0;
+        next.then.angle = 0;
+        next.then.varName = "";
+        next.then.sensor = "altitude_m";
+        next.then.avgCount = 1;
+        next.then.title = "";
+        next.then.message = "";
+      }else if(actionType === "notone"){
+        next.then.type = "notone";
+        next.then.channel = 0;
+        next.then.value = 0;
+        next.then.durationMs = 0;
+        next.then.angle = 0;
+        next.then.varName = "";
+        next.then.sensor = "altitude_m";
+        next.then.avgCount = 1;
+        next.then.title = "";
+        next.then.message = "";
+      }else if(actionType === "var_avg"){
+        next.then.type = "var_avg";
+        next.then.channel = Math.max(1, Math.min(8, actionChannelRaw));
+        next.then.value = Math.max(1, Math.min(MISSION_SENSOR_HISTORY_MAX, actionValue));
+        next.then.durationMs = 0;
+        next.then.angle = 0;
+        next.then.varName = actionVarName || triggerVarName;
+        next.then.sensor = normalizeMissionExprSensorType((actionSensorEl || {}).value);
+        next.then.avgCount = next.then.value;
+        next.then.expr = normalizeMissionExprObject(null, 0, 1);
+        next.then.title = "";
+        next.then.message = "";
+      }else if(actionType === "var_set" || actionType === "var_add"){
+        next.then.type = actionType;
+        next.then.channel = Math.max(1, Math.min(8, actionChannelRaw));
+        next.then.value = Math.max(-99999, Math.min(99999, actionValue));
+        next.then.durationMs = 0;
+        next.then.angle = 0;
+        next.then.varName = actionVarName || triggerVarName;
+        next.then.expr = normalizeMissionExprObject(actionExpr, next.then.value, next.then.channel);
+        if(next.then.expr.enabled){
+          if(next.then.expr.lhsType === "var" && !next.then.expr.lhsVarName){
+            next.then.expr.lhsVarName = next.then.varName || "";
+          }
+          if(next.then.expr.rhsType === "var" && !next.then.expr.rhsVarName){
+            next.then.expr.rhsVarName = next.then.varName || "";
+          }
+        }
+        next.then.title = "";
+        next.then.message = "";
+      }else if(actionType === "alarm"){
+        next.then.type = "alarm";
+        next.then.channel = 0;
+        next.then.value = 0;
+        next.then.durationMs = 0;
+        next.then.angle = 0;
+        next.then.varName = "";
+        next.then.sensor = "altitude_m";
+        next.then.avgCount = 1;
+        next.then.title = actionTitle;
+        next.then.message = actionMessage;
+      }else if(actionType === "wait"){
+        next.then.type = "wait";
+        next.then.channel = 0;
+        next.then.durationMs = 0;
+        next.then.angle = 0;
+        next.then.value = 0;
+        next.then.sensor = "altitude_m";
+        next.then.avgCount = 1;
+        next.then.message = "";
+      }else{
+        next.then.type = "servo";
+        next.then.channel = Math.max(1, Math.min(4, actionChannelRaw));
+        next.then.angle = Math.max(0, Math.min(SERVO_MAX_DEG, actionValue));
+        next.then.value = next.then.angle;
+        next.then.sensor = "altitude_m";
+        next.then.avgCount = 1;
+        next.then.message = "";
+      }
+      return normalizeMissionBlock(next);
+    }
+    function buildMissionBlocksFromUi(){
+      if(!el.missionBlockList) return normalizeMissionBlocks(missionBlocksState);
+      const rows = Array.from(el.missionBlockList.querySelectorAll(".mission-block-row"));
+      return rows.map((row)=>readMissionBlockFromRow(row)).filter(Boolean);
+    }
+    function isMissionPaletteKind(kind){
+      const k = String(kind || "");
+      return k === "servo" || k === "pyro" || k === "time_servo" ||
+        k === "time_pyro" || k === "switch_servo" || k === "altitude_pyro" ||
+        k === "switch_pyro" || k === "altitude_servo_high" ||
+        k === "cond_altitude" || k === "cond_start_arm_off" || k === "cond_switch_falling" ||
+        k === "cond_switch_rising" || k === "cond_time_after_firing" || k === "cond_gyro_angle" || k === "cond_variable" || k === "cond_var_change_count" ||
+        k === "act_wait" || k === "act_servo" || k === "act_servo_high" || k === "act_pyro" || k === "act_var_set" || k === "act_var_add" || k === "act_var_avg" || k === "act_alarm" ||
+        k === "act_buzzer" || k === "act_find_buzzer" || k === "act_notone" ||
+        k === "loop_forever" || k === "loop_count";
+    }
+    function missionPaletteKindFromTransfer(ev){
+      const raw = ev && ev.dataTransfer ? String(ev.dataTransfer.getData("text/x-mission-palette-kind") || "") : "";
+      if(isMissionPaletteKind(raw)) return raw;
+      return "";
+    }
+    function missionDragIndexFromTransfer(ev){
+      const raw = ev && ev.dataTransfer
+        ? String(ev.dataTransfer.getData("text/x-mission-block-index") || ev.dataTransfer.getData("text/plain") || "")
+        : "";
+      const n = parseInt(raw, 10);
+      return Number.isFinite(n) ? n : null;
+    }
+    function missionPaletteKindIsAction(kind){
+      const k = String(kind || "");
+      return k === "act_wait" || k === "act_servo" || k === "act_servo_high" || k === "act_pyro" || k === "act_var_set" || k === "act_var_add" || k === "act_var_avg" || k === "act_alarm" ||
+        k === "act_buzzer" || k === "act_find_buzzer" || k === "act_notone";
+    }
+    function missionPaletteKindIsCondition(kind){
+      const k = String(kind || "");
+      return k === "cond_altitude" || k === "cond_start_arm_off" || k === "cond_switch_falling" ||
+        k === "cond_switch_rising" || k === "cond_time_after_firing" || k === "cond_gyro_angle" || k === "cond_variable" || k === "cond_var_change_count";
+    }
+    function missionPaletteKindIsLoop(kind){
+      const k = String(kind || "");
+      return k === "loop_forever" || k === "loop_count";
+    }
+    function missionDragRowTypeFromIndex(idx){
+      if(idx == null || idx < 0) return "";
+      if(el.missionBlockList){
+        const row = el.missionBlockList.querySelector(".mission-block-row[data-block-index=\"" + idx + "\"]");
+        if(row) return normalizeMissionRowType(row.getAttribute("data-row-type"));
+      }
+      const current = normalizeMissionBlocks(missionBlocksState);
+      if(idx >= current.length) return "";
+      return normalizeMissionRowType(current[idx].rowType);
+    }
+    function missionRowLevelFromIndex(idx){
+      if(idx == null || idx < 0) return 0;
+      if(el.missionBlockList){
+        const row = el.missionBlockList.querySelector(".mission-block-row[data-block-index=\"" + idx + "\"]");
+        if(row) return normalizeMissionLevel(row.getAttribute("data-level"));
+      }
+      const current = normalizeMissionBlocks(missionBlocksState);
+      if(idx >= current.length) return 0;
+      return normalizeMissionLevel(current[idx].level);
+    }
+    function missionCanSnapToBranchFromEvent(ev){
+      const paletteKind = missionPaletteKindFromTransfer(ev);
+      if(paletteKind){
+        return missionPaletteKindIsAction(paletteKind) || missionPaletteKindIsCondition(paletteKind) || missionPaletteKindIsLoop(paletteKind);
+      }
+      const dragIdx = missionDragIndexFromTransfer(ev);
+      const rowType = missionDragRowTypeFromIndex(dragIdx);
+      return rowType === "action" || rowType === "condition" || rowType === "loop";
+    }
+    function missionNearestBranchFromPoint(clientX, clientY){
+      if(!el.missionBlockList) return null;
+      if(!Number.isFinite(clientX) || !Number.isFinite(clientY)) return null;
+      const branches = Array.from(el.missionBlockList.querySelectorAll(".mission-if-branch"));
+      if(!branches.length) return null;
+      const snapUpPx = 92;
+      const snapDownPx = 560;
+      const snapSidePx = 520;
+      let bestNode = null;
+      let bestDist = Infinity;
+      let bestLevel = -1;
+      let bestArea = Infinity;
+      const insideCandidates = [];
+      branches.forEach((branch)=>{
+        const rect = branch.getBoundingClientRect();
+        if(clientY < (rect.top - snapUpPx) || clientY > (rect.bottom + snapDownPx)) return;
+        if(clientX < (rect.left - snapSidePx) || clientX > (rect.right + snapSidePx)) return;
+        const level = normalizeMissionLevel(branch.getAttribute("data-level"));
+        const area = Math.max(1, rect.width * rect.height);
+        const insideStrict = (
+          clientX >= (rect.left - 24) &&
+          clientX <= (rect.right + 24) &&
+          clientY >= (rect.top - 14) &&
+          clientY <= (rect.bottom + 24)
+        );
+        if(insideStrict){
+          insideCandidates.push({branch, rect, level, area});
+        }
+        const xGap = clientX < rect.left ? (rect.left - clientX) : (clientX > rect.right ? (clientX - rect.right) : 0);
+        const yGapTop = clientY < rect.top ? (rect.top - clientY) : 0;
+        const yGapBottom = clientY > rect.bottom ? (clientY - rect.bottom) : 0;
+        // Above header is stricter, below branch is looser so "lower drop" still snaps.
+        const dist = (xGap * 0.34) + (yGapTop * 0.95) + (yGapBottom * 0.42);
+        const distEqual = Math.abs(dist - bestDist) <= 1e-3;
+        const betterByDepth = distEqual && level > bestLevel;
+        const betterByArea = distEqual && level === bestLevel && area < bestArea;
+        if(dist < bestDist || betterByDepth || betterByArea){
+          bestDist = dist;
+          bestNode = branch;
+          bestLevel = level;
+          bestArea = area;
+        }
+      });
+      if(insideCandidates.length){
+        insideCandidates.sort((a, b)=>{
+          if(b.level !== a.level) return b.level - a.level;
+          if(a.area !== b.area) return a.area - b.area;
+          const acx = a.rect.left + (a.rect.width * 0.5);
+          const bcx = b.rect.left + (b.rect.width * 0.5);
+          return Math.abs(acx - clientX) - Math.abs(bcx - clientX);
+        });
+        return insideCandidates[0].branch;
+      }
+      return bestNode;
+    }
+    function missionResolveBranchDropTarget(ev, allowNearby){
+      const direct = ev.target && ev.target.closest ? ev.target.closest(".mission-if-branch") : null;
+      if(!allowNearby) return direct;
+      const x = Number(ev && ev.clientX);
+      const y = Number(ev && ev.clientY);
+      const nearby = missionNearestBranchFromPoint(x, y);
+      if(!nearby) return direct;
+      if(!direct) return nearby;
+      const directLv = normalizeMissionLevel(direct.getAttribute("data-level"));
+      const nearLv = normalizeMissionLevel(nearby.getAttribute("data-level"));
+      return (nearLv >= directLv) ? nearby : direct;
+    }
+    function missionBranchIsSelfTarget(branchEl, rowIndex){
+      if(!branchEl || !Number.isFinite(rowIndex)) return false;
+      const condIdx = parseInt(String(branchEl.getAttribute("data-cond-index") || ""), 10);
+      return Number.isFinite(condIdx) && condIdx === rowIndex;
+    }
+    function missionSetBranchDropActive(branchEl){
+      clearMissionBranchDropActive();
+      if(branchEl) branchEl.classList.add("drop-active");
+    }
+    function missionBranchInsertIndexFromTarget(branchEl, currentLength){
+      if(!branchEl) return Math.max(0, currentLength);
+      const condIdx = parseInt(String(branchEl.getAttribute("data-cond-index") || ""), 10);
+      const rows = Array.from(branchEl.querySelectorAll(".mission-block-row"));
+      if(rows.length){
+        const lastIdx = parseInt(String(rows[rows.length - 1].getAttribute("data-block-index") || ""), 10);
+        if(Number.isFinite(lastIdx)) return Math.max(0, Math.min(currentLength, lastIdx + 1));
+      }
+      if(Number.isFinite(condIdx)) return Math.max(0, Math.min(currentLength, condIdx + 1));
+      return Math.max(0, currentLength);
+    }
+    function missionSubtreeEndIndex(blocks, startIdx){
+      const list = Array.isArray(blocks) ? blocks : [];
+      if(!Number.isFinite(startIdx) || startIdx < 0 || startIdx >= list.length) return startIdx;
+      const baseLevel = normalizeMissionLevel((list[startIdx] || {}).level);
+      let end = startIdx;
+      for(let i = startIdx + 1; i < list.length; i++){
+        const lv = normalizeMissionLevel((list[i] || {}).level);
+        if(lv <= baseLevel) break;
+        end = i;
+      }
+      return end;
+    }
+    function missionIndexInSubtree(blocks, rootIdx, probeIdx){
+      if(!Number.isFinite(rootIdx) || !Number.isFinite(probeIdx)) return false;
+      const end = missionSubtreeEndIndex(blocks, rootIdx);
+      return probeIdx > rootIdx && probeIdx <= end;
+    }
+    function missionLinearDropPlacement(current, ev){
+      if(!el.missionBlockList) return null;
+      const list = normalizeMissionBlocks(current);
+      if(!list.length) return {targetIdx:0, insertLevel:0};
+      const rows = Array.from(el.missionBlockList.querySelectorAll(".mission-block-row"));
+      if(!rows.length) return {targetIdx:list.length, insertLevel:0};
+
+      const y = Number(ev && ev.clientY);
+      const x = Number(ev && ev.clientX);
+      if(!Number.isFinite(y) || !Number.isFinite(x)){
+        return {targetIdx:list.length, insertLevel:0};
+      }
+      let pickRow = rows[0];
+      let best = Infinity;
+      rows.forEach((row)=>{
+        const r = row.getBoundingClientRect();
+        const cx = r.left + (r.width * 0.5);
+        const cy = r.top + (r.height * 0.5);
+        const dx = Math.abs(x - cx);
+        const dy = Math.abs(y - cy);
+        const score = dy + (dx * 0.08);
+        if(score < best){
+          best = score;
+          pickRow = row;
+        }
+      });
+      if(!pickRow) return {targetIdx:list.length, insertLevel:0};
+      const idx = parseInt(String(pickRow.getAttribute("data-block-index") || ""), 10);
+      if(!Number.isFinite(idx) || idx < 0 || idx >= list.length){
+        return {targetIdx:list.length, insertLevel:0};
+      }
+      const rect = pickRow.getBoundingClientRect();
+      const yInRow = y - rect.top;
+      const placeAfter = yInRow >= (rect.height * 0.5);
+      const targetRow = normalizeMissionBlock(list[idx] || {});
+      const canNestHere = (normalizeMissionRowType(targetRow.rowType) === "condition" || normalizeMissionRowType(targetRow.rowType) === "loop");
+      const placeInside = canNestHere && yInRow >= (rect.height * 0.62);
+      let targetIdx = idx + (placeAfter ? 1 : 0);
+      let insertLevel = normalizeMissionLevel(targetRow.level);
+      if(placeInside){
+        targetIdx = idx + 1;
+        insertLevel = normalizeMissionLevel(targetRow.level + 1);
+      }
+      return {targetIdx, insertLevel};
+    }
+    function missionMoveSubtreeToIndex(blocks, fromIdx, targetIdx, opts){
+      const list = normalizeMissionBlocks(blocks);
+      if(!Number.isFinite(fromIdx) || fromIdx < 0 || fromIdx >= list.length){
+        return {list, moved:false, targetIdx:0};
+      }
+      const end = missionSubtreeEndIndex(list, fromIdx);
+      const len = Math.max(1, (end - fromIdx + 1));
+      let toIdx = Math.max(0, Math.min(list.length, Math.round(toFiniteNumber(targetIdx, list.length))));
+      const chunk = list.slice(fromIdx, fromIdx + len);
+      const next = list.slice(0, fromIdx).concat(list.slice(fromIdx + len));
+      if(fromIdx < toIdx) toIdx -= len;
+      toIdx = Math.max(0, Math.min(next.length, toIdx));
+
+      const options = (opts && typeof opts === "object") ? opts : {};
+      if(Number.isFinite(options.baseLevel) && chunk.length){
+        const baseBefore = normalizeMissionLevel((chunk[0] || {}).level);
+        const baseAfter = normalizeMissionLevel(options.baseLevel);
+        const delta = baseAfter - baseBefore;
+        for(let i = 0; i < chunk.length; i++){
+          const b = chunk[i];
+          b.level = normalizeMissionLevel(normalizeMissionLevel(b.level) + delta);
+        }
+      }
+      if(options.resetUi){
+        for(let i = 0; i < chunk.length; i++){
+          chunk[i].uiX = 0;
+          chunk[i].uiY = 0;
+        }
+      }
+      next.splice(toIdx, 0, ...chunk);
+      return {list:next, moved:true, targetIdx:toIdx};
+    }
+    function clearMissionBranchDropActive(){
+      if(!el.missionBlockList) return;
+      const nodes = el.missionBlockList.querySelectorAll(".mission-if-branch.drop-active");
+      nodes.forEach((node)=>node.classList.remove("drop-active"));
+    }
+    function applyMissionRowUiPosition(row, x, y){
+      if(!row) return;
+      const rowLevel = normalizeMissionLevel(row.getAttribute("data-level"));
+      const movingNow = row.classList && row.classList.contains("is-free-moving");
+      let nx = normalizeMissionUiCoord(x);
+      let ny = normalizeMissionUiCoord(y);
+      if(rowLevel > 0 && !movingNow){
+        nx = 0;
+        ny = 0;
+      }
+      row.setAttribute("data-ui-x", String(nx));
+      row.setAttribute("data-ui-y", String(ny));
+      const moveTarget = missionMoveTargetForRow(row);
+      if(moveTarget !== row){
+        row.style.transform = "";
+      }
+      moveTarget.style.transform = "translate(" + nx + "px, " + ny + "px)";
+    }
+    function missionMoveTargetForRow(row){
+      if(!row || !row.closest) return row;
+      const rowType = normalizeMissionRowType(row.getAttribute("data-row-type"));
+      if(rowType === "condition" || rowType === "loop"){
+        const group = row.closest(".mission-if-group");
+        if(group) return group;
+      }
+      return row;
+    }
+    function bindMissionBlockRowFreeMove(row){
+      if(!row || row.dataset.freeMoveBound === "1") return;
+      row.dataset.freeMoveBound = "1";
+
+      const findAttachBranch = (excludeBranch, px, py)=>{
+        if(!el.missionBlockList) return null;
+        let branch = missionNearestBranchFromPoint(px, py);
+        if(branch && excludeBranch && branch === excludeBranch){
+          branch = null;
+        }
+        if(branch) return branch;
+        const moveTarget = missionMoveTargetForRow(row);
+        if(!moveTarget || !moveTarget.getBoundingClientRect) return null;
+        const t = moveTarget.getBoundingClientRect();
+        const cx = t.left + (t.width * 0.5);
+        const cy = t.top + (t.height * 0.5);
+        branch = missionNearestBranchFromPoint(cx, cy);
+        if(branch && excludeBranch && branch === excludeBranch) return null;
+        return branch;
+      };
+
+      const shouldDetachFromBranch = ()=>{
+        const level = normalizeMissionLevel(row.getAttribute("data-level"));
+        if(level <= 0) return false;
+        const branch = row.closest ? row.closest(".mission-if-branch") : null;
+        if(!branch) return false;
+        const moveTarget = missionMoveTargetForRow(row);
+        if(!moveTarget || !moveTarget.getBoundingClientRect) return false;
+        const b = branch.getBoundingClientRect();
+        const t = moveTarget.getBoundingClientRect();
+        const cx = t.left + (t.width * 0.5);
+        const cy = t.top + (t.height * 0.5);
+        const margin = 32;
+        const inside = (
+          cx >= (b.left - margin) &&
+          cx <= (b.right + margin) &&
+          cy >= (b.top - margin) &&
+          cy <= (b.bottom + margin)
+        );
+        return !inside;
+      };
+      const resolveAttachBranchPreview = (px, py)=>{
+        const candidate = findAttachBranch(null, px, py);
+        if(!candidate) return null;
+        const rowIndex = parseInt(String(row.getAttribute("data-block-index") || ""), 10);
+        if(missionBranchIsSelfTarget(candidate, rowIndex)) return null;
+        missionSetBranchDropActive(candidate);
+        return candidate;
+      };
+
+      const stopMove = (ev)=>{
+        const state = row._freeMoveState;
+        if(!state) return;
+        if(ev && state.pointerId != null && ev.pointerId != null && state.pointerId !== ev.pointerId) return;
+        const currentBranch = row.closest ? row.closest(".mission-if-branch") : null;
+        const attachBranch = resolveAttachBranchPreview(state.lastClientX, state.lastClientY);
+        const rowIndex = parseInt(String(row.getAttribute("data-block-index") || ""), 10);
+        const sameBranch = !!(attachBranch && currentBranch && attachBranch === currentBranch);
+        const canAttach = !!(attachBranch && !sameBranch && !missionBranchIsSelfTarget(attachBranch, rowIndex));
+        const curX = normalizeMissionUiCoord(row.getAttribute("data-ui-x"));
+        const curY = normalizeMissionUiCoord(row.getAttribute("data-ui-y"));
+        const movedDist = Math.hypot(curX - toFiniteNumber(state.uiX, 0), curY - toFiniteNumber(state.uiY, 0));
+        const startedNested = normalizeMissionLevel(state.levelBefore) > 0;
+        const otherBranch = findAttachBranch(currentBranch, state.lastClientX, state.lastClientY);
+        const shouldForceDetach = startedNested && !otherBranch && movedDist >= 24;
+        if(canAttach){
+          const parentCondIdx = parseInt(String(attachBranch.getAttribute("data-cond-index") || ""), 10);
+          const nestedLevel = normalizeMissionLevel(missionRowLevelFromIndex(parentCondIdx) + 1);
+          row.setAttribute("data-level", String(nestedLevel));
+          row.setAttribute("data-ui-x", "0");
+          row.setAttribute("data-ui-y", "0");
+        }else{
+          const detached = shouldForceDetach || shouldDetachFromBranch();
+          if(detached){
+            row.setAttribute("data-level", "0");
+          }else if(startedNested){
+            row.setAttribute("data-ui-x", "0");
+            row.setAttribute("data-ui-y", "0");
+          }
+        }
+        row._freeMoveState = null;
+        row.classList.remove("is-free-moving");
+        if(ev && row.releasePointerCapture){
+          try{ row.releasePointerCapture(ev.pointerId); }catch(_err){}
+        }
+        clearMissionBranchDropActive();
+        missionBlocksState = buildMissionBlocksFromUi();
+        {
+          // If a condition/loop parent changes nesting level via free-move,
+          // keep its subtree relative depth so child blocks do not spill out.
+          const fromIdx = parseInt(String(row.getAttribute("data-block-index") || ""), 10);
+          const rowTypeNow = normalizeMissionRowType(row.getAttribute("data-row-type"));
+          const beforeLevel = normalizeMissionLevel(state && state.levelBefore != null ? state.levelBefore : 0);
+          const afterLevel = normalizeMissionLevel(row.getAttribute("data-level"));
+          if(
+            Number.isFinite(fromIdx) &&
+            fromIdx >= 0 &&
+            fromIdx < missionBlocksState.length &&
+            (rowTypeNow === "condition" || rowTypeNow === "loop") &&
+            beforeLevel !== afterLevel
+          ){
+            let end = fromIdx;
+            for(let i = fromIdx + 1; i < missionBlocksState.length; i++){
+              const lv = normalizeMissionLevel((missionBlocksState[i] || {}).level);
+              if(lv <= beforeLevel) break;
+              end = i;
+            }
+            const delta = afterLevel - beforeLevel;
+            if(delta !== 0 && end > fromIdx){
+              for(let i = fromIdx + 1; i <= end; i++){
+                missionBlocksState[i].level = normalizeMissionLevel(
+                  normalizeMissionLevel((missionBlocksState[i] || {}).level) + delta
+                );
+              }
+            }
+          }
+        }
+
+        if(canAttach){
+          const fromIdx = parseInt(String(row.getAttribute("data-block-index") || ""), 10);
+          const current = normalizeMissionBlocks(missionBlocksState);
+          if(Number.isFinite(fromIdx) && fromIdx >= 0 && fromIdx < current.length){
+            const parentCondIdx = parseInt(String(attachBranch.getAttribute("data-cond-index") || ""), 10);
+            if(missionIndexInSubtree(current, fromIdx, parentCondIdx)){
+              renderMissionBlocksEditor(missionBlocksState);
+              return;
+            }
+            const nestedLevel = normalizeMissionLevel(missionRowLevelFromIndex(parentCondIdx) + 1);
+            const targetIdx = missionBranchInsertIndexFromTarget(attachBranch, current.length);
+            const moved = missionMoveSubtreeToIndex(current, fromIdx, targetIdx, {baseLevel:nestedLevel, resetUi:true});
+            missionBlocksState = moved.list;
+          }
+          renderMissionBlocksEditor(missionBlocksState);
+          return;
+        }
+
+        const detached = normalizeMissionLevel(row.getAttribute("data-level")) === 0 &&
+          normalizeMissionLevel(state && state.levelBefore != null ? state.levelBefore : 0) > 0;
+        const nestedSnap = !detached && !canAttach && startedNested;
+        if(detached || nestedSnap){
+          renderMissionBlocksEditor(missionBlocksState);
+        }
+      };
+
+      row.addEventListener("pointerdown",(ev)=>{
+        if(!isMissionEditableNow()) return;
+        if(ev.button !== 0) return;
+        // Desktop mouse uses native HTML5 DnD for stable reordering.
+        // Touch/pen keeps free-move so mobile/tablet can still reposition.
+        if(ev.pointerType === "mouse" && row.draggable) return;
+        if(ev.target && ev.target.closest){
+          const interactive = ev.target.closest("input, select, button");
+          if(interactive) return;
+        }
+        const startX = normalizeMissionUiCoord(row.getAttribute("data-ui-x"));
+        const startY = normalizeMissionUiCoord(row.getAttribute("data-ui-y"));
+        row._freeMoveState = {
+          pointerId: ev.pointerId,
+          clientX: ev.clientX,
+          clientY: ev.clientY,
+          lastClientX: ev.clientX,
+          lastClientY: ev.clientY,
+          uiX: startX,
+          uiY: startY,
+          levelBefore: normalizeMissionLevel(row.getAttribute("data-level"))
+        };
+        row.classList.add("is-free-moving");
+        if(row.setPointerCapture){
+          try{ row.setPointerCapture(ev.pointerId); }catch(_err){}
+        }
+        clearMissionBranchDropActive();
+        ev.preventDefault();
+      });
+      row.addEventListener("pointermove",(ev)=>{
+        const state = row._freeMoveState;
+        if(!state || state.pointerId !== ev.pointerId) return;
+        const dx = ev.clientX - state.clientX;
+        const dy = ev.clientY - state.clientY;
+        state.lastClientX = ev.clientX;
+        state.lastClientY = ev.clientY;
+        const z = clampMissionCanvasZoom(missionCanvasZoom);
+        applyMissionRowUiPosition(row, state.uiX + (dx / z), state.uiY + (dy / z));
+        resolveAttachBranchPreview(ev.clientX, ev.clientY);
+      });
+      row.addEventListener("pointerup", stopMove);
+      row.addEventListener("pointercancel", stopMove);
+      row.addEventListener("lostpointercapture", ()=>{
+        stopMove(null);
+        clearMissionBranchDropActive();
+      });
+    }
+    function clampMissionCanvasZoom(raw){
+      const n = Number(raw);
+      if(!Number.isFinite(n)) return 1;
+      return Math.max(MISSION_CANVAS_ZOOM_MIN, Math.min(MISSION_CANVAS_ZOOM_MAX, n));
+    }
+    function missionStageEl(){
+      if(!el.missionBlockList) return null;
+      let stage = el.missionBlockStage;
+      if(stage && stage.parentElement === el.missionBlockList) return stage;
+      const byId = document.getElementById("missionBlockStage");
+      if(byId && byId.parentElement === el.missionBlockList){
+        el.missionBlockStage = byId;
+        return byId;
+      }
+      stage = el.missionBlockList.querySelector(".mission-block-stage");
+      if(!stage){
+        stage = document.createElement("div");
+        stage.id = "missionBlockStage";
+        stage.className = "mission-block-stage";
+        while(el.missionBlockList.firstChild){
+          stage.appendChild(el.missionBlockList.firstChild);
+        }
+        el.missionBlockList.appendChild(stage);
+      }
+      el.missionBlockStage = stage;
+      return stage;
+    }
+    function applyMissionCanvasZoom(nextZoom, anchor){
+      if(!el.missionBlockList) return;
+      const list = el.missionBlockList;
+      const stage = missionStageEl();
+      if(!stage) return;
+      const prev = clampMissionCanvasZoom(missionCanvasZoom);
+      const next = clampMissionCanvasZoom(nextZoom);
+      let anchorX = null;
+      let anchorY = null;
+      let anchorContentX = null;
+      let anchorContentY = null;
+      if(anchor && Number.isFinite(anchor.clientX) && Number.isFinite(anchor.clientY)){
+        const rect = list.getBoundingClientRect();
+        anchorX = anchor.clientX - rect.left;
+        anchorY = anchor.clientY - rect.top;
+        if(Number.isFinite(anchorX) && Number.isFinite(anchorY)){
+          anchorContentX = (list.scrollLeft + anchorX) / prev;
+          anchorContentY = (list.scrollTop + anchorY) / prev;
+        }
+      }
+      missionCanvasZoom = next;
+      if(list.style.zoom) list.style.zoom = "";
+      stage.style.zoom = String(next);
+      if(anchorContentX != null && anchorContentY != null && anchorX != null && anchorY != null){
+        list.scrollLeft = Math.max(0, Math.round(anchorContentX * next - anchorX));
+        list.scrollTop = Math.max(0, Math.round(anchorContentY * next - anchorY));
+      }
+      if(el.missionCanvasZoomReset){
+        el.missionCanvasZoomReset.textContent = String(Math.round(next * 100)) + "%";
+      }
+    }
+    function bindMissionCanvasInteractions(){
+      if(!el.missionBlockList || el.missionBlockList.dataset.canvasBound === "1") return;
+      const list = el.missionBlockList;
+      list.dataset.canvasBound = "1";
+      applyMissionCanvasZoom(missionCanvasZoom);
+
+      if(el.missionCanvasZoomOut){
+        el.missionCanvasZoomOut.addEventListener("click",()=>{
+          applyMissionCanvasZoom(missionCanvasZoom - MISSION_CANVAS_ZOOM_STEP);
+        });
+      }
+      if(el.missionCanvasZoomIn){
+        el.missionCanvasZoomIn.addEventListener("click",()=>{
+          applyMissionCanvasZoom(missionCanvasZoom + MISSION_CANVAS_ZOOM_STEP);
+        });
+      }
+      if(el.missionCanvasZoomReset){
+        el.missionCanvasZoomReset.addEventListener("click",()=>{
+          applyMissionCanvasZoom(1);
+        });
+      }
+
+      list.addEventListener("wheel",(ev)=>{
+        if(!(ev.ctrlKey || ev.metaKey)) return;
+        ev.preventDefault();
+        const factor = ev.deltaY < 0 ? 1.08 : (1 / 1.08);
+        applyMissionCanvasZoom(missionCanvasZoom * factor, {clientX:ev.clientX, clientY:ev.clientY});
+      }, {passive:false});
+
+      const stopPan = (ev)=>{
+        const pan = missionCanvasPanState;
+        if(!pan) return;
+        if(ev && pan.pointerId != null && ev.pointerId != null && pan.pointerId !== ev.pointerId) return;
+        missionCanvasPanState = null;
+        list.classList.remove("is-panning");
+        if(ev && list.releasePointerCapture){
+          try{ list.releasePointerCapture(ev.pointerId); }catch(_err){}
+        }
+      };
+
+      list.addEventListener("pointerdown",(ev)=>{
+        if(ev.button !== 0) return;
+        if(ev.target && ev.target.closest){
+          const interactive = ev.target.closest("input, select, button, .mission-block-row");
+          if(interactive) return;
+        }
+        missionCanvasPanState = {
+          pointerId: ev.pointerId,
+          startX: ev.clientX,
+          startY: ev.clientY,
+          startLeft: list.scrollLeft,
+          startTop: list.scrollTop
+        };
+        list.classList.add("is-panning");
+        if(list.setPointerCapture){
+          try{ list.setPointerCapture(ev.pointerId); }catch(_err){}
+        }
+      });
+      list.addEventListener("pointermove",(ev)=>{
+        const pan = missionCanvasPanState;
+        if(!pan || pan.pointerId !== ev.pointerId) return;
+        const dx = ev.clientX - pan.startX;
+        const dy = ev.clientY - pan.startY;
+        list.scrollLeft = pan.startLeft - dx;
+        list.scrollTop = pan.startTop - dy;
+      });
+      list.addEventListener("pointerup", stopPan);
+      list.addEventListener("pointercancel", stopPan);
+      list.addEventListener("lostpointercapture", ()=>stopPan(null));
+    }
+    function bindMissionBlockListDropZone(){
+      if(!el.missionBlockList || el.missionBlockList.dataset.dndBound === "1") return;
+      el.missionBlockList.dataset.dndBound = "1";
+      const list = el.missionBlockList;
+      el.missionBlockList.addEventListener("dragover",(ev)=>{
+        if(!isMissionEditableNow()) return;
+        const paletteKind = missionPaletteKindFromTransfer(ev);
+        const idx = missionDragIndexFromTransfer(ev);
+        if(!paletteKind && idx == null) return;
+        missionUpdateDragAutoScroll(ev.clientY);
+        const rowTarget = ev.target && ev.target.closest ? ev.target.closest(".mission-block-row") : null;
+        const branchTarget = missionResolveBranchDropTarget(ev, missionCanSnapToBranchFromEvent(ev) && !rowTarget);
+        missionSetBranchDropActive(branchTarget);
+        if(rowTarget && !branchTarget) return;
+        ev.preventDefault();
+        if(el.missionBlockCanvas) el.missionBlockCanvas.classList.add("drop-active");
+      });
+      el.missionBlockList.addEventListener("dragleave",(ev)=>{
+        clearMissionBranchDropActive();
+        if(!el.missionBlockCanvas) return;
+        const related = ev.relatedTarget;
+        if(related && list.contains(related)) return;
+        stopMissionDragAutoScroll();
+        el.missionBlockCanvas.classList.remove("drop-active");
+      });
+      el.missionBlockList.addEventListener("drop",(ev)=>{
+        if(!isMissionEditableNow()) return;
+        stopMissionDragAutoScroll();
+        const rowTarget = ev.target && ev.target.closest ? ev.target.closest(".mission-block-row") : null;
+        const branchTarget = missionResolveBranchDropTarget(ev, missionCanSnapToBranchFromEvent(ev) && !rowTarget);
+        if(branchTarget){
+          ev.preventDefault();
+          ev.stopPropagation();
+          clearMissionBranchDropActive();
+          if(el.missionBlockCanvas) el.missionBlockCanvas.classList.remove("drop-active");
+          const current = buildMissionBlocksFromUi();
+          const parentCondIdx = parseInt(String(branchTarget.getAttribute("data-cond-index") || ""), 10);
+          const nestedLevel = normalizeMissionLevel(missionRowLevelFromIndex(parentCondIdx) + 1);
+          let targetIdx = missionBranchInsertIndexFromTarget(branchTarget, current.length);
+          const paletteKind = missionPaletteKindFromTransfer(ev);
+          if(paletteKind){
+            const inserted = missionBlockTemplate(paletteKind);
+            inserted.level = nestedLevel;
+            current.splice(targetIdx, 0, inserted);
+            missionBlocksState = current;
+            renderMissionBlocksEditor(current);
+            return;
+          }
+          const fromIdx = missionDragIndexFromTransfer(ev);
+          if(fromIdx == null || fromIdx < 0 || fromIdx >= current.length) return;
+          if(missionIndexInSubtree(current, fromIdx, parentCondIdx)) return;
+          const moved = missionMoveSubtreeToIndex(current, fromIdx, targetIdx, {baseLevel:nestedLevel, resetUi:true});
+          missionBlocksState = moved.list;
+          renderMissionBlocksEditor(missionBlocksState);
+          return;
+        }
+        if(rowTarget) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        clearMissionBranchDropActive();
+        if(el.missionBlockCanvas) el.missionBlockCanvas.classList.remove("drop-active");
+        const current = buildMissionBlocksFromUi();
+        const paletteKind = missionPaletteKindFromTransfer(ev);
+        if(paletteKind){
+          const place = missionLinearDropPlacement(current, ev);
+          const targetIdx = place ? Math.max(0, Math.min(current.length, place.targetIdx)) : current.length;
+          const inserted = missionBlockTemplate(paletteKind);
+          if(place) inserted.level = normalizeMissionLevel(place.insertLevel);
+          current.splice(targetIdx, 0, inserted);
+          missionBlocksState = current;
+          renderMissionBlocksEditor(current);
+          return;
+        }
+        const fromIdx = missionDragIndexFromTransfer(ev);
+        if(fromIdx == null || fromIdx < 0 || fromIdx >= current.length) return;
+        const place = missionLinearDropPlacement(current, ev);
+        const targetIdx = place ? place.targetIdx : current.length;
+        const moved = missionMoveSubtreeToIndex(current, fromIdx, targetIdx, {baseLevel: place ? place.insertLevel : undefined, resetUi:true});
+        missionBlocksState = moved.list;
+        renderMissionBlocksEditor(missionBlocksState);
+      });
+    }
+    function missionDragAutoScrollTick(){
+      if(!el.missionBlockList){
+        missionDragAutoScrollRaf = 0;
+        missionDragAutoScrollStep = 0;
+        return;
+      }
+      if(Math.abs(missionDragAutoScrollStep) < 0.1){
+        missionDragAutoScrollRaf = 0;
+        return;
+      }
+      el.missionBlockList.scrollTop += missionDragAutoScrollStep;
+      missionDragAutoScrollRaf = requestAnimationFrame(missionDragAutoScrollTick);
+    }
+    function missionUpdateDragAutoScroll(clientY){
+      if(!el.missionBlockList || !Number.isFinite(clientY)) return;
+      const rect = el.missionBlockList.getBoundingClientRect();
+      let step = 0;
+      if(clientY <= rect.top + MISSION_DRAG_AUTOSCROLL_ZONE_PX){
+        const ratio = 1 - Math.max(0, (clientY - rect.top) / MISSION_DRAG_AUTOSCROLL_ZONE_PX);
+        step = -Math.max(2, Math.round(MISSION_DRAG_AUTOSCROLL_MAX_STEP * ratio));
+      }else if(clientY >= rect.bottom - MISSION_DRAG_AUTOSCROLL_ZONE_PX){
+        const ratio = 1 - Math.max(0, (rect.bottom - clientY) / MISSION_DRAG_AUTOSCROLL_ZONE_PX);
+        step = Math.max(2, Math.round(MISSION_DRAG_AUTOSCROLL_MAX_STEP * ratio));
+      }
+      missionDragAutoScrollStep = step;
+      if(!missionDragAutoScrollRaf && Math.abs(step) > 0.1){
+        missionDragAutoScrollRaf = requestAnimationFrame(missionDragAutoScrollTick);
+      }
+      if(Math.abs(step) <= 0.1 && missionDragAutoScrollRaf){
+        cancelAnimationFrame(missionDragAutoScrollRaf);
+        missionDragAutoScrollRaf = 0;
+      }
+    }
+    function stopMissionDragAutoScroll(){
+      missionDragAutoScrollStep = 0;
+      if(missionDragAutoScrollRaf){
+        cancelAnimationFrame(missionDragAutoScrollRaf);
+        missionDragAutoScrollRaf = 0;
+      }
+    }
+    function updateMissionBlockCanvasState(count){
+      if(el.missionBlockCount){
+        el.missionBlockCount.textContent = "총 " + Math.max(0, count) + "개";
+      }
+      if(el.missionBlockCanvas){
+        el.missionBlockCanvas.classList.toggle("is-empty", !(count > 0));
+      }
+    }
+    function renderMissionBlocksEditor(list){
+      if(!el.missionBlockList) return;
+      const stage = missionStageEl();
+      if(!stage) return;
+      bindMissionBlockListDropZone();
+      bindMissionCanvasInteractions();
+      missionBlocksState = normalizeMissionBlocks(Array.isArray(list) ? list : missionBlocksState);
+      // Rebuild mission runtime from latest editor blocks on next telemetry tick.
+      resetReplayMissionRuntime();
+      stage.innerHTML = "";
+      if(missionBlocksState.length === 0){
+        updateMissionBlockCanvasState(0);
+        const empty = document.createElement("div");
+        empty.className = "mission-block-empty";
+        empty.textContent = "왼쪽 팔레트에서 블록을 드래그해 시퀀스를 만들어보세요.";
+        stage.appendChild(empty);
+        updateMissionEditLockUI();
+        return;
+      }
+      updateMissionBlockCanvasState(missionBlocksState.length);
+      const branchByLevel = [];
+      const getParentContainerForLevel = (level)=>{
+        const lv = normalizeMissionLevel(level);
+        if(lv <= 0) return stage;
+        const parentBranch = branchByLevel[lv - 1];
+        return parentBranch || stage;
+      };
+      missionBlocksState.forEach((block, idx)=>{
+        const wrap = document.createElement("div");
+        wrap.innerHTML = missionBlockRowHtml(block, idx);
+        const row = wrap.firstElementChild;
+        if(!row) return;
+        let rowLevel = normalizeMissionLevel(block.level);
+        row.setAttribute("data-level", String(rowLevel));
+        const triggerTypeEl = row.querySelector("[data-role='triggerType']");
+        const triggerValueTypeEl = row.querySelector("[data-role='triggerValueType']");
+        const actionTypeEl = row.querySelector("[data-role='actionType']");
+        const actionValueModeEl = row.querySelector("[data-role='actionValueMode']");
+        const actionSensorEl = row.querySelector("[data-role='actionSensor']");
+        const actionExprLhsTypeEl = row.querySelector("[data-role='actionExprLhsType']");
+        const actionExprLhsSensorEl = row.querySelector("[data-role='actionExprLhsSensor']");
+        const actionExprRhsTypeEl = row.querySelector("[data-role='actionExprRhsType']");
+        const actionExprRhsSensorEl = row.querySelector("[data-role='actionExprRhsSensor']");
+        const loopModeEl = row.querySelector("[data-role='loopMode']");
+        const removeBtn = row.querySelector("[data-role='remove']");
+        row.draggable = !!isMissionEditableNow();
+        row.addEventListener("dragstart",(ev)=>{
+          if(!isMissionEditableNow()){
+            ev.preventDefault();
+            return;
+          }
+          stopMissionDragAutoScroll();
+          if(ev.target && ev.target.closest){
+            const interactive = ev.target.closest("input, select, button");
+            if(interactive){
+              ev.preventDefault();
+              return;
+            }
+          }
+          if(row._freeMoveState){
+            row._freeMoveState = null;
+            row.classList.remove("is-free-moving");
+          }
+          clearMissionBranchDropActive();
+          if(el.missionBlockList) el.missionBlockList.classList.add("is-dragging");
+          row.classList.add("is-dragging");
+          if(ev.dataTransfer){
+            ev.dataTransfer.effectAllowed = "move";
+            ev.dataTransfer.setData("text/x-mission-block-index", String(idx));
+            ev.dataTransfer.setData("text/plain", String(idx));
+          }
+        });
+        row.addEventListener("dragover",(ev)=>{
+          if(!isMissionEditableNow()) return;
+          missionUpdateDragAutoScroll(ev.clientY);
+          // While hovering a row, prioritize row reorder semantics over nearby-branch snap.
+          const branchTarget = missionResolveBranchDropTarget(ev, false);
+          if(branchTarget){
+            missionSetBranchDropActive(branchTarget);
+            row.classList.remove("drop-before", "drop-after", "drop-inside");
+            ev.preventDefault();
+            return;
+          }
+          clearMissionBranchDropActive();
+          ev.preventDefault();
+          const rect = row.getBoundingClientRect();
+          const rowTypeHint = normalizeMissionRowType(row.getAttribute("data-row-type"));
+          const canNestHere = (rowTypeHint === "condition" || rowTypeHint === "loop");
+          const yInRow = ev.clientY - rect.top;
+          const placeInside = canNestHere && yInRow >= (rect.height * 0.30);
+          const placeAfter = (ev.clientY - rect.top) >= (rect.height * 0.5);
+          row.classList.toggle("drop-inside", placeInside);
+          row.classList.toggle("drop-before", !placeInside && !placeAfter);
+          row.classList.toggle("drop-after", !placeInside && placeAfter);
+        });
+        row.addEventListener("dragleave",()=>{
+          row.classList.remove("drop-before", "drop-after", "drop-inside");
+          clearMissionBranchDropActive();
+        });
+        row.addEventListener("dragend",()=>{
+          stopMissionDragAutoScroll();
+          row.classList.remove("is-dragging", "drop-before", "drop-after", "drop-inside");
+          if(el.missionBlockList){
+            el.missionBlockList.classList.remove("is-dragging");
+            const marks = el.missionBlockList.querySelectorAll(".mission-block-row.drop-before, .mission-block-row.drop-after, .mission-block-row.drop-inside, .mission-block-row.is-dragging");
+            marks.forEach((node)=>node.classList.remove("drop-before", "drop-after", "drop-inside", "is-dragging"));
+          }
+          clearMissionBranchDropActive();
+          if(el.missionBlockCanvas) el.missionBlockCanvas.classList.remove("drop-active");
+        });
+        row.addEventListener("drop",(ev)=>{
+          if(!isMissionEditableNow()) return;
+          stopMissionDragAutoScroll();
+          ev.preventDefault();
+          ev.stopPropagation();
+          // Keep row drop deterministic: explicit branch drops are handled by list/canvas zones.
+          const branchTarget = missionResolveBranchDropTarget(ev, false);
+          if(branchTarget){
+            missionSetBranchDropActive(null);
+            row.classList.remove("drop-before", "drop-after", "drop-inside");
+            const current = buildMissionBlocksFromUi();
+            const parentCondIdx = parseInt(String(branchTarget.getAttribute("data-cond-index") || ""), 10);
+            const nestedLevel = normalizeMissionLevel(missionRowLevelFromIndex(parentCondIdx) + 1);
+            let targetIdx = missionBranchInsertIndexFromTarget(branchTarget, current.length);
+            const paletteKind = missionPaletteKindFromTransfer(ev);
+            if(paletteKind){
+              const inserted = missionBlockTemplate(paletteKind);
+              inserted.level = nestedLevel;
+              current.splice(targetIdx, 0, inserted);
+              missionBlocksState = current;
+              renderMissionBlocksEditor(current);
+              return;
+            }
+            const fromIdx = missionDragIndexFromTransfer(ev);
+            if(fromIdx == null || fromIdx < 0 || fromIdx >= current.length) return;
+            if(missionIndexInSubtree(current, fromIdx, parentCondIdx)) return;
+            const moved = missionMoveSubtreeToIndex(current, fromIdx, targetIdx, {baseLevel:nestedLevel, resetUi:true});
+            missionBlocksState = moved.list;
+            renderMissionBlocksEditor(missionBlocksState);
+            return;
+          }
+          clearMissionBranchDropActive();
+          row.classList.remove("drop-before", "drop-after", "drop-inside");
+          const current = buildMissionBlocksFromUi();
+          const rect = row.getBoundingClientRect();
+          const yInRow = ev.clientY - rect.top;
+          const placeAfter = (ev.clientY - rect.top) >= (rect.height * 0.5);
+          let targetIdx = idx + (placeAfter ? 1 : 0);
+          const targetRow = normalizeMissionBlock(current[idx] || {});
+          let insertLevel = normalizeMissionLevel(targetRow.level);
+          const targetRowType = normalizeMissionRowType(targetRow.rowType);
+          const canNestHere = (targetRowType === "condition" || targetRowType === "loop");
+          const placeInside = canNestHere && yInRow >= (rect.height * 0.30);
+          if(placeInside){
+            targetIdx = idx + 1;
+            insertLevel = normalizeMissionLevel(targetRow.level + 1);
+          }
+          const paletteKind = missionPaletteKindFromTransfer(ev);
+          if(paletteKind){
+            targetIdx = Math.max(0, Math.min(current.length, targetIdx));
+            const inserted = missionBlockTemplate(paletteKind);
+            inserted.level = insertLevel;
+            current.splice(targetIdx, 0, inserted);
+            missionBlocksState = current;
+            renderMissionBlocksEditor(current);
+            return;
+          }
+          const fromIdx = missionDragIndexFromTransfer(ev);
+          if(fromIdx == null || fromIdx < 0 || fromIdx >= current.length) return;
+          const moved = missionMoveSubtreeToIndex(current, fromIdx, targetIdx, {baseLevel:insertLevel, resetUi:true});
+          missionBlocksState = moved.list;
+          renderMissionBlocksEditor(missionBlocksState);
+        });
+        if(triggerTypeEl){
+          triggerTypeEl.addEventListener("change",()=>updateMissionBlockRowUi(row));
+        }
+        if(triggerValueTypeEl){
+          triggerValueTypeEl.addEventListener("change",()=>updateMissionBlockRowUi(row));
+        }
+        if(actionTypeEl){
+          actionTypeEl.addEventListener("change",()=>updateMissionBlockRowUi(row));
+        }
+        if(actionValueModeEl){
+          actionValueModeEl.addEventListener("change",()=>updateMissionBlockRowUi(row));
+        }
+        if(actionSensorEl){
+          actionSensorEl.addEventListener("change",()=>updateMissionBlockRowUi(row));
+        }
+        if(actionExprLhsTypeEl){
+          actionExprLhsTypeEl.addEventListener("change",()=>updateMissionBlockRowUi(row));
+        }
+        if(actionExprRhsTypeEl){
+          actionExprRhsTypeEl.addEventListener("change",()=>updateMissionBlockRowUi(row));
+        }
+        if(actionExprLhsSensorEl){
+          actionExprLhsSensorEl.addEventListener("change",()=>updateMissionBlockRowUi(row));
+        }
+        if(actionExprRhsSensorEl){
+          actionExprRhsSensorEl.addEventListener("change",()=>updateMissionBlockRowUi(row));
+        }
+        if(loopModeEl){
+          loopModeEl.addEventListener("change",()=>updateMissionBlockRowUi(row));
+        }
+        if(removeBtn){
+          removeBtn.addEventListener("click",()=>{
+            if(!isMissionEditableNow()){
+              showToast("시퀀스 중에는 블럭을 수정할 수 없습니다.", "notice", {key:"mission-edit-lock"});
+              return;
+            }
+            const current = buildMissionBlocksFromUi();
+            const end = missionSubtreeEndIndex(current, idx);
+            current.splice(idx, Math.max(1, end - idx + 1));
+            missionBlocksState = current;
+            renderMissionBlocksEditor(current);
+          });
+        }
+        updateMissionBlockRowUi(row);
+        const rowType = normalizeMissionRowType(block.rowType);
+        const normalizeParentForLevel = ()=>{
+          let parent = getParentContainerForLevel(rowLevel);
+          if(parent === stage && rowLevel > 0){
+            rowLevel = 0;
+            row.setAttribute("data-level", "0");
+          }
+          return getParentContainerForLevel(rowLevel);
+        };
+        if(rowType === "condition" || rowType === "loop"){
+          const parentContainer = normalizeParentForLevel();
+          branchByLevel.length = rowLevel;
+          const group = document.createElement("div");
+          group.className = "mission-if-group";
+          if(rowLevel > 0) group.classList.add("mission-row--nested");
+          group.setAttribute("data-cond-index", String(idx));
+          group.setAttribute("data-level", String(rowLevel));
+          const branch = document.createElement("div");
+          branch.className = "mission-if-branch";
+          branch.setAttribute("data-cond-index", String(idx));
+          branch.setAttribute("data-level", String(rowLevel));
+          group.appendChild(row);
+          group.appendChild(branch);
+          parentContainer.appendChild(group);
+          branchByLevel[rowLevel] = branch;
+          applyMissionRowUiPosition(row, block.uiX, block.uiY);
+          bindMissionBlockRowFreeMove(row);
+          return;
+        }
+        const parentContainer = normalizeParentForLevel();
+        if(rowLevel > 0){
+          row.classList.add("mission-row--nested");
+        }else{
+          row.classList.remove("mission-row--nested");
+        }
+        parentContainer.appendChild(row);
+        branchByLevel.length = rowLevel;
+        applyMissionRowUiPosition(row, block.uiX, block.uiY);
+        bindMissionBlockRowFreeMove(row);
+      });
+      updateMissionEditLockUI();
+    }
+    function addMissionBlock(kind){
+      if(!isMissionEditableNow()){
+        showToast("시퀀스 중에는 블럭을 수정할 수 없습니다.", "notice", {key:"mission-edit-lock"});
+        return;
+      }
+      const current = buildMissionBlocksFromUi();
+      current.push(missionBlockTemplate(kind));
+      missionBlocksState = current;
+      renderMissionBlocksEditor(current);
+    }
+    function clearMissionBlocks(){
+      if(!isMissionEditableNow()){
+        showToast("시퀀스 중에는 블럭을 수정할 수 없습니다.", "notice", {key:"mission-edit-lock"});
+        return;
+      }
+      missionBlocksState = [];
+      renderMissionBlocksEditor([]);
+    }
+    function buildMissionProfileDoc(){
+      const baseDoc = cloneMissionDocSafe(missionProfileDoc) || {};
+      const missionName = sanitizeMissionName(el.missionName && el.missionName.value);
+      const motorPreset = sanitizeMissionName(selectedMotorName || missionName);
+      const testCountRaw = parseInt(el.missionTestCount && el.missionTestCount.value, 10);
+      const testCount = (Number.isFinite(testCountRaw) && testCountRaw > 0) ? testCountRaw : null;
+      const diameterMm = parseMissionNumber(el.missionMotorDia && el.missionMotorDia.value);
+      const lengthMm = parseMissionNumber(el.missionMotorLen && el.missionMotorLen.value);
+      const ignDelaySec = parseMissionNumber(el.missionIgnDelay && el.missionIgnDelay.value);
+      const grainMassG = parseMissionNumber(el.missionGrainMass && el.missionGrainMass.value);
+      const totalMassG = parseMissionNumber(el.missionTotalMass && el.missionTotalMass.value);
+      const vendor = sanitizeMissionName(el.missionVendor && el.missionVendor.value);
+
+      baseDoc.schema = "flash6-mission-v1";
+      baseDoc.updatedAt = new Date().toISOString();
+      const editorBlocks = buildMissionBlocksFromUi();
+      if(!Array.isArray(baseDoc.blocks)) baseDoc.blocks = [];
+      if(!Array.isArray(baseDoc.editorBlocks)) baseDoc.editorBlocks = [];
+      if(!baseDoc.profile || typeof baseDoc.profile !== "object") baseDoc.profile = {};
+      baseDoc.profile.missionName = missionName;
+      baseDoc.profile.motorPreset = motorPreset;
+      baseDoc.profile.testCount = testCount;
+      baseDoc.profile.motor = {
+        diameterMm,
+        lengthMm
+      };
+      baseDoc.profile.ignitionDelaySec = ignDelaySec;
+      baseDoc.profile.grainMassG = grainMassG;
+      baseDoc.profile.totalMassG = totalMassG;
+      baseDoc.profile.vendor = vendor;
+      baseDoc.editorBlocks = editorBlocks;
+      baseDoc.blocks = compileMissionRuntimeBlocks(editorBlocks);
+      return baseDoc;
+    }
+    function assignMissionInputValue(node, value){
+      if(!node) return;
+      node.value = (value == null || !Number.isFinite(Number(value))) ? "" : String(value);
+    }
+    function applyMissionProfileDoc(doc){
+      if(!doc || typeof doc !== "object") return false;
+      const profile = (doc.profile && typeof doc.profile === "object") ? doc.profile : doc;
+      const motor = (profile.motor && typeof profile.motor === "object") ? profile.motor : {};
+
+      const missionName = sanitizeMissionName(profile.missionName || profile.name);
+      const motorPreset = sanitizeMissionName(profile.motorPreset || profile.motorName || missionName);
+      const testCount = parseMissionNumber(profile.testCount);
+      const diameterMm = parseMissionNumber(motor.diameterMm != null ? motor.diameterMm : profile.diameterMm);
+      const lengthMm = parseMissionNumber(motor.lengthMm != null ? motor.lengthMm : profile.lengthMm);
+      const ignDelaySec = parseMissionNumber(profile.ignitionDelaySec != null ? profile.ignitionDelaySec : profile.ignDelaySec);
+      const grainMassG = parseMissionNumber(profile.grainMassG);
+      const totalMassG = parseMissionNumber(profile.totalMassG);
+      const vendor = sanitizeMissionName(profile.vendor);
+
+      if(el.missionName) el.missionName.value = missionName || "";
+      if(el.missionTestCount) el.missionTestCount.value = (testCount != null && testCount > 0) ? String(Math.round(testCount)) : "";
+      assignMissionInputValue(el.missionMotorDia, diameterMm);
+      assignMissionInputValue(el.missionMotorLen, lengthMm);
+      assignMissionInputValue(el.missionIgnDelay, ignDelaySec);
+      assignMissionInputValue(el.missionGrainMass, grainMassG);
+      assignMissionInputValue(el.missionTotalMass, totalMassG);
+      if(el.missionVendor) el.missionVendor.value = vendor || "";
+
+      selectedMotorName = motorPreset || missionName || "";
+      setMissionPresetSelectionUi(selectedMotorName || missionName);
+      missionProfileDoc = cloneMissionDocSafe(doc);
+      const editorBlocks = Array.isArray(doc.editorBlocks)
+        ? doc.editorBlocks
+        : expandRuntimeBlocksToEditorRows(Array.isArray(doc.blocks) ? doc.blocks : []);
+      missionBlocksState = normalizeMissionBlocks(editorBlocks);
+      renderMissionBlocksEditor(missionBlocksState);
+
+      reportExportedRevision = 0;
+      reportExportedOnce = false;
+      updateExportGuardUi();
+      updateMotorInfoPanel();
+      updateExportButtonState();
+      return true;
+    }
+    async function loadMissionProfileFromBoard(){
+      if(simEnabled || replaySourceActive) return false;
+      const API_BASE = getApiBaseForCommands();
+      const url = (API_BASE ? API_BASE : "") + "/mission_profile";
+      try{
+        const res = await fetch(url, {cache:"no-cache"});
+        if(!res.ok){
+          throw new Error("HTTP " + res.status);
+        }
+        const doc = await res.json();
+        return applyMissionProfileDoc(doc);
+      }catch(_err){
+        return false;
+      }
+    }
+    function base64FromUtf8Bytes(bytes){
+      if(!(bytes && bytes.length)) return "";
+      let bin = "";
+      const step = 0x2000;
+      for(let i = 0; i < bytes.length; i += step){
+        const part = bytes.subarray(i, i + step);
+        let s = "";
+        for(let j = 0; j < part.length; j++){
+          s += String.fromCharCode(part[j]);
+        }
+        bin += s;
+      }
+      return btoa(bin);
+    }
+    async function sendMissionSerialAckCommand(path, ackPrefix, timeoutMs){
+      if(!serialConnected) return { ok:false, reason:"SERIAL_DISCONNECTED" };
+      if(!serialTxEnabled) return { ok:false, reason:"SERIAL_TX_DISABLED" };
+      const waiter = createSerialAckWaiter((evt)=>{
+        if(evt.kind === "err") return true;
+        if(evt.kind !== "ack") return false;
+        if(!ackPrefix) return true;
+        return String(evt.message || "").indexOf(ackPrefix) === 0;
+      }, timeoutMs || MISSION_SERIAL_REPLY_TIMEOUT_MS);
+      try{
+        const wrote = await serialWriteLine(path);
+        if(!wrote){
+          cancelSerialAckWaiter(waiter, "SERIAL_WRITE_FAIL");
+          return { ok:false, reason:"SERIAL_WRITE_FAIL" };
+        }
+        const reply = await waiter.promise;
+        if(reply.ok) return { ok:true, reason:reply.message || "SERIAL_ACK" };
+        return { ok:false, reason:reply.message || reply.kind || "SERIAL_FAIL" };
+      }catch(e){
+        cancelSerialAckWaiter(waiter, "SERIAL_ERROR");
+        return { ok:false, reason:(e && e.message) ? e.message : "SERIAL_ERROR" };
+      }
+    }
+    async function saveMissionProfileViaSerial(body, bodyBytes){
+      const canSerialSave = !!(serialEnabled && serialConnected && serialTxEnabled);
+      if(!canSerialSave) return { ok:false, reason:"SERIAL_NOT_READY" };
+
+      const beginRes = await sendMissionSerialAckCommand(
+        "/mission_profile_begin?len=" + String(Math.max(0, bodyBytes || 0)),
+        "MISSION_PROFILE_BEGIN",
+        2200
+      );
+      if(!beginRes.ok) return beginRes;
+
+      const bytes = new TextEncoder().encode(String(body || ""));
+      const b64 = base64FromUtf8Bytes(bytes);
+      if(!b64){
+        await sendMissionSerialAckCommand("/mission_profile_cancel", "MISSION_PROFILE_CANCEL", 1200);
+        return { ok:false, reason:"SERIAL_B64_ENCODE_FAIL" };
+      }
+
+      for(let i = 0; i < b64.length; i += MISSION_SERIAL_CHUNK_B64_SIZE){
+        const chunk = b64.slice(i, i + MISSION_SERIAL_CHUNK_B64_SIZE);
+        const chunkRes = await sendMissionSerialAckCommand(
+          "/mission_profile_chunk?b64=" + chunk,
+          "MISSION_PROFILE_CHUNK",
+          2600
+        );
+        if(!chunkRes.ok){
+          await sendMissionSerialAckCommand("/mission_profile_cancel", "MISSION_PROFILE_CANCEL", 1200);
+          return chunkRes;
+        }
+      }
+
+      const endRes = await sendMissionSerialAckCommand("/mission_profile_end", "MISSION_PROFILE_SAVED", 5000);
+      return endRes;
+    }
+    async function saveMissionProfileToBoard(){
+      if(missionBoardSavePending){
+        showToast("보드 저장이 진행 중입니다. 잠시만 기다리세요.", "notice", {
+          key:"mission-board-save-pending",
+          forceToast:true
+        });
+        return false;
+      }
+      if(!isMissionEditableNow()){
+        showToast("미션 수정은 IDLE(시퀀스 전)에서만 가능합니다.", "notice", {
+          key:"mission-edit-lock",
+          forceToast:true
+        });
+        return false;
+      }
+      let payload = null;
+      let body = "";
+      let bodyBytes = 0;
+      try{
+        payload = buildMissionProfileDoc();
+        body = JSON.stringify(payload);
+        bodyBytes = new TextEncoder().encode(body).length;
+      }catch(err){
+        showToast("보드 저장 실패: 미션 컴파일 오류 (" + (err && err.message ? err.message : err) + ")", "error", {key:"mission-board-save-fail"});
+        return false;
+      }
+      const boardMissionMaxBytes = 24576;
+      if(bodyBytes > boardMissionMaxBytes){
+        showToast(
+          "보드 저장 실패: 미션 JSON 크기 초과 (" + bodyBytes + " / " + boardMissionMaxBytes + " bytes)",
+          "error",
+          {key:"mission-board-save-fail"}
+        );
+        return false;
+      }
+      missionBoardSavePending = true;
+      showToast("보드에 미션 저장 요청 중...", "info", {
+        key:"mission-board-save-progress",
+        forceToast:true,
+        duration:1800
+      });
+      const canSerialMissionSave = !!(serialEnabled && serialConnected && serialTxEnabled);
+      if(canSerialMissionSave){
+        const serialRes = await saveMissionProfileViaSerial(body, bodyBytes);
+        if(serialRes.ok){
+          missionProfileDoc = payload;
+          showToast("미션이 보드 플래시에 저장되었습니다.", "success", {key:"mission-board-save"});
+          missionBoardSavePending = false;
+          return true;
+        }
+        addLogLine("Mission save via SERIAL failed: " + serialRes.reason, "ERR");
+        showToast("보드 저장 실패(SERIAL): " + (serialRes.reason || "SERIAL_FAIL"), "error", {
+          key:"mission-board-save-fail",
+          forceToast:true
+        });
+        missionBoardSavePending = false;
+        return false;
+      }
+      const API_BASE = getApiBaseForCommands();
+      const url = (API_BASE ? API_BASE : "") + "/mission_profile";
+      const opt = {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body,
+        cache: "no-cache"
+      };
+      const saveTimeoutMs = 6000;
+      const abortCtl = (typeof AbortController !== "undefined") ? new AbortController() : null;
+      let abortTimer = null;
+      if(abortCtl){
+        opt.signal = abortCtl.signal;
+        abortTimer = setTimeout(()=>{
+          try{ abortCtl.abort(); }catch(_abortErr){}
+        }, saveTimeoutMs);
+      }
+      try{
+        const res = await fetch(url, opt);
+        if(abortTimer){ clearTimeout(abortTimer); abortTimer = null; }
+        if(res.status === 409){
+          showToast("시퀀스 진행 중에는 저장할 수 없습니다.", "notice", {key:"mission-edit-lock"});
+          return false;
+        }
+        if(!res.ok){
+          let detail = "";
+          try{
+            const text = await res.text();
+            if(text){
+              try{
+                const obj = JSON.parse(text);
+                if(obj && obj.err) detail = String(obj.err);
+              }catch(_jsonErr){
+                detail = text.slice(0, 120);
+              }
+            }
+          }catch(_readErr){}
+          throw new Error("HTTP " + res.status + (detail ? (" (" + detail + ")") : ""));
+        }
+        missionProfileDoc = payload;
+        showToast("미션이 보드 플래시에 저장되었습니다.", "success", {key:"mission-board-save"});
+        return true;
+      }catch(err){
+        if(abortTimer){ clearTimeout(abortTimer); abortTimer = null; }
+        const isAbort = !!(err && (err.name === "AbortError" || String(err).indexOf("AbortError") >= 0));
+        if(isAbort){
+          showToast("보드 저장 실패: 응답 시간 초과(연결 확인 필요)", "error", {
+            key:"mission-board-save-fail",
+            forceToast:true
+          });
+          return false;
+        }
+        showToast("보드 저장 실패: " + (err && err.message ? err.message : err), "error", {
+          key:"mission-board-save-fail",
+          forceToast:true
+        });
+        return false;
+      }finally{
+        missionBoardSavePending = false;
+      }
+    }
+    function downloadMissionProfileJson(){
+      const payload = buildMissionProfileDoc();
+      missionProfileDoc = payload;
+      const missionName = sanitizeMissionName((payload.profile && payload.profile.missionName) || selectedMotorName || "mission");
+      const safeName = missionName.replace(/\s+/g, "_").replace(/[^a-zA-Z0-9._-]/g, "") || "mission";
+      const ts = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "");
+      const filename = "flash6_mission_" + safeName + "_" + ts + ".json";
+      const blob = new Blob([JSON.stringify(payload, null, 2)], {type:"application/json"});
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      setTimeout(()=>{
+        URL.revokeObjectURL(link.href);
+        link.remove();
+      }, 0);
+      showToast("미션 JSON을 내보냈습니다.", "success", {key:"mission-export"});
+    }
+    function importMissionProfileFromFile(file){
+      if(!file) return;
+      if(!isMissionEditableNow()){
+        showToast("미션 수정은 IDLE(시퀀스 전)에서만 가능합니다.", "notice", {key:"mission-edit-lock"});
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = ()=>{
+        try{
+          const raw = String(reader.result || "");
+          const doc = JSON.parse(raw);
+          if(!doc || typeof doc !== "object" || Array.isArray(doc)){
+            throw new Error("invalid format");
+          }
+          if(!applyMissionProfileDoc(doc)){
+            throw new Error("apply failed");
+          }
+          showToast("미션 JSON을 불러왔습니다.", "success", {key:"mission-import"});
+        }catch(err){
+          showToast("미션 JSON 형식 오류: " + (err && err.message ? err.message : err), "error", {key:"mission-import-fail"});
+        }finally{
+          if(el.missionImportInput) el.missionImportInput.value = "";
+        }
+      };
+      reader.onerror = ()=>{
+        showToast("파일 읽기에 실패했습니다.", "error", {key:"mission-import-read-fail"});
+        if(el.missionImportInput) el.missionImportInput.value = "";
+      };
+      reader.readAsText(file);
+    }
+    function updateMissionEditLockUI(){
+      const editable = isMissionEditableNow();
+      if(el.missionOpenBtn){
+        el.missionOpenBtn.disabled = false;
+        el.missionOpenBtn.setAttribute("aria-disabled", editable ? "false" : "true");
+        el.missionOpenBtn.title = editable ? "" : "IDLE(시퀀스 전)에서만 미션 편집 가능";
+      }
+      if(el.missionViewOpenBtn){
+        el.missionViewOpenBtn.disabled = false;
+        el.missionViewOpenBtn.setAttribute("aria-disabled", editable ? "false" : "true");
+        el.missionViewOpenBtn.title = editable ? "" : "IDLE(시퀀스 전)에서만 미션 편집 가능";
+      }
+      if(el.missionSaveBoardBtn){
+        // Always clickable so the user can see lock/fail reason toast.
+        el.missionSaveBoardBtn.disabled = false;
+        el.missionSaveBoardBtn.classList.remove("disabled");
+        el.missionSaveBoardBtn.setAttribute("aria-disabled", "false");
+        el.missionSaveBoardBtn.title = editable ? "" : "IDLE(시퀀스 전)에서만 저장 가능";
+      }
+      if(el.missionImportInput){
+        el.missionImportInput.disabled = !editable;
+      }
+      if(el.missionBlockAddServoBtn) el.missionBlockAddServoBtn.disabled = !editable;
+      if(el.missionBlockAddPyroBtn) el.missionBlockAddPyroBtn.disabled = !editable;
+      if(el.missionBlockClearBtn) el.missionBlockClearBtn.disabled = !editable;
+      if(el.missionBlockPalette){
+        const paletteBtns = el.missionBlockPalette.querySelectorAll("button");
+        paletteBtns.forEach((btn)=>{
+          btn.disabled = !editable;
+          btn.draggable = !!editable;
+        });
+      }
+      if(el.missionBlockList){
+        const nodes = el.missionBlockList.querySelectorAll("input, select, button");
+        nodes.forEach((node)=>{
+          node.disabled = !editable;
+        });
+        const rows = el.missionBlockList.querySelectorAll(".mission-block-row");
+        rows.forEach((row)=>{
+          row.draggable = !!editable;
+        });
+      }
+      if(el.missionConfirmBtn){
+        el.missionConfirmBtn.disabled = !editable;
+        el.missionConfirmBtn.classList.toggle("disabled", !editable);
+      }
+      setMobileControlButtonState("mission", !editable);
     }
     function updateExportButtonState(){
       if(!el.exportCsvBtn) return;
@@ -10086,20 +16585,6 @@
         setOverlayVisible(el.exportLeaveOverlay, false);
       }
     }
-    function requestLeaveWithExportGuard(onLeave){
-      if(!shouldWarnBeforeClose()){
-        if(typeof onLeave === "function") onLeave();
-        return;
-      }
-      pendingExportLeaveAction = (typeof onLeave === "function") ? onLeave : null;
-      if(el.exportLeaveOverlay){
-        setOverlayVisible(el.exportLeaveOverlay, true);
-      }else if(pendingExportLeaveAction){
-        const fallback = pendingExportLeaveAction;
-        pendingExportLeaveAction = null;
-        fallback();
-      }
-    }
     function confirmLeaveWithExportGuard(){
       const action = pendingExportLeaveAction;
       pendingExportLeaveAction = null;
@@ -10119,15 +16604,23 @@
       if(!targetEl) return;
       const item = targetEl.closest(".item, .status-battery");
       if(!item) return;
-      item.classList.remove("status-ok","status-warn","status-bad");
-      if(status) item.classList.add("status-" + status);
+      const nextClass = status ? ("status-" + status) : "";
+      const prevClass = item.dataset.statusClass || "";
+      if(prevClass === nextClass) return;
+      item.classList.remove("status-ok","status-warn","status-bad","status-time-ready","status-time-progress");
+      if(nextClass) item.classList.add(nextClass);
+      item.dataset.statusClass = nextClass;
     }
     function setMotorTimeState(valueEl, state){
       if(!valueEl) return;
       const item = valueEl.closest(".item");
       if(!item) return;
-      item.classList.remove("status-time-ready","status-time-progress");
-      if(state) item.classList.add("status-time-" + state);
+      const nextClass = state ? ("status-time-" + state) : "";
+      const prevClass = item.dataset.statusClass || "";
+      if(prevClass === nextClass) return;
+      item.classList.remove("status-ok","status-warn","status-bad","status-time-ready","status-time-progress");
+      if(nextClass) item.classList.add(nextClass);
+      item.dataset.statusClass = nextClass;
     }
     function updateStatusMotor(){
       if(!el.statusMotor) return;
@@ -10145,12 +16638,10 @@
     }
     function updateMotorInfoPanel(){
       if(!el.batteryStatus || !el.commStatus || !el.motorDelay || !el.motorBurn) return;
-      const delay = (ignitionAnalysis && ignitionAnalysis.delaySec != null)
-        ? ignitionAnalysis.delaySec.toFixed(1)
-        : "--.-";
-      const burn = (ignitionAnalysis && ignitionAnalysis.durationSec != null)
-        ? ignitionAnalysis.durationSec.toFixed(1)
-        : "--.-";
+      const inFlightMode = isFlightModeUi();
+      const delayRaw = ignitionAnalysis ? ignitionAnalysis.delaySec : null;
+      const delaySec = (delayRaw != null && isFinite(Number(delayRaw))) ? Number(delayRaw) : NaN;
+      const burn = formatQuickTimeDisplay(ignitionAnalysis && ignitionAnalysis.durationSec);
       const commText = connOk ? "CONNECTED" : "DISCONNECTED";
       const batteryBlocked = !!(latestTelemetry && (latestTelemetry.ic === 1 || latestTelemetry.sw === 1));
       const pctText = batteryBlocked
@@ -10162,12 +16653,17 @@
 
       el.batteryStatus.textContent = pctText;
       el.commStatus.innerHTML = '<span class="num">' + commText + "</span>";
-      el.motorDelay.innerHTML = '<span class="num">' + delay + '</span><span class="unit">S</span>';
-      el.motorBurn.innerHTML = '<span class="num">' + burn + '</span><span class="unit">S</span>';
-      const delayState = (ignitionAnalysis && ignitionAnalysis.delaySec != null) ? "ready" : null;
-      setMotorTimeState(el.motorDelay, delayState);
+      const delayText = Number.isFinite(delaySec) ? formatQuickTimeDisplay(delaySec) : "--";
+      el.motorDelay.innerHTML = '<span class="num">' + delayText + '</span><span class="unit">S</span>';
+      if(inFlightMode){
+        const displayPitchDeg = getGyroDisplayPitchDeg();
+        el.motorBurn.innerHTML = formatQuickGyroDeg(displayPitchDeg);
+      }else{
+        el.motorBurn.innerHTML = '<span class="num">' + burn + '</span><span class="unit">S</span>';
+      }
+      setMotorTimeState(el.motorDelay, Number.isFinite(delaySec) ? "ready" : null);
       let burnState = null;
-      if(ignitionAnalysis && ignitionAnalysis.durationSec != null){
+      if(!inFlightMode && ignitionAnalysis && ignitionAnalysis.durationSec != null){
         const burnNumeric = Number(ignitionAnalysis.durationSec);
         if(Number.isFinite(burnNumeric)){
           const isBurning = (currentSt === 2);
@@ -10216,9 +16712,9 @@
     function hideMissionRequired(){
       setOverlayVisible(el.missionRequiredOverlay, false);
     }
-    function showInspectionWarning(){
+    function showInspectionWarning(failedKeys){
       if(el.inspectionWarnText){
-        el.inspectionWarnText.textContent = t("inspectionFailText");
+        el.inspectionWarnText.innerHTML = buildInspectionFailMessage(failedKeys || inspectionLastFailedKeys);
       }
       setOverlayVisible(el.inspectionWarnOverlay, true);
     }
@@ -10234,13 +16730,35 @@
       setOverlayVisible(el.noMotorOverlay, false);
     }
     function showMission(){
+      if(!isMissionEditableNow()){
+        showToast("시퀀스 중에는 미션 편집만 잠깁니다.", "notice", {key:"mission-edit-lock"});
+      }
+      const missionViewActive = !!(el.missionView && !el.missionView.classList.contains("hidden"));
+      if(missionViewActive){
+        hideMobileControlsPanel();
+        setMissionPanelVisible(false);
+        setMobileMissionPanelVisible(false);
+        setOverlayVisible(el.missionOverlay, false);
+        if(el.missionDialog && el.missionViewMount){
+          mountDialogToPanel(el.missionDialog, el.missionViewMount, missionDialogDockState);
+        }
+        openMissionCustomEditor();
+        if(el.missionViewMount){
+          try{
+            el.missionViewMount.scrollTo({top:0, behavior:"smooth"});
+          }catch(_err){
+            el.missionViewMount.scrollTop = 0;
+          }
+        }
+        return;
+      }
       if(isPhoneLandscapeLayout()){
         setOverlayVisible(el.missionOverlay, false);
         if(!mobileControlsActive){
           showMobileControlsPanel();
         }
         setMobileMissionPanelVisible(true);
-        resetMissionToPresetList();
+        openMissionCustomEditor();
         return;
       }
       if(isTabletControlsLayout() || !isMobileLayout()){
@@ -10250,14 +16768,14 @@
           applyTabletControlsLayout();
         }
         setMissionPanelVisible(true);
-        resetMissionToPresetList();
+        openMissionCustomEditor();
         return;
       }
       hideMobileControlsPanel();
       setMissionPanelVisible(false);
       setMobileMissionPanelVisible(false);
       setOverlayVisible(el.missionOverlay, true);
-      resetMissionToPresetList();
+      openMissionCustomEditor();
     }
     function hideMission(){
       resetMissionToPresetList();
@@ -10269,96 +16787,390 @@
       }
       setOverlayVisible(el.missionOverlay, false);
     }
-    function updateLoadcellLiveValue(val){
-      lastThrustKgf = val;
-      if(!el.loadcellLiveValue) return;
-      if(val == null || !isFinite(val)){
-        el.loadcellLiveValue.textContent = "--";
+    function isLoadcellModalVisible(){
+      return !!(el.loadcellOverlay && !el.loadcellOverlay.classList.contains("hidden"));
+    }
+    function setLoadcellGuideText(text){
+      if(el.loadcellGuide) el.loadcellGuide.textContent = String(text || "");
+    }
+    function setLoadcellActionLabel(btn, text){
+      if(!btn) return;
+      btn.textContent = String(text || "");
+    }
+    function setLoadcellActionState(btn, disabled, hidden){
+      if(!btn) return;
+      btn.disabled = !!disabled;
+      btn.hidden = !!hidden;
+      btn.style.display = hidden ? "none" : "";
+    }
+    function clearLoadcellDialogStateClasses(){
+      if(!el.loadcellDialog) return;
+      el.loadcellDialog.classList.remove("step-input", "step-complete", "show-warning");
+    }
+    function resetLoadcellStabilityTracking(){
+      loadcellStabilitySamples = [];
+      loadcellStabilityStartedMs = Date.now();
+      loadcellStabilizedAtMs = 0;
+      loadcellStabilityFailed = false;
+    }
+    function updateLoadcellWorkflowUi(){
+      clearLoadcellDialogStateClasses();
+      if(loadcellModalStage === LOADCELL_MODAL_STAGE_WEIGHT && el.loadcellDialog){
+        el.loadcellDialog.classList.add("step-input");
+      }else if(loadcellModalStage === LOADCELL_MODAL_STAGE_COMPLETE && el.loadcellDialog){
+        el.loadcellDialog.classList.add("step-complete");
+      }
+
+      if(loadcellModalStage === LOADCELL_MODAL_STAGE_STABILIZE){
+        setLoadcellGuideText(t("loadcellGuideStabilizing"));
+        setLoadcellActionLabel(el.loadcellZero, t("loadcellZeroSaveBtn"));
+        setLoadcellActionState(el.loadcellZero, loadcellStabilizedAtMs === 0, false);
+        setLoadcellActionLabel(el.loadcellApply, t("loadcellModalApply"));
+        setLoadcellActionState(el.loadcellApply, true, true);
+        setLoadcellActionLabel(el.loadcellCancel, t("loadcellModalCancel"));
+        setLoadcellActionState(el.loadcellCancel, false, false);
         return;
       }
-      el.loadcellLiveValue.textContent = Number(val).toFixed(3);
+
+      if(loadcellModalStage === LOADCELL_MODAL_STAGE_NOISE){
+        setLoadcellGuideText(t("loadcellGuideNoiseReady"));
+        setLoadcellActionLabel(el.loadcellZero, t("loadcellNoiseSaveBtn"));
+        setLoadcellActionState(el.loadcellZero, false, false);
+        setLoadcellActionLabel(el.loadcellApply, t("loadcellModalApply"));
+        setLoadcellActionState(el.loadcellApply, true, true);
+        setLoadcellActionLabel(el.loadcellCancel, t("loadcellModalCancel"));
+        setLoadcellActionState(el.loadcellCancel, false, false);
+        return;
+      }
+
+      if(loadcellModalStage === LOADCELL_MODAL_STAGE_WEIGHT){
+        setLoadcellGuideText(t("loadcellGuidePlaceWeight"));
+        setLoadcellActionState(el.loadcellZero, true, true);
+        setLoadcellActionLabel(el.loadcellApply, t("loadcellModalApply"));
+        const weight = parseFloat(el.loadcellWeightInput ? el.loadcellWeightInput.value : "");
+        const invalidWeight = !isFinite(weight) || weight <= 0;
+        setLoadcellActionState(el.loadcellApply, invalidWeight, false);
+        setLoadcellActionLabel(el.loadcellCancel, t("loadcellModalCancel"));
+        setLoadcellActionState(el.loadcellCancel, false, false);
+        return;
+      }
+
+      if(loadcellModalStage === LOADCELL_MODAL_STAGE_COMPLETE){
+        setLoadcellGuideText(t("loadcellGuideComplete"));
+        if(el.loadcellCompleteTitle) el.loadcellCompleteTitle.textContent = t("loadcellCompleteTitle");
+        if(el.loadcellCompleteText) el.loadcellCompleteText.textContent = t("loadcellCompleteText");
+        setLoadcellActionState(el.loadcellZero, true, true);
+        setLoadcellActionLabel(el.loadcellApply, t("loadcellCompleteCloseBtn"));
+        setLoadcellActionState(el.loadcellApply, false, false);
+        setLoadcellActionState(el.loadcellCancel, true, true);
+      }
+    }
+    function setLoadcellWorkflowStage(stage){
+      loadcellModalStage = stage;
+      updateLoadcellWorkflowUi();
+    }
+    function startLoadcellStabilizationStep(){
+      hideLoadcellWarning();
+      resetLoadcellStabilityTracking();
+      setLoadcellWorkflowStage(LOADCELL_MODAL_STAGE_STABILIZE);
+      const seedValue = loadcellTelemetryHasRaw ? lastLoadcellRaw : lastThrustKgf;
+      if(isFinite(Number(seedValue))){
+        requestAnimationFrame(()=>updateLoadcellStabilityState(Number(seedValue)));
+      }
+    }
+    function updateLoadcellStabilityState(rawVal){
+      if(loadcellModalStage !== LOADCELL_MODAL_STAGE_STABILIZE) return;
+      if(!isLoadcellModalVisible() || loadcellWarningMode === "stability") return;
+      const now = Date.now();
+      const value = Number(rawVal);
+      if(!isFinite(value)){
+        setLoadcellGuideText(t("loadcellGuideStabilizing"));
+        setLoadcellActionState(el.loadcellZero, true, false);
+        return;
+      }
+      if(loadcellTelemetryHasRaw){
+        const noRawStream = ((now - loadcellStabilityStartedMs) >= LOADCELL_HZ_FAULT_GRACE_MS) && (!isFinite(lastLoadcellHz) || lastLoadcellHz <= 0);
+        if(!lastLoadcellRawValid || lastLoadcellSaturated || noRawStream){
+          setLoadcellGuideText(t("loadcellGuideStabilizing"));
+          setLoadcellActionState(el.loadcellZero, true, false);
+          return;
+        }
+      }
+
+      loadcellStabilitySamples.push({ts:now, value});
+      while(loadcellStabilitySamples.length && (now - loadcellStabilitySamples[0].ts) > LOADCELL_STABILIZE_WINDOW_MS){
+        loadcellStabilitySamples.shift();
+      }
+
+      const elapsedMs = now - loadcellStabilityStartedMs;
+      if(loadcellStabilitySamples.length < 3){
+        setLoadcellGuideText(t("loadcellGuideStabilizing"));
+        setLoadcellActionState(el.loadcellZero, true, false);
+        return;
+      }
+      const stable =
+        elapsedMs >= LOADCELL_STABILIZE_MIN_MS &&
+        loadcellStabilitySamples.length >= LOADCELL_STABILIZE_MIN_SAMPLES;
+
+      if(stable){
+        loadcellStabilizedAtMs = now;
+        setLoadcellGuideText(t("loadcellGuideStableReady"));
+        setLoadcellActionState(el.loadcellZero, false, false);
+        return;
+      }
+
+      const remainSec = Math.max(0, (LOADCELL_STABILIZE_MIN_MS - elapsedMs) / 1000);
+      if(remainSec > 0.05){
+        setLoadcellGuideText(t("loadcellGuideStabilizing") + " (" + remainSec.toFixed(1) + "s)");
+      }else{
+        setLoadcellGuideText(t("loadcellGuideStabilizing"));
+      }
+      setLoadcellActionState(el.loadcellZero, true, false);
+    }
+    function updateLoadcellLiveValue(val){
+      lastThrustKgf = val;
+      const modalDisplayZero = isLoadcellModalVisible() && lastLoadcellOffsetValid === 0;
+      const displayValue = modalDisplayZero ? 0 : val;
+      if(el.loadcellLiveValue){
+        if(displayValue == null || !isFinite(displayValue)){
+          el.loadcellLiveValue.textContent = "--";
+        }else{
+          el.loadcellLiveValue.textContent = formatThrustDisplay(displayValue);
+        }
+      }
+      if(isLoadcellModalVisible() && loadcellModalStage === LOADCELL_MODAL_STAGE_STABILIZE){
+        updateLoadcellStabilityState(loadcellTelemetryHasRaw ? lastLoadcellRaw : displayValue);
+      }
+    }
+    function parseLoadcellReplyValue(text, key){
+      const raw = String(text || "");
+      const escaped = String(key || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const m = raw.match(new RegExp("(?:^|\\s)" + escaped + "\\s*=\\s*([-+]?\\d+(?:\\.\\d+)?(?:[eE][-+]?\\d+)?)"));
+      if(!m) return null;
+      const n = Number(m[1]);
+      return isFinite(n) ? n : null;
+    }
+    function estimateLoadcellScale(weight){
+      const w = Number(weight);
+      if(!(isFinite(w) && w > 0)) return null;
+      const currentKgf = Number(lastThrustKgf);
+      if(!isFinite(currentKgf)) return null;
+      const refScale = (lastLoadcellScale != null && isFinite(lastLoadcellScale))
+        ? Number(lastLoadcellScale)
+        : LOADCELL_SCALE_FALLBACK;
+      if(!(isFinite(refScale) && refScale > 0)) return null;
+      const predicted = (currentKgf * refScale) / w;
+      return isFinite(predicted) ? predicted : null;
+    }
+    function updateLoadcellCalcPanel(weight){
+      const w = (isFinite(Number(weight)) && Number(weight) > 0) ? Number(weight) : null;
+      if(el.loadcellWeightPreview){
+        el.loadcellWeightPreview.textContent = (w != null) ? (w.toFixed(3) + " kg") : "--";
+      }
+      if(el.loadcellScaleValue){
+        const saved = (lastLoadcellScale != null && isFinite(lastLoadcellScale)) ? Number(lastLoadcellScale) : null;
+        const estimated = (w != null) ? estimateLoadcellScale(w) : null;
+        const viewScale = (estimated != null) ? estimated : saved;
+        const prefix = (saved == null && estimated != null) ? "~ " : "";
+        el.loadcellScaleValue.textContent = (viewScale != null && isFinite(viewScale))
+          ? (prefix + Number(viewScale).toFixed(6))
+          : "--";
+      }
+      if(el.loadcellOffsetValue){
+        el.loadcellOffsetValue.textContent = (lastLoadcellOffset != null && isFinite(lastLoadcellOffset))
+          ? String(Math.round(lastLoadcellOffset))
+          : "--";
+      }
+    }
+    function refreshLoadcellInputPreview(){
+      const raw = el.loadcellWeightInput ? el.loadcellWeightInput.value : "";
+      const weight = parseFloat(raw || "");
+      if(isFinite(weight) && weight > 0){
+        lastLoadcellCalWeight = weight;
+      }
+      updateLoadcellCalcPanel(weight);
+      if(loadcellModalStage === LOADCELL_MODAL_STAGE_WEIGHT){
+        updateLoadcellWorkflowUi();
+      }
     }
     function showLoadcellModal(){
       hideMobileControlsPanel();
       setOverlayVisible(el.loadcellOverlay, true);
-      if(el.loadcellDialog) el.loadcellDialog.classList.remove("show-warning");
-      if(el.loadcellDialog) el.loadcellDialog.classList.remove("step-input");
+      clearLoadcellDialogStateClasses();
       if(el.loadcellWeightInput) el.loadcellWeightInput.value = "";
-      if(el.loadcellWarningTitle) el.loadcellWarningTitle.textContent = t("loadcellModalConfirmTitle");
-      if(el.loadcellWarningText) el.loadcellWarningText.textContent = t("loadcellModalConfirmText", {weight:"--"});
       pendingLoadcellWeight = null;
       pendingLoadcellZero = false;
-      updateLoadcellLiveValue(lastThrustKgf);
+      loadcellWarningMode = "";
+      const initialDisplayValue = (lastLoadcellOffsetValid === 0) ? 0 : lastThrustKgf;
+      updateLoadcellLiveValue(initialDisplayValue);
+      updateLoadcellCalcPanel(lastLoadcellCalWeight);
+      startLoadcellStabilizationStep();
+      requestAnimationFrame(()=>{
+        refreshLoadcellInputPreview();
+        if(isFinite(Number(initialDisplayValue))){
+          updateLoadcellStabilityState(Number(initialDisplayValue));
+        }
+      });
     }
     function hideLoadcellModal(){
       setOverlayVisible(el.loadcellOverlay, false);
-      if(el.loadcellDialog) el.loadcellDialog.classList.remove("show-warning");
-      if(el.loadcellDialog) el.loadcellDialog.classList.remove("step-input");
-    }
-    function showLoadcellWarning(weight){
-      hideMobileControlsPanel();
-      pendingLoadcellZero = false;
-      if(el.loadcellDialog) el.loadcellDialog.classList.add("show-warning");
-      if(el.loadcellWarningTitle) el.loadcellWarningTitle.textContent = t("loadcellModalConfirmTitle");
-      if(el.loadcellWarningText){
-        el.loadcellWarningText.textContent = t("loadcellModalConfirmText", {weight:weight.toFixed(3)});
+      clearLoadcellDialogStateClasses();
+      loadcellWarningMode = "";
+      resetLoadcellStabilityTracking();
+      loadcellModalStage = LOADCELL_MODAL_STAGE_STABILIZE;
+      if(el.loadcellZero){
+        el.loadcellZero.hidden = false;
+        el.loadcellZero.style.display = "";
       }
-    }
-    function showLoadcellZeroWarning(){
-      hideMobileControlsPanel();
-      pendingLoadcellZero = true;
-      if(el.loadcellDialog) el.loadcellDialog.classList.add("show-warning");
-      if(el.loadcellWarningTitle) el.loadcellWarningTitle.textContent = t("loadcellZeroConfirmTitle");
-      if(el.loadcellWarningText) el.loadcellWarningText.textContent = t("loadcellZeroConfirmText");
+      if(el.loadcellApply){
+        el.loadcellApply.hidden = false;
+        el.loadcellApply.style.display = "";
+      }
+      if(el.loadcellCancel){
+        el.loadcellCancel.hidden = false;
+        el.loadcellCancel.style.display = "";
+      }
     }
     function hideLoadcellWarning(){
       if(el.loadcellDialog) el.loadcellDialog.classList.remove("show-warning");
       pendingLoadcellZero = false;
+      loadcellWarningMode = "";
     }
-    async function saveLoadcellCalibration(weight){
-      if(simEnabled){
-        addLogLine(t("loadcellSaveLog", {weight:weight.toFixed(3)}), "CFG");
-        showToast(t("loadcellSaveSuccessToast"), "success");
-        hideLoadcellWarning();
-        hideLoadcellModal();
-        return;
+    async function sendLoadcellCommand(path, ackPrefix){
+      const serialMode = !!serialEnabled;
+      if(serialMode){
+        if(!serialConnected) return { ok:false, reason:"SERIAL_DISCONNECTED" };
+        if(!serialTxEnabled) return { ok:false, reason:"SERIAL_TX_DISABLED" };
+        const waiter = createSerialAckWaiter((evt)=>{
+          if(evt.kind === "err") return true;
+          return evt.kind === "ack" && String(evt.message || "").indexOf(ackPrefix) === 0;
+        }, LOADCELL_SERIAL_REPLY_TIMEOUT_MS);
+        try{
+          const wrote = await serialWriteLine(path);
+          if(!wrote){
+            cancelSerialAckWaiter(waiter, "SERIAL_WRITE_FAIL");
+            return { ok:false, reason:"SERIAL_WRITE_FAIL" };
+          }
+          const reply = await waiter.promise;
+          if(reply.ok) return { ok:true, reason:reply.message || "SERIAL_ACK" };
+          return { ok:false, reason:reply.message || reply.kind || "SERIAL_FAIL" };
+        }catch(e){
+          cancelSerialAckWaiter(waiter, "SERIAL_ERROR");
+          return { ok:false, reason:(e && e.message) ? e.message : "SERIAL_ERROR" };
+        }
       }
-      const API_BASE = (location.protocol === "http:" || location.protocol === "https:")
-          ? ""
-          : "http://192.168.4.1";
-      const url = (API_BASE ? API_BASE : "") + "/loadcell_cal?weight=" + encodeURIComponent(weight);
+
+      const API_BASE = getApiBaseForCommands();
+      const url = (API_BASE ? API_BASE : "") + path;
       const opt = API_BASE ? { mode:"no-cors", cache:"no-cache" } : { cache:"no-cache" };
       try{
         const res = await fetch(url, opt);
-        if(!API_BASE && !res.ok) throw new Error("HTTP " + res.status);
+        if(!API_BASE && !res.ok){
+          let bodyText = "";
+          try{ bodyText = (await res.text()) || ""; }catch(_err){}
+          return { ok:false, reason:bodyText.trim() || ("HTTP " + res.status) };
+        }
+      }catch(e){
+        return { ok:false, reason:(e && e.message) ? e.message : "NETWORK_ERROR" };
+      }
+      return { ok:true, reason:"HTTP" };
+    }
+    async function saveLoadcellCalibration(weight){
+      lastLoadcellCalWeight = weight;
+      if(simEnabled){
         addLogLine(t("loadcellSaveLog", {weight:weight.toFixed(3)}), "CFG");
         showToast(t("loadcellSaveSuccessToast"), "success");
+        updateLoadcellCalcPanel(weight);
         hideLoadcellWarning();
-        hideLoadcellModal();
-      }catch(e){
-        showToast(t("loadcellSaveFailToast"), "error");
+        setLoadcellWorkflowStage(LOADCELL_MODAL_STAGE_COMPLETE);
+        return;
+      }
+      const path = "/loadcell_cal?weight=" + encodeURIComponent(weight);
+      const result = await sendLoadcellCommand(path, "SCALE=");
+      if(result.ok){
+        const nextScale = parseLoadcellReplyValue(result.reason, "SCALE");
+        if(nextScale != null) lastLoadcellScale = nextScale;
+        addLogLine(t("loadcellSaveLog", {weight:weight.toFixed(3)}), "CFG");
+        if(nextScale != null) addLogLine("Loadcell SCALE=" + Number(nextScale).toFixed(6), "CFG");
+        showToast(t("loadcellSaveSuccessToast"), "success");
+        updateLoadcellCalcPanel(weight);
+        hideLoadcellWarning();
+        setLoadcellWorkflowStage(LOADCELL_MODAL_STAGE_COMPLETE);
+      }else{
+        addLogLine("Loadcell calibration failed: " + result.reason, "ERR");
+        showToast(t("loadcellSaveFailToast") + " (" + result.reason + ")", "error");
+      }
+    }
+    async function saveLoadcellNoiseZero(){
+      if(simEnabled){
+        addLogLine(t("loadcellNoiseSaveLog"), "CFG");
+        showToast(t("loadcellNoiseSaveSuccessToast"), "success");
+        setLoadcellWorkflowStage(LOADCELL_MODAL_STAGE_WEIGHT);
+        if(el.loadcellWeightInput) el.loadcellWeightInput.focus();
+        return;
+      }
+      const result = await sendLoadcellCommand("/loadcell_noise_zero", "NOISE=");
+      if(result.ok){
+        const nextNoise = parseLoadcellReplyValue(result.reason, "NOISE");
+        addLogLine(t("loadcellNoiseSaveLog"), "CFG");
+        if(nextNoise != null) addLogLine("Loadcell NOISE=" + Number(nextNoise).toFixed(4) + " kg", "CFG");
+        showToast(t("loadcellNoiseSaveSuccessToast"), "success");
+        setLoadcellWorkflowStage(LOADCELL_MODAL_STAGE_WEIGHT);
+        if(el.loadcellWeightInput) el.loadcellWeightInput.focus();
+      }else{
+        addLogLine("Loadcell noise zero failed: " + result.reason, "ERR");
+        showToast(t("loadcellNoiseSaveFailToast") + " (" + result.reason + ")", "error");
       }
     }
     async function saveLoadcellZero(){
       if(simEnabled){
         addLogLine(t("loadcellZeroSaveLog"), "CFG");
         showToast(t("loadcellZeroSaveSuccessToast"), "success");
-        hideLoadcellModal();
+        updateLoadcellCalcPanel(lastLoadcellCalWeight);
+        lastLoadcellOffsetValid = 1;
+        setLoadcellWorkflowStage(LOADCELL_MODAL_STAGE_NOISE);
         return;
       }
-      const API_BASE = (location.protocol === "http:" || location.protocol === "https:")
-          ? ""
-          : "http://192.168.4.1";
-      const url = (API_BASE ? API_BASE : "") + "/loadcell_zero";
-      const opt = API_BASE ? { mode:"no-cors", cache:"no-cache" } : { cache:"no-cache" };
-      try{
-        const res = await fetch(url, opt);
-        if(!API_BASE && !res.ok) throw new Error("HTTP " + res.status);
+      const result = await sendLoadcellCommand("/loadcell_zero", "OFFSET=");
+      if(result.ok){
+        const nextOffset = parseLoadcellReplyValue(result.reason, "OFFSET");
+        if(nextOffset != null) lastLoadcellOffset = nextOffset;
+        lastLoadcellOffsetValid = 1;
         addLogLine(t("loadcellZeroSaveLog"), "CFG");
+        if(nextOffset != null) addLogLine("Loadcell OFFSET=" + Math.round(nextOffset), "CFG");
         showToast(t("loadcellZeroSaveSuccessToast"), "success");
-        hideLoadcellModal();
-      }catch(e){
-        showToast(t("loadcellZeroSaveFailToast"), "error");
+        updateLoadcellCalcPanel(lastLoadcellCalWeight);
+        setLoadcellWorkflowStage(LOADCELL_MODAL_STAGE_NOISE);
+      }else{
+        addLogLine("Loadcell zero failed: " + result.reason, "ERR");
+        showToast(t("loadcellZeroSaveFailToast") + " (" + result.reason + ")", "error");
+      }
+    }
+    async function resetLoadcellCalibration(){
+      const applyResetState = ()=>{
+        lastLoadcellScale = LOADCELL_SCALE_FALLBACK;
+        lastLoadcellOffset = 0;
+        lastLoadcellOffsetValid = 0;
+        lastLoadcellNoiseDeadband = LOADCELL_NOISE_DB_FALLBACK;
+        updateLoadcellCalcPanel(null);
+        updateLoadcellLiveValue(0);
+      };
+      if(simEnabled){
+        applyResetState();
+        addLogLine(t("loadcellResetLog"), "CFG");
+        showToast(t("loadcellResetSuccessToast"), "success");
+        return;
+      }
+      const result = await sendLoadcellCommand("/loadcell_reset", "RESET");
+      if(result.ok){
+        applyResetState();
+        addLogLine(t("loadcellResetLog"), "CFG");
+        showToast(t("loadcellResetSuccessToast"), "success");
+        setRebootConfirmWaiting();
+        await sendCommand({http:"/reset", ser:"/reset"}, true);
+      }else{
+        addLogLine("Loadcell reset failed: " + result.reason, "ERR");
+        showToast(t("loadcellResetFailToast") + " (" + result.reason + ")", "error");
       }
     }
     function setForceSlidePosition(x){
@@ -10395,7 +17207,7 @@
     }
     function showForceConfirm(){
       hideMobileControlsPanel();
-      if(!hasMissionSelected()){
+      if(!hasSequenceMissionRequirement()){
         showMissionRequired();
         return;
       }
@@ -10428,6 +17240,12 @@
     function hideForceConfirm(){
       setOverlayVisible(forceOverlayEl, false);
       resetForceSlide();
+    }
+    function closeIgnitionModals(){
+      const sequenceModalOpen = !!(confirmOverlayEl && !confirmOverlayEl.classList.contains("hidden"));
+      const forceModalOpen = !!(forceOverlayEl && !forceOverlayEl.classList.contains("hidden"));
+      if(sequenceModalOpen) hideConfirm();
+      if(forceModalOpen) hideForceConfirm();
     }
     function showLauncher(){
       if(isTabletPanelModeBlocked()){
@@ -10545,6 +17363,40 @@
     }
     function hideLauncherAutoConfirm(){
       setOverlayVisible(launcherAutoOverlayEl, false);
+    }
+    function updateRebootConfirmUi(){
+      const waiting = !!rebootConfirmWaiting;
+      if(rebootConfirmTitleEl){
+        rebootConfirmTitleEl.textContent = waiting ? t("rebootPendingTitle") : t("rebootConfirmTitle");
+      }
+      if(rebootConfirmTextEl){
+        rebootConfirmTextEl.innerHTML = waiting ? t("rebootPendingText") : t("rebootConfirmText");
+      }
+      if(rebootConfirmActionsEl){
+        rebootConfirmActionsEl.classList.toggle("hidden", waiting);
+      }
+      if(rebootConfirmOverlayEl){
+        rebootConfirmOverlayEl.classList.toggle("is-waiting", waiting);
+      }
+    }
+    function showRebootConfirm(){
+      hideMobileControlsPanel();
+      rebootConfirmWaiting = false;
+      rebootConfirmStartedMs = 0;
+      updateRebootConfirmUi();
+      setOverlayVisible(rebootConfirmOverlayEl, true);
+    }
+    function hideRebootConfirm(){
+      rebootConfirmWaiting = false;
+      rebootConfirmStartedMs = 0;
+      updateRebootConfirmUi();
+      setOverlayVisible(rebootConfirmOverlayEl, false);
+    }
+    function setRebootConfirmWaiting(){
+      rebootConfirmWaiting = true;
+      rebootConfirmStartedMs = Date.now();
+      updateRebootConfirmUi();
+      setOverlayVisible(rebootConfirmOverlayEl, true);
     }
 
     // =====================
@@ -11041,7 +17893,8 @@
       const fixed = Number(value).toFixed(digits);
       return fixed.replace(/\.?0+$/,"");
     }
-    function buildEngText(rows, meta){
+    function buildEngText(rows, meta, options){
+      const valueDigits = normalizeDecimalDigits(options && options.valueDigits, 3);
       const rawName = (meta.name || "ALTIS_MOTOR").trim() || "ALTIS_MOTOR";
       const rawVendor = (meta.vendor || "ALTIS").trim() || "ALTIS";
       const name = rawName.replace(/\s+/g, "_");
@@ -11050,14 +17903,14 @@
         name,
         formatEngNumber(meta.diameterMm, 0),
         formatEngNumber(meta.lengthMm, 0),
-        formatEngNumber(meta.delaySec, 3),
-        formatEngNumber(meta.propMassKg, 3),
-        formatEngNumber(meta.totalMassKg, 3),
+        formatEngNumber(meta.delaySec, valueDigits),
+        formatEngNumber(meta.propMassKg, valueDigits),
+        formatEngNumber(meta.totalMassKg, valueDigits),
         vendor
       ].join(" ");
       const lines = [header];
       for(const row of rows){
-        lines.push(formatEngNumber(row[0], 4) + " " + formatEngNumber(row[1], 3));
+        lines.push(formatEngNumber(row[0], 4) + " " + formatEngNumber(row[1], valueDigits));
       }
       return lines.join("\n") + "\n";
     }
@@ -11104,36 +17957,29 @@
       }else if(path.startsWith("/abort")){
         resetSimState();
         resetGyroPathTracking();
+      }else if(path.startsWith("/servo")){
+        const chMatch = path.match(/[?&](?:ch|id)=([0-9]+)/i);
+        const degMatch = path.match(/[?&](?:deg|angle)=(-?[0-9]+)/i);
+        const ch = chMatch ? Number(chMatch[1]) : NaN;
+        const deg = degMatch ? clampServoAngle(degMatch[1]) : NaN;
+        if(isFinite(ch) && isFinite(deg) && SERVO_CHANNELS.indexOf(ch) >= 0){
+          setServoUiAngle(ch, deg);
+        }
       }
     }
-    async function sendCommand(cmd, logIt){
-      if(simEnabled){
-        handleSimCommand(cmd);
-        if(logIt){
-          addLogLine(t("cmdSentLog", {cmd:(cmd.http || cmd.ser || "?")}), "CMD");
-        }
-        return;
-      }
-      if(lockoutLatched){
-        const name = relayMaskName(lockoutRelayMask);
-        showToast(t("lockoutCmdDenied", {name}), "error");
-        return;
-      }
+	    async function sendCommand(cmd, logIt){
+	      if(simEnabled){
+	        handleSimCommand(cmd);
+	        if(logIt){
+	          addLogLine(t("cmdSentLog", {cmd:(cmd.http || cmd.ser || "?")}), "CMD");
+	        }
+	        return;
+	      }
 
-      const API_BASE = (location.protocol === "http:" || location.protocol === "https:")
-          ? ""
-          : "http://192.168.4.1";
-
-      if(cmd.http){
-        const url = API_BASE ? (API_BASE + cmd.http) : cmd.http;
-        const opt = API_BASE ? { mode:"no-cors", cache:"no-cache" } : { cache:"no-cache" };
-        fetch(url, opt).catch(err=>{ reportSilentException("cmd-http", err); });
-      }
-
-      let serLine = cmd.ser ? String(cmd.ser).trim() : "";
-      if(serLine && serLine[0] !== "/"){
-        const parts = serLine.split(/\s+/);
-        const head = (parts[0] || "").toUpperCase();
+	      let serLine = cmd.ser ? String(cmd.ser).trim() : "";
+	      if(serLine && serLine[0] !== "/"){
+	        const parts = serLine.split(/\s+/);
+	        const head = (parts[0] || "").toUpperCase();
 
         if(head === "FORCE"){
           serLine = "/force_ignite";
@@ -11148,7 +17994,7 @@
         }else if(head === "PRECOUNT"){
           const uw = (parts[1] != null) ? Number(parts[1]) : 0;
           const cd = (parts[2] != null) ? Number(parts[2]) : 0;
-          serLine = "/precount?uw=" + (uw ? 1 : 0) + "&cd=" + Math.max(0, Math.min(30000, cd|0));
+          serLine = "/precount?uw=" + (uw ? 1 : 0) + "&cd=" + Math.max(0, Math.min(60000, cd|0));
         }else if(head === "RS"){
           const v = (parts[1] != null) ? (Number(parts[1]) ? 1 : 0) : 0;
           serLine = "/set?rs=" + v;
@@ -11158,8 +18004,11 @@
         }else if(head === "SAFE"){
           const v = (parts[1] != null) ? (Number(parts[1]) ? 1 : 0) : 0;
           serLine = "/set?safe=" + v;
+        }else if(head === "ARMLOCK"){
+          const v = (parts[1] != null) ? (Number(parts[1]) ? 1 : 0) : 0;
+          serLine = "/set?arm_lock=" + v;
         }else if(head === "IGNMS"){
-          const ms = (parts[1] != null) ? (Number(parts[1])|0) : 5000;
+          const ms = (parts[1] != null) ? (Number(parts[1])|0) : 1000;
           serLine = "/set?ign_ms=" + ms;
         }else if(head === "CDMS"){
           const ms = (parts[1] != null) ? (Number(parts[1])|0) : 10000;
@@ -11168,12 +18017,50 @@
           const dir = (parts[1] || "STOP").toUpperCase();
           const dirValue = (dir === "UP" || dir === "DOWN") ? dir.toLowerCase() : "stop";
           serLine = "/launcher?dir=" + dirValue;
-        }
+        }else if(head === "SERVO"){
+          const chRaw = (parts[1] != null) ? (Number(parts[1])|0) : 1;
+          const ch = Math.max(1, Math.min(4, chRaw));
+          const degRaw = (parts[2] != null) ? Number(parts[2]) : SERVO_DEFAULT_DEG;
+          const deg = clampServoAngle(degRaw);
+          serLine = "/servo?ch=" + ch + "&deg=" + deg;
+        }else if(head === "PYRO"){
+          const chRaw = (parts[1] != null) ? (Number(parts[1])|0) : 1;
+          const ch = Math.max(1, Math.min(4, chRaw));
+          const msRaw = (parts[2] != null) ? (Number(parts[2])|0) : 500;
+          const ms = Math.max(10, Math.min(30000, msRaw));
+          serLine = "/pyro_test?ch=" + ch + "&ms=" + ms;
+	        }
+	      }
+
+      const normalizedPath = (cmd.http && String(cmd.http).trim())
+        ? String(cmd.http).trim()
+        : ((serLine && serLine[0] === "/") ? serLine : "");
+      const isLockoutBypassCmd =
+        normalizedPath.startsWith("/abort") ||
+        normalizedPath.startsWith("/sequence_end") ||
+        normalizedPath.startsWith("/set?safe=") ||
+        normalizedPath.startsWith("/set?arm_lock=");
+      if(lockoutLatched && !isLockoutBypassCmd){
+        const name = relayMaskName(lockoutRelayMask);
+        showToast(t("lockoutCmdDenied", {name}), "error");
+        return;
       }
 
-      if(serialEnabled && serialConnected && serialTxEnabled && serLine){
-        await serialWriteLine(serLine);
-      }
+	      const canSerialTx = !!(serialEnabled && serialConnected && serialTxEnabled && serLine);
+	      const API_BASE = getApiBaseForCommands();
+
+	      if(cmd.http && !canSerialTx){
+	        const url = API_BASE ? (API_BASE + cmd.http) : cmd.http;
+	        const isPostCommand = String(cmd.http || "").indexOf("/storage/spi_flash/init") === 0;
+	        const opt = API_BASE
+	          ? (isPostCommand ? { method:"POST", mode:"no-cors", cache:"no-cache" } : { mode:"no-cors", cache:"no-cache" })
+	          : (isPostCommand ? { method:"POST", cache:"no-cache" } : { cache:"no-cache" });
+	        fetch(url, opt).catch(err=>{ reportSilentException("cmd-http", err); });
+	      }
+
+	      if(canSerialTx){
+	        await serialWriteLine(serLine);
+	      }
 
       if(logIt){
         addLogLine(t("cmdSentLog", {cmd:(cmd.http || cmd.ser || "?")}), "CMD");
@@ -11182,10 +18069,11 @@
 
     function showTerminalHelp(){
       addLogLine("Terminal commands:", "HELP");
-      addLogLine("  HTTP paths: /set?... /launcher?dir=up|down|stop /countdown_start /ignite /force_ignite /abort /sequence_end /precount?uw=0|1&cd=ms", "HELP");
+      addLogLine("  HTTP paths: /set?... /launcher?dir=up|down|stop /servo?ch=1~4&deg=0~360 /pyro_test?ch=1~4&ms=10~30000 /countdown_start /ignite /force_ignite /abort /sequence_end /precount?uw=0|1&cd=ms", "HELP");
+      addLogLine("  SPI Flash: /storage/spi_flash/status /storage/spi_flash/init", "HELP");
       addLogLine("  Shortcuts: FORCE, COUNTDOWN, ABORT, IGNITE, SEQUENCE_END", "HELP");
-      addLogLine("  Params: PRECOUNT <uw> <ms>, RS <0|1>, IGS <0|1>, SAFE <0|1>", "HELP");
-      addLogLine("  Timing: IGNMS <ms>, CDMS <ms>, LAUNCHER <UP|DOWN|STOP>", "HELP");
+      addLogLine("  Params: PRECOUNT <uw> <ms>, RS <0|1>, IGS <0|1>, SAFE <0|1>, ARMLOCK <0|1>", "HELP");
+      addLogLine("  Timing: IGNMS <ms>, CDMS <ms>, LAUNCHER <UP|DOWN|STOP>, SERVO <1-4> <0-360>, PYRO <1-4> <10-30000ms>, SPI_STATUS, SPI_INIT", "HELP");
     }
 
     function buildTerminalCommand(rawInput){
@@ -11222,7 +18110,7 @@
       }else if(head === "PRECOUNT"){
         const uw = (parts[1] != null) ? Number(parts[1]) : 0;
         const cd = (parts[2] != null) ? Number(parts[2]) : 0;
-        const cdMs = Math.max(0, Math.min(30000, cd|0));
+        const cdMs = Math.max(0, Math.min(60000, cd|0));
         http = "/precount?uw=" + (uw ? 1 : 0) + "&cd=" + cdMs;
         ser = "PRECOUNT " + (uw ? 1 : 0) + " " + cdMs;
       }else if(head === "RS"){
@@ -11237,8 +18125,12 @@
         const v = (parts[1] != null) ? (Number(parts[1]) ? 1 : 0) : 0;
         http = "/set?safe=" + v;
         ser = "SAFE " + v;
+      }else if(head === "ARMLOCK"){
+        const v = (parts[1] != null) ? (Number(parts[1]) ? 1 : 0) : 0;
+        http = "/set?arm_lock=" + v;
+        ser = "ARMLOCK " + v;
       }else if(head === "IGNMS"){
-        const ms = (parts[1] != null) ? (Number(parts[1])|0) : 5000;
+        const ms = (parts[1] != null) ? (Number(parts[1])|0) : 1000;
         http = "/set?ign_ms=" + ms;
         ser = "IGNMS " + ms;
       }else if(head === "CDMS"){
@@ -11250,6 +18142,26 @@
         const dirValue = (dir === "UP" || dir === "DOWN") ? dir.toLowerCase() : "stop";
         http = "/launcher?dir=" + dirValue;
         ser = "LAUNCHER " + dirValue.toUpperCase();
+      }else if(head === "SERVO"){
+        const chRaw = (parts[1] != null) ? (Number(parts[1])|0) : 1;
+        const ch = Math.max(1, Math.min(4, chRaw));
+        const degRaw = (parts[2] != null) ? Number(parts[2]) : SERVO_DEFAULT_DEG;
+        const deg = clampServoAngle(degRaw);
+        http = "/servo?ch=" + ch + "&deg=" + deg;
+        ser = "SERVO " + ch + " " + deg;
+      }else if(head === "PYRO"){
+        const chRaw = (parts[1] != null) ? (Number(parts[1])|0) : 1;
+        const ch = Math.max(1, Math.min(4, chRaw));
+        const msRaw = (parts[2] != null) ? (Number(parts[2])|0) : 500;
+        const ms = Math.max(10, Math.min(30000, msRaw));
+        http = "/pyro_test?ch=" + ch + "&ms=" + ms;
+        ser = "PYRO " + ch + " " + ms;
+      }else if(head === "SPI_STATUS"){
+        http = "/storage/spi_flash/status";
+        ser = "/storage/spi_flash/status";
+      }else if(head === "SPI_INIT"){
+        http = "/storage/spi_flash/init";
+        ser = "/storage/spi_flash/init";
       }
 
       return {http, ser};
@@ -11261,6 +18173,9 @@
     document.addEventListener("DOMContentLoaded", async ()=>{
       // ✅ 스플래시 + 프리로드 먼저
       await runSplashAndPreload();
+      removeLegacyLuceText();
+      setTimeout(removeLegacyLuceText, 400);
+      setTimeout(removeLegacyLuceText, 1200);
 
       el.toastContainer = document.getElementById("toastContainer");
       el.logView = document.getElementById("logView");
@@ -11332,11 +18247,13 @@
       el.pageTitle = document.getElementById("pageTitle");
       el.pageKicker = document.getElementById("pageKicker");
       el.homeView = document.getElementById("homeView");
+      renderHomeViewLayout();
       el.dashboardView = document.getElementById("dashboardView");
       el.terminalView = document.getElementById("terminalView");
       el.hardwareView = document.getElementById("hardwareView");
       el.gyroView = document.getElementById("gyroView");
       el.countdownView = document.getElementById("countdownView");
+      el.missionView = document.getElementById("missionView");
       el.controlPanelView = document.getElementById("controlPanelView");
       el.gyro3dExpandedHud = document.getElementById("gyro3dExpandedHud");
       el.gyro3dHudTitle = document.getElementById("gyro3dHudTitle");
@@ -11394,13 +18311,22 @@
       el.homeIgniterBtn = document.getElementById("homeIgniterBtn");
       el.homeActionHint = document.getElementById("homeActionHint");
       el.homeLog = document.getElementById("homeLog");
+      el.homeFlyCardBtn = document.getElementById("homeFlyCardBtn");
+      el.homeDataExtractBtn = document.getElementById("homeDataExtractBtn");
+      el.homeFindSoundBtn = document.getElementById("homeFindSoundBtn");
       el.quickSw = document.getElementById("quick-sw");
-      el.quickIgniter = document.getElementById("quick-igniter");
       el.quickRelay1 = document.getElementById("quick-relay-1");
+      el.quickRelay1Label = document.getElementById("quick-relay-1-label");
       el.quickRelay2 = document.getElementById("quick-relay-2");
+      el.quickRelay2Label = document.getElementById("quick-relay-2-label");
       el.quickState = document.getElementById("quick-state");
       el.quickMetricPrimaryLabel = document.getElementById("quickMetricPrimaryLabel");
       el.quickMetricSecondaryLabel = document.getElementById("quickMetricSecondaryLabel");
+      el.hardwarePyroDurationInput = document.getElementById("hardwarePyroDurationInput");
+      el.hardwarePyroFireCh1Btn = document.getElementById("hardwarePyroFireCh1Btn");
+      el.hardwarePyroFireCh2Btn = document.getElementById("hardwarePyroFireCh2Btn");
+      el.hardwarePyroFireCh3Btn = document.getElementById("hardwarePyroFireCh3Btn");
+      el.hardwarePyroFireCh4Btn = document.getElementById("hardwarePyroFireCh4Btn");
 
       el.thrust = document.getElementById("thrust");
       el.pressure = document.getElementById("pressure");
@@ -11427,8 +18353,17 @@
       el.connStatusText = document.getElementById("connStatusText");
       el.motorDelay = document.getElementById("motorDelay");
       el.motorBurn = document.getElementById("motorBurn");
+      el.quickDelayLabel = document.getElementById("quick-delay-label");
+      el.quickBurnLabel = document.getElementById("quick-burn-label");
 
       el.quickHxHz = document.getElementById("quick-hx-hz");
+      el.quickHxHzLabel = document.getElementById("quick-hx-hz-label");
+      el.quickNullLabel = document.getElementById("quick-null-label");
+      el.quickNullValue = document.getElementById("quick-null-value");
+      el.quickNull2Label = document.getElementById("quick-null-2-label");
+      el.quickNull2Value = document.getElementById("quick-null-2-value");
+      el.quickNull3Label = document.getElementById("quick-null-3-label");
+      el.quickNull3Value = document.getElementById("quick-null-3-value");
       el.snapHz   = document.getElementById("snap-hz");
       el.hxHz     = document.getElementById("hx-hz");
       el.cpuUs    = document.getElementById("cpu-us");
@@ -11447,8 +18382,12 @@
       el.abortBtn = document.getElementById("abortBtn");
       el.forceBtn = document.getElementById("forceIgniteBtn");
       el.copyLogBtn = document.getElementById("copyLogBtn");
+      el.gyroZeroBtn = document.getElementById("gyroZeroBtn");
       el.missionOpenBtn = document.getElementById("missionOpenBtn");
+      el.missionViewOpenBtn = document.getElementById("missionViewOpenBtn");
+      el.missionViewMount = document.getElementById("missionViewMount");
       el.exportCsvBtn = document.getElementById("exportCsvBtn");
+      el.rebootBoardBtn = document.getElementById("rebootBoardBtn");
 
       el.controlsSettingsBtns = document.querySelectorAll(".js-controls-settings");
       el.sidebarSettingsBtns = document.querySelectorAll(".js-sidebar-settings");
@@ -11459,12 +18398,21 @@
       el.launcherAutoOverlay = document.getElementById("launcherAutoOverlay");
       el.launcherAutoConfirm = document.getElementById("launcherAutoConfirm");
       el.launcherAutoCancel = document.getElementById("launcherAutoCancel");
+      el.rebootConfirmOverlay = document.getElementById("rebootConfirmOverlay");
+      el.rebootConfirmBtn = document.getElementById("rebootConfirmBtn");
+      el.rebootConfirmCancel = document.getElementById("rebootConfirmCancel");
+      el.rebootConfirmTitle = document.getElementById("rebootConfirmTitle");
+      el.rebootConfirmText = document.getElementById("rebootConfirmText");
+      el.rebootConfirmActions = document.getElementById("rebootConfirmActions");
       el.missionOverlay = document.getElementById("missionOverlay");
       el.missionDialog = document.getElementById("missionDialog");
       el.inspectionDialog = document.getElementById("inspectionDialog");
       el.missionClose = document.getElementById("missionClose");
       el.missionCloseBtn = document.getElementById("missionCloseBtn");
       el.missionConfirmBtn = document.getElementById("missionConfirmBtn");
+      el.missionExportBtn = document.getElementById("missionExportBtn");
+      el.missionImportInput = document.getElementById("missionImportInput");
+      el.missionSaveBoardBtn = document.getElementById("missionSaveBoardBtn");
       el.missionCustomBtn = document.getElementById("missionCustomBtn");
       el.missionFields = document.getElementById("missionFields");
       el.missionName = document.getElementById("missionName");
@@ -11475,6 +18423,18 @@
       el.missionGrainMass = document.getElementById("missionGrainMass");
       el.missionTotalMass = document.getElementById("missionTotalMass");
       el.missionVendor = document.getElementById("missionVendor");
+      el.missionBlockEditor = document.getElementById("missionBlockEditor");
+      el.missionBlockPalette = document.getElementById("missionBlockPalette");
+      el.missionBlockCanvas = document.getElementById("missionBlockCanvas");
+      el.missionBlockCount = document.getElementById("missionBlockCount");
+      el.missionCanvasZoomOut = document.getElementById("missionCanvasZoomOut");
+      el.missionCanvasZoomIn = document.getElementById("missionCanvasZoomIn");
+      el.missionCanvasZoomReset = document.getElementById("missionCanvasZoomReset");
+      el.missionBlockList = document.getElementById("missionBlockList");
+      el.missionBlockStage = document.getElementById("missionBlockStage");
+      el.missionBlockAddServoBtn = document.getElementById("missionBlockAddServoBtn");
+      el.missionBlockAddPyroBtn = document.getElementById("missionBlockAddPyroBtn");
+      el.missionBlockClearBtn = document.getElementById("missionBlockClearBtn");
       el.missionTestInline = document.getElementById("missionTestInline");
       el.missionTestPromptInput = document.getElementById("missionTestPromptInput");
       el.missionReview = document.getElementById("missionReview");
@@ -11498,8 +18458,12 @@
       el.missionScrollRight = document.getElementById("missionScrollRight");
       el.fwLogoEaster = document.getElementById("fwLogoEaster");
       el.unitThrust = document.getElementById("unitThrust");
+      el.quickDataDigitsSelect = document.getElementById("quickDataDigitsSelect");
+      el.loadcellChartDigitsSelect = document.getElementById("loadcellChartDigitsSelect");
+      el.storageExportDigitsSelect = document.getElementById("storageExportDigitsSelect");
       el.ignTimeInput = document.getElementById("ignTimeInput");
       el.countdownSecInput = document.getElementById("countdownSecInput");
+      el.daqSequencePyroSelect = document.getElementById("daqSequencePyroSelect");
       el.ignTimeSave = document.getElementById("ignTimeSave");
       el.countdownSave = document.getElementById("countdownSave");
       el.opModeSelect = document.getElementById("opModeSelect");
@@ -11515,16 +18479,21 @@
       if(el.navBallPreview) el.navBall = el.navBallPreview;
 
       buildMotorPresetInfo();
+      renderMissionBlocksEditor(missionBlocksState);
+      setMissionPresetSelectionUi(selectedMotorName || (el.missionName && el.missionName.value) || "");
       initGyroGl();
 
       el.relaySafeToggle = document.getElementById("relaySafeToggle");
       el.igswitch = document.getElementById("igswitch");
       el.safeModeToggle = document.getElementById("safeModeToggle");
+      el.armLockToggle = document.getElementById("armLockToggle");
       el.serialToggle = document.getElementById("serialToggle");
       el.safeModePill = document.getElementById("safeModePill");
+      el.armLockPill = document.getElementById("armLockPill");
       el.serialTogglePill = document.getElementById("serialTogglePill");
       el.serialControlTile = document.getElementById("serialControlTile");
       el.safetyModeTile = document.getElementById("safetyModeTile");
+      el.armLockTile = document.getElementById("armLockTile");
       el.serialControlTitle = document.getElementById("serialControlTitle");
       el.serialControlSub = document.getElementById("serialControlSub");
       el.controlsCard = document.getElementById("controlsCard");
@@ -11564,6 +18533,7 @@
       el.devRelay2Btn = document.getElementById("devRelay2Btn");
       el.devWsOffBtn = document.getElementById("devWsOffBtn");
       el.devLoadcellErrBtn = document.getElementById("devLoadcellErrBtn");
+      el.devParachuteBtn = document.getElementById("devParachuteBtn");
       el.serialRxToggle = document.getElementById("serialRxToggle");
       el.serialTxToggle = document.getElementById("serialTxToggle");
       el.simToggle = document.getElementById("simToggle");
@@ -11572,6 +18542,10 @@
       el.hwBoardName = document.getElementById("hwBoardName");
       el.hwFirmwareName = document.getElementById("hwFirmwareName");
       el.hwProtocolName = document.getElementById("hwProtocolName");
+      el.spiFlashStatusLine = document.getElementById("spiFlashStatusLine");
+      el.spiFlashRefreshBtn = document.getElementById("spiFlashRefreshBtn");
+      el.spiFlashInitBtn = document.getElementById("spiFlashInitBtn");
+      el.spiFlashDumpBtn = document.getElementById("spiFlashDumpBtn");
       el.wifiMode = document.getElementById("wifiMode");
       el.wifiSsid = document.getElementById("wifiSsid");
       el.wifiChannel = document.getElementById("wifiChannel");
@@ -11585,6 +18559,7 @@
       el.langSelect = document.getElementById("langSelect");
       el.themeToggle = document.getElementById("themeToggle");
       el.loadcellCalOpen = document.getElementById("loadcellCalOpen");
+      el.loadcellResetBtn = document.getElementById("loadcellResetBtn");
       el.loadcellOverlay = document.getElementById("loadcellOverlay");
       el.loadcellDialog = document.getElementById("loadcellDialog");
       el.loadcellClose = document.getElementById("loadcellClose");
@@ -11592,9 +18567,13 @@
       el.loadcellZero = document.getElementById("loadcellZeroBtn");
       el.loadcellApply = document.getElementById("loadcellApplyBtn");
       el.loadcellWeightInput = document.getElementById("loadcellWeightInput");
+      el.loadcellGuide = document.getElementById("loadcellGuide");
       el.loadcellLiveValue = document.getElementById("loadcellLiveValue");
+      el.loadcellCompleteTitle = document.getElementById("loadcellCompleteTitle");
+      el.loadcellCompleteText = document.getElementById("loadcellCompleteText");
       el.loadcellWarningText = document.getElementById("loadcellWarningText");
       el.loadcellWarningTitle = document.getElementById("loadcellWarningTitle");
+      el.loadcellWarningSub = document.getElementById("loadcellWarningSub");
       el.loadcellWarningProceed = document.getElementById("loadcellWarningProceed");
       el.loadcellWarningCancel = document.getElementById("loadcellWarningCancel");
       el.missionRequiredOverlay = document.getElementById("missionRequiredOverlay");
@@ -11683,10 +18662,11 @@
       }
       const loadReplayFile = async (file)=>{
         if(!file) return;
-        setReplayStatus("XLSX 파일을 분석 중입니다...");
+        setReplayStatus("Replay 파일 자동 분석 중... (XLSX/CSV/BIN)");
         if(el.replayFileBtn) el.replayFileBtn.classList.remove("is-dragover");
         try{
-          const samples = await parseReplayXlsx(file);
+          const parsed = await parseReplayFileAuto(file);
+          const samples = parsed.samples;
           pauseReplayPlayback({silent:true});
           setActiveDataSource(DATA_SOURCE_LIVE);
           replayState.samples = samples;
@@ -11695,7 +18675,11 @@
           replayState.lastIndex = -1;
           updateReplayModeUi();
           setReplayStatus("");
-          showToast("리플레이 파일 로딩 완료: " + samples.length + " samples", "success", {key:"replay-load"});
+          showToast(
+            "리플레이 파일 로딩 완료 (" + parsed.parserLabel + "): " + samples.length + " samples",
+            "success",
+            {key:"replay-load"}
+          );
         }catch(err){
           const reason = (err && err.message) ? err.message : String(err || "unknown");
           replayState.samples = [];
@@ -11797,6 +18781,17 @@
       updateReplayModeUi();
       setReplayStatus("");
 
+      if(el.spiFlashRefreshBtn){
+        el.spiFlashRefreshBtn.addEventListener("click", ()=>{ fetchSpiFlashStatus(); });
+      }
+      if(el.spiFlashInitBtn){
+        el.spiFlashInitBtn.addEventListener("click", ()=>{ resetSpiFlashStorage(); });
+      }
+      if(el.spiFlashDumpBtn){
+        el.spiFlashDumpBtn.addEventListener("click", ()=>{ downloadSpiFlashDump(); });
+      }
+      fetchSpiFlashStatus();
+
       if(el.serialControlTile){
         el.serialControlTile.addEventListener("click",()=>{
           if(!simEnabled) return;
@@ -11879,9 +18874,22 @@
           updateDevToolsUI();
         });
       }
+      if(el.devParachuteBtn){
+        bindTap(el.devParachuteBtn, ()=>{
+          devParachuteDrop = !devParachuteDrop;
+          resetSimState();
+          resetGyroPathTracking();
+          if(simEnabled){
+            onIncomingSample(buildSimSample(), "SIMULATION");
+          }
+          updateDevToolsUI();
+          showToast(devParachuteDrop ? t("devParachuteOnToast") : t("devParachuteOffToast"), "info", {key:"dev-parachute-toggle"});
+        });
+      }
 
       loadSettings();
       applySettingsToUI();
+      refreshPrecisionSensitiveUi();
       initStatusMap();
       if(simEnabled) setSimEnabled(true, {silent:true});
       addLogLine(t("systemReadyLog"),"READY");
@@ -11924,6 +18932,13 @@
       launcherAutoOverlayEl = el.launcherAutoOverlay || document.getElementById("launcherAutoOverlay");
       launcherAutoConfirmBtn = el.launcherAutoConfirm || document.getElementById("launcherAutoConfirm");
       launcherAutoCancelBtn = el.launcherAutoCancel || document.getElementById("launcherAutoCancel");
+      rebootConfirmOverlayEl = el.rebootConfirmOverlay || document.getElementById("rebootConfirmOverlay");
+      rebootConfirmBtnEl = el.rebootConfirmBtn || document.getElementById("rebootConfirmBtn");
+      rebootConfirmCancelBtnEl = el.rebootConfirmCancel || document.getElementById("rebootConfirmCancel");
+      rebootConfirmTitleEl = el.rebootConfirmTitle || document.getElementById("rebootConfirmTitle");
+      rebootConfirmTextEl = el.rebootConfirmText || document.getElementById("rebootConfirmText");
+      rebootConfirmActionsEl = el.rebootConfirmActions || document.getElementById("rebootConfirmActions");
+      updateRebootConfirmUi();
       const launcherManualBtn=document.getElementById("launcherManualBtn");
       const launcherManualControls=document.getElementById("launcherManualControls");
 
@@ -11970,6 +18985,20 @@
             safetyModeEnabled ? t("safetyModeOnToast") : t("safetyModeOffToast"),
             safetyModeEnabled ? "info" : "warn",
           {key:"safety-mode-toggle", keep:true, duration:5000}
+          );
+        });
+      }
+      if(el.armLockToggle){
+        el.armLockToggle.addEventListener("change",()=>{
+          const armLockEnabled = !!el.armLockToggle.checked;
+          uiSettings.armLock = armLockEnabled;
+          saveSettings();
+          updateTogglePill(el.armLockPill, armLockEnabled);
+          sendCommand({http:"/set?arm_lock="+(armLockEnabled?1:0), ser:"ARMLOCK "+(armLockEnabled?1:0)}, true);
+          showToast(
+            armLockEnabled ? "ARM ON LOCK 켜짐 (스위치 무시)" : "ARM ON LOCK 해제 (스위치 따름)",
+            armLockEnabled ? "warn" : "info",
+            {key:"arm-lock-toggle", keep:true, duration:4500}
           );
         });
       }
@@ -12054,6 +19083,26 @@
           el.safeModeToggle.dispatchEvent(new Event("change", {bubbles:true}));
         });
       }
+      if(el.armLockPill && el.armLockToggle){
+        el.armLockPill.addEventListener("click",()=>{
+          el.armLockToggle.checked = !el.armLockToggle.checked;
+          el.armLockToggle.dispatchEvent(new Event("change", {bubbles:true}));
+        });
+      }
+      if(el.armLockTile && el.armLockToggle){
+        el.armLockTile.addEventListener("click",(ev)=>{
+          if(ev.target && ev.target.closest(".pill-toggle")) return;
+          el.armLockToggle.checked = !el.armLockToggle.checked;
+          el.armLockToggle.dispatchEvent(new Event("change", {bubbles:true}));
+        });
+        el.armLockTile.addEventListener("keydown",(ev)=>{
+          if(ev.key !== "Enter" && ev.key !== " ") return;
+          if(ev.target && ev.target.closest(".pill-toggle")) return;
+          ev.preventDefault();
+          el.armLockToggle.checked = !el.armLockToggle.checked;
+          el.armLockToggle.dispatchEvent(new Event("change", {bubbles:true}));
+        });
+      }
       if(el.simToggle){
         el.simToggle.addEventListener("change",()=>{
           setSimEnabled(!!el.simToggle.checked);
@@ -12087,7 +19136,7 @@
               showToast(t("lockoutNoControl"), "error");
               return;
             }
-            if(!hasMissionSelected()){
+            if(!hasSequenceMissionRequirement()){
               showMissionRequired();
               return;
             }
@@ -12464,6 +19513,15 @@
           const filenameXlsx = filenameBase + ".xlsx";
           const filenameEng = filenameBase + ".eng";
           const filenameZip = filenameBase + ".zip";
+          const exportDigits = getStorageExportDigits();
+          const exportMetric = (value)=>{
+            const rounded = roundFixedNumber(value, exportDigits);
+            return rounded == null ? "" : rounded;
+          };
+          const exportMetricText = (value)=>{
+            const rounded = roundFixedNumber(value, exportDigits);
+            return rounded == null ? "-" : rounded;
+          };
 
           const hasIgnitionWindow =
             ignitionAnalysis.hasData &&
@@ -12474,8 +19532,8 @@
           const windowStartMs = hasIgnitionWindow ? (ignitionAnalysis.thresholdMs - IGN_PRE_WINDOW_MS) : null;
           const windowEndMs   = hasIgnitionWindow ? (ignitionAnalysis.lastAboveMs + IGN_POST_WINDOW_MS) : null;
 
-          const delayVal = (ignitionAnalysis.delaySec!=null) ? ignitionAnalysis.delaySec.toFixed(3) : "";
-          const durVal   = (ignitionAnalysis.durationSec!=null) ? ignitionAnalysis.durationSec.toFixed(3) : "";
+          const delayRounded = roundFixedNumber(ignitionAnalysis.delaySec, exportDigits);
+          const durRounded = roundFixedNumber(ignitionAnalysis.durationSec, exportDigits);
 
           const missionMotor = (selectedMotorName || (el.missionName && el.missionName.value) || "").trim();
           const missionDiameterMm = parseFloat(el.missionMotorDia && el.missionMotorDia.value);
@@ -12515,9 +19573,9 @@
               now.toISOString(),
               hasIgnitionWindow ? t("ignWindowDetected") : t("ignWindowNone"),
               hasIgnitionWindow ? 1 : 0,
-              delayVal !== "" ? Number(delayVal) : "",
-              durVal !== "" ? Number(durVal) : "",
-              Number(IGN_THRUST_THRESHOLD.toFixed(3)),
+              delayRounded != null ? delayRounded : "",
+              durRounded != null ? durRounded : "",
+              exportMetric(IGN_THRUST_THRESHOLD),
               "",
               "",
               "",
@@ -12593,17 +19651,17 @@
               const xLabel = (xNum !== "" && isFinite(xNum)) ? Number(xNum.toFixed(1)) : "";
               summaryRows.push([
                 xNum,
-                isFinite(tVal) ? Number(tVal.toFixed(3)) : "",
-                isFinite(tNVal) ? Number(tNVal.toFixed(3)) : "",
-                isFinite(pVal) ? Number(pVal.toFixed(3)) : "",
+                exportMetric(tVal),
+                exportMetric(tNVal),
+                exportMetric(pVal),
                 xLabel
               ]);
             }
             rawRows.push([
               row.time || "",
-              isFinite(tVal) ? Number(tVal.toFixed(3)) : "",
-              isFinite(tNVal) ? Number(tNVal.toFixed(3)) : "",
-              isFinite(pVal) ? Number(pVal.toFixed(3)) : "",
+              exportMetric(tVal),
+              exportMetric(tNVal),
+              exportMetric(pVal),
               (row.gps_lat != null && isFinite(Number(row.gps_lat))) ? Number(Number(row.gps_lat).toFixed(7)) : "",
               (row.gps_lon != null && isFinite(Number(row.gps_lon))) ? Number(Number(row.gps_lon).toFixed(7)) : "",
               (row.gps_alt != null && isFinite(Number(row.gps_alt))) ? Number(Number(row.gps_alt).toFixed(2)) : "",
@@ -12653,12 +19711,12 @@
           const avgThrustVal = (thrustCount > 0) ? (thrustSum / thrustCount) : null;
           const avgThrustNVal = (thrustNCount > 0) ? (thrustNSum / thrustNCount) : null;
           const avgPressureVal = (pressureCount > 0) ? (pressureSum / pressureCount) : null;
-          summaryRows[1][6] = (avgThrustVal != null && isFinite(avgThrustVal)) ? Number(avgThrustVal.toFixed(3)) : "";
-          summaryRows[1][7] = (isFinite(thrustMax) && thrustMax !== -Infinity) ? Number(thrustMax.toFixed(3)) : "";
-          summaryRows[1][8] = (avgThrustNVal != null && isFinite(avgThrustNVal)) ? Number(avgThrustNVal.toFixed(3)) : "";
-          summaryRows[1][9] = (isFinite(thrustNMax) && thrustNMax !== -Infinity) ? Number(thrustNMax.toFixed(3)) : "";
-          summaryRows[1][10] = (avgPressureVal != null && isFinite(avgPressureVal)) ? Number(avgPressureVal.toFixed(3)) : "";
-          summaryRows[1][11] = (isFinite(pressureMax) && pressureMax !== -Infinity) ? Number(pressureMax.toFixed(3)) : "";
+          summaryRows[1][6] = exportMetric(avgThrustVal);
+          summaryRows[1][7] = exportMetric((isFinite(thrustMax) && thrustMax !== -Infinity) ? thrustMax : null);
+          summaryRows[1][8] = exportMetric(avgThrustNVal);
+          summaryRows[1][9] = exportMetric((isFinite(thrustNMax) && thrustNMax !== -Infinity) ? thrustNMax : null);
+          summaryRows[1][10] = exportMetric(avgPressureVal);
+          summaryRows[1][11] = exportMetric((isFinite(pressureMax) && pressureMax !== -Infinity) ? pressureMax : null);
 
           if(summaryRows.length === 4){
             summaryRows.push(["","","","",""]);
@@ -12738,12 +19796,12 @@
             {cells:["모터 이름: " + (missionMotor || "-")], style:3},
             {cells:["실험 회차: " + ((el.missionTestCount && el.missionTestCount.value) ? el.missionTestCount.value.trim() : "-")], style:3},
             {cells:["실험 총 평가: -"], style:3},
-            {cells:["최대 추력 (kgf): " + ((isFinite(thrustMax) && thrustMax !== -Infinity) ? Number(thrustMax.toFixed(3)) : "-")], style:3},
-            {cells:["평균 추력 (kgf): " + ((avgThrustVal != null && isFinite(avgThrustVal)) ? Number(avgThrustVal.toFixed(3)) : "-")], style:3},
-            {cells:["최대 압력 (V): " + ((isFinite(pressureMax) && pressureMax !== -Infinity) ? Number(pressureMax.toFixed(3)) : "-")], style:3},
-            {cells:["평균 압력 (V): " + ((avgPressureVal != null && isFinite(avgPressureVal)) ? Number(avgPressureVal.toFixed(3)) : "-")], style:3},
-            {cells:["점화 지연 (s): " + ((delayVal !== "" ? Number(delayVal) : "-"))], style:3},
-            {cells:["연소 시간 (s): " + ((durVal !== "" ? Number(durVal) : "-"))], style:3},
+            {cells:["최대 추력 (kgf): " + exportMetricText((isFinite(thrustMax) && thrustMax !== -Infinity) ? thrustMax : null)], style:3},
+            {cells:["평균 추력 (kgf): " + exportMetricText(avgThrustVal)], style:3},
+            {cells:["최대 압력 (MPa): " + exportMetricText((isFinite(pressureMax) && pressureMax !== -Infinity) ? pressureMax : null)], style:3},
+            {cells:["평균 압력 (MPa): " + exportMetricText(avgPressureVal)], style:3},
+            {cells:["점화 지연 (s): " + exportMetricText(delayRounded)], style:3},
+            {cells:["연소 시간 (s): " + exportMetricText(durRounded)], style:3},
             {cells:["시험 날짜: " + now.toISOString()], style:3}
           ];
 
@@ -12763,7 +19821,7 @@
             totalMassKg: isFinite(missionTotalMassG) ? (missionTotalMassG / 1000) : null,
             vendor: missionVendor,
             timeIso: now.toISOString()
-          });
+          }, {valueDigits:exportDigits});
           const zipBytes = buildZip([
             {name:filenameXlsx, dataBytes:xlsxBytes},
             {name:filenameEng, data:engText}
@@ -12830,6 +19888,7 @@
       }
       const sideNavItems = document.querySelectorAll(".side-nav-item");
       const setActiveView = (title)=>{
+        closeIgnitionModals();
         const label = title || "Dashboard";
         const lower = label.toLowerCase();
         const displayLabel = (lower === "home") ? "Welcome to FLASH6"
@@ -12840,8 +19899,9 @@
         const isHardware = lower === "hardware";
         const isGyro = lower === "gyro";
         const isCountdown = lower === "countdown";
+        const isMission = lower === "mission";
         const isControl = lower === "control";
-        const isDashboard = !isHome && !isTerminal && !isHardware && !isGyro && !isCountdown && !isControl;
+        const isDashboard = !isHome && !isTerminal && !isHardware && !isGyro && !isCountdown && !isMission && !isControl;
         if(!isDashboard && isStatusMapViewportExpanded()){
           setStatusMapViewportExpanded(false);
         }
@@ -12857,10 +19917,21 @@
         if(el.dashboardView) el.dashboardView.classList.toggle("hidden", !isDashboard);
         if(el.terminalView) el.terminalView.classList.toggle("hidden", !isTerminal);
         if(el.hardwareView) el.hardwareView.classList.toggle("hidden", !isHardware);
+        if(el.missionView) el.missionView.classList.toggle("hidden", !isMission);
         if(el.gyroView) el.gyroView.classList.toggle("hidden", !isGyro);
         if(el.countdownView) el.countdownView.classList.toggle("hidden", !isCountdown);
         if(el.controlPanelView) el.controlPanelView.classList.toggle("hidden", !isControl);
         if(el.countdownHeader) el.countdownHeader.classList.toggle("hidden", isCountdown);
+        if(isMission){
+          setOverlayVisible(el.missionOverlay, false);
+          if(el.missionDialog && el.missionViewMount){
+            mountDialogToPanel(el.missionDialog, el.missionViewMount, missionDialogDockState);
+            openMissionCustomEditor();
+            updateMissionEditLockUI();
+          }
+        }else if(el.missionDialog && el.missionViewMount && el.missionDialog.parentNode === el.missionViewMount){
+          restoreDialogFromPanel(el.missionDialog, missionDialogDockState);
+        }
         if(el.viewLabel){
           if(isCountdown){
             el.viewLabel.textContent = t("viewCountdownLabel");
@@ -12875,14 +19946,19 @@
           else if(isDashboard) label = t("viewDashboardLabel");
           else if(isHardware) label = t("viewHardwareLabel");
           else if(isTerminal) label = t("viewTerminalLabel");
+          else if(isMission) label = "MISSION";
           el.countdownLabel.textContent = label;
         }
         document.body.classList.toggle("countdown-view-active", isCountdown);
         document.body.classList.toggle("dashboard-view-active", isDashboard);
+        document.body.classList.toggle("home-view-active", isHome);
         if(isHome) updateHomeUI();
         if(isDashboard){
           syncChartHeightToControls(0);
           scheduleStatusMapRefresh();
+        }
+        if(isHardware){
+          fetchSpiFlashStatus();
         }
       };
       const activateNavItem = (title)=>{
@@ -12908,7 +19984,12 @@
       };
       if(el.sidebarSettingsBtns && el.sidebarSettingsBtns.length){
         el.sidebarSettingsBtns.forEach(btn=>{
-          btn.addEventListener("click",()=>{
+          btn.addEventListener("pointerdown",(ev)=>{
+            ev.stopPropagation();
+          });
+          btn.addEventListener("click",(ev)=>{
+            ev.preventDefault();
+            ev.stopPropagation();
             showSettings();
           });
         });
@@ -12950,22 +20031,36 @@
       if(el.settingsOverlay){
         el.settingsOverlay.addEventListener("click",(ev)=>{ if(ev.target===el.settingsOverlay) hideSettings(); });
       }
+      if(el.gyroZeroBtn){
+        el.gyroZeroBtn.addEventListener("click", ()=>{
+          if(!applyGyroZeroReference()){
+            showToast(t("gyroZeroUnavailableToast"), "warn");
+            return;
+          }
+          showToast(t("gyroZeroDoneToast"), "success");
+          renderGyroGl(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
+          renderNavBall(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
+          renderGyroPreview(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
+          renderNavBallPreview(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
+        });
+      }
       if(el.missionOpenBtn) el.missionOpenBtn.addEventListener("click",()=>showMission());
+      if(el.rebootBoardBtn){
+        el.rebootBoardBtn.addEventListener("click",()=>{
+          showRebootConfirm();
+        });
+      }
+      if(el.missionViewOpenBtn) el.missionViewOpenBtn.addEventListener("click",()=>showMission());
       if(el.missionClose) el.missionClose.addEventListener("click",()=>hideMission());
       if(el.missionCloseBtn){
         el.missionCloseBtn.addEventListener("click",()=>{
-          if(el.missionDialog && (el.missionDialog.classList.contains("custom-mode") ||
-            el.missionDialog.classList.contains("ask-test") ||
-            el.missionDialog.classList.contains("review-mode"))){
-            resetMissionToPresetList();
-            return;
-          }
           hideMission();
         });
       }
       if(el.missionOverlay){
         el.missionOverlay.addEventListener("click",(ev)=>{ if(ev.target===el.missionOverlay) hideMission(); });
       }
+      window.flash6OpenMission = ()=>{ showMission(); };
       if(el.homeArmBtn){
         el.homeArmBtn.addEventListener("click",()=>{
           if(isControlUnlocked()){
@@ -12983,14 +20078,193 @@
       if(el.homeIgniterBtn){
         el.homeIgniterBtn.addEventListener("click",()=>toggleInput(el.igswitch));
       }
+      if(el.homeFlyCardBtn){
+        el.homeFlyCardBtn.addEventListener("click",()=>{
+          activateNavItem("Dashboard");
+          setTimeout(()=>{
+            setStatusMapViewportExpanded(true);
+            scheduleStatusMapRefresh();
+          }, 60);
+        });
+      }
+      if(el.homeDataExtractBtn){
+        el.homeDataExtractBtn.addEventListener("click",()=>{
+          if(el.exportCsvBtn){
+            el.exportCsvBtn.click();
+            return;
+          }
+          showToast("데이터 추출 버튼을 찾을 수 없습니다.", "warn");
+        });
+      }
+      if(el.homeFindSoundBtn){
+        el.homeFindSoundBtn.addEventListener("click",()=>{
+          playBeepPattern([
+            {freq:880, dur:120, gap:60},
+            {freq:1046, dur:120, gap:60},
+            {freq:1318, dur:160, gap:60},
+            {freq:1568, dur:220, gap:0}
+          ]);
+          showToast("Find Sound 재생", "info", {duration:1200});
+        });
+      }
       if(el.missionBackBtn){
         el.missionBackBtn.addEventListener("click",()=>{
           resetMissionToPresetList();
         });
       }
+      if(el.missionExportBtn){
+        el.missionExportBtn.addEventListener("click",()=>{
+          downloadMissionProfileJson();
+        });
+      }
+      if(el.missionImportInput){
+        el.missionImportInput.addEventListener("change",(ev)=>{
+          const file = ev && ev.target && ev.target.files ? ev.target.files[0] : null;
+          importMissionProfileFromFile(file);
+        });
+      }
+      if(el.missionSaveBoardBtn){
+        el.missionSaveBoardBtn.addEventListener("click",(ev)=>{
+          if(ev){
+            ev.preventDefault();
+            ev.stopPropagation();
+          }
+          saveMissionProfileToBoard();
+        });
+      }
+      if(el.missionBlockAddServoBtn){
+        el.missionBlockAddServoBtn.addEventListener("click",()=>{
+          addMissionBlock("act_servo");
+        });
+      }
+      if(el.missionBlockAddPyroBtn){
+        el.missionBlockAddPyroBtn.addEventListener("click",()=>{
+          addMissionBlock("act_pyro");
+        });
+      }
+      if(el.missionBlockClearBtn){
+        el.missionBlockClearBtn.addEventListener("click",()=>{
+          clearMissionBlocks();
+        });
+      }
+      if(el.missionBlockPalette){
+        const paletteBtns = el.missionBlockPalette.querySelectorAll("[data-add-kind]");
+        paletteBtns.forEach((btn)=>{
+          const kind = String(btn.getAttribute("data-add-kind") || "");
+          if(!isMissionPaletteKind(kind)) return;
+          btn.addEventListener("click",()=>{
+            addMissionBlock(kind);
+          });
+          btn.addEventListener("dragstart",(ev)=>{
+            if(!isMissionEditableNow()){
+              ev.preventDefault();
+              return;
+            }
+            if(ev.dataTransfer){
+              ev.dataTransfer.effectAllowed = "copyMove";
+              ev.dataTransfer.setData("text/x-mission-palette-kind", kind);
+              ev.dataTransfer.setData("text/plain", "palette:" + kind);
+              if(ev.dataTransfer.setDragImage){
+                const ghost = btn.cloneNode(true);
+                ghost.style.position = "fixed";
+                ghost.style.left = "-10000px";
+                ghost.style.top = "-10000px";
+                ghost.style.width = Math.max(180, Math.round(btn.getBoundingClientRect().width)) + "px";
+                ghost.style.pointerEvents = "none";
+                ghost.style.transform = "translateZ(0)";
+                ghost.classList.add("is-dragging");
+                document.body.appendChild(ghost);
+                btn._missionDragGhost = ghost;
+                ev.dataTransfer.setDragImage(ghost, 24, 16);
+              }
+            }
+            if(el.missionBlockList) el.missionBlockList.classList.add("is-dragging");
+            if(el.missionBlockCanvas) el.missionBlockCanvas.classList.add("drop-active");
+          });
+          btn.addEventListener("dragend",()=>{
+            clearMissionBranchDropActive();
+            stopMissionDragAutoScroll();
+            if(el.missionBlockList) el.missionBlockList.classList.remove("is-dragging");
+            if(btn._missionDragGhost && btn._missionDragGhost.parentNode){
+              btn._missionDragGhost.parentNode.removeChild(btn._missionDragGhost);
+            }
+            btn._missionDragGhost = null;
+            if(el.missionBlockCanvas) el.missionBlockCanvas.classList.remove("drop-active");
+          });
+        });
+      }
+      if(el.missionBlockCanvas){
+        el.missionBlockCanvas.addEventListener("dragover",(ev)=>{
+          if(!isMissionEditableNow()) return;
+          const paletteKind = missionPaletteKindFromTransfer(ev);
+          const idx = missionDragIndexFromTransfer(ev);
+          if(!paletteKind && idx == null) return;
+          missionUpdateDragAutoScroll(ev.clientY);
+          const branchTarget = missionResolveBranchDropTarget(ev, missionCanSnapToBranchFromEvent(ev));
+          missionSetBranchDropActive(branchTarget);
+          ev.preventDefault();
+          el.missionBlockCanvas.classList.add("drop-active");
+        });
+        el.missionBlockCanvas.addEventListener("dragleave",(ev)=>{
+          const related = ev.relatedTarget;
+          if(related && el.missionBlockCanvas.contains(related)) return;
+          clearMissionBranchDropActive();
+          stopMissionDragAutoScroll();
+          el.missionBlockCanvas.classList.remove("drop-active");
+        });
+        el.missionBlockCanvas.addEventListener("drop",(ev)=>{
+          if(!isMissionEditableNow()) return;
+          stopMissionDragAutoScroll();
+          const rowTarget = ev.target && ev.target.closest ? ev.target.closest(".mission-block-row") : null;
+          if(rowTarget) return;
+          const branchTarget = missionResolveBranchDropTarget(ev, missionCanSnapToBranchFromEvent(ev));
+          ev.preventDefault();
+          clearMissionBranchDropActive();
+          el.missionBlockCanvas.classList.remove("drop-active");
+          const current = buildMissionBlocksFromUi();
+          if(branchTarget){
+            let targetIdx = missionBranchInsertIndexFromTarget(branchTarget, current.length);
+            const parentCondIdx = parseInt(String(branchTarget.getAttribute("data-cond-index") || ""), 10);
+            const nestedLevel = normalizeMissionLevel(missionRowLevelFromIndex(parentCondIdx) + 1);
+            const paletteKind = missionPaletteKindFromTransfer(ev);
+            if(paletteKind){
+              const inserted = missionBlockTemplate(paletteKind);
+              inserted.level = nestedLevel;
+              current.splice(targetIdx, 0, inserted);
+              missionBlocksState = current;
+              renderMissionBlocksEditor(current);
+              return;
+            }
+            const fromIdx = missionDragIndexFromTransfer(ev);
+            if(fromIdx == null || fromIdx < 0 || fromIdx >= current.length) return;
+            if(missionIndexInSubtree(current, fromIdx, parentCondIdx)) return;
+            const moved = missionMoveSubtreeToIndex(current, fromIdx, targetIdx, {baseLevel:nestedLevel, resetUi:true});
+            missionBlocksState = moved.list;
+            renderMissionBlocksEditor(missionBlocksState);
+            return;
+          }
+          const paletteKind = missionPaletteKindFromTransfer(ev);
+          if(paletteKind){
+            const place = missionLinearDropPlacement(current, ev);
+            const targetIdx = place ? Math.max(0, Math.min(current.length, place.targetIdx)) : current.length;
+            const inserted = missionBlockTemplate(paletteKind);
+            if(place) inserted.level = normalizeMissionLevel(place.insertLevel);
+            current.splice(targetIdx, 0, inserted);
+            missionBlocksState = current;
+            renderMissionBlocksEditor(current);
+            return;
+          }
+          const fromIdx = missionDragIndexFromTransfer(ev);
+          if(fromIdx == null || fromIdx < 0 || fromIdx >= current.length) return;
+          const place = missionLinearDropPlacement(current, ev);
+          const targetIdx = place ? place.targetIdx : current.length;
+          const moved = missionMoveSubtreeToIndex(current, fromIdx, targetIdx, {baseLevel: place ? place.insertLevel : undefined, resetUi:true});
+          missionBlocksState = moved.list;
+          renderMissionBlocksEditor(missionBlocksState);
+        });
+      }
       const mobileControlActions = {
         sequence: ()=>{ if(el.igniteBtn) el.igniteBtn.click(); },
-        force: ()=>{ if(el.forceBtn) el.forceBtn.click(); },
         serial: ()=>{ toggleInput(el.serialToggle); },
         inspection: ()=>{ if(el.inspectionOpenBtn) el.inspectionOpenBtn.click(); },
         safety: ()=>{ toggleInput(el.safeModeToggle); },
@@ -13066,9 +20340,15 @@
         if(el.missionTotalMass) el.missionTotalMass.value = spec.totalMassG;
         if(el.missionVendor) el.missionVendor.value = spec.vendor;
       };
-      const assignMissionQuick = (name)=>{
+      const assignMissionQuick = (name, options)=>{
+        const opts = (options && typeof options === "object") ? options : {};
         const missionName = String(name || "").trim();
         if(!missionName) return;
+        if(missionName === "motor-support"){
+          showToast("모터 추가는 ybb1833@naver.com 으로 문의해주세요.", "info", {key:"mission-motor-support"});
+          setMissionPresetSelectionUi("");
+          return;
+        }
         if(el.missionName){
           el.missionName.value = missionName === "no-motor" ? "" : missionName;
         }
@@ -13084,6 +20364,7 @@
           selectedMotorName = missionName;
           applyMotorSpec(missionName);
         }
+        setMissionPresetSelectionUi(selectedMotorName || missionName);
         if(el.missionTestCount && (!el.missionTestCount.value || !el.missionTestCount.value.trim())){
           el.missionTestCount.value = "1";
         }
@@ -13093,10 +20374,14 @@
         updateMotorInfoPanel();
         updateExportButtonState();
         resetMissionToPresetList();
-        if(isMobileMissionPanelVisible()) setMobileMissionPanelVisible(false);
-        if(missionPanelActive) setMissionPanelVisible(false);
+        if(opts.keepMissionOpen !== true){
+          if(isMobileMissionPanelVisible()) setMobileMissionPanelVisible(false);
+          if(missionPanelActive) setMissionPanelVisible(false);
+        }
         const label = missionName === "no-motor" ? "메타데이터 없음" : missionName;
-        showToast("미션 지정: " + label, "success", {key:"mission-set"});
+        if(opts.showToast !== false){
+          showToast("미션 지정: " + label, "success", {key:"mission-set"});
+        }
       };
       const missionQuickButtons = document.querySelectorAll("[data-mission-quick]");
       if(missionQuickButtons.length){
@@ -13201,9 +20486,39 @@
             const viewportWidth = el.missionPresetViewport.getBoundingClientRect().width;
             const targetLeft = btn.offsetLeft - (viewportWidth - cardWidth) / 2;
             el.missionPresetGrid.scrollLeft = Math.max(0, targetLeft);
+            const missionName = String(btn.getAttribute("data-mission") || "").trim();
+            if(missionName){
+              assignMissionQuick(missionName, {keepMissionOpen:true, showToast:false});
+              const label = missionName === "no-motor" ? "메타데이터 없음" : missionName;
+              showToast("프리셋 적용: " + label, "success", {key:"mission-preset-apply"});
+              return;
+            }
+            if(btn.id === "missionCustomBtn"){
+              selectedMotorName = sanitizeMissionName(el.missionName && el.missionName.value) || "CUSTOM";
+              setMissionPresetSelectionUi("");
+            }
           });
         });
       }
+      const missionMetaInputs = [
+        el.missionName,
+        el.missionMotorDia,
+        el.missionMotorLen,
+        el.missionIgnDelay,
+        el.missionGrainMass,
+        el.missionTotalMass,
+        el.missionVendor
+      ].filter(Boolean);
+      missionMetaInputs.forEach((node)=>{
+        node.addEventListener("input",()=>{
+          const preset = sanitizeMissionName(selectedMotorName).toLowerCase();
+          if(!preset || preset === "no-motor" || !motorSpecs[selectedMotorName]) return;
+          selectedMotorName = sanitizeMissionName(el.missionName && el.missionName.value) || "CUSTOM";
+          setMissionPresetSelectionUi("");
+          updateExportButtonState();
+          updateMotorInfoPanel();
+        });
+      });
 
       const showExperimentPrompt = ()=>{
         if(!el.missionTestCount || !el.missionTestPromptInput) return;
@@ -13250,9 +20565,11 @@
           if(!centered) { hideMission(); return; }
           if(centered.id === "missionCustomBtn"){
             if(el.missionFields) el.missionFields.classList.remove("hidden");
-            if(el.missionPresetBlock) el.missionPresetBlock.classList.add("hidden");
-            if(el.missionDialog) el.missionDialog.classList.add("custom-mode");
-            setMissionCloseLabel(true);
+            if(el.missionPresetBlock) el.missionPresetBlock.classList.remove("hidden");
+            if(el.missionDialog) el.missionDialog.classList.remove("custom-mode");
+            selectedMotorName = sanitizeMissionName(el.missionName && el.missionName.value) || "CUSTOM";
+            setMissionPresetSelectionUi("");
+            setMissionCloseLabel(false);
             return;
           }
           const name = centered.getAttribute("data-mission") || "";
@@ -13293,42 +20610,158 @@
           showToast("업데이트 확인은 준비 중입니다.", "info", {key:"sw-update"});
         });
       }
+      const servoRows = document.querySelectorAll(".hardware-servo-row[data-servo-channel]");
+      if(servoRows && servoRows.length){
+        servoRows.forEach(row=>{
+          const ch = Number(row.getAttribute("data-servo-channel"));
+          if(!isFinite(ch) || SERVO_CHANNELS.indexOf(ch) < 0) return;
+          const range = row.querySelector("[data-servo-range]");
+          const value = row.querySelector("[data-servo-value]");
+          const pin = row.querySelector("[data-servo-pin]");
+          const applyBtn = row.querySelector("[data-servo-apply]");
+          const centerBtn = row.querySelector("[data-servo-center]");
+          servoUiMap[ch] = {
+            range,
+            value,
+            pin,
+            applyBtn,
+            centerBtn,
+            autoTimer:null,
+            lastAppliedDeg:SERVO_DEFAULT_DEG
+          };
+          setServoUiPin(ch, null);
+          setServoUiAngle(ch, SERVO_DEFAULT_DEG);
+
+          if(range){
+            range.addEventListener("input", ()=>{
+              setServoUiAngle(ch, range.value);
+              scheduleServoAutoApply(ch, SERVO_AUTO_APPLY_DELAY_MS);
+            });
+            range.addEventListener("change", ()=>{
+              applyServoAngle(ch, { showFeedback:true, logIt:true, force:true });
+            });
+          }
+          if(applyBtn){
+            applyBtn.addEventListener("click", ()=>{
+              applyServoAngle(ch, { showFeedback:true, logIt:true, force:true });
+            });
+          }
+          if(centerBtn){
+            centerBtn.addEventListener("click", ()=>{
+              setServoUiAngle(ch, SERVO_DEFAULT_DEG);
+              applyServoAngle(ch, { showFeedback:true, logIt:true, force:true });
+            });
+          }
+          const presetApplyBtns = row.querySelectorAll("[data-servo-preset-apply]");
+          if(presetApplyBtns && presetApplyBtns.length){
+            presetApplyBtns.forEach(btn=>{
+              const slot = btn.getAttribute("data-servo-preset-apply");
+              const input = row.querySelector("[data-servo-preset-input=\"" + slot + "\"]");
+              const applyPreset = ()=>{
+                if(!input) return;
+                const deg = clampServoAngle(input.value);
+                input.value = String(deg);
+                setServoUiAngle(ch, deg);
+                applyServoAngle(ch, { showFeedback:true, logIt:true, force:true });
+              };
+              btn.addEventListener("click", applyPreset);
+              if(input){
+                input.addEventListener("keydown",(ev)=>{
+                  if(ev.key === "Enter"){
+                    ev.preventDefault();
+                    applyPreset();
+                  }
+                });
+                input.addEventListener("blur", ()=>{
+                  input.value = String(clampServoAngle(input.value));
+                });
+              }
+            });
+          }
+        });
+      }
+      const runHardwarePyroTest = async (channel)=>{
+        const ch = Math.max(1, Math.min(4, Math.round(Number(channel) || 1)));
+        let durMs = Math.round(toFiniteNumber(el.hardwarePyroDurationInput ? el.hardwarePyroDurationInput.value : NaN, NaN));
+        if(!isFinite(durMs)){
+          durMs = Math.round(Number((uiSettings && uiSettings.ignDurationMs) || 1000));
+        }
+        durMs = Math.max(10, Math.min(30000, durMs));
+        if(el.hardwarePyroDurationInput) el.hardwarePyroDurationInput.value = String(durMs);
+        showToast("파이로 CH" + ch + " 테스트: " + durMs + "ms", "warn", {key:"hardware-pyro-fire-ch" + ch, duration:2400});
+        await sendCommand({http:"/pyro_test?ch=" + ch + "&ms=" + durMs, ser:"PYRO " + ch + " " + durMs}, true);
+        addLogLine("Hardware PYRO CH" + ch + " → ON " + durMs + "ms", "CMD");
+      };
+      if(el.hardwarePyroFireCh1Btn){
+        el.hardwarePyroFireCh1Btn.addEventListener("click", async ()=>{ await runHardwarePyroTest(1); });
+      }
+      if(el.hardwarePyroFireCh2Btn){
+        el.hardwarePyroFireCh2Btn.addEventListener("click", async ()=>{ await runHardwarePyroTest(2); });
+      }
+      if(el.hardwarePyroFireCh3Btn){
+        el.hardwarePyroFireCh3Btn.addEventListener("click", async ()=>{ await runHardwarePyroTest(3); });
+      }
+      if(el.hardwarePyroFireCh4Btn){
+        el.hardwarePyroFireCh4Btn.addEventListener("click", async ()=>{ await runHardwarePyroTest(4); });
+      }
       if(el.loadcellCalOpen) el.loadcellCalOpen.addEventListener("click",()=>showLoadcellModal());
+      if(el.loadcellResetBtn) el.loadcellResetBtn.addEventListener("click",()=>resetLoadcellCalibration());
       if(el.loadcellClose) el.loadcellClose.addEventListener("click",()=>hideLoadcellModal());
       if(el.loadcellCancel) el.loadcellCancel.addEventListener("click",()=>hideLoadcellModal());
-      if(el.loadcellZero) el.loadcellZero.addEventListener("click",()=>showLoadcellZeroWarning());
+      if(el.loadcellZero){
+        el.loadcellZero.addEventListener("click",()=>{
+          if(el.loadcellZero.disabled) return;
+          if(loadcellModalStage === LOADCELL_MODAL_STAGE_STABILIZE){
+            saveLoadcellZero();
+            return;
+          }
+          if(loadcellModalStage === LOADCELL_MODAL_STAGE_NOISE){
+            saveLoadcellNoiseZero();
+          }
+        });
+      }
       if(el.loadcellOverlay){
         el.loadcellOverlay.addEventListener("click",(ev)=>{ if(ev.target===el.loadcellOverlay) hideLoadcellModal(); });
       }
       if(el.loadcellApply){
         el.loadcellApply.addEventListener("click",()=>{
-          if(el.loadcellDialog && !el.loadcellDialog.classList.contains("step-input")){
-            el.loadcellDialog.classList.add("step-input");
+          if(loadcellModalStage === LOADCELL_MODAL_STAGE_COMPLETE){
+            hideLoadcellModal();
             return;
           }
+          if(loadcellModalStage !== LOADCELL_MODAL_STAGE_WEIGHT) return;
+          refreshLoadcellInputPreview();
           const weight = parseFloat(el.loadcellWeightInput ? el.loadcellWeightInput.value : "");
           if(!isFinite(weight) || weight <= 0){
             showToast(t("loadcellWeightInvalidToast"), "notice");
             return;
           }
-          pendingLoadcellWeight = weight;
-          showLoadcellWarning(weight);
+          saveLoadcellCalibration(weight);
         });
       }
-      if(el.loadcellWarningCancel) el.loadcellWarningCancel.addEventListener("click",()=>hideLoadcellWarning());
+      if(el.loadcellWeightInput){
+        const syncPreview = ()=>refreshLoadcellInputPreview();
+        el.loadcellWeightInput.addEventListener("input", syncPreview);
+        el.loadcellWeightInput.addEventListener("change", syncPreview);
+        el.loadcellWeightInput.addEventListener("keyup", syncPreview);
+        el.loadcellWeightInput.addEventListener("blur", syncPreview);
+      }
+      if(el.loadcellWarningCancel){
+        el.loadcellWarningCancel.addEventListener("click",()=>{
+          if(loadcellWarningMode === "stability"){
+            hideLoadcellModal();
+            return;
+          }
+          hideLoadcellWarning();
+        });
+      }
       if(el.loadcellWarningProceed){
         el.loadcellWarningProceed.addEventListener("click",()=>{
-          if(pendingLoadcellZero){
-            pendingLoadcellZero = false;
-            saveLoadcellZero();
+          if(loadcellWarningMode === "stability"){
+            startLoadcellStabilizationStep();
             return;
           }
-          const weight = (pendingLoadcellWeight != null) ? pendingLoadcellWeight : parseFloat(el.loadcellWeightInput ? el.loadcellWeightInput.value : "");
-          if(!isFinite(weight) || weight <= 0){
-            showToast(t("loadcellWeightInvalidToast"), "notice");
-            return;
-          }
-          saveLoadcellCalibration(weight);
+          hideLoadcellWarning();
         });
       }
 
@@ -13344,23 +20777,23 @@
 
       const applyIgnitionTime = async ()=>{
         if(!uiSettings || !el.ignTimeInput) return;
-        const before = uiSettings.ignDurationSec;
-        const ignSec = clampInt(el.ignTimeInput.value, 1, 10, uiSettings.ignDurationSec || 5);
-        el.ignTimeInput.value = ignSec;
-        uiSettings.ignDurationSec = ignSec;
+        const before = uiSettings.ignDurationMs;
+        const ignMs = clampInt(el.ignTimeInput.value, 100, 3000, uiSettings.ignDurationMs || 1000);
+        el.ignTimeInput.value = ignMs;
+        uiSettings.ignDurationMs = ignMs;
         saveSettings();
         applySettingsToUI();
-        await sendCommand({http:"/set?ign_ms="+(ignSec*1000), ser:"IGNMS "+(ignSec*1000)}, false);
-        if(before !== uiSettings.ignDurationSec){
-          showToast(t("ignTimeChangedToast", {from:before, to:uiSettings.ignDurationSec, safety:safetyLineSuffix()}),"notice");
+        await sendCommand({http:"/set?ign_ms="+ignMs, ser:"IGNMS "+ignMs}, false);
+        if(before !== uiSettings.ignDurationMs){
+          showToast(t("ignTimeChangedToast", {from:before, to:uiSettings.ignDurationMs, safety:safetyLineSuffix()}),"notice");
         }
-        addLogLine(t("settingsUpdatedLog", {unit:uiSettings.thrustUnit, ign:uiSettings.ignDurationSec, cd:uiSettings.countdownSec}), "CFG");
+        addLogLine(t("settingsUpdatedLog", {unit:uiSettings.thrustUnit, ign:uiSettings.ignDurationMs, cd:uiSettings.countdownSec}), "CFG");
       };
 
       const applyCountdownTime = async ()=>{
         if(!uiSettings || !el.countdownSecInput) return;
         const before = uiSettings.countdownSec;
-        const cdSec = clampInt(el.countdownSecInput.value, 3, 30, uiSettings.countdownSec || 10);
+        const cdSec = clampInt(el.countdownSecInput.value, 3, 60, uiSettings.countdownSec || 10);
         el.countdownSecInput.value = cdSec;
         uiSettings.countdownSec = cdSec;
         saveSettings();
@@ -13369,7 +20802,21 @@
         if(before !== uiSettings.countdownSec){
           showToast(t("countdownChangedToast", {from:before, to:uiSettings.countdownSec, safety:safetyLineSuffix()}),"notice");
         }
-        addLogLine(t("settingsUpdatedLog", {unit:uiSettings.thrustUnit, ign:uiSettings.ignDurationSec, cd:uiSettings.countdownSec}), "CFG");
+        addLogLine(t("settingsUpdatedLog", {unit:uiSettings.thrustUnit, ign:uiSettings.ignDurationMs, cd:uiSettings.countdownSec}), "CFG");
+      };
+      const applyDaqSequencePyroChannel = ()=>{
+        if(!uiSettings || !el.daqSequencePyroSelect) return;
+        const before = normalizePyroChannel(uiSettings.daqSequencePyroChannel, 1);
+        const next = normalizePyroChannel(el.daqSequencePyroSelect.value, before);
+        el.daqSequencePyroSelect.value = String(next);
+        uiSettings.daqSequencePyroChannel = next;
+        saveSettings();
+        applySettingsToUI();
+        syncDaqSequencePyroChannelToBoard(false);
+        if(before !== next){
+          showToast("DAQ 시퀀스 채널: PYRO" + next, "info", {key:"daq-sequence-pyro-channel"});
+          addLogLine("DAQ sequence pyro -> CH" + next, "CFG");
+        }
       };
 
       if(el.ignTimeSave){
@@ -13377,6 +20824,9 @@
       }
       if(el.countdownSave){
         el.countdownSave.addEventListener("click", ()=>{ applyCountdownTime(); });
+      }
+      if(el.daqSequencePyroSelect){
+        el.daqSequencePyroSelect.addEventListener("change",()=>{ applyDaqSequencePyroChannel(); });
       }
       if(el.ignTimeInput){
         el.ignTimeInput.addEventListener("keydown",(ev)=>{
@@ -13396,10 +20846,37 @@
           uiSettings.thrustUnit = el.unitThrust.value || "kgf";
           saveSettings();
           applySettingsToUI();
+          refreshPrecisionSensitiveUi();
           redrawCharts();
           if(before !== uiSettings.thrustUnit){
             showToast(t("thrustUnitChangedToast", {from:before, to:uiSettings.thrustUnit, safety:safetyLineSuffix()}),"info");
           }
+        });
+      }
+      if(el.quickDataDigitsSelect){
+        el.quickDataDigitsSelect.addEventListener("change",()=>{
+          if(!uiSettings) return;
+          uiSettings.quickDataDigits = normalizeDecimalDigits(el.quickDataDigitsSelect.value, getQuickDataDigits());
+          saveSettings();
+          applySettingsToUI();
+          refreshPrecisionSensitiveUi();
+        });
+      }
+      if(el.loadcellChartDigitsSelect){
+        el.loadcellChartDigitsSelect.addEventListener("change",()=>{
+          if(!uiSettings) return;
+          uiSettings.loadcellChartDigits = normalizeDecimalDigits(el.loadcellChartDigitsSelect.value, getLoadcellChartDigits());
+          saveSettings();
+          applySettingsToUI();
+          redrawCharts();
+        });
+      }
+      if(el.storageExportDigitsSelect){
+        el.storageExportDigitsSelect.addEventListener("change",()=>{
+          if(!uiSettings) return;
+          uiSettings.storageExportDigits = normalizeDecimalDigits(el.storageExportDigitsSelect.value, getStorageExportDigits());
+          saveSettings();
+          applySettingsToUI();
         });
       }
       if(el.opModeSelect){
@@ -13412,6 +20889,8 @@
           }
           saveSettings();
           applySettingsToUI();
+          syncOperationModeToBoard(false);
+          syncDaqSequencePyroChannelToBoard(false);
           if(before !== uiSettings.opMode){
             const modeLabel = (uiSettings.opMode === "flight") ? t("opModeFlight") : t("opModeDaq");
             showToast(t("opModeChangedToast", {mode:modeLabel}), "info");
@@ -13421,7 +20900,7 @@
       if(el.gyroPreviewSelect){
         el.gyroPreviewSelect.addEventListener("change",()=>{
           if(!uiSettings) return;
-          uiSettings.gyroPreview = el.gyroPreviewSelect.value || "3d";
+          uiSettings.gyroPreview = normalizeGyroPreviewMode(el.gyroPreviewSelect.value || "3d");
           saveSettings();
           applySettingsToUI();
         });
@@ -13525,6 +21004,20 @@
       if(launcherAutoOverlayEl){
         launcherAutoOverlayEl.addEventListener("click",(ev)=>{ if(ev.target===launcherAutoOverlayEl) hideLauncherAutoConfirm(); });
       }
+      if(rebootConfirmBtnEl){
+        rebootConfirmBtnEl.addEventListener("click",()=>{
+          setRebootConfirmWaiting();
+          sendCommand({http:"/reset", ser:"/reset"}, true);
+        });
+      }
+      if(rebootConfirmCancelBtnEl){
+        rebootConfirmCancelBtnEl.addEventListener("click",()=>hideRebootConfirm());
+      }
+      if(rebootConfirmOverlayEl){
+        rebootConfirmOverlayEl.addEventListener("click",(ev)=>{
+          if(ev.target===rebootConfirmOverlayEl && !rebootConfirmWaiting) hideRebootConfirm();
+        });
+      }
       if(launcherManualBtn && launcherManualControls){
         launcherManualBtn.addEventListener("click",()=>{
           launcherManualControls.classList.toggle("is-hidden");
@@ -13609,9 +21102,13 @@
       updateWsUI();
       setInterval(ensureWsAlive, 500);
       setInterval(fetchWifiInfo, 2000);
+      setInterval(fetchServoInfo, 2000);
       fetchWifiInfo();
+      fetchServoInfo();
+      loadMissionProfileFromBoard();
       updateData().finally(()=>{ pollLoop(); });
       updateSerialPill();
+      updateMissionEditLockUI();
 
       // ✅ KST 실시간 업데이트
       updateKstClock();

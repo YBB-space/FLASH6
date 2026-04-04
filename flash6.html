@@ -12,7 +12,7 @@
   <link rel="icon" href="img/Flash_logo.svg" type="image/svg+xml" />
   <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="apple-touch-icon" href="/img/hanwool_logo.png" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="/vendor/leaflet/leaflet.css" onerror="this.onerror=null;this.href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';" />
 
   <!-- ✅ 이미지 프리로드(LOCKOUT/토스트/아이콘 늦게 뜨는거 방지) -->
   <link rel="preload" as="image" href="img/Flash_logo.svg ">
@@ -701,9 +701,17 @@
       position:absolute;
       inset:0;
       overflow:hidden;
+      z-index:680;
+      pointer-events:none;
       background:
         radial-gradient(circle at 16% 18%,rgba(255,255,255,0.55),transparent 48%),
         linear-gradient(180deg,#cfe8ff 0%,#dbeafe 45%,#e0f2fe 100%);
+    }
+    .status-map-canvas.status-map-canvas--offline .leaflet-tile-pane,
+    .status-map-canvas.status-map-canvas--offline .leaflet-overlay-pane,
+    .status-map-canvas.status-map-canvas--offline .leaflet-shadow-pane,
+    .status-map-canvas.status-map-canvas--offline .leaflet-marker-pane{
+      opacity:0;
     }
     .status-map-offline::before{
       content:"";
@@ -1326,17 +1334,17 @@
     }
     .status-gyro-canvas--3d.is-expanded{
       position:fixed;
-      left:0;
-      top:0;
-      right:0;
-      bottom:0;
+      left:var(--gyro3d-expand-left, 0px);
+      top:var(--gyro3d-expand-top, 0px);
+      right:var(--gyro3d-expand-right, 0px);
+      bottom:var(--gyro3d-expand-bottom, 0px);
       width:auto !important;
       height:auto !important;
       border-radius:0;
       border:0;
       box-shadow:none;
       cursor:grab;
-      z-index:2;
+      z-index:1205;
       background:
         radial-gradient(120% 100% at 50% 0%, #d6e2ef 0%, #c4d3e4 66%),
         linear-gradient(180deg,#dde7f2,#cbd8e8);
@@ -1604,9 +1612,9 @@
       }
     }
     .status-gyro-canvas--navball{
-      border:1px solid rgba(148,163,184,0.4);
-      background:linear-gradient(135deg,#ffffff,#f8fafc);
-      box-shadow:0 10px 18px rgba(15,23,42,0.12);
+      border:none;
+      background:#2f4f73;
+      box-shadow:none;
     }
     .preview-navball .status-gyro-canvas--3d{display:none}
     .preview-3d .status-gyro-canvas--navball{display:none}
@@ -1925,6 +1933,7 @@
     .status-ready{background:#16a34a;color:#f0fdf4;border-color:#4ade80}
     .status-count{background:rgba(245,158,11,0.10);color:#b45309;border-color:rgba(245,158,11,0.35)}
     .status-loadcell{background:rgba(239,68,68,0.10);color:#b91c1c;border-color:rgba(239,68,68,0.4)}
+    .status-parachute{background:rgba(20,184,166,0.14);color:#0f766e;border-color:rgba(20,184,166,0.42)}
     .status-fire{background:rgba(239,68,68,0.08);color:#b91c1c;border-color:rgba(239,68,68,0.35)}
     .status-seq{background:rgba(37,99,235,0.10);color:#1d4ed8;border-color:rgba(37,99,235,0.35)}
     .status-abort{background:rgba(239,68,68,0.12);color:#b91c1c;border-color:rgba(239,68,68,0.45)}
@@ -2293,14 +2302,24 @@
       box-shadow:inset 0 0 0 1px rgba(255,255,255,0.6);
     }
     .motor-card .item.item-null{
-      background:linear-gradient(135deg,#f8fafc,#f1f5f9);
-      border:1px dashed rgba(148,163,184,0.6);
-      color:#94a3b8;
-      box-shadow:none;
+      background:#f8f9ff;
+      border:1px solid rgba(148,163,184,0.22);
+      color:inherit;
+      box-shadow:inset 0 0 0 1px rgba(255,255,255,0.6);
     }
     .motor-card .item.item-null .label,
     .motor-card .item.item-null .value{
-      color:#94a3b8;
+      color:inherit;
+    }
+    .mode-flight .motor-card .item.item-null{
+      background:#f8f9ff;
+      border:1px solid rgba(148,163,184,0.22);
+      color:inherit;
+      box-shadow:inset 0 0 0 1px rgba(255,255,255,0.6);
+    }
+    .mode-flight .motor-card .item.item-null .label,
+    .mode-flight .motor-card .item.item-null .value{
+      color:#0f172a;
     }
     .motor-card .item.status-ok{
       background:linear-gradient(135deg,rgba(34,197,94,0.14),rgba(16,185,129,0.08));
@@ -2520,53 +2539,53 @@
     .controls-section-label{margin-top:6px;font-size:11px;font-weight:600;letter-spacing:.10em;text-transform:uppercase;color:#9ca3af}
     .controls-toolbar{
       margin-top:0;
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:8px;
+      display:flex;
+      justify-content:flex-end;
+      align-items:center;
+      gap:4px;
+    }
+    .controls-header-actions .controls-toolbar{
+      flex-shrink:0;
     }
     .controls-toolbar .controls-toolbar-action{
       display:flex;
       align-items:center;
-      justify-content:space-between;
-      gap:8px;
-      padding-inline:10px 12px;
-      border:1px solid rgba(148,163,184,0.32);
-      background:rgba(248,250,252,0.95);
-      box-shadow:0 5px 10px rgba(15,23,42,0.07);
-      min-height:40px;
+      justify-content:center;
+      gap:0;
+      width:34px;
+      min-width:34px;
+      height:34px;
+      min-height:34px;
+      padding:0;
+      border:none;
+      background:transparent;
+      box-shadow:none;
+      color:#475569;
     }
     .controls-toolbar .controls-toolbar-action:hover{
-      border-color:rgba(59,130,246,0.42);
-      box-shadow:0 8px 14px rgba(37,99,235,0.14);
+      background:rgba(148,163,184,0.14);
+      box-shadow:none;
     }
     .controls-toolbar-icon{
       display:inline-flex;
       align-items:center;
       justify-content:center;
-      width:14px;
-      height:14px;
+      width:18px;
+      height:18px;
       color:currentColor;
-      opacity:.82;
+      opacity:.9;
       flex:0 0 auto;
     }
     .controls-toolbar-icon svg{
-      width:14px;
-      height:14px;
+      width:18px;
+      height:18px;
       fill:none;
       stroke:currentColor;
       stroke-width:1.8;
       stroke-linecap:round;
       stroke-linejoin:round;
     }
-    .controls-toolbar-text{
-      margin-left:auto;
-      text-align:right;
-      min-width:0;
-      flex:1 1 auto;
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
-    }
+    .controls-toolbar-text{min-width:0}
     .controls-main-row{
       display:flex;
       gap:8px;
@@ -2610,6 +2629,34 @@
     .controls-card .control-tile-sub{
       font-size:10px;
       color:#64748b;
+    }
+    .controls-card .control-tile-mode{
+      min-height:60px !important;
+      height:auto;
+      align-items:center;
+    }
+    .controls-card .control-tile-mode > div:first-child{
+      min-width:0;
+      flex:1 1 auto;
+    }
+    .controls-card .control-tile-mode .control-tile-actions{
+      margin-left:auto;
+    }
+    .controls-card .control-tile-select{
+      min-width:120px;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,0.8);
+      background:#f8fafc;
+      color:#0f172a;
+      font-size:12px;
+      font-weight:700;
+      cursor:pointer;
+      outline:none;
+    }
+    .controls-card .control-tile-select:focus{
+      border-color:rgba(59,130,246,0.9);
+      box-shadow:0 0 0 2px rgba(59,130,246,0.18);
     }
     .control-tile.span-2{grid-column:1 / -1}
     .control-tile-label{
@@ -2673,6 +2720,11 @@
     .controls-card.mission-mode .controls-subtitle,
     .controls-card.inspection-mode .controls-subtitle,
     .controls-card.devtools-mode .controls-subtitle{display:none}
+    .controls-card.replay-mode .controls-toolbar,
+    .controls-card.launcher-mode .controls-toolbar,
+    .controls-card.mission-mode .controls-toolbar,
+    .controls-card.inspection-mode .controls-toolbar,
+    .controls-card.devtools-mode .controls-toolbar{display:none}
     html:not(.tablet-controls-layout) .controls-card.replay-mode .tablet-controls-close,
     html:not(.tablet-controls-layout) .controls-card.launcher-mode .tablet-controls-close,
     html:not(.tablet-controls-layout) .controls-card.mission-mode .tablet-controls-close,
@@ -2747,37 +2799,137 @@
     }
     .panel-action-note{
       font-size:11px;
-      color:#94a3b8;
-      line-height:1.45;
-      margin:2px 0 6px;
+      color:#64748b;
+      line-height:1.5;
+      margin:2px 0 8px;
     }
     .panel-action-grid{
       display:grid;
       grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:10px;
+      gap:12px;
       width:100%;
     }
     .panel-action-btn{
-      border:1px solid rgba(148,163,184,0.34);
-      background:linear-gradient(180deg, rgba(31,41,55,0.52), rgba(15,23,42,0.42));
-      color:#e2e8f0;
-      border-radius:12px;
+      border:1px solid rgba(148,163,184,0.24);
+      background:linear-gradient(180deg,#ffffff, #f8fafc);
+      color:#1e293b;
+      border-radius:16px;
       font-size:13px;
       font-weight:700;
       letter-spacing:.01em;
-      min-height:46px;
-      padding:10px 12px;
+      min-height:52px;
+      padding:12px 14px;
       cursor:pointer;
-      transition:transform .14s ease, border-color .14s ease, background .14s ease;
+      box-shadow:0 10px 22px rgba(148,163,184,0.16), inset 0 1px 0 rgba(255,255,255,0.92);
+      transition:transform .16s ease, border-color .16s ease, background .16s ease, box-shadow .16s ease;
     }
     .panel-action-btn:hover{
       border-color:rgba(96,165,250,0.62);
-      background:linear-gradient(180deg, rgba(37,99,235,0.28), rgba(15,23,42,0.52));
-      transform:translateY(-1px);
+      background:linear-gradient(180deg,#ffffff, #eff6ff);
+      box-shadow:0 14px 28px rgba(96,165,250,0.2), inset 0 1px 0 rgba(255,255,255,0.96);
+      transform:translateY(-2px);
     }
     .panel-action-btn:active{
       transform:translateY(0);
       filter:brightness(.95);
+    }
+    .panel-action-btn:focus-visible{
+      outline:none;
+      border-color:rgba(59,130,246,0.7);
+      box-shadow:0 0 0 3px rgba(96,165,250,0.22), 0 12px 24px rgba(96,165,250,0.14);
+    }
+    .mission-panel .panel-action-note{
+      margin:0 0 10px;
+      color:#607089;
+      font-size:12px;
+      letter-spacing:.01em;
+    }
+    .mission-panel .panel-action-grid{
+      gap:14px;
+    }
+    .mission-quick-btn{
+      --mission-accent-rgb:59,130,246;
+      position:relative;
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+      align-items:flex-start;
+      justify-content:flex-end;
+      gap:6px;
+      min-height:94px;
+      padding:14px 16px 15px;
+      border-radius:20px;
+      text-align:left;
+      background:
+        radial-gradient(circle at 88% 14%, rgba(var(--mission-accent-rgb),0.18), transparent 34%),
+        linear-gradient(180deg, rgba(255,255,255,0.98), rgba(244,247,251,0.98));
+      border-color:rgba(var(--mission-accent-rgb),0.18);
+      box-shadow:0 14px 28px rgba(148,163,184,0.18), inset 0 1px 0 rgba(255,255,255,0.96);
+    }
+    .mission-quick-btn::after{
+      content:"";
+      position:absolute;
+      inset:auto -16% -34% auto;
+      width:110px;
+      height:110px;
+      border-radius:999px;
+      background:radial-gradient(circle, rgba(var(--mission-accent-rgb),0.16), transparent 68%);
+      pointer-events:none;
+    }
+    .mission-quick-btn:hover{
+      border-color:rgba(var(--mission-accent-rgb),0.34);
+      background:
+        radial-gradient(circle at 88% 14%, rgba(var(--mission-accent-rgb),0.24), transparent 36%),
+        linear-gradient(180deg,#ffffff, #f8fbff);
+      box-shadow:0 18px 34px rgba(148,163,184,0.22), 0 0 0 1px rgba(var(--mission-accent-rgb),0.08);
+      transform:translateY(-2px);
+    }
+    .mission-quick-btn .mission-quick-chip,
+    .mission-quick-btn .mission-quick-title,
+    .mission-quick-btn .mission-quick-meta{
+      position:relative;
+      z-index:1;
+    }
+    .mission-quick-chip{
+      display:inline-flex;
+      align-items:center;
+      min-height:22px;
+      padding:0 9px;
+      border-radius:999px;
+      background:rgba(var(--mission-accent-rgb),0.1);
+      border:1px solid rgba(var(--mission-accent-rgb),0.18);
+      color:rgb(var(--mission-accent-rgb));
+      font-size:10px;
+      font-weight:800;
+      letter-spacing:.1em;
+      text-transform:uppercase;
+    }
+    .mission-quick-title{
+      font-size:18px;
+      font-weight:800;
+      line-height:1.08;
+      letter-spacing:-.03em;
+      color:#0f172a;
+      text-wrap:balance;
+    }
+    .mission-quick-meta{
+      font-size:11px;
+      line-height:1.35;
+      color:#6b7280;
+      font-weight:600;
+      letter-spacing:.01em;
+    }
+    .mission-quick-btn.is-frontier{
+      --mission-accent-rgb:37,99,235;
+    }
+    .mission-quick-btn.is-stage{
+      --mission-accent-rgb:14,165,233;
+    }
+    .mission-quick-btn.is-quail{
+      --mission-accent-rgb:249,115,22;
+    }
+    .mission-quick-btn.is-manual{
+      --mission-accent-rgb:100,116,139;
     }
     .panel-action-status{
       margin-top:10px;
@@ -3228,17 +3380,45 @@
     }
     .chart-box{
       background:linear-gradient(135deg,#f8fafc,#e2e8f0);
-      border-radius:var(--radius-md);padding:6px;border:1px solid rgba(148,163,184,0.55);flex:1 1 0;
+      border-radius:var(--radius-md);padding:4px;border:1px solid rgba(148,163,184,0.55);flex:1 1 0;
       display:flex;flex-direction:column;min-height:0;min-width:0;overflow:hidden;
       box-shadow:0 6px 14px rgba(15,23,42,0.08),0 1px 0 rgba(255,255,255,0.8) inset
     }
     .chart-box--flight{display:none}
     .mode-flight .chart-box--daq{display:none}
     .mode-flight .chart-box--flight{display:flex}
-    .chart-box-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+    .chart-box-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:2px}
     .chart-title{font-size:12px;font-weight:600;color:#111827}
     .chart-badge{font-size:10px;padding:3px 8px;border-radius:var(--radius-pill);background:rgba(255,255,255,0.8);color:#4b5563}
-    .chart-box canvas{width:100%;height:100%;max-height:100%;display:block;flex:1;min-height:0}
+    .chart-canvas-stage{
+      position:relative;
+      flex:1;
+      min-height:0;
+      padding:1px 2px 12px 12px;
+    }
+    .chart-axis-tag{
+      position:absolute;
+      font-size:10px;
+      font-weight:600;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      color:rgba(71,85,105,0.78);
+      pointer-events:none;
+      user-select:none;
+      white-space:nowrap;
+    }
+    .chart-axis-tag--y{
+      left:0;
+      top:50%;
+      transform:translate(-8%, -50%) rotate(-90deg);
+      transform-origin:left top;
+    }
+    .chart-axis-tag--x{
+      left:50%;
+      bottom:-2px;
+      transform:translateX(-50%);
+    }
+    .chart-canvas-stage canvas{width:100%;height:100%;max-height:100%;display:block;min-height:0}
     @media(max-width:900px){
       .charts-card{height:auto}
       .chart-row{flex-direction:column;flex-wrap:nowrap}
@@ -3431,6 +3611,122 @@
       flex:1;
       min-height:0;
     }
+    .mission-view{
+      flex:1;
+      min-height:0;
+    }
+    .mission-view .shell{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      min-height:0;
+    }
+    .mission-landing-card{
+      padding:16px 20px 10px;
+    }
+    .mission-landing-title{
+      font-size:18px;
+      font-weight:800;
+      letter-spacing:.04em;
+      color:#111827;
+    }
+    .mission-landing-desc{
+      margin-top:8px;
+      font-size:13px;
+      line-height:1.7;
+      color:#6b7280;
+    }
+    .mission-landing-actions{
+      margin-top:16px;
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+    .mission-view-mount{
+      margin-top:2px;
+      min-height:520px;
+      max-height:none;
+      border:none;
+      background:transparent;
+      padding:0;
+      overflow:auto;
+    }
+    .mission-view-mount .mission-dialog.is-embedded-panel{
+      border-radius:0;
+      border:none;
+      box-shadow:none;
+      background:transparent;
+      backdrop-filter:none;
+      -webkit-backdrop-filter:none;
+      padding:0;
+      min-height:100%;
+      max-height:none;
+      height:auto;
+      overflow:auto;
+    }
+    .mission-view-mount .mission-dialog.is-embedded-panel::before{
+      display:none;
+    }
+    .mission-view-mount .mission-dialog.is-embedded-panel #missionBackBtn{
+      display:none !important;
+    }
+    .mission-view-mount .mission-dialog.is-embedded-panel .mission-header{
+      padding-bottom:6px;
+      margin-bottom:8px;
+    }
+    .mission-view-mount .mission-dialog.is-embedded-panel .mission-sub{
+      max-width:none;
+    }
+    .mission-block-list.is-dragging{
+      user-select:none;
+    }
+    .mission-block-row{
+      cursor:grab;
+      touch-action:none;
+      will-change:transform;
+      transition:transform .12s ease, opacity .12s ease, box-shadow .12s ease;
+    }
+    .mission-block-row.is-free-moving{
+      transition:none;
+      z-index:2;
+      cursor:grabbing;
+    }
+    .mission-block-row.is-dragging{
+      opacity:.5;
+      transform:scale(.985);
+    }
+    .mission-block-row.drop-before{
+      box-shadow:
+        0 -6px 0 0 rgba(250,204,21,0.98),
+        0 0 0 2px rgba(250,204,21,0.36);
+    }
+    .mission-block-row.drop-after{
+      box-shadow:
+        0 6px 0 0 rgba(250,204,21,0.98),
+        0 0 0 2px rgba(250,204,21,0.36);
+    }
+    .mission-block-row.drop-inside{
+      box-shadow:inset 0 0 0 4px rgba(250,204,21,0.9);
+      border-radius:14px;
+    }
+    @media(max-width:760px){
+      .mission-view-mount{
+        min-height:320px;
+        max-height:none;
+        padding:0;
+        overflow:auto;
+      }
+      .mission-block-workspace{
+        flex-direction:column;
+        min-height:0;
+      }
+      .mission-block-palette{
+        align-self:auto !important;
+        height:auto;
+        min-height:140px;
+        max-height:none;
+      }
+    }
     .hardware-view .shell{
       display:flex;
       flex-direction:column;
@@ -3445,6 +3741,180 @@
     }
     .hardware-desc{
       margin-top:8px;font-size:13px;color:#6b7280;line-height:1.6;
+    }
+    .hardware-servo-group{
+      margin-top:14px;
+      padding-top:14px;
+      border-top:1px solid rgba(229,231,235,0.9);
+    }
+    .hardware-servo-open-row{
+      margin-top:14px;
+      padding-top:14px;
+      border-top:1px solid rgba(229,231,235,0.9);
+    }
+    .hardware-servo-dialog{
+      width:min(920px, 96vw);
+      max-width:min(920px, 96vw);
+      height:auto;
+      max-height:min(92vh, 760px);
+      padding:16px 18px;
+    }
+    .hardware-servo-dialog-body{
+      min-height:0;
+      overflow-y:auto;
+      padding-right:2px;
+    }
+    .hardware-servo-dialog .hardware-servo-group{
+      margin-top:0;
+      padding-top:0;
+      border-top:none;
+    }
+    .hardware-servo-grid{
+      margin-top:10px;
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0, 1fr));
+      gap:10px;
+    }
+    .hardware-servo-row{
+      border:1px solid rgba(148,163,184,0.35);
+      border-radius:12px;
+      background:#f8fafc;
+      padding:10px 12px;
+      display:grid;
+      gap:8px;
+    }
+    .hardware-servo-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    }
+    .hardware-servo-meta{
+      font-size:11px;
+      color:#64748b;
+      white-space:nowrap;
+    }
+    .hardware-servo-slider{
+      -webkit-appearance:none;
+      appearance:none;
+      width:100%;
+      height:8px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,0.4);
+      background:linear-gradient(90deg, rgba(59,130,246,0.18), rgba(30,64,175,0.2));
+      outline:none;
+    }
+    .hardware-servo-slider::-webkit-slider-thumb{
+      -webkit-appearance:none;
+      appearance:none;
+      width:17px;
+      height:17px;
+      border-radius:50%;
+      background:#2563eb;
+      border:2px solid #ffffff;
+      box-shadow:0 2px 8px rgba(15,23,42,0.22);
+    }
+    .hardware-servo-slider::-moz-range-thumb{
+      width:17px;
+      height:17px;
+      border-radius:50%;
+      background:#2563eb;
+      border:2px solid #ffffff;
+      box-shadow:0 2px 8px rgba(15,23,42,0.22);
+    }
+    .hardware-servo-actions{
+      display:flex;
+      justify-content:flex-end;
+      gap:8px;
+    }
+    .hardware-servo-presets{
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0, 1fr));
+      gap:8px;
+      margin-top:2px;
+    }
+    .hardware-servo-preset{
+      display:grid;
+      grid-template-columns:minmax(0, 1fr) auto;
+      gap:6px;
+      align-items:center;
+      min-width:0;
+    }
+    .hardware-servo-preset-input{
+      width:100%;
+      min-width:0;
+      padding:7px 8px;
+      font-size:12px;
+      border-radius:10px;
+      border:1px solid rgba(148,163,184,0.9);
+      background:#ffffff;
+      color:#0f172a;
+      text-align:center;
+      outline:none;
+    }
+    .hardware-servo-preset-input:focus{
+      border-color:rgba(59,130,246,0.9);
+      box-shadow:0 0 0 2px rgba(59,130,246,0.2);
+    }
+    .hardware-servo-preset-btn{
+      padding:7px 10px;
+      font-size:11px;
+      border-radius:10px;
+      border:1px solid rgba(148,163,184,0.75);
+      background:#ffffff;
+      color:#1f2937;
+      font-weight:700;
+      letter-spacing:.03em;
+      white-space:nowrap;
+    }
+    html[data-theme="dark"] .hardware-servo-group{
+      border-top-color:rgba(71,85,105,0.8);
+    }
+    html[data-theme="dark"] .hardware-servo-open-row{
+      border-top-color:rgba(71,85,105,0.8);
+    }
+    html[data-theme="dark"] .hardware-servo-row{
+      background:rgba(15,23,42,0.58);
+      border-color:rgba(71,85,105,0.75);
+    }
+    html[data-theme="dark"] .hardware-servo-meta{
+      color:#cbd5e1;
+    }
+    html[data-theme="dark"] .hardware-servo-preset-input{
+      background:#0f172a;
+      border-color:rgba(71,85,105,0.95);
+      color:#e2e8f0;
+    }
+    html[data-theme="dark"] .hardware-servo-preset-btn{
+      background:rgba(15,23,42,0.7);
+      border-color:rgba(71,85,105,0.95);
+      color:#e2e8f0;
+    }
+    html[data-theme="dark"] .hardware-servo-slider{
+      border-color:rgba(71,85,105,0.95);
+      background:linear-gradient(90deg, rgba(59,130,246,0.3), rgba(37,99,235,0.3));
+    }
+    html[data-theme="dark"] .hardware-servo-slider::-webkit-slider-thumb{
+      border-color:#0f172a;
+      box-shadow:0 2px 8px rgba(2,6,23,0.6);
+    }
+    html[data-theme="dark"] .hardware-servo-slider::-moz-range-thumb{
+      border-color:#0f172a;
+      box-shadow:0 2px 8px rgba(2,6,23,0.6);
+    }
+    @media (max-width:760px){
+      .hardware-servo-dialog{
+        width:min(100%, 440px);
+        max-width:calc(100vw - 28px);
+        max-height:calc(100dvh - max(20px, env(safe-area-inset-top, 10px) + env(safe-area-inset-bottom, 10px)));
+        padding:14px;
+      }
+      .hardware-servo-grid{
+        grid-template-columns:1fr;
+      }
+      .hardware-servo-presets{
+        grid-template-columns:1fr;
+      }
     }
     .tetris-overlay{
       position:absolute;inset:0;background:rgba(2,6,23,0.98);color:#e2e8f0;
@@ -3645,6 +4115,47 @@
     .disconnect-actions{
       display:flex;justify-content:center;margin-top:14px;
     }
+    .reboot-overlay{
+      position:fixed;inset:0;background:rgba(2,6,23,0.82);
+      display:flex;align-items:center;justify-content:center;padding:16px;z-index:66;
+      backdrop-filter:blur(10px);
+    }
+    .reboot-dialog{
+      min-width:min(360px,calc(100vw - 48px));
+      max-width:520px;
+      padding:10px 16px 6px;
+      text-align:center;
+    }
+    .reboot-actions{
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      flex-direction:column;
+      gap:10px;
+      margin-top:14px;
+    }
+    .reboot-actions .confirm-cancel{
+      margin-top:0;
+      color:#cbd5f5;
+      text-decoration:none;
+      font-size:12px;
+    }
+    .reboot-actions .confirm-cancel:hover{
+      color:#f8fafc;
+    }
+    .reboot-confirm{
+      min-width:112px;
+    }
+    .reboot-overlay.is-waiting .reboot-actions{
+      display:none;
+    }
+    .reboot-overlay.is-waiting .confirm-icon{
+      animation:rebootPulse 1.2s ease-in-out infinite;
+    }
+    @keyframes rebootPulse{
+      0%,100%{transform:scale(1);opacity:1}
+      50%{transform:scale(0.94);opacity:.84}
+    }
     .disconnect-ok{
       background:#e2e8f0;color:#0f172a;border:1px solid rgba(148,163,184,0.35);
       border-radius:999px;padding:8px 18px;font-weight:700;font-size:12px;
@@ -3748,6 +4259,59 @@
     .confirm-actions{display:flex;flex-direction:column;align-items:center;gap:8px;margin-top:4px}
     .confirm-cancel{border:none;background:none;color:#9ca3af;font-size:11px;text-decoration:underline;cursor:pointer;margin-top:2px;box-shadow:none}
     .confirm-cancel:hover{color:#e5e7eb}
+    #confirmOverlay .confirm-dialog{
+      background:linear-gradient(180deg,#ffffff,#f8fafc);
+      border-color:rgba(148,163,184,0.45);
+      color:#0f172a;
+      border-radius:12px;
+    }
+    #confirmOverlay .confirm-title{
+      color:#0f172a;
+    }
+    #confirmOverlay .confirm-text,
+    #confirmOverlay .confirm-note{
+      color:#475569;
+    }
+    #forceOverlay .confirm-dialog{
+      background:linear-gradient(180deg,#ffffff,#f8fafc);
+      border-color:rgba(148,163,184,0.45);
+      color:#0f172a;
+      border-radius:12px;
+    }
+    #forceOverlay .confirm-title{
+      color:#0f172a;
+    }
+    #forceOverlay .confirm-text,
+    #forceOverlay .confirm-note{
+      color:#475569;
+    }
+    #forceOverlay .force-cancel-link,
+    #forceOverlay .force-cancel-link:hover,
+    #forceOverlay .force-cancel-link:focus,
+    #forceOverlay .force-cancel-link:focus-visible,
+    #forceOverlay .force-cancel-link:active{
+      border:none;
+      background:transparent;
+      box-shadow:none;
+      outline:none;
+      border-radius:0;
+      text-decoration:underline;
+      text-underline-offset:4px;
+      color:#9ca3af;
+      -webkit-tap-highlight-color:transparent;
+    }
+    #confirmOverlay .confirm-cancel,
+    #confirmOverlay .confirm-cancel:hover,
+    #confirmOverlay .confirm-cancel:focus,
+    #confirmOverlay .confirm-cancel:focus-visible,
+    #confirmOverlay .confirm-cancel:active{
+      border:none;
+      background:transparent;
+      box-shadow:none;
+      outline:none;
+      border-radius:0;
+      -webkit-tap-highlight-color:transparent;
+    }
     .ws-alert-dialog{
       position:relative;
       background:linear-gradient(180deg,rgba(255,255,255,0.97),rgba(244,247,252,0.95));
@@ -4122,7 +4686,48 @@
       box-shadow:0 4px 10px rgba(15,23,42,0.12);
       user-select:none;touch-action:none
     }
-    .launcher-arrow-btn.pressed{background:#111827;color:#f9fafb}
+    .launcher-panel .launcher-arrow-btn,
+    #launcherOverlay .launcher-arrow-btn{
+      width:156px !important;
+      height:54px;
+      border-radius:12px !important;
+      border:1px solid rgba(203,213,225,0.55) !important;
+      background:#ffffff !important;
+      color:#0f172a !important;
+      box-shadow:none !important;
+      -webkit-box-shadow:none !important;
+      text-shadow:none !important;
+      filter:none !important;
+    }
+    .launcher-panel .launcher-arrow-btn:hover,
+    .launcher-panel .launcher-arrow-btn:active,
+    .launcher-panel .launcher-arrow-btn:focus,
+    .launcher-panel .launcher-arrow-btn:focus-visible,
+    .launcher-panel .launcher-arrow-btn.pressed,
+    #launcherOverlay .launcher-arrow-btn:hover,
+    #launcherOverlay .launcher-arrow-btn:active,
+    #launcherOverlay .launcher-arrow-btn:focus,
+    #launcherOverlay .launcher-arrow-btn:focus-visible,
+    #launcherOverlay .launcher-arrow-btn.pressed{
+      box-shadow:none !important;
+      -webkit-box-shadow:none !important;
+      text-shadow:none !important;
+      filter:none !important;
+    }
+    .launcher-panel .launcher-arrow-btn:hover:not(:disabled),
+    .launcher-panel .launcher-arrow-btn:active:not(:disabled),
+    #launcherOverlay .launcher-arrow-btn:hover:not(:disabled),
+    #launcherOverlay .launcher-arrow-btn:active:not(:disabled){
+      transform:none !important;
+    }
+    .launcher-panel .launcher-arrow-btn:active,
+    .launcher-panel .launcher-arrow-btn.pressed,
+    #launcherOverlay .launcher-arrow-btn:active,
+    #launcherOverlay .launcher-arrow-btn.pressed{
+      background:#e5e7eb !important;
+      color:#0f172a !important;
+    }
+    .launcher-arrow-btn.pressed{background:#e5e7eb;color:#0f172a}
     .launcher-hint{font-size:10px;color:#6b7280;text-align:center;margin-top:2px}
     .controls-hint{font-size:11px;color:#6b7280;margin-top:2px}
     .control-tile.disabled{opacity:.55;pointer-events:none;filter:grayscale(0.1)}
@@ -4283,12 +4888,18 @@
       box-shadow:0 5px 12px rgba(15,23,42,0.08);
     }
     .settings-btn:hover{filter:brightness(0.98)}
+    .settings-btn.settings-btn-danger{
+      background:rgba(248,113,113,0.12);
+      color:#b91c1c;
+      border-color:rgba(248,113,113,0.45);
+      box-shadow:0 5px 12px rgba(239,68,68,0.10);
+    }
 
     .mission-dialog{
       position:relative;width:600px;max-width:94vw;
       background:#ffffff;
       border-radius:24px;padding:18px 20px 16px;color:#0f172a;
-      min-height:480px;
+      min-height:510px;
       box-shadow:0 20px 44px rgba(15,23,42,0.18),0 2px 0 rgba(255,255,255,0.7) inset;
       border:1px solid rgba(255,255,255,0.8);
       backdrop-filter:blur(26px) saturate(1.2);-webkit-backdrop-filter:blur(26px) saturate(1.2);
@@ -4307,14 +4918,18 @@
       padding-bottom:10px;margin-bottom:12px;
       border-bottom:1px solid rgba(148,163,184,0.3)
     }
+    .mission-head-main{display:flex;flex-direction:column}
+    .mission-head-right{
+      margin-left:auto;
+      display:flex;
+      align-items:flex-start;
+      justify-content:flex-end;
+      gap:8px;
+      flex-wrap:wrap;
+    }
     .mission-title{font-size:14px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#0f172a}
     .mission-sub{font-size:11px;color:#6b7280;margin-top:6px;max-width:320px}
-    .mission-kicker{
-      display:inline-flex;align-items:center;gap:6px;
-      padding:4px 10px;border-radius:999px;
-      background:rgba(15,23,42,0.06);color:#334155;
-      font-size:10px;font-weight:800;letter-spacing:.18em;text-transform:uppercase
-    }
+    .mission-sub-note{font-size:11px;color:#b45309;margin-top:6px;max-width:420px;font-weight:700}
     .mission-close-btn{
       border:none;background:rgba(255,255,255,0.7);font-size:18px;line-height:1;
       padding:4px 6px;border-radius:999px;box-shadow:0 4px 10px rgba(15,23,42,0.12);color:#64748b
@@ -4340,6 +4955,928 @@
       background:rgba(15,23,42,0.04);border:1px solid rgba(148,163,184,0.35);
       font-size:11px;font-weight:700;color:#475569;white-space:nowrap
     }
+    .mission-block-editor{
+      margin-top:14px;
+      padding:0;
+      border:none;
+      border-radius:0;
+      background:transparent;
+      box-shadow:none;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+    .mission-block-head{
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+    }
+    .mission-block-title{
+      font-size:12px;
+      font-weight:900;
+      letter-spacing:.13em;
+      text-transform:uppercase;
+      color:#1e293b;
+    }
+    .mission-block-sub{
+      font-size:11px;
+      color:#475569;
+      line-height:1.5;
+    }
+    .mission-block-workspace{
+      display:flex;
+      gap:10px;
+      align-items:stretch;
+      height:520px;
+      min-height:480px;
+      max-height:520px;
+    }
+    .mission-block-palette{
+      flex:0 0 224px;
+      min-width:180px;
+      max-width:252px;
+      align-self:stretch !important;
+      height:auto;
+      min-height:0;
+      max-height:none;
+      border:1px solid rgba(148,163,184,0.3);
+      border-radius:14px;
+      background:linear-gradient(180deg,#dbeafe,#eff6ff 28%,#f8fafc);
+      padding:10px;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      overflow-y:auto;
+      overflow-x:hidden;
+      scrollbar-gutter:stable;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,0.86);
+    }
+    .mission-palette-title{
+      font-size:10px;
+      letter-spacing:.16em;
+      text-transform:uppercase;
+      font-weight:900;
+      color:#1d4ed8;
+      padding:2px 2px 4px;
+    }
+    .mission-palette-group{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      border:1px solid rgba(148,163,184,0.24);
+      border-radius:12px;
+      background:rgba(255,255,255,0.8);
+      padding:8px;
+    }
+    .mission-palette-group-title{
+      font-size:10px;
+      font-weight:800;
+      letter-spacing:.12em;
+      text-transform:uppercase;
+      color:#64748b;
+      margin-bottom:2px;
+    }
+    .mission-palette-group--utility{
+      background:rgba(248,250,252,0.95);
+    }
+    .mission-tool-btn{
+      border:none;
+      border-radius:13px;
+      padding:8px 10px;
+      text-align:left;
+      color:#f8fafc;
+      font-weight:800;
+      cursor:grab;
+      box-shadow:0 4px 10px rgba(15,23,42,0.16);
+      display:flex;
+      flex-direction:column;
+      gap:2px;
+      transition:transform .12s ease, filter .12s ease, box-shadow .12s ease;
+    }
+    .mission-tool-btn:hover{
+      transform:translateY(-1px);
+      filter:saturate(1.05);
+      box-shadow:0 8px 16px rgba(15,23,42,0.18);
+    }
+    .mission-tool-btn:active{
+      cursor:grabbing;
+      transform:translateY(1px);
+    }
+    .mission-tool-main{
+      font-size:12px;
+      font-weight:900;
+      letter-spacing:.01em;
+      line-height:1.2;
+      color:#f8fafc;
+    }
+    .mission-tool-sub{
+      font-size:10px;
+      color:rgba(248,250,252,0.84);
+      font-weight:700;
+      line-height:1.2;
+    }
+    .mission-tool-btn--event{
+      background:linear-gradient(135deg,#0ea5a4,#06b6d4);
+    }
+    .mission-tool-btn--action{
+      background:linear-gradient(135deg,#7c3aed,#a855f7);
+    }
+    .mission-tool-btn--logic{
+      background:linear-gradient(135deg,#0284c7,#0ea5e9);
+    }
+    .mission-block-canvas{
+      flex:1 1 auto;
+      border:1px solid rgba(148,163,184,0.3);
+      border-radius:14px;
+      padding:10px;
+      background:
+        radial-gradient(circle at 1px 1px, rgba(148,163,184,0.22) 1px, transparent 1.1px) 0 0/12px 12px,
+        linear-gradient(180deg,#f8fafc,#eef2ff);
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      min-height:0;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,0.86);
+    }
+    .mission-block-canvas.is-empty{
+      background:
+        radial-gradient(circle at 1px 1px, rgba(148,163,184,0.18) 1px, transparent 1.1px) 0 0/12px 12px,
+        linear-gradient(180deg,#f8fafc,#f1f5f9);
+    }
+    .mission-block-canvas.drop-active{
+      box-shadow:0 0 0 3px rgba(250,204,21,0.42) inset;
+      border-color:rgba(250,204,21,0.8);
+    }
+    .mission-block-canvas-top{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      padding:0 2px;
+    }
+    .mission-block-canvas-meta{
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+    .mission-block-canvas-label{
+      font-size:10px;
+      letter-spacing:.16em;
+      text-transform:uppercase;
+      font-weight:900;
+      color:#334155;
+    }
+    .mission-block-canvas-count{
+      font-size:10px;
+      font-weight:800;
+      letter-spacing:.04em;
+      color:#1d4ed8;
+      border:1px solid rgba(96,165,250,0.35);
+      border-radius:999px;
+      padding:2px 8px;
+      background:rgba(219,234,254,0.78);
+    }
+    .mission-canvas-zoom-controls{
+      display:inline-flex;
+      align-items:center;
+      gap:4px;
+      padding:2px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,0.35);
+      background:rgba(255,255,255,0.9);
+    }
+    .mission-canvas-zoom-btn,
+    .mission-canvas-zoom-reset{
+      border:none;
+      border-radius:999px;
+      background:transparent;
+      color:#1e293b;
+      font-weight:800;
+      font-size:11px;
+      line-height:1;
+      height:24px;
+      padding:0 9px;
+      cursor:pointer;
+    }
+    .mission-canvas-zoom-btn{
+      width:24px;
+      padding:0;
+      font-size:14px;
+    }
+    .mission-canvas-zoom-btn:hover,
+    .mission-canvas-zoom-reset:hover{
+      background:rgba(219,234,254,0.8);
+    }
+    .mission-block-canvas-hint{
+      font-size:10px;
+      line-height:1.4;
+      color:#64748b;
+      padding:6px 8px;
+      border:1px dashed rgba(148,163,184,0.42);
+      border-radius:10px;
+      background:rgba(255,255,255,0.56);
+    }
+    .mission-block-actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+    .mission-block-actions--footer{
+      display:none;
+    }
+    .mission-block-actions .settings-btn{
+      min-width:92px;
+      padding:7px 12px;
+      font-size:11px;
+    }
+    .mission-block-list{
+      position:relative;
+      flex:1 1 auto;
+      min-height:260px;
+      min-width:0;
+      overflow:auto;
+      overscroll-behavior:contain;
+      touch-action:pan-x pan-y;
+      scroll-behavior:smooth;
+      cursor:grab;
+    }
+    .mission-block-list.is-panning{
+      cursor:grabbing;
+    }
+    .mission-block-stage{
+      position:relative;
+      display:flex;
+      flex-direction:column;
+      align-items:flex-start;
+      gap:8px;
+      width:max-content;
+      min-width:max(100%, 1600px);
+      min-height:max(100%, 1200px);
+      padding:2px 320px 420px 2px;
+      transform-origin:0 0;
+      zoom:1;
+    }
+    .mission-block-row{
+      border:1px solid transparent;
+      border-radius:14px;
+      background:transparent;
+      padding:0;
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      align-items:flex-start;
+      min-width:max-content;
+    }
+    .mission-block-empty{
+      border:2px dashed rgba(148,163,184,0.48);
+      border-radius:12px;
+      padding:14px 12px;
+      font-size:11px;
+      color:#475569;
+      text-align:center;
+      background:rgba(248,250,252,0.72);
+      width:100%;
+      line-height:1.5;
+    }
+    .scratch-stack{
+      display:flex !important;
+      flex-direction:column !important;
+      gap:6px !important;
+      align-items:flex-start !important;
+      border:none !important;
+      background:transparent !important;
+      padding:0 !important;
+    }
+    .scratch-row-meta{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      margin-left:2px;
+    }
+    .scratch-row-index{
+      min-width:22px;
+      height:20px;
+      border-radius:10px;
+      background:#1d4ed8;
+      color:#dbeafe;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      font-size:11px;
+      font-weight:900;
+      box-shadow:0 2px 6px rgba(29,78,216,0.28);
+    }
+    .scratch-row-kind{
+      border-radius:999px;
+      padding:2px 8px;
+      font-size:10px;
+      font-weight:800;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      color:#334155;
+      background:rgba(226,232,240,0.92);
+      border:1px solid rgba(148,163,184,0.38);
+    }
+    .mission-if-group{
+      --if-shell:#f59e0b;
+      --if-shell-dark:#d97706;
+      position:relative;
+      display:inline-flex;
+      flex-direction:column;
+      align-self:flex-start;
+      gap:0;
+      margin:0 0 10px 0;
+      width:auto;
+      min-width:max-content;
+      max-width:none;
+    }
+    .mission-if-group > .mission-block-row{
+      margin-bottom:0;
+      border:none !important;
+      background:transparent !important;
+      padding:0 !important;
+      width:auto;
+      max-width:none;
+    }
+    .mission-if-group > .mission-block-row .scratch-control--if{
+      background:linear-gradient(180deg,var(--if-shell),var(--if-shell-dark));
+      border-radius:12px 12px 12px 0;
+      box-shadow:0 6px 14px rgba(15,23,42,0.16);
+      padding:10px 12px;
+      gap:8px;
+      width:auto;
+      max-width:none;
+    }
+    .mission-if-branch{
+      position:relative;
+      margin:0;
+      padding:8px 0 8px 8px;
+      border-left:10px solid var(--if-shell);
+      border-bottom:10px solid var(--if-shell);
+      border-radius:0 0 0 12px;
+      min-height:44px;
+      min-width:260px;
+      width:max-content;
+      box-sizing:border-box;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      transition:background .12s ease, box-shadow .12s ease, border-color .12s ease;
+    }
+    .mission-if-branch:empty::after{
+      content:"여기에 블럭 넣기";
+      font-size:11px;
+      font-weight:700;
+      color:#a16207;
+      padding:2px 0 3px;
+      display:block;
+    }
+    .mission-if-branch.drop-active{
+      background:rgba(251,191,36,0.2);
+      box-shadow:
+        inset 0 0 0 2px rgba(217,119,6,0.45),
+        inset 0 10px 0 0 rgba(250,204,21,0.88);
+    }
+    .mission-if-branch.drop-active::before{
+      content:"";
+      position:absolute;
+      left:0;
+      right:0;
+      top:0;
+      height:10px;
+      border-radius:8px 0 0 0;
+      background:linear-gradient(90deg, rgba(245,158,11,0.92), rgba(250,204,21,0.88));
+      pointer-events:none;
+    }
+    .mission-row--nested{
+      margin:0;
+    }
+    .mission-if-group .scratch-text{
+      color:#fff7ed;
+    }
+    .mission-if-group .scratch-field--if-type{
+      background:#b45309;
+      color:#fff7ed;
+      min-width:102px;
+    }
+    .mission-if-group .scratch-field--if-op{
+      background:#92400e;
+      color:#fff7ed;
+      border-color:rgba(255,237,213,0.38);
+    }
+    .mission-if-group .scratch-input--if-value{
+      background:#fde68a;
+      color:#7c2d12;
+      box-shadow:inset 0 -1px 0 rgba(120,53,15,0.2),0 2px 4px rgba(0,0,0,0.1);
+    }
+    .mission-if-group .scratch-badge--if-key{
+      background:#b45309;
+      border-color:rgba(255,237,213,0.32);
+      clip-path:polygon(12% 0,88% 0,100% 50%,88% 100%,12% 100%,0 50%);
+      min-width:38px;
+      text-align:center;
+      padding-left:12px;
+      padding-right:12px;
+    }
+    .mission-if-group .scratch-control--if .scratch-mini-btn--close{
+      background:#a16207;
+      color:#fff7ed;
+    }
+    .scratch-badge--t0{
+      background:rgba(20,184,166,0.9);
+      border-color:rgba(204,251,241,0.38);
+      color:#ecfeff;
+      font-weight:900;
+      letter-spacing:.02em;
+    }
+    .scratch-block{
+      border:none;
+      border-radius:18px;
+      padding:10px 12px;
+      display:flex;
+      flex-wrap:nowrap;
+      align-items:center;
+      gap:7px;
+      color:#ffffff;
+      font-size:12px;
+      font-weight:700;
+      box-shadow:0 6px 14px rgba(15,23,42,0.16);
+      position:relative;
+    }
+    .scratch-block::after{
+      content:none;
+    }
+    .scratch-action{
+      background:linear-gradient(135deg,#7c3aed,#a855f7);
+    }
+    .mission-block-row[data-action-type="wait"] .scratch-action{
+      background:linear-gradient(135deg,#2563eb,#1d4ed8);
+    }
+    .scratch-control{
+      background:linear-gradient(135deg,#0284c7,#0ea5e9);
+      justify-content:space-between;
+    }
+    .scratch-control--if{
+      background:linear-gradient(135deg,#0891b2,#06b6d4);
+      border-radius:18px;
+      justify-content:flex-start;
+      gap:8px;
+    }
+    .scratch-text{
+      font-size:12px;
+      font-weight:800;
+      letter-spacing:.01em;
+      color:#f8fafc;
+    }
+    .scratch-inline{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+    }
+    .scratch-field{
+      border:none;
+      border-radius:999px;
+      background:#facc15;
+      color:#1f2937;
+      font-size:12px;
+      font-weight:800;
+      padding:4px 10px;
+      min-height:28px;
+      outline:none;
+      box-shadow:inset 0 -1px 0 rgba(0,0,0,0.14),0 2px 4px rgba(0,0,0,0.12);
+    }
+    .scratch-field:focus{
+      box-shadow:0 0 0 3px rgba(255,255,255,0.45), inset 0 -1px 0 rgba(0,0,0,0.14),0 2px 4px rgba(0,0,0,0.12);
+    }
+    .scratch-input{
+      width:86px;
+      text-align:center;
+    }
+    .scratch-input--xs{
+      width:56px;
+      min-width:56px;
+    }
+    .scratch-select{
+      cursor:pointer;
+    }
+    .scratch-text--if{
+      min-width:28px;
+      text-align:center;
+    }
+    .scratch-field--if-type{
+      background:#8b5cf6;
+      color:#f8fafc;
+      min-width:104px;
+    }
+    .scratch-input--if-value{
+      width:52px;
+      min-width:52px;
+      padding:4px 8px;
+    }
+    .scratch-field--if-op{
+      width:48px;
+      min-width:48px;
+      padding:4px 6px;
+      background:rgba(15,23,42,0.35);
+      color:#f8fafc;
+      border:1px solid rgba(148,163,184,0.4);
+      box-shadow:inset 0 -1px 0 rgba(0,0,0,0.14),0 2px 4px rgba(0,0,0,0.1);
+    }
+    .scratch-badge{
+      border-radius:999px;
+      background:rgba(255,255,255,0.24);
+      padding:4px 9px;
+      font-size:11px;
+      font-weight:800;
+      color:#ffffff;
+      border:1px solid rgba(255,255,255,0.28);
+    }
+    .scratch-badge--if-key{
+      background:#7c3aed;
+      border-color:rgba(248,250,252,0.24);
+    }
+    .scratch-mini-btn{
+      border:none;
+      border-radius:10px;
+      padding:5px 9px;
+      font-size:11px;
+      font-weight:800;
+      color:#0f172a;
+      background:#e2e8f0;
+      cursor:pointer;
+      box-shadow:0 2px 4px rgba(0,0,0,0.14);
+    }
+    .scratch-mini-btn--close{
+      width:30px;
+      height:30px;
+      padding:0;
+      border-radius:10px;
+      font-size:20px;
+      line-height:1;
+      color:#e2e8f0;
+      margin-left:auto;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      box-shadow:inset 0 -1px 0 rgba(0,0,0,0.18),0 2px 4px rgba(0,0,0,0.14);
+      background:rgba(109,40,217,0.8);
+    }
+    .scratch-control--if .scratch-mini-btn--close{
+      background:rgba(8,145,178,0.8);
+    }
+    .mission-block-editor--scratch-entry{
+      --entry-bg:#f4f7fc;
+      --entry-grid:#d8e2f0;
+      --entry-border:#b8c8de;
+      --entry-ink:#1f2937;
+      --entry-muted:#5b6a80;
+      --entry-palette:#edf5ff;
+      --entry-palette-group:#ffffff;
+      --entry-shadow:0 10px 18px rgba(15,23,42,0.12);
+      font-family:"Nunito","Noto Sans KR","Apple SD Gothic Neo","Segoe UI",sans-serif;
+    }
+    .mission-block-editor--scratch-entry .mission-block-workspace{
+      gap:12px;
+      height:560px;
+      min-height:500px;
+      max-height:560px;
+    }
+    .mission-block-editor--scratch-entry .mission-block-palette{
+      flex:0 0 256px;
+      min-width:220px;
+      max-width:276px;
+      border:2px solid var(--entry-border);
+      border-radius:16px;
+      background:linear-gradient(180deg,#f8fbff 0%, var(--entry-palette) 100%);
+      box-shadow:inset 0 1px 0 rgba(255,255,255,0.96), 0 8px 18px rgba(15,23,42,0.08);
+      padding:10px 10px 12px;
+      gap:9px;
+    }
+    .mission-block-editor--scratch-entry .mission-palette-title{
+      color:#1976d2;
+      font-size:11px;
+      letter-spacing:.14em;
+      padding:2px 4px 6px;
+    }
+    .mission-block-editor--scratch-entry .mission-palette-group{
+      border:none;
+      border-radius:0;
+      background:transparent;
+      box-shadow:none;
+      padding:0;
+      gap:8px;
+    }
+    .mission-block-editor--scratch-entry .mission-palette-group-title{
+      color:#51637d;
+      letter-spacing:.09em;
+      padding-left:6px;
+      border-left:3px solid #93b4de;
+      margin-bottom:2px;
+    }
+    .mission-block-editor--scratch-entry .mission-tool-btn{
+      position:relative;
+      border-radius:11px;
+      padding:10px 12px 10px 16px;
+      border:1px solid rgba(255,255,255,0.48);
+      box-shadow:0 4px 10px rgba(15,23,42,0.2), inset 0 1px 0 rgba(255,255,255,0.28);
+      transform:none;
+      filter:none;
+      overflow:visible;
+    }
+    .mission-block-editor--scratch-entry .mission-tool-btn::before,
+    .mission-block-editor--scratch-entry .mission-tool-btn::after{
+      content:"";
+      position:absolute;
+      left:22px;
+      width:18px;
+      height:8px;
+      border-radius:6px;
+      pointer-events:none;
+      background:rgba(0,0,0,0.24);
+    }
+    .mission-block-editor--scratch-entry .mission-tool-btn::before{
+      top:-4px;
+    }
+    .mission-block-editor--scratch-entry .mission-tool-btn::after{
+      bottom:-4px;
+    }
+    .mission-block-editor--scratch-entry .mission-tool-btn:hover{
+      transform:translateY(-1px) scale(1.01);
+      box-shadow:0 8px 16px rgba(15,23,42,0.22), inset 0 1px 0 rgba(255,255,255,0.32);
+    }
+    .mission-block-editor--scratch-entry .mission-tool-btn.is-dragging{
+      opacity:.94;
+      filter:brightness(1.03);
+    }
+    .mission-block-editor--scratch-entry .mission-tool-btn--event{
+      background:linear-gradient(180deg,#ffbc32,#f4a011);
+    }
+    .mission-block-editor--scratch-entry .mission-tool-btn--action{
+      background:linear-gradient(180deg,#4c97ff,#3373cc);
+    }
+    .mission-block-editor--scratch-entry .mission-tool-btn--logic{
+      background:linear-gradient(180deg,#9966ff,#7d4fd5);
+    }
+    .mission-block-editor--scratch-entry .mission-tool-main{
+      font-size:12px;
+      letter-spacing:.01em;
+      text-shadow:0 1px 0 rgba(0,0,0,0.2);
+    }
+    .mission-block-editor--scratch-entry .mission-tool-sub{
+      font-size:10px;
+      color:rgba(255,255,255,0.9);
+    }
+    .mission-block-editor--scratch-entry .mission-block-canvas{
+      border:2px solid var(--entry-border);
+      border-radius:16px;
+      background:
+        radial-gradient(circle at 1px 1px, rgba(186,202,225,0.78) 1px, transparent 1.1px) 0 0/18px 18px,
+        linear-gradient(180deg,#f9fbff 0%, var(--entry-bg) 100%);
+      box-shadow:inset 0 1px 0 rgba(255,255,255,0.96), var(--entry-shadow);
+      padding:10px 12px 12px;
+      gap:10px;
+    }
+    .mission-block-editor--scratch-entry .mission-block-canvas-top{
+      padding:0 2px;
+    }
+    .mission-block-editor--scratch-entry .mission-block-canvas-label{
+      color:#314156;
+      font-size:11px;
+      letter-spacing:.14em;
+    }
+    .mission-block-editor--scratch-entry .mission-block-canvas-count{
+      font-size:11px;
+      color:#264f8a;
+      background:rgba(223,236,255,0.9);
+      border:1px solid rgba(115,153,208,0.58);
+      padding:3px 10px;
+    }
+    .mission-block-editor--scratch-entry .mission-canvas-zoom-controls{
+      border:1px solid rgba(126,155,197,0.5);
+      background:#ffffff;
+      box-shadow:0 1px 2px rgba(15,23,42,0.08);
+    }
+    .mission-block-editor--scratch-entry .mission-canvas-zoom-btn,
+    .mission-block-editor--scratch-entry .mission-canvas-zoom-reset{
+      color:#2b3f57;
+      font-weight:900;
+    }
+    .mission-block-editor--scratch-entry .mission-block-canvas-hint{
+      font-size:10px;
+      color:#4d6078;
+      background:rgba(255,255,255,0.86);
+      border:1px dashed rgba(128,155,196,0.58);
+      border-radius:10px;
+      padding:7px 10px;
+    }
+    .mission-block-editor--scratch-entry .mission-block-list{
+      border:1px solid rgba(157,178,208,0.4);
+      border-radius:12px;
+      background:rgba(255,255,255,0.42);
+      cursor:grab;
+      padding:8px;
+    }
+    .mission-block-editor--scratch-entry .mission-block-list.is-dragging{
+      cursor:grabbing;
+    }
+    .mission-block-editor--scratch-entry .mission-block-stage{
+      min-width:max(100%, 1800px);
+      min-height:max(100%, 1320px);
+      padding:6px 360px 520px 8px;
+      gap:10px;
+    }
+    .mission-block-editor--scratch-entry .mission-block-row{
+      cursor:grab;
+      user-select:none;
+    }
+    .mission-block-editor--scratch-entry .scratch-row-meta,
+    .mission-block-editor--scratch-entry .scratch-row-index,
+    .mission-block-editor--scratch-entry .scratch-row-kind,
+    .mission-block-editor--scratch-entry .scratch-row-handle{
+      display:none !important;
+    }
+    .mission-block-editor--scratch-entry .mission-block-row.is-dragging{
+      opacity:.68;
+      filter:saturate(0.86);
+    }
+    .mission-block-editor--scratch-entry .mission-block-row.drop-before{
+      box-shadow:0 -5px 0 0 rgba(59,130,246,0.95), 0 0 0 2px rgba(59,130,246,0.3);
+    }
+    .mission-block-editor--scratch-entry .mission-block-row.drop-after{
+      box-shadow:0 5px 0 0 rgba(59,130,246,0.95), 0 0 0 2px rgba(59,130,246,0.3);
+    }
+    .mission-block-editor--scratch-entry .mission-block-row.drop-inside{
+      box-shadow:inset 0 0 0 3px rgba(59,130,246,0.72);
+    }
+    .mission-block-editor--scratch-entry .scratch-stack{
+      gap:7px !important;
+    }
+    .mission-block-editor--scratch-entry .scratch-row-meta{
+      gap:8px;
+      margin-left:6px;
+    }
+    .mission-block-editor--scratch-entry .scratch-row-index{
+      min-width:26px;
+      height:22px;
+      border-radius:11px;
+      background:#2b64b2;
+      color:#ecf4ff;
+      font-size:11px;
+      font-weight:900;
+    }
+    .mission-block-editor--scratch-entry .scratch-row-kind{
+      border-radius:999px;
+      padding:3px 9px;
+      font-size:10px;
+      font-weight:900;
+      letter-spacing:.05em;
+      color:#40506a;
+      background:#e8effa;
+      border:1px solid rgba(144,166,197,0.58);
+    }
+    .mission-block-editor--scratch-entry .scratch-row-handle{
+      width:20px;
+      height:20px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      border-radius:6px;
+      font-size:11px;
+      font-weight:900;
+      color:#5f6f86;
+      background:rgba(226,236,249,0.92);
+      border:1px solid rgba(153,176,207,0.6);
+      cursor:grab;
+      line-height:1;
+    }
+    .mission-block-editor--scratch-entry .scratch-row-handle:active{
+      cursor:grabbing;
+    }
+    .mission-block-editor--scratch-entry .scratch-block{
+      --blk-main:#4c97ff;
+      --blk-deep:#3373cc;
+      border-radius:11px;
+      padding:10px 13px 10px 16px;
+      box-shadow:0 4px 10px rgba(15,23,42,0.18), inset 0 1px 0 rgba(255,255,255,0.24);
+      background:linear-gradient(180deg,var(--blk-main),var(--blk-deep));
+      border:1px solid rgba(255,255,255,0.3);
+    }
+    .mission-block-editor--scratch-entry .scratch-block::before,
+    .mission-block-editor--scratch-entry .scratch-block::after{
+      content:"";
+      position:absolute;
+      left:22px;
+      width:18px;
+      height:8px;
+      border-radius:6px;
+      background:rgba(0,0,0,0.24);
+      pointer-events:none;
+    }
+    .mission-block-editor--scratch-entry .scratch-block::before{top:-4px;}
+    .mission-block-editor--scratch-entry .scratch-block::after{bottom:-4px;}
+    .mission-block-editor--scratch-entry .scratch-action{
+      --blk-main:#4c97ff;
+      --blk-deep:#357ad0;
+    }
+    .mission-block-editor--scratch-entry .scratch-control,
+    .mission-block-editor--scratch-entry .scratch-control--if{
+      --blk-main:#ffab19;
+      --blk-deep:#e99100;
+    }
+    .mission-block-editor--scratch-entry .mission-block-row[data-row-type="loop"] .scratch-control{
+      --blk-main:#9966ff;
+      --blk-deep:#7d4fd5;
+    }
+    .mission-block-editor--scratch-entry .scratch-text{
+      color:#f8fbff;
+      font-weight:800;
+      letter-spacing:.005em;
+      text-shadow:0 1px 0 rgba(0,0,0,0.22);
+    }
+    .mission-block-editor--scratch-entry .scratch-field{
+      border:1px solid rgba(104,128,161,0.45);
+      border-radius:8px;
+      background:#ffffff;
+      color:var(--entry-ink);
+      box-shadow:none;
+      min-height:30px;
+      font-weight:800;
+      padding:4px 9px;
+    }
+    .mission-block-editor--scratch-entry .scratch-field:focus{
+      box-shadow:0 0 0 2px rgba(76,151,255,0.3);
+      border-color:rgba(76,151,255,0.84);
+    }
+    .mission-block-editor--scratch-entry .scratch-field--if-type{
+      background:#f3f7ff;
+      color:#324866;
+      min-width:114px;
+    }
+    .mission-block-editor--scratch-entry .scratch-field--if-op{
+      background:#eef4ff;
+      color:#2d4667;
+      border-color:rgba(100,130,170,0.44);
+    }
+    .mission-block-editor--scratch-entry .scratch-badge{
+      background:rgba(22,37,58,0.18);
+      border:1px solid rgba(255,255,255,0.32);
+      color:#e9f2ff;
+    }
+    .mission-block-editor--scratch-entry .scratch-mini-btn--close{
+      background:rgba(23,38,62,0.34);
+      color:#f8fbff;
+      border:1px solid rgba(255,255,255,0.35);
+      box-shadow:none;
+    }
+    .mission-block-editor--scratch-entry .mission-if-group .scratch-control--if{
+      border-radius:11px 11px 11px 0;
+    }
+    .mission-block-editor--scratch-entry .mission-if-branch{
+      border-left-width:9px;
+      border-bottom-width:9px;
+      border-radius:0 0 0 10px;
+      min-height:48px;
+      padding:9px 0 9px 9px;
+      background:rgba(255,255,255,0.26);
+    }
+    .mission-block-editor--scratch-entry .mission-if-branch.drop-active{
+      background:rgba(255,220,153,0.38);
+      box-shadow:inset 0 0 0 2px rgba(234,147,0,0.46);
+    }
+    .mission-block-editor--scratch-entry .mission-if-branch:empty::after{
+      color:#8a5a00;
+      font-weight:800;
+    }
+    .mission-block-editor--scratch-entry .mission-block-empty{
+      background:rgba(255,255,255,0.8);
+      border:2px dashed rgba(124,152,194,0.54);
+      color:#4a5d77;
+      border-radius:12px;
+    }
+    @media (max-width:760px){
+      .mission-block-editor--scratch-entry .mission-block-workspace{
+        height:auto;
+        min-height:0;
+        max-height:none;
+        flex-direction:column;
+      }
+      .mission-block-editor--scratch-entry .mission-block-palette{
+        flex:none;
+        width:100%;
+        min-width:0;
+        max-width:none;
+        max-height:260px;
+      }
+      .mission-block-editor--scratch-entry .mission-block-canvas{
+        min-height:420px;
+      }
+      .mission-block-editor--scratch-entry .mission-block-stage{
+        min-width:max(100%, 1120px);
+        min-height:max(100%, 980px);
+        padding-right:220px;
+        padding-bottom:260px;
+      }
+    }
     .mission-divider{height:1px;background:rgba(148,163,184,0.28);margin:8px 0 10px}
     .mission-fields .mission-divider{display:none}
     .mission-dialog.custom-mode .mission-header,
@@ -4353,22 +5890,49 @@
       padding-top:2px;padding-bottom:16px
     }
     .mission-preset-title{
-      font-size:16px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+      font-size:13px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
       color:#475569;text-align:center
     }
     .mission-preset-row{transform:translateY(6px)}
+    .mission-sync-row{
+      display:flex;justify-content:center;gap:8px;margin-top:6px;padding-top:6px;
+    }
+    .mission-sync-row--top{
+      margin-top:0;
+      padding-top:0;
+      justify-content:flex-end;
+      flex-wrap:wrap;
+    }
+    .mission-sync-row .settings-btn{
+      min-width:92px;
+      padding:9px 14px;
+    }
+    .mission-import-label{
+      display:inline-flex;align-items:center;justify-content:center;cursor:pointer;
+    }
+    .mission-import-input{
+      position:absolute;
+      width:1px;
+      height:1px;
+      opacity:0;
+      pointer-events:none;
+    }
     .mission-footer{
       display:flex;justify-content:center;gap:8px;margin-top:auto;padding-top:12px;
       border-top:1px solid rgba(148,163,184,0.25)
+    }
+    .mission-footer .settings-btn{
+      min-width:92px;
+      padding:9px 15px;
     }
     .mission-confirm-btn{
       border-radius:999px;border:1px solid rgba(34,197,94,0.6);
       background:#22c55e;
       color:#f0fdf4;font-weight:800;font-size:12px;padding:9px 16px;
-      box-shadow:0 10px 18px rgba(34,197,94,0.25);
-      transition:transform .18s ease, box-shadow .18s ease, filter .18s ease
+      box-shadow:0 8px 14px rgba(34,197,94,0.18);
+      transition:transform .18s ease, box-shadow .18s ease
     }
-    .mission-confirm-btn:hover{transform:translateY(-1px);box-shadow:0 14px 22px rgba(34,197,94,0.3)}
+    .mission-confirm-btn:hover{transform:translateY(-1px);box-shadow:0 10px 16px rgba(34,197,94,0.24)}
     .mission-preset-row{display:flex;align-items:center;justify-content:center;gap:8px}
     .mission-preset-row.hidden{display:none}
     .mission-scroll-btn{
@@ -4410,20 +5974,20 @@
     .mission-preset-grid.hidden{display:none}
     .mission-preset-btn{
       border-radius:16px;border:1px solid rgba(148,163,184,0.3);
-      background:linear-gradient(180deg,#ffffff,#f6f8fc);
+      background:linear-gradient(180deg,#ffffff,#f7f9fc);
       padding:6px;display:flex;flex-direction:column;align-items:center;gap:6px;
       min-width:var(--preset-card);flex:0 0 var(--preset-card);
       min-height:165px;
-      box-shadow:0 6px 16px rgba(15,23,42,0.08);
+      box-shadow:0 6px 14px rgba(15,23,42,0.08);
       transform:scale(0.94);
       transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
       position:relative;overflow:hidden
     }
     .mission-preset-btn:hover,
-    .mission-preset-btn:active{transform:scale(0.94);box-shadow:0 10px 20px rgba(15,23,42,0.14)}
+    .mission-preset-btn:active{transform:scale(0.94);box-shadow:0 10px 18px rgba(15,23,42,0.13)}
     .mission-preset-btn.is-center{
       transform:scale(1);
-      box-shadow:0 12px 24px rgba(15,23,42,0.16);
+      box-shadow:0 10px 18px rgba(15,23,42,0.14);
       border-color:rgba(59,130,246,0.55)
     }
     .mission-preset-photo{
@@ -4632,6 +6196,35 @@
     }
     .loadcell-input:focus{box-shadow:0 0 0 4px rgba(10,132,255,0.2),0 8px 16px rgba(15,23,42,0.08);border-color:rgba(10,132,255,0.6)}
     .loadcell-note{font-size:11px;color:#6b7280}
+    .loadcell-calc-card{margin-top:2px}
+    .loadcell-card > .loadcell-calc-box{
+      width:100%;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      align-items:stretch;
+      text-align:left;
+    }
+    .loadcell-calc-row{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      padding:6px 8px;
+      border-radius:10px;
+      background:rgba(15,23,42,0.04);
+    }
+    .loadcell-calc-key{
+      font-size:12px;
+      color:#475569;
+      letter-spacing:0.01em;
+    }
+    .loadcell-calc-value{
+      font-size:12px;
+      font-weight:700;
+      color:#111827;
+      font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,Liberation Mono,monospace;
+    }
     .loadcell-actions{
       display:flex;gap:8px;justify-content:center;width:100%;
       position:absolute;left:0;right:0;bottom:0;
@@ -4649,6 +6242,14 @@
     .loadcell-cancel{
       padding:9px 14px;font-size:12px;border-radius:12px;border:1px solid rgba(148,163,184,0.7);
       background:#ffffff;color:#374151
+    }
+    .loadcell-primary:disabled,
+    .loadcell-secondary:disabled,
+    .loadcell-cancel:disabled{
+      opacity:.45;
+      cursor:not-allowed;
+      filter:saturate(0.65);
+      box-shadow:none;
     }
     .loadcell-warning{
       display:none;
@@ -4711,8 +6312,22 @@
       color:#94a3b8;font-size:11px;line-height:1.5;text-align:center
     }
     .loadcell-step-input{display:none;flex-direction:column;align-items:center;gap:8px;width:100%}
-    .loadcell-dialog.step-input .loadcell-step-current{display:none}
+    .loadcell-step-complete{display:none}
+    .loadcell-success-title{
+      font-size:16px;
+      font-weight:800;
+      color:#0f172a;
+      letter-spacing:.01em;
+    }
+    .loadcell-success-text{
+      font-size:12px;
+      color:#475569;
+      line-height:1.6;
+    }
     .loadcell-dialog.step-input .loadcell-step-input{display:flex}
+    .loadcell-dialog.step-complete .loadcell-step-current,
+    .loadcell-dialog.step-complete .loadcell-step-input{display:none}
+    .loadcell-dialog.step-complete .loadcell-step-complete{display:block}
     .loadcell-dialog.show-warning .loadcell-main{display:none}
     .loadcell-dialog.show-warning .loadcell-warning{
       display:flex;
@@ -4907,16 +6522,26 @@
         padding:10px 12px;
         overflow:visible;
       }
-      .mobile-controls-active .side-nav-mobile::after{
-        content:"";
-        position:absolute;
-        top:-8px;
-        left:12px;
-        right:12px;
-        height:1px;
-        background:rgba(15,23,42,0.08);
-        border-radius:1px;
-        pointer-events:none;
+      html.mobile-controls-active:not(.phone-landscape-layout) .side-nav-mobile{
+        top:auto;
+        bottom:calc(12px + env(safe-area-inset-bottom, 0px));
+        z-index:92;
+        height:auto;
+        min-height:72px;
+        padding:10px 12px 12px;
+        border-radius:18px;
+        box-shadow:none;
+        flex-direction:column;
+        justify-content:flex-start;
+        align-items:stretch;
+      }
+      html.mobile-controls-active:not(.phone-landscape-layout) .side-nav-mobile .side-nav-menu{
+        order:1;
+        width:100%;
+        flex:0 0 auto;
+      }
+      html.mobile-controls-active:not(.phone-landscape-layout) .side-nav-mobile::after{
+        content:none;
       }
       .side-nav-mobile .side-nav-menu{
         flex:1;
@@ -5059,11 +6684,11 @@
         width:auto;
         border-radius:16px;
         padding:30px 14px 12px;
-        background:linear-gradient(180deg,rgba(14,22,36,0.88),rgba(8,14,26,0.82));
-        border:1px solid rgba(255,255,255,0.14);
-        box-shadow:0 18px 36px rgba(2,6,23,0.28);
-        backdrop-filter:blur(20px) saturate(1.08);
-        -webkit-backdrop-filter:blur(20px) saturate(1.08);
+        background:linear-gradient(180deg,rgba(255,255,255,0.99),rgba(248,250,252,0.97));
+        border:1px solid rgba(148,163,184,0.34);
+        box-shadow:0 18px 36px rgba(15,23,42,0.16);
+        backdrop-filter:blur(10px);
+        -webkit-backdrop-filter:blur(10px);
         flex-direction:column;
         justify-content:flex-start;
         gap:12px;
@@ -5073,7 +6698,7 @@
         transition:transform .32s cubic-bezier(0.22,0.61,0.36,1),opacity .28s ease;
         opacity:0;
         pointer-events:none;
-        z-index:70;
+        z-index:80;
         will-change:transform,opacity;
         overflow:hidden;
       }
@@ -5081,6 +6706,33 @@
         transform:translateY(0);
         opacity:1;
         pointer-events:auto;
+      }
+      html.mobile-controls-active:not(.phone-landscape-layout) .mobile-controls-panel{
+        order:2;
+        position:static;
+        top:auto;
+        right:auto;
+        bottom:auto;
+        left:auto;
+        width:100%;
+        max-width:none;
+        margin:8px 0 0;
+        border:none;
+        border-top:1px solid rgba(148,163,184,0.36);
+        border-radius:0;
+        padding:10px 2px 0;
+        background:transparent;
+        box-shadow:none;
+        backdrop-filter:none;
+        -webkit-backdrop-filter:none;
+        transform:none;
+        opacity:1;
+        pointer-events:auto;
+        overflow:visible;
+        max-height:none;
+      }
+      html.mobile-controls-active:not(.phone-landscape-layout) .mobile-controls-panel .mobile-controls-handle{
+        display:none;
       }
       .mobile-controls-handle{
         display:block;
@@ -5091,7 +6743,7 @@
         width:44px;
         height:4px;
         border-radius:999px;
-        background:rgba(226,232,240,0.32);
+        background:rgba(100,116,139,0.34);
       }
       .mobile-controls-head{display:none}
       .mobile-controls-head-title{font-weight:600;color:#94a3b8}
@@ -5117,7 +6769,7 @@
         min-height:0;
         border:none;
         background:transparent;
-        color:#f8fafc;
+        color:#334155;
         min-width:0;
         width:100%;
         gap:6px;
@@ -5136,7 +6788,7 @@
         min-height:0;
         border:none;
         background:transparent;
-        color:#f8fafc;
+        color:#334155;
         padding:0;
         border-radius:0;
       }
@@ -5148,24 +6800,25 @@
         gap:6px;
         text-align:center;
         cursor:pointer;
+        border-radius:12px;
       }
       .mobile-controls-panel .mobile-quick-icon{
         width:48px;
         height:48px;
-        border-radius:999px;
-        border:1px solid rgba(255,255,255,0.12);
-        background:rgba(255,255,255,0.1);
+        border-radius:12px;
+        border:1px solid rgba(148,163,184,0.34);
+        background:#f8fafc;
         display:inline-flex;
         align-items:center;
         justify-content:center;
-        box-shadow:inset 0 1px 0 rgba(255,255,255,0.08);
+        box-shadow:0 6px 14px rgba(15,23,42,0.12), inset 0 1px 0 rgba(255,255,255,0.92);
       }
       .mobile-controls-panel .mobile-quick-icon.tone-gray{
-        border-color:rgba(148,163,184,0.26);
-        background:rgba(148,163,184,0.16);
+        border-color:rgba(148,163,184,0.34);
+        background:#f8fafc;
       }
       .mobile-controls-panel .mobile-quick-icon.tone-gray svg{
-        stroke:rgba(203,213,225,0.92);
+        stroke:#334155;
       }
       .mobile-controls-panel .mobile-quick-icon.tone-green{
         border-color:rgba(74,222,128,0.5);
@@ -5173,7 +6826,7 @@
         box-shadow:0 0 0 1px rgba(74,222,128,0.24), inset 0 1px 0 rgba(255,255,255,0.1);
       }
       .mobile-controls-panel .mobile-quick-icon.tone-green svg{
-        stroke:#dcfce7;
+        stroke:#166534;
       }
       .mobile-controls-panel .mobile-quick-icon.tone-red{
         border-color:rgba(248,113,113,0.52);
@@ -5181,7 +6834,7 @@
         box-shadow:0 0 0 1px rgba(248,113,113,0.26), inset 0 1px 0 rgba(255,255,255,0.1);
       }
       .mobile-controls-panel .mobile-quick-icon.tone-red svg{
-        stroke:#fee2e2;
+        stroke:#991b1b;
       }
       .mobile-controls-panel .mobile-quick-icon.tone-blue{
         border-color:rgba(96,165,250,0.55);
@@ -5194,29 +6847,37 @@
       .mobile-controls-panel .mobile-quick-icon svg{
         width:24px;
         height:24px;
-        stroke:rgba(241,245,249,0.95);
+        stroke:#334155;
         fill:none;
-        stroke-width:2.2;
+        stroke-width:1.9;
         stroke-linecap:round;
         stroke-linejoin:round;
       }
       .mobile-controls-panel [data-mobile-control="launcher"] .mobile-quick-icon{
         border-radius:12px;
-        border-color:rgba(226,232,240,0.95);
+        border-color:rgba(148,163,184,0.34);
         background:#f8fafc;
-        box-shadow:0 8px 16px rgba(2,6,23,0.2), inset 0 1px 0 rgba(255,255,255,0.95);
+        box-shadow:0 6px 14px rgba(15,23,42,0.12), inset 0 1px 0 rgba(255,255,255,0.92);
       }
       .mobile-controls-panel [data-mobile-control="launcher"] .mobile-quick-icon svg{
-        stroke:#0f172a;
+        stroke:#334155;
       }
       .mobile-controls-panel [data-mobile-control="launcher"] .mobile-quick-icon svg path{
-        fill:#0f172a !important;
+        fill:#334155 !important;
         stroke:none !important;
+      }
+      .mobile-controls-panel .mobile-quick-icon,
+      .mobile-controls-panel .mobile-quick-icon.tone-gray,
+      .mobile-controls-panel .mobile-quick-icon.tone-green,
+      .mobile-controls-panel .mobile-quick-icon.tone-red,
+      .mobile-controls-panel .mobile-quick-icon.tone-blue,
+      .mobile-controls-panel [data-mobile-control="launcher"] .mobile-quick-icon{
+        box-shadow:none !important;
       }
       .mobile-controls-panel .mobile-quick-label{
         font-size:10px;
         font-weight:600;
-        color:#e2e8f0;
+        color:#334155;
         line-height:1.2;
         min-height:22px;
         letter-spacing:0;
@@ -5264,9 +6925,21 @@
       .mobile-controls-panel.is-mission-view .panel-action-btn,
       .mobile-controls-panel.is-inspection-view .panel-action-btn{
         min-height:42px;
-        border-radius:10px;
+        border-radius:12px;
         font-size:12px;
         padding:8px 10px;
+      }
+      .mobile-controls-panel.is-mission-view .mission-quick-btn{
+        min-height:76px;
+        border-radius:18px;
+        padding:12px 14px;
+        gap:5px;
+      }
+      .mobile-controls-panel.is-mission-view .mission-quick-title{
+        font-size:16px;
+      }
+      .mobile-controls-panel.is-mission-view .mission-quick-meta{
+        font-size:10px;
       }
       .mobile-controls-panel .mobile-launcher-head{
         display:flex;
@@ -5279,19 +6952,17 @@
         font-weight:700;
         letter-spacing:.12em;
         text-transform:uppercase;
-        color:#f1f5f9;
+        color:#334155;
       }
       .mobile-controls-panel .mobile-launcher-back{
         display:none !important;
       }
       .mobile-controls-panel.is-launcher-view{
-        background:
-          radial-gradient(circle at 82% 8%, rgba(56,189,248,0.09), transparent 48%),
-          linear-gradient(180deg, rgba(9,16,30,0.9), rgba(7,13,24,0.86));
-        border-color:rgba(148,163,184,0.24);
+        background:linear-gradient(180deg,rgba(255,255,255,0.99),rgba(248,250,252,0.97));
+        border-color:rgba(148,163,184,0.34);
       }
       .mobile-controls-panel.is-launcher-view .mobile-launcher-panel .launcher-panel-note{
-        color:rgba(203,213,225,0.9);
+        color:#64748b;
         font-size:10px;
         line-height:1.5;
       }
@@ -5306,33 +6977,55 @@
         padding:4px 0;
       }
       .mobile-controls-panel.is-launcher-view .mobile-launcher-panel .launcher-arrow-btn{
-        width:min(176px, 68%);
+        width:min(156px, 62%);
         height:54px;
         margin:0 auto;
-        border-radius:999px;
+        border-radius:12px;
         border:1px solid rgba(203,213,225,0.55);
-        background:linear-gradient(180deg, rgba(248,250,252,0.96), rgba(226,232,240,0.94));
+        background:#ffffff !important;
         color:#0f172a;
         font-size:18px;
-        box-shadow:0 10px 20px rgba(2,6,23,0.2), inset 0 1px 0 rgba(255,255,255,0.96);
+        box-shadow:none !important;
+        -webkit-box-shadow:none !important;
+        text-shadow:none !important;
+        filter:none !important;
+      }
+      .mobile-controls-panel.is-launcher-view .mobile-launcher-panel .launcher-arrow-btn:hover,
+      .mobile-controls-panel.is-launcher-view .mobile-launcher-panel .launcher-arrow-btn:active,
+      .mobile-controls-panel.is-launcher-view .mobile-launcher-panel .launcher-arrow-btn:focus,
+      .mobile-controls-panel.is-launcher-view .mobile-launcher-panel .launcher-arrow-btn:focus-visible,
+      .mobile-controls-panel.is-launcher-view .mobile-launcher-panel .launcher-arrow-btn.pressed{
+        box-shadow:none !important;
+        -webkit-box-shadow:none !important;
+        text-shadow:none !important;
+        filter:none !important;
+      }
+      .mobile-controls-panel.is-launcher-view .mobile-launcher-panel .launcher-arrow-btn:hover:not(:disabled),
+      .mobile-controls-panel.is-launcher-view .mobile-launcher-panel .launcher-arrow-btn:active:not(:disabled){
+        transform:none !important;
+      }
+      .mobile-controls-panel.is-launcher-view .mobile-launcher-panel .launcher-arrow-btn:active,
+      .mobile-controls-panel.is-launcher-view .mobile-launcher-panel .launcher-arrow-btn.pressed{
+        background:#e5e7eb !important;
+        color:#0f172a !important;
       }
       .mobile-controls-panel.is-launcher-view .mobile-launcher-panel .launcher-angle{
         display:flex;
         padding:2px 0 0;
       }
       .mobile-controls-panel.is-launcher-view .mobile-launcher-panel .launcher-angle-value{
-        color:#f8fafc;
+        color:#0f172a;
         font-size:34px;
-        text-shadow:0 6px 14px rgba(2,6,23,0.4);
+        text-shadow:0 4px 10px rgba(15,23,42,0.16);
       }
       .mobile-controls-panel.is-launcher-view .mobile-launcher-panel .launcher-angle-label{
-        color:rgba(148,163,184,0.95);
+        color:#64748b;
       }
       .mobile-controls-panel.is-launcher-view .mobile-launcher-panel .launcher-auto-btn{
         border-radius:11px;
-        border:1px solid rgba(148,163,184,0.52);
-        background:rgba(30,41,59,0.55);
-        color:#e2e8f0;
+        border:1px solid rgba(148,163,184,0.44);
+        background:rgba(255,255,255,0.92);
+        color:#334155;
       }
       .replay-control-row{grid-template-columns:1fr}
       .settings-body{flex-direction:column;overflow:hidden;padding-right:2px}
@@ -5349,12 +7042,13 @@
       .settings-nav-btn span{display:block;white-space:nowrap;word-break:keep-all}
       .settings-nav-btn::before{display:none}
       .launcher-arrow-btn{width:110px;height:54px;font-size:20px}
+      .launcher-dialog .launcher-arrow-btn{width:92px}
     }
     @media(max-width:380px){
       .countdown-wrap{grid-template-columns:1fr}
       #countdown{margin-top:6px;justify-self:end}
       .item-grid{grid-template-columns:1fr}
-      .mobile-controls-slot{grid-template-columns:repeat(3,minmax(0,1fr))}
+      html:not(.mobile-controls-active) .mobile-controls-slot{grid-template-columns:repeat(3,minmax(0,1fr))}
     }
 
     html.phone-landscape-layout .side-nav-desktop{display:none}
@@ -5661,6 +7355,18 @@
       font-size:12px;
       padding:8px 10px;
     }
+    html.phone-landscape-layout .mobile-controls-panel .mission-quick-btn{
+      min-height:70px;
+      border-radius:16px;
+      padding:11px 13px;
+      gap:4px;
+    }
+    html.phone-landscape-layout .mobile-controls-panel .mission-quick-title{
+      font-size:15px;
+    }
+    html.phone-landscape-layout .mobile-controls-panel .mission-quick-meta{
+      font-size:10px;
+    }
     html.phone-landscape-layout .mobile-launcher-head{
       display:flex;
       align-items:center;
@@ -5698,10 +7404,15 @@
       height:44px;
       border-radius:12px;
       border:1px solid rgba(255,255,255,0.2);
-      background:rgba(255,255,255,0.1);
-      color:#f8fafc;
+      background:#ffffff !important;
+      color:#0f172a;
       font-size:17px;
       box-shadow:none;
+    }
+    html.phone-landscape-layout .mobile-launcher-panel .launcher-arrow-btn:active,
+    html.phone-landscape-layout .mobile-launcher-panel .launcher-arrow-btn.pressed{
+      background:#e5e7eb !important;
+      color:#0f172a !important;
     }
     html.phone-landscape-layout .mobile-launcher-panel .launcher-angle{
       display:flex;
@@ -5747,8 +7458,6 @@
       border-radius:12px;
       margin:0;
     }
-    .panel-dialog-mount .mission-dialog.is-embedded-panel .mission-header,
-    html.phone-landscape-layout .mobile-dialog-mount .mission-dialog.is-embedded-panel .mission-header,
     .panel-dialog-mount .inspection-dialog.is-embedded-panel .inspection-header,
     html.phone-landscape-layout .mobile-dialog-mount .inspection-dialog.is-embedded-panel .inspection-header{
       display:none;
@@ -5802,7 +7511,7 @@
       box-shadow:0 0 0 1px rgba(74,222,128,0.24), inset 0 1px 0 rgba(255,255,255,0.1);
     }
     html.phone-landscape-layout .mobile-controls-panel .mobile-quick-icon.tone-green svg{
-      stroke:#dcfce7;
+      stroke:#166534;
     }
     html.phone-landscape-layout .mobile-controls-panel .mobile-quick-icon.tone-red{
       border-color:rgba(248,113,113,0.52);
@@ -5810,7 +7519,7 @@
       box-shadow:0 0 0 1px rgba(248,113,113,0.26), inset 0 1px 0 rgba(255,255,255,0.1);
     }
     html.phone-landscape-layout .mobile-controls-panel .mobile-quick-icon.tone-red svg{
-      stroke:#fee2e2;
+      stroke:#991b1b;
     }
     html.phone-landscape-layout .mobile-controls-panel .mobile-quick-icon.tone-blue{
       border-color:rgba(96,165,250,0.55);
@@ -5820,12 +7529,20 @@
     html.phone-landscape-layout .mobile-controls-panel .mobile-quick-icon.tone-blue svg{
       stroke:#dbeafe;
     }
+    html.phone-landscape-layout .mobile-controls-panel .mobile-quick-icon,
+    html.phone-landscape-layout .mobile-controls-panel .mobile-quick-icon.tone-gray,
+    html.phone-landscape-layout .mobile-controls-panel .mobile-quick-icon.tone-green,
+    html.phone-landscape-layout .mobile-controls-panel .mobile-quick-icon.tone-red,
+    html.phone-landscape-layout .mobile-controls-panel .mobile-quick-icon.tone-blue,
+    html.phone-landscape-layout .mobile-controls-panel [data-mobile-control="launcher"] .mobile-quick-icon{
+      box-shadow:none !important;
+    }
     html.phone-landscape-layout .mobile-controls-panel .mobile-quick-icon svg{
       width:24px;
       height:24px;
       stroke:rgba(241,245,249,0.95);
       fill:none;
-      stroke-width:2.2;
+      stroke-width:1.9;
       stroke-linecap:round;
       stroke-linejoin:round;
     }
@@ -6036,6 +7753,14 @@
       transform:translateY(-2px);
       display:flex;
       align-items:center;
+      position:relative;
+      z-index:8;
+      pointer-events:auto;
+    }
+    html.phone-landscape-layout body.dashboard-view-active #statusMapExpandedHud .gyro3d-expanded-statusbar{
+      position:relative;
+      z-index:8;
+      pointer-events:auto;
     }
     html.phone-landscape-layout body.dashboard-view-active .status-compact-hud{
       display:inline-flex;
@@ -6044,6 +7769,8 @@
       padding:0 2px;
       color:#f8fafc;
       pointer-events:auto;
+      position:relative;
+      z-index:8;
     }
     html.phone-landscape-layout body.dashboard-view-active .status-compact-clock{
       display:inline-flex;
@@ -6135,9 +7862,9 @@
       white-space:nowrap;
     }
     html.phone-landscape-layout body.dashboard-view-active .status-compact-settings{
-      width:20px;
-      height:20px;
-      margin-left:2px;
+      width:28px;
+      height:28px;
+      margin-left:4px;
       padding:0;
       border:none;
       border-radius:0;
@@ -6148,6 +7875,9 @@
       justify-content:center;
       pointer-events:auto;
       cursor:pointer;
+      position:relative;
+      z-index:9;
+      touch-action:manipulation;
     }
     html.phone-landscape-layout body.dashboard-view-active .status-compact-settings svg{
       width:16px;
@@ -6669,7 +8399,8 @@
     }
     html.phone-landscape-layout #launcherOverlay .launcher-dialog,
     html.phone-landscape-layout .confirm-overlay:not(.warning-fullscreen) .confirm-dialog,
-    html.phone-landscape-layout .disconnect-dialog{
+    html.phone-landscape-layout .disconnect-dialog,
+    html.phone-landscape-layout .reboot-dialog{
       background:linear-gradient(180deg,rgba(10,16,29,0.96),rgba(6,12,22,0.98));
       border:1px solid rgba(148,163,184,0.28);
       color:#e2e8f0;
@@ -6957,6 +8688,9 @@
       color:#cbd5f5;
       border:1px solid rgba(51,65,85,0.7);
     }
+    html[data-theme="dark"] .chart-axis-tag{
+      color:rgba(191,219,254,0.74);
+    }
     html[data-theme="dark"] .pill{
       background:#111827;
       color:#e2e8f0;
@@ -7002,13 +8736,14 @@
       color:#94a3b8;
     }
     html[data-theme="dark"] .controls-toolbar .controls-toolbar-action{
-      background:rgba(15,23,42,0.74);
-      border-color:rgba(71,85,105,0.68);
+      background:transparent;
+      border-color:transparent;
       box-shadow:none;
+      color:#cbd5e1;
     }
     html[data-theme="dark"] .controls-toolbar .controls-toolbar-action:hover{
-      border-color:rgba(96,165,250,0.62);
-      box-shadow:0 10px 18px rgba(30,64,175,0.2);
+      background:rgba(71,85,105,0.28);
+      box-shadow:none;
     }
     html[data-theme="dark"] .controls-main-row{
       background:transparent;
@@ -7030,6 +8765,11 @@
     }
     html[data-theme="dark"] .controls-card .control-tile-sub{
       color:#94a3b8;
+    }
+    html[data-theme="dark"] .controls-card .control-tile-select{
+      background:rgba(15,23,42,0.9);
+      border-color:rgba(71,85,105,0.78);
+      color:#e2e8f0;
     }
     html[data-theme="dark"] .side-nav-btn.is-active,
     html[data-theme="dark"] .side-nav-action.is-active{
@@ -7447,6 +9187,9 @@
       color:#e2e8f0;
       box-shadow:0 4px 10px rgba(2,6,23,0.35);
     }
+    html[data-theme="dark"] .launcher-dialog .launcher-arrow-btn{
+      box-shadow:none;
+    }
     html[data-theme="dark"] .inspection-dialog{
       background:linear-gradient(180deg,#0f172a,#0b1220);
       border-color:rgba(51,65,85,0.7);
@@ -7500,10 +9243,6 @@
     html[data-theme="dark"] .mission-test-title{color:#e2e8f0}
     html[data-theme="dark"] .mission-sub,
     html[data-theme="dark"] .mission-test-sub{color:#94a3b8}
-    html[data-theme="dark"] .mission-kicker{
-      background:rgba(148,163,184,0.16);
-      color:#cbd5f5;
-    }
     html[data-theme="dark"] .mission-close-btn{
       background:rgba(30,41,59,0.8);
       color:#cbd5f5;
@@ -7534,6 +9273,10 @@
       border-color:rgba(51,65,85,0.7);
       box-shadow:0 6px 16px rgba(2,6,23,0.5);
     }
+    html[data-theme="dark"] .mission-preset-btn.is-center{
+      border-color:rgba(96,165,250,0.62);
+      box-shadow:0 10px 18px rgba(37,99,235,0.24);
+    }
     html[data-theme="dark"] .mission-preset-photo{
       background:linear-gradient(180deg,#111827,#0f172a);
       border-color:rgba(51,65,85,0.7);
@@ -7552,9 +9295,152 @@
     html[data-theme="dark"] .mission-info-value,
     html[data-theme="dark"] .mission-info-message,
     html[data-theme="dark"] .mission-review-value{color:#e2e8f0}
+    html[data-theme="dark"] .panel-action-note{color:#94a3b8}
+    html[data-theme="dark"] .panel-action-btn{
+      background:linear-gradient(180deg, rgba(15,23,42,0.96), rgba(15,23,42,0.9));
+      border-color:rgba(51,65,85,0.72);
+      color:#e2e8f0;
+      box-shadow:0 14px 26px rgba(2,6,23,0.4), inset 0 1px 0 rgba(148,163,184,0.08);
+    }
+    html[data-theme="dark"] .panel-action-btn:hover{
+      border-color:rgba(96,165,250,0.52);
+      background:linear-gradient(180deg, rgba(30,41,59,0.98), rgba(15,23,42,0.94));
+      box-shadow:0 16px 30px rgba(2,6,23,0.48), 0 0 0 1px rgba(96,165,250,0.1);
+    }
+    html[data-theme="dark"] .mission-quick-btn{
+      background:
+        radial-gradient(circle at 88% 14%, rgba(var(--mission-accent-rgb),0.2), transparent 36%),
+        linear-gradient(180deg, rgba(15,23,42,0.98), rgba(11,18,32,0.98));
+      border-color:rgba(var(--mission-accent-rgb),0.24);
+      box-shadow:0 16px 30px rgba(2,6,23,0.46), inset 0 1px 0 rgba(148,163,184,0.08);
+    }
+    html[data-theme="dark"] .mission-quick-btn:hover{
+      border-color:rgba(var(--mission-accent-rgb),0.42);
+      background:
+        radial-gradient(circle at 88% 14%, rgba(var(--mission-accent-rgb),0.26), transparent 38%),
+        linear-gradient(180deg, rgba(15,23,42,0.98), rgba(15,23,42,0.92));
+      box-shadow:0 18px 34px rgba(2,6,23,0.5), 0 0 0 1px rgba(var(--mission-accent-rgb),0.12);
+    }
+    html[data-theme="dark"] .mission-quick-chip{
+      background:rgba(var(--mission-accent-rgb),0.16);
+      border-color:rgba(var(--mission-accent-rgb),0.22);
+      color:rgb(var(--mission-accent-rgb));
+    }
+    html[data-theme="dark"] .mission-quick-title{color:#f8fafc}
+    html[data-theme="dark"] .mission-quick-meta{color:#94a3b8}
     html[data-theme="dark"] .mission-review-item{border-bottom:1px solid rgba(51,65,85,0.6)}
     html[data-theme="dark"] .mission-test-cancel{color:#94a3b8}
     html[data-theme="dark"] .mission-back-btn{color:#93c5fd}
+    html[data-theme="dark"] .mission-block-editor{
+      background:transparent;
+      border:none;
+      box-shadow:none;
+    }
+    html[data-theme="dark"] .mission-block-sub{color:#cbd5e1}
+    html[data-theme="dark"] .mission-block-palette{
+      background:linear-gradient(180deg,#1e3a8a,#0f172a 42%,#111827);
+      border-color:rgba(71,85,105,0.7);
+      box-shadow:inset 0 1px 0 rgba(148,163,184,0.2);
+    }
+    html[data-theme="dark"] .mission-palette-title{color:#bfdbfe}
+    html[data-theme="dark"] .mission-palette-group{
+      background:rgba(15,23,42,0.8);
+      border-color:rgba(71,85,105,0.58);
+    }
+    html[data-theme="dark"] .mission-palette-group-title{color:#cbd5e1}
+    html[data-theme="dark"] .mission-tool-sub{color:rgba(226,232,240,0.88)}
+    html[data-theme="dark"] .mission-block-canvas{
+      border-color:rgba(71,85,105,0.62);
+      background:
+        radial-gradient(circle at 1px 1px, rgba(100,116,139,0.28) 1px, transparent 1.1px) 0 0/12px 12px,
+        linear-gradient(180deg,#0f172a,#111827);
+    }
+    html[data-theme="dark"] .mission-block-canvas-hint{
+      background:rgba(15,23,42,0.8);
+      border-color:rgba(71,85,105,0.62);
+      color:#94a3b8;
+    }
+    html[data-theme="dark"] .mission-block-canvas-label{color:#cbd5e1}
+    html[data-theme="dark"] .mission-block-canvas-count{
+      color:#bfdbfe;
+      border-color:rgba(59,130,246,0.42);
+      background:rgba(30,58,138,0.36);
+    }
+    html[data-theme="dark"] .scratch-row-kind{
+      color:#cbd5e1;
+      background:rgba(30,41,59,0.9);
+      border-color:rgba(71,85,105,0.65);
+    }
+    html[data-theme="dark"] .mission-block-empty{
+      background:rgba(15,23,42,0.78);
+      border-color:rgba(71,85,105,0.62);
+      color:#94a3b8;
+    }
+    html[data-theme="dark"] .mission-block-editor--scratch-entry{
+      --entry-bg:#111c2b;
+      --entry-grid:#2b3e58;
+      --entry-border:#425b7c;
+      --entry-ink:#e2e8f0;
+      --entry-muted:#a8bbd4;
+      --entry-palette:#12243b;
+      --entry-palette-group:#102033;
+    }
+    html[data-theme="dark"] .mission-block-editor--scratch-entry .mission-block-palette{
+      background:linear-gradient(180deg,#153357,#10253c);
+      border-color:#486088;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,0.08);
+    }
+    html[data-theme="dark"] .mission-block-editor--scratch-entry .mission-palette-group{
+      background:transparent;
+      border:none;
+    }
+    html[data-theme="dark"] .mission-block-editor--scratch-entry .mission-palette-group-title{
+      color:#b9cbe3;
+      border-left-color:#7ba0d4;
+    }
+    html[data-theme="dark"] .mission-block-editor--scratch-entry .mission-block-canvas{
+      border-color:#4a6186;
+      background:
+        radial-gradient(circle at 1px 1px, rgba(74,103,143,0.65) 1px, transparent 1.1px) 0 0/18px 18px,
+        linear-gradient(180deg,#0f1c2b,#13253a);
+    }
+    html[data-theme="dark"] .mission-block-editor--scratch-entry .mission-block-list{
+      background:rgba(9,18,31,0.34);
+      border-color:rgba(81,108,146,0.5);
+    }
+    html[data-theme="dark"] .mission-block-editor--scratch-entry .mission-block-canvas-label{
+      color:#d7e4f7;
+    }
+    html[data-theme="dark"] .mission-block-editor--scratch-entry .mission-block-canvas-hint{
+      color:#b6c8e0;
+      background:rgba(15,30,50,0.78);
+      border-color:rgba(87,113,152,0.62);
+    }
+    html[data-theme="dark"] .mission-block-editor--scratch-entry .scratch-row-kind{
+      background:#1b2e46;
+      border-color:#536b8c;
+      color:#d7e5f7;
+    }
+    html[data-theme="dark"] .mission-block-editor--scratch-entry .scratch-row-handle{
+      background:#1b2e46;
+      border-color:#5c7394;
+      color:#cdddf3;
+    }
+    html[data-theme="dark"] .mission-block-editor--scratch-entry .scratch-field{
+      background:#0f1d2f;
+      color:#e2e8f0;
+      border-color:#59759c;
+    }
+    html[data-theme="dark"] .mission-block-editor--scratch-entry .scratch-field--if-type,
+    html[data-theme="dark"] .mission-block-editor--scratch-entry .scratch-field--if-op{
+      background:#1a2f4a;
+      color:#d6e5f8;
+    }
+    html[data-theme="dark"] .mission-block-editor--scratch-entry .mission-block-empty{
+      background:rgba(15,30,50,0.72);
+      border-color:rgba(94,121,160,0.56);
+      color:#b8cce8;
+    }
     html[data-theme="dark"] .loadcell-dialog{
       background:linear-gradient(180deg,rgba(15,23,42,0.98),rgba(11,18,32,0.96));
       border-color:rgba(51,65,85,0.7);
@@ -7578,7 +9464,14 @@
       border-color:rgba(51,65,85,0.7);
       box-shadow:0 6px 14px rgba(2,6,23,0.45);
     }
+    html[data-theme="dark"] .loadcell-calc-row{
+      background:rgba(30,41,59,0.72);
+    }
+    html[data-theme="dark"] .loadcell-calc-key{color:#94a3b8}
+    html[data-theme="dark"] .loadcell-calc-value{color:#e2e8f0}
     html[data-theme="dark"] .loadcell-value{color:#e2e8f0}
+    html[data-theme="dark"] .loadcell-success-title{color:#e2e8f0}
+    html[data-theme="dark"] .loadcell-success-text{color:#94a3b8}
     html[data-theme="dark"] .loadcell-unit{color:#94a3b8}
     html[data-theme="dark"] .loadcell-input{
       background:#0f172a;
@@ -7867,6 +9760,7 @@
     .countdown-inline-status-pill.status-ready{background:#16a34a;color:#f0fdf4;border-color:#4ade80}
     .countdown-inline-status-pill.status-count{background:rgba(245,158,11,0.10);color:#b45309;border-color:rgba(245,158,11,0.34)}
     .countdown-inline-status-pill.status-seq{background:rgba(37,99,235,0.10);color:#1d4ed8;border-color:rgba(37,99,235,0.34)}
+    .countdown-inline-status-pill.status-parachute{background:rgba(20,184,166,0.14);color:#0f766e;border-color:rgba(20,184,166,0.42)}
     .countdown-inline-status-pill.status-fire{background:rgba(239,68,68,0.10);color:#b91c1c;border-color:rgba(239,68,68,0.34)}
     .countdown-inline-status-pill.status-abort{background:rgba(239,68,68,0.12);color:#b91c1c;border-color:rgba(239,68,68,0.38)}
     .countdown-inline-status-pill.status-lock{background:rgba(239,68,68,0.10);color:#991b1b;border-color:rgba(239,68,68,0.38)}
@@ -7941,7 +9835,8 @@
       .confirm-overlay,
       .settings-overlay,
       .ws-alert-overlay,
-      .disconnect-overlay{
+      .disconnect-overlay,
+      .reboot-overlay{
         align-items:flex-start;
         justify-content:center;
         padding:max(10px, env(safe-area-inset-top, 10px)) 10px max(10px, env(safe-area-inset-bottom, 10px));
@@ -8085,6 +9980,14 @@
         top:-8px;
         height:140px;
       }
+      #confirmOverlay{
+        align-items:center;
+        justify-content:center;
+      }
+      #forceOverlay{
+        align-items:center;
+        justify-content:center;
+      }
     }
     @media(max-width:600px){
       #settingsOverlay .settings-body{
@@ -8093,7 +9996,8 @@
       .confirm-overlay,
       .settings-overlay,
       .ws-alert-overlay,
-      .disconnect-overlay{
+      .disconnect-overlay,
+      .reboot-overlay{
         background:rgba(2,6,23,0.64);
         backdrop-filter:blur(4px);
         -webkit-backdrop-filter:blur(4px);
@@ -8101,6 +10005,7 @@
       .confirm-overlay:not(.warning-fullscreen) .confirm-dialog,
       .ws-alert-dialog,
       .disconnect-dialog,
+      .reboot-dialog,
       #settingsOverlay .settings-dialog,
       #missionOverlay .mission-dialog,
       #inspectionOverlay .inspection-dialog,
@@ -8136,8 +10041,27 @@
       }
       .confirm-overlay:not(.warning-fullscreen) .confirm-dialog,
       .ws-alert-dialog,
-      .disconnect-dialog{
+      .disconnect-dialog,
+      .reboot-dialog{
         max-width:calc(100vw - 24px);
+      }
+      #confirmOverlay{
+        align-items:center;
+        justify-content:center;
+      }
+      #confirmOverlay .confirm-dialog{
+        background:linear-gradient(180deg,#ffffff,#f8fafc);
+        border-color:rgba(148,163,184,0.45);
+        border-radius:10px;
+      }
+      #forceOverlay{
+        align-items:center;
+        justify-content:center;
+      }
+      #forceOverlay .confirm-dialog{
+        background:linear-gradient(180deg,#ffffff,#f8fafc);
+        border-color:rgba(148,163,184,0.45);
+        border-radius:10px;
       }
       .settings-title,
       .settings-label,
@@ -8277,10 +10201,488 @@
       }
     }
 
+    /* Commercial mission workspace layout */
+    #missionOverlay .mission-dialog{
+      width:min(96vw, 1520px);
+      max-width:min(96vw, 1520px);
+      height:min(92dvh, 980px);
+      max-height:min(92dvh, 980px);
+      min-height:0;
+      padding:14px 16px 14px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      overflow:hidden;
+    }
+    #missionOverlay .mission-header{
+      margin:0;
+      padding-bottom:10px;
+      flex:0 0 auto;
+    }
+    #missionOverlay .mission-sub{
+      max-width:none;
+    }
+    #missionOverlay .mission-sync-row--top{
+      justify-content:flex-end;
+      gap:6px;
+    }
+    #missionOverlay .mission-sync-row .settings-btn,
+    #missionOverlay .mission-import-label{
+      min-height:34px;
+      padding:7px 12px;
+    }
+    #missionOverlay .mission-designer-layout{
+      flex:1 1 auto;
+      min-height:0;
+      display:grid;
+      grid-template-columns:minmax(300px, 360px) minmax(0, 1fr);
+      gap:12px;
+      overflow:hidden;
+    }
+    #missionOverlay #missionPresetBlock{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      min-height:0;
+      padding:10px;
+      border:1px solid rgba(148,163,184,0.35);
+      border-radius:16px;
+      background:linear-gradient(180deg,#f8fbff 0%,#eef4ff 42%,#f8fafc 100%);
+      overflow:hidden;
+    }
+    #missionOverlay .mission-preset-title{
+      text-align:left;
+      font-size:11px;
+      letter-spacing:.16em;
+      color:#334155;
+    }
+    #missionOverlay #missionPresetWrap{
+      transform:none;
+      display:flex;
+      align-items:center;
+      gap:6px;
+      flex:1 1 auto;
+      min-height:0;
+    }
+    #missionOverlay .mission-preset-viewport{
+      flex:1 1 auto;
+      max-width:none;
+      min-height:0;
+      padding:0;
+      border-radius:12px;
+      background:rgba(255,255,255,0.75);
+      border:1px solid rgba(148,163,184,0.26);
+      overflow:hidden;
+    }
+    #missionOverlay .mission-preset-grid{
+      --preset-card:150px;
+      --preset-gap:8px;
+      padding:10px 0 10px;
+      overflow-x:auto;
+      overflow-y:hidden;
+      scrollbar-gutter:stable both-edges;
+    }
+    #missionOverlay .mission-preset-btn{
+      min-height:154px;
+      transform:none;
+      transition:border-color .14s ease, box-shadow .14s ease, transform .14s ease;
+    }
+    #missionOverlay .mission-preset-btn:hover{
+      transform:translateY(-1px);
+    }
+    #missionOverlay .mission-preset-btn.is-selected,
+    .mission-dialog .mission-preset-btn.is-selected{
+      border-color:rgba(37,99,235,0.62);
+      box-shadow:0 10px 20px rgba(37,99,235,0.22);
+      transform:translateY(-1px);
+    }
+    #missionOverlay .mission-preset-btn.is-selected .mission-preset-name,
+    .mission-dialog .mission-preset-btn.is-selected .mission-preset-name{
+      color:#1d4ed8;
+    }
+    #missionOverlay #missionFields{
+      display:grid;
+      grid-template-rows:auto minmax(0, 1fr);
+      gap:10px;
+      min-height:0;
+      overflow:hidden;
+    }
+    #missionOverlay .mission-meta-panel{
+      border:1px solid rgba(148,163,184,0.34);
+      border-radius:14px;
+      background:linear-gradient(180deg,#ffffff 0%,#f8fafc 100%);
+      padding:10px;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      flex:0 0 auto;
+    }
+    #missionOverlay .mission-meta-head{
+      font-size:11px;
+      font-weight:900;
+      letter-spacing:.14em;
+      text-transform:uppercase;
+      color:#334155;
+    }
+    #missionOverlay .mission-meta-sub{
+      font-size:11px;
+      color:#64748b;
+      line-height:1.45;
+    }
+    #missionOverlay #missionBackBtn{
+      display:none !important;
+    }
+    #missionOverlay .mission-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:8px 10px;
+    }
+    #missionOverlay .mission-field{
+      gap:3px;
+    }
+    #missionOverlay .mission-label{
+      font-size:10px;
+      letter-spacing:.1em;
+    }
+    #missionOverlay .mission-input{
+      padding:7px 9px;
+      border-radius:10px;
+      font-size:12px;
+    }
+    #missionOverlay .mission-unit{
+      padding:5px 8px;
+      font-size:10px;
+    }
+    #missionOverlay #missionBlockEditor{
+      margin-top:0;
+      min-height:0;
+      height:100%;
+    }
+    #missionOverlay #missionBlockEditor .mission-block-workspace{
+      height:100%;
+      min-height:0;
+      max-height:none;
+    }
+    #missionOverlay #missionBlockEditor .mission-block-palette{
+      flex:0 0 272px;
+      min-width:238px;
+      max-width:286px;
+      padding:9px;
+    }
+    #missionOverlay #missionBlockEditor .mission-block-canvas{
+      min-height:0;
+      height:100%;
+    }
+    #missionOverlay #missionBlockEditor .mission-block-list{
+      min-height:0;
+    }
+    #missionOverlay #missionBlockEditor .mission-block-stage{
+      min-width:max(100%, 1180px);
+      min-height:max(100%, 980px);
+      padding:6px 260px 340px 8px;
+    }
+    #missionOverlay .mission-block-actions--footer{
+      display:flex;
+      justify-content:flex-end;
+      margin-top:2px;
+    }
+    /* Temporary hide requested: preset + metadata panel */
+    #missionOverlay #missionPresetBlock,
+    #missionOverlay .mission-meta-panel,
+    .mission-dialog.is-embedded-panel #missionPresetBlock,
+    .mission-dialog.is-embedded-panel .mission-meta-panel{
+      display:none !important;
+    }
+    #missionOverlay .mission-head-main,
+    .mission-dialog.is-embedded-panel .mission-head-main{
+      display:none !important;
+    }
+    #missionOverlay .mission-header,
+    .mission-dialog.is-embedded-panel .mission-header{
+      padding-bottom:0;
+      margin-bottom:6px;
+      border-bottom:none;
+    }
+    #missionOverlay .mission-designer-layout,
+    .mission-dialog .mission-designer-layout{
+      grid-template-columns:minmax(0,1fr);
+    }
+    #missionOverlay #missionFields,
+    .mission-dialog #missionFields{
+      grid-template-rows:minmax(0,1fr);
+      gap:0;
+    }
+    .mission-dialog .mission-designer-layout{
+      flex:1 1 auto;
+      min-height:0;
+      display:grid;
+      grid-template-columns:minmax(0,1fr);
+      gap:12px;
+      overflow:hidden;
+    }
+    .mission-dialog #missionPresetBlock{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      min-height:0;
+    }
+    .mission-dialog #missionPresetWrap{
+      transform:none;
+      display:flex;
+      align-items:center;
+      gap:6px;
+      flex:1 1 auto;
+      min-height:0;
+    }
+    .mission-dialog .mission-preset-viewport{
+      flex:1 1 auto;
+      max-width:none;
+      min-height:0;
+      padding:0;
+      border-radius:12px;
+      background:rgba(255,255,255,0.75);
+      border:1px solid rgba(148,163,184,0.26);
+      overflow:hidden;
+    }
+    .mission-dialog .mission-preset-grid{
+      --preset-card:150px;
+      --preset-gap:8px;
+      padding:10px 0 10px;
+      overflow-x:auto;
+      overflow-y:hidden;
+      scrollbar-gutter:stable both-edges;
+    }
+    .mission-dialog .mission-preset-btn{
+      min-height:154px;
+      transform:none;
+      transition:border-color .14s ease, box-shadow .14s ease, transform .14s ease;
+    }
+    .mission-dialog .mission-preset-btn:hover{
+      transform:translateY(-1px);
+    }
+    .mission-dialog #missionFields{
+      display:grid;
+      grid-template-rows:auto minmax(0, 1fr);
+      gap:10px;
+      min-height:0;
+      overflow:hidden;
+    }
+    .mission-dialog .mission-meta-panel{
+      border:1px solid rgba(148,163,184,0.34);
+      border-radius:14px;
+      background:linear-gradient(180deg,#ffffff 0%,#f8fafc 100%);
+      padding:10px;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      flex:0 0 auto;
+    }
+    .mission-dialog .mission-meta-head{
+      font-size:11px;
+      font-weight:900;
+      letter-spacing:.14em;
+      text-transform:uppercase;
+      color:#334155;
+    }
+    .mission-dialog .mission-meta-sub{
+      font-size:11px;
+      color:#64748b;
+      line-height:1.45;
+    }
+    .mission-dialog .mission-grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:8px 10px;
+    }
+    .mission-dialog #missionBlockEditor{
+      margin-top:0;
+      min-height:0;
+      height:100%;
+    }
+    .mission-dialog #missionBlockEditor .mission-block-workspace{
+      height:100%;
+      min-height:0;
+      max-height:none;
+    }
+    .mission-dialog #missionBlockEditor .mission-block-palette{
+      flex:0 0 272px;
+      min-width:238px;
+      max-width:286px;
+      padding:9px;
+    }
+    .mission-dialog #missionBlockEditor .mission-block-canvas{
+      min-height:0;
+      height:100%;
+    }
+    .mission-dialog #missionBlockEditor .mission-block-list{
+      min-height:0;
+    }
+    .mission-dialog #missionBlockEditor .mission-block-stage{
+      min-width:max(100%, 1180px);
+      min-height:max(100%, 980px);
+      padding:6px 260px 340px 8px;
+    }
+    .mission-view-mount .mission-dialog.is-embedded-panel .mission-designer-layout{
+      height:100%;
+    }
+    .mission-view-mount .mission-dialog.is-embedded-panel #missionPresetBlock,
+    .mission-view-mount .mission-dialog.is-embedded-panel .mission-grid{
+      display:none !important;
+    }
+    html[data-theme="dark"] #missionOverlay #missionPresetBlock,
+    html[data-theme="dark"] .mission-dialog #missionPresetBlock{
+      background:linear-gradient(180deg,#132339 0%,#0f1c2e 42%,#111827 100%);
+      border-color:rgba(71,85,105,0.72);
+    }
+    html[data-theme="dark"] #missionOverlay .mission-preset-title,
+    html[data-theme="dark"] .mission-dialog .mission-preset-title{
+      color:#cbd5e1;
+    }
+    html[data-theme="dark"] #missionOverlay .mission-preset-viewport,
+    html[data-theme="dark"] .mission-dialog .mission-preset-viewport{
+      background:rgba(15,23,42,0.62);
+      border-color:rgba(71,85,105,0.6);
+    }
+    html[data-theme="dark"] #missionOverlay .mission-meta-panel,
+    html[data-theme="dark"] .mission-dialog .mission-meta-panel{
+      background:linear-gradient(180deg,rgba(15,23,42,0.98),rgba(17,24,39,0.98));
+      border-color:rgba(71,85,105,0.72);
+    }
+    html[data-theme="dark"] #missionOverlay .mission-meta-head,
+    html[data-theme="dark"] .mission-dialog .mission-meta-head{
+      color:#dbeafe;
+    }
+    html[data-theme="dark"] #missionOverlay .mission-meta-sub,
+    html[data-theme="dark"] .mission-dialog .mission-meta-sub{
+      color:#94a3b8;
+    }
+    html[data-theme="dark"] #missionOverlay .mission-preset-btn.is-selected,
+    html[data-theme="dark"] .mission-dialog .mission-preset-btn.is-selected{
+      border-color:rgba(96,165,250,0.74);
+      box-shadow:0 10px 20px rgba(59,130,246,0.32);
+    }
+    html[data-theme="dark"] #missionOverlay .mission-preset-btn.is-selected .mission-preset-name,
+    html[data-theme="dark"] .mission-dialog .mission-preset-btn.is-selected .mission-preset-name{
+      color:#bfdbfe;
+    }
+    html.phone-landscape-layout #missionOverlay .mission-dialog{
+      width:calc(100vw - 96px);
+      max-width:calc(100vw - 96px);
+      height:calc(100dvh - 20px);
+      max-height:calc(100dvh - 20px);
+      min-height:0;
+    }
+    @media (max-width:1280px){
+      #missionOverlay .mission-designer-layout{
+        grid-template-columns:minmax(0,1fr);
+        grid-template-rows:auto minmax(0,1fr);
+      }
+      .mission-dialog .mission-designer-layout{
+        grid-template-columns:minmax(0,1fr);
+        grid-template-rows:auto minmax(0,1fr);
+      }
+      #missionOverlay #missionPresetBlock{
+        padding:8px 10px;
+      }
+      .mission-dialog #missionPresetBlock{
+        padding:8px 10px;
+      }
+      #missionOverlay .mission-preset-grid{
+        --preset-card:138px;
+      }
+      .mission-dialog .mission-preset-grid{
+        --preset-card:138px;
+      }
+    }
+    @media (max-width:900px){
+      #missionOverlay .mission-dialog{
+        width:calc(100vw - 16px);
+        max-width:calc(100vw - 16px);
+        height:calc(100dvh - 16px);
+        max-height:calc(100dvh - 16px);
+        padding:12px;
+      }
+      #missionOverlay .mission-header{
+        flex-direction:column;
+        align-items:flex-start;
+        gap:8px;
+      }
+      #missionOverlay .mission-head-right{
+        width:100%;
+      }
+      #missionOverlay .mission-sync-row--top{
+        justify-content:flex-start;
+      }
+      #missionOverlay .mission-grid{
+        grid-template-columns:1fr;
+      }
+      .mission-dialog .mission-grid{
+        grid-template-columns:1fr;
+      }
+      #missionOverlay #missionBlockEditor .mission-block-workspace{
+        flex-direction:column;
+      }
+      .mission-dialog #missionBlockEditor .mission-block-workspace{
+        flex-direction:column;
+      }
+      #missionOverlay #missionBlockEditor .mission-block-palette{
+        flex:none;
+        width:100%;
+        min-width:0;
+        max-width:none;
+        max-height:190px;
+        overflow:auto;
+      }
+      .mission-dialog #missionBlockEditor .mission-block-palette{
+        flex:none;
+        width:100%;
+        min-width:0;
+        max-width:none;
+        max-height:190px;
+        overflow:auto;
+      }
+      #missionOverlay #missionBlockEditor .mission-block-stage{
+        min-width:max(100%, 960px);
+        min-height:max(100%, 840px);
+        padding-right:180px;
+        padding-bottom:220px;
+      }
+      .mission-dialog #missionBlockEditor .mission-block-stage{
+        min-width:max(100%, 960px);
+        min-height:max(100%, 840px);
+        padding-right:180px;
+        padding-bottom:220px;
+      }
+    }
+    @media (max-width:600px){
+      #missionOverlay .mission-dialog{
+        width:100vw;
+        max-width:100vw;
+        height:100dvh;
+        max-height:100dvh;
+        border-radius:0;
+        padding:10px;
+      }
+      #missionOverlay .mission-preset-grid{
+        --preset-card:124px;
+      }
+      #missionOverlay .mission-sync-row .settings-btn,
+      #missionOverlay .mission-import-label{
+        min-height:32px;
+        padding:6px 10px;
+        font-size:11px;
+      }
+      #missionOverlay .mission-scroll-btn{
+        width:32px;
+        height:32px;
+      }
+    }
+
     .confirm-overlay,
     .settings-overlay,
     .ws-alert-overlay,
     .disconnect-overlay,
+    .reboot-overlay,
     .controls-overlay,
     #launcherOverlay,
     #inspectionOverlay,
@@ -8296,6 +10698,285 @@
     #easterOverlay,
     #launcherAutoOverlay {
       z-index:95;
+    }
+
+    /* Home redesign */
+    body.home-view-active{
+      background:
+        radial-gradient(circle at 18% 10%, rgba(91,107,131,0.2), transparent 44%),
+        radial-gradient(circle at 86% 9%, rgba(63,76,95,0.22), transparent 48%),
+        linear-gradient(180deg, #2c323d 0%, #252b36 100%);
+    }
+    body.home-view-active::before{
+      background:linear-gradient(180deg,rgba(15,23,42,0.36) 0,rgba(15,23,42,0.16) 44%,rgba(15,23,42,0) 100%);
+    }
+    .home-ref-shell{
+      display:grid;
+      grid-template-columns:520px minmax(0, 1fr);
+      gap:44px;
+      min-height:calc(100dvh - 238px);
+      align-items:stretch;
+    }
+    .home-ref-left{
+      display:flex;
+      flex-direction:column;
+      gap:16px;
+      max-width:none;
+      padding-top:8px;
+    }
+    .home-ref-search{
+      height:68px;
+      border-radius:14px;
+      display:flex;
+      align-items:center;
+      gap:12px;
+      padding:0 16px;
+      background:#161923;
+      border:1px solid rgba(255,255,255,0.06);
+      color:#94a3b8;
+    }
+    .home-ref-search input{
+      width:100%;
+      border:none;
+      outline:none;
+      background:transparent;
+      color:#cbd5e1;
+      font-size:20px;
+      font-weight:500;
+    }
+    .home-ref-fly{
+      border:none;
+      outline:none;
+      text-align:left;
+      border-radius:16px;
+      padding:14px 14px 16px;
+      background:#171b26;
+      border:1px solid rgba(255,255,255,0.06);
+      box-shadow:0 14px 24px rgba(2,6,23,0.2);
+      min-height:196px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      cursor:pointer;
+      transition:transform .14s ease,border-color .14s ease;
+    }
+    .home-ref-fly:hover{transform:translateY(-1px);border-color:rgba(56,189,248,0.45)}
+    .home-ref-fly-title{
+      color:#f8fafc;
+      font-size:52px;
+      font-weight:750;
+      letter-spacing:-0.03em;
+      line-height:1;
+      margin-top:2px;
+    }
+    .home-ref-fly-sub{
+      color:#a6b0bf;
+      font-size:22px;
+      line-height:1.3;
+    }
+    .home-ref-fly-zone{
+      margin-top:auto;
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+      color:#f1f5f9;
+      font-size:20px;
+      font-weight:550;
+    }
+    .home-ref-zone-dot{
+      width:13px;
+      height:13px;
+      border-radius:50%;
+      background:#13d97d;
+      box-shadow:0 0 0 7px rgba(19,217,125,0.25);
+    }
+    .home-ref-tools{
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0,1fr));
+      gap:10px;
+    }
+    .home-ref-tool{
+      min-height:156px;
+      border:none;
+      border-radius:14px;
+      background:#171b26;
+      border:1px solid rgba(255,255,255,0.06);
+      color:#f8fafc;
+      cursor:pointer;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      gap:16px;
+      transition:transform .14s ease,border-color .14s ease;
+    }
+    .home-ref-tool-compact{
+      min-height:148px;
+      gap:10px;
+    }
+    .home-ref-tool.is-active{
+      border-color:rgba(96,165,250,0.5);
+      transform:translateY(-1px);
+    }
+    .home-ref-tool-icon{
+      width:56px;
+      height:56px;
+      border-radius:50%;
+      display:grid;
+      place-items:center;
+      background:rgba(148,163,184,0.18);
+      font-size:22px;
+    }
+    .home-ref-tool-label{
+      font-size:15px;
+      font-weight:680;
+      letter-spacing:-0.01em;
+    }
+    .home-ref-right{
+      position:relative;
+      border-radius:0;
+      overflow:visible;
+      padding:0 8px 12px;
+      background:transparent;
+      border:none;
+      box-shadow:none;
+      display:grid;
+      grid-template-rows:auto auto minmax(0,1fr) auto auto;
+      gap:8px;
+      min-height:100%;
+    }
+    .home-ref-head{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+      padding:2px 8px 0;
+    }
+    .home-ref-title-wrap{
+      display:flex;
+      align-items:flex-end;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .home-ref-head h2{
+      color:#eef2f7;
+      font-size:clamp(40px, 3.5vw, 64px);
+      font-weight:700;
+      letter-spacing:.01em;
+      line-height:1;
+    }
+    .home-ref-live{
+      height:28px;
+      padding:0 10px;
+      border-radius:999px;
+      border:1px solid rgba(59,130,246,0.45);
+      background:rgba(37,99,235,0.2);
+      color:#cfe5ff;
+      font-size:11px;
+      font-weight:700;
+      display:inline-flex;
+      align-items:center;
+      text-transform:uppercase;
+      letter-spacing:.1em;
+    }
+    .home-ref-live.is-offline{
+      border-color:rgba(148,163,184,0.4);
+      background:rgba(51,65,85,0.28);
+      color:#cbd5e1;
+    }
+    .home-ref-head-icons{
+      color:#e5e7eb;
+      font-size:30px;
+      display:flex;
+      gap:16px;
+      padding-top:4px;
+    }
+    .home-ref-update{
+      width:fit-content;
+      max-width:100%;
+      margin:0 8px 0 auto;
+      padding:13px 20px;
+      border-radius:10px;
+      background:#090c12;
+      color:#e2e8f0;
+      display:flex;
+      align-items:center;
+      gap:18px;
+      font-size:14px;
+    }
+    .home-ref-update strong{
+      color:#35a4ff;
+      font-weight:700;
+    }
+    .home-ref-stage{
+      height:clamp(400px, 60vh, 740px);
+      display:flex;
+      align-items:flex-end;
+      justify-content:center;
+      padding:0;
+    }
+    .home-ref-stage img{
+      width:clamp(420px, 56vw, 940px);
+      max-height:100%;
+      object-fit:contain;
+      filter:drop-shadow(0 22px 28px rgba(2,6,23,0.44));
+      transform:translateX(4%) translateY(1%);
+    }
+    .home-ref-foot-icons{
+      color:#cbd5e1;
+      opacity:.75;
+      font-size:20px;
+      text-align:right;
+      padding:0 16px;
+      letter-spacing:.12em;
+    }
+    .home-ref-go{
+      width:min(78%, 820px);
+      height:72px;
+      margin:4px auto 0;
+      border:none;
+      border-radius:14px;
+      background:linear-gradient(180deg,#30a4ff,#1d76e8);
+      color:#e6f4ff;
+      font-size:28px;
+      font-weight:720;
+      letter-spacing:.04em;
+      cursor:pointer;
+      box-shadow:0 14px 26px rgba(30,118,232,0.36);
+    }
+    .home-ref-go.is-active{
+      background:linear-gradient(180deg,#4fb4ff,#2380f0);
+    }
+    .home-ref-bottom-nav{
+      margin-top:14px;
+      display:flex;
+      align-items:center;
+      gap:44px;
+      color:#e2e8f0;
+      opacity:.92;
+      font-size:18px;
+      font-weight:600;
+      padding:0 8px 2px;
+    }
+    .home-ref-hidden{display:none}
+    .home-ref-hidden button{display:none}
+    @media(max-width:1200px){
+      .home-ref-shell{grid-template-columns:1fr}
+      .home-ref-left{max-width:none}
+      .home-ref-head h2{font-size:40px}
+      .home-ref-stage img{transform:none;width:min(88%, 680px)}
+      .home-ref-go{width:100%;margin-right:0}
+    }
+    @media(max-width:760px){
+      .home-ref-search input{font-size:20px}
+      .home-ref-fly-title{font-size:38px}
+      .home-ref-fly-zone{font-size:24px}
+      .home-ref-tool{min-height:130px}
+      .home-ref-tool-label{font-size:20px}
+      .home-ref-head h2{font-size:30px}
+      .home-ref-update{font-size:14px;padding:10px 14px}
+      .home-ref-go{height:54px;font-size:24px}
+      .home-ref-bottom-nav{font-size:16px;gap:14px;flex-wrap:wrap}
     }
   </style>
 </head>
@@ -8327,6 +11008,14 @@
             <path d="M12 15l2.8-3"/>
           </svg>
         </button>
+        <button class="side-nav-item" data-page-title="Mission" aria-label="Mission" title="Mission">
+          <svg viewBox="0 0 24 24">
+            <rect x="6" y="4.5" width="12" height="15" rx="2"></rect>
+            <path d="M9 8.5h6"></path>
+            <path d="M9 12h6"></path>
+            <path d="M9 15.5h4"></path>
+          </svg>
+        </button>
         <button class="side-nav-item" data-page-title="Countdown" aria-label="Countdown">
           <svg viewBox="0 0 24 24">
             <path d="M10 2h4"/>
@@ -8343,9 +11032,9 @@
         <div class="side-nav-divider" aria-hidden="true"></div>
         <button class="side-nav-btn js-replay-open" aria-label="Replay" title="Replay">
           <svg viewBox="0 0 24 24">
-            <path d="M7 8H4V5"></path>
-            <path d="M4 5a8 8 0 1 1-1 8"></path>
-            <path d="m10 9 5 3-5 3z"></path>
+            <path d="M20 12a8 8 0 1 1-2.34-5.66"></path>
+            <path d="M20 4v5h-5"></path>
+            <path d="M9 8.7 15.8 12 9 15.3Z" style="fill:currentColor;stroke:none"></path>
           </svg>
         </button>
         <button id="tabletControlsNavBtn" class="side-nav-btn js-controls-open tablet-controls-nav-btn" aria-label="Control panel">
@@ -8402,16 +11091,16 @@
             <span id="mobileSequenceLabel" class="mobile-quick-label" data-i18n="sequenceStartBtn">SEQUENCE</span>
             <span class="mobile-quick-state" data-mobile-status="sequence">준비</span>
           </button>
-          <button type="button" class="control-tile mobile-control mobile-quick-btn" data-mobile-control="force">
-            <span class="mobile-quick-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><path d="M12 3c1.3 2 2.1 3.2 3.5 4.5 1.9 1.8 3.1 3.8 3.1 6.2a6.6 6.6 0 1 1-13.2 0c0-3 1.6-5.2 3.8-7.1C10 5.8 10.8 5 12 3z"/><path d="M12.1 10.1c1.8 1.4 2.9 2.8 2.9 4.4a3 3 0 1 1-6 0c0-1.7 1.1-3.1 3.1-4.4z"/></svg>
-            </span>
-            <span class="mobile-quick-label" data-i18n="forceIgniteBtn">강제 점화</span>
-            <span class="mobile-quick-state pill pill-gray" data-mobile-pill="force" data-i18n="forceIgniteDanger">위험</span>
-          </button>
           <button type="button" class="control-tile mobile-control mobile-quick-btn" data-mobile-control="serial">
             <span class="mobile-quick-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><path d="M12 4v12"/><path d="m9.5 6.5 2.5-2.5 2.5 2.5"/><path d="M12 9.5H8.8"/><circle cx="7.2" cy="9.5" r="1.2"/><path d="M12 13.5h3.1"/><rect x="15.1" y="12.2" width="2.8" height="2.6" rx=".5"/><path d="M12 16.2v3.3"/><path d="M10.2 19.5h3.6"/></svg>
+              <svg viewBox="0 0 24 24">
+                <path d="M9 4v4"></path>
+                <path d="M15 4v4"></path>
+                <path d="M7 8h10"></path>
+                <path d="M8.5 8v4.5a3.5 3.5 0 0 0 7 0V8"></path>
+                <path d="M12 16v4"></path>
+                <path d="M10 20h4"></path>
+              </svg>
             </span>
             <span class="mobile-quick-label" data-i18n="controlSerialLabel">WebSerial</span>
             <span class="mobile-quick-state pill pill-gray" data-mobile-pill="serial">OFF</span>
@@ -8437,10 +11126,9 @@
             <button id="mobileLauncherBackBtn" class="mobile-launcher-back" type="button" aria-label="Back">×</button>
           </div>
           <div class="launcher-panel-note" data-i18n-html="launcherNote">
-            발사대 모터/액추에이터와 연결된 후 실제 높이 제어가 적용됩니다.<br>
-            현재는 UI 수준의 제어 모킹입니다.
+            발사대 모터/액추에이터 제어가 적용됩니다.<br>
+            버튼을 누르는 동안 모터가 구동됩니다.
           </div>
-          <div class="launcher-divider"></div>
           <div class="launcher-controls">
             <div class="launcher-arrow-row">
               <button id="launcherUpMobileBtn" class="launcher-arrow-btn" type="button">▲</button>
@@ -8462,10 +11150,26 @@
           </div>
           <div class="panel-action-note">패널에서 미션을 바로 지정합니다.</div>
           <div class="panel-action-grid">
-            <button class="panel-action-btn" type="button" data-mission-quick="frontier2025">frontier2025</button>
-            <button class="panel-action-btn" type="button" data-mission-quick="frontier2026 stg2 pvc">frontier2026 stg2 pvc</button>
-            <button class="panel-action-btn" type="button" data-mission-quick="QUAIL1 motor">QUAIL1 motor</button>
-            <button class="panel-action-btn" type="button" data-mission-quick="no-motor">메타데이터 없음</button>
+            <button class="panel-action-btn mission-quick-btn is-frontier" type="button" data-mission-quick="frontier2025">
+              <span class="mission-quick-chip">Frontier</span>
+              <span class="mission-quick-title">frontier2025</span>
+              <span class="mission-quick-meta">기본 프리셋</span>
+            </button>
+            <button class="panel-action-btn mission-quick-btn is-stage" type="button" data-mission-quick="frontier2026 stg2 pvc">
+              <span class="mission-quick-chip">Frontier 2026</span>
+              <span class="mission-quick-title">stage 2 PVC</span>
+              <span class="mission-quick-meta">2단 시험 프리셋</span>
+            </button>
+            <button class="panel-action-btn mission-quick-btn is-quail" type="button" data-mission-quick="QUAIL1 motor">
+              <span class="mission-quick-chip">QUAIL1</span>
+              <span class="mission-quick-title">motor</span>
+              <span class="mission-quick-meta">시험체 프리셋</span>
+            </button>
+            <button class="panel-action-btn mission-quick-btn is-manual" type="button" data-mission-quick="no-motor">
+              <span class="mission-quick-chip">Manual</span>
+              <span class="mission-quick-title">메타데이터 없음</span>
+              <span class="mission-quick-meta">수동 입력 기준</span>
+            </button>
           </div>
         </div>
         <div id="mobileInspectionPanel" class="inspection-panel mobile-inspection-panel" aria-hidden="true">
@@ -8493,6 +11197,14 @@
           <svg viewBox="0 0 24 24">
             <path d="M3.5 16a8.5 8.5 0 0 1 17 0"/>
             <path d="M12 15l2.8-3"/>
+          </svg>
+        </button>
+        <button class="side-nav-item" data-page-title="Mission" aria-label="Mission">
+          <svg viewBox="0 0 24 24">
+            <rect x="6" y="4.5" width="12" height="15" rx="2"></rect>
+            <path d="M9 8.5h6"></path>
+            <path d="M9 12h6"></path>
+            <path d="M9 15.5h4"></path>
           </svg>
         </button>
         <button class="side-nav-item" data-page-title="Hardware" aria-label="Hardware">
@@ -8588,7 +11300,41 @@
             <div class="card-title">HARDWARE</div>
           </div>
           <div class="hardware-title">Hardware Overview</div>
-          <div class="hardware-desc">보드 정보/핀맵/연결 상태를 요약하는 페이지를 구성할 수 있습니다.</div>
+          <div class="hardware-desc">서보모터 제어는 버튼으로 모달 창에서 확인/조작할 수 있습니다.</div>
+          <div class="settings-row hardware-servo-open-row">
+            <div>
+              <div class="settings-label">서보모터 제어</div>
+              <div class="hint-mini">PWM1~PWM4 제어 화면을 모달로 엽니다.</div>
+            </div>
+            <button id="hardwareServoOpenBtn" class="settings-btn" type="button"
+              onclick="(function(){var o=document.getElementById('hardwareServoOverlay');if(o){o.classList.remove('hidden');o.style.display='flex';}})();">
+              서보모터 제어 열기
+            </button>
+          </div>
+          <div class="settings-row" style="margin-top:16px;">
+            <div>
+              <div class="settings-label">파이로 테스트</div>
+              <div class="hint-mini">ON 시간(ms)을 설정한 뒤 점화 신호를 수동 전송합니다.</div>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
+              <input id="hardwarePyroDurationInput" type="number" min="10" max="30000" step="10" class="settings-number" value="5000" style="width:120px;">
+              <button id="hardwarePyroFireCh1Btn" class="settings-btn" type="button">CH1 동작</button>
+              <button id="hardwarePyroFireCh2Btn" class="settings-btn" type="button">CH2 동작</button>
+              <button id="hardwarePyroFireCh3Btn" class="settings-btn" type="button">CH3 동작</button>
+              <button id="hardwarePyroFireCh4Btn" class="settings-btn" type="button">CH4 동작</button>
+            </div>
+          </div>
+          <div class="settings-row" style="margin-top:16px;">
+            <div>
+              <div class="settings-label">SPI Flash 저장소</div>
+              <div id="spiFlashStatusLine" class="hint-mini">상태 확인 대기 중...</div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
+              <button id="spiFlashRefreshBtn" class="settings-btn" type="button">상태 새로고침</button>
+              <button id="spiFlashInitBtn" class="settings-btn" type="button">저장소 초기화</button>
+              <button id="spiFlashDumpBtn" class="settings-btn" type="button">BIN 다운로드</button>
+            </div>
+          </div>
           <div class="settings-row" style="margin-top:16px;">
             <div>
               <div class="settings-label">업데이트</div>
@@ -8608,6 +11354,18 @@
             <div id="countdownBig" class="countdown-hero-value">T- --:--:--</div>
             <div id="countdownStatus" class="countdown-hero-status">--</div>
           </div>
+        </section>
+      </main>
+    </section>
+
+    <section id="missionView" class="dashboard-view mission-view hidden">
+      <main class="shell">
+        <section class="card-base mission-landing-card">
+          <div class="card-header">
+          </div>
+          <div class="mission-landing-actions">
+          </div>
+          <div id="missionViewMount" class="panel-dialog-mount mission-view-mount"></div>
         </section>
       </main>
     </section>
@@ -8779,11 +11537,11 @@
           <div class="quick-data-body">
             <div class="status-metrics quick-metrics">
               <div class="status-metric">
-                <div class="status-metric-label">Thrust</div>
+                <div id="quickMetricPrimaryLabel" class="status-metric-label">Thrust</div>
                 <div id="thrust" class="status-metric-value">--</div>
               </div>
               <div class="status-metric">
-                <div class="status-metric-label">Pressure</div>
+                <div id="quickMetricSecondaryLabel" class="status-metric-label">Pressure</div>
                 <div id="pressure" class="status-metric-value">--</div>
               </div>
             </div>
@@ -8793,36 +11551,40 @@
               <span id="quick-state" class="value"><span class="num">--</span></span>
             </div>
             <div class="item">
-              <span class="label"><span class="label-icon"></span>Delay</span>
+              <span id="quick-hx-hz-label" class="label"><span class="label-icon"></span>HX711</span>
+              <span id="quick-hx-hz" class="value"><span class="num">--</span><span class="unit">Hz</span></span>
+            </div>
+            <div class="item">
+              <span id="quick-delay-label" class="label"><span class="label-icon"></span>Delay</span>
               <span id="motorDelay" class="value"><span class="num">--.-</span><span class="unit">S</span></span>
             </div>
             <div class="item">
-              <span class="label"><span class="label-icon"></span>Burn</span>
-              <span id="motorBurn" class="value"><span class="num">--.-</span><span class="unit">S</span></span>
-            </div>
-            <div class="item">
-              <span class="label"><span class="label-icon"></span>Switch</span>
+              <span class="label"><span class="label-icon"></span>ARM</span>
               <span id="quick-sw" class="value"><span class="num">--</span></span>
             </div>
             <div class="item">
-              <span class="label"><span class="label-icon"></span>Igniter</span>
-              <span id="quick-igniter" class="value"><span class="num">--</span></span>
-            </div>
-            <div class="item">
-              <span class="label"><span class="label-icon"></span>RELAY1</span>
+              <span id="quick-relay-1-label" class="label"><span class="label-icon"></span>RELAY1</span>
               <span id="quick-relay-1" class="value"><span class="num">--</span></span>
             </div>
             <div class="item">
-              <span class="label"><span class="label-icon"></span>RELAY2</span>
+              <span id="quick-relay-2-label" class="label"><span class="label-icon"></span>RELAY2</span>
               <span id="quick-relay-2" class="value"><span class="num">--</span></span>
             </div>
             <div class="item">
-              <span class="label"><span class="label-icon"></span>HX711</span>
-              <span id="quick-hx-hz" class="value"><span class="num">--</span><span class="unit">Hz</span></span>
+              <span id="quick-burn-label" class="label"><span class="label-icon"></span>Burn</span>
+              <span id="motorBurn" class="value"><span class="num">--.-</span><span class="unit">S</span></span>
             </div>
             <div class="item item-null">
-              <span class="label"><span class="label-icon"></span>null</span>
-              <span class="value"><span class="num">.</span></span>
+              <span id="quick-null-label" class="label"><span class="label-icon"></span>null</span>
+              <span id="quick-null-value" class="value"><span class="num">.</span></span>
+            </div>
+            <div class="item item-null">
+              <span id="quick-null-2-label" class="label"><span class="label-icon"></span>null</span>
+              <span id="quick-null-2-value" class="value"><span class="num">.</span></span>
+            </div>
+            <div class="item item-null">
+              <span id="quick-null-3-label" class="label"><span class="label-icon"></span>null</span>
+              <span id="quick-null-3-value" class="value"><span class="num">.</span></span>
             </div>
             </div>
           </div>
@@ -8833,7 +11595,7 @@
         <section class="card-base charts-card status-frame">
         <div class="chart-header">
           <div class="chart-title-main chart-title-main--daq">THRUST & PRESSURE TREND</div>
-          <div class="chart-title-main chart-title-main--flight">GYRO ACCELERATION TREND</div>
+          <div class="chart-title-main chart-title-main--flight">ALTITUDE & SPEED TREND</div>
           <div class="chart-controls">
             <button id="chartZoomOut" class="chart-btn">-</button>
             <button id="chartZoomIn" class="chart-btn">+</button>
@@ -8849,31 +11611,47 @@
               <div class="chart-title">Thrust</div>
               <div class="chart-badge" data-badge="thrust-unit">RED · kgf</div>
             </div>
-            <canvas id="thrustChart"></canvas>
+            <div class="chart-canvas-stage">
+              <div class="chart-axis-tag chart-axis-tag--y" data-i18n="chartAxisValue">값</div>
+              <canvas id="thrustChart"></canvas>
+              <div class="chart-axis-tag chart-axis-tag--x" data-i18n="chartAxisTime">시간</div>
+            </div>
           </div>
 
           <div class="chart-box chart-box--daq">
             <div class="chart-box-header">
               <div class="chart-title">Pressure</div>
-              <div class="chart-badge" data-badge="pressure-unit">BLUE · V</div>
+              <div class="chart-badge" data-badge="pressure-unit">BLUE · MPa</div>
             </div>
-            <canvas id="pressureChart"></canvas>
+            <div class="chart-canvas-stage">
+              <div class="chart-axis-tag chart-axis-tag--y" data-i18n="chartAxisValue">값</div>
+              <canvas id="pressureChart"></canvas>
+              <div class="chart-axis-tag chart-axis-tag--x" data-i18n="chartAxisTime">시간</div>
+            </div>
           </div>
 
           <div class="chart-box chart-box--flight">
             <div class="chart-box-header">
-              <div class="chart-title">Acceleration</div>
-              <div class="chart-badge">G · |A|</div>
+              <div class="chart-title">Altitude</div>
+              <div class="chart-badge">GREEN · m</div>
             </div>
-            <canvas id="accelChartFlight"></canvas>
+            <div class="chart-canvas-stage">
+              <div class="chart-axis-tag chart-axis-tag--y" data-i18n="chartAxisValue">값</div>
+              <canvas id="accelChartFlight"></canvas>
+              <div class="chart-axis-tag chart-axis-tag--x" data-i18n="chartAxisTime">시간</div>
+            </div>
           </div>
 
           <div class="chart-box chart-box--flight">
             <div class="chart-box-header">
-              <div class="chart-title">Accel XYZ</div>
-              <div class="chart-badge">X/Y/Z · g</div>
+              <div class="chart-title">Gyro XYZ</div>
+              <div class="chart-badge">AMBER · dps</div>
             </div>
-            <canvas id="accelXYZChartFlight"></canvas>
+            <div class="chart-canvas-stage">
+              <div class="chart-axis-tag chart-axis-tag--y" data-i18n="chartAxisValue">값</div>
+              <canvas id="accelXYZChartFlight"></canvas>
+              <div class="chart-axis-tag chart-axis-tag--x" data-i18n="chartAxisTime">시간</div>
+            </div>
           </div>
         </div>
       </section>
@@ -8884,37 +11662,58 @@
             <div class="controls-subtitle">Command & Safety</div>
           </div>
             <div class="controls-header-actions">
+              <div class="controls-toolbar">
+                <button id="gyroZeroBtn" class="toolbar-btn controls-toolbar-action" type="button">
+                  <span class="controls-toolbar-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24">
+                      <circle cx="12" cy="12" r="2.2"></circle>
+                      <path d="M12 3v4"></path>
+                      <path d="M12 17v4"></path>
+                      <path d="M3 12h4"></path>
+                      <path d="M17 12h4"></path>
+                      <circle cx="12" cy="12" r="7"></circle>
+                    </svg>
+                  </span>
+                  <span class="controls-toolbar-text sr-only" data-i18n="gyroZeroBtn">자이로 영점</span>
+                </button>
+                <button id="missionOpenBtn" class="toolbar-btn controls-toolbar-action" type="button">
+                  <span class="controls-toolbar-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24">
+                      <path d="M12 3v3"></path>
+                      <path d="M12 18v3"></path>
+                      <path d="M3 12h3"></path>
+                      <path d="M18 12h3"></path>
+                      <circle cx="12" cy="12" r="5"></circle>
+                      <circle cx="12" cy="12" r="1.5"></circle>
+                    </svg>
+                  </span>
+                  <span class="controls-toolbar-text sr-only" data-i18n="missionToolbarBtn">미션 지정</span>
+                </button>
+                <button id="exportCsvBtn" class="toolbar-btn controls-toolbar-action" type="button">
+                  <span class="controls-toolbar-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24">
+                      <path d="M12 4v10"></path>
+                      <path d="m8.5 10.5 3.5 3.5 3.5-3.5"></path>
+                      <path d="M5 18h14"></path>
+                    </svg>
+                  </span>
+                  <span class="controls-toolbar-text sr-only" data-i18n="exportXlsx">보고서 내보내기</span>
+                </button>
+                <button id="rebootBoardBtn" class="toolbar-btn controls-toolbar-action" type="button">
+                  <span class="controls-toolbar-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24">
+                      <path d="M12 3v5"></path>
+                      <path d="M7.1 5.9A8 8 0 1 0 16.9 5.9"></path>
+                    </svg>
+                  </span>
+                  <span class="controls-toolbar-text sr-only" data-i18n="controlRebootBtn">재부팅</span>
+                </button>
+              </div>
               <button id="tabletControlsClose" class="tablet-controls-close" type="button" aria-label="Close control panel">×</button>
             </div>
           </div>
 
           <div id="controlsMain" class="controls-grid">
-            <div class="controls-toolbar">
-              <button id="missionOpenBtn" class="toolbar-btn controls-toolbar-action">
-                <span class="controls-toolbar-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24">
-                    <path d="M12 3v3"></path>
-                    <path d="M12 18v3"></path>
-                    <path d="M3 12h3"></path>
-                    <path d="M18 12h3"></path>
-                    <circle cx="12" cy="12" r="5"></circle>
-                    <circle cx="12" cy="12" r="1.5"></circle>
-                  </svg>
-                </span>
-                <span class="controls-toolbar-text">미션 지정</span>
-              </button>
-              <button id="exportCsvBtn" class="toolbar-btn controls-toolbar-action">
-                <span class="controls-toolbar-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24">
-                    <path d="M12 4v10"></path>
-                    <path d="m8.5 10.5 3.5 3.5 3.5-3.5"></path>
-                    <path d="M5 18h14"></path>
-                  </svg>
-                </span>
-                <span class="controls-toolbar-text" data-i18n="exportXlsx">보고서 내보내기</span>
-              </button>
-            </div>
-
             <div class="controls-main-row">
               <div class="primary-btn-wrap">
                 <button id="igniteBtn" class="primary-btn sequence-btn">
@@ -8929,16 +11728,6 @@
               </div>
             </div>
             <div class="control-row">
-              <button id="forceIgniteBtn" class="control-tile is-btn force-tile">
-                <div>
-                  <div class="control-tile-label" data-i18n="forceIgniteBtn">강제 점화</div>
-                  <div class="control-tile-sub" data-i18n="forceIgniteSub">고위험 동작</div>
-                </div>
-                <div class="control-tile-actions">
-                  <span class="pill pill-gray" data-i18n="forceIgniteDanger">위험</span>
-                </div>
-              </button>
-
               <div id="serialControlTile" class="control-tile is-btn" role="button" tabindex="0">
                 <div>
                   <div id="serialControlTitle" class="control-tile-label" data-i18n="controlSerialLabel">WebSerial</div>
@@ -8970,11 +11759,35 @@
                 </div>
               </div>
 
+              <div id="armLockTile" class="control-tile is-btn" role="button" tabindex="0">
+                <div>
+                  <div class="control-tile-label">ARM ON LOCK</div>
+                  <div class="control-tile-sub">기본 강제 ARM</div>
+                </div>
+                <div class="control-tile-actions">
+                  <input type="checkbox" id="armLockToggle" class="hidden-input">
+                  <button id="armLockPill" class="pill pill-toggle is-off" type="button">OFF</button>
+                </div>
+              </div>
+
+              <div class="control-tile control-tile-mode span-2">
+                <div>
+                  <div class="control-tile-label" data-i18n="settingsOpModeLabel">모드</div>
+                  <div class="control-tile-sub" data-i18n="controlOpModeSub">Flight / DAQ 전환</div>
+                </div>
+                <div class="control-tile-actions">
+                  <select id="opModeSelect" class="control-tile-select" aria-label="Operation mode">
+                    <option value="daq" data-i18n="opModeDaq">DAQ</option>
+                    <option value="flight" data-i18n="opModeFlight">Flight</option>
+                  </select>
+                </div>
+              </div>
+
             </div>
           </div>
 
           <div id="replayPanel" class="replay-panel hidden" aria-hidden="true">
-            <input id="replayFileInput" class="hidden-input" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+            <input id="replayFileInput" class="hidden-input" type="file" accept=".xlsx,.csv,.bin,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,application/octet-stream">
             <div class="replay-file-row">
               <button id="replayFileBtn" class="replay-dropzone" type="button">
                 <span class="replay-dropzone-icon" aria-hidden="true">
@@ -9007,11 +11820,10 @@
           </div>
 
           <div id="launcherPanel" class="launcher-panel" aria-hidden="true">
-            <div class="launcher-panel-note" data-i18n-html="launcherNote">
-              발사대 모터/액추에이터와 연결된 후 실제 높이 제어가 적용됩니다.<br>
-              현재는 UI 수준의 제어 모킹입니다.
+          <div class="launcher-panel-note" data-i18n-html="launcherNote">
+              발사대 모터/액추에이터 제어가 적용됩니다.<br>
+              버튼을 누르는 동안 모터가 구동됩니다.
             </div>
-            <div class="launcher-divider"></div>
             <div class="launcher-controls">
               <div id="launcherTabletControls" class="launcher-arrow-row">
                 <button id="launcherUpPanelBtn" class="launcher-arrow-btn" type="button">▲</button>
@@ -9030,10 +11842,26 @@
           <div id="missionPanel" class="mission-panel" aria-hidden="true">
             <div class="panel-action-note">패널에서 미션을 바로 지정합니다.</div>
             <div class="panel-action-grid">
-              <button class="panel-action-btn" type="button" data-mission-quick="frontier2025">frontier2025</button>
-              <button class="panel-action-btn" type="button" data-mission-quick="frontier2026 stg2 pvc">frontier2026 stg2 pvc</button>
-              <button class="panel-action-btn" type="button" data-mission-quick="QUAIL1 motor">QUAIL1 motor</button>
-              <button class="panel-action-btn" type="button" data-mission-quick="no-motor">메타데이터 없음</button>
+              <button class="panel-action-btn mission-quick-btn is-frontier" type="button" data-mission-quick="frontier2025">
+                <span class="mission-quick-chip">Frontier</span>
+                <span class="mission-quick-title">frontier2025</span>
+                <span class="mission-quick-meta">기본 프리셋</span>
+              </button>
+              <button class="panel-action-btn mission-quick-btn is-stage" type="button" data-mission-quick="frontier2026 stg2 pvc">
+                <span class="mission-quick-chip">Frontier 2026</span>
+                <span class="mission-quick-title">stage 2 PVC</span>
+                <span class="mission-quick-meta">2단 시험 프리셋</span>
+              </button>
+              <button class="panel-action-btn mission-quick-btn is-quail" type="button" data-mission-quick="QUAIL1 motor">
+                <span class="mission-quick-chip">QUAIL1</span>
+                <span class="mission-quick-title">motor</span>
+                <span class="mission-quick-meta">시험체 프리셋</span>
+              </button>
+              <button class="panel-action-btn mission-quick-btn is-manual" type="button" data-mission-quick="no-motor">
+                <span class="mission-quick-chip">Manual</span>
+                <span class="mission-quick-title">메타데이터 없음</span>
+                <span class="mission-quick-meta">수동 입력 기준</span>
+              </button>
             </div>
           </div>
           <div id="inspectionPanel" class="inspection-panel" aria-hidden="true">
@@ -9059,6 +11887,7 @@
               <button id="devRelay2Btn" class="devtools-relay-btn" type="button" data-i18n="devRelay2Btn">RELAY 2</button>
               <button id="devWsOffBtn" class="devtools-relay-btn span-2" type="button" data-i18n="devWsOffBtn">WS OFF (SIM)</button>
               <button id="devLoadcellErrBtn" class="devtools-relay-btn span-2" type="button" data-i18n="devLoadcellErrBtn">LOADCELL ERROR (SIM)</button>
+              <button id="devParachuteBtn" class="devtools-relay-btn span-2" type="button" data-i18n="devParachuteBtn">낙하산 실험 (SIM)</button>
             </div>
           </div>
         </section>
@@ -9156,27 +11985,20 @@
               </div>
 
               <div class="settings-group">
-                <div class="settings-group-title" data-i18n="settingsGroupOperation">운용 모드</div>
-                <div class="settings-row">
-                  <div>
-                    <div class="settings-label" data-i18n="settingsOpModeLabel">모드</div>
-                    <div class="hint-mini" data-i18n="settingsOpModeHint">플라이트/DAQ 모드를 전환합니다.</div>
-                  </div>
-                  <select id="opModeSelect" class="settings-select">
-                    <option value="daq" data-i18n="opModeDaq">DAQ</option>
-                    <option value="flight" data-i18n="opModeFlight">Flight</option>
-                  </select>
-                </div>
-              </div>
-
-              <div class="settings-group">
                 <div class="settings-group-title" data-i18n="loadcellSettingsTitle">로드셀 보정</div>
                 <div class="settings-row">
                   <div>
                     <div class="settings-label" data-i18n="loadcellSettingsLabel">로드셀 영점/보정</div>
                     <div class="hint-mini" data-i18n="loadcellSettingsHint">영점/보정 값을 보드에 저장합니다.</div>
                   </div>
-                  <button id="loadcellCalOpen" class="settings-btn" data-i18n="loadcellOpenBtn">로드셀 영점 조절</button>
+                  <button id="loadcellCalOpen" class="settings-btn" data-i18n="loadcellOpenBtn">로드셀 보정</button>
+                </div>
+                <div class="settings-row">
+                  <div>
+                    <div class="settings-label" data-i18n="loadcellResetLabel">로드셀 초기화</div>
+                    <div class="hint-mini" data-i18n="loadcellResetHint">영점/스케일/노이즈 저장값을 처음 상태로 초기화합니다.</div>
+                  </div>
+                  <button id="loadcellResetBtn" class="settings-btn settings-btn-danger" type="button" data-i18n="loadcellResetBtn">로드셀 초기화</button>
                 </div>
               </div>
               <div class="settings-group">
@@ -9249,8 +12071,47 @@
                 <div class="settings-row">
                   <div>
                     <div class="settings-label" data-i18n="settingsPressureUnitLabel">압력 단위</div>
-                    <div class="hint-mini" data-i18n="settingsPressureUnitHint">현재는 Voltage(V) 기준. 센서 보정이 들어가면 kPa/psi로 확장 가능합니다.</div>
+                    <div class="hint-mini" data-i18n="settingsPressureUnitHint">현재는 MPa 기준입니다. 센서 보정은 config.h의 압력 변환 상수로 조정하세요.</div>
                   </div>
+                </div>
+                <div class="settings-row">
+                  <div>
+                    <div class="settings-label" data-i18n="settingsQuickDigitsLabel">퀵데이터 소수 자릿수</div>
+                    <div class="hint-mini" data-i18n="settingsQuickDigitsHint">추력/압력, Delay/Burn 카드 표시 자릿수입니다.</div>
+                  </div>
+                  <select id="quickDataDigitsSelect" class="settings-select" aria-label="Quick data decimals">
+                    <option value="0">0</option>
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                  </select>
+                </div>
+                <div class="settings-row">
+                  <div>
+                    <div class="settings-label" data-i18n="settingsLoadcellChartDigitsLabel">로드셀 차트 소수 자릿수</div>
+                    <div class="hint-mini" data-i18n="settingsLoadcellChartDigitsHint">차트의 AVG/MAX 추력 표시 자릿수입니다.</div>
+                  </div>
+                  <select id="loadcellChartDigitsSelect" class="settings-select" aria-label="Loadcell chart decimals">
+                    <option value="0">0</option>
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                  </select>
+                </div>
+                <div class="settings-row">
+                  <div>
+                    <div class="settings-label" data-i18n="settingsStorageExportDigitsLabel">SD/내보내기 소수 자릿수</div>
+                    <div class="hint-mini" data-i18n="settingsStorageExportDigitsHint">SD 데이터 확인용 보고서와 Flash 내보내기 파일의 추력/압력 값 자릿수입니다. 시간축 정밀도는 유지됩니다.</div>
+                  </div>
+                  <select id="storageExportDigitsSelect" class="settings-select" aria-label="Storage and export decimals">
+                    <option value="0">0</option>
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                  </select>
                 </div>
 
                 <div class="settings-row">
@@ -9279,7 +12140,8 @@
                     <div class="hint-mini" data-i18n="settingsGyroPreviewHint">플라이트 모드 프리뷰 형태를 선택합니다.</div>
                   </div>
                   <select id="gyroPreviewSelect" class="settings-select">
-                    <option value="3d" data-i18n="settingsGyroPreview3d">3D Attitude</option>
+                    <option value="3d_basic" data-i18n="settingsGyroPreview3dBasic">3D</option>
+                    <option value="3d" data-i18n="settingsGyroPreview3d">3D PLUS</option>
                     <option value="navball" data-i18n="settingsGyroPreviewNav">Navball</option>
                   </select>
                 </div>
@@ -9328,10 +12190,26 @@
                   </div>
                   <div class="settings-number-wrap">
                     <div class="settings-number-row">
-                      <input id="ignTimeInput" type="number" min="1" max="10" step="1" class="settings-number">
+                      <input id="ignTimeInput" type="number" min="100" max="3000" step="1" class="settings-number">
                       <button id="ignTimeSave" class="settings-inline-btn" data-i18n="settingsSaveBtn">저장</button>
                     </div>
-                    <div class="settings-desc" data-i18n="settingsIgnitionTimeRange">1~10초</div>
+                    <div class="settings-desc" data-i18n="settingsIgnitionTimeRange">100~3000ms</div>
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <div>
+                    <div class="settings-label" data-i18n="settingsDaqSequencePyroLabel">DAQ 시퀀스 파이로 채널</div>
+                    <div class="hint-mini" data-i18n="settingsDaqSequencePyroHint">DAQ 모드에서 시퀀스 시 사용할 기본 채널입니다.</div>
+                  </div>
+                  <div class="settings-number-wrap">
+                    <div class="settings-number-row">
+                      <select id="daqSequencePyroSelect" class="settings-number" aria-label="DAQ sequence pyro channel">
+                        <option value="1">PYRO1</option>
+                        <option value="2">PYRO2</option>
+                        <option value="3">PYRO3</option>
+                        <option value="4">PYRO4</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -9345,10 +12223,10 @@
                   </div>
                   <div class="settings-number-wrap">
                     <div class="settings-number-row">
-                      <input id="countdownSecInput" type="number" min="3" max="30" step="1" class="settings-number">
+                      <input id="countdownSecInput" type="number" min="3" max="60" step="1" class="settings-number">
                       <button id="countdownSave" class="settings-inline-btn" data-i18n="settingsSaveBtn">저장</button>
                     </div>
-                    <div class="settings-desc" data-i18n="settingsCountdownTimeRange">3~30초</div>
+                    <div class="settings-desc" data-i18n="settingsCountdownTimeRange">3~60초</div>
                   </div>
                 </div>
               </div>
@@ -9414,6 +12292,7 @@
                         <img class="is-invert is-small" src="img/hanwool_logo.png" alt="">
                       </div>
                     </div>
+                    뒤로가는 얘들 챙겨야 속도만 느려진다 새겨 들어라- PHC<br>
                     Copyright (c) 2026 ALTIS - YBB<br>
                     Permission is hereby granted, free of charge, to any person obtaining a copy
                     of this software and associated documentation files (the “Software”), to deal
@@ -9433,117 +12312,253 @@
       </div>
     </div>
 
-    <!-- 미션 지정 -->
+    <!-- 미션 디자이너 -->
     <div id="missionOverlay" class="settings-overlay hidden">
       <div id="missionDialog" class="mission-dialog" role="dialog" aria-modal="true" aria-labelledby="missionTitle">
         <div class="mission-header">
-          <div>
-            <div id="missionTitle" class="mission-title">MISSION PROFILE</div>
-            <div class="mission-sub">테스트 기록에 함께 저장되는 실험 메타 정보</div>
+          <div class="mission-head-main">
+            <div id="missionTitle" class="mission-title">MISSION DESIGNER</div>
+            <div class="mission-sub">블록 시퀀스를 바로 설계합니다.</div>
+            <div class="mission-sub-note">(미션 설계는 최고 권한이 주어지니 안전에 유의하세요!)</div>
           </div>
-          <button id="missionClose" class="mission-close-btn" aria-label="close">×</button>
+          <div class="mission-head-right">
+            <div class="mission-sync-row mission-sync-row--top">
+              <button id="missionExportBtn" class="settings-btn" type="button">미션 내보내기</button>
+              <label class="settings-btn mission-import-label" for="missionImportInput">미션 불러오기</label>
+              <input id="missionImportInput" type="file" accept=".json,application/json" class="mission-import-input" />
+              <button id="missionSaveBoardBtn" class="settings-btn" type="button">보드 저장</button>
+            </div>
+          </div>
         </div>
-        <div id="missionPresetBlock" class="mission-preset-block">
-          <div id="missionPresetDivider" class="mission-divider"></div>
-          <div id="missionPresetWrap" class="mission-preset-row">
-            <button id="missionScrollLeft" class="mission-scroll-btn left" type="button" aria-label="scroll left">&lt;</button>
-            <div id="missionPresetViewport" class="mission-preset-viewport">
-              <div id="missionPresetGrid" class="mission-preset-grid" role="group" aria-label="preset motors">
-                <div class="mission-preset-spacer" aria-hidden="true"></div>
-                <button class="mission-preset-btn" type="button" data-mission="no-motor">
-                  <div class="mission-preset-photo">No Motor</div>
-                  <div class="mission-preset-name">메타데이터 미지정</div>
-                  <div class="mission-preset-sub">메타데이터 없이 진행</div>
-                </button>
-                <button class="mission-preset-btn" type="button" data-mission="frontier2025">
-                  <div class="mission-preset-photo"><img src="img/frontier2025_img.png" alt="frontier2025"></div>
-                  <div class="mission-preset-name">frontier2025</div>
-                </button>
-                <button class="mission-preset-btn" type="button" data-mission="frontier2026 stg1">
-                  <div class="mission-preset-photo"><img src="img/frontier2026_stg1_img.png" alt="frontier2026 stg1"></div>
-                  <div class="mission-preset-name">frontier2026 stg1</div>
-                </button>
-                <button class="mission-preset-btn" type="button" data-mission="frontier2026 stg2 cnc">
-                  <div class="mission-preset-photo">Photo</div>
-                  <div class="mission-preset-name">frontier2026 stg2 cnc</div>
-                </button>
-                <button class="mission-preset-btn" type="button" data-mission="frontier2026 stg2 pvc">
-                  <div class="mission-preset-photo"><img src="img/frontier2026_stg2_pvc_img.png" alt="frontier2026 stg2 pvc"></div>
-                  <div class="mission-preset-name">frontier2026 stg2 pvc</div>
-                </button>
-                <button class="mission-preset-btn" type="button" data-mission="QUAIL1 motor">
-                  <div class="mission-preset-photo"><img src="img/QUAIL1_path.svg" alt="QUAIL1"></div>
-                  <div class="mission-preset-name">QUAIL1 motor</div>
-                </button>
-                <button class="mission-preset-btn" type="button" data-mission="motor-support">
-                  <div class="mission-preset-photo">Photo</div>
-                  <div class="mission-preset-name">모터 추가 문의</div>
-                  <div class="mission-preset-sub">ybb1833@naver.com</div>
-                </button>
-                <button id="missionCustomBtn" class="mission-preset-btn" type="button">
-                  <div class="mission-preset-photo">+</div>
-                  <div class="mission-preset-name">사용자 지정</div>
-                  <div class="mission-preset-sub">직접 입력하기</div>
-                </button>
-                <div class="mission-preset-spacer" aria-hidden="true"></div>
+        <div class="mission-designer-layout">
+          <div id="missionPresetBlock" class="mission-preset-block">
+            <div id="missionPresetDivider" class="mission-divider"></div>
+            <div class="mission-preset-title">MOTOR PRESET</div>
+            <div id="missionPresetWrap" class="mission-preset-row">
+              <button id="missionScrollLeft" class="mission-scroll-btn left" type="button" aria-label="scroll left">&lt;</button>
+              <div id="missionPresetViewport" class="mission-preset-viewport">
+                <div id="missionPresetGrid" class="mission-preset-grid" role="group" aria-label="preset motors">
+                  <div class="mission-preset-spacer" aria-hidden="true"></div>
+                  <button class="mission-preset-btn" type="button" data-mission="no-motor">
+                    <div class="mission-preset-photo">No Motor</div>
+                    <div class="mission-preset-name">메타데이터 미지정</div>
+                    <div class="mission-preset-sub">메타데이터 없이 진행</div>
+                  </button>
+                  <button class="mission-preset-btn" type="button" data-mission="frontier2025">
+                    <div class="mission-preset-photo"><img src="img/frontier2025_img.png" alt="frontier2025"></div>
+                    <div class="mission-preset-name">frontier2025</div>
+                  </button>
+                  <button class="mission-preset-btn" type="button" data-mission="frontier2026 stg1">
+                    <div class="mission-preset-photo"><img src="img/frontier2026_stg1_img.png" alt="frontier2026 stg1"></div>
+                    <div class="mission-preset-name">frontier2026 stg1</div>
+                  </button>
+                  <button class="mission-preset-btn" type="button" data-mission="frontier2026 stg2 cnc">
+                    <div class="mission-preset-photo">Photo</div>
+                    <div class="mission-preset-name">frontier2026 stg2 cnc</div>
+                  </button>
+                  <button class="mission-preset-btn" type="button" data-mission="frontier2026 stg2 pvc">
+                    <div class="mission-preset-photo"><img src="img/frontier2026_stg2_pvc_img.png" alt="frontier2026 stg2 pvc"></div>
+                    <div class="mission-preset-name">frontier2026 stg2 pvc</div>
+                  </button>
+                  <button class="mission-preset-btn" type="button" data-mission="QUAIL1 motor">
+                    <div class="mission-preset-photo"><img src="img/QUAIL1_path.svg" alt="QUAIL1"></div>
+                    <div class="mission-preset-name">QUAIL1 motor</div>
+                  </button>
+                  <button class="mission-preset-btn" type="button" data-mission="motor-support">
+                  </button>
+                  <button id="missionCustomBtn" class="mission-preset-btn" type="button">
+                    <div class="mission-preset-photo">+</div>
+                    <div class="mission-preset-name">사용자 지정</div>
+                    <div class="mission-preset-sub">직접 입력하기</div>
+                  </button>
+                  <div class="mission-preset-spacer" aria-hidden="true"></div>
+                </div>
+              </div>
+              <button id="missionScrollRight" class="mission-scroll-btn right" type="button" aria-label="scroll right">&gt;</button>
+            </div>
+          </div>
+
+          <div id="missionFields" class="mission-fields">
+            <div class="mission-meta-panel">
+              <div class="mission-meta-head">MISSION METADATA</div>
+              <div class="mission-meta-sub">프리셋 선택 또는 직접 입력 후, 우측 워크스페이스에서 블록 시퀀스를 구성하세요.</div>
+              <button id="missionBackBtn" class="mission-back-btn hidden" type="button">← 모터 목록으로</button>
+              <div class="mission-grid">
+                <div class="mission-field">
+                  <label class="mission-label" for="missionName">미션 이름</label>
+                  <input id="missionName" class="mission-input" type="text" placeholder="예: FLASH-TEST A">
+                </div>
+                <div class="mission-field">
+                  <label class="mission-label" for="missionTestCount">테스트 회차</label>
+                  <input id="missionTestCount" class="mission-input" type="number" min="1" step="1" placeholder="1">
+                </div>
+                <div class="mission-field">
+                  <label class="mission-label" for="missionMotorDia">모터 직경 (mm)</label>
+                  <div class="mission-row">
+                    <input id="missionMotorDia" class="mission-input" type="number" min="0" step="0.1" placeholder="0">
+                    <span class="mission-unit">mm</span>
+                  </div>
+                </div>
+                <div class="mission-field">
+                  <label class="mission-label" for="missionMotorLen">모터 길이 (mm)</label>
+                  <div class="mission-row">
+                    <input id="missionMotorLen" class="mission-input" type="number" min="0" step="0.1" placeholder="0">
+                    <span class="mission-unit">mm</span>
+                  </div>
+                </div>
+                <div class="mission-field">
+                  <label class="mission-label" for="missionIgnDelay">점화 지연 (s)</label>
+                  <div class="mission-row">
+                    <input id="missionIgnDelay" class="mission-input" type="number" min="0" step="0.1" placeholder="0.0">
+                    <span class="mission-unit">s</span>
+                  </div>
+                </div>
+                <div class="mission-field">
+                  <label class="mission-label" for="missionGrainMass">그레인 질량 (g)</label>
+                  <div class="mission-row">
+                    <input id="missionGrainMass" class="mission-input" type="number" min="0" step="0.1" placeholder="0">
+                    <span class="mission-unit">g</span>
+                  </div>
+                </div>
+                <div class="mission-field">
+                  <label class="mission-label" for="missionTotalMass">총 질량 (g)</label>
+                  <div class="mission-row">
+                    <input id="missionTotalMass" class="mission-input" type="number" min="0" step="0.1" placeholder="0">
+                    <span class="mission-unit">g</span>
+                  </div>
+                </div>
+                <div class="mission-field">
+                  <label class="mission-label" for="missionVendor">제조사</label>
+                  <input id="missionVendor" class="mission-input" type="text" placeholder="제조사명">
+                </div>
               </div>
             </div>
-            <button id="missionScrollRight" class="mission-scroll-btn right" type="button" aria-label="scroll right">&gt;</button>
-          </div>
-        </div>
-
-        <div id="missionFields" class="mission-fields hidden">
-          <div class="mission-divider"></div>
-          <button id="missionBackBtn" class="mission-back-btn" type="button">← 모터 목록으로</button>
-          <div class="mission-grid">
-            <div class="mission-field">
-              <label class="mission-label" for="missionName">미션 이름</label>
-            <input id="missionName" class="mission-input" type="text" placeholder="예: FLASH-TEST A">
-          </div>
-          <div class="mission-field">
-            <label class="mission-label" for="missionTestCount">테스트 회차</label>
-            <input id="missionTestCount" class="mission-input" type="number" min="1" step="1" placeholder="1">
-          </div>
-          <div class="mission-field">
-            <label class="mission-label" for="missionMotorDia">모터 직경 (mm)</label>
-            <div class="mission-row">
-              <input id="missionMotorDia" class="mission-input" type="number" min="0" step="0.1" placeholder="0">
-              <span class="mission-unit">mm</span>
+            <div class="mission-block-editor mission-block-editor--scratch-entry" id="missionBlockEditor">
+            <div class="mission-block-workspace">
+              <div id="missionBlockPalette" class="mission-block-palette">
+                <div class="mission-palette-title">BLOCKS</div>
+                <div class="mission-palette-group">
+                  <div class="mission-palette-group-title">조건(IF)</div>
+                  <button class="mission-tool-btn mission-tool-btn--event" type="button" draggable="true" data-add-kind="cond_switch_falling">
+                    <span class="mission-tool-main">시작 (ARM OFF)</span>
+                    <span class="mission-tool-sub">ARM 해제(ON → OFF) 감지 시 1회 시작</span>
+                  </button>
+                  <button class="mission-tool-btn mission-tool-btn--event" type="button" draggable="true" data-add-kind="cond_altitude">
+                    <span class="mission-tool-main">고도 이상</span>
+                    <span class="mission-tool-sub">예: 고도 120m 이상</span>
+                  </button>
+                  <button class="mission-tool-btn mission-tool-btn--event" type="button" draggable="true" data-add-kind="cond_switch_falling">
+                    <span class="mission-tool-main">ARM OFF</span>
+                    <span class="mission-tool-sub">ON → OFF 전환</span>
+                  </button>
+                  <button class="mission-tool-btn mission-tool-btn--event" type="button" draggable="true" data-add-kind="cond_switch_rising">
+                    <span class="mission-tool-main">ARM ON</span>
+                    <span class="mission-tool-sub">OFF → ON 전환</span>
+                  </button>
+                  <button class="mission-tool-btn mission-tool-btn--event" type="button" draggable="true" data-add-kind="cond_time_after_firing">
+                    <span class="mission-tool-main">점화 후 시간</span>
+                    <span class="mission-tool-sub">예: 점화 후 1800ms</span>
+                  </button>
+                  <button class="mission-tool-btn mission-tool-btn--event" type="button" draggable="true" data-add-kind="cond_gyro_angle">
+                    <span class="mission-tool-main">자이로 각도</span>
+                    <span class="mission-tool-sub">X/Y/Z 축과 각도 조건 선택</span>
+                  </button>
+                  <button class="mission-tool-btn mission-tool-btn--event" type="button" draggable="true" data-add-kind="cond_variable">
+                    <span class="mission-tool-main">변수 조건</span>
+                    <span class="mission-tool-sub">VAR 값을 기준으로 분기</span>
+                  </button>
+                  <button class="mission-tool-btn mission-tool-btn--event" type="button" draggable="true" data-add-kind="cond_var_change_count">
+                    <span class="mission-tool-main">변수 변화 횟수</span>
+                    <span class="mission-tool-sub">이전값 대비 이상/이하 연속 N회</span>
+                  </button>
+                </div>
+                <div class="mission-palette-group">
+                  <div class="mission-palette-group-title">동작</div>
+                  <button class="mission-tool-btn mission-tool-btn--action" type="button" draggable="true" data-add-kind="act_wait">
+                    <span class="mission-tool-main">몇 초 기다리기</span>
+                    <span class="mission-tool-sub">다음 동작 전에 지연 추가</span>
+                  </button>
+                  <button class="mission-tool-btn mission-tool-btn--action" type="button" draggable="true" data-add-kind="act_servo">
+                    <span class="mission-tool-main">서보 동작</span>
+                    <span class="mission-tool-sub">채널/각도 지정</span>
+                  </button>
+                  <button class="mission-tool-btn mission-tool-btn--action" type="button" draggable="true" data-add-kind="act_servo_high">
+                    <span class="mission-tool-main">서보 크게</span>
+                    <span class="mission-tool-sub">기본값 CH3 · 150deg</span>
+                  </button>
+                  <button class="mission-tool-btn mission-tool-btn--action" type="button" draggable="true" data-add-kind="act_pyro">
+                    <span class="mission-tool-main">파이로 동작</span>
+                    <span class="mission-tool-sub">채널/지속시간 지정</span>
+                  </button>
+                  <button class="mission-tool-btn mission-tool-btn--action" type="button" draggable="true" data-add-kind="act_var_set">
+                    <span class="mission-tool-main">변수 설정</span>
+                    <span class="mission-tool-sub">VAR = 값</span>
+                  </button>
+                  <button class="mission-tool-btn mission-tool-btn--action" type="button" draggable="true" data-add-kind="act_var_add">
+                    <span class="mission-tool-main">변수 계산</span>
+                    <span class="mission-tool-sub">VAR += 값 (음수 가능)</span>
+                  </button>
+                  <button class="mission-tool-btn mission-tool-btn--action" type="button" draggable="true" data-add-kind="act_var_avg">
+                    <span class="mission-tool-main">센서값 평균</span>
+                    <span class="mission-tool-sub">센서 최근 N회 평균 (최대 10)</span>
+                  </button>
+                  <button class="mission-tool-btn mission-tool-btn--action" type="button" draggable="true" data-add-kind="act_alarm">
+                    <span class="mission-tool-main">알람 띄우기</span>
+                    <span class="mission-tool-sub">알람 제목 표시</span>
+                  </button>
+                  <button class="mission-tool-btn mission-tool-btn--action" type="button" draggable="true" data-add-kind="act_buzzer">
+                    <span class="mission-tool-main">버저 작동</span>
+                    <span class="mission-tool-sub">주파수(Hz)로 버저 ON</span>
+                  </button>
+                  <button class="mission-tool-btn mission-tool-btn--action" type="button" draggable="true" data-add-kind="act_find_buzzer">
+                    <span class="mission-tool-main">파인드 버저</span>
+                    <span class="mission-tool-sub">찾기용 반복 비프 패턴 시작</span>
+                  </button>
+                  <button class="mission-tool-btn mission-tool-btn--action" type="button" draggable="true" data-add-kind="act_notone">
+                    <span class="mission-tool-main">버저 정지</span>
+                    <span class="mission-tool-sub">noTone으로 버저 OFF</span>
+                  </button>
+                </div>
+                <div class="mission-palette-group">
+                  <div class="mission-palette-group-title">반복</div>
+                  <button class="mission-tool-btn mission-tool-btn--logic" type="button" draggable="true" data-add-kind="loop_forever">
+                    <span class="mission-tool-main">무한 반복</span>
+                    <span class="mission-tool-sub">내부 블럭을 계속 반복</span>
+                  </button>
+                  <button class="mission-tool-btn mission-tool-btn--logic" type="button" draggable="true" data-add-kind="loop_count">
+                    <span class="mission-tool-main">몇번 반복</span>
+                    <span class="mission-tool-sub">횟수를 지정해 반복</span>
+                  </button>
+                </div>
+                <div class="mission-palette-group mission-palette-group--utility">
+                  <div class="mission-palette-group-title">유틸리티</div>
+                  <button class="mission-tool-btn mission-tool-btn--logic" type="button" id="missionBlockClearBtn">전체 삭제</button>
+                </div>
+              </div>
+              <div id="missionBlockCanvas" class="mission-block-canvas">
+                <div class="mission-block-canvas-top">
+                  <div class="mission-block-canvas-label">WORKSPACE</div>
+                  <div class="mission-block-canvas-meta">
+                    <div id="missionBlockCount" class="mission-block-canvas-count">총 0개</div>
+                    <div class="mission-canvas-zoom-controls" role="group" aria-label="canvas zoom">
+                      <button id="missionCanvasZoomOut" class="mission-canvas-zoom-btn" type="button" aria-label="zoom out">−</button>
+                      <button id="missionCanvasZoomReset" class="mission-canvas-zoom-reset" type="button" aria-label="zoom reset">100%</button>
+                      <button id="missionCanvasZoomIn" class="mission-canvas-zoom-btn" type="button" aria-label="zoom in">+</button>
+                    </div>
+                  </div>
+                </div>
+                <div class="mission-block-canvas-hint">팁: 조건 블록 아래로 동작/조건 블록을 놓으면 중첩 if 구조로 묶입니다.</div>
+                <div id="missionBlockList" class="mission-block-list">
+                  <div id="missionBlockStage" class="mission-block-stage"></div>
+                </div>
+              </div>
+            </div>
+            <div class="mission-block-actions mission-block-actions--footer">
+              <button id="missionBlockAddServoBtn" class="settings-btn" type="button">+ 서보 블럭</button>
+              <button id="missionBlockAddPyroBtn" class="settings-btn" type="button">+ 파이로 블럭</button>
             </div>
           </div>
-          <div class="mission-field">
-            <label class="mission-label" for="missionMotorLen">모터 길이 (mm)</label>
-            <div class="mission-row">
-              <input id="missionMotorLen" class="mission-input" type="number" min="0" step="0.1" placeholder="0">
-              <span class="mission-unit">mm</span>
-            </div>
           </div>
-          <div class="mission-field">
-            <label class="mission-label" for="missionIgnDelay">점화 지연 (s)</label>
-            <div class="mission-row">
-              <input id="missionIgnDelay" class="mission-input" type="number" min="0" step="0.1" placeholder="0.0">
-              <span class="mission-unit">s</span>
-            </div>
-          </div>
-          <div class="mission-field">
-            <label class="mission-label" for="missionGrainMass">그레인 질량 (g)</label>
-            <div class="mission-row">
-              <input id="missionGrainMass" class="mission-input" type="number" min="0" step="0.1" placeholder="0">
-              <span class="mission-unit">g</span>
-            </div>
-          </div>
-          <div class="mission-field">
-            <label class="mission-label" for="missionTotalMass">총 질량 (g)</label>
-            <div class="mission-row">
-              <input id="missionTotalMass" class="mission-input" type="number" min="0" step="0.1" placeholder="0">
-              <span class="mission-unit">g</span>
-            </div>
-          </div>
-          <div class="mission-field">
-            <label class="mission-label" for="missionVendor">제조사</label>
-            <input id="missionVendor" class="mission-input" type="text" placeholder="제조사명">
-          </div>
-        </div>
         </div>
         <div id="missionTestInline" class="mission-test-inline" aria-hidden="true">
           <div class="mission-test-title">실험 회차</div>
@@ -9587,10 +12602,6 @@
             </div>
           </div>
         </div>
-        <div class="mission-footer">
-          <button id="missionCloseBtn" class="settings-btn" type="button">닫기</button>
-          <button id="missionConfirmBtn" class="mission-confirm-btn" type="button">다음</button>
-        </div>
       </div>
     </div>
 
@@ -9598,17 +12609,17 @@
     <div id="loadcellOverlay" class="settings-overlay hidden" style="display:none;">
       <div id="loadcellDialog" class="loadcell-dialog">
         <div class="settings-header">
-          <div class="settings-title" data-i18n="loadcellModalTitle">로드셀 영점 조절</div>
+          <div id="loadcellTitle" class="settings-title" data-i18n="loadcellModalTitle">로드셀 보정</div>
           <button id="loadcellClose" class="settings-close-btn">×</button>
         </div>
         <div class="loadcell-body">
           <div class="loadcell-main">
-            <div class="loadcell-kicker" data-i18n="loadcellModalBadge">Calibration</div>
-            <div class="loadcell-steps" data-i18n="loadcellModalGuide">무게추를 올려놓고 값을 확인하세요. 다음을 누르세요.</div>
+            <div id="loadcellKicker" class="loadcell-kicker" data-i18n="loadcellModalBadge">Calibration</div>
+            <div id="loadcellGuide" class="loadcell-steps" data-i18n="loadcellModalGuide">무게추를 올려놓고 값을 확인하세요. 다음을 누르세요.</div>
             <div class="loadcell-card loadcell-step-current">
               <div>
-                <div class="settings-label" data-i18n="loadcellModalValueLabel">현재 측정값 (kg)</div>
-                <div class="loadcell-note" data-i18n="loadcellModalValueHint">보정은 kg 기준으로 저장됩니다.</div>
+                <div id="loadcellValueLabel" class="settings-label" data-i18n="loadcellModalValueLabel">현재 측정값 (kg)</div>
+                <div id="loadcellValueHint" class="loadcell-note" data-i18n="loadcellModalValueHint">보정은 kg 기준으로 저장됩니다.</div>
                 <div class="loadcell-value-wrap">
                   <div id="loadcellLiveValue" class="loadcell-value">--</div>
                   <div class="loadcell-unit">kg</div>
@@ -9623,7 +12634,14 @@
               </div>
               <div class="loadcell-note" data-i18n="loadcellModalNote">이 값은 보드에 저장됩니다.</div>
             </div>
+            <div class="loadcell-card loadcell-step-complete">
+              <div>
+                <div id="loadcellCompleteTitle" class="loadcell-success-title" data-i18n="loadcellCompleteTitle">로드셀 보정 완료</div>
+                <div id="loadcellCompleteText" class="loadcell-success-text" data-i18n="loadcellCompleteText">로드셀 보정이 완료되었습니다!</div>
+              </div>
+            </div>
             <div class="loadcell-actions">
+              <button id="loadcellZeroBtn" class="loadcell-secondary" data-i18n="loadcellZeroSaveBtn">영점 저장</button>
               <button id="loadcellApplyBtn" class="loadcell-secondary" data-i18n="loadcellModalApply">다음</button>
               <button id="loadcellCancelBtn" class="loadcell-cancel" data-i18n="loadcellModalCancel">취소</button>
             </div>
@@ -9637,7 +12655,7 @@
               <div id="loadcellWarningText" class="confirm-text" data-i18n="loadcellModalConfirmText">
                 이전에 저장된 로드셀 보정값이 삭제되고 새 값으로 저장됩니다.
               </div>
-              <div class="loadcell-warning-sub" data-i18n="loadcellModalConfirmSub">
+              <div id="loadcellWarningSub" class="loadcell-warning-sub" data-i18n="loadcellModalConfirmSub">
                 저장 후에는 측정 기준이 변경됩니다. 보정에 사용한 무게추를 제거한 뒤 측정값을 확인하세요.
               </div>
             </div>
@@ -9816,6 +12834,27 @@
       </div>
     </div>
 
+    <!-- 재부팅 확인 모달 -->
+    <div id="rebootConfirmOverlay" class="reboot-overlay hidden" style="display:none;">
+      <div class="reboot-dialog" role="alertdialog" aria-modal="true" aria-labelledby="rebootConfirmTitle" aria-describedby="rebootConfirmText">
+        <div class="confirm-icon is-disconnect" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <path d="M12 3v5"></path>
+            <path d="M7.1 5.9A8 8 0 1 0 16.9 5.9"></path>
+          </svg>
+        </div>
+        <div id="rebootConfirmTitle" class="disconnect-title" data-i18n="rebootConfirmTitle">보드를 재부팅할까요?</div>
+        <div id="rebootConfirmText" class="disconnect-text" data-i18n-html="rebootConfirmText">
+          재부팅 중에는 실시간 데이터 수신이 잠시 중단됩니다.<br>
+          진행하시겠습니까?
+        </div>
+        <div id="rebootConfirmActions" class="reboot-actions">
+          <button id="rebootConfirmBtn" class="disconnect-ok reboot-confirm" data-i18n="rebootConfirmBtn">재부팅</button>
+          <button id="rebootConfirmCancel" class="confirm-cancel" data-i18n="confirmCancel">취소</button>
+        </div>
+      </div>
+    </div>
+
     <!-- WebSocket 경고 오버레이 -->
     <div id="wsAlertOverlay" class="ws-alert-overlay warning-fullscreen hidden" style="display:none;">
       <div class="ws-alert-dialog" role="alertdialog" aria-modal="true" aria-labelledby="wsAlertTitle" aria-describedby="wsAlertText">
@@ -9876,6 +12915,92 @@
       </div>
     </div>
 
+    <!-- 서보모터 제어 모달 -->
+    <div id="hardwareServoOverlay" class="settings-overlay hidden" style="display:none;">
+      <div class="settings-dialog hardware-servo-dialog" role="dialog" aria-modal="true" aria-labelledby="hardwareServoTitle">
+        <div class="settings-header">
+          <div class="settings-title" id="hardwareServoTitle">SERVO MOTOR CONTROL</div>
+          <button id="hardwareServoClose" class="settings-close-btn" type="button" aria-label="close"
+            onclick="(function(){var o=document.getElementById('hardwareServoOverlay');if(o){o.classList.add('hidden');o.style.display='none';}})();">×</button>
+        </div>
+        <div class="hardware-servo-dialog-body">
+          <div class="hardware-servo-group">
+            <div class="settings-group-title">Servo Motor (PWM1~PWM4)</div>
+            <div class="hardware-servo-grid">
+              <div class="hardware-servo-row" data-servo-channel="1">
+                <div class="hardware-servo-head">
+                  <div class="settings-label">PWM1</div>
+                  <div class="hardware-servo-meta mono">GPIO <span data-servo-pin>-</span> · <span data-servo-value>90°</span></div>
+                </div>
+                <input class="hardware-servo-slider" type="range" min="0" max="180" value="90" step="1" data-servo-range>
+                <div class="hardware-servo-presets">
+                  <div class="hardware-servo-preset">
+                    <input class="hardware-servo-preset-input" type="number" min="0" max="180" step="1" value="30" data-servo-preset-input="1">
+                    <button class="hardware-servo-preset-btn" type="button" data-servo-preset-apply="1">적용</button>
+                  </div>
+                  <div class="hardware-servo-preset">
+                    <input class="hardware-servo-preset-input" type="number" min="0" max="180" step="1" value="90" data-servo-preset-input="2">
+                    <button class="hardware-servo-preset-btn" type="button" data-servo-preset-apply="2">적용</button>
+                  </div>
+                </div>
+              </div>
+              <div class="hardware-servo-row" data-servo-channel="2">
+                <div class="hardware-servo-head">
+                  <div class="settings-label">PWM2</div>
+                  <div class="hardware-servo-meta mono">GPIO <span data-servo-pin>-</span> · <span data-servo-value>90°</span></div>
+                </div>
+                <input class="hardware-servo-slider" type="range" min="0" max="180" value="90" step="1" data-servo-range>
+                <div class="hardware-servo-presets">
+                  <div class="hardware-servo-preset">
+                    <input class="hardware-servo-preset-input" type="number" min="0" max="180" step="1" value="30" data-servo-preset-input="1">
+                    <button class="hardware-servo-preset-btn" type="button" data-servo-preset-apply="1">적용</button>
+                  </div>
+                  <div class="hardware-servo-preset">
+                    <input class="hardware-servo-preset-input" type="number" min="0" max="180" step="1" value="90" data-servo-preset-input="2">
+                    <button class="hardware-servo-preset-btn" type="button" data-servo-preset-apply="2">적용</button>
+                  </div>
+                </div>
+              </div>
+              <div class="hardware-servo-row" data-servo-channel="3">
+                <div class="hardware-servo-head">
+                  <div class="settings-label">PWM3</div>
+                  <div class="hardware-servo-meta mono">GPIO <span data-servo-pin>-</span> · <span data-servo-value>90°</span></div>
+                </div>
+                <input class="hardware-servo-slider" type="range" min="0" max="180" value="90" step="1" data-servo-range>
+                <div class="hardware-servo-presets">
+                  <div class="hardware-servo-preset">
+                    <input class="hardware-servo-preset-input" type="number" min="0" max="180" step="1" value="30" data-servo-preset-input="1">
+                    <button class="hardware-servo-preset-btn" type="button" data-servo-preset-apply="1">적용</button>
+                  </div>
+                  <div class="hardware-servo-preset">
+                    <input class="hardware-servo-preset-input" type="number" min="0" max="180" step="1" value="90" data-servo-preset-input="2">
+                    <button class="hardware-servo-preset-btn" type="button" data-servo-preset-apply="2">적용</button>
+                  </div>
+                </div>
+              </div>
+              <div class="hardware-servo-row" data-servo-channel="4">
+                <div class="hardware-servo-head">
+                  <div class="settings-label">PWM4</div>
+                  <div class="hardware-servo-meta mono">GPIO <span data-servo-pin>-</span> · <span data-servo-value>90°</span></div>
+                </div>
+                <input class="hardware-servo-slider" type="range" min="0" max="180" value="90" step="1" data-servo-range>
+                <div class="hardware-servo-presets">
+                  <div class="hardware-servo-preset">
+                    <input class="hardware-servo-preset-input" type="number" min="0" max="180" step="1" value="30" data-servo-preset-input="1">
+                    <button class="hardware-servo-preset-btn" type="button" data-servo-preset-apply="1">적용</button>
+                  </div>
+                  <div class="hardware-servo-preset">
+                    <input class="hardware-servo-preset-input" type="number" min="0" max="180" step="1" value="90" data-servo-preset-input="2">
+                    <button class="hardware-servo-preset-btn" type="button" data-servo-preset-apply="2">적용</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- 발사대 모달 -->
     <div id="launcherOverlay" class="settings-overlay hidden">
       <div class="launcher-dialog">
@@ -9884,10 +13009,9 @@
           <button id="launcherClose" class="launcher-close-btn">×</button>
         </div>
         <div class="launcher-note" data-i18n-html="launcherNote">
-          발사대 모터/액추에이터와 연결된 후 실제 높이 제어가 적용됩니다.<br>
-          현재는 UI 수준의 제어 모킹입니다.
+          발사대 모터/액추에이터 제어가 적용됩니다.<br>
+          버튼을 누르는 동안 모터가 구동됩니다.
         </div>
-        <div class="launcher-divider"></div>
         <div class="launcher-controls">
           <div id="launcherManualControls" class="launcher-arrow-row">
             <button id="launcherUpModalBtn" class="launcher-arrow-btn">▲</button>
@@ -9943,16 +13067,34 @@
   <div id="controlsOverlay" class="controls-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="controlsOverlayTitle">
     <div id="controlsOverlaySlot" class="controls-overlay-slot"></div>
     <button id="controlsOverlayClose" class="controls-overlay-close" type="button" aria-label="close">×</button>
-  </div>
+    </div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="flash6.js?v=20260306-16"></script>
   <script>
-    if ("serviceWorker" in navigator && window.isSecureContext) {
+    (function(){
+      window.__flashBoot = window.__flashBoot || { jsReady:false, lastError:"" };
+      window.addEventListener("error", function(ev){
+        try{ window.__flashBoot.lastError = String(ev && (ev.message || ev.error || "")); }catch(_e){}
+      });
+      setTimeout(function(){
+        var app = document.querySelector(".page-wrap");
+        var splash = document.getElementById("splash");
+        if(app && !app.classList.contains("ready")){
+          app.classList.add("ready");
+        }
+        if(splash && !splash.classList.contains("hide")){
+          splash.classList.add("hide");
+        }
+      }, 8000);
+    })();
+  </script>
+  <script src="/vendor/leaflet/leaflet.js" onerror="this.onerror=null;var s=document.createElement('script');s.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';document.head.appendChild(s);"></script>
+  <script src="flash6.js?v=20260404-004"></script>
+  <script>
+    if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        navigator.serviceWorker.register("/sw.js").catch((err) => {
-          console.warn("Service worker registration failed:", err);
-        });
+        navigator.serviceWorker.getRegistrations()
+          .then((regs) => Promise.all(regs.map((reg) => reg.unregister())))
+          .catch((err) => console.warn("Service worker cleanup failed:", err));
       });
     }
   </script>

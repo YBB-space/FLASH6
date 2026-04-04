@@ -1,0 +1,1332 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1" />
+  <title>ALTIS LIVE - OBS HUD</title>
+  <link rel="icon" href="img/altis_logo2.svg" type="image/svg+xml" />
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --hud-h: 300px;
+      --pad-x: 36px;
+      --pad-b: 26px;
+
+      --deep: rgba(4,7,13,.96);
+      --mid:  rgba(4,7,13,.78);
+      --soft: rgba(4,7,13,.42);
+
+      --text:  rgba(248,250,252,.96);
+      --text2: rgba(226,232,240,.82);
+      --text3: rgba(148,163,184,.78);
+
+      --ok:   #22c55e;
+      --warn: #f59e0b;
+      --bad:  #ef4444;
+
+      --th: #ff3b30;
+      --pr: #3b82f6;
+
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace;
+      --sans: -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",system-ui,sans-serif;
+    }
+
+    html,body{width:100%;height:100%}
+    body{
+      background: transparent;
+      overflow:hidden;
+      font-family: var(--sans);
+      color: var(--text);
+    }
+
+    body::before{
+      content:"";
+      position:fixed;
+      top:0; left:0; right:0;
+      height: 260px;
+      background: linear-gradient(180deg,
+        rgba(0,0,0,.46) 0%,
+        rgba(0,0,0,.26) 38%,
+        rgba(0,0,0,.10) 70%,
+        rgba(0,0,0,0) 100%);
+      pointer-events:none;
+      z-index: 40;
+    }
+
+    .top-strip{
+      position:fixed;
+      top: max(18px, env(safe-area-inset-top, 0px));
+      left: max(18px, env(safe-area-inset-left, 0px));
+      display:flex;
+      flex-direction:column;
+      align-items:flex-start;
+      gap: 8px;
+      z-index: 300;
+      pointer-events:none;
+    }
+    .mini-pill{
+      display:inline-flex; align-items:center; gap:8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(0,0,0,.34);
+      border: 1px solid rgba(255,255,255,.14);
+      backdrop-filter: blur(10px) saturate(1.12);
+      -webkit-backdrop-filter: blur(10px) saturate(1.12);
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: .20em;
+      text-transform: uppercase;
+      color: rgba(226,232,240,.90);
+      white-space:nowrap;
+      text-shadow: 0 10px 24px rgba(0,0,0,.55);
+    }
+    .mini-pill .led{
+      width:8px;height:8px;border-radius:999px;
+      background: rgba(255,255,255,.40);
+      box-shadow: 0 0 0 4px rgba(255,255,255,.10);
+      flex:0 0 auto;
+    }
+    .mini-pill.ok   .led{ background: var(--ok);   box-shadow: 0 0 0 4px rgba(34,197,94,.18) }
+    .mini-pill.warn .led{ background: var(--warn); box-shadow: 0 0 0 4px rgba(245,158,11,.18) }
+    .mini-pill.bad  .led{ background: var(--bad);  box-shadow: 0 0 0 4px rgba(239,68,68,.18) }
+
+    #hud{
+      position:fixed; left:0; right:0; bottom:0;
+      height: var(--hud-h);
+      pointer-events:none;
+      z-index: 100;
+    }
+    #hud::before{
+      content:"";
+      position:absolute; inset:0;
+      background:
+        linear-gradient(180deg,
+          rgba(0,0,0,0) 0%,
+          rgba(0,0,0,0) 14%,
+          var(--soft) 36%,
+          var(--mid) 62%,
+          var(--deep) 100%);
+    }
+
+    .hud-inner{
+      position:absolute; left:0; right:0; bottom:0;
+      padding: 30px var(--pad-x) calc(var(--pad-b) + env(safe-area-inset-bottom, 0px));
+      height: 100%;
+      display:grid;
+      grid-template-columns: 520px 1fr 520px;
+      gap: 26px;
+      align-items:end;
+      z-index: 3;
+    }
+
+    /* LEFT GAUGES: 기본 숨김 -> body.gauges-on 시 등장 */
+    .left{
+      display:flex;
+      align-items:flex-end;
+      justify-content:flex-start;
+      gap: 16px;
+      padding-bottom: 6px;
+      position: relative;
+      z-index: 4;
+
+      opacity: 0;
+      transform: translateY(16px) scale(.985);
+      transition: opacity .55s ease, transform .55s ease;
+    }
+    body.gauges-on .left{
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+
+    .center{
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:flex-end;
+      gap: 8px;
+      min-width: 280px;
+      padding-bottom: 8px;
+    }
+    .mission{
+      font-family: var(--mono);
+      font-size: 13px;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: rgba(248,250,252,.94);
+      text-align:center;
+      max-width: 86vw;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      text-shadow: 0 18px 50px rgba(0,0,0,.65);
+    }
+    .center-state{
+      font-family: var(--mono);
+      font-size: 18px;
+      font-weight: 900;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: rgba(248,250,252,.98);
+      text-shadow: 0 22px 60px rgba(0,0,0,.70);
+      line-height: 1.0;
+    }
+    .center-state.bad{ color: rgba(255,215,215,.98); }
+    .center-state.warn{ color: rgba(255,244,214,.98); }
+    .center-state.ok{ color: rgba(232,255,242,.98); }
+
+    .timeline{
+      --tl-lineY: 32px;
+      --tl-dot: 10px;
+      width:min(980px, 100%);
+      height: 70px;
+      position:relative;
+      user-select:none;
+      overflow:hidden;
+
+      -webkit-mask-image: linear-gradient(90deg,
+        rgba(0,0,0,0) 0%,
+        rgba(0,0,0,1) 18%,
+        rgba(0,0,0,1) 82%,
+        rgba(0,0,0,0) 100%);
+      mask-image: linear-gradient(90deg,
+        rgba(0,0,0,0) 0%,
+        rgba(0,0,0,1) 18%,
+        rgba(0,0,0,1) 82%,
+        rgba(0,0,0,0) 100%);
+    }
+    .tl-track{
+      position:absolute;
+      left: 10px; right: 10px;
+      top: var(--tl-lineY);
+      height:2px;
+      border-radius:999px;
+      background: linear-gradient(90deg,
+        rgba(255,255,255,.08),
+        rgba(255,255,255,.45),
+        rgba(255,255,255,.08));
+      box-shadow: 0 14px 40px rgba(0,0,0,.55);
+    }
+    .tl-center-ring{
+      position:absolute;
+      left:50%;
+      top: calc(var(--tl-lineY) - 8px);
+      transform: translateX(-50%);
+      width: 16px; height: 16px;
+      border-radius: 999px;
+      border: 2px solid rgba(255,255,255,.86);
+      box-shadow:
+        0 0 0 6px rgba(255,255,255,.08),
+        0 18px 40px rgba(0,0,0,.45);
+      background: rgba(0,0,0,.18);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      z-index: 3;
+    }
+
+    .tl-rail{
+      position:absolute;
+      top: 0;
+      left: 0;
+      display: inline-flex;
+      width: max-content;
+      gap: 141px;
+      align-items:flex-start;
+      padding: 0 0;
+      transform: translateX(0);
+      transition: transform .42s cubic-bezier(.2,.9,.2,1);
+      will-change: transform;
+    }
+
+    .tl-item{
+      flex: 0 0 auto;
+      width: 150px;
+      height: 70px;
+      position: relative;
+      opacity:.55;
+      transform: translateY(2px);
+      transition: opacity .22s ease, transform .22s ease;
+    }
+    .tl-dot{
+      position:absolute;
+      top: calc(var(--tl-lineY) - (var(--tl-dot) / 2));
+      left: 50%;
+      transform: translateX(-50%);
+      width: var(--tl-dot); height: var(--tl-dot);
+      border-radius: 999px;
+      border: 2px solid rgba(255,255,255,.68);
+      background: rgba(0,0,0,.18);
+      box-shadow: 0 14px 34px rgba(0,0,0,.35);
+      transition:
+        background-color .18s ease,
+        border-color .18s ease,
+        box-shadow .18s ease,
+        transform .18s ease;
+    }
+    .tl-item.active .tl-dot{ transition-delay: 350ms; }
+    .tl-item.bad .tl-dot{ transition-delay: 0ms; }
+
+    .tl-text{
+      position:absolute;
+      top: calc(var(--tl-lineY) + 18px);
+      left: 50%;
+      transform: translateX(-50%);
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      color: rgba(226,232,240,.72);
+      text-shadow: 0 18px 50px rgba(0,0,0,.65);
+      white-space:nowrap;
+    }
+
+    .tl-item.active{ opacity: 1; transform: translateY(0); }
+    .tl-item.active .tl-text{ color: rgba(255,255,255,.92); }
+    .tl-item.active .tl-dot{
+      background: rgba(255,255,255,.92);
+      border-color: rgba(255,255,255,.92);
+      box-shadow: 0 0 0 6px rgba(255,255,255,.10), 0 18px 40px rgba(0,0,0,.45);
+    }
+    .tl-item.past{ opacity:.78; }
+    .tl-item.past .tl-dot{
+      background: rgba(255,255,255,.22);
+      border-color: rgba(255,255,255,.52);
+    }
+    .tl-item.bad{ opacity: 1; }
+    .tl-item.bad .tl-dot{
+      border-color: rgba(239,68,68,.95);
+      background: rgba(239,68,68,.95);
+      box-shadow: 0 0 0 6px rgba(239,68,68,.16), 0 18px 40px rgba(0,0,0,.45);
+    }
+    .tl-item.bad .tl-text{ color: rgba(255,215,215,.92); }
+
+    .gauge{
+      --gColor: rgba(255,255,255,.9);
+      width: 160px;
+      height: 160px;
+      position:relative;
+      display:grid;
+      place-items:center;
+      filter: drop-shadow(0 18px 46px rgba(0,0,0,.32));
+    }
+    .gauge--thrust{ --gColor: var(--th); }
+    .gauge--press { --gColor: var(--pr); }
+
+    .gauge::before{
+      content:"";
+      position:absolute;
+      inset: 0;
+      border-radius: 999px;
+      background: rgba(0,0,0,.22);
+      border: 1px solid rgba(255,255,255,.12);
+      backdrop-filter: blur(10px) saturate(1.10);
+      -webkit-backdrop-filter: blur(10px) saturate(1.10);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+      pointer-events:none;
+      z-index:0;
+    }
+
+    .g-svg{ width:100%; height:100%; display:block; position:relative; z-index:1; }
+    .g-track{
+      stroke: rgba(255,255,255,.14);
+      stroke-width: 4;
+      fill: none;
+      stroke-linecap: round;
+    }
+    .g-prog{
+      stroke: var(--gColor);
+      stroke-width: 4;
+      fill: none;
+      stroke-linecap: round;
+      filter: drop-shadow(0 0 10px rgba(255,255,255,.08));
+    }
+
+    .g-center{
+      position:absolute;
+      inset:0;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      text-align:center;
+      z-index:2;
+    }
+    .g-label{
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: rgba(226,232,240,.82);
+      text-shadow: 0 16px 44px rgba(0,0,0,.62);
+    }
+    .g-value{
+      margin-top: 8px;
+      font-family: var(--mono);
+      font-size: 28px;
+      font-weight: 900;
+      letter-spacing: .04em;
+      color: rgba(248,250,252,.98);
+      line-height: 1.0;
+      text-shadow: 0 20px 50px rgba(0,0,0,.70);
+    }
+    .g-unit{
+      margin-top: 6px;
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      color: rgba(148,163,184,.92);
+      text-shadow: 0 16px 44px rgba(0,0,0,.62);
+    }
+
+    .right{
+      display:flex;
+      justify-content:flex-end;
+      align-items:flex-end;
+      padding-bottom: 6px;
+      position: relative;
+      z-index: 4;
+    }
+    .count-wrap{
+      width: min(520px, 46vw);
+      display:flex;
+      flex-direction:column;
+      align-items:flex-end;
+      gap: 10px;
+      padding-right: 4px;
+
+      --mini-scale: .26;
+      --mini-lift: 62px;
+      --event-lift: 8px;
+    }
+
+    .mode-kicker{
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      color: rgba(226,232,240,.86);
+      text-shadow: 0 18px 50px rgba(0,0,0,.70);
+      transition: opacity .22s ease, transform .22s ease;
+    }
+
+    .count-row{
+      display:flex;
+      justify-content:flex-end;
+      gap: 12px;
+      align-items: center;
+      transform-origin: right center;
+      transition: transform .28s cubic-bezier(.2,.9,.2,1), opacity .22s ease;
+    }
+
+    .tmark{
+      font-family: var(--mono);
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: .22em;
+      color: rgba(255,255,255,.82);
+      text-shadow: 0 2px 10px rgba(0,0,0,.55), 0 0 18px rgba(255,255,255,.12);
+      user-select:none;
+      transform: translateY(1px);
+    }
+
+    .count-time{
+      font-family: var(--mono);
+      font-variant-numeric: tabular-nums;
+      font-size: 64px;
+      font-weight: 200;
+      letter-spacing: .10em;
+      line-height: 1;
+      color: rgba(255,255,255,.98);
+      -webkit-text-stroke: .45px rgba(0,0,0,.32);
+      text-shadow: 0 2px 0 rgba(0,0,0,.35), 0 22px 60px rgba(0,0,0,.72), 0 0 18px rgba(255,255,255,.10);
+      text-align:right;
+      min-width: 280px;
+    }
+
+    .event-title{
+      font-family: var(--mono);
+      font-size: 20px;
+      font-weight: 900;
+      letter-spacing: .20em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,.96);
+      text-shadow: 0 18px 50px rgba(0,0,0,.70);
+      text-align:right;
+      opacity: 0;
+      transform: translateY(8px);
+      max-height: 0;
+      overflow:hidden;
+      transition: opacity .22s ease, transform .22s ease, max-height .22s ease;
+    }
+    .event-desc{
+      margin-top: 2px;
+      font-family: var(--mono);
+      font-size: 12px;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: rgba(226,232,240,.86);
+      text-shadow: 0 18px 50px rgba(0,0,0,.70);
+      text-align:right;
+      line-height: 1.45;
+      word-break: keep-all;
+
+      opacity: 0;
+      transform: translateY(8px);
+      max-height: 0;
+      overflow:hidden;
+      transition: opacity .22s ease, transform .22s ease, max-height .22s ease;
+    }
+
+    .count-wrap.event-on .count-row{
+      transform: translateY(calc(0 * var(--mini-lift))) scale(var(--mini-scale));
+    }
+    .count-wrap.event-on .mode-kicker{
+      transform: translate(-70px, 50px);
+    }
+    .count-wrap.event-on .event-title,
+    .count-wrap.event-on .event-desc{
+      opacity: 1;
+      transform: translateY(calc(-1 * var(--event-lift)));
+      max-height: 90px;
+    }
+
+    .event-title.ok{ color: rgba(232,255,242,.98); }
+    .event-title.warn{ color: rgba(255,244,214,.98); }
+    .event-title.bad{ color: rgba(255,215,215,.98); }
+
+    @media (max-width: 1100px){
+      :root{ --hud-h: 370px; --pad-x: 18px; }
+      .hud-inner{ grid-template-columns: 1fr; gap: 12px; }
+      .left{ justify-content:center; order: 2; }
+      .center{ order: 1; }
+      .right{ order: 3; justify-content:center; }
+
+      .count-wrap{ align-items:center; width: min(560px, 96vw); }
+      .count-row{ justify-content:center; }
+      .count-time{ text-align:center; min-width:auto; font-size: 56px; font-weight: 300; }
+      .mode-kicker{ text-align:center; }
+      .event-title,.event-desc{ text-align:center; }
+
+      .timeline{ width: min(900px, 96vw); }
+      .gauge{ width: 150px; height: 150px; }
+      .center-state{ font-size: 16px; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="top-strip" aria-hidden="true">
+    <div id="pillState" class="mini-pill"><span class="led"></span><span id="pillStateText">STANDBY</span></div>
+    <div id="pillLink" class="mini-pill bad"><span class="led"></span><span id="pillLinkText">LINK • DISCONNECTED</span></div>
+  </div>
+
+  <div id="hud" aria-hidden="true">
+    <div class="hud-inner">
+      <section class="left">
+        <div class="gauge gauge--thrust" id="gThrust">
+          <svg class="g-svg" viewBox="0 0 200 200" aria-hidden="true">
+            <g transform="rotate(-135 100 100)">
+              <circle class="g-track" cx="100" cy="100" r="86"
+                stroke-dasharray="405.26 540.35" stroke-dashoffset="0"></circle>
+              <circle class="g-prog" id="thProg" cx="100" cy="100" r="86"
+                stroke-dasharray="0 540.35" stroke-dashoffset="0"></circle>
+            </g>
+          </svg>
+          <div class="g-center">
+            <div class="g-label">THRUST</div>
+            <div class="g-value" id="thVal">--</div>
+            <div class="g-unit" id="thUnit">KGF</div>
+          </div>
+        </div>
+
+        <div class="gauge gauge--press" id="gPress">
+          <svg class="g-svg" viewBox="0 0 200 200" aria-hidden="true">
+            <g transform="rotate(-135 100 100)">
+              <circle class="g-track" cx="100" cy="100" r="86"
+                stroke-dasharray="405.26 540.35" stroke-dashoffset="0"></circle>
+              <circle class="g-prog" id="prProg" cx="100" cy="100" r="86"
+                stroke-dasharray="0 540.35" stroke-dashoffset="0"></circle>
+            </g>
+          </svg>
+          <div class="g-center">
+            <div class="g-label">PRESS</div>
+            <div class="g-value" id="prVal">--</div>
+            <div class="g-unit" id="prUnit">V</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="center">
+        <div id="missionName" class="mission">ALTIS LIVE</div>
+        <div id="centerState" class="center-state ok">STANDBY</div>
+
+        <div class="timeline" id="timeline">
+          <div class="tl-track"></div>
+          <div class="tl-center-ring"></div>
+
+          <div class="tl-rail" id="tlRail" aria-hidden="true">
+            <div class="tl-item" data-idx="0" id="tl0"><span class="tl-dot"></span><span class="tl-text">STANDBY</span></div>
+            <div class="tl-item" data-idx="1" id="tl1"><span class="tl-dot"></span><span class="tl-text">COUNT</span></div>
+            <div class="tl-item" data-idx="2" id="tl2"><span class="tl-dot"></span><span class="tl-text">FIRE</span></div>
+            <div class="tl-item" data-idx="3" id="tl3"><span class="tl-dot"></span><span class="tl-text">DONE</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="right">
+        <div class="count-wrap" id="countWrap">
+          <div id="modeKicker" class="mode-kicker">NO LINK</div>
+
+          <div class="count-row">
+            <span id="timerTag" class="tmark"></span>
+            <span id="countdown" class="count-time">--:--</span>
+          </div>
+
+          <div id="eventTitle" class="event-title">STARTUP</div>
+          <div id="eventDesc" class="event-desc">오버레이가 시작되었습니다. 텔레메트리를 기다리는 중…</div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const qs = new URLSearchParams(location.search);
+    const CFG = {
+      mission: qs.get("mission") || "ALTIS LIVE",
+      thrustMax: clampNum(qs.get("thrustMax"), 1, 9999, 2),
+      pressMax:  clampNum(qs.get("pressMax"),  0.1, 9999, 10),
+      smooth:    clampNum(qs.get("smooth"),    0.02, 0.6, 0.18),
+      countdownFallback: clampNum(qs.get("countdown"), 3, 600, 10),
+      thrustUnit: (qs.get("thUnit") || "KGF").toUpperCase(),
+      pressUnit:  (qs.get("prUnit") || "V").toUpperCase(),
+      gaugesShowAtSec: clampNum(qs.get("gaugesAt"), 1, 30, 5),
+      thrustToastThreshold: clampNum(qs.get("thToast"), 0, 9999, 2.0)
+    };
+
+    const el = {
+      mission: $("#missionName"),
+      pillState: $("#pillState"),
+      pillStateText: $("#pillStateText"),
+      pillLink: $("#pillLink"),
+      pillLinkText: $("#pillLinkText"),
+      centerState: $("#centerState"),
+
+      countWrap: $("#countWrap"),
+      modeKicker: $("#modeKicker"),
+      timerTag: $("#timerTag"),
+      countdown: $("#countdown"),
+      eventTitle: $("#eventTitle"),
+      eventDesc: $("#eventDesc"),
+
+      thVal: $("#thVal"),
+      prVal: $("#prVal"),
+      thUnit: $("#thUnit"),
+      prUnit: $("#prUnit"),
+      thProg: $("#thProg"),
+      prProg: $("#prProg"),
+
+      timeline: $("#timeline"),
+      tlRail: $("#tlRail"),
+      tlItems: [$("#tl0"),$("#tl1"),$("#tl2"),$("#tl3")]
+    };
+
+    setText(el.mission, CFG.mission);
+    setText(el.thUnit, CFG.thrustUnit);
+    setText(el.prUnit, CFG.pressUnit);
+
+    const CIRC = 540.35;
+    const ARC  = 405.26;
+    const TL_TRANS_DEF = "transform .42s cubic-bezier(.2,.9,.2,1)";
+
+    const OVERLAY_CHANNEL = "hanwool_overlay_sync";
+    const OVERLAY_SYNC_KEY = "hanwool_overlay_latest";
+
+    let connected = false;
+    let ws = null;
+    let wsState = "idle";
+    let wsRetryMs = 250;
+    let wsReconnectTimer = null;
+    let wsConnectTimer = null;
+    const WS_RETRY_MIN_MS = 250;
+    const WS_RETRY_MAX_MS = 4000;
+    const WS_RETRY_JITTER = 0.2;
+    const WS_OPEN_TIMEOUT_MS = 4000;
+    const WS_STALL_MS = 3000;
+    let lastWsMsgMs = 0;
+    let lastAnyMsgMs = 0;
+    const DISCONNECT_GRACE_MS = 1500;
+    let linkDropNotified = false;
+
+    let last = {
+      st: 0, ab: 0,
+      tdMs: null,
+      timerText: "", timerTag: "", kicker: "",
+      phaseTxt: "",
+      stageIdx: 0
+    };
+
+    let targetT = 0, targetP = 0;
+    let viewT = 0, viewP = 0;
+
+    let countdownStartMs = null;
+    let ignitionStartMs = null;
+    let cdTotalMs = null;
+
+    let doneUntil = 0;
+    let lastTextUpdate = 0;
+
+    // ✅ 리허설: STANDBY -> 10s COUNTDOWN -> FIRE -> DONE
+    let rehearsalOn = true;
+    let rehStartMs = 0;
+    const REH_STBY_MS  = 1200;   // STANDBY 유지
+    const REH_COUNT_MS = 10000;  // 카운트다운 10초
+    const REH_FIRE_MS  = 1200;   // FIRE 1.2초
+    const REH_DONE_MS  = 1300;   // DONE 1.3초
+
+    // ✅ 이벤트 타이머
+    let evHideT = null;
+    let evOffT = null;
+
+    // ✅ 게이지 표시 + 인트로(링 꽉 참 -> 0으로)
+    let gaugesOn = false;
+    let gaugeIntroOn = false;
+    let gaugeIntroStart = 0;
+    const GAUGE_INTRO_MS = 650;
+
+    function triggerGaugeIntro(){
+      gaugeIntroOn = true;
+      gaugeIntroStart = performance.now();
+    }
+    function setGauges(on){
+      on = !!on;
+      if(on === gaugesOn) return;
+      gaugesOn = on;
+      document.body.classList.toggle("gauges-on", on);
+      if(on) triggerGaugeIntro();
+    }
+
+    function $(q){ return document.querySelector(q); }
+    function clamp01(x){ return x<0?0:(x>1?1:x); }
+    function clampNum(v, min, max, fallback){
+      const n = Number(v);
+      if(!isFinite(n)) return fallback;
+      return Math.min(max, Math.max(min, n));
+    }
+    function setText(node, txt){
+      if(!node) return;
+      if(node.textContent !== txt) node.textContent = txt;
+    }
+    function setClass(node, cls){
+      if(!node) return;
+      if(node.className !== cls) node.className = cls;
+    }
+    function fmtMMSS(sec){
+      sec = Math.max(0, Math.floor(sec));
+      const m = Math.floor(sec/60);
+      const s = sec % 60;
+      return String(m).padStart(2,"0") + ":" + String(s).padStart(2,"0");
+    }
+
+    function applyLinkUI(ok){
+      connected = !!ok;
+      if(connected){
+        setClass(el.pillLink, "mini-pill ok");
+        setText(el.pillLinkText, "LINK • CONNECTED");
+      }else{
+        setClass(el.pillLink, "mini-pill bad");
+        setText(el.pillLinkText, "LINK • DISCONNECTED");
+      }
+    }
+
+    function pushEvent(title, msgKo, tone="info", ms=5200){
+      el.eventTitle.classList.remove("ok","warn","bad");
+      if(tone === "ok") el.eventTitle.classList.add("ok");
+      else if(tone === "warn") el.eventTitle.classList.add("warn");
+      else if(tone === "bad") el.eventTitle.classList.add("bad");
+
+      setText(el.eventTitle, title);
+      setText(el.eventDesc, msgKo);
+
+      el.countWrap.classList.add("event-on");
+      clearTimeout(evHideT);
+      clearTimeout(evOffT);
+
+      evHideT = setTimeout(()=>{
+        el.countWrap.classList.remove("event-on");
+        evOffT = setTimeout(()=>{}, 220);
+      }, ms);
+    }
+
+    function phaseInfo(st, ab){
+      const now = Date.now();
+      if(rehearsalOn){
+        if(now < doneUntil) return { txt:"DONE", tone:"ok", stage:3, badDot:false };
+        if(st===2) return { txt:"FIRE", tone:"warn", stage:2, badDot:false };
+        if(st===1) return { txt:"COUNTDOWN", tone:"warn", stage:1, badDot:false };
+        return { txt:"STANDBY", tone:"ok", stage:0, badDot:false };
+      }
+
+      if(ab) return { txt:"ABORT", tone:"bad", stage:1, badDot:true };
+      if(!connected) return { txt:"DISCONNECTED", tone:"bad", stage:0, badDot:false };
+      if(now < doneUntil) return { txt:"DONE", tone:"ok", stage:3, badDot:false };
+      if(st===2) return { txt:"FIRE", tone:"warn", stage:2, badDot:false };
+      if(st===1) return { txt:"COUNTDOWN", tone:"warn", stage:1, badDot:false };
+      return { txt:"STANDBY", tone:"ok", stage:0, badDot:false };
+    }
+
+    function ensureTimelinePad(){
+      const wrap = el.timeline;
+      const rail = el.tlRail;
+      const item = el.tlItems[0];
+      if(!wrap || !rail || !item) return;
+
+      const wrapW = wrap.clientWidth || 1;
+      const itemW = item.offsetWidth || 150;
+      const pad = Math.max(0, (wrapW/2) - (itemW/2));
+      const px = Math.round(pad);
+
+      if(rail._padPx !== px){
+        rail._padPx = px;
+        rail.style.paddingLeft = px + "px";
+        rail.style.paddingRight = px + "px";
+      }
+    }
+
+    function setTimelineStage(stage, bad=false, doCenter=true){
+      stage = Math.max(0, Math.min(3, stage));
+      last.stageIdx = stage;
+
+      el.tlItems.forEach((node,i)=>{
+        if(!node) return;
+        node.classList.remove("active","past","bad");
+        if(i < stage) node.classList.add("past");
+      });
+
+      const active = el.tlItems[stage];
+      if(active){
+        if(bad) active.classList.add("bad");
+        else active.classList.add("active");
+      }
+
+      if(doCenter) requestAnimationFrame(centerTimelineToActive);
+    }
+
+    function updateCenterAndTimeline(st, ab){
+      const ph = phaseInfo(st, ab);
+
+      if(last.phaseTxt !== ph.txt){
+        last.phaseTxt = ph.txt;
+        setText(el.centerState, ph.txt);
+        setClass(el.centerState, "center-state " + ph.tone);
+
+        setText(el.pillStateText, ph.txt);
+        if(ph.tone==="bad") setClass(el.pillState, "mini-pill bad");
+        else if(ph.tone==="warn") setClass(el.pillState, "mini-pill warn");
+        else setClass(el.pillState, "mini-pill ok");
+      }
+
+      const isCdAnim = (st === 1) && !ab && (connected || rehearsalOn);
+      setTimelineStage(ph.stage, ph.badDot, !isCdAnim);
+    }
+
+    function centerTimelineToActive(){
+      ensureTimelinePad();
+
+      const idx = Math.max(0, Math.min(3, last.stageIdx));
+      const active = el.tlItems[idx];
+      const rail = el.tlRail;
+      const wrap = el.timeline;
+      if(!active || !rail || !wrap) return;
+
+      const containerW = wrap.clientWidth || 1;
+      const railW = rail.scrollWidth || 1;
+
+      const activeCenter = active.offsetLeft + (active.offsetWidth/2);
+      let x = (containerW/2) - activeCenter;
+
+      const minX = Math.min(0, containerW - railW);
+      const maxX = 0;
+      x = Math.max(minX, Math.min(maxX, x));
+
+      rail.style.transform = `translateX(${x}px)`;
+    }
+
+    function centerTimelineBetween(aIdx, bIdx, t){
+      ensureTimelinePad();
+
+      const a = el.tlItems[aIdx];
+      const b = el.tlItems[bIdx];
+      const rail = el.tlRail;
+      const wrap = el.timeline;
+      if(!a || !b || !rail || !wrap) return;
+
+      t = clamp01(t);
+
+      const containerW = wrap.clientWidth || 1;
+      const railW = rail.scrollWidth || 1;
+
+      const aCenter = a.offsetLeft + (a.offsetWidth/2);
+      const bCenter = b.offsetLeft + (b.offsetWidth/2);
+      const pos = aCenter + (bCenter - aCenter) * t;
+
+      let x = (containerW/2) - pos;
+
+      const minX = Math.min(0, containerW - railW);
+      const maxX = 0;
+      x = Math.max(minX, Math.min(maxX, x));
+
+      rail.style.transform = `translateX(${x}px)`;
+    }
+
+    function setKicker(text){
+      if(last.kicker !== text){
+        last.kicker = text;
+        setText(el.modeKicker, text);
+      }
+    }
+
+    function setTimer(st, ab, tdMs){
+      let tag = "T-";
+      let kicker =
+        rehearsalOn ? "REHEARSAL" :
+        (connected ? "HOLD" : "NO LINK");
+      let text = "--:--";
+
+      const now = Date.now();
+
+      if(ab){
+        tag = "";
+        kicker = "ABORT";
+        text = "ABORT";
+      }else if(st === 1){
+        kicker = "COUNTDOWN";
+
+        let sec = null;
+        if(tdMs != null && isFinite(tdMs) && tdMs < 0){
+          sec = Math.ceil(Math.abs(tdMs)/1000);
+        }else{
+          if(!countdownStartMs) countdownStartMs = now;
+          sec = CFG.countdownFallback - Math.floor((now - countdownStartMs)/1000);
+        }
+
+        tag = "T-";
+        text = fmtMMSS(sec);
+      }else if(st === 2){
+        tag = "T+";
+        kicker = "MET";
+        let sec = null;
+        if(tdMs != null && isFinite(tdMs) && tdMs >= 0){
+          sec = tdMs / 1000;
+        }else{
+          if(!ignitionStartMs) ignitionStartMs = now;
+          sec = (now - ignitionStartMs) / 1000;
+        }
+        text = fmtMMSS(sec);
+      }else if(now < doneUntil && ignitionStartMs){
+        tag = "T+";
+        kicker = "MET";
+        const sec = (now - ignitionStartMs)/1000;
+        text = fmtMMSS(sec);
+      }else{
+        countdownStartMs = null;
+        ignitionStartMs = null;
+
+        if(tdMs != null && isFinite(tdMs) && tdMs < 0 && (connected || rehearsalOn)){
+          tag = "T-";
+          kicker = "COUNTDOWN";
+          text = fmtMMSS(Math.ceil(Math.abs(tdMs)/1000));
+        }else if(tdMs != null && isFinite(tdMs) && tdMs > 0 && (connected || rehearsalOn)){
+          tag = "T+";
+          kicker = "MET";
+          text = fmtMMSS(Math.ceil(tdMs/1000));
+        }else{
+          kicker = rehearsalOn ? "REHEARSAL" : (connected ? "HOLD" : "NO LINK");
+          tag = "";
+        }
+      }
+
+      if(last.timerTag !== tag){ last.timerTag = tag; setText(el.timerTag, tag); }
+      if(last.timerText !== text){ last.timerText = text; setText(el.countdown, text); }
+      setKicker(kicker);
+    }
+
+    function setArcDash(progCircle, pct){
+      const p = clamp01(pct);
+      const len = (ARC * p);
+      const dash = len.toFixed(2) + " " + CIRC.toFixed(2);
+      if(progCircle && progCircle.getAttribute("stroke-dasharray") !== dash){
+        progCircle.setAttribute("stroke-dasharray", dash);
+      }
+    }
+    function setArc(progCircle, value, max){
+      const pct = clamp01(max>0 ? (value/max) : 0);
+      setArcDash(progCircle, pct);
+    }
+
+    function getWsUrl(){
+      const proto = (location.protocol === "https:") ? "wss" : "ws";
+      return proto + "://" + location.host + "/ws";
+    }
+
+    function clearWsTimers(){
+      if(wsReconnectTimer){ clearTimeout(wsReconnectTimer); wsReconnectTimer = null; }
+      if(wsConnectTimer){ clearTimeout(wsConnectTimer); wsConnectTimer = null; }
+    }
+
+    function scheduleWsReconnect(){
+      if(wsReconnectTimer) return;
+      if(wsRetryMs < WS_RETRY_MIN_MS) wsRetryMs = WS_RETRY_MIN_MS;
+      const base = wsRetryMs;
+      wsRetryMs = Math.min(WS_RETRY_MAX_MS, Math.round(wsRetryMs * 1.6));
+      const jitter = Math.round(base * WS_RETRY_JITTER * (Math.random() * 2 - 1));
+      const delay = Math.max(WS_RETRY_MIN_MS, base + jitter);
+      wsReconnectTimer = setTimeout(()=>{
+        wsReconnectTimer = null;
+        startWebSocket();
+      }, delay);
+    }
+
+    function forceWsClose(){
+      if(!ws || wsState === "closing") return;
+      wsState = "closing";
+      try{ ws.close(); }catch(e){}
+    }
+
+    function startWebSocket(){
+      if(wsState === "connecting" || wsState === "open") return;
+      clearWsTimers();
+      wsState = "connecting";
+
+      try{
+        if(ws){
+          ws.onopen = ws.onmessage = ws.onerror = ws.onclose = null;
+          try{ ws.close(); }catch(e){}
+        }
+        ws = new WebSocket(getWsUrl());
+        ws.binaryType = "arraybuffer";
+
+        wsConnectTimer = setTimeout(()=>{
+          if(wsState === "connecting") forceWsClose();
+        }, WS_OPEN_TIMEOUT_MS);
+
+        ws.onopen = ()=>{
+          wsState = "open";
+          lastWsMsgMs = Date.now();
+          if(wsConnectTimer){ clearTimeout(wsConnectTimer); wsConnectTimer = null; }
+          wsRetryMs = WS_RETRY_MIN_MS;
+        };
+
+        ws.onmessage = (ev)=>{
+          lastWsMsgMs = Date.now();
+          lastAnyMsgMs = lastWsMsgMs;
+          let payload = ev.data;
+          if(payload instanceof ArrayBuffer){
+            try{ payload = new TextDecoder().decode(payload); }catch(e){ return; }
+          }
+          if(typeof payload !== "string") return;
+          try{
+            const obj = JSON.parse(payload);
+            linkDropNotified = false;
+            if(rehearsalOn) stopRehearsal();
+
+            if(!connected){
+              applyLinkUI(true);
+              pushEvent("LINK", "텔레메트리에 연결되었습니다.", "ok", 3600);
+            }else{
+              applyLinkUI(true);
+            }
+
+            consume(obj);
+          }catch(e){}
+        };
+
+        ws.onerror = ()=>{
+          if(wsState !== "closing") forceWsClose();
+        };
+        ws.onclose = ()=>{
+          wsState = "idle";
+          if(wsConnectTimer){ clearTimeout(wsConnectTimer); wsConnectTimer = null; }
+          const now = Date.now();
+          const hasRecentData = (lastAnyMsgMs > 0) && (now - lastAnyMsgMs <= DISCONNECT_GRACE_MS);
+          if(!rehearsalOn){
+            if(connected && !hasRecentData){
+              applyLinkUI(false);
+              pushEvent("NO LINK", "텔레메트리 연결이 끊겼습니다. 연결 상태를 확인하세요.", "bad", 5200);
+            }else if(!hasRecentData){
+              applyLinkUI(false);
+            }
+          }else if(!hasRecentData){
+            applyLinkUI(false);
+          }
+          scheduleWsReconnect();
+        };
+      }catch(e){
+        wsState = "idle";
+        applyLinkUI(false);
+        scheduleWsReconnect();
+      }
+    }
+
+    function startWsWatchdog(){
+      setInterval(()=>{
+        const now = Date.now();
+        if(lastAnyMsgMs === 0) return;
+        if(now - lastAnyMsgMs > DISCONNECT_GRACE_MS){
+          if(!rehearsalOn && connected){
+            applyLinkUI(false);
+            if(!linkDropNotified){
+              pushEvent("NO LINK", "텔레메트리 연결이 끊겼습니다. 연결 상태를 확인하세요.", "bad", 5200);
+              linkDropNotified = true;
+            }
+          }else{
+            applyLinkUI(false);
+          }
+        }
+        if(wsState === "open" && lastWsMsgMs > 0 && (now - lastWsMsgMs) > WS_STALL_MS){
+          forceWsClose();
+        }
+      }, 200);
+    }
+
+    let overlayChannel = null;
+    function onOverlaySync(data){
+      if(!data) return;
+      lastAnyMsgMs = Date.now();
+      linkDropNotified = false;
+
+      if(rehearsalOn) stopRehearsal();
+      if(!connected){
+        applyLinkUI(true);
+        pushEvent("LINK", "대시보드와 동기화되었습니다.", "ok", 2600);
+      }else{
+        applyLinkUI(true);
+      }
+
+      consume(data);
+    }
+    function initOverlaySync(){
+      try{
+        if("BroadcastChannel" in window){
+          overlayChannel = new BroadcastChannel(OVERLAY_CHANNEL);
+          overlayChannel.onmessage = (ev)=>{ if(ev && ev.data) onOverlaySync(ev.data); };
+        }
+      }catch(e){}
+      try{
+        const raw = localStorage.getItem(OVERLAY_SYNC_KEY);
+        if(raw){
+          const obj = JSON.parse(raw);
+          onOverlaySync(obj);
+        }
+      }catch(e){}
+      window.addEventListener("storage", (ev)=>{
+        if(ev.key !== OVERLAY_SYNC_KEY || !ev.newValue) return;
+        try{ onOverlaySync(JSON.parse(ev.newValue)); }catch(e){}
+      });
+    }
+
+    let ignThreshNotified = false;
+
+    function consume(data){
+      const t   = Number(data.t  != null ? data.t  : (data.thrust   ?? 0));
+      const p   = Number(data.p  != null ? data.p  : (data.pressure ?? 0));
+      const st  = Number(data.st != null ? data.st : (data.state ?? 0));
+      const td  = (data.td != null ? Number(data.td) : null);
+      const ab  = Number(data.ab != null ? data.ab : 0);
+
+      // ✅ 텔레메트리 값(t/p)은 그대로만 반영(애니메이션 때문에 바꾸지 않음)
+      if(isFinite(t)) targetT = t;
+      if(isFinite(p)) targetP = p;
+
+      if(last.st !== st){
+        if(st === 1){
+          countdownStartMs = Date.now();
+          ignitionStartMs = null;
+          ignThreshNotified = false;
+
+          cdTotalMs = (td != null && isFinite(td) && td < 0)
+            ? Math.abs(td)
+            : (rehearsalOn ? REH_COUNT_MS : (CFG.countdownFallback * 1000));
+
+          pushEvent("COUNTDOWN", "카운트다운 진행 중. 접근 금지.", "warn", 5200);
+        }
+        if(st === 2){
+          ignitionStartMs = Date.now();
+          ignThreshNotified = false;
+          pushEvent("FIRE", "점화/연소 진행. 접근 금지.", "bad", 5200);
+        }
+        if(last.st === 2 && st === 0 && !ab){
+          doneUntil = Date.now() + 7000;
+          pushEvent("DONE", "시퀀스 완료. 안전 확인 후 접근하세요.", "ok", 5200);
+        }
+      }
+
+      if((st === 1 || st === 2) && !ignThreshNotified && isFinite(t) && t >= CFG.thrustToastThreshold){
+        ignThreshNotified = true;
+        pushEvent("THRUST", "임계값 초과 감지 ("+CFG.thrustToastThreshold.toFixed(2)+").", "ok", 4200);
+      }
+      if(st === 0) ignThreshNotified = false;
+
+      updateCenterAndTimeline(st, ab);
+      setTimer(st, ab, td);
+
+      last.st = st;
+      last.ab = ab;
+      last.tdMs = td;
+    }
+
+    function stopRehearsal(){
+      rehearsalOn = false;
+      setGauges(false);
+
+      if(!connected){
+        setTimelineStage(0,false,true);
+        setText(el.centerState, "STANDBY");
+        setClass(el.centerState, "center-state ok");
+        setText(el.pillStateText, "STANDBY");
+        setClass(el.pillState, "mini-pill ok");
+        setTimer(0,0,null);
+        requestAnimationFrame(centerTimelineToActive);
+      }
+    }
+
+    function startRehearsal(){
+      rehearsalOn = true;
+      rehStartMs = Date.now();
+      cdTotalMs = null;
+      countdownStartMs = null;
+      ignitionStartMs = null;
+      doneUntil = 0;
+
+      pushEvent("REHEARSAL", "리허설: STANDBY → 10초 카운트다운 → FIRE → DONE", "info", 4200);
+
+      const tEndStby  = REH_STBY_MS;
+      const tEndCount = REH_STBY_MS + REH_COUNT_MS;
+      const tEndFire  = REH_STBY_MS + REH_COUNT_MS + REH_FIRE_MS;
+      const tEndAll   = REH_STBY_MS + REH_COUNT_MS + REH_FIRE_MS + REH_DONE_MS;
+
+      function step(){
+        if(!rehearsalOn) return;
+
+        const now = Date.now();
+        const dt = now - rehStartMs;
+
+        let st = 0;
+        let td = null;
+
+        if(dt < tEndStby){
+          st = 0; td = null;
+        }else if(dt < tEndCount){
+          st = 1;
+          td = -Math.max(0, tEndCount - dt);
+        }else if(dt < tEndFire){
+          st = 2;
+          td = Math.max(0, dt - tEndCount);
+        }else{
+          st = 0;
+          td = null;
+          if(doneUntil === 0) doneUntil = now + REH_DONE_MS;
+        }
+
+        // ✅ 리허설에서도 t/p를 "가짜로 바꾸지 않음"
+        consume({ st, td, ab: 0 });
+
+        if(dt < tEndAll){
+          requestAnimationFrame(step);
+        }else{
+          stopRehearsal();
+        }
+      }
+
+      requestAnimationFrame(step);
+    }
+
+    function startOverlayStream(){
+      startWebSocket();
+      startWsWatchdog();
+    }
+
+    function tick(){
+      viewT += (targetT - viewT) * CFG.smooth;
+      viewP += (targetP - viewP) * CFG.smooth;
+
+      // ✅ 게이지 링 인트로: 등장 순간 "꽉 참 -> 0"
+      if(gaugeIntroOn){
+        const k = 1 - clamp01((performance.now() - gaugeIntroStart) / GAUGE_INTRO_MS); // 1 -> 0
+        setArcDash(el.thProg, k);
+        setArcDash(el.prProg, k);
+        if(k <= 0.001) gaugeIntroOn = false;
+      }else{
+        // ✅ 평상시 링은 텔레메트리 값 기반(값 자체는 변경 없음)
+        setArc(el.thProg, Math.max(0, viewT), CFG.thrustMax);
+        setArc(el.prProg, Math.max(0, viewP), CFG.pressMax);
+      }
+
+      // ✅ COUNTDOWN이면 타임라인 COUNT → FIRE로 점점 이동 (지터 방지: transition off)
+      if((connected || rehearsalOn) && last.st === 1 && !last.ab){
+        if(el.tlRail.style.transition !== "none") el.tlRail.style.transition = "none";
+
+        const now = Date.now();
+
+        let remainMs = null;
+        if(last.tdMs != null && isFinite(last.tdMs) && last.tdMs < 0){
+          remainMs = Math.abs(last.tdMs);
+        }else{
+          if(!countdownStartMs) countdownStartMs = now;
+          remainMs = (CFG.countdownFallback * 1000) - (now - countdownStartMs);
+        }
+
+        const total = (cdTotalMs != null && isFinite(cdTotalMs) && cdTotalMs > 0)
+          ? cdTotalMs
+          : (CFG.countdownFallback * 1000);
+
+        const prog = clamp01(1 - (Math.max(0, remainMs) / Math.max(1, total)));
+        centerTimelineBetween(1, 2, prog);
+
+        // ✅ 게이지: T-5초부터 등장 (리허설도 동일)
+        const remainSec = Math.max(0, remainMs) / 1000;
+        setGauges(remainSec <= CFG.gaugesShowAtSec);
+
+      }else{
+        if(el.tlRail.style.transition !== TL_TRANS_DEF) el.tlRail.style.transition = TL_TRANS_DEF;
+
+        const keep = (last.st === 2 && !last.ab) || (Date.now() < doneUntil);
+        setGauges(keep);
+      }
+
+      const nowPerf = performance.now();
+      if(nowPerf - lastTextUpdate > 66){
+        lastTextUpdate = nowPerf;
+
+        const showVals = connected || rehearsalOn;
+        setText(el.thVal, showVals ? viewT.toFixed(2) : "--");
+        setText(el.prVal, showVals ? viewP.toFixed(2) : "--");
+      }
+
+      requestAnimationFrame(tick);
+    }
+
+    // init
+    applyLinkUI(false);
+    setGauges(false);
+
+    setTimelineStage(0,false,true);
+    setText(el.centerState, "STANDBY");
+    setClass(el.centerState, "center-state ok");
+    setText(el.pillStateText, "STANDBY");
+    setClass(el.pillState, "mini-pill ok");
+    setTimer(0,0,null);
+
+    pushEvent("STARTUP", "오버레이가 시작되었습니다. 텔레메트리를 기다리는 중…", "info", 5200);
+
+    requestAnimationFrame(()=>centerTimelineToActive());
+    window.addEventListener("resize", ()=>centerTimelineToActive(), {passive:true});
+
+    // ✅ "스탠바이부터" 보이게 하고, 잠깐 후 리허설 시작
+    setTimeout(()=>{ startRehearsal(); }, 900);
+
+    requestAnimationFrame(tick);
+    initOverlaySync();
+    startOverlayStream();
+  </script>
+</body>
+</html>
