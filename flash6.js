@@ -13199,6 +13199,9 @@
 
       setLocalSdBusy(true);
       let removed = 0;
+      let skipped = 0;
+      let failed = 0;
+      const failedNames = [];
       try{
         const names = [];
         for await (const [name] of localSdDirHandle.entries()){
@@ -13207,11 +13210,47 @@
         for(let i = 0; i < names.length; i++){
           const name = names[i];
           setLocalSdStatus("포맷 중... " + (i + 1) + "/" + names.length + " · " + name, null);
-          await localSdDirHandle.removeEntry(name, {recursive:true});
-          removed++;
+
+          // Some SD root metadata folders are protected by OS and should be skipped.
+          if(
+            name === ".Spotlight-V100" ||
+            name === ".Trashes" ||
+            name === ".fseventsd" ||
+            name === "System Volume Information" ||
+            name === "$RECYCLE.BIN"
+          ){
+            skipped++;
+            continue;
+          }
+
+          try{
+            await localSdDirHandle.removeEntry(name, {recursive:true});
+            removed++;
+          }catch(err){
+            failed++;
+            failedNames.push(name);
+          }
         }
-        setLocalSdStatus("포맷 완료: " + removed + "개 항목 삭제", "ok");
-        showToast("SD 폴더 포맷 완료: " + removed + "개 항목 삭제", "success", {key:"local-sd-format-ok"});
+
+        if(failed === 0){
+          const suffix = skipped > 0 ? (" · 시스템 항목 " + skipped + "개 제외") : "";
+          setLocalSdStatus("포맷 완료: " + removed + "개 항목 삭제" + suffix, "ok");
+          showToast("SD 폴더 포맷 완료: " + removed + "개 항목 삭제", "success", {key:"local-sd-format-ok"});
+        }else if(removed > 0){
+          const preview = failedNames.slice(0, 2).join(", ");
+          setLocalSdStatus(
+            "포맷 부분 완료: 삭제 " + removed + "개 / 실패 " + failed + "개" +
+            (skipped > 0 ? (" / 제외 " + skipped + "개") : "") +
+            (preview ? (" · 실패 예: " + preview) : ""),
+            "warn"
+          );
+          showToast("SD 포맷 부분 완료 (삭제 " + removed + ", 실패 " + failed + ")", "warn", {key:"local-sd-format-partial"});
+        }else{
+          const preview = failedNames.slice(0, 2).join(", ");
+          const msg = "SD 포맷 실패: 쓰기 금지 또는 잠금 상태일 수 있습니다" + (preview ? (" (" + preview + ")") : "");
+          setLocalSdStatus(msg, "error");
+          showToast(msg, "error", {key:"local-sd-format-fail"});
+        }
       }catch(err){
         const reason = (err && err.message) ? err.message : String(err || "unknown");
         setLocalSdStatus("포맷 실패: " + reason, "error");
