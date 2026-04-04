@@ -2880,6 +2880,9 @@
     let lastBatteryV = null;
     let lastBatteryPct = null;
     let spiFlashReadyState = null;
+    let localSdDirHandle = null;
+    let localSdDirLabel = "";
+    let localSdBusy = false;
     let lastThrustKgf = null;
     const THRUST_GAUGE_MAX_KGF = 10;
     const THRUST_GAUGE_MAX_LBF = 22;
@@ -12824,6 +12827,580 @@
       return !!(serialEnabled && serialConnected && serialTxEnabled);
     }
 
+    function localSdSupported(){
+      return !!(
+        typeof window !== "undefined" &&
+        window.isSecureContext &&
+        typeof window.showDirectoryPicker === "function"
+      );
+    }
+
+    function ensureLocalSdToolsCss(){
+      if(document.getElementById("localSdToolsStyle")) return;
+      const style = document.createElement("style");
+      style.id = "localSdToolsStyle";
+      style.textContent = [
+        ".local-sd-tools{margin-top:10px;padding:10px 12px;border:1px solid rgba(148,163,184,.32);border-radius:12px;background:rgba(148,163,184,.06)}",
+        ".local-sd-tools-title{font-size:12px;letter-spacing:.08em;font-weight:700;color:#64748b;margin-bottom:6px}",
+        ".local-sd-tools-actions{display:flex;flex-wrap:wrap;gap:6px}",
+        ".local-sd-btn{border:1px solid rgba(100,116,139,.35);background:#fff;border-radius:9px;padding:7px 10px;font-size:12px;font-weight:600;color:#334155;cursor:pointer}",
+        ".local-sd-btn:disabled{opacity:.45;cursor:not-allowed}",
+        ".local-sd-status{margin-top:7px;font-size:12px;line-height:1.35;color:#475569;word-break:break-word}",
+        ".local-sd-status[data-tone=\"ok\"]{color:#166534}",
+        ".local-sd-status[data-tone=\"warn\"]{color:#92400e}",
+        ".local-sd-status[data-tone=\"error\"]{color:#b91c1c}",
+        ".local-sd-note{margin-top:4px;font-size:11px;color:#94a3b8}",
+        ".local-sd-input{display:none}"
+      ].join("");
+      document.head.appendChild(style);
+    }
+
+    function setLocalSdStatus(text, tone){
+      if(!el.localSdStatusLine) return;
+      el.localSdStatusLine.textContent = String(text || "");
+      if(tone){
+        el.localSdStatusLine.setAttribute("data-tone", String(tone));
+      }else{
+        el.localSdStatusLine.removeAttribute("data-tone");
+      }
+    }
+
+    function refreshLocalSdControls(){
+      const supported = localSdSupported();
+      const hasDir = !!localSdDirHandle;
+      if(el.localSdPickBtn) el.localSdPickBtn.disabled = localSdBusy || !supported;
+      if(el.localSdUploadBtn) el.localSdUploadBtn.disabled = localSdBusy || !supported || !hasDir;
+      if(el.localSdUploadFolderBtn) el.localSdUploadFolderBtn.disabled = localSdBusy || !supported || !hasDir;
+      if(el.localSdDeployBtn) el.localSdDeployBtn.disabled = localSdBusy || !supported || !hasDir;
+      if(el.localSdFormatBtn) el.localSdFormatBtn.disabled = localSdBusy || !supported || !hasDir;
+      if(el.localSdNote){
+        el.localSdNote.textContent = supported
+          ? "PC Chrome/Edge(HTTPS)에서 동작합니다. iPhone Safari는 제한될 수 있습니다."
+          : "이 브라우저는 SD 폴더 직접 쓰기를 지원하지 않습니다. (Chrome/Edge 권장)";
+      }
+    }
+
+    function setLocalSdBusy(next){
+      localSdBusy = !!next;
+      refreshLocalSdControls();
+    }
+
+    function pickVisibleNode(nodes){
+      const list = Array.from(nodes || []).filter(Boolean);
+      if(!list.length) return null;
+      for(let i = 0; i < list.length; i++){
+        const node = list[i];
+        if(node.offsetParent || node.getClientRects().length){
+          return node;
+        }
+      }
+      return list[0] || null;
+    }
+
+    function findVisibleById(id){
+      if(!id) return null;
+      return pickVisibleNode(document.querySelectorAll("#" + id));
+    }
+
+    function normalizeLocalSdTargetPath(path){
+      const normalized = replayNormalizeZipPath(String(path || "").replace(/^\/+/, ""));
+      return normalized || "";
+    }
+
+    function githubPagesRepoPrefix(){
+      const host = String(location && location.hostname || "").toLowerCase();
+      if(host.indexOf(".github.io") < 0) return "";
+      const parts = String(location && location.pathname || "").split("/").filter(Boolean);
+      if(!parts.length) return "";
+      if(parts[0].indexOf(".") >= 0) return "";
+      return parts[0] + "/";
+    }
+
+    function mapUrlPathToLocalSdTarget(pathname){
+      const rawPath = String(pathname || "");
+      const endedWithSlash = /\/$/.test(rawPath);
+      let path = normalizeLocalSdTargetPath(rawPath);
+      if(!path) return "index.html";
+      const repoPrefix = githubPagesRepoPrefix();
+      if(repoPrefix){
+        const repoNameOnly = repoPrefix.slice(0, -1);
+        if(path === repoNameOnly){
+          path = "";
+        }else if(path.indexOf(repoPrefix) === 0){
+          path = path.slice(repoPrefix.length);
+        }
+      }
+      if(!path) return "index.html";
+      if(endedWithSlash) return path + "/index.html";
+      return path;
+    }
+
+    async function localSdEnsureReadWritePermission(handle){
+      if(!handle) return false;
+      let usedPermissionApi = false;
+      try{
+        if(typeof handle.queryPermission === "function"){
+          usedPermissionApi = true;
+          const state = await handle.queryPermission({mode:"readwrite"});
+          if(state === "granted") return true;
+        }
+      }catch(_e){}
+      try{
+        if(typeof handle.requestPermission === "function"){
+          usedPermissionApi = true;
+          const state = await handle.requestPermission({mode:"readwrite"});
+          return state === "granted";
+        }
+      }catch(_e){}
+      return !usedPermissionApi;
+    }
+
+    async function localSdResolveDir(rootHandle, relDirPath){
+      let dirHandle = rootHandle;
+      const dir = normalizeLocalSdTargetPath(relDirPath);
+      if(!dir) return dirHandle;
+      const segments = dir.split("/");
+      for(let i = 0; i < segments.length; i++){
+        const seg = String(segments[i] || "").trim();
+        if(!seg) continue;
+        dirHandle = await dirHandle.getDirectoryHandle(seg, {create:true});
+      }
+      return dirHandle;
+    }
+
+    async function localSdWriteBytes(rootHandle, relPath, bytes){
+      const path = normalizeLocalSdTargetPath(relPath);
+      if(!path) return false;
+      const parts = path.split("/");
+      const fileName = parts.pop();
+      if(!fileName) return false;
+      const dirPath = parts.join("/");
+      const dirHandle = await localSdResolveDir(rootHandle, dirPath);
+      const fileHandle = await dirHandle.getFileHandle(fileName, {create:true});
+      const writable = await fileHandle.createWritable();
+      try{
+        await writable.write(bytes);
+      }finally{
+        await writable.close();
+      }
+      return true;
+    }
+
+    async function pickLocalSdDirectory(){
+      if(!localSdSupported()){
+        setLocalSdStatus("브라우저 미지원: Chrome/Edge(HTTPS)에서 실행해 주세요.", "error");
+        showToast("이 브라우저는 로컬 SD 폴더 쓰기를 지원하지 않습니다.", "notice", {key:"local-sd-unsupported"});
+        return;
+      }
+      try{
+        setLocalSdBusy(true);
+        setLocalSdStatus("SD 폴더 선택 중...", null);
+        const handle = await window.showDirectoryPicker({mode:"readwrite"});
+        const granted = await localSdEnsureReadWritePermission(handle);
+        if(!granted){
+          setLocalSdStatus("쓰기 권한이 거부되었습니다.", "error");
+          showToast("SD 폴더 쓰기 권한이 필요합니다.", "warn", {key:"local-sd-perm-denied"});
+          return;
+        }
+        localSdDirHandle = handle;
+        localSdDirLabel = String(handle.name || "SD");
+        setLocalSdStatus("선택됨: " + localSdDirLabel, "ok");
+        showToast("SD 폴더 선택 완료: " + localSdDirLabel, "success", {key:"local-sd-picked"});
+      }catch(err){
+        if(err && err.name === "AbortError"){
+          setLocalSdStatus("SD 폴더 선택이 취소되었습니다.", "warn");
+          return;
+        }
+        const reason = (err && err.message) ? err.message : String(err || "unknown");
+        setLocalSdStatus("SD 폴더 선택 실패: " + reason, "error");
+        showToast("SD 폴더 선택 실패: " + reason, "error", {key:"local-sd-pick-fail"});
+      }finally{
+        setLocalSdBusy(false);
+      }
+    }
+
+    async function writeLocalSdFiles(fileList){
+      if(!localSdDirHandle){
+        showToast("먼저 SD 폴더를 선택하세요.", "notice", {key:"local-sd-no-dir"});
+        setLocalSdStatus("SD 폴더가 아직 선택되지 않았습니다.", "warn");
+        return;
+      }
+      const granted = await localSdEnsureReadWritePermission(localSdDirHandle);
+      if(!granted){
+        showToast("SD 폴더 쓰기 권한이 없습니다.", "warn", {key:"local-sd-perm-no"});
+        setLocalSdStatus("쓰기 권한이 없어 업로드를 중단했습니다.", "error");
+        return;
+      }
+
+      const files = Array.from(fileList || []).filter(Boolean);
+      if(!files.length){
+        showToast("업로드할 파일을 선택해 주세요.", "notice", {key:"local-sd-no-files"});
+        return;
+      }
+
+      setLocalSdBusy(true);
+      let writtenCount = 0;
+      let writtenBytes = 0;
+      try{
+        for(let i = 0; i < files.length; i++){
+          const file = files[i];
+          const fileName = String(file && file.name || "").trim();
+          if(!fileName) continue;
+          setLocalSdStatus(
+            "SD 업로드 중... " + (i + 1) + "/" + files.length + " · " + fileName,
+            null
+          );
+
+          const lowerName = fileName.toLowerCase();
+          if(lowerName.endsWith(".zip")){
+            const entries = await replayUnzipEntries(await file.arrayBuffer());
+            for(const [entryPath, entryBytes] of entries.entries()){
+              const rel = normalizeLocalSdTargetPath(entryPath);
+              if(!rel || rel[rel.length - 1] === "/") continue;
+              if(rel.indexOf("__macosx/") === 0) continue;
+              await localSdWriteBytes(localSdDirHandle, rel, entryBytes);
+              writtenCount++;
+              writtenBytes += Number(entryBytes && entryBytes.byteLength || entryBytes && entryBytes.length || 0);
+            }
+            continue;
+          }
+
+          const relPathRaw = String(file.webkitRelativePath || fileName || "");
+          const relPath = normalizeLocalSdTargetPath(relPathRaw);
+          if(!relPath) continue;
+          const bytes = new Uint8Array(await file.arrayBuffer());
+          await localSdWriteBytes(localSdDirHandle, relPath, bytes);
+          writtenCount++;
+          writtenBytes += bytes.byteLength;
+        }
+        const kb = (writtenBytes / 1024).toFixed(1);
+        setLocalSdStatus("업로드 완료: " + writtenCount + "개 파일 · " + kb + "KB", "ok");
+        showToast("SD 업로드 완료: " + writtenCount + "개 파일", "success", {key:"local-sd-upload-ok"});
+      }catch(err){
+        const reason = (err && err.message) ? err.message : String(err || "unknown");
+        setLocalSdStatus("업로드 실패: " + reason, "error");
+        showToast("SD 업로드 실패: " + reason, "error", {key:"local-sd-upload-fail"});
+      }finally{
+        setLocalSdBusy(false);
+      }
+    }
+
+    function collectLocalSdAutoDeployAssets(){
+      const targets = new Map();
+      const addAsset = (rawUrl)=>{
+        if(!rawUrl) return;
+        let url;
+        try{
+          url = new URL(rawUrl, location.href);
+        }catch(_e){
+          return;
+        }
+        if(url.origin !== location.origin) return;
+        const target = mapUrlPathToLocalSdTarget(url.pathname || "/");
+        if(!target) return;
+        if(!targets.has(target)){
+          targets.set(target, url.toString());
+        }
+      };
+
+      addAsset(location.href);
+      const selector = "script[src],link[href],img[src],source[src],audio[src],video[src]";
+      document.querySelectorAll(selector).forEach(node=>{
+        if(node.hasAttribute("src")) addAsset(node.getAttribute("src"));
+        if(node.hasAttribute("href")) addAsset(node.getAttribute("href"));
+      });
+
+      ["flash6.html","index.html","flash6.js","dashboard.js","manifest.webmanifest","sw.js","favicon.ico"].forEach(path=>{
+        addAsset(path);
+      });
+
+      return Array.from(targets.entries()).map(([target, url])=>({target, url}));
+    }
+
+    async function deployCurrentWebAssetsToLocalSd(){
+      if(!localSdDirHandle){
+        showToast("먼저 SD 폴더를 선택하세요.", "notice", {key:"local-sd-no-dir"});
+        setLocalSdStatus("SD 폴더가 아직 선택되지 않았습니다.", "warn");
+        return;
+      }
+      const granted = await localSdEnsureReadWritePermission(localSdDirHandle);
+      if(!granted){
+        showToast("SD 폴더 쓰기 권한이 없습니다.", "warn", {key:"local-sd-perm-no"});
+        setLocalSdStatus("쓰기 권한이 없어 자동 배포를 중단했습니다.", "error");
+        return;
+      }
+
+      const assets = collectLocalSdAutoDeployAssets();
+      if(!assets.length){
+        setLocalSdStatus("자동 배포할 웹 파일을 찾지 못했습니다.", "warn");
+        showToast("자동 배포할 파일 목록이 비어 있습니다.", "notice", {key:"local-sd-deploy-empty"});
+        return;
+      }
+
+      setLocalSdBusy(true);
+      let okCount = 0;
+      let failCount = 0;
+      let totalBytes = 0;
+      try{
+        for(let i = 0; i < assets.length; i++){
+          const item = assets[i];
+          setLocalSdStatus(
+            "자동 배포 중... " + (i + 1) + "/" + assets.length + " · " + item.target,
+            null
+          );
+          try{
+            const resp = await fetch(item.url, {cache:"no-store"});
+            if(!resp.ok){
+              throw new Error("HTTP " + resp.status);
+            }
+            const bytes = new Uint8Array(await resp.arrayBuffer());
+            await localSdWriteBytes(localSdDirHandle, item.target, bytes);
+            okCount++;
+            totalBytes += bytes.byteLength;
+          }catch(_assetErr){
+            failCount++;
+          }
+        }
+
+        const kb = (totalBytes / 1024).toFixed(1);
+        if(okCount > 0 && failCount === 0){
+          setLocalSdStatus("자동 배포 완료: " + okCount + "개 파일 · " + kb + "KB", "ok");
+          showToast("SD 자동 배포 완료: " + okCount + "개 파일", "success", {key:"local-sd-deploy-ok"});
+        }else if(okCount > 0){
+          setLocalSdStatus("자동 배포 부분 완료: 성공 " + okCount + " / 실패 " + failCount, "warn");
+          showToast("자동 배포 부분 완료: 성공 " + okCount + " / 실패 " + failCount, "warn", {key:"local-sd-deploy-partial"});
+        }else{
+          setLocalSdStatus("자동 배포 실패: 다운로드 가능한 파일이 없습니다.", "error");
+          showToast("자동 배포 실패: 같은 도메인 웹파일 확인 필요", "error", {key:"local-sd-deploy-fail"});
+        }
+      }catch(err){
+        const reason = (err && err.message) ? err.message : String(err || "unknown");
+        setLocalSdStatus("자동 배포 실패: " + reason, "error");
+        showToast("자동 배포 실패: " + reason, "error", {key:"local-sd-deploy-fail"});
+      }finally{
+        setLocalSdBusy(false);
+      }
+    }
+
+    async function formatLocalSdDirectory(){
+      if(!localSdDirHandle){
+        showToast("먼저 SD 폴더를 선택하세요.", "notice", {key:"local-sd-no-dir"});
+        return;
+      }
+      const ok = window.confirm("선택한 SD 폴더의 모든 파일을 삭제할까요? (되돌릴 수 없음)");
+      if(!ok) return;
+
+      const granted = await localSdEnsureReadWritePermission(localSdDirHandle);
+      if(!granted){
+        showToast("SD 폴더 쓰기 권한이 없습니다.", "warn", {key:"local-sd-perm-no"});
+        setLocalSdStatus("쓰기 권한이 없어 포맷을 중단했습니다.", "error");
+        return;
+      }
+
+      setLocalSdBusy(true);
+      let removed = 0;
+      try{
+        const names = [];
+        for await (const [name] of localSdDirHandle.entries()){
+          names.push(name);
+        }
+        for(let i = 0; i < names.length; i++){
+          const name = names[i];
+          setLocalSdStatus("포맷 중... " + (i + 1) + "/" + names.length + " · " + name, null);
+          await localSdDirHandle.removeEntry(name, {recursive:true});
+          removed++;
+        }
+        setLocalSdStatus("포맷 완료: " + removed + "개 항목 삭제", "ok");
+        showToast("SD 폴더 포맷 완료: " + removed + "개 항목 삭제", "success", {key:"local-sd-format-ok"});
+      }catch(err){
+        const reason = (err && err.message) ? err.message : String(err || "unknown");
+        setLocalSdStatus("포맷 실패: " + reason, "error");
+        showToast("SD 포맷 실패: " + reason, "error", {key:"local-sd-format-fail"});
+      }finally{
+        setLocalSdBusy(false);
+      }
+    }
+
+    function ensureLocalSdToolsUi(){
+      ensureLocalSdToolsCss();
+
+      if(!el.localSdToolsWrap){
+        const existing = document.getElementById("localSdToolsWrap");
+        if(existing){
+          el.localSdToolsWrap = existing;
+          el.localSdPickBtn = document.getElementById("localSdPickBtn");
+          el.localSdUploadBtn = document.getElementById("localSdUploadBtn");
+          el.localSdUploadFolderBtn = document.getElementById("localSdUploadFolderBtn");
+          el.localSdDeployBtn = document.getElementById("localSdDeployBtn");
+          el.localSdFormatBtn = document.getElementById("localSdFormatBtn");
+          el.localSdStatusLine = document.getElementById("localSdStatusLine");
+          el.localSdNote = document.getElementById("localSdNote");
+          el.localSdUploadInput = document.getElementById("localSdUploadInput");
+          el.localSdUploadFolderInput = document.getElementById("localSdUploadFolderInput");
+        }
+      }
+      if(el.localSdToolsWrap){
+        refreshLocalSdControls();
+        return;
+      }
+
+      const visibleStatus = findVisibleById("spiFlashStatusLine") || el.spiFlashStatusLine || null;
+      const statusHost = (visibleStatus && visibleStatus.parentElement) ? visibleStatus.parentElement : null;
+      const rowHost = visibleStatus
+        ? (visibleStatus.closest(".hardware-row") || visibleStatus.closest(".hardware-item") || null)
+        : null;
+      const actionHostBtn = findVisibleById("spiFlashRefreshBtn") || findVisibleById("spiFlashDumpBtn") || null;
+      const actionHost = actionHostBtn
+        ? (actionHostBtn.closest(".hardware-row") || actionHostBtn.closest(".hardware-item") || actionHostBtn.parentElement || null)
+        : null;
+      const fallbackHardwareHost = (el.hardwareView && el.hardwareView.nodeType === 1) ? el.hardwareView : null;
+      const host = statusHost || actionHost || fallbackHardwareHost || null;
+      if(!host && !rowHost && !actionHost) return;
+
+      const wrap = document.createElement("section");
+      wrap.id = "localSdToolsWrap";
+      wrap.className = "local-sd-tools";
+
+      const title = document.createElement("div");
+      title.className = "local-sd-tools-title";
+      title.textContent = "LOCAL SD CARD (PC SLOT/HUB)";
+      wrap.appendChild(title);
+
+      const actions = document.createElement("div");
+      actions.className = "local-sd-tools-actions";
+      wrap.appendChild(actions);
+
+      const baseBtnClass = String((el.spiFlashRefreshBtn && el.spiFlashRefreshBtn.className) || "").trim();
+      const makeBtn = (id, label)=>{
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.id = id;
+        btn.classList.add("local-sd-btn");
+        if(baseBtnClass){
+          baseBtnClass.split(/\s+/).forEach(cls=>{ if(cls) btn.classList.add(cls); });
+        }
+        btn.textContent = label;
+        actions.appendChild(btn);
+        return btn;
+      };
+
+      const pickBtn = makeBtn("localSdPickBtn", "SD 폴더 선택");
+      const uploadBtn = makeBtn("localSdUploadBtn", "파일 업로드");
+      const uploadFolderBtn = makeBtn("localSdUploadFolderBtn", "폴더 업로드");
+      const deployBtn = makeBtn("localSdDeployBtn", "웹파일 자동배포");
+      const formatBtn = makeBtn("localSdFormatBtn", "포맷(전체삭제)");
+
+      const statusLine = document.createElement("div");
+      statusLine.id = "localSdStatusLine";
+      statusLine.className = "local-sd-status";
+      statusLine.textContent = "SD 폴더를 선택하면 업로드를 시작할 수 있습니다.";
+      wrap.appendChild(statusLine);
+
+      const note = document.createElement("div");
+      note.id = "localSdNote";
+      note.className = "local-sd-note";
+      wrap.appendChild(note);
+
+      const uploadInput = document.createElement("input");
+      uploadInput.id = "localSdUploadInput";
+      uploadInput.className = "local-sd-input";
+      uploadInput.type = "file";
+      uploadInput.multiple = true;
+      wrap.appendChild(uploadInput);
+
+      const uploadFolderInput = document.createElement("input");
+      uploadFolderInput.id = "localSdUploadFolderInput";
+      uploadFolderInput.className = "local-sd-input";
+      uploadFolderInput.type = "file";
+      uploadFolderInput.multiple = true;
+      uploadFolderInput.setAttribute("webkitdirectory", "");
+      uploadFolderInput.setAttribute("directory", "");
+      wrap.appendChild(uploadFolderInput);
+
+      const insertAfterRow = rowHost || actionHost;
+      if(insertAfterRow && insertAfterRow.parentElement){
+        if(insertAfterRow.nextSibling){
+          insertAfterRow.parentElement.insertBefore(wrap, insertAfterRow.nextSibling);
+        }else{
+          insertAfterRow.parentElement.appendChild(wrap);
+        }
+      }else if(host){
+        host.appendChild(wrap);
+      }else{
+        document.body.appendChild(wrap);
+      }
+
+      el.localSdToolsWrap = wrap;
+      el.localSdPickBtn = pickBtn;
+      el.localSdUploadBtn = uploadBtn;
+      el.localSdUploadFolderBtn = uploadFolderBtn;
+      el.localSdDeployBtn = deployBtn;
+      el.localSdFormatBtn = formatBtn;
+      el.localSdStatusLine = statusLine;
+      el.localSdNote = note;
+      el.localSdUploadInput = uploadInput;
+      el.localSdUploadFolderInput = uploadFolderInput;
+
+      refreshLocalSdControls();
+    }
+
+    function bindLocalSdToolsUiEvents(){
+      if(el.localSdPickBtn && !el.localSdPickBtn.dataset.bound){
+        el.localSdPickBtn.dataset.bound = "1";
+        el.localSdPickBtn.addEventListener("click", ()=>{ pickLocalSdDirectory(); });
+      }
+      if(el.localSdUploadBtn && el.localSdUploadInput && !el.localSdUploadBtn.dataset.bound){
+        el.localSdUploadBtn.dataset.bound = "1";
+        el.localSdUploadBtn.addEventListener("click", ()=>{
+          if(!localSdDirHandle){
+            showToast("먼저 SD 폴더를 선택하세요.", "notice", {key:"local-sd-no-dir"});
+            return;
+          }
+          el.localSdUploadInput.click();
+        });
+      }
+      if(el.localSdUploadFolderBtn && el.localSdUploadFolderInput && !el.localSdUploadFolderBtn.dataset.bound){
+        el.localSdUploadFolderBtn.dataset.bound = "1";
+        el.localSdUploadFolderBtn.addEventListener("click", ()=>{
+          if(!localSdDirHandle){
+            showToast("먼저 SD 폴더를 선택하세요.", "notice", {key:"local-sd-no-dir"});
+            return;
+          }
+          el.localSdUploadFolderInput.click();
+        });
+      }
+      if(el.localSdUploadInput && !el.localSdUploadInput.dataset.bound){
+        el.localSdUploadInput.dataset.bound = "1";
+        el.localSdUploadInput.addEventListener("change", async ()=>{
+          const files = el.localSdUploadInput.files;
+          try{
+            await writeLocalSdFiles(files);
+          }finally{
+            el.localSdUploadInput.value = "";
+          }
+        });
+      }
+      if(el.localSdUploadFolderInput && !el.localSdUploadFolderInput.dataset.bound){
+        el.localSdUploadFolderInput.dataset.bound = "1";
+        el.localSdUploadFolderInput.addEventListener("change", async ()=>{
+          const files = el.localSdUploadFolderInput.files;
+          try{
+            await writeLocalSdFiles(files);
+          }finally{
+            el.localSdUploadFolderInput.value = "";
+          }
+        });
+      }
+      if(el.localSdDeployBtn && !el.localSdDeployBtn.dataset.bound){
+        el.localSdDeployBtn.dataset.bound = "1";
+        el.localSdDeployBtn.addEventListener("click", ()=>{ deployCurrentWebAssetsToLocalSd(); });
+      }
+      if(el.localSdFormatBtn && !el.localSdFormatBtn.dataset.bound){
+        el.localSdFormatBtn.dataset.bound = "1";
+        el.localSdFormatBtn.addEventListener("click", ()=>{ formatLocalSdDirectory(); });
+      }
+    }
+
     const SPI_FLASH_SERIAL_CHUNK_BYTES = 96;
 
     function parseSpiFlashStatusAckMessage(message){
@@ -18790,7 +19367,14 @@
       if(el.spiFlashDumpBtn){
         el.spiFlashDumpBtn.addEventListener("click", ()=>{ downloadSpiFlashDump(); });
       }
+      ensureLocalSdToolsUi();
+      bindLocalSdToolsUiEvents();
       fetchSpiFlashStatus();
+      setInterval(()=>{
+        if(!el.hardwareView || el.hardwareView.classList.contains("hidden")) return;
+        ensureLocalSdToolsUi();
+        bindLocalSdToolsUiEvents();
+      }, 2000);
 
       if(el.serialControlTile){
         el.serialControlTile.addEventListener("click",()=>{
@@ -19958,6 +20542,8 @@
           scheduleStatusMapRefresh();
         }
         if(isHardware){
+          ensureLocalSdToolsUi();
+          bindLocalSdToolsUiEvents();
           fetchSpiFlashStatus();
         }
       };
