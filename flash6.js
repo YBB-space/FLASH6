@@ -30,8 +30,26 @@ window.FLASH6_I18N = {
         forceIgniteDanger:"위험",
         safetyModeOnToast:"안전 모드가 켜졌습니다. 제어 권한이 제한됩니다.",
         safetyModeOffToast:"안전 모드가 꺼졌습니다. 안전에 주의하세요!",
-        controlSerialSub:"시리얼 연결",
-        controlSerialLabel:"WebSerial",
+        controlSerialSub:"Wi-Fi / Serial 선택",
+        controlSerialLabel:"CONNECT",
+        connectActionConnect:"CONNECT",
+        connectModeWifiToast:"연결 모드: Wi-Fi",
+        connectModeSerialToast:"연결 모드: Serial",
+        connectSerialAlready:"이미 Serial 연결됨",
+        connectWifiTitle:"Wi-Fi 암호",
+        connectWifiGuideText:"휴대폰 Wi-Fi 연결 정보를 ALTIS에 공유하시겠습니까?",
+        connectWifiGuideHint:"SSID: ALTIS_INTELLIGNET... 에 먼저 연결해 주세요.",
+        connectWifiWaitingText:"보드 연결 대기중...",
+        connectWifiWaitingHint:"연결 상태를 확인하고 있습니다.",
+        connectWifiSuccessText:"Wi-Fi 연결 성공",
+        connectWifiSuccessHint:"이제 텔레메트리/제어를 사용할 수 있습니다.",
+        connectWifiFailText:"아직 연결되지 않았습니다.",
+        connectWifiFailHint:"ALTIS AP 연결 상태를 확인하고 다시 시도하세요.",
+        connectWifiNext:"암호 공유",
+        connectWifiWaitingBtn:"연결 확인 중...",
+        connectWifiRetry:"다시 확인",
+        connectWifiClose:"닫기",
+        connectWifiCancel:"취소",
         controlDevToolsLabel:"개발자 도구",
         controlDevToolsSub:"개발자 도구 열기",
         controlInspectionLabel:"설비 점검",
@@ -524,8 +542,26 @@ window.FLASH6_I18N = {
         forceIgniteDanger:"DANGER",
         safetyModeOnToast:"Safety mode enabled. Relay actuation is blocked.",
         safetyModeOffToast:"Safety mode disabled.",
-        controlSerialSub:"Connect",
-        controlSerialLabel:"WebSerial",
+        controlSerialSub:"Choose Wi-Fi / Serial",
+        controlSerialLabel:"CONNECT",
+        connectActionConnect:"CONNECT",
+        connectModeWifiToast:"Connection mode: Wi-Fi",
+        connectModeSerialToast:"Connection mode: Serial",
+        connectSerialAlready:"Serial already connected",
+        connectWifiTitle:"Wi-Fi Password",
+        connectWifiGuideText:"Share your phone Wi-Fi connection info with ALTIS?",
+        connectWifiGuideHint:"Connect to SSID ALTIS_INTELLIGNET... first.",
+        connectWifiWaitingText:"Waiting for board connection...",
+        connectWifiWaitingHint:"Checking connection status.",
+        connectWifiSuccessText:"Wi-Fi connected",
+        connectWifiSuccessHint:"Telemetry/control is now available.",
+        connectWifiFailText:"Still not connected.",
+        connectWifiFailHint:"Check ALTIS AP connection and retry.",
+        connectWifiNext:"Share Password",
+        connectWifiWaitingBtn:"Checking...",
+        connectWifiRetry:"Retry",
+        connectWifiClose:"Close",
+        connectWifiCancel:"Cancel",
         controlDevToolsLabel:"Developer Tools",
         controlDevToolsSub:"Open developer tools",
         controlInspectionLabel:"Inspection",
@@ -3967,8 +4003,12 @@ window.FLASH6_I18N = {
     let serialLineBuf = "";
     let serialConnected = false;
     let serialRxDisabledWarned = false;
+    let wifiConnectStage = "idle";
+    let wifiConnectWaitTimer = null;
+    let wifiConnectWaitUntilMs = 0;
     let simEnabled = false;
     let simState = createSimState();
+    const WIFI_CONNECT_WAIT_TIMEOUT_MS = 12000;
 
     // ✅ 설비 점검/제어 권한
     let controlAuthority = false;
@@ -4545,6 +4585,9 @@ window.FLASH6_I18N = {
       updateSerialControlTile();
       updateExportGuardUi();
       updateRebootConfirmUi();
+      if(wifiConnectStage !== "idle"){
+        setWifiConnectWizardStage(wifiConnectStage);
+      }
       if(isLoadcellModalVisible()){
         updateLoadcellWorkflowUi();
         if(loadcellWarningMode === "stability"){
@@ -4570,17 +4613,54 @@ window.FLASH6_I18N = {
         else node.textContent = value;
       });
     }
+    function getConnectTransportMode(){
+      return serialEnabled ? "serial" : "wifi";
+    }
+    function updateConnectActionUi(){
+      if(!el.connectActionBtn || !el.connectModeSelect) return;
+      const mode = getConnectTransportMode();
+      el.connectModeSelect.value = mode;
+
+      if(simEnabled){
+        el.connectActionBtn.textContent = "OPEN";
+        el.connectActionBtn.classList.add("is-on");
+        el.connectActionBtn.classList.remove("is-off");
+        return;
+      }
+
+      if(mode === "serial"){
+        if(serialConnected){
+          el.connectActionBtn.textContent = t("serialConnected");
+          el.connectActionBtn.classList.add("is-on");
+          el.connectActionBtn.classList.remove("is-off");
+        }else{
+          el.connectActionBtn.textContent = t("connectActionConnect");
+          el.connectActionBtn.classList.add("is-off");
+          el.connectActionBtn.classList.remove("is-on");
+        }
+      }else{
+        el.connectActionBtn.textContent = t("connectActionConnect");
+        el.connectActionBtn.classList.add("is-off");
+        el.connectActionBtn.classList.remove("is-on");
+      }
+    }
     function updateSerialControlTile(){
-      if(!el.serialControlTitle || !el.serialControlSub || !el.serialTogglePill || !el.serialControlTile) return;
+      if(!el.serialControlTitle || !el.serialControlSub || !el.serialControlTile) return;
       if(simEnabled){
         el.serialControlTitle.textContent = t("controlDevToolsLabel");
         el.serialControlSub.textContent = t("controlDevToolsSub");
-        el.serialTogglePill.style.display = "none";
+        if(el.connectModeSelect) el.connectModeSelect.style.display = "none";
+        if(el.connectActionBtn) el.connectActionBtn.style.display = "inline-flex";
       }else{
         el.serialControlTitle.textContent = t("controlSerialLabel");
-        el.serialControlSub.textContent = t("controlSerialSub");
-        el.serialTogglePill.style.display = "inline-flex";
+        const mode = getConnectTransportMode();
+        el.serialControlSub.textContent = (mode === "serial")
+          ? (serialConnected ? t("serialConnected") : t("serialDisconnected"))
+          : t("controlSerialSub");
+        if(el.connectModeSelect) el.connectModeSelect.style.display = "inline-flex";
+        if(el.connectActionBtn) el.connectActionBtn.style.display = "inline-flex";
       }
+      updateConnectActionUi();
     }
     function setDevToolsVisible(show){
       if(!el.controlsCard || !el.controlsMain || !el.devToolsPanel || !el.controlsHeader) return;
@@ -4734,7 +4814,6 @@ window.FLASH6_I18N = {
 
       if(el.serialToggle){
         el.serialToggle.checked = !!uiSettings.serialEnabled;
-        updateTogglePill(el.serialTogglePill, el.serialToggle.checked);
       }
       if(el.serialRxToggle) el.serialRxToggle.checked = uiSettings.serialRx !== false;
       if(el.serialTxToggle) el.serialTxToggle.checked = uiSettings.serialTx !== false;
@@ -4928,6 +5007,158 @@ window.FLASH6_I18N = {
         lastWsAlertActive = true;
       }
       hideWsAlert();
+    }
+    function clearWifiConnectWaitTimer(){
+      if(wifiConnectWaitTimer){
+        clearTimeout(wifiConnectWaitTimer);
+        wifiConnectWaitTimer = null;
+      }
+    }
+    function setWifiConnectWizardStage(stage){
+      wifiConnectStage = stage || "guide";
+      if(!el.wifiConnectTitle || !el.wifiConnectDesc || !el.wifiConnectHint || !el.wifiConnectNextBtn || !el.wifiConnectCancelBtn){
+        return;
+      }
+      const spinner = el.wifiConnectSpinner || null;
+      const showSpinner = (wifiConnectStage === "waiting");
+      if(spinner){
+        spinner.classList.toggle("hidden", !showSpinner);
+        spinner.style.display = showSpinner ? "block" : "none";
+      }
+
+      el.wifiConnectTitle.textContent = t("connectWifiTitle");
+      el.wifiConnectCancelBtn.style.display = "inline-block";
+
+      if(wifiConnectStage === "waiting"){
+        el.wifiConnectDesc.textContent = t("connectWifiWaitingText");
+        el.wifiConnectHint.textContent = t("connectWifiWaitingHint");
+        el.wifiConnectNextBtn.textContent = t("connectWifiWaitingBtn");
+        el.wifiConnectNextBtn.disabled = true;
+        el.wifiConnectCancelBtn.textContent = t("connectWifiCancel");
+      }else if(wifiConnectStage === "success"){
+        el.wifiConnectDesc.textContent = t("connectWifiSuccessText");
+        el.wifiConnectHint.textContent = t("connectWifiSuccessHint");
+        el.wifiConnectNextBtn.textContent = t("connectWifiClose");
+        el.wifiConnectNextBtn.disabled = false;
+        el.wifiConnectCancelBtn.style.display = "none";
+      }else if(wifiConnectStage === "fail"){
+        el.wifiConnectDesc.textContent = t("connectWifiFailText");
+        el.wifiConnectHint.textContent = t("connectWifiFailHint");
+        el.wifiConnectNextBtn.textContent = t("connectWifiRetry");
+        el.wifiConnectNextBtn.disabled = false;
+        el.wifiConnectCancelBtn.textContent = t("connectWifiClose");
+      }else{
+        el.wifiConnectDesc.textContent = t("connectWifiGuideText");
+        el.wifiConnectHint.textContent = t("connectWifiGuideHint");
+        el.wifiConnectNextBtn.textContent = t("connectWifiNext");
+        el.wifiConnectNextBtn.disabled = false;
+        el.wifiConnectCancelBtn.textContent = t("connectWifiCancel");
+      }
+    }
+    function closeWifiConnectWizard(){
+      clearWifiConnectWaitTimer();
+      wifiConnectWaitUntilMs = 0;
+      wifiConnectStage = "idle";
+      setOverlayVisible(el.wifiConnectOverlay, false);
+    }
+    async function probeWifiBoardReachable(){
+      if(connOk || wsConnected) return true;
+      try{
+        await fetchWifiInfo();
+      }catch(_e){}
+      if(connOk || wsConnected) return true;
+
+      const API_BASE = getApiBaseForCommands();
+      const url = (API_BASE ? API_BASE : "") + "/ping?_ts=" + Date.now();
+      const ctrl = new AbortController();
+      const timer = setTimeout(()=>{
+        try{ ctrl.abort(); }catch(_e){}
+      }, 900);
+      try{
+        const res = await fetch(url, {cache:"no-store", signal:ctrl.signal});
+        return !!(res && res.ok);
+      }catch(_e){
+        return false;
+      }finally{
+        clearTimeout(timer);
+      }
+    }
+    async function wifiConnectWaitTick(){
+      if(wifiConnectStage !== "waiting") return;
+      const ok = await probeWifiBoardReachable();
+      if(ok){
+        setWifiConnectWizardStage("success");
+        showToast(t("connectWifiSuccessText"), "success", {key:"wifi-connect-success"});
+        return;
+      }
+      if(Date.now() >= wifiConnectWaitUntilMs){
+        setWifiConnectWizardStage("fail");
+        return;
+      }
+      clearWifiConnectWaitTimer();
+      wifiConnectWaitTimer = setTimeout(()=>{
+        wifiConnectWaitTick();
+      }, 900);
+    }
+    function startWifiConnectWait(){
+      clearWifiConnectWaitTimer();
+      wifiConnectWaitUntilMs = Date.now() + WIFI_CONNECT_WAIT_TIMEOUT_MS;
+      setWifiConnectWizardStage("waiting");
+      wifiConnectWaitTick();
+    }
+    function openWifiConnectWizard(){
+      if(!el.wifiConnectOverlay) return;
+      clearWifiConnectWaitTimer();
+      setWifiConnectWizardStage("guide");
+      setOverlayVisible(el.wifiConnectOverlay, true);
+    }
+    async function setConnectTransportMode(nextMode, opts){
+      const options = opts || {};
+      const mode = (nextMode === "serial") ? "serial" : "wifi";
+      const wasMode = getConnectTransportMode();
+      const changed = (wasMode !== mode);
+
+      serialEnabled = (mode === "serial");
+      uiSettings.serialEnabled = serialEnabled;
+      if(el.serialToggle) el.serialToggle.checked = serialEnabled;
+      saveSettings();
+      if(mode !== "wifi"){
+        closeWifiConnectWizard();
+      }
+
+      if(mode === "wifi" && serialConnected){
+        await serialDisconnect();
+      }
+
+      updateSerialControlTile();
+      updateSerialPill();
+
+      if(changed && options.toast !== false){
+        showToast(
+          (mode === "serial") ? t("connectModeSerialToast") : t("connectModeWifiToast"),
+          "info",
+          {key:"connect-mode-change"}
+        );
+      }
+      return mode;
+    }
+    async function handleConnectAction(){
+      if(simEnabled){
+        setDevToolsVisible(true);
+        return;
+      }
+      const mode = getConnectTransportMode();
+      if(mode === "wifi"){
+        openWifiConnectWizard();
+        return;
+      }
+      if(serialConnected){
+        showToast(t("connectSerialAlready"), "info", {key:"serial-already"});
+        return;
+      }
+      await serialConnect();
+      updateSerialControlTile();
+      updateSerialPill();
     }
     function updateTogglePill(pillEl, checked){
       if(!pillEl) return;
@@ -7101,7 +7332,7 @@ window.FLASH6_I18N = {
       if(el.homeHeroBoard) el.homeHeroBoard.textContent = boardName;
       if(el.homeFirmware) el.homeFirmware.textContent = textOrDash(el.hwFirmwareName);
       if(el.homeProtocol) el.homeProtocol.textContent = textOrDash(el.hwProtocolName);
-      const serialLabel = !serialEnabled ? t("serialOff") : (serialConnected ? t("serialConnected") : t("serialDisconnected"));
+      const serialLabel = !serialEnabled ? t("modeWifi") : (serialConnected ? t("serialConnected") : t("serialDisconnected"));
       if(el.homeSerialStatus) el.homeSerialStatus.textContent = serialLabel;
 
       const heroLive = connOk && wsConnected;
@@ -7126,7 +7357,7 @@ window.FLASH6_I18N = {
         (el.safeModeToggle && el.safeModeToggle.checked) ? "ON" : "OFF",
         (el.safeModeToggle && el.safeModeToggle.checked) ? "is-ok" : "is-warn");
       if(!serialEnabled){
-        setHomeBadge(el.homeSerialBadge, "OFF", "is-off");
+        setHomeBadge(el.homeSerialBadge, "WIFI", "is-off");
       }else if(serialConnected){
         setHomeBadge(el.homeSerialBadge, "OK", "is-ok");
       }else{
@@ -7713,19 +7944,23 @@ window.FLASH6_I18N = {
     }
 
     function updateSerialPill(){
-      if(!el.serialStatus || !el.serialStatusText) return;
-      const enabled = serialEnabled;
+      const mode = getConnectTransportMode();
+      const enabled = (mode === "serial");
       const ok = enabled && serialConnected;
-      el.serialStatus.classList.remove("ok","bad");
-      if(!enabled){
-        el.serialStatusText.textContent = t("serialOff");
-      }else if(ok){
-        el.serialStatus.classList.add("ok");
-        el.serialStatusText.textContent = t("serialConnected");
-      }else{
-        el.serialStatus.classList.add("bad");
-        el.serialStatusText.textContent = t("serialDisconnected");
+      if(el.serialStatus && el.serialStatusText){
+        el.serialStatus.classList.remove("ok","bad");
+        if(mode === "wifi"){
+          el.serialStatus.classList.add("ok");
+          el.serialStatusText.textContent = t("modeWifi");
+        }else if(ok){
+          el.serialStatus.classList.add("ok");
+          el.serialStatusText.textContent = t("serialConnected");
+        }else{
+          el.serialStatus.classList.add("bad");
+          el.serialStatusText.textContent = t("serialDisconnected");
+        }
       }
+      updateSerialControlTile();
       updateMobileControlPills();
     }
 
@@ -8379,12 +8614,18 @@ window.FLASH6_I18N = {
       };
       const serialPill = el.mobileControlPills ? el.mobileControlPills.serial : null;
       if(serialPill){
-        const serialLabel = serialEnabled
-          ? (serialConnected ? t("serialConnected") : t("serialDisconnected"))
-          : t("serialOff");
+        const mode = getConnectTransportMode();
+        const serialLabel = (mode === "wifi")
+          ? t("modeWifi")
+          : (serialConnected ? t("serialConnected") : t("serialDisconnected"));
         serialPill.textContent = serialLabel;
-        setMobileQuickPillTone(serialPill, serialEnabled ? (serialConnected ? "pill-green" : "pill-red") : "pill-gray");
-        setMobileQuickIconTone("serial", serialEnabled ? (serialConnected ? "tone-green" : "tone-red") : "tone-gray");
+        if(mode === "wifi"){
+          setMobileQuickPillTone(serialPill, "pill-gray");
+          setMobileQuickIconTone("serial", "tone-blue");
+        }else{
+          setMobileQuickPillTone(serialPill, serialConnected ? "pill-green" : "pill-red");
+          setMobileQuickIconTone("serial", serialConnected ? "tone-green" : "tone-red");
+        }
       }
       const safetyPill = el.mobileControlPills ? el.mobileControlPills.safety : null;
       if(safetyPill){
@@ -19687,8 +19928,10 @@ window.FLASH6_I18N = {
       el.serialToggle = document.getElementById("serialToggle");
       el.safeModePill = document.getElementById("safeModePill");
       el.armLockPill = document.getElementById("armLockPill");
-      el.serialTogglePill = document.getElementById("serialTogglePill");
+      el.connectModeSelect = document.getElementById("connectModeSelect");
+      el.connectActionBtn = document.getElementById("connectActionBtn");
       el.serialControlTile = document.getElementById("serialControlTile");
+      el.servoControlTile = document.getElementById("servoControlTile");
       el.safetyModeTile = document.getElementById("safetyModeTile");
       el.armLockTile = document.getElementById("armLockTile");
       el.serialControlTitle = document.getElementById("serialControlTitle");
@@ -19877,6 +20120,14 @@ window.FLASH6_I18N = {
       el.disconnectTitle = document.getElementById("disconnectTitle");
       el.disconnectText = document.getElementById("disconnectText");
       el.disconnectOk = document.getElementById("disconnectOk");
+      el.wifiConnectOverlay = document.getElementById("wifiConnectOverlay");
+      el.wifiConnectTitle = document.getElementById("wifiConnectTitle");
+      el.wifiConnectDesc = document.getElementById("wifiConnectDesc");
+      el.wifiConnectHint = document.getElementById("wifiConnectHint");
+      el.wifiConnectSpinner = document.getElementById("wifiConnectSpinner");
+      el.wifiConnectNextBtn = document.getElementById("wifiConnectNextBtn");
+      el.wifiConnectCancelBtn = document.getElementById("wifiConnectCancelBtn");
+      el.wifiConnectCloseBtn = document.getElementById("wifiConnectCloseBtn");
       el.easterOverlay = document.getElementById("easterOverlay");
       el.easterEggOk = document.getElementById("easterEggOk");
 
@@ -20074,21 +20325,6 @@ window.FLASH6_I18N = {
       }
       fetchSpiFlashStatus();
 
-      if(el.serialControlTile){
-        el.serialControlTile.addEventListener("click",()=>{
-          if(!simEnabled) return;
-          setDevToolsVisible(true);
-          updateDevToolsUI();
-        });
-        el.serialControlTile.addEventListener("keydown",(ev)=>{
-          if(!simEnabled) return;
-          if(ev.key === "Enter" || ev.key === " "){
-            ev.preventDefault();
-            setDevToolsVisible(true);
-            updateDevToolsUI();
-          }
-        });
-      }
       if(el.devToolsClose){
         el.devToolsClose.addEventListener("click",()=>setDevToolsVisible(false));
       }
@@ -20282,17 +20518,20 @@ window.FLASH6_I18N = {
 
       if(el.serialToggle){
         el.serialToggle.addEventListener("change",async ()=>{
-          serialEnabled = !!el.serialToggle.checked;
-          uiSettings.serialEnabled = serialEnabled;
-          updateTogglePill(el.serialTogglePill, el.serialToggle.checked);
-          saveSettings();
-          updateSerialPill();
-
-          if(serialEnabled){
-            await serialConnect();
-          }else{
-            await serialDisconnect();
-          }
+          const nextMode = el.serialToggle.checked ? "serial" : "wifi";
+          await setConnectTransportMode(nextMode, {toast:true});
+        });
+      }
+      if(el.connectModeSelect){
+        el.connectModeSelect.addEventListener("change", async ()=>{
+          const nextMode = (el.connectModeSelect.value === "serial") ? "serial" : "wifi";
+          await setConnectTransportMode(nextMode, {toast:true});
+        });
+      }
+      if(el.connectActionBtn){
+        el.connectActionBtn.addEventListener("click", async (ev)=>{
+          ev.preventDefault();
+          await handleConnectAction();
         });
       }
       if(el.serialRxToggle){
@@ -20332,25 +20571,20 @@ window.FLASH6_I18N = {
           );
         });
       }
-      if(el.serialTogglePill && el.serialToggle){
-        el.serialTogglePill.addEventListener("click",()=>{
-          el.serialToggle.checked = !el.serialToggle.checked;
-          el.serialToggle.dispatchEvent(new Event("change", {bubbles:true}));
+      if(el.serialControlTile){
+        el.serialControlTile.addEventListener("click",async (ev)=>{
+          if(ev.target && (ev.target.closest("select") || ev.target.closest("button") || ev.target.closest("input"))){
+            return;
+          }
+          await handleConnectAction();
         });
-      }
-      if(el.serialControlTile && el.serialToggle){
-        el.serialControlTile.addEventListener("click",(ev)=>{
-          if(simEnabled) return;
-          if(ev.target && ev.target.closest(".pill-toggle")) return;
-          el.serialToggle.checked = !el.serialToggle.checked;
-          el.serialToggle.dispatchEvent(new Event("change", {bubbles:true}));
-        });
-        el.serialControlTile.addEventListener("keydown",(ev)=>{
-          if(simEnabled) return;
+        el.serialControlTile.addEventListener("keydown",async (ev)=>{
           if(ev.key !== "Enter" && ev.key !== " ") return;
+          if(ev.target && (ev.target.closest("select") || ev.target.closest("button") || ev.target.closest("input"))){
+            return;
+          }
           ev.preventDefault();
-          el.serialToggle.checked = !el.serialToggle.checked;
-          el.serialToggle.dispatchEvent(new Event("change", {bubbles:true}));
+          await handleConnectAction();
         });
       }
       if(el.safeModePill && el.safeModeToggle){
@@ -20504,6 +20738,39 @@ window.FLASH6_I18N = {
           if(ev.target===el.noMotorOverlay){
             hideNoMotorNotice();
             hideMission();
+          }
+        });
+      }
+      if(el.wifiConnectNextBtn){
+        el.wifiConnectNextBtn.addEventListener("click", ()=>{
+          if(wifiConnectStage === "guide"){
+            startWifiConnectWait();
+            return;
+          }
+          if(wifiConnectStage === "success"){
+            closeWifiConnectWizard();
+            return;
+          }
+          if(wifiConnectStage === "fail"){
+            startWifiConnectWait();
+            return;
+          }
+        });
+      }
+      if(el.wifiConnectCancelBtn){
+        el.wifiConnectCancelBtn.addEventListener("click", ()=>{
+          closeWifiConnectWizard();
+        });
+      }
+      if(el.wifiConnectCloseBtn){
+        el.wifiConnectCloseBtn.addEventListener("click", ()=>{
+          closeWifiConnectWizard();
+        });
+      }
+      if(el.wifiConnectOverlay){
+        el.wifiConnectOverlay.addEventListener("click",(ev)=>{
+          if(ev.target === el.wifiConnectOverlay){
+            closeWifiConnectWizard();
           }
         });
       }
@@ -21624,6 +21891,18 @@ window.FLASH6_I18N = {
           setOverlayVisible(el.hardwareServoOverlay, true);
         });
       }
+      if(el.servoControlTile){
+        el.servoControlTile.addEventListener("click",(ev)=>{
+          if(ev.target && ev.target.closest("button")) return;
+          setOverlayVisible(el.hardwareServoOverlay, true);
+        });
+        el.servoControlTile.addEventListener("keydown",(ev)=>{
+          if(ev.key !== "Enter" && ev.key !== " ") return;
+          if(ev.target && ev.target.closest("button")) return;
+          ev.preventDefault();
+          setOverlayVisible(el.hardwareServoOverlay, true);
+        });
+      }
       if(el.hardwareServoOpenBtn){
         el.hardwareServoOpenBtn.addEventListener("click",()=>{
           setOverlayVisible(el.hardwareServoOverlay, true);
@@ -21862,7 +22141,7 @@ window.FLASH6_I18N = {
       const mobileControlActions = {
         sequence: ()=>{ if(el.igniteBtn) el.igniteBtn.click(); },
         mode: ()=>{ toggleOperationModeFromMobile(); },
-        serial: ()=>{ toggleInput(el.serialToggle); },
+        serial: ()=>{ handleConnectAction(); },
         inspection: ()=>{ if(el.inspectionOpenBtn) el.inspectionOpenBtn.click(); },
         safety: ()=>{ toggleInput(el.safeModeToggle); },
         launcher: ()=>{ ensureDashboardViewForPanels(); showLauncher(); },

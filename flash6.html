@@ -2916,20 +2916,89 @@
       margin-left:auto;
     }
     .controls-card .control-tile-select{
-      min-width:120px;
-      padding:6px 10px;
+      min-width:64px;
+      height:23px;
+      padding:0 20px 0 8px;
       border-radius:999px;
       border:1px solid rgba(148,163,184,0.8);
       background:#f8fafc;
       color:#0f172a;
-      font-size:12px;
+      font-size:10px;
       font-weight:700;
       cursor:pointer;
       outline:none;
+      line-height:1;
+      box-sizing:border-box;
     }
     .controls-card .control-tile-select:focus{
       border-color:rgba(59,130,246,0.9);
       box-shadow:0 0 0 2px rgba(59,130,246,0.18);
+    }
+    #serialControlTile.control-tile-connect{
+      border-color:rgba(59,130,246,0.55);
+      box-shadow:0 6px 14px rgba(37,99,235,0.10);
+      align-items:center;
+    }
+    #serialControlTile.control-tile-connect .control-tile-actions{
+      margin-left:auto;
+      gap:4px;
+      justify-content:flex-end;
+      min-width:0;
+      flex:0 0 auto;
+      align-self:center;
+    }
+    .controls-card .control-row .control-tile-actions .pill,
+    .controls-card .control-row .control-tile-actions button,
+    .controls-card .control-row .control-tile-actions .control-tile-select{
+      height:23px;
+      min-width:64px;
+      padding:0 8px;
+      border-radius:999px;
+      font-size:10px;
+      font-weight:700;
+      line-height:1;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      box-sizing:border-box;
+    }
+    .controls-card .control-row .control-tile-actions .control-tile-select{
+      display:inline-block;
+      padding-right:20px;
+      text-align:left;
+    }
+    #connectModeSelect{
+      min-width:64px;
+      height:23px;
+      padding:0 20px 0 8px;
+      font-size:10px;
+      border-width:2px;
+      border-color:rgba(59,130,246,0.78);
+      background:#f1f5f9;
+      border-radius:999px;
+      flex:0 0 auto;
+    }
+    #connectActionBtn{
+      min-width:64px;
+      height:23px;
+      padding:0 8px;
+      font-size:10px;
+      font-weight:700;
+      letter-spacing:.03em;
+      justify-content:center;
+      text-align:center;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      flex:0 0 auto;
+    }
+    #dashboardServoPanelBtn{
+      min-width:64px;
+      height:23px;
+      padding:0 8px;
+      justify-content:center;
+      cursor:pointer;
+      font-weight:700;
     }
     .control-tile.span-2{grid-column:1 / -1}
     .control-tile-label{
@@ -4549,6 +4618,133 @@
       letter-spacing:.01em;
     }
     @keyframes replaySeekSpin{to{transform:rotate(360deg)}}
+    .wifi-connect-dialog{
+      min-width:min(360px,calc(100vw - 44px));
+      max-width:430px;
+      text-align:center;
+      border-radius:28px;
+      padding:22px 22px 18px;
+      background:#ffffff;
+      border:1px solid rgba(226,232,240,0.9);
+      box-shadow:0 18px 34px rgba(15,23,42,0.18);
+    }
+    .wifi-connect-dialog::before,
+    .wifi-connect-dialog::after{
+      content:none;
+      display:none;
+    }
+    .wifi-connect-dialog .confirm-title{
+      margin-top:2px;
+      font-size:38px;
+      letter-spacing:-0.02em;
+      color:#0f172a;
+      font-weight:800;
+    }
+    .wifi-connect-dialog .confirm-text{
+      color:#64748b;
+      font-size:14px;
+      line-height:1.35;
+      margin-bottom:6px;
+    }
+    .wifi-connect-dialog .confirm-note{
+      margin-top:0;
+      color:#94a3b8;
+      font-size:12px;
+      min-height:18px;
+    }
+    .wifi-connect-dialog .confirm-icon{
+      width:112px;
+      height:112px;
+      border:none;
+      box-shadow:none;
+      background:transparent;
+      color:#1d7efc;
+      margin-top:10px;
+      margin-bottom:8px;
+    }
+    .wifi-connect-dialog .confirm-icon svg{
+      width:82px;
+      height:82px;
+      stroke-width:1.7;
+    }
+    .wifi-connect-actions{
+      gap:8px;
+      align-items:center;
+      justify-content:center;
+      flex-direction:column;
+      margin-top:10px;
+    }
+    .wifi-connect-actions #wifiConnectNextBtn{
+      width:100%;
+      max-width:320px;
+      height:46px;
+      border:none;
+      border-radius:999px;
+      background:#1d7efc;
+      color:#ffffff;
+      font-size:17px;
+      font-weight:700;
+      letter-spacing:0.01em;
+      box-shadow:0 10px 20px rgba(29,126,252,0.30);
+      cursor:pointer;
+    }
+    .wifi-connect-actions #wifiConnectNextBtn:disabled{
+      opacity:0.7;
+      cursor:wait;
+    }
+    .wifi-connect-actions .confirm-cancel{
+      margin-top:0;
+      font-size:12px;
+      color:#64748b;
+      text-decoration:none;
+    }
+    .wifi-connect-spinner{
+      width:24px;
+      height:24px;
+      margin:4px auto 0;
+      border-radius:50%;
+      border:2px solid rgba(148,163,184,0.30);
+      border-top-color:#1d7efc;
+      animation:replaySeekSpin .85s linear infinite;
+    }
+    .wifi-connect-close{
+      position:absolute;
+      top:12px;
+      right:14px;
+      width:28px;
+      height:28px;
+      border:none;
+      border-radius:999px;
+      background:transparent;
+      color:#0f172a;
+      font-size:24px;
+      line-height:1;
+      cursor:pointer;
+      padding:0;
+    }
+    @media (max-width:740px){
+      .controls-card .control-row .control-tile-actions .pill,
+      .controls-card .control-row .control-tile-actions button,
+      .controls-card .control-row .control-tile-actions .control-tile-select{
+        min-width:58px;
+        height:21px;
+        font-size:9px;
+      }
+      #connectModeSelect{
+        min-width:58px;
+        font-size:9px;
+      }
+      #connectActionBtn{
+        min-width:58px;
+        font-size:9px;
+      }
+      #serialControlTile.control-tile-connect .control-tile-actions{
+        gap:6px;
+      }
+      .wifi-connect-dialog .confirm-title{
+        font-size:32px;
+      }
+    }
     .controls-overlay-slot{
       position:relative;
       width:min(96vw,560px);
@@ -12161,7 +12357,7 @@
                 <path d="M10 20h4"></path>
               </svg>
             </span>
-            <span class="mobile-quick-label" data-i18n="controlSerialLabel">WebSerial</span>
+            <span class="mobile-quick-label" data-i18n="controlSerialLabel">CONNECT</span>
             <span class="mobile-quick-state pill pill-gray" data-mobile-pill="serial">OFF</span>
           </button>
           <button type="button" class="control-tile mobile-control mobile-quick-btn" data-mobile-control="inspection">
@@ -12362,7 +12558,7 @@
           <div class="hardware-desc">서보모터 제어는 버튼으로 모달 창에서 확인/조작할 수 있습니다.</div>
           <div class="settings-row hardware-servo-open-row">
             <div>
-              <div class="settings-label">서보모터 제어</div>
+              <div class="settings-label">서보모터</div>
               <div class="hint-mini">PWM1~PWM4 제어 화면을 모달로 엽니다.</div>
             </div>
             <button id="hardwareServoOpenBtn" class="settings-btn" type="button"
@@ -12795,14 +12991,18 @@
               </div>
             </div>
             <div class="control-row">
-              <div id="serialControlTile" class="control-tile is-btn" role="button" tabindex="0">
+              <div id="serialControlTile" class="control-tile control-tile-mode span-2 is-btn control-tile-connect" role="button" tabindex="0">
                 <div>
-                  <div id="serialControlTitle" class="control-tile-label" data-i18n="controlSerialLabel">WebSerial</div>
-                  <div id="serialControlSub" class="control-tile-sub" data-i18n="controlSerialSub">시리얼 연결</div>
+                  <div id="serialControlTitle" class="control-tile-label" data-i18n="controlSerialLabel">CONNECT</div>
+                  <div id="serialControlSub" class="control-tile-sub" data-i18n="controlSerialSub">Wi-Fi / Serial 선택</div>
                 </div>
                 <div class="control-tile-actions">
                   <input type="checkbox" id="serialToggle" class="hidden-input">
-                  <button id="serialTogglePill" class="pill pill-toggle is-off" type="button">OFF</button>
+                  <select id="connectModeSelect" class="control-tile-select" aria-label="Connection mode">
+                    <option value="wifi" data-i18n="modeWifi">와이파이</option>
+                    <option value="serial" data-i18n="modeSerial">시리얼</option>
+                  </select>
+                  <button id="connectActionBtn" class="pill pill-toggle is-off" type="button" data-i18n="connectActionConnect">CONNECT</button>
                 </div>
               </div>
 
@@ -12812,6 +13012,16 @@
                 </div>
                 <div class="control-tile-actions">
                   <span id="inspectionStatusPill" class="pill pill-gray" data-i18n="inspectionWait">대기</span>
+                </div>
+              </div>
+
+              <div id="servoControlTile" class="control-tile is-btn" role="button" tabindex="0">
+                <div>
+                  <div class="control-tile-label">서보모터</div>
+                  <div class="control-tile-sub">Servo motor</div>
+                </div>
+                <div class="control-tile-actions">
+                  <button id="dashboardServoPanelBtn" class="pill pill-gray" type="button" aria-label="서보모터 제어 패널 열기">열기</button>
                 </div>
               </div>
 
@@ -12847,16 +13057,6 @@
                     <option value="daq" data-i18n="opModeDaq">DAQ</option>
                     <option value="flight" data-i18n="opModeFlight">Flight</option>
                   </select>
-                </div>
-              </div>
-
-              <div class="control-tile control-tile-mode span-2">
-                <div>
-                  <div class="control-tile-label">서보모터 제어</div>
-                  <div class="control-tile-sub">Servo motor control panel</div>
-                </div>
-                <div class="control-tile-actions">
-                  <button id="dashboardServoPanelBtn" class="control-tile-select" type="button" aria-label="서보모터 제어 패널 열기">열기</button>
                 </div>
               </div>
 
@@ -14120,6 +14320,28 @@
         </div>
         <div class="disconnect-actions">
           <button id="disconnectOk" class="disconnect-ok" data-i18n="deviceDisconnectedOk">확인</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="wifiConnectOverlay" class="confirm-overlay hidden" style="display:none;">
+      <div class="confirm-dialog wifi-connect-dialog" role="dialog" aria-modal="true" aria-labelledby="wifiConnectTitle" aria-describedby="wifiConnectDesc">
+        <button id="wifiConnectCloseBtn" class="wifi-connect-close" type="button" aria-label="close">×</button>
+        <div class="confirm-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <path d="M2.5 8.5a15 15 0 0 1 19 0"></path>
+            <path d="M5.5 12a10.5 10.5 0 0 1 13 0"></path>
+            <path d="M8.8 15.5a6 6 0 0 1 6.4 0"></path>
+            <circle cx="12" cy="19" r="1.4" fill="currentColor" stroke="none"></circle>
+          </svg>
+        </div>
+        <div id="wifiConnectTitle" class="confirm-title">Wi-Fi 연결</div>
+        <div id="wifiConnectDesc" class="confirm-text">휴대폰 Wi-Fi를 먼저 ALTIS AP에 연결하세요.</div>
+        <div id="wifiConnectHint" class="confirm-note">SSID: ALTIS_INTELLIGNET... / 연결 후 다음을 누르세요.</div>
+        <div id="wifiConnectSpinner" class="wifi-connect-spinner hidden" aria-hidden="true"></div>
+        <div class="confirm-actions wifi-connect-actions">
+          <button id="wifiConnectNextBtn" class="force-danger-small" type="button">다음</button>
+          <button id="wifiConnectCancelBtn" class="confirm-cancel" type="button">취소</button>
         </div>
       </div>
     </div>
