@@ -1,6 +1,1082 @@
+window.FLASH6_I18N = {
+      ko: {
+        toastTitleSuccess:"성공 알림",
+        toastTitleWarn:"주의 알림",
+        toastTitleError:"오류 알림",
+        toastTitleCritical:"치명 경고",
+        toastTitleIgnite:"점화 알림",
+        toastTitleInfo:"일반 알림",
+        toastTitleNotice:"공지 알림",
+        safetyLineSuffix:"안전거리 확보 · 결선/단락 확인 · 주변 인원 접근 금지.",
+        splashLoading:"로딩중<span id=\"splashDots\"></span>",
+        viewDashboardLabel:"DASHBOARD",
+        viewCountdownLabel:"COUNTDOWN",
+        viewHomeLabel:"HOME",
+        viewHardwareLabel:"HARDWARE",
+        viewTerminalLabel:"TERMINAL",
+        labelThrust:"추력",
+        labelPressure:"압력",
+        labelAltitude:"고도",
+        labelSpeed:"속도",
+        labelSwitch:"ARM",
+        labelRelay:"릴레이",
+        labelIgniter:"이그나이터",
+        controlsHelpLink:"도움말로 바로가기",
+        controlsSectionData:"데이터",
+        controlsSectionSequence:"시퀀스 제어",
+        controlsSectionControl:"컨트롤",
+        forceIgniteBtn:"강제 점화",
+        forceIgniteSub:"고위험 동작",
+        forceIgniteDanger:"위험",
+        safetyModeOnToast:"안전 모드가 켜졌습니다. 제어 권한이 제한됩니다.",
+        safetyModeOffToast:"안전 모드가 꺼졌습니다. 안전에 주의하세요!",
+        controlSerialSub:"시리얼 연결",
+        controlSerialLabel:"WebSerial",
+        controlDevToolsLabel:"개발자 도구",
+        controlDevToolsSub:"개발자 도구 열기",
+        controlInspectionLabel:"설비 점검",
+        controlSafetyLabel:"안전 모드",
+        controlSafetySub:"Safty",
+        controlOpModeSub:"Flight / DAQ 전환",
+        controlRebootBtn:"재부팅",
+        gyroZeroBtn:"자이로 영점",
+        gyroZeroDoneToast:"자이로 영점이 설정되었습니다.",
+        gyroZeroUnavailableToast:"자이로 데이터가 아직 준비되지 않았습니다.",
+        rebootConfirmTitle:"보드를 재부팅할까요?",
+        rebootConfirmText:"재부팅 중에는 실시간 데이터 수신이 잠시 중단됩니다.<br>진행하시겠습니까?",
+        rebootPendingTitle:"재부팅 대기중",
+        rebootPendingText:"보드가 재부팅 중입니다.<br>잠시만 기다려주세요.",
+        rebootConfirmBtn:"재부팅",
+        controlLauncherLabel:"발사대",
+        controlLauncherSub:"발사대 모터/액추에이터제어",
+        missionToolbarBtn:"미션 지정",
+        devToolsTitle:"DEV TOOLS",
+        devRelayStatus:"SIM ER",
+        devRelay1Btn:"1번 릴레이 오류",
+        devRelay2Btn:"2번 릴레이 오류",
+        devWsOffBtn:"WS 오류",
+        devLoadcellErrBtn:"로드셀 오류",
+        devParachuteBtn:"낙하산 실험 (SIM)",
+        settingsNavTitle:"섹션",
+        settingsNavConnect:"하드웨어",
+        settingsNavHardware:"하드웨어",
+        settingsNavInterface:"인터페이스",
+        settingsNavSequence:"시퀀스",
+        settingsNavSafety:"안전",
+        settingsNavInfo:"정보",
+        settingsGroupHardware:"하드웨어",
+        settingsHardwareInfoTitle:"하드웨어 정보",
+        settingsBoardNameLabel:"보드 이름",
+        settingsFirmwareNameLabel:"펌웨어 정보",
+        settingsProtocolLabel:"프로토콜",
+        settingsGroupSerial:"시리얼",
+        settingsGroupOperation:"운용 모드",
+        settingsWifiInfoTitle:"Wi-Fi",
+        settingsWifiModeLabel:"모드",
+        settingsWifiSsidLabel:"SSID",
+        settingsWifiChannelLabel:"채널",
+        settingsWifiBandwidthLabel:"대역폭",
+        settingsWifiTxPowerLabel:"TX 전력",
+        settingsWifiIpLabel:"IP",
+        settingsWifiStaCountLabel:"접속 장치",
+        settingsWifiRssiLabel:"신호(RSSI)",
+        settingsOpModeLabel:"모드",
+        settingsOpModeHint:"플라이트/DAQ 모드를 전환합니다.",
+        opModeDaq:"DAQ",
+        opModeFlight:"Flight",
+        settingsSerialStatusLabel:"시리얼 연결 상태",
+        settingsSerialRxLabel:"시리얼 수신 로그 반영",
+        settingsSerialRxHint:"보드가 JSON 라인을 출력하면 그대로 파싱해 UI/차트에 반영합니다.",
+        settingsSerialTxLabel:"시리얼 명령 전송",
+        settingsSerialTxHint:"ON이면 /set?… 같은 HTTP 명령을 시리얼 “SET …” 라인으로도 전송합니다.",
+        settingsSimLabel:"가상 기기 (개발자 모드)",
+        settingsSimHint:"가상 센서 값을 생성해 모든 기능을 테스트합니다.",
+        settingsMuteModeLabel:"무음 모드",
+        settingsMuteModeHint:"ON이면 보드 버저가 울리지 않습니다. 재부팅 후에도 유지됩니다.",
+        settingsWsKeepLabel:"WebSocket 유지",
+        settingsWsKeepHint:"연결이 끊겨도 자동 재연결을 시도합니다.",
+        settingsGroupInterface:"인터페이스 설정",
+        settingsThrustUnitLabel:"추력 단위",
+        settingsThrustUnitHint:"표시 단위만 변환됩니다. 저장 데이터(RAW)는 <strong>kgf 기준</strong>입니다.",
+        settingsPressureUnitLabel:"압력 단위",
+        settingsPressureUnitHint:"현재는 MPa 기준입니다. 센서 보정은 config.h의 압력 변환 상수로 조정하세요.",
+        settingsQuickDigitsLabel:"퀵데이터 소수 자릿수",
+        settingsQuickDigitsHint:"추력/압력, Delay/Burn 카드 표시 자릿수입니다.",
+        settingsLoadcellChartDigitsLabel:"로드셀 차트 소수 자릿수",
+        settingsLoadcellChartDigitsHint:"차트의 AVG/MAX 추력 표시 자릿수입니다.",
+        settingsStorageExportDigitsLabel:"SD/내보내기 소수 자릿수",
+        settingsStorageExportDigitsHint:"SD 데이터 확인용 보고서와 Flash 내보내기 파일의 추력/압력 값 자릿수입니다. 시간축 정밀도는 유지됩니다.",
+        settingsGyroPreviewLabel:"자이로 프리뷰",
+        settingsGyroPreviewHint:"플라이트 모드 프리뷰 형태를 선택합니다.",
+        settingsGyroPreview3dBasic:"3D",
+        settingsGyroPreview3d:"3D PLUS",
+        settingsGyroPreviewNav:"Navball",
+        settingsMobileHudPreviewLabel:"모바일 HUD 미리보기",
+        settingsMobileHudPreviewHint:"데스크톱이나 태블릿에서도 휴대폰 가로 인터페이스를 강제로 표시합니다.",
+        settingsMobileFullscreenLabel:"모바일 전체화면",
+        settingsMobileFullscreenHint:"지원 브라우저에서 휴대폰 가로 HUD를 전체화면으로 표시합니다.",
+        langOptionKo:"한국어",
+        langOptionEn:"영어",
+        settingsGroupSequence:"점화 시퀀스",
+        settingsIgnitionTimeLabel:"점화 시간 (릴레이 ON)",
+        settingsIgnitionTimeHint:"보드에 <span class=\"mono\">/set?ign_ms=...</span> 전송. 과열/인가 시간에 주의.",
+        settingsIgnitionTimeRange:"100~3000ms",
+        settingsDaqSequencePyroLabel:"DAQ 시퀀스 파이로 채널",
+        settingsDaqSequencePyroHint:"DAQ 모드에서 시퀀스 점화 시 사용할 기본 채널입니다.",
+        settingsGroupCountdown:"카운트다운",
+        settingsCountdownTimeLabel:"카운트다운 시간",
+        settingsCountdownTimeHint:"보드에 <span class=\"mono\">/set?cd_ms=...</span> 전송. 인원 통제 시간을 충분히 확보.",
+        settingsCountdownTimeRange:"3~60초",
+        settingsGroupSafety:"안전",
+        settingsRelaySafeHint:"릴레이가 <strong>비정상</strong>일때 모든 제어권한 정지 + 재시작 후 제어 권한 반환",
+        settingsIgniterSafetyHint:"이그나이터의 결선 확인/테스트",
+        settingsSafetyToastLabel:"안전 알림",
+        settingsSafetyToastHint:"각종 상태 변화 시 토스트 알림이 표시됩니다. 클릭하면 닫힙니다.",
+        settingsSaveBtn:"저장",
+        opModeChangedToast:"모드 변경: {mode}",
+        confirmSequenceTitle:"점화 시퀀스를 진행할까요?",
+        confirmSequenceText:"점화 조건이 충족되지 않으면 보드가 점화를 실행하지 않습니다.<br>버튼을 3초 동안 계속 누르고 있어야 카운트다운이 진행됩니다.",
+        confirmSequenceNote:"• 주변 안전거리 확보 · 이그나이터 결선/단락 여부 반드시 확인!",
+        confirmCancel:"취소",
+        easterEggTitle:"이스터에그 발견!",
+        easterEggText:"로고를 5번 두드리는 바람에 테트리스가 깨어났습니다.<br>10 블럭 이상 클리어시 선물이 있을수도 있습니다!(선착순)",
+        easterEggOk:"시작",
+        simEnabledToast:"시뮬레이션 모드가 켜졌습니다.",
+        simDisabledToast:"시뮬레이션 모드가 꺼졌습니다.",
+        devParachuteOnToast:"낙하산 하강 시뮬레이션 시작 (T-0, 6층 높이).",
+        devParachuteOffToast:"낙하산 하강 시뮬레이션 해제.",
+        forceConfirmTitle:"강제 점화를 진행할까요?",
+        forceConfirmText:"강제 점화는 고위험 동작입니다.<br>주변 인원 접근 금지 · 보호구 착용 권장 · 결선/단락 재확인.",
+        forceLoadcellTitle:"로드셀을 점검하세요",
+        forceLoadcellText:"로드셀 상태가 확인되지 않았습니다.<br>강제 점화는 진행할 수 있지만 위험을 충분히 이해한 뒤 선택하세요.",
+        forceConfirmYes:"강제 점화",
+        forceSlideLabel:"밀어서 강제 점화",
+        forceConfirmCancel:"취소",
+        lockoutAck:"확인",
+        launcherTitle:"발사대 제어",
+        launcherNote:"발사대 모터/액추에이터 제어가 적용됩니다.<br>버튼을 누르는 동안 모터가 구동됩니다.",
+        launcherHint:"안전 주의: 발사대 주변 접근 금지. 이상 징후 시 즉시 중지하세요.",
+        launcherAutoBtn:"자동 기립",
+        launcherAutoStartToast:"자동 기립 시작",
+        launcherAutoStopToast:"자동 기립 종료",
+        launcherAutoLog:"발사대 자동 기립 실행.",
+        launcherAutoDesc:"발사대를 자동으로 세우는 1회 동작입니다.",
+        launcherAutoConfirmTitle:"자동 기립을 실행할까요?",
+        launcherAutoConfirmText:"발사대가 자동으로 상승합니다.<br>주변 안전을 확인한 후 진행하세요.",
+        launcherAutoConfirmBtn:"실행",
+        inspectionTitle:"설비 점검",
+        inspectionSub:"자동 점검을 완료하면 제어 권한이 부여됩니다.",
+        inspectionCurrentTitle:"현재 점검 항목",
+        inspectionLabelLink:"데이터 링크",
+        inspectionDescLink:"Wi-Fi/폴링 응답 상태",
+        inspectionDescSerial:"USB 시리얼 연결/권한",
+        inspectionLabelIgniter:"이그나이터",
+        inspectionDescIgniter:"연속성/오픈 여부",
+        inspectionLabelLoadcell:"로드셀",
+        inspectionDescLoadcell:"추력 데이터 정상 수신",
+        inspectionLabelSwitch:"ARM",
+        inspectionDescSwitch:"저전위(LOW) 안전 상태",
+        inspectionDescRelay:"비정상 릴레이 HIGH 여부",
+        inspectionRetry:"다시 점검",
+        footerMeta:"2026 ALTIS 추진팀 윤보배 - HANWOOL",
+        inspectionFailText:"점검 실패 항목이 있습니다.",
+        inspectionFailItemsLabel:"문제 항목",
+        inspectionPassText:"모든 항목 통과. 제어 권한 확보됨.",
+        settingsLangLabel:"언어",
+        settingsLangHint:"표시 언어를 변경합니다.",
+        settingsThemeLabel:"다크 모드",
+        settingsThemeHint:"라이트/다크 테마를 전환합니다.",
+        exportXlsx:"보고서 내보내기",
+        exportPendingBadge:"보고서 내보내기 X",
+        exportDoneBadge:"보고서 내보내기 O",
+        exportLeaveTitle:"보고서 내보내기 안됨",
+        exportLeaveText:"보고서를 아직 내보내지 않았습니다.<br>정말 이 페이지를 나가시겠습니까?",
+        exportLeaveConfirm:"나가기",
+        exportLeaveCancel:"취소",
+        exportBeforeCloseConfirm:"보고서 내보내기가 완료되지 않았습니다. 정말 나가시겠습니까?",
+        chartNoData:"데이터 없음",
+        chartAxisTime:"시간",
+        chartAxisValue:"값",
+        labelDelay:"delay",
+        labelBurn:"연소",
+        modeSerial:"시리얼",
+        modeWifi:"와이파이",
+        modeAuto:"자동",
+        swHigh:"HIGH",
+        swLow:"LOW",
+        icOk:"OK",
+        icNo:"NO",
+        relayOn:"ON",
+        relayOff:"OFF",
+        dirUp:"상승",
+        dirDown:"하강",
+        confirmTitleReady:"점화 시퀀스를 진행할까요?",
+        confirmTitleEntering:"점화 시퀀스 진입까지 {sec}초",
+        confirmTitleCountdown:"카운트다운 시작",
+        ignWindowDetected:"점화 구간 감지",
+        ignWindowNone:"점화 구간 없음",
+        igniterLostAbortLog:"시퀀스 중 이그나이터 끊김 감지 → ABORT 전송.",
+        igniterLostAbortToast:"시퀀스 중 이그나이터가 끊겼습니다. ABORT 처리했습니다. {safety}",
+        lockoutModalTitle:"LOCKOUT · {name}",
+        lockoutModalText:"비정상적인 릴레이 HIGH 감지 ({name})로 모든 제어 권한이 해제되었습니다.",
+        lockoutModalNote:"• 릴레이/배선/드라이버 쇼트 여부 확인 후 보드를 재시작하세요.",
+        connConnected:"연결됨",
+        connDisconnected:"연결 끊김",
+        statusDisconnected:"DISCONNECTED",
+        statusNoResponse:"보드 응답 없음",
+        wsConnecting:"WebSocket 연결 시도: {url}",
+        wsClosed:"WebSocket 종료 (코드 {code}, 사유 {reason}).",
+        wsError:"WebSocket 오류.",
+        wsTimeout:"WebSocket 시간초과",
+        wsAlertTitle:"WebSocket 연결 안됨",
+        wsAlertText:"WebSocket이 연결되어있지 않아 데이터가 10 Hz로 출력됩니다.<br>해결하려면 브라우저를 새로고침 하세요.",
+        wsAlertClose:"닫기",
+        deviceDisconnectedTitle:"연결 해제",
+        deviceDisconnectedText:"기기와의 통신이 끊겼습니다.<br>케이블/전원을 확인해주세요.",
+        deviceDisconnectedOk:"확인",
+        noResponse:"보드 응답 없음",
+        hdrTimeIso:"시간_ISO",
+        hdrMessage:"메시지",
+        hdrIgnWindow:"점화_구간",
+        hdrIgnDelay:"점화_지연_s",
+        hdrBurn:"유효_연소_s",
+        hdrThreshold:"임계_kgf",
+        hdrAvgThrust:"평균추력_kgf",
+        hdrAvgPressure:"평균압력_mpa",
+        hdrMaxThrust:"최대추력_kgf",
+        hdrMaxPressure:"최대압력_mpa",
+        hdrAvgThrustN:"평균추력_N",
+        hdrMaxThrustN:"최대추력_N",
+        hdrTag:"태그",
+        hdrThrust:"추력_kgf",
+        hdrThrustN:"추력_N",
+        hdrPressure:"압력_mpa",
+        hdrGpsLat:"gps_위도_deg",
+        hdrGpsLon:"gps_경도_deg",
+        hdrGpsAlt:"gps_고도_m",
+        hdrAltitudeM:"고도_m",
+        hdrSpeedMps:"속도_mps",
+        hdrAccelX:"가속도_x_g",
+        hdrAccelY:"가속도_y_g",
+        hdrAccelZ:"가속도_z_g",
+        hdrTerminalVel:"종단속도_mps",
+        hdrGyroX:"자이로_x_dps",
+        hdrGyroY:"자이로_y_dps",
+        hdrGyroZ:"자이로_z_dps",
+        hdrLoopMs:"루프_ms",
+        hdrElapsedMs:"경과_ms",
+        hdrHxHz:"hx_hz",
+        hdrCpuUs:"cpu_us",
+        hdrSwitch:"ARM",
+        hdrIgnOk:"점화_정상",
+        hdrRelay:"릴레이",
+        hdrIgs:"igs_모드",
+        hdrState:"상태",
+        hdrTdMs:"td_ms",
+        hdrRelTime:"상대시간_s",
+        hdrIgnWindowFlag:"유효추력_구간",
+        chartTitleIgnition:"유효추력 구간 추력/압력 (elapsed_ms 기준)",
+        chartTitleThrust:"추력 그래프 (유효추력 구간)",
+        chartTitleThrustN:"추력 그래프 (N, 유효추력 구간)",
+        chartTitlePressure:"압력 그래프 (유효추력 구간)",
+        statusLockout:"LOCKOUT",
+        statusAbort:"ABORT",
+        statusIgnition:"IGNITION",
+        statusCountdown:"COUNTDOWN",
+        statusNotArmed:"NOT ARMED",
+        statusReady:"READY",
+        statusLoadcellCheck:"LOADCELL CHECK",
+        statusParachute:"PARACHUTE",
+        statusSequence:"SEQUENCE",
+        statusLockoutText:"비정상적인 릴레이 HIGH 감지 ({name})",
+        statusAbortText:"시퀀스가 중단되었습니다.",
+        statusAbortTextReason:"시퀀스가 중단되었습니다. ({reason})",
+        statusIgnitionText:"점화 중입니다.",
+        statusCountdownText:"카운트다운 진행 중",
+        statusParachuteText:"낙하산 사출 감지 (CH{ch})",
+        statusSequenceText:"시퀀스 진행 중",
+        statusNotArmedTextReady:"이그나이터 미연결 / 점화 시퀀스 가능",
+        statusNotArmedTextBlocked:"이그나이터 미연결 / 점화 시퀀스 제한",
+        statusReadyText:"시스템 준비 완료",
+        statusParachuteLog:"낙하산 사출 감지 (CH{ch})",
+        statusParachuteToast:"낙하산 사출 감지 (CH{ch})",
+        sequenceReadyBtn:"READY",
+        sequenceStartBtn:"SEQUENCE",
+        sequenceEndBtn:"SEQUENCE END",
+        sequenceEndLog:"시퀀스 종료 요청.",
+        sequenceEndToast:"시퀀스를 종료했습니다.",
+        relaySafeLockout:"LOCKOUT({name})",
+        relaySafeSafe:"SAFE",
+        relaySafeOff:"OFF",
+        serialOff:"OFF",
+        serialConnected:"연결됨",
+        serialDisconnected:"연결 끊김",
+        inspectFailToast:"점검 실패 항목이 있습니다. 상태를 확인하세요.",
+        inspectFailLog:"설비 점검 실패: 일부 항목이 통과하지 못했습니다.",
+        inspectPassToast:"설비 점검 통과. 제어 권한을 획득했습니다.",
+        inspectPassLog:"설비 점검 완료. 제어 권한을 획득했습니다.",
+        wsReconnect:"WebSocket 재연결 예약 ({reason}).",
+        wsConnected:"WebSocket 연결됨: {url}",
+        wsLost:"보드와의 연결이 끊겼습니다.",
+        boardUnstable:"보드 응답이 불안정합니다. 전원/배선/Wi-Fi/폴링 주기를 확인하세요.",
+        alarmWsDisconnected:"WebSocket 연결이 끊겼습니다. 실시간 스트림이 중단되었습니다.",
+        alarmWsRecovered:"WebSocket 연결이 복구되었습니다.",
+        alarmDataTimeout:"데이터가 일정 시간 수신되지 않았습니다. 통신/전원 상태를 확인하세요. ({ms} ms)",
+        alarmDataTimeoutClear:"데이터 수신이 정상으로 복구되었습니다.",
+        alarmRxHzDrop:"데이터 수신 주파수가 저하되었습니다. 목표 {target} Hz 대비 현재 {hz} Hz",
+        alarmRxHzRecovered:"데이터 수신 주파수가 정상 범위로 복구되었습니다.",
+        alarmRelayLockout:"비정상 릴레이 HIGH 감지로 LOCKOUT 되었습니다. ({name}) 보드를 재시작하세요.",
+        alarmWsBackpressure:"WebSocket 전송 큐 적체가 발생했습니다. 누적 {total}회 (이번 +{delta})",
+        alarmReplayFormat:"Replay 파일 포맷 오류: {reason}",
+        alarmReplayAutoStop:"Replay 데이터 끝에 도달해 자동 정지되었습니다.",
+        alarmInternalException:"내부 예외가 반복 발생했습니다. 소스={source}, 오류={err}",
+        webserialUnsupported:"WebSerial조건이 아닙니다. (도움말 페이지를 확인하세요)",
+        webserialInsecureToast:"WebSerial은 HTTPS 또는 localhost에서만 동작합니다. PC 크롬에서 localhost로 접속해 주세요.",
+        webserialConnected:"WebSerial 연결됨.",
+        webserialConnectedToast:"시리얼(WebSerial) 연결 완료.",
+        serialReadEnded:"시리얼 읽기 루프 종료: {err}",
+        webserialConnectFailed:"WebSerial 연결 실패: {err}",
+        webserialConnectFailedToast:"시리얼 연결 실패. 포트/권한을 확인하세요.",
+        webserialDisconnected:"WebSerial 연결 해제됨.",
+        serialWriteFailed:"시리얼 쓰기 실패: {err}",
+        linkEstablished:"연결됨 ({src}).",
+        linkEstablishedToast:"보드와 연결되었습니다. ({src})",
+        lockoutDetectedLog:"LOCKOUT: 비정상적인 릴레이 HIGH 감지 ({name})",
+        lockoutDetectedToast:"비정상적인 릴레이 HIGH 감지 ({name})",
+        ignitionSignal:"점화 신호 감지 (st=2). 추력 {thr} kgf 초과 감시 시작.",
+        ignitionThresholdLog:"추력이 {thr} kgf 초과. 점화 지연 = {delay}s",
+        ignitionThresholdToast:"추력이 임계값({thr} kgf) 이상으로 감지되었습니다. 점화 지연 ≈ {delay}s. {safety}",
+        ignitionEndLog:"점화 상태 종료. 연소 시간 ≈ {dur}s",
+        ignitionEndToast:"유효추력 구간이 종료된 것으로 보입니다. 잔열/잔류가스 주의 후 접근하세요.",
+        ignitionNoThrustLog:"점화 상태 종료. 임계값 이상 추력 미검출.",
+        ignitionNoThrustToast:"점화 상태 종료. 유효추력이 감지되지 않았습니다. 결선/이그나이터 상태를 확인하세요. {safety}",
+        switchHighLog:"ARM 변경: HIGH(ON).",
+        switchHighToast:"ARM이 HIGH(ON) 상태입니다. 시퀀스 조건/주변 안전을 재확인하세요. {safety}",
+        switchLowLog:"ARM 변경: LOW(OFF).",
+        switchLowToast:"ARM이 LOW(OFF) 상태입니다. 안전 상태로 유지하세요. {safety}",
+        igniterOkLog:"이그나이터 연속성: OK.",
+        igniterOkToast:"이그나이터 상태가 OK로 변경되었습니다. 점화 전 결선/단락/극성을 재확인하세요. {safety}",
+        igniterNoLog:"이그나이터 연속성: NO / OPEN.",
+        igniterNoToast:"이그나이터가 NO(OPEN) 상태입니다. 커넥터/배선/단선 여부를 확인하세요. {safety}",
+        igsOnLog:"Igniter Safety Test: ON (보드).",
+        igsOnToast:"Igniter Safety Test가 ON입니다. 의도치 않은 인가 위험이 있습니다. {safety}",
+        igsOffLog:"Igniter Safety Test: OFF (보드).",
+        igsOffToast:"Igniter Safety Test가 OFF입니다. 안전 상태로 복귀했습니다. {safety}",
+        countdownStartLog:"카운트다운 시작 (st=1).",
+        countdownStartToast:"카운트다운이 시작되었습니다. 주변 안전거리 확보 후 진행하세요. {safety}",
+        ignitionFiringLog:"점화 진행 (st=2).",
+        ignitionFiringToast:"점화 시퀀스가 진행 중입니다. 절대 접근하지 마세요. {safety}",
+        sequenceCompleteLog:"시퀀스 완료. 대기 상태로 복귀.",
+        sequenceCompleteToast:"시퀀스가 완료되었습니다. 잔열/잔류가스 주의 후 접근하세요.",
+        sequenceAbortedLog:"시퀀스 중단.",
+        sequenceAbortedToast:"ABORT 처리되었습니다. 재시도 전 결선/스위치/환경을 다시 확인하세요. {safety}",
+        sequenceAbortedToastReason:"시퀀스가 중단되었습니다. ({reason}) {safety}",
+        abortReasonUser:"사용자 임의의 abort",
+        abortReasonIgniter:"이그나이터 단락",
+        abortReasonLockout:"릴레이 LOCKOUT",
+        abortReasonUnknown:"원인 미상",
+        notArmedToast:"NOT ARMED 상태입니다. 이그나이터 연결 상태를 확인하세요. {safety}",
+        lockoutDetectedToastShort:"비정상적인 릴레이 HIGH 감지 ({name}).",
+        pollingErrorLog:"폴링 오류: {err}",
+        pollingErrorToast:"폴링 중 오류가 발생했습니다. 로그를 확인하세요.",
+        lockoutNoControl:"LOCKOUT 상태에서는 어떤 제어도 불가능합니다. 보드를 재시작하세요.",
+        inspectionRequiredToast:"설비 점검을 먼저 완료하세요. 점검 통과 후 제어 권한이 부여됩니다.",
+        preSequenceToast:"시퀀스 시작 전 최종 안전 확인을 진행하세요. 3초 롱프레스로 진입합니다. {safety}",
+        inspectionRequiredShort:"설비 점검을 먼저 완료하세요. 제어 권한이 필요합니다.",
+        countdownRequestedLog:"대시보드에서 카운트다운 요청 (롱프레스).",
+        countdownRequestedToast:"카운트다운 요청을 보드에 전송했습니다. 신호/배선/주변을 계속 확인하세요. {safety}",
+        countdownIgniterRequired:"IGS 모드에서는 이그나이터가 없으면 RELAY ON을 시작할 수 없습니다. {safety}",
+        longPressCanceledToast:"롱프레스가 취소되었습니다. 주변 안전 확보 후 다시 시도하세요. {safety}",
+        lockoutForceDenied:"LOCKOUT 상태에서는 강제점화를 포함한 제어가 불가능합니다. 보드를 재시작하세요.",
+        forceNotAllowed:"시퀀스 진행 중에는 강제 점화를 사용할 수 없습니다.",
+        forceWarning:"강제 점화는 고위험 동작입니다. 마지막 확인 후 진행하세요. {safety}",
+        forceIgniterRequired:"이그나이터 미연결 상태에서는 강제 점화를 사용할 수 없습니다.",
+        lockoutControlDenied:"LOCKOUT 상태에서는 제어가 불가능합니다.",
+        inspectionRequiredPlain:"설비 점검을 먼저 완료하세요.",
+        launcherUpDownLog:"발사대 {dir} 명령 전송.",
+        dirStop:"정지",
+        lockoutCmdDenied:"LOCKOUT({name}) 상태에서는 명령을 보낼 수 없습니다. 보드를 재시작하세요.",
+        cmdSentLog:"명령 => {cmd}",
+        systemReadyLog:"시스템 준비 완료. 명령 대기 중.",
+        dashboardStartToast:"대시보드가 시작되었습니다. 연결 상태 확인 후 운용하세요. {safety}",
+        relaySafeOnToast:"RelaySafe가 ON입니다. 비정상 릴레이 HIGH 감지 시 LOCKOUT 됩니다.",
+        relaySafeOffToast:"RelaySafe가 OFF입니다. (권장하지 않음)",
+        igsToggledLog:"Igniter Safety Test 토글: {state}",
+        igsToggledOnToast:"Igniter Safety Test가 ON입니다. 이그나이터/배선에 주의하세요. {safety}",
+        igsToggledOffToast:"Igniter Safety Test가 OFF입니다. 안전 상태로 유지하세요. {safety}",
+        serialRxOnToast:"시리얼 수신 파싱 ON",
+        serialRxOffToast:"시리얼 수신 파싱 OFF",
+        serialTxOnToast:"시리얼 명령 전송 ON",
+        serialTxOffToast:"시리얼 명령 전송 OFF",
+        lockoutAbortDenied:"LOCKOUT({name}) 상태에서는 ABORT도 불가능합니다. 보드를 재시작하세요.",
+        abortRequestedToast:"ABORT 요청을 보드에 전송했습니다. 안전 확인 후 재시도하세요. {safety}",
+        inspectionOpenToast:"보드와 연결 후 설비 점검을 실행하세요.",
+        inspectionWait:"대기",
+        inspectionRunningLabel:"진행중",
+        inspectionChecking:"확인 중",
+        inspectionOk:"정상",
+        inspectionNeed:"확인 필요",
+        inspectionSkip:"SKIP",
+        inspectionIdleText:"점검 대기중…",
+        inspectionRunningText:"점검 중…",
+        forceRequestedToast:"강제 점화 요청을 보드에 전송했습니다. 절대 접근하지 마세요. {safety}",
+        lockoutAckLog:"LOCKOUT 확인 처리 ({name}). 재시작 필요.",
+        lockoutAckToast:"LOCKOUT({name}) 확인 처리(로그 기록). 보드를 재시작하세요.",
+        logCopiedLog:"로그를 클립보드에 복사했습니다.",
+        logCopiedToast:"로그가 클립보드에 복사되었습니다.",
+        clipboardCopyFailedLog:"클립보드 복사 실패.",
+        clipboardCopyFailedToast:"클립보드 복사에 실패했습니다. 브라우저 권한을 확인하세요.",
+        copyFailedLog:"복사 실패: {err}",
+        copyFailedToast:"복사에 실패했습니다. 브라우저 정책을 확인하세요.",
+        xlsxExportLog:"보고서 내보내기 완료 (ZIP): {filename}",
+        xlsxExportToast:"보고서를 .zip 파일로 내보냈습니다.",
+        thrustUnitChangedToast:"추력 단위가 {from} → {to} 로 변경되었습니다. 표시 단위만 변경됩니다. {safety}",
+        ignTimeChangedToast:"점화 시간이 {from}ms → {to}ms 로 변경되었습니다. 과열/인가 시간에 주의하세요. {safety}",
+        countdownChangedToast:"카운트다운 시간이 {from}s → {to}s 로 변경되었습니다. 인원 통제 시간을 충분히 두세요. {safety}",
+        settingsUpdatedLog:"설정 업데이트: thrustUnit={unit}, ignDuration={ign}ms, countdown={cd}s",
+        loadcellSettingsTitle:"로드셀",
+        loadcellSettingsLabel:"로드셀 보정",
+        loadcellSettingsHint:"이 보드는 로드셀 보정을 지원하지 않습니다. 기본 세팅값(Scale 6510 / Noise 0.030kg / 부팅시 자동 영점)을 사용합니다.",
+        loadcellOpenBtn:"지원하지 않는 보드",
+        loadcellResetLabel:"로드셀 초기화",
+        loadcellResetHint:"지원하지 않는 보드입니다.",
+        loadcellResetBtn:"미지원",
+        loadcellModalTitle:"로드셀 보정",
+        loadcellModalBadge:"Calibration",
+        loadcellModalGuide:"무게추를 올려놓고 값을 확인하세요. 다음을 누르세요.",
+        loadcellGuideStabilizing:"잠시만 대기해주세요. 로드셀 데이터 안정화중입니다. 로드셀을 건들이지 마세요!",
+        loadcellGuideStableReady:"안정화가 완료되었습니다. 영점 저장 버튼을 눌러주세요.",
+        loadcellGuideNoiseReady:"영점이 저장되었습니다! 무부하 상태 그대로 노이즈 영점을 저장해주세요.",
+        loadcellGuidePlaceWeight:"무게추를 올린 후 무게를 입력후 다음버튼을 클릭하세요.",
+        loadcellGuideComplete:"로드셀 보정이 완료되었습니다!",
+        loadcellModalValueLabel:"현재 측정값 (kg)",
+        loadcellModalValueHint:"보정은 kg 기준으로 저장됩니다.",
+        loadcellModalInputLabel:"중량 입력 (kg)",
+        loadcellModalInputHint:"1Kg = 1000g",
+        loadcellModalNote:"이 값은 보드에 저장됩니다.",
+        loadcellCalcTitle:"보정 계산 값",
+        loadcellCalcWeightLabel:"입력 중량",
+        loadcellCalcScaleLabel:"계산 스케일",
+        loadcellCalcOffsetLabel:"영점 오프셋",
+        loadcellCompleteTitle:"로드셀 보정 완료",
+        loadcellCompleteText:"로드셀 보정이 완료되었습니다!",
+        loadcellCompleteCloseBtn:"확인",
+        loadcellStabilityFailTitle:"로드셀 안정화 실패",
+        loadcellStabilityFailText:"값이 갑자기 크게 변했습니다. 로드셀을 건드리거나 하중이 바뀐 것으로 판단됩니다.",
+        loadcellStabilityFailSub:"하중을 모두 제거한 뒤 5~10초 정도 다시 기다려주세요. 로드셀과 지그를 만지지 마세요.",
+        loadcellRetryBtn:"다시 측정",
+        loadcellModalApply:"다음",
+        loadcellModalCancel:"취소",
+        loadcellZeroSaveBtn:"영점 저장",
+        loadcellNoiseSaveBtn:"노이즈 영점 저장",
+        loadcellModalConfirmTitle:"보정값을 저장할까요?",
+        loadcellModalConfirmText:"입력한 중량 {weight} kg로 보정값을 저장합니다. 이전 값은 삭제됩니다.",
+        loadcellModalConfirmSub:"저장 후 측정 기준이 변경됩니다. 보정에 사용한 무게추를 제거한 뒤 값을 확인하세요.",
+        loadcellModalConfirmProceed:"진행",
+        loadcellModalConfirmCancel:"취소",
+        loadcellZeroConfirmTitle:"영점을 저장할까요?",
+        loadcellZeroConfirmText:"현재 상태를 영점으로 저장합니다. 이전 영점은 덮어씁니다.",
+        loadcellWeightInvalidToast:"중량을 올바르게 입력하세요.",
+        loadcellZeroSaveSuccessToast:"영점이 저장되었습니다!",
+        loadcellZeroSaveFailToast:"로드셀 영점 저장에 실패했습니다.",
+        loadcellNoiseSaveSuccessToast:"로드셀 노이즈 영점이 저장되었습니다!",
+        loadcellNoiseSaveFailToast:"로드셀 노이즈 영점 저장에 실패했습니다.",
+        loadcellSaveSuccessToast:"로드셀 보정이 완료되었습니다!",
+        loadcellSaveFailToast:"로드셀 보정 저장에 실패했습니다.",
+        loadcellResetSuccessToast:"로드셀 초기화가 완료되었습니다!",
+        loadcellResetFailToast:"로드셀 초기화에 실패했습니다.",
+        loadcellZeroSaveLog:"로드셀 영점 저장 요청",
+        loadcellNoiseSaveLog:"로드셀 노이즈 영점 저장 요청",
+        loadcellSaveLog:"로드셀 보정 저장 요청 (weight={weight} kg)",
+        loadcellResetLog:"로드셀 초기화 요청",
+        loadcellErrorToast:"로드셀 데이터 수신 오류입니다. 센서/배선을 점검하세요.",
+        loadcellStabilityFailToast:"로드셀 값이 크게 변해 안정화에 실패했습니다. 하중을 제거하고 다시 시도하세요.",
+        loadcellUnsupportedToast:"이 보드는 로드셀 보정을 지원하지 않습니다. 기본 세팅값으로 동작합니다."
+      },
+      en: {
+        toastTitleSuccess:"Success",
+        toastTitleWarn:"Warning",
+        toastTitleError:"Error",
+        toastTitleCritical:"Critical",
+        toastTitleIgnite:"Ignite",
+        toastTitleInfo:"Info",
+        toastTitleNotice:"Notice",
+        safetyLineSuffix:"Keep safe distance · Check wiring/shorts · No personnel approach.",
+        splashLoading:"Loading<span id=\"splashDots\"></span>",
+        viewDashboardLabel:"DASHBOARD",
+        viewCountdownLabel:"COUNTDOWN",
+        viewHomeLabel:"HOME",
+        viewHardwareLabel:"HARDWARE",
+        viewTerminalLabel:"TERMINAL",
+        labelThrust:"Thrust",
+        labelPressure:"Pressure",
+        labelAltitude:"Altitude",
+        labelSpeed:"Speed",
+        labelSwitch:"ARM",
+        labelRelay:"Relay",
+        labelIgniter:"Igniter",
+        controlsHelpLink:"Open Help",
+        controlsSectionData:"Data",
+        controlsSectionSequence:"Sequence Control",
+        controlsSectionControl:"Control",
+        forceIgniteBtn:"Ignition",
+        forceIgniteSub:"High-risk",
+        forceIgniteDanger:"DANGER",
+        safetyModeOnToast:"Safety mode enabled. Relay actuation is blocked.",
+        safetyModeOffToast:"Safety mode disabled.",
+        controlSerialSub:"Connect",
+        controlSerialLabel:"WebSerial",
+        controlDevToolsLabel:"Developer Tools",
+        controlDevToolsSub:"Open developer tools",
+        controlInspectionLabel:"Inspection",
+        controlSafetyLabel:"Safety",
+        controlSafetySub:"Safety mode",
+        controlOpModeSub:"Switch Flight / DAQ",
+        controlRebootBtn:"Reboot",
+        gyroZeroBtn:"Gyro Zero",
+        gyroZeroDoneToast:"Gyro zero applied.",
+        gyroZeroUnavailableToast:"Gyro data is not ready yet.",
+        rebootConfirmTitle:"Reboot the board?",
+        rebootConfirmText:"Real-time data streaming will pause briefly during reboot.<br>Do you want to continue?",
+        rebootPendingTitle:"Waiting for reboot",
+        rebootPendingText:"The board is rebooting.<br>Please wait a moment.",
+        rebootConfirmBtn:"Reboot",
+        controlLauncherLabel:"Launcher",
+        controlLauncherSub:"Launcher motor/actuator control",
+        missionToolbarBtn:"Mission",
+        devToolsTitle:"DEV TOOLS",
+        devRelayStatus:"Relay Status",
+        devRelay1Btn:"Relay 1",
+        devRelay2Btn:"Relay 2",
+        devWsOffBtn:"WS OFF (SIM)",
+        devLoadcellErrBtn:"LOADCELL ERROR (SIM)",
+        devParachuteBtn:"PARACHUTE DROP (SIM)",
+        settingsNavTitle:"Sections",
+        settingsNavConnect:"Hardware",
+        settingsNavHardware:"Hardware",
+        settingsNavInterface:"Interface",
+        settingsNavSequence:"Sequence",
+        settingsNavSafety:"Safety",
+        settingsNavInfo:"Info",
+        settingsGroupHardware:"Hardware",
+        settingsHardwareInfoTitle:"Hardware Info",
+        settingsBoardNameLabel:"Board Name",
+        settingsFirmwareNameLabel:"Firmware",
+        settingsProtocolLabel:"Protocol",
+        settingsGroupSerial:"Serial",
+        settingsGroupOperation:"Operation Mode",
+        settingsWifiInfoTitle:"Wi-Fi",
+        settingsWifiModeLabel:"Mode",
+        settingsWifiSsidLabel:"SSID",
+        settingsWifiChannelLabel:"Channel",
+        settingsWifiBandwidthLabel:"Bandwidth",
+        settingsWifiTxPowerLabel:"TX power",
+        settingsWifiIpLabel:"IP",
+        settingsWifiStaCountLabel:"Connected devices",
+        settingsWifiRssiLabel:"Signal (RSSI)",
+        settingsOpModeLabel:"Mode",
+        settingsOpModeHint:"Switch between Flight/DAQ.",
+        opModeDaq:"DAQ",
+        opModeFlight:"Flight",
+        settingsSerialStatusLabel:"Serial connection status",
+        settingsSerialRxLabel:"Apply serial RX logs",
+        settingsSerialRxHint:"Parse JSON lines from the board and reflect them in the UI/charts.",
+        settingsSerialTxLabel:"Send serial commands",
+        settingsSerialTxHint:"When ON, /set?... is also sent as serial \"SET ...\".",
+        settingsSimLabel:"Virtual device (simulation)",
+        settingsSimHint:"Generate virtual sensor data to test all functions.",
+        settingsMuteModeLabel:"Mute mode",
+        settingsMuteModeHint:"When ON, the board buzzer is fully disabled and stays muted after reboot.",
+        settingsWsKeepLabel:"Keep WebSocket",
+        settingsWsKeepHint:"Automatically reconnect if the connection drops.",
+        settingsGroupInterface:"Interface Settings",
+        settingsThrustUnitLabel:"Thrust unit",
+        settingsThrustUnitHint:"Only the display unit is converted. Saved RAW data uses <strong>kgf</strong>.",
+        settingsPressureUnitLabel:"Pressure unit",
+        settingsPressureUnitHint:"Pressure is now shown in MPa. Tune conversion constants in config.h for your sensor.",
+        settingsQuickDigitsLabel:"Quick data decimals",
+        settingsQuickDigitsHint:"Controls decimal places for thrust/pressure and Delay/Burn cards.",
+        settingsLoadcellChartDigitsLabel:"Loadcell chart decimals",
+        settingsLoadcellChartDigitsHint:"Controls decimal places for AVG/MAX thrust labels on the chart.",
+        settingsStorageExportDigitsLabel:"SD/export decimals",
+        settingsStorageExportDigitsHint:"Controls decimal places for thrust/pressure values in SD review reports and Flash exports. Time-axis precision stays unchanged.",
+        settingsGyroPreviewLabel:"Gyro preview",
+        settingsGyroPreviewHint:"Choose the preview for Flight mode.",
+        settingsGyroPreview3dBasic:"3D",
+        settingsGyroPreview3d:"3D PLUS",
+        settingsGyroPreviewNav:"Navball",
+        settingsMobileHudPreviewLabel:"Mobile HUD Preview",
+        settingsMobileHudPreviewHint:"Force the phone landscape interface even on desktop or tablet.",
+        settingsMobileFullscreenLabel:"Mobile fullscreen",
+        settingsMobileFullscreenHint:"Show the phone landscape HUD in fullscreen on supported browsers.",
+        langOptionKo:"Korean",
+        langOptionEn:"English",
+        settingsGroupSequence:"Ignition Sequence",
+        settingsIgnitionTimeLabel:"Ignition time (relay ON)",
+        settingsIgnitionTimeHint:"Sends <span class=\"mono\">/set?ign_ms=...</span> to the board. Watch heat/energizing duration.",
+        settingsIgnitionTimeRange:"100-3000 ms",
+        settingsDaqSequencePyroLabel:"DAQ sequence pyro channel",
+        settingsDaqSequencePyroHint:"Default channel used for sequence/immediate ignition in DAQ mode. Default is PYRO1.",
+        settingsGroupCountdown:"Countdown",
+        settingsCountdownTimeLabel:"Countdown time",
+        settingsCountdownTimeHint:"Sends <span class=\"mono\">/set?cd_ms=...</span> to the board. Allow enough time to clear personnel.",
+        settingsCountdownTimeRange:"3–60 s",
+        settingsGroupSafety:"Safety",
+        settingsRelaySafeHint:"When relay is <strong>abnormal</strong>, all control is suspended; control returns after restart.",
+        settingsIgniterSafetyHint:"Check/test igniter wiring.",
+        settingsSafetyToastLabel:"Safety alerts",
+        settingsSafetyToastHint:"Toast notifications appear on state changes. Click to dismiss.",
+        settingsSaveBtn:"Save",
+        opModeChangedToast:"Mode changed: {mode}",
+        confirmSequenceTitle:"Proceed with ignition sequence?",
+        confirmSequenceText:"If conditions aren't met, the board won't ignite.<br>Hold the button for 3 seconds to start the countdown.",
+        confirmSequenceNote:"• Keep safe distance · Verify igniter wiring/shorts!",
+        confirmCancel:"Cancel",
+        easterEggTitle:"Easter egg found!",
+        easterEggText:"You poked the logo five times and woke up Tetris.<br>Wait... was this even approved?",
+        easterEggOk:"OK, I confess",
+        simEnabledToast:"Simulation mode enabled.",
+        simDisabledToast:"Simulation mode disabled.",
+        devParachuteOnToast:"Parachute descent simulation started (T-0, 6-floor height).",
+        devParachuteOffToast:"Parachute descent simulation disabled.",
+        forceConfirmTitle:"Proceed with force ignition?",
+        forceConfirmText:"Force ignition is high risk.<br>No personnel nearby · PPE recommended · Recheck wiring/shorts.",
+        forceLoadcellTitle:"Check the loadcell",
+        forceLoadcellText:"Loadcell status is not verified.<br>You can still force ignite, but proceed only if you understand the risk.",
+        forceConfirmYes:"Force Ignition",
+        forceSlideLabel:"Slide to Force Ignition",
+        forceConfirmCancel:"Cancel",
+        lockoutAck:"Acknowledge",
+        launcherTitle:"Launcher Control",
+        launcherNote:"Launcher motor/actuator control is enabled.<br>The motor runs while you hold the button.",
+        launcherHint:"Safety: Keep clear of the launcher. Stop immediately if anything seems abnormal.",
+        launcherAutoBtn:"Auto Stand",
+        launcherAutoStartToast:"Auto stand started.",
+        launcherAutoStopToast:"Auto stand complete.",
+        launcherAutoLog:"Launcher auto stand triggered.",
+        launcherAutoDesc:"Runs a single automatic stand-up sequence.",
+        launcherAutoConfirmTitle:"Run auto stand?",
+        launcherAutoConfirmText:"The launcher will raise automatically.<br>Proceed only after checking safety.",
+        launcherAutoConfirmBtn:"Run",
+        inspectionTitle:"Inspection",
+        inspectionSub:"Complete the automatic check to gain control authority.",
+        inspectionCurrentTitle:"Current check",
+        inspectionLabelLink:"Data link",
+        inspectionDescLink:"Wi-Fi/polling response",
+        inspectionDescSerial:"USB serial connection/permissions",
+        inspectionLabelIgniter:"Igniter",
+        inspectionDescIgniter:"Continuity/open status",
+        inspectionLabelLoadcell:"Loadcell",
+        inspectionDescLoadcell:"Thrust data reception",
+        inspectionLabelSwitch:"ARM",
+        inspectionDescSwitch:"LOW safety state",
+        inspectionDescRelay:"Abnormal relay HIGH status",
+        inspectionRetry:"Recheck",
+        footerMeta:"2026 ALTIS Propulsion Team Yoon Bobae - HANWOOL",
+        inspectionFailText:"Some inspection items failed.",
+        inspectionFailItemsLabel:"Failed items",
+        inspectionPassText:"All checks passed. Control authority granted.",
+        loadcellSettingsTitle:"Loadcell",
+        loadcellSettingsLabel:"Loadcell calibration",
+        loadcellSettingsHint:"This board does not support loadcell calibration. Fixed defaults are used (Scale 6510 / Noise 0.030kg / boot auto-zero).",
+        loadcellOpenBtn:"Unsupported board",
+        loadcellResetLabel:"Loadcell reset",
+        loadcellResetHint:"Not available on this board.",
+        loadcellResetBtn:"Unsupported",
+        loadcellModalTitle:"Loadcell Zero Adjust",
+        loadcellModalBadge:"Calibration",
+        loadcellModalGuide:"Place the weight and check the value. Tap Next.",
+        loadcellGuideStabilizing:"Please wait. Stabilizing loadcell data. Do not touch the loadcell.",
+        loadcellGuideStableReady:"Stabilization complete. Press Save Zero.",
+        loadcellGuidePlaceWeight:"Place the reference weight, enter its mass, then tap Next.",
+        loadcellGuideComplete:"Loadcell calibration is complete.",
+        loadcellModalValueLabel:"Current value (kg)",
+        loadcellModalValueHint:"Calibration is saved in kg.",
+        loadcellModalInputLabel:"Enter weight (kg)",
+        loadcellModalInputHint:"1 kg = 1000 g",
+        loadcellModalNote:"This value will be saved to the board.",
+        loadcellCalcTitle:"Calibration Result",
+        loadcellCalcWeightLabel:"Input weight",
+        loadcellCalcScaleLabel:"Calculated scale",
+        loadcellCalcOffsetLabel:"Zero offset",
+        loadcellCompleteTitle:"Calibration Complete",
+        loadcellCompleteText:"Loadcell calibration is complete.",
+        loadcellCompleteCloseBtn:"Close",
+        loadcellStabilityFailTitle:"Loadcell Stabilization Failed",
+        loadcellStabilityFailText:"The value changed too abruptly. The loadcell or fixture was likely touched or the load changed.",
+        loadcellStabilityFailSub:"Remove all load and wait 5–10 seconds again. Do not touch the loadcell or jig.",
+        loadcellRetryBtn:"Retry",
+        loadcellModalApply:"Next",
+        loadcellModalCancel:"Cancel",
+        loadcellModalConfirmTitle:"Save calibration value?",
+        loadcellModalConfirmText:"Save calibration with {weight} kg. Previous value will be removed.",
+        loadcellModalConfirmSub:"After saving, the measurement reference changes. Remove the calibration weight and check the value.",
+        loadcellModalConfirmProceed:"Proceed",
+        loadcellModalConfirmCancel:"Cancel",
+        loadcellWeightInvalidToast:"Enter a valid weight.",
+        loadcellZeroSaveSuccessToast:"Zero saved.",
+        loadcellZeroSaveFailToast:"Failed to save loadcell zero.",
+        loadcellSaveSuccessToast:"Loadcell calibration is complete.",
+        loadcellSaveFailToast:"Failed to save loadcell calibration.",
+        loadcellResetSuccessToast:"Loadcell reset is complete.",
+        loadcellResetFailToast:"Failed to reset the loadcell.",
+        loadcellSaveLog:"Loadcell calibration save request (weight={weight} kg)",
+        loadcellResetLog:"Loadcell reset requested",
+        loadcellErrorToast:"Loadcell data error. Check sensor and wiring.",
+        loadcellStabilityFailToast:"Loadcell value jumped too much. Remove the load and retry.",
+        loadcellUnsupportedToast:"This board does not support loadcell calibration. Running with fixed defaults.",
+        settingsLangLabel:"Language",
+        settingsLangHint:"Change display language.",
+        settingsThemeLabel:"Dark mode",
+        settingsThemeHint:"Toggle light/dark theme.",
+        exportXlsx:"Export Report",
+        exportPendingBadge:"Report Not Exported",
+        exportDoneBadge:"Report Exported",
+        exportLeaveTitle:"Report Not Exported",
+        exportLeaveText:"The report has not been exported yet.<br>Do you really want to leave this page?",
+        exportLeaveConfirm:"Leave",
+        exportLeaveCancel:"Cancel",
+        exportBeforeCloseConfirm:"Report export is not completed. Do you really want to leave?",
+        chartNoData:"NO DATA",
+        chartAxisTime:"Time",
+        chartAxisValue:"Value",
+        labelDelay:"Delay",
+        labelBurn:"Burn",
+        modeSerial:"SERIAL",
+        modeWifi:"WIFI",
+        modeAuto:"AUTO",
+        swHigh:"HIGH",
+        swLow:"LOW",
+        icOk:"OK",
+        icNo:"NO",
+        relayOn:"ON",
+        relayOff:"OFF",
+        dirUp:"UP",
+        dirDown:"DOWN",
+        confirmTitleReady:"Proceed with ignition sequence?",
+        confirmTitleEntering:"Entering ignition sequence in {sec}s",
+        confirmTitleCountdown:"Countdown start",
+        ignWindowDetected:"Ignition window detected",
+        ignWindowNone:"No ignition window",
+        igniterLostAbortLog:"Igniter lost during sequence → ABORT sent.",
+        igniterLostAbortToast:"Igniter lost during sequence. ABORT sent. {safety}",
+        lockoutModalTitle:"LOCKOUT · {name}",
+        lockoutModalText:"Abnormal relay HIGH detected ({name}). Control revoked.",
+        lockoutModalNote:"• Check relay/wiring/driver short then restart the board.",
+        connConnected:"CONNECTED",
+        connDisconnected:"DISCONNECTED",
+        statusDisconnected:"DISCONNECTED",
+        statusNoResponse:"No response from board",
+        wsTimeout:"WebSocket timeout",
+        noResponse:"No response from board",
+        hdrTimeIso:"time_iso",
+        hdrMessage:"message",
+        hdrIgnWindow:"ignition_window",
+        hdrIgnDelay:"ignition_delay_s",
+        hdrBurn:"effective_burn_s",
+        hdrThreshold:"threshold_kgf",
+        hdrAvgThrust:"avg_thrust_kgf",
+        hdrAvgPressure:"avg_pressure_mpa",
+        hdrMaxThrust:"max_thrust_kgf",
+        hdrMaxPressure:"max_pressure_mpa",
+        hdrAvgThrustN:"avg_thrust_n",
+        hdrMaxThrustN:"max_thrust_n",
+        hdrTag:"tag",
+        hdrThrust:"thrust_kgf",
+        hdrThrustN:"thrust_n",
+        hdrPressure:"pressure_mpa",
+        hdrGpsLat:"gps_lat",
+        hdrGpsLon:"gps_lon",
+        hdrGpsAlt:"gps_alt",
+        hdrAltitudeM:"altitude_m",
+        hdrSpeedMps:"speed_mps",
+        hdrAccelX:"accel_x_g",
+        hdrAccelY:"accel_y_g",
+        hdrAccelZ:"accel_z_g",
+        hdrTerminalVel:"terminal_velocity_mps",
+        hdrGyroX:"gyro_x_dps",
+        hdrGyroY:"gyro_y_dps",
+        hdrGyroZ:"gyro_z_dps",
+        hdrLoopMs:"loop_ms",
+        hdrElapsedMs:"elapsed_ms",
+        hdrHxHz:"hx_hz",
+        hdrCpuUs:"cpu_us",
+        hdrSwitch:"arm",
+        hdrIgnOk:"ign_ok",
+        hdrRelay:"relay",
+        hdrIgs:"igs_mode",
+        hdrState:"state",
+        hdrTdMs:"td_ms",
+        hdrRelTime:"rel_time_s",
+        hdrIgnWindowFlag:"is_ignition_window",
+        chartTitleIgnition:"Thrust/Pressure in ignition window (elapsed_ms)",
+        chartTitleThrust:"Thrust chart (ignition window)",
+        chartTitleThrustN:"Thrust (N) chart (ignition window)",
+        chartTitlePressure:"Pressure chart (ignition window)",
+        statusLockout:"LOCKOUT",
+        statusAbort:"ABORT",
+        statusIgnition:"IGNITION",
+        statusCountdown:"COUNTDOWN",
+        statusNotArmed:"NOT ARMED",
+        statusReady:"READY",
+        statusLoadcellCheck:"LOADCELL CHECK",
+        statusParachute:"PARACHUTE",
+        statusSequence:"SEQUENCE",
+        statusLockoutText:"Abnormal relay HIGH detected ({name}). Control revoked. Restart the board.",
+        statusAbortText:"Sequence aborted.",
+        statusAbortTextReason:"Sequence aborted. ({reason})",
+        statusIgnitionText:"Igniter firing.",
+        statusCountdownText:"Launch countdown in progress",
+        statusParachuteText:"Parachute deployment detected (CH{ch})",
+        statusSequenceText:"Sequence in progress",
+        statusNotArmedTextReady:"Igniter open / ignition sequence allowed",
+        statusNotArmedTextBlocked:"Igniter open / ignition sequence blocked",
+        statusReadyText:"System ready",
+        statusParachuteLog:"Parachute deployment detected (CH{ch})",
+        statusParachuteToast:"Parachute deployment detected (CH{ch})",
+        sequenceReadyBtn:"READY",
+        sequenceStartBtn:"SEQUENCE START",
+        sequenceEndBtn:"SEQUENCE END",
+        sequenceEndLog:"Sequence end requested.",
+        sequenceEndToast:"Sequence ended.",
+        relaySafeLockout:"LOCKOUT({name})",
+        relaySafeSafe:"SAFE",
+        relaySafeOff:"OFF",
+        serialOff:"OFF",
+        serialConnected:"CONNECTED",
+        serialDisconnected:"DISCONNECTED",
+        inspectFailToast:"Inspection failed. Check the status.",
+        inspectFailLog:"Inspection failed: some items did not pass.",
+        inspectPassToast:"Inspection passed. Control authority acquired.",
+        inspectPassLog:"Inspection complete. Control authority acquired.",
+        wsReconnect:"WebSocket reconnect scheduled ({reason}).",
+        wsConnecting:"WebSocket connecting: {url}",
+        wsConnected:"WebSocket connected: {url}",
+        wsClosed:"WebSocket closed (code {code}, reason {reason}).",
+        wsError:"WebSocket error.",
+        wsAlertTitle:"WebSocket disconnected",
+        wsAlertText:"WebSocket is not connected, so data is shown at 10 Hz.<br>Refresh the browser to fix it.",
+        wsAlertClose:"Close",
+        deviceDisconnectedTitle:"Device disconnected",
+        deviceDisconnectedText:"Connection to the device was lost.<br>Check cable/power.",
+        deviceDisconnectedOk:"OK",
+        wsLost:"Dashboard lost connection to board.",
+        boardUnstable:"Board response is unstable. Check power/wiring/Wi-Fi/polling interval.",
+        alarmWsDisconnected:"WebSocket disconnected. Real-time stream is down.",
+        alarmWsRecovered:"WebSocket connection recovered.",
+        alarmDataTimeout:"No data received for too long. Check communication/power. ({ms} ms)",
+        alarmDataTimeoutClear:"Data reception has recovered.",
+        alarmRxHzDrop:"Data receive rate dropped. Target {target} Hz, current {hz} Hz.",
+        alarmRxHzRecovered:"Data receive rate recovered to normal range.",
+        alarmRelayLockout:"LOCKOUT triggered by abnormal relay HIGH. ({name}) Restart the board.",
+        alarmWsBackpressure:"WebSocket send queue backpressure detected. Total {total} (this +{delta}).",
+        alarmReplayFormat:"Replay file format error: {reason}",
+        alarmReplayAutoStop:"Replay reached end-of-data and stopped automatically.",
+        alarmInternalException:"Repeated internal exceptions detected. source={source}, error={err}",
+        webserialUnsupported:"This browser does not support WebSerial. (Chrome/Edge recommended)",
+        webserialInsecureToast:"WebSerial requires HTTPS or localhost. Open this dashboard from localhost on desktop Chrome/Edge.",
+        webserialConnected:"WebSerial connected.",
+        webserialConnectedToast:"Serial (WebSerial) connected.",
+        serialReadEnded:"Serial read loop ended: {err}",
+        webserialConnectFailed:"WebSerial connect failed: {err}",
+        webserialConnectFailedToast:"Serial connect failed. Check port/permissions.",
+        webserialDisconnected:"WebSerial disconnected.",
+        serialWriteFailed:"Serial write failed: {err}",
+        linkEstablished:"Link established ({src}).",
+        linkEstablishedToast:"Connected to board. ({src})",
+        lockoutDetectedLog:"LOCKOUT: abnormal relay HIGH detected ({name}). Control revoked. Restart required.",
+        lockoutDetectedToast:"Abnormal relay HIGH detected ({name}). Control revoked. Restart the board.",
+        ignitionSignal:"Ignition signal detected (st=2). Tracking thrust over {thr} kgf.",
+        ignitionThresholdLog:"Thrust exceeded {thr} kgf. Ignition delay = {delay}s",
+        ignitionThresholdToast:"Thrust exceeded threshold ({thr} kgf). Ignition delay ≈ {delay}s. {safety}",
+        ignitionEndLog:"Ignition state finished. Burn duration ≈ {dur}s",
+        ignitionEndToast:"Effective thrust window ended. Approach after residual heat/gas.",
+        ignitionNoThrustLog:"Ignition state finished. No thrust over threshold detected.",
+        ignitionNoThrustToast:"Ignition ended. No effective thrust detected. Check wiring/igniter. {safety}",
+        switchHighLog:"ARM changed: HIGH (ON).",
+        switchHighToast:"ARM is HIGH (ON). Recheck sequence conditions and safety. {safety}",
+        switchLowLog:"ARM changed: LOW (OFF).",
+        switchLowToast:"ARM is LOW (OFF). Keep safe state. {safety}",
+        igniterOkLog:"Igniter continuity: OK.",
+        igniterOkToast:"Igniter state changed to OK. Recheck wiring/short/polarity before ignition. {safety}",
+        igniterNoLog:"Igniter continuity: NO / OPEN.",
+        igniterNoToast:"Igniter is NO(OPEN). Check connector/wiring/open circuit. {safety}",
+        igsOnLog:"Igniter Safety Test: ON (from board).",
+        igsOnToast:"Igniter Safety Test is ON. Risk of unintended power. {safety}",
+        igsOffLog:"Igniter Safety Test: OFF (from board).",
+        igsOffToast:"Igniter Safety Test is OFF. Returned to safe state. {safety}",
+        countdownStartLog:"Countdown started (st=1).",
+        countdownStartToast:"Countdown started. Maintain safe distance. {safety}",
+        ignitionFiringLog:"Ignition firing (st=2).",
+        ignitionFiringToast:"Ignition sequence in progress. Do not approach. {safety}",
+        sequenceCompleteLog:"Sequence complete. Back to idle.",
+        sequenceCompleteToast:"Sequence complete. Approach after residual heat/gas.",
+        sequenceAbortedLog:"Sequence aborted.",
+        sequenceAbortedToast:"ABORT processed. Recheck wiring/switch/environment before retry. {safety}",
+        sequenceAbortedToastReason:"Sequence aborted. ({reason}) {safety}",
+        abortReasonUser:"User abort",
+        abortReasonIgniter:"Igniter short",
+        abortReasonLockout:"Relay LOCKOUT",
+        abortReasonUnknown:"Unknown reason",
+        notArmedToast:"NOT ARMED. Check igniter connection. {safety}",
+        lockoutDetectedToastShort:"Abnormal relay HIGH detected ({name}). All control stopped. Restart the board.",
+        pollingErrorLog:"Polling error: {err}",
+        pollingErrorToast:"Polling error occurred. Check the log.",
+        lockoutNoControl:"LOCKOUT state: no control allowed. Restart the board.",
+        inspectionRequiredToast:"Complete inspection first. Control authority is granted after pass.",
+        preSequenceToast:"Do final safety check before sequence. Hold 3 seconds to enter. {safety}",
+        inspectionRequiredShort:"Complete inspection first. Control authority required.",
+        countdownRequestedLog:"Countdown requested from dashboard (long-press).",
+        countdownRequestedToast:"Countdown request sent to board. Keep checking signal/wiring/area. {safety}",
+        countdownIgniterRequired:"Countdown blocked: igniter missing while IGS is enabled. {safety}",
+        longPressCanceledToast:"Long-press canceled. Try again after securing safety. {safety}",
+        lockoutForceDenied:"LOCKOUT state: control including force ignition is not allowed. Restart the board.",
+        forceNotAllowed:"Force ignition is not allowed during sequence.",
+        forceWarning:"Force ignition is high risk. Proceed after final check. {safety}",
+        forceIgniterRequired:"Force ignition requires igniter OK when IGS is enabled.",
+        lockoutControlDenied:"LOCKOUT state: control not allowed.",
+        inspectionRequiredPlain:"Complete inspection first.",
+        launcherUpDownLog:"Launcher {dir} command sent.",
+        dirStop:"STOP",
+        lockoutCmdDenied:"LOCKOUT({name}) cannot send command. Restart the board.",
+        cmdSentLog:"CMD => {cmd}",
+        systemReadyLog:"System ready. Waiting for commands.",
+        dashboardStartToast:"Dashboard started. Check connection before operation. {safety}",
+        relaySafeOnToast:"RelaySafe is ON. LOCKOUT on abnormal relay HIGH.",
+        relaySafeOffToast:"RelaySafe is OFF. (Not recommended)",
+        igsToggledLog:"Igniter Safety Test toggled: {state}",
+        igsToggledOnToast:"Igniter Safety Test is ON. Watch igniter/wiring. {safety}",
+        igsToggledOffToast:"Igniter Safety Test is OFF. Keep safe state. {safety}",
+        serialRxOnToast:"Serial RX parsing ON",
+        serialRxOffToast:"Serial RX parsing OFF",
+        serialTxOnToast:"Serial TX ON",
+        serialTxOffToast:"Serial TX OFF",
+        lockoutAbortDenied:"LOCKOUT({name}) cannot ABORT. Restart the board.",
+        abortRequestedToast:"ABORT request sent to board. Recheck safety before retry. {safety}",
+        inspectionOpenToast:"Connect to board before running inspection.",
+        inspectionWait:"Wait",
+        inspectionRunningLabel:"Run",
+        inspectionChecking:"Checking",
+        inspectionOk:"OK",
+        inspectionNeed:"Check",
+        inspectionSkip:"SKIP",
+        inspectionIdleText:"Inspection ready…",
+        inspectionRunningText:"Inspection running…",
+        forceRequestedToast:"Force ignition request sent to board. Do not approach. {safety}",
+        lockoutAckLog:"LOCKOUT acknowledged ({name}). Restart required.",
+        lockoutAckToast:"LOCKOUT({name}) acknowledged (logged). Restart the board.",
+        logCopiedLog:"Log copied to clipboard.",
+        logCopiedToast:"Log copied to clipboard.",
+        clipboardCopyFailedLog:"Clipboard copy failed.",
+        clipboardCopyFailedToast:"Clipboard copy failed. Check browser permissions.",
+        copyFailedLog:"Copy failed: {err}",
+        copyFailedToast:"Copy failed. Check browser policy.",
+        xlsxExportLog:"Report exported (ZIP): {filename}",
+        xlsxExportToast:"Exported report as .zip file.",
+        thrustUnitChangedToast:"Thrust unit changed {from} → {to}. Display only. {safety}",
+        ignTimeChangedToast:"Ignition time changed {from}ms → {to}ms. Watch heating/drive time. {safety}",
+        countdownChangedToast:"Countdown changed {from}s → {to}s. Allow enough clearance time. {safety}",
+        settingsUpdatedLog:"Settings updated: thrustUnit={unit}, ignDuration={ign}ms, countdown={cd}s",
+        loadcellSettingsTitle:"Loadcell",
+        loadcellSettingsLabel:"Loadcell calibration",
+        loadcellSettingsHint:"This board does not support loadcell calibration. Fixed defaults are used (Scale 6510 / Noise 0.030kg / boot auto-zero).",
+        loadcellOpenBtn:"Unsupported board",
+        loadcellResetLabel:"Loadcell reset",
+        loadcellResetHint:"Not available on this board.",
+        loadcellResetBtn:"Unsupported",
+        loadcellModalTitle:"Loadcell Zero Adjust",
+        loadcellModalBadge:"Calibration",
+        loadcellModalGuide:"Place the weight, verify the reading, then tap Next.",
+        loadcellGuideStabilizing:"Please wait. Stabilizing loadcell data. Do not touch the loadcell.",
+        loadcellGuideStableReady:"Stabilization complete. Press Save Zero.",
+        loadcellGuideNoiseReady:"Zero saved. Keep the loadcell unloaded and save the noise zero next.",
+        loadcellGuidePlaceWeight:"Place the reference weight, enter its mass, then tap Next.",
+        loadcellGuideComplete:"Loadcell calibration is complete.",
+        loadcellModalValueLabel:"Current reading (kg)",
+        loadcellModalValueHint:"Calibration is stored in kg.",
+        loadcellModalInputLabel:"Enter weight (kg)",
+        loadcellModalInputHint:"e.g. 1.250",
+        loadcellModalNote:"This value is saved to the board.",
+        loadcellCalcTitle:"Calibration Result",
+        loadcellCalcWeightLabel:"Input weight",
+        loadcellCalcScaleLabel:"Calculated scale",
+        loadcellCalcOffsetLabel:"Zero offset",
+        loadcellCompleteTitle:"Calibration Complete",
+        loadcellCompleteText:"Loadcell calibration is complete.",
+        loadcellCompleteCloseBtn:"Close",
+        loadcellStabilityFailTitle:"Loadcell Stabilization Failed",
+        loadcellStabilityFailText:"The value changed too abruptly. The loadcell or fixture was likely touched or the load changed.",
+        loadcellStabilityFailSub:"Remove all load and wait 5–10 seconds again. Do not touch the loadcell or jig.",
+        loadcellRetryBtn:"Retry",
+        loadcellModalApply:"Next",
+        loadcellModalCancel:"Cancel",
+        loadcellZeroSaveBtn:"Save Zero",
+        loadcellNoiseSaveBtn:"Save Noise Zero",
+        loadcellModalConfirmTitle:"Save calibration?",
+        loadcellModalConfirmText:"Save calibration using {weight} kg. Previous data will be overwritten.",
+        loadcellModalConfirmSub:"Measurement baseline will change after saving. Remove the weight and verify the reading.",
+        loadcellModalConfirmProceed:"Proceed",
+        loadcellModalConfirmCancel:"Cancel",
+        loadcellZeroConfirmTitle:"Save zero?",
+        loadcellZeroConfirmText:"Save current state as zero. Previous zero will be overwritten.",
+        loadcellWeightInvalidToast:"Enter a valid weight.",
+        loadcellZeroSaveSuccessToast:"Zero saved.",
+        loadcellZeroSaveFailToast:"Failed to save loadcell zero.",
+        loadcellNoiseSaveSuccessToast:"Loadcell noise zero saved.",
+        loadcellNoiseSaveFailToast:"Failed to save loadcell noise zero.",
+        loadcellSaveSuccessToast:"Loadcell calibration is complete.",
+        loadcellSaveFailToast:"Failed to save loadcell calibration.",
+        loadcellResetSuccessToast:"Loadcell reset is complete.",
+        loadcellResetFailToast:"Failed to reset the loadcell.",
+        loadcellZeroSaveLog:"Loadcell zero save requested",
+        loadcellNoiseSaveLog:"Loadcell noise zero save requested",
+        loadcellSaveLog:"Loadcell calibration requested (weight={weight} kg)",
+        loadcellResetLog:"Loadcell reset requested",
+        loadcellStabilityFailToast:"Loadcell value jumped too much. Remove the load and retry.",
+        loadcellUnsupportedToast:"This board does not support loadcell calibration. Running with fixed defaults."
+      }
+};
     if (typeof window !== "undefined") {
+      try{
+        if(typeof sessionStorage !== "undefined"){
+          sessionStorage.removeItem("flash6_boot_js_retry");
+        }
+      }catch(_e){}
       window.__flashBoot = window.__flashBoot || {};
-      window.__flashBoot.jsReady = true;
+      window.__flashBoot.jsReady = false;
+      window.__flashBoot.jsLoaded = true;
+    }
+
+    function bootBeacon(stage, detail){
+      try{
+        if(typeof window !== "undefined" &&
+           window.__flashBoot &&
+           typeof window.__flashBoot.emit === "function"){
+          window.__flashBoot.emit(stage, detail);
+          return;
+        }
+        const s = encodeURIComponent(String(stage || "-").slice(0, 48));
+        const dRaw = String(detail || "").slice(0, 120);
+        const d = dRaw ? ("&detail=" + encodeURIComponent(dRaw)) : "";
+        const url = "/js_boot?stage=" + s + d;
+        fetch(url, {method:"GET", cache:"no-store", keepalive:true}).catch(()=>{});
+      }catch(_e){}
+    }
+
+    bootBeacon("js_loaded", (typeof location !== "undefined" ? location.pathname : "/"));
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("error", (ev)=>{
+        const msg = ev && (ev.message || (ev.error && ev.error.message) || "window_error");
+        bootBeacon("js_error", msg);
+      });
+      window.addEventListener("unhandledrejection", (ev)=>{
+        const reason = ev && ev.reason;
+        let msg = "promise_reject";
+        if (reason && typeof reason === "object" && reason.message) msg = reason.message;
+        else if (reason != null) msg = String(reason);
+        bootBeacon("js_reject", msg);
+      });
     }
 
     // =====================
@@ -21,6 +1097,8 @@
     let gyroXHistory = [];
     let gyroYHistory = [];
     let gyroZHistory = [];
+    let chipTempHistory = [];
+    let perfLoadHistory = [];
     let chartTimeHistory = [];
     let sampleHistory = [];
     const SAMPLE_HISTORY_MAX = 10000;
@@ -88,7 +1166,7 @@
         const photo = btn.querySelector(".mission-preset-photo");
         if(photo && !photo.querySelector("img")){
           const img = document.createElement("img");
-          img.src = "img/flash_stb.svg";
+          img.src = "img/altis_logo1.png";
           img.alt = name;
           photo.textContent = "";
           photo.appendChild(img);
@@ -241,6 +1319,9 @@
     const GYRO_ALTGYRO_MAX_DT_SEC = 0.45;
     const GYRO_ALTGYRO_MIN_SIN_PITCH = 0.16;
     const GYRO_ALTGYRO_VSPEED_FILTER_ALPHA = 0.28;
+    const GYRO_ALTGYRO_ALT_DEADBAND_M = 0.03;
+    const GYRO_ALTGYRO_MIN_VSPEED_FOR_HMOVE_MPS = 0.18;
+    const GYRO_ALTGYRO_IDLE_VSPEED_DAMP = 0.55;
     const GYRO_ALTGYRO_MAX_HSPEED_MPS = 48;
 
     // ✅ 너무 빡센 폴링(30ms)은 ESP 쪽 응답 흔들림(간헐 타임아웃/큐 적체)을 만들 수 있어서 완화
@@ -262,6 +1343,10 @@
     let rxWindowStartMs = 0;
     let rxWindowCount = 0;
     let rxHzWindow = 0;
+    let sampleRateWindowStartMs = 0;
+    let sampleRateWindowCount = 0;
+    let sampleRateHzWindow = 0;
+    let lastSampleTimelineMs = NaN;
     let gyroLastUiMs = 0;
     let gyroAttitudeLastMs = 0;
     let gyroAttitudeReady = false;
@@ -368,6 +1453,11 @@
       speed: 1,
       fileName: ""
     };
+    let replaySeekInteracting = false;
+    let replaySeekProcessing = false;
+    let replaySeekTaskToken = 0;
+    let replaySeekDisplayIndex = -1;
+    const REPLAY_SEEK_REBUILD_CHUNK = 360;
     let logDataRevision = 0;
     let reportExportedRevision = 0;
     let reportExportedOnce = false;
@@ -574,12 +1664,12 @@
       ];
     }
     function quatFromRenderEuler(pitchDeg, yawDeg, rollDeg){
-      // Keep the 3D model aligned with the UI/board labels directly:
-      // X=roll, Y=pitch, Z=yaw.
-      const qx = quatFromAxisAngle([1,0,0], (Number(rollDeg) || 0) * DEG_TO_RAD);
-      const qy = quatFromAxisAngle([0,1,0], (Number(pitchDeg) || 0) * DEG_TO_RAD);
-      const qz = quatFromAxisAngle([0,0,1], (Number(yawDeg) || 0) * DEG_TO_RAD);
-      return quatNormalize(quatMul(qz, quatMul(qy, qx)));
+      // 3D attitude view axis mapping
+      // X=roll, Y=yaw, Z=pitch  (swap Y/Z for render)
+      const qRoll = quatFromAxisAngle([1,0,0], (Number(rollDeg) || 0) * DEG_TO_RAD);
+      const qPitch = quatFromAxisAngle([0,0,1], (Number(pitchDeg) || 0) * DEG_TO_RAD);
+      const qYaw = quatFromAxisAngle([0,1,0], (Number(yawDeg) || 0) * DEG_TO_RAD);
+      return quatNormalize(quatMul(qYaw, quatMul(qPitch, qRoll)));
     }
     function getGyroDisplayRollDeg(value){
       const base = (value == null) ? gyroRollDeg : Number(value);
@@ -595,7 +1685,7 @@
     }
     function applyGyroZeroReference(){
       if(!gyroAttitudeReady) return false;
-      const targetPitchDeg = 90;
+      const targetPitchDeg = 0;
       const targetYawDeg = 0;
       const targetRollDeg = 0;
       gyroZeroRollOffsetDeg = targetRollDeg - gyroRollDeg;
@@ -618,6 +1708,12 @@
       gyroPitchDeg = 0;
       gyroRollDeg = 0;
       gyroAttitudeQuat = [1,0,0,0];
+      gyroZeroRollOffsetDeg = 0;
+      gyroZeroPitchOffsetDeg = 0;
+      gyroZeroYawOffsetDeg = 0;
+      gyroZeroQuat = [1,0,0,0];
+    }
+    function clearLocalGyroZeroReference(){
       gyroZeroRollOffsetDeg = 0;
       gyroZeroPitchOffsetDeg = 0;
       gyroZeroYawOffsetDeg = 0;
@@ -1911,17 +3007,27 @@
         gyroPathState.source = "alt_gyro";
       }else{
         const dtSec = (gyroPathState.altGyroLastMs > 0) ? ((now - gyroPathState.altGyroLastMs) / 1000) : 0;
-        const dAlt = altitudeM - gyroPathState.altGyroLastAlt;
+        let dAlt = altitudeM - gyroPathState.altGyroLastAlt;
+        if(Math.abs(dAlt) < GYRO_ALTGYRO_ALT_DEADBAND_M){
+          dAlt = 0;
+        }
         gyroPathState.altGyroLastAlt = altitudeM;
         gyroPathState.altGyroLastMs = now;
 
         if(isFinite(dtSec) && dtSec >= GYRO_ALTGYRO_MIN_DT_SEC && dtSec <= GYRO_ALTGYRO_MAX_DT_SEC){
           let verticalSpeedMps = dAlt / dtSec;
           if(!isFinite(verticalSpeedMps)) verticalSpeedMps = 0;
-          const a = GYRO_ALTGYRO_VSPEED_FILTER_ALPHA;
-          gyroPathState.altGyroVSpeedMps += (verticalSpeedMps - gyroPathState.altGyroVSpeedMps) * a;
+          if(Math.abs(verticalSpeedMps) < GYRO_ALTGYRO_MIN_VSPEED_FOR_HMOVE_MPS){
+            gyroPathState.altGyroVSpeedMps *= GYRO_ALTGYRO_IDLE_VSPEED_DAMP;
+            if(Math.abs(gyroPathState.altGyroVSpeedMps) < 0.03){
+              gyroPathState.altGyroVSpeedMps = 0;
+            }
+          }else{
+            const a = GYRO_ALTGYRO_VSPEED_FILTER_ALPHA;
+            gyroPathState.altGyroVSpeedMps += (verticalSpeedMps - gyroPathState.altGyroVSpeedMps) * a;
+          }
 
-          if(gyroAttitudeReady){
+          if(gyroAttitudeReady && Math.abs(gyroPathState.altGyroVSpeedMps) >= GYRO_ALTGYRO_MIN_VSPEED_FOR_HMOVE_MPS){
             const pitchRad = gyroPitchDeg * DEG_TO_RAD;
             const yawRad = gyroYawDeg * DEG_TO_RAD;
             const sinPitchAbs = Math.max(GYRO_ALTGYRO_MIN_SIN_PITCH, Math.abs(Math.sin(pitchRad)));
@@ -1955,9 +3061,9 @@
           alphaX: 0.26,
           alphaY: 0.34,
           alphaZ: 0.26,
-          minStepM: 0.03,
+          minStepM: 0.05,
           idleHoldMs: 90,
-          idleDriftM: 0.01,
+          idleDriftM: 0.018,
           jumpRejectM: 180,
           jumpRejectMs: 2400,
           altDeadbandM: 0.008
@@ -2070,15 +3176,15 @@
       }
 
       const subset = pts.slice(Math.max(0, pts.length - GYRO_TRAIL_MAX_POINTS));
-      const currentRaw = subset[subset.length - 1];
       let maxAbsX = 0;
       let maxAbsY = 0;
       let maxAbsZ = 0;
       for(let i=0;i<subset.length;i++){
         const p = subset[i];
-        maxAbsX = Math.max(maxAbsX, Math.abs(p.x));
-        maxAbsY = Math.max(maxAbsY, Math.abs(p.y));
-        maxAbsZ = Math.max(maxAbsZ, Math.abs(p.z));
+        const ax = Math.abs(p.x), ay = Math.abs(p.y), az = Math.abs(p.z);
+        if(ax > maxAbsX) maxAbsX = ax;
+        if(ay > maxAbsY) maxAbsY = ay;
+        if(az > maxAbsZ) maxAbsZ = az;
       }
       const targetScaleXZ = Math.max(
         GYRO_TRAIL_BASE_METERS_PER_UNIT_XZ,
@@ -2094,37 +3200,47 @@
       gyroPathState.renderScaleXZ += (targetScaleXZ - gyroPathState.renderScaleXZ) * smoothXZ;
       gyroPathState.renderScaleY += (targetScaleY - gyroPathState.renderScaleY) * smoothY;
 
-      const worldPoints = subset.map((p)=>({
-        x: p.x / gyroPathState.renderScaleXZ,
-        y: GYRO_WORLD_ALTITUDE_BASE + (p.y / gyroPathState.renderScaleY),
-        z: p.z / gyroPathState.renderScaleXZ
-      }));
-      const currentWorld = {
-        x: currentRaw.x / gyroPathState.renderScaleXZ,
-        y: GYRO_WORLD_ALTITUDE_BASE + (currentRaw.y / gyroPathState.renderScaleY),
-        z: currentRaw.z / gyroPathState.renderScaleXZ
-      };
-      if(worldPoints.length) worldPoints[worldPoints.length - 1] = currentWorld;
-
-      const smoothPath = [];
-      if(worldPoints.length){
-        smoothPath.push(worldPoints[0]);
-      }
-      for(let i=1;i<worldPoints.length;i++){
-        const prev = worldPoints[i - 1];
-        const cur = worldPoints[i];
-        const segLen = Math.hypot(cur.x - prev.x, cur.y - prev.y, cur.z - prev.z);
-        const steps = clampLocal(Math.round(segLen * 4), 1, 4);
-        for(let s=1;s<=steps;s++){
-          const t = s / steps;
-          smoothPath.push({
-            x: prev.x + ((cur.x - prev.x) * t),
-            y: prev.y + ((cur.y - prev.y) * t),
-            z: prev.z + ((cur.z - prev.z) * t)
+      if(gyroPathState.cachedLastMs !== gyroPathState.lastFixMs){
+        gyroPathState.cachedLastMs = gyroPathState.lastFixMs;
+        const smoothSource = [];
+        for(let i=0;i<subset.length;i++){
+          const prev = subset[Math.max(0, i - 1)];
+          const cur = subset[i];
+          const next = subset[Math.min(subset.length - 1, i + 1)];
+          if(i === 0 || i === (subset.length - 1)){
+            smoothSource.push(cur);
+            continue;
+          }
+          smoothSource.push({
+            x: (prev.x * 0.2) + (cur.x * 0.6) + (next.x * 0.2),
+            y: (prev.y * 0.2) + (cur.y * 0.6) + (next.y * 0.2),
+            z: (prev.z * 0.2) + (cur.z * 0.6) + (next.z * 0.2)
           });
         }
+        const smoothPathMeters = [];
+        if(smoothSource.length === 1){
+          smoothPathMeters.push(smoothSource[0]);
+        }else{
+          for(let i=0;i<smoothSource.length - 1;i++){
+            const p0 = smoothSource[Math.max(0, i - 1)];
+            const p1 = smoothSource[i];
+            const p2 = smoothSource[i + 1];
+            const p3 = smoothSource[Math.min(smoothSource.length - 1, i + 2)];
+            const segLen = Math.hypot(p2.x - p1.x, p2.y - p1.y, p2.z - p1.z);
+            const steps = clampLocal(Math.round(segLen * 6), 2, 12);
+            for(let s=0;s<steps;s++){
+              const t = s / steps, t2 = t * t, t3 = t2 * t;
+              smoothPathMeters.push({
+                x: 0.5 * ((2 * p1.x) + ((-p0.x + p2.x) * t) + ((2 * p0.x - (5 * p1.x) + (4 * p2.x) - p3.x) * t2) + ((-p0.x + (3 * p1.x) - (3 * p2.x) + p3.x) * t3)),
+                y: 0.5 * ((2 * p1.y) + ((-p0.y + p2.y) * t) + ((2 * p0.y - (5 * p1.y) + (4 * p2.y) - p3.y) * t2) + ((-p0.y + (3 * p1.y) - (3 * p2.y) + p3.y) * t3)),
+                z: 0.5 * ((2 * p1.z) + ((-p0.z + p2.z) * t) + ((2 * p0.z - (5 * p1.z) + (4 * p2.z) - p3.z) * t2) + ((-p0.z + (3 * p1.z) - (3 * p2.z) + p3.z) * t3))
+              });
+            }
+          }
+          smoothPathMeters.push(smoothSource[smoothSource.length - 1]);
+        }
+        gyroPathState.smoothPathMeters = smoothPathMeters;
       }
-      gyroPathState.smoothPath = smoothPath;
 
       const trailPos = [];
       const trailCol = [];
@@ -2136,20 +3252,40 @@
       const trailB = 0.2;
       let minWX = Infinity, minWY = Infinity, minWZ = Infinity;
       let maxWX = -Infinity, maxWY = -Infinity, maxWZ = -Infinity;
-      for(let i=0;i<smoothPath.length;i++){
-        const p = smoothPath[i];
-        trailPos.push(p.x, p.y, p.z);
+      
+      const scaleXZ = gyroPathState.renderScaleXZ;
+      const scaleY = gyroPathState.renderScaleY;
+      const smoothPath = [];
+      const smoothPathMeters = gyroPathState.smoothPathMeters || [];
+      
+      for(let i=0;i<smoothPathMeters.length;i++){
+        const m = smoothPathMeters[i];
+        const wx = m.x / scaleXZ;
+        const wy = GYRO_WORLD_ALTITUDE_BASE + (m.y / scaleY);
+        const wz = m.z / scaleXZ;
+        smoothPath.push({x: wx, y: wy, z: wz});
+        trailPos.push(wx, wy, wz);
         trailCol.push(trailR, trailG, trailB, 0.98);
         trailGlowCol.push(trailR, trailG, trailB, 0.92);
         trailAuraCol.push(trailR, trailG, trailB, 0.86);
         trailHotCol.push(trailR, trailG, trailB, 0.84);
-        if(p.x < minWX) minWX = p.x;
-        if(p.y < minWY) minWY = p.y;
-        if(p.z < minWZ) minWZ = p.z;
-        if(p.x > maxWX) maxWX = p.x;
-        if(p.y > maxWY) maxWY = p.y;
-        if(p.z > maxWZ) maxWZ = p.z;
+        if(wx < minWX) minWX = wx;
+        if(wy < minWY) minWY = wy;
+        if(wz < minWZ) minWZ = wz;
+        if(wx > maxWX) maxWX = wx;
+        if(wy > maxWY) maxWY = wy;
+        if(wz > maxWZ) maxWZ = wz;
       }
+
+      gyroPathState.smoothPath = smoothPath;
+      
+      const currentRaw = subset[subset.length - 1];
+      const currentWorld = {
+        x: currentRaw.x / scaleXZ,
+        y: GYRO_WORLD_ALTITUDE_BASE + (currentRaw.y / scaleY),
+        z: currentRaw.z / scaleXZ
+      };
+      if(smoothPath.length) smoothPath[smoothPath.length - 1] = currentWorld;
 
       if(!isFinite(minWX)){
         minWX = maxWX = 0;
@@ -2839,7 +3975,9 @@
     let inspectionState = "idle";
     let inspectionRunning = false;
     let inspectionLastFailedKeys = [];
-    let latestTelemetry = {sw:null, ic:null, rly:null, mode:null, uw:null, al:null};
+    let inspectionSyncPendingValue = null;
+    let inspectionSyncPendingUntilMs = 0;
+    let latestTelemetry = {sw:null, ic:null, rly:null, mode:null, uw:null, al:null, gs:0};
     const STATUS_MAP_DEFAULT = Object.freeze({lat:35.154244, lon:128.09293, zoom:12});
     const STATUS_MAP_KR_BOUNDS = Object.freeze({south:33.0, west:124.5, north:38.9, east:131.9});
     const STATUS_MAP_TILE_SOURCES = Object.freeze([
@@ -2879,10 +4017,19 @@
     };
     let lastBatteryV = null;
     let lastBatteryPct = null;
+    let lastChipTempC = null;
+    let lastChipTempSampleMs = 0;
+    // PERF load is an instant ratio (ct/lt) sampled at high rate.
+    // Light smoothing avoids visually misleading 100%/40% flapping.
+    const PERF_LOAD_EMA_ALPHA = 0.18;
+    let lastPerfLoadRawPct = null;
+    let lastPerfLoadPct = null;
+    let lastPerfCpuUs = null;
+    let lastPerfLoopUs = null;
+    let lastPerfSampleMs = 0;
     let spiFlashReadyState = null;
-    let localSdDirHandle = null;
-    let localSdDirLabel = "";
-    let localSdBusy = false;
+    let spiFlashProbePending = false;
+    let spiFlashProbeLastMs = 0;
     let lastThrustKgf = null;
     const THRUST_GAUGE_MAX_KGF = 10;
     const THRUST_GAUGE_MAX_LBF = 22;
@@ -2929,6 +4076,11 @@
     const LOADCELL_ERROR_TOAST_HOLD_MS = 2500;
     const LOADCELL_ERROR_TOAST_DEBOUNCE_MS = 30000;
     const REBOOT_WAIT_MIN_VISIBLE_MS = 1200;
+    const REBOOT_WAIT_AUTO_HIDE_MS = 5000;
+    const REBOOT_RECOVERY_POLL_MS = 650;
+    const REBOOT_RECOVERY_FIRST_PING_MS = 900;
+    const REBOOT_RECOVERY_PING_TIMEOUT_MS = 800;
+    const REBOOT_RECOVERY_HARD_RELOAD_MS = 10000;
     let loadcellModalStage = LOADCELL_MODAL_STAGE_STABILIZE;
     let loadcellWarningMode = "";
     let loadcellStabilitySamples = [];
@@ -2946,6 +4098,7 @@
     const SERVO_SERIAL_REPLY_TIMEOUT_MS = 1200;
     const LOADCELL_SERIAL_REPLY_TIMEOUT_MS = 3000;
     const MISSION_SERIAL_REPLY_TIMEOUT_MS = 3200;
+    const GYRO_ZERO_SERIAL_REPLY_TIMEOUT_MS = 1800;
     const MISSION_SERIAL_CHUNK_B64_SIZE = 128;
     const MISSION_CANVAS_ZOOM_MIN = 0.5;
     const MISSION_CANVAS_ZOOM_MAX = 2.0;
@@ -2956,11 +4109,15 @@
     const MISSION_RUNTIME_MAX_BLOCKS = 64;
     const LOADCELL_SCALE_FALLBACK = 6510.0;
     const LOADCELL_NOISE_DB_FALLBACK = 0.03;
+    const LOADCELL_CALIBRATION_SUPPORTED = false;
     const SERIAL_BAUD_RATE = 460800;
     const SERIAL_BAUD_CANDIDATES = [SERIAL_BAUD_RATE, 250000, 115200];
     const SERIAL_PROBE_TIMEOUT_MS = 2200;
     const SERIAL_PARSE_ERROR_LOG_LIMIT = 3;
     const SERVO_CHANNELS = [1, 2, 3, 4];
+    // UI channel label -> board servo channel remap
+    // Requested: UI 1/2/3/4 should drive physical 1/2/3/4.
+    const SERVO_UI_TO_HW_CHANNEL = [0, 4, 3, 2, 1];
     const servoUiMap = {};
     let servoInfo = null;
     let servoInfoLastMs = 0;
@@ -3007,70 +4164,7 @@
     };
     const CONTROLS_MOBILE_CLASS = "controls-mobile-hidden";
     const MAX_VISIBLE_LOG = 500;
-    const TETRIS_W = 10;
-    const TETRIS_H = 14;
-    const TETRIS_SCALE_X = 1;
-    const TETRIS_SCALE_Y = 1;
-    const TETRIS_CELL_ON = "#";
-    const TETRIS_CELL_OFF = ".";
-    const TETRIS_TICK_MS = 300;
-    const TETRIS_LOCK_DELAY_MS = 250;
-    const TETRIS_SHAPES = [
-      // I
-      [
-        [[0,1],[1,1],[2,1],[3,1]],
-        [[2,0],[2,1],[2,2],[2,3]],
-        [[0,2],[1,2],[2,2],[3,2]],
-        [[1,0],[1,1],[1,2],[1,3]],
-      ],
-      // O
-      [
-        [[1,0],[2,0],[1,1],[2,1]],
-        [[1,0],[2,0],[1,1],[2,1]],
-        [[1,0],[2,0],[1,1],[2,1]],
-        [[1,0],[2,0],[1,1],[2,1]],
-      ],
-      // T
-      [
-        [[1,0],[0,1],[1,1],[2,1]],
-        [[1,0],[1,1],[2,1],[1,2]],
-        [[0,1],[1,1],[2,1],[1,2]],
-        [[1,0],[0,1],[1,1],[1,2]],
-      ],
-      // S
-      [
-        [[1,0],[2,0],[0,1],[1,1]],
-        [[1,0],[1,1],[2,1],[2,2]],
-        [[1,1],[2,1],[0,2],[1,2]],
-        [[0,0],[0,1],[1,1],[1,2]],
-      ],
-      // Z
-      [
-        [[0,0],[1,0],[1,1],[2,1]],
-        [[2,0],[1,1],[2,1],[1,2]],
-        [[0,1],[1,1],[1,2],[2,2]],
-        [[1,0],[0,1],[1,1],[0,2]],
-      ],
-      // J
-      [
-        [[0,0],[0,1],[1,1],[2,1]],
-        [[1,0],[2,0],[1,1],[1,2]],
-        [[0,1],[1,1],[2,1],[2,2]],
-        [[1,0],[1,1],[0,2],[1,2]],
-      ],
-      // L
-      [
-        [[2,0],[0,1],[1,1],[2,1]],
-        [[1,0],[1,1],[1,2],[2,2]],
-        [[0,1],[1,1],[2,1],[0,2]],
-        [[0,0],[1,0],[1,1],[1,2]],
-      ],
-    ];
-
-    let tetrisActive = false;
-    let tetrisTimer = null;
-    let tetrisState = null;
-    let tetrisKeyHandler = null;
+    const ENABLE_EASTER_TETRIS = false;
     let logoTapCount = 0;
     let logoTapTimer = null;
 
@@ -3082,9 +4176,9 @@
 
     const DISCONNECT_GRACE_MS = 1500;  // 이 시간 동안 샘플이 없으면 끊김 후보
     const FAIL_STREAK_LIMIT   = 20;    // 연속 실패가 이 이상이고, grace도 지났으면 DISCONNECTED
-    const TARGET_STREAM_HZ = 80;
-    const RX_HZ_WARN_THRESHOLD = 30;
-    const RX_HZ_RECOVER_THRESHOLD = 45;
+    const TARGET_STREAM_HZ = 20;
+    const RX_HZ_WARN_THRESHOLD = 8;
+    const RX_HZ_RECOVER_THRESHOLD = 12;
     const DATA_TIMEOUT_ALARM_MS = 2200;
     let lastWsQueueDropCount = 0;
 
@@ -3098,10 +4192,16 @@
     let wsRetryTimer = null;
     let wsRetryMs = 300;
     let wsLastMsgMs = 0;
+    let wsConnectStartedMs = 0;
+    let wsLastOpenAttemptMs = 0;
     const WS_FRESH_MS = 300;
     const WS_RETRY_MAX_MS = 5000;
+    const WS_CONNECT_TIMEOUT_MS = 6000;
     const BOARD_FALLBACK_HTTP = "http://192.168.4.1";
+    const API_BASE_STORAGE_KEY = "flash6_api_base";
     let wsEverConnected = false;
+    let wsBootOpenBeaconSent = false;
+    let wsBootErrorBeaconSent = false;
     let wsAlertDismissed = false;
     let lastWsAlertActive = false;
     const wsLogSilent = (
@@ -3116,8 +4216,60 @@
       if(host.indexOf("vscode") >= 0) return true;
       return false;
     }
+    function normalizeApiBase(raw){
+      let v = String(raw == null ? "" : raw).trim();
+      if(!v) return "";
+      if(/^wss?:\/\//i.test(v)){
+        v = v.replace(/^wss?:\/\//i, (m)=> m.toLowerCase().startsWith("wss") ? "https://" : "http://");
+      }else if(!/^https?:\/\//i.test(v)){
+        if(v.startsWith("//")) v = "http:" + v;
+        else v = "http://" + v;
+      }
+      v = v.replace(/\/+$/, "");
+      return v;
+    }
+    function readApiBaseFromQuery(){
+      try{
+        const usp = new URLSearchParams(location.search || "");
+        const raw = usp.get("api_base") || usp.get("api") || usp.get("board") || "";
+        return normalizeApiBase(raw);
+      }catch(_e){
+        return "";
+      }
+    }
+    function resolveStoredApiBase(){
+      try{
+        return normalizeApiBase(localStorage.getItem(API_BASE_STORAGE_KEY) || "");
+      }catch(_e){
+        return "";
+      }
+    }
+    function resolveApiBaseOverride(){
+      const fromQuery = readApiBaseFromQuery();
+      if(fromQuery){
+        try{ localStorage.setItem(API_BASE_STORAGE_KEY, fromQuery); }catch(_e){}
+        return fromQuery;
+      }
+      if(isLocalPreviewHost()) return resolveStoredApiBase();
+      const host = String(location.hostname || "").toLowerCase();
+      if(host === "192.168.4.1" || host === "altis.local") return "";
+      return resolveStoredApiBase();
+    }
+    function autoApiBase(){
+      if(isLocalPreviewHost()) return BOARD_FALLBACK_HTTP;
+      const host = String(location.hostname || "").toLowerCase();
+      if(!host) return BOARD_FALLBACK_HTTP;
+      if(host === "192.168.4.1" || host === "altis.local") return "";
+      if(host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0") return BOARD_FALLBACK_HTTP;
+      return BOARD_FALLBACK_HTTP;
+    }
+    const API_BASE_OVERRIDE = resolveApiBaseOverride();
+    if(typeof window !== "undefined"){
+      window.__flashBoot = window.__flashBoot || {};
+      window.__flashBoot.apiBase = API_BASE_OVERRIDE || autoApiBase() || "";
+    }
     function getApiBaseForCommands(){
-      return isLocalPreviewHost() ? BOARD_FALLBACK_HTTP : "";
+      return API_BASE_OVERRIDE || autoApiBase();
     }
     let suppressCountdownToastUntil = 0;
     let suppressIgnitionToastUntil = 0;
@@ -3148,37 +4300,34 @@
       const ALTIS_SHOW_MS = 1600;  // ALTIS 먼저
 
       const ASSETS = [
-        "img/altis_logo2.svg",
         "img/Flash_logo.svg",
-        "img/Flash_logo_plain.svg",
         "img/Danger.svg",
         "img/Tick.svg",
         "img/Graph.svg",
         "img/Activity.svg",
-        "img/RS_1.svg",
-        "img/RS_2.svg",
-        "img/RS_all.svg",
       ];
 
       const startMs = performance.now();
-      const preloadPromise = preloadImages(ASSETS);
       const switchTimer = setTimeout(()=>{ splash.classList.add("flash-on"); }, ALTIS_SHOW_MS);
+      try{
+        const preloadPromise = preloadImages(ASSETS);
+        const PRELOAD_TIMEOUT_MS = 1800;
+        await Promise.race([
+          preloadPromise,
+          new Promise(r => setTimeout(r, PRELOAD_TIMEOUT_MS)),
+        ]);
 
-      const PRELOAD_TIMEOUT_MS = 2500;
-      await Promise.race([
-        preloadPromise,
-        new Promise(r => setTimeout(r, PRELOAD_TIMEOUT_MS)),
-      ]);
-
-      const elapsed = performance.now() - startMs;
-      const waitMs = Math.max(0, MIN_SPLASH_MS - elapsed);
-      if(waitMs) await new Promise(r => setTimeout(r, waitMs));
-
-      clearTimeout(switchTimer);
-
-      splash.classList.add("hide");
-      app.classList.add("ready");
-      setTimeout(()=>{ try{ splash.remove(); }catch(e){} }, 350);
+        const elapsed = performance.now() - startMs;
+        const waitMs = Math.max(0, MIN_SPLASH_MS - elapsed);
+        if(waitMs) await new Promise(r => setTimeout(r, waitMs));
+      }catch(_e){
+        // Ignore splash preload errors and continue boot.
+      }finally{
+        clearTimeout(switchTimer);
+        splash.classList.add("hide");
+        app.classList.add("ready");
+        setTimeout(()=>{ try{ splash.remove(); }catch(e){} }, 350);
+      }
     }
 
 
@@ -3307,6 +4456,7 @@
         serialRx: true,
         serialTx: true,
         simEnabled: false,
+        muteMode: false,
         lang: "ko",
         theme: "light"
       };
@@ -3372,1055 +4522,8 @@
     // =====================
     // 언어 (i18n)
     // =====================
-    const I18N = {
-      ko: {
-        toastTitleSuccess:"성공 알림",
-        toastTitleWarn:"주의 알림",
-        toastTitleError:"오류 알림",
-        toastTitleCritical:"치명 경고",
-        toastTitleIgnite:"점화 알림",
-        toastTitleInfo:"일반 알림",
-        toastTitleNotice:"공지 알림",
-        safetyLineSuffix:"안전거리 확보 · 결선/단락 확인 · 주변 인원 접근 금지.",
-        splashLoading:"로딩중<span id=\"splashDots\"></span>",
-        viewDashboardLabel:"DASHBOARD",
-        viewCountdownLabel:"COUNTDOWN",
-        viewHomeLabel:"HOME",
-        viewHardwareLabel:"HARDWARE",
-        viewTerminalLabel:"TERMINAL",
-        labelThrust:"추력",
-        labelPressure:"압력",
-        labelAltitude:"고도",
-        labelSpeed:"속도",
-        labelSwitch:"ARM",
-        labelRelay:"릴레이",
-        labelIgniter:"이그나이터",
-        controlsHelpLink:"도움말로 바로가기",
-        controlsSectionData:"데이터",
-        controlsSectionSequence:"시퀀스 제어",
-        controlsSectionControl:"컨트롤",
-        forceIgniteBtn:"강제 점화",
-        forceIgniteSub:"고위험 동작",
-        forceIgniteDanger:"위험",
-        safetyModeOnToast:"안전 모드가 켜졌습니다. 제어 권한이 제한됩니다.",
-        safetyModeOffToast:"안전 모드가 꺼졌습니다. 안전에 주의하세요!",
-        controlSerialSub:"시리얼 연결",
-        controlSerialLabel:"WebSerial",
-        controlDevToolsLabel:"개발자 도구",
-        controlDevToolsSub:"개발자 도구 열기",
-        controlInspectionLabel:"설비 점검",
-        controlSafetyLabel:"안전 모드",
-        controlSafetySub:"Safty",
-        controlOpModeSub:"Flight / DAQ 전환",
-        controlRebootBtn:"재부팅",
-        gyroZeroBtn:"자이로 영점",
-        gyroZeroDoneToast:"자이로 영점이 설정되었습니다.",
-        gyroZeroUnavailableToast:"자이로 데이터가 아직 준비되지 않았습니다.",
-        rebootConfirmTitle:"보드를 재부팅할까요?",
-        rebootConfirmText:"재부팅 중에는 실시간 데이터 수신이 잠시 중단됩니다.<br>진행하시겠습니까?",
-        rebootPendingTitle:"재부팅 대기중",
-        rebootPendingText:"보드가 재부팅 중입니다.<br>잠시만 기다려주세요.",
-        rebootConfirmBtn:"재부팅",
-        controlLauncherLabel:"발사대",
-        controlLauncherSub:"발사대 모터/액추에이터제어",
-        missionToolbarBtn:"미션 지정",
-        devToolsTitle:"DEV TOOLS",
-        devRelayStatus:"SIM ER",
-        devRelay1Btn:"1번 릴레이 오류",
-        devRelay2Btn:"2번 릴레이 오류",
-        devWsOffBtn:"WS 오류",
-        devLoadcellErrBtn:"로드셀 오류",
-        devParachuteBtn:"낙하산 실험 (SIM)",
-        settingsNavTitle:"섹션",
-        settingsNavConnect:"하드웨어",
-        settingsNavHardware:"하드웨어",
-        settingsNavInterface:"인터페이스",
-        settingsNavSequence:"시퀀스",
-        settingsNavSafety:"안전",
-        settingsNavInfo:"정보",
-        settingsGroupHardware:"하드웨어",
-        settingsHardwareInfoTitle:"하드웨어 정보",
-        settingsBoardNameLabel:"보드 이름",
-        settingsFirmwareNameLabel:"펌웨어 정보",
-        settingsProtocolLabel:"프로토콜",
-        settingsGroupSerial:"시리얼",
-        settingsGroupOperation:"운용 모드",
-        settingsWifiInfoTitle:"Wi-Fi",
-        settingsWifiModeLabel:"모드",
-        settingsWifiSsidLabel:"SSID",
-        settingsWifiChannelLabel:"채널",
-        settingsWifiBandwidthLabel:"대역폭",
-        settingsWifiTxPowerLabel:"TX 전력",
-        settingsWifiIpLabel:"IP",
-        settingsWifiStaCountLabel:"접속 장치",
-        settingsWifiRssiLabel:"신호(RSSI)",
-        settingsOpModeLabel:"모드",
-        settingsOpModeHint:"플라이트/DAQ 모드를 전환합니다.",
-        opModeDaq:"DAQ",
-        opModeFlight:"Flight",
-        settingsSerialStatusLabel:"시리얼 연결 상태",
-        settingsSerialRxLabel:"시리얼 수신 로그 반영",
-        settingsSerialRxHint:"보드가 JSON 라인을 출력하면 그대로 파싱해 UI/차트에 반영합니다.",
-        settingsSerialTxLabel:"시리얼 명령 전송",
-        settingsSerialTxHint:"ON이면 /set?… 같은 HTTP 명령을 시리얼 “SET …” 라인으로도 전송합니다.",
-        settingsSimLabel:"가상 기기 (개발자 모드)",
-        settingsSimHint:"가상 센서 값을 생성해 모든 기능을 테스트합니다.",
-        settingsWsKeepLabel:"WebSocket 유지",
-        settingsWsKeepHint:"연결이 끊겨도 자동 재연결을 시도합니다.",
-        settingsGroupInterface:"인터페이스 설정",
-        settingsThrustUnitLabel:"추력 단위",
-        settingsThrustUnitHint:"표시 단위만 변환됩니다. 저장 데이터(RAW)는 <strong>kgf 기준</strong>입니다.",
-        settingsPressureUnitLabel:"압력 단위",
-        settingsPressureUnitHint:"현재는 MPa 기준입니다. 센서 보정은 config.h의 압력 변환 상수로 조정하세요.",
-        settingsQuickDigitsLabel:"퀵데이터 소수 자릿수",
-        settingsQuickDigitsHint:"추력/압력, Delay/Burn 카드 표시 자릿수입니다.",
-        settingsLoadcellChartDigitsLabel:"로드셀 차트 소수 자릿수",
-        settingsLoadcellChartDigitsHint:"차트의 AVG/MAX 추력 표시 자릿수입니다.",
-        settingsStorageExportDigitsLabel:"SD/내보내기 소수 자릿수",
-        settingsStorageExportDigitsHint:"SD 데이터 확인용 보고서와 Flash 내보내기 파일의 추력/압력 값 자릿수입니다. 시간축 정밀도는 유지됩니다.",
-        settingsGyroPreviewLabel:"자이로 프리뷰",
-        settingsGyroPreviewHint:"플라이트 모드 프리뷰 형태를 선택합니다.",
-        settingsGyroPreview3dBasic:"3D",
-        settingsGyroPreview3d:"3D PLUS",
-        settingsGyroPreviewNav:"Navball",
-        settingsMobileHudPreviewLabel:"모바일 HUD 미리보기",
-        settingsMobileHudPreviewHint:"데스크톱이나 태블릿에서도 휴대폰 가로 인터페이스를 강제로 표시합니다.",
-        settingsMobileFullscreenLabel:"모바일 전체화면",
-        settingsMobileFullscreenHint:"지원 브라우저에서 휴대폰 가로 HUD를 전체화면으로 표시합니다.",
-        langOptionKo:"한국어",
-        langOptionEn:"영어",
-        settingsGroupSequence:"점화 시퀀스",
-        settingsIgnitionTimeLabel:"점화 시간 (릴레이 ON)",
-        settingsIgnitionTimeHint:"보드에 <span class=\"mono\">/set?ign_ms=...</span> 전송. 과열/인가 시간에 주의.",
-        settingsIgnitionTimeRange:"100~3000ms",
-        settingsDaqSequencePyroLabel:"DAQ 시퀀스 파이로 채널",
-        settingsDaqSequencePyroHint:"DAQ 모드에서 시퀀스 점화 시 사용할 기본 채널입니다.",
-        settingsGroupCountdown:"카운트다운",
-        settingsCountdownTimeLabel:"카운트다운 시간",
-        settingsCountdownTimeHint:"보드에 <span class=\"mono\">/set?cd_ms=...</span> 전송. 인원 통제 시간을 충분히 확보.",
-        settingsCountdownTimeRange:"3~60초",
-        settingsGroupSafety:"안전",
-        settingsRelaySafeHint:"릴레이가 <strong>비정상</strong>일때 모든 제어권한 정지 + 재시작 후 제어 권한 반환",
-        settingsIgniterSafetyHint:"이그나이터의 결선 확인/테스트",
-        settingsSafetyToastLabel:"안전 알림",
-        settingsSafetyToastHint:"각종 상태 변화 시 토스트 알림이 표시됩니다. 클릭하면 닫힙니다.",
-        settingsSaveBtn:"저장",
-        opModeChangedToast:"모드 변경: {mode}",
-        confirmSequenceTitle:"점화 시퀀스를 진행할까요?",
-        confirmSequenceText:"점화 조건이 충족되지 않으면 보드가 점화를 실행하지 않습니다.<br>버튼을 3초 동안 계속 누르고 있어야 카운트다운이 진행됩니다.",
-        confirmSequenceNote:"• 주변 안전거리 확보 · 이그나이터 결선/단락 여부 반드시 확인!",
-        confirmCancel:"취소",
-        easterEggTitle:"이스터에그 발견!",
-        easterEggText:"로고를 5번 두드리는 바람에 테트리스가 깨어났습니다.<br>10 블럭 이상 클리어시 선물이 있을수도 있습니다!(선착순)",
-        easterEggOk:"시작",
-        tetrisWinTitle:"축하합니다!",
-        tetrisWinText:"10줄 클리어를 완료하셨습니다!",
-        tetrisWinOk:"보상 받기",
-        tetrisPrizeTitle:"문화상품권",
-        tetrisPrizeText:"축하합니다 문화상품권을 획득 하셨습니다! (선착순)",
-        tetrisPrizeCopy:"복사",
-        tetrisPrizeClose:"닫기",
-        tetrisPrizeCopiedToast:"번호를 복사했습니다.",
-        tetrisPrizeCopyFailToast:"복사에 실패했습니다.",
-        simEnabledToast:"시뮬레이션 모드가 켜졌습니다.",
-        simDisabledToast:"시뮬레이션 모드가 꺼졌습니다.",
-        devParachuteOnToast:"낙하산 하강 시뮬레이션 시작 (T-0, 6층 높이).",
-        devParachuteOffToast:"낙하산 하강 시뮬레이션 해제.",
-        forceConfirmTitle:"강제 점화를 진행할까요?",
-        forceConfirmText:"강제 점화는 고위험 동작입니다.<br>주변 인원 접근 금지 · 보호구 착용 권장 · 결선/단락 재확인.",
-        forceLoadcellTitle:"로드셀을 점검하세요",
-        forceLoadcellText:"로드셀 상태가 확인되지 않았습니다.<br>강제 점화는 진행할 수 있지만 위험을 충분히 이해한 뒤 선택하세요.",
-        forceConfirmYes:"강제 점화",
-        forceSlideLabel:"밀어서 강제 점화",
-        forceConfirmCancel:"취소",
-        lockoutAck:"확인",
-        launcherTitle:"발사대 제어",
-        launcherNote:"발사대 모터/액추에이터 제어가 적용됩니다.<br>버튼을 누르는 동안 모터가 구동됩니다.",
-        launcherHint:"안전 주의: 발사대 주변 접근 금지. 이상 징후 시 즉시 중지하세요.",
-        launcherAutoBtn:"자동 기립",
-        launcherAutoStartToast:"자동 기립 시작",
-        launcherAutoStopToast:"자동 기립 종료",
-        launcherAutoLog:"발사대 자동 기립 실행.",
-        launcherAutoDesc:"발사대를 자동으로 세우는 1회 동작입니다.",
-        launcherAutoConfirmTitle:"자동 기립을 실행할까요?",
-        launcherAutoConfirmText:"발사대가 자동으로 상승합니다.<br>주변 안전을 확인한 후 진행하세요.",
-        launcherAutoConfirmBtn:"실행",
-        inspectionTitle:"설비 점검",
-        inspectionSub:"자동 점검을 완료하면 제어 권한이 부여됩니다.",
-        inspectionCurrentTitle:"현재 점검 항목",
-        inspectionLabelLink:"데이터 링크",
-        inspectionDescLink:"Wi-Fi/폴링 응답 상태",
-        inspectionDescSerial:"USB 시리얼 연결/권한",
-        inspectionLabelIgniter:"이그나이터",
-        inspectionDescIgniter:"연속성/오픈 여부",
-        inspectionLabelLoadcell:"로드셀",
-        inspectionDescLoadcell:"추력 데이터 정상 수신",
-        inspectionLabelSwitch:"ARM",
-        inspectionDescSwitch:"저전위(LOW) 안전 상태",
-        inspectionDescRelay:"비정상 릴레이 HIGH 여부",
-        inspectionRetry:"다시 점검",
-        footerMeta:"2026 ALTIS 추진팀 윤보배 - HANWOOL",
-        inspectionFailText:"점검 실패 항목이 있습니다.",
-        inspectionFailItemsLabel:"문제 항목",
-        inspectionPassText:"모든 항목 통과. 제어 권한 확보됨.",
-        settingsLangLabel:"언어",
-        settingsLangHint:"표시 언어를 변경합니다.",
-        settingsThemeLabel:"다크 모드",
-        settingsThemeHint:"라이트/다크 테마를 전환합니다.",
-        exportXlsx:"보고서 내보내기",
-        exportPendingBadge:"보고서 내보내기 X",
-        exportDoneBadge:"보고서 내보내기 O",
-        exportLeaveTitle:"보고서 내보내기 안됨",
-        exportLeaveText:"보고서를 아직 내보내지 않았습니다.<br>정말 이 페이지를 나가시겠습니까?",
-        exportLeaveConfirm:"나가기",
-        exportLeaveCancel:"취소",
-        exportBeforeCloseConfirm:"보고서 내보내기가 완료되지 않았습니다. 정말 나가시겠습니까?",
-        chartNoData:"데이터 없음",
-        chartAxisTime:"시간",
-        chartAxisValue:"값",
-        labelDelay:"delay",
-        labelBurn:"연소",
-        modeSerial:"시리얼",
-        modeWifi:"와이파이",
-        modeAuto:"자동",
-        swHigh:"HIGH",
-        swLow:"LOW",
-        icOk:"OK",
-        icNo:"NO",
-        relayOn:"ON",
-        relayOff:"OFF",
-        dirUp:"상승",
-        dirDown:"하강",
-        confirmTitleReady:"점화 시퀀스를 진행할까요?",
-        confirmTitleEntering:"점화 시퀀스 진입까지 {sec}초",
-        confirmTitleCountdown:"카운트다운 시작",
-        ignWindowDetected:"점화 구간 감지",
-        ignWindowNone:"점화 구간 없음",
-        igniterLostAbortLog:"시퀀스 중 이그나이터 끊김 감지 → ABORT 전송.",
-        igniterLostAbortToast:"시퀀스 중 이그나이터가 끊겼습니다. ABORT 처리했습니다. {safety}",
-        lockoutModalTitle:"LOCKOUT · {name}",
-        lockoutModalText:"비정상적인 릴레이 HIGH 감지 ({name})로 모든 제어 권한이 해제되었습니다.",
-        lockoutModalNote:"• 릴레이/배선/드라이버 쇼트 여부 확인 후 보드를 재시작하세요.",
-        connConnected:"연결됨",
-        connDisconnected:"연결 끊김",
-        statusDisconnected:"DISCONNECTED",
-        statusNoResponse:"보드 응답 없음",
-        wsConnecting:"WebSocket 연결 시도: {url}",
-        wsClosed:"WebSocket 종료 (코드 {code}, 사유 {reason}).",
-        wsError:"WebSocket 오류.",
-        wsTimeout:"WebSocket 시간초과",
-        wsAlertTitle:"WebSocket 연결 안됨",
-        wsAlertText:"WebSocket이 연결되어있지 않아 데이터가 10 Hz로 출력됩니다.<br>해결하려면 브라우저를 새로고침 하세요.",
-        wsAlertClose:"닫기",
-        deviceDisconnectedTitle:"연결 해제",
-        deviceDisconnectedText:"기기와의 통신이 끊겼습니다.<br>케이블/전원을 확인해주세요.",
-        deviceDisconnectedOk:"확인",
-        noResponse:"보드 응답 없음",
-        hdrTimeIso:"시간_ISO",
-        hdrMessage:"메시지",
-        hdrIgnWindow:"점화_구간",
-        hdrIgnDelay:"점화_지연_s",
-        hdrBurn:"유효_연소_s",
-        hdrThreshold:"임계_kgf",
-        hdrAvgThrust:"평균추력_kgf",
-        hdrAvgPressure:"평균압력_mpa",
-        hdrMaxThrust:"최대추력_kgf",
-        hdrMaxPressure:"최대압력_mpa",
-        hdrAvgThrustN:"평균추력_N",
-        hdrMaxThrustN:"최대추력_N",
-        hdrTag:"태그",
-        hdrThrust:"추력_kgf",
-        hdrThrustN:"추력_N",
-        hdrPressure:"압력_mpa",
-        hdrGpsLat:"gps_위도_deg",
-        hdrGpsLon:"gps_경도_deg",
-        hdrGpsAlt:"gps_고도_m",
-        hdrAltitudeM:"고도_m",
-        hdrSpeedMps:"속도_mps",
-        hdrAccelX:"가속도_x_g",
-        hdrAccelY:"가속도_y_g",
-        hdrAccelZ:"가속도_z_g",
-        hdrTerminalVel:"종단속도_mps",
-        hdrGyroX:"자이로_x_dps",
-        hdrGyroY:"자이로_y_dps",
-        hdrGyroZ:"자이로_z_dps",
-        hdrLoopMs:"루프_ms",
-        hdrElapsedMs:"경과_ms",
-        hdrHxHz:"hx_hz",
-        hdrCpuUs:"cpu_us",
-        hdrSwitch:"ARM",
-        hdrIgnOk:"점화_정상",
-        hdrRelay:"릴레이",
-        hdrIgs:"igs_모드",
-        hdrState:"상태",
-        hdrTdMs:"td_ms",
-        hdrRelTime:"상대시간_s",
-        hdrIgnWindowFlag:"유효추력_구간",
-        chartTitleIgnition:"유효추력 구간 추력/압력 (elapsed_ms 기준)",
-        chartTitleThrust:"추력 그래프 (유효추력 구간)",
-        chartTitleThrustN:"추력 그래프 (N, 유효추력 구간)",
-        chartTitlePressure:"압력 그래프 (유효추력 구간)",
-        statusLockout:"LOCKOUT",
-        statusAbort:"ABORT",
-        statusIgnition:"IGNITION",
-        statusCountdown:"COUNTDOWN",
-        statusNotArmed:"NOT ARMED",
-        statusReady:"READY",
-        statusLoadcellCheck:"LOADCELL CHECK",
-        statusParachute:"PARACHUTE",
-        statusSequence:"SEQUENCE",
-        statusLockoutText:"비정상적인 릴레이 HIGH 감지 ({name})",
-        statusAbortText:"시퀀스가 중단되었습니다.",
-        statusAbortTextReason:"시퀀스가 중단되었습니다. ({reason})",
-        statusIgnitionText:"점화 중입니다.",
-        statusCountdownText:"카운트다운 진행 중",
-        statusParachuteText:"낙하산 사출 감지 (CH{ch})",
-        statusSequenceText:"시퀀스 진행 중",
-        statusNotArmedTextReady:"이그나이터 미연결 / 점화 시퀀스 가능",
-        statusNotArmedTextBlocked:"이그나이터 미연결 / 점화 시퀀스 제한",
-        statusReadyText:"시스템 준비 완료",
-        statusParachuteLog:"낙하산 사출 감지 (CH{ch})",
-        statusParachuteToast:"낙하산 사출 감지 (CH{ch})",
-        sequenceReadyBtn:"READY",
-        sequenceStartBtn:"SEQUENCE",
-        sequenceEndBtn:"SEQUENCE END",
-        sequenceEndLog:"시퀀스 종료 요청.",
-        sequenceEndToast:"시퀀스를 종료했습니다.",
-        relaySafeLockout:"LOCKOUT({name})",
-        relaySafeSafe:"SAFE",
-        relaySafeOff:"OFF",
-        serialOff:"OFF",
-        serialConnected:"연결됨",
-        serialDisconnected:"연결 끊김",
-        inspectFailToast:"점검 실패 항목이 있습니다. 상태를 확인하세요.",
-        inspectFailLog:"설비 점검 실패: 일부 항목이 통과하지 못했습니다.",
-        inspectPassToast:"설비 점검 통과. 제어 권한을 획득했습니다.",
-        inspectPassLog:"설비 점검 완료. 제어 권한을 획득했습니다.",
-        wsReconnect:"WebSocket 재연결 예약 ({reason}).",
-        wsConnected:"WebSocket 연결됨: {url}",
-        wsLost:"보드와의 연결이 끊겼습니다.",
-        boardUnstable:"보드 응답이 불안정합니다. 전원/배선/Wi-Fi/폴링 주기를 확인하세요.",
-        alarmWsDisconnected:"WebSocket 연결이 끊겼습니다. 실시간 스트림이 중단되었습니다.",
-        alarmWsRecovered:"WebSocket 연결이 복구되었습니다.",
-        alarmDataTimeout:"데이터가 일정 시간 수신되지 않았습니다. 통신/전원 상태를 확인하세요. ({ms} ms)",
-        alarmDataTimeoutClear:"데이터 수신이 정상으로 복구되었습니다.",
-        alarmRxHzDrop:"데이터 수신 주파수가 저하되었습니다. 목표 {target} Hz 대비 현재 {hz} Hz",
-        alarmRxHzRecovered:"데이터 수신 주파수가 정상 범위로 복구되었습니다.",
-        alarmRelayLockout:"비정상 릴레이 HIGH 감지로 LOCKOUT 되었습니다. ({name}) 보드를 재시작하세요.",
-        alarmWsBackpressure:"WebSocket 전송 큐 적체가 발생했습니다. 누적 {total}회 (이번 +{delta})",
-        alarmReplayFormat:"Replay 파일 포맷 오류: {reason}",
-        alarmReplayAutoStop:"Replay 데이터 끝에 도달해 자동 정지되었습니다.",
-        alarmInternalException:"내부 예외가 반복 발생했습니다. 소스={source}, 오류={err}",
-        webserialUnsupported:"WebSerial조건이 아닙니다. (도움말 페이지를 확인하세요)",
-        webserialInsecureToast:"WebSerial은 HTTPS 또는 localhost에서만 동작합니다. PC 크롬에서 localhost로 접속해 주세요.",
-        webserialConnected:"WebSerial 연결됨.",
-        webserialConnectedToast:"시리얼(WebSerial) 연결 완료.",
-        serialReadEnded:"시리얼 읽기 루프 종료: {err}",
-        webserialConnectFailed:"WebSerial 연결 실패: {err}",
-        webserialConnectFailedToast:"시리얼 연결 실패. 포트/권한을 확인하세요.",
-        webserialDisconnected:"WebSerial 연결 해제됨.",
-        serialWriteFailed:"시리얼 쓰기 실패: {err}",
-        linkEstablished:"연결됨 ({src}).",
-        linkEstablishedToast:"보드와 연결되었습니다. ({src})",
-        lockoutDetectedLog:"LOCKOUT: 비정상적인 릴레이 HIGH 감지 ({name})",
-        lockoutDetectedToast:"비정상적인 릴레이 HIGH 감지 ({name})",
-        ignitionSignal:"점화 신호 감지 (st=2). 추력 {thr} kgf 초과 감시 시작.",
-        ignitionThresholdLog:"추력이 {thr} kgf 초과. 점화 지연 = {delay}s",
-        ignitionThresholdToast:"추력이 임계값({thr} kgf) 이상으로 감지되었습니다. 점화 지연 ≈ {delay}s. {safety}",
-        ignitionEndLog:"점화 상태 종료. 연소 시간 ≈ {dur}s",
-        ignitionEndToast:"유효추력 구간이 종료된 것으로 보입니다. 잔열/잔류가스 주의 후 접근하세요.",
-        ignitionNoThrustLog:"점화 상태 종료. 임계값 이상 추력 미검출.",
-        ignitionNoThrustToast:"점화 상태 종료. 유효추력이 감지되지 않았습니다. 결선/이그나이터 상태를 확인하세요. {safety}",
-        switchHighLog:"ARM 변경: HIGH(ON).",
-        switchHighToast:"ARM이 HIGH(ON) 상태입니다. 시퀀스 조건/주변 안전을 재확인하세요. {safety}",
-        switchLowLog:"ARM 변경: LOW(OFF).",
-        switchLowToast:"ARM이 LOW(OFF) 상태입니다. 안전 상태로 유지하세요. {safety}",
-        igniterOkLog:"이그나이터 연속성: OK.",
-        igniterOkToast:"이그나이터 상태가 OK로 변경되었습니다. 점화 전 결선/단락/극성을 재확인하세요. {safety}",
-        igniterNoLog:"이그나이터 연속성: NO / OPEN.",
-        igniterNoToast:"이그나이터가 NO(OPEN) 상태입니다. 커넥터/배선/단선 여부를 확인하세요. {safety}",
-        igsOnLog:"Igniter Safety Test: ON (보드).",
-        igsOnToast:"Igniter Safety Test가 ON입니다. 의도치 않은 인가 위험이 있습니다. {safety}",
-        igsOffLog:"Igniter Safety Test: OFF (보드).",
-        igsOffToast:"Igniter Safety Test가 OFF입니다. 안전 상태로 복귀했습니다. {safety}",
-        countdownStartLog:"카운트다운 시작 (st=1).",
-        countdownStartToast:"카운트다운이 시작되었습니다. 주변 안전거리 확보 후 진행하세요. {safety}",
-        ignitionFiringLog:"점화 진행 (st=2).",
-        ignitionFiringToast:"점화 시퀀스가 진행 중입니다. 절대 접근하지 마세요. {safety}",
-        sequenceCompleteLog:"시퀀스 완료. 대기 상태로 복귀.",
-        sequenceCompleteToast:"시퀀스가 완료되었습니다. 잔열/잔류가스 주의 후 접근하세요.",
-        sequenceAbortedLog:"시퀀스 중단.",
-        sequenceAbortedToast:"ABORT 처리되었습니다. 재시도 전 결선/스위치/환경을 다시 확인하세요. {safety}",
-        sequenceAbortedToastReason:"시퀀스가 중단되었습니다. ({reason}) {safety}",
-        abortReasonUser:"사용자 임의의 abort",
-        abortReasonIgniter:"이그나이터 단락",
-        abortReasonLockout:"릴레이 LOCKOUT",
-        abortReasonUnknown:"원인 미상",
-        notArmedToast:"NOT ARMED 상태입니다. 이그나이터 연결 상태를 확인하세요. {safety}",
-        lockoutDetectedToastShort:"비정상적인 릴레이 HIGH 감지 ({name}).",
-        pollingErrorLog:"폴링 오류: {err}",
-        pollingErrorToast:"폴링 중 오류가 발생했습니다. 로그를 확인하세요.",
-        lockoutNoControl:"LOCKOUT 상태에서는 어떤 제어도 불가능합니다. 보드를 재시작하세요.",
-        inspectionRequiredToast:"설비 점검을 먼저 완료하세요. 점검 통과 후 제어 권한이 부여됩니다.",
-        preSequenceToast:"시퀀스 시작 전 최종 안전 확인을 진행하세요. 3초 롱프레스로 진입합니다. {safety}",
-        inspectionRequiredShort:"설비 점검을 먼저 완료하세요. 제어 권한이 필요합니다.",
-        countdownRequestedLog:"대시보드에서 카운트다운 요청 (롱프레스).",
-        countdownRequestedToast:"카운트다운 요청을 보드에 전송했습니다. 신호/배선/주변을 계속 확인하세요. {safety}",
-        countdownIgniterRequired:"IGS 모드에서는 이그나이터가 없으면 RELAY ON을 시작할 수 없습니다. {safety}",
-        longPressCanceledToast:"롱프레스가 취소되었습니다. 주변 안전 확보 후 다시 시도하세요. {safety}",
-        lockoutForceDenied:"LOCKOUT 상태에서는 강제점화를 포함한 제어가 불가능합니다. 보드를 재시작하세요.",
-        forceNotAllowed:"시퀀스 진행 중에는 강제 점화를 사용할 수 없습니다.",
-        forceWarning:"강제 점화는 고위험 동작입니다. 마지막 확인 후 진행하세요. {safety}",
-        forceIgniterRequired:"이그나이터 미연결 상태에서는 강제 점화를 사용할 수 없습니다.",
-        lockoutControlDenied:"LOCKOUT 상태에서는 제어가 불가능합니다.",
-        inspectionRequiredPlain:"설비 점검을 먼저 완료하세요.",
-        launcherUpDownLog:"발사대 {dir} 명령 전송.",
-        dirStop:"정지",
-        lockoutCmdDenied:"LOCKOUT({name}) 상태에서는 명령을 보낼 수 없습니다. 보드를 재시작하세요.",
-        cmdSentLog:"명령 => {cmd}",
-        systemReadyLog:"시스템 준비 완료. 명령 대기 중.",
-        dashboardStartToast:"대시보드가 시작되었습니다. 연결 상태 확인 후 운용하세요. {safety}",
-        relaySafeOnToast:"RelaySafe가 ON입니다. 비정상 릴레이 HIGH 감지 시 LOCKOUT 됩니다.",
-        relaySafeOffToast:"RelaySafe가 OFF입니다. (권장하지 않음)",
-        igsToggledLog:"Igniter Safety Test 토글: {state}",
-        igsToggledOnToast:"Igniter Safety Test가 ON입니다. 이그나이터/배선에 주의하세요. {safety}",
-        igsToggledOffToast:"Igniter Safety Test가 OFF입니다. 안전 상태로 유지하세요. {safety}",
-        serialRxOnToast:"시리얼 수신 파싱 ON",
-        serialRxOffToast:"시리얼 수신 파싱 OFF",
-        serialTxOnToast:"시리얼 명령 전송 ON",
-        serialTxOffToast:"시리얼 명령 전송 OFF",
-        lockoutAbortDenied:"LOCKOUT({name}) 상태에서는 ABORT도 불가능합니다. 보드를 재시작하세요.",
-        abortRequestedToast:"ABORT 요청을 보드에 전송했습니다. 안전 확인 후 재시도하세요. {safety}",
-        inspectionOpenToast:"보드와 연결 후 설비 점검을 실행하세요.",
-        inspectionWait:"대기",
-        inspectionRunningLabel:"진행중",
-        inspectionChecking:"확인 중",
-        inspectionOk:"정상",
-        inspectionNeed:"확인 필요",
-        inspectionSkip:"SKIP",
-        inspectionIdleText:"점검 대기중…",
-        inspectionRunningText:"점검 중…",
-        forceRequestedToast:"강제 점화 요청을 보드에 전송했습니다. 절대 접근하지 마세요. {safety}",
-        lockoutAckLog:"LOCKOUT 확인 처리 ({name}). 재시작 필요.",
-        lockoutAckToast:"LOCKOUT({name}) 확인 처리(로그 기록). 보드를 재시작하세요.",
-        logCopiedLog:"로그를 클립보드에 복사했습니다.",
-        logCopiedToast:"로그가 클립보드에 복사되었습니다.",
-        clipboardCopyFailedLog:"클립보드 복사 실패.",
-        clipboardCopyFailedToast:"클립보드 복사에 실패했습니다. 브라우저 권한을 확인하세요.",
-        copyFailedLog:"복사 실패: {err}",
-        copyFailedToast:"복사에 실패했습니다. 브라우저 정책을 확인하세요.",
-        xlsxExportLog:"보고서 내보내기 완료 (ZIP): {filename}",
-        xlsxExportToast:"보고서를 .zip 파일로 내보냈습니다.",
-        thrustUnitChangedToast:"추력 단위가 {from} → {to} 로 변경되었습니다. 표시 단위만 변경됩니다. {safety}",
-        ignTimeChangedToast:"점화 시간이 {from}ms → {to}ms 로 변경되었습니다. 과열/인가 시간에 주의하세요. {safety}",
-        countdownChangedToast:"카운트다운 시간이 {from}s → {to}s 로 변경되었습니다. 인원 통제 시간을 충분히 두세요. {safety}",
-        settingsUpdatedLog:"설정 업데이트: thrustUnit={unit}, ignDuration={ign}ms, countdown={cd}s",
-        loadcellSettingsTitle:"로드셀 보정",
-        loadcellSettingsLabel:"로드셀 보정",
-        loadcellSettingsHint:"영점/스케일/노이즈 를 보정하고 데이터를 보드에 저장합니다.",
-        loadcellOpenBtn:"로드셀 보정",
-        loadcellResetLabel:"로드셀 초기화",
-        loadcellResetHint:"영점/스케일/노이즈 저장값을 처음 상태로 초기화합니다.",
-        loadcellResetBtn:"로드셀 초기화",
-        loadcellModalTitle:"로드셀 보정",
-        loadcellModalBadge:"Calibration",
-        loadcellModalGuide:"무게추를 올려놓고 값을 확인하세요. 다음을 누르세요.",
-        loadcellGuideStabilizing:"잠시만 대기해주세요. 로드셀 데이터 안정화중입니다. 로드셀을 건들이지 마세요!",
-        loadcellGuideStableReady:"안정화가 완료되었습니다. 영점 저장 버튼을 눌러주세요.",
-        loadcellGuideNoiseReady:"영점이 저장되었습니다! 무부하 상태 그대로 노이즈 영점을 저장해주세요.",
-        loadcellGuidePlaceWeight:"무게추를 올린 후 무게를 입력후 다음버튼을 클릭하세요.",
-        loadcellGuideComplete:"로드셀 보정이 완료되었습니다!",
-        loadcellModalValueLabel:"현재 측정값 (kg)",
-        loadcellModalValueHint:"보정은 kg 기준으로 저장됩니다.",
-        loadcellModalInputLabel:"중량 입력 (kg)",
-        loadcellModalInputHint:"1Kg = 1000g",
-        loadcellModalNote:"이 값은 보드에 저장됩니다.",
-        loadcellCalcTitle:"보정 계산 값",
-        loadcellCalcWeightLabel:"입력 중량",
-        loadcellCalcScaleLabel:"계산 스케일",
-        loadcellCalcOffsetLabel:"영점 오프셋",
-        loadcellCompleteTitle:"로드셀 보정 완료",
-        loadcellCompleteText:"로드셀 보정이 완료되었습니다!",
-        loadcellCompleteCloseBtn:"확인",
-        loadcellStabilityFailTitle:"로드셀 안정화 실패",
-        loadcellStabilityFailText:"값이 갑자기 크게 변했습니다. 로드셀을 건드리거나 하중이 바뀐 것으로 판단됩니다.",
-        loadcellStabilityFailSub:"하중을 모두 제거한 뒤 5~10초 정도 다시 기다려주세요. 로드셀과 지그를 만지지 마세요.",
-        loadcellRetryBtn:"다시 측정",
-        loadcellModalApply:"다음",
-        loadcellModalCancel:"취소",
-        loadcellZeroSaveBtn:"영점 저장",
-        loadcellNoiseSaveBtn:"노이즈 영점 저장",
-        loadcellModalConfirmTitle:"보정값을 저장할까요?",
-        loadcellModalConfirmText:"입력한 중량 {weight} kg로 보정값을 저장합니다. 이전 값은 삭제됩니다.",
-        loadcellModalConfirmSub:"저장 후 측정 기준이 변경됩니다. 보정에 사용한 무게추를 제거한 뒤 값을 확인하세요.",
-        loadcellModalConfirmProceed:"진행",
-        loadcellModalConfirmCancel:"취소",
-        loadcellZeroConfirmTitle:"영점을 저장할까요?",
-        loadcellZeroConfirmText:"현재 상태를 영점으로 저장합니다. 이전 영점은 덮어씁니다.",
-        loadcellWeightInvalidToast:"중량을 올바르게 입력하세요.",
-        loadcellZeroSaveSuccessToast:"영점이 저장되었습니다!",
-        loadcellZeroSaveFailToast:"로드셀 영점 저장에 실패했습니다.",
-        loadcellNoiseSaveSuccessToast:"로드셀 노이즈 영점이 저장되었습니다!",
-        loadcellNoiseSaveFailToast:"로드셀 노이즈 영점 저장에 실패했습니다.",
-        loadcellSaveSuccessToast:"로드셀 보정이 완료되었습니다!",
-        loadcellSaveFailToast:"로드셀 보정 저장에 실패했습니다.",
-        loadcellResetSuccessToast:"로드셀 초기화가 완료되었습니다!",
-        loadcellResetFailToast:"로드셀 초기화에 실패했습니다.",
-        loadcellZeroSaveLog:"로드셀 영점 저장 요청",
-        loadcellNoiseSaveLog:"로드셀 노이즈 영점 저장 요청",
-        loadcellSaveLog:"로드셀 보정 저장 요청 (weight={weight} kg)",
-        loadcellResetLog:"로드셀 초기화 요청",
-        loadcellErrorToast:"로드셀 데이터 수신 오류입니다. 센서/배선을 점검하세요.",
-        loadcellStabilityFailToast:"로드셀 값이 크게 변해 안정화에 실패했습니다. 하중을 제거하고 다시 시도하세요."
-      },
-      en: {
-        toastTitleSuccess:"Success",
-        toastTitleWarn:"Warning",
-        toastTitleError:"Error",
-        toastTitleCritical:"Critical",
-        toastTitleIgnite:"Ignite",
-        toastTitleInfo:"Info",
-        toastTitleNotice:"Notice",
-        safetyLineSuffix:"Keep safe distance · Check wiring/shorts · No personnel approach.",
-        splashLoading:"Loading<span id=\"splashDots\"></span>",
-        viewDashboardLabel:"DASHBOARD",
-        viewCountdownLabel:"COUNTDOWN",
-        viewHomeLabel:"HOME",
-        viewHardwareLabel:"HARDWARE",
-        viewTerminalLabel:"TERMINAL",
-        labelThrust:"Thrust",
-        labelPressure:"Pressure",
-        labelAltitude:"Altitude",
-        labelSpeed:"Speed",
-        labelSwitch:"ARM",
-        labelRelay:"Relay",
-        labelIgniter:"Igniter",
-        controlsHelpLink:"Open Help",
-        controlsSectionData:"Data",
-        controlsSectionSequence:"Sequence Control",
-        controlsSectionControl:"Control",
-        forceIgniteBtn:"Ignition",
-        forceIgniteSub:"High-risk",
-        forceIgniteDanger:"DANGER",
-        safetyModeOnToast:"Safety mode enabled. Relay actuation is blocked.",
-        safetyModeOffToast:"Safety mode disabled.",
-        controlSerialSub:"Connect",
-        controlSerialLabel:"WebSerial",
-        controlDevToolsLabel:"Developer Tools",
-        controlDevToolsSub:"Open developer tools",
-        controlInspectionLabel:"Inspection",
-        controlSafetyLabel:"Safety",
-        controlSafetySub:"Safety mode",
-        controlOpModeSub:"Switch Flight / DAQ",
-        controlRebootBtn:"Reboot",
-        gyroZeroBtn:"Gyro Zero",
-        gyroZeroDoneToast:"Gyro zero applied.",
-        gyroZeroUnavailableToast:"Gyro data is not ready yet.",
-        rebootConfirmTitle:"Reboot the board?",
-        rebootConfirmText:"Real-time data streaming will pause briefly during reboot.<br>Do you want to continue?",
-        rebootPendingTitle:"Waiting for reboot",
-        rebootPendingText:"The board is rebooting.<br>Please wait a moment.",
-        rebootConfirmBtn:"Reboot",
-        controlLauncherLabel:"Launcher",
-        controlLauncherSub:"Launcher motor/actuator control",
-        missionToolbarBtn:"Mission",
-        devToolsTitle:"DEV TOOLS",
-        devRelayStatus:"Relay Status",
-        devRelay1Btn:"Relay 1",
-        devRelay2Btn:"Relay 2",
-        devWsOffBtn:"WS OFF (SIM)",
-        devLoadcellErrBtn:"LOADCELL ERROR (SIM)",
-        devParachuteBtn:"PARACHUTE DROP (SIM)",
-        settingsNavTitle:"Sections",
-        settingsNavConnect:"Hardware",
-        settingsNavHardware:"Hardware",
-        settingsNavInterface:"Interface",
-        settingsNavSequence:"Sequence",
-        settingsNavSafety:"Safety",
-        settingsNavInfo:"Info",
-        settingsGroupHardware:"Hardware",
-        settingsHardwareInfoTitle:"Hardware Info",
-        settingsBoardNameLabel:"Board Name",
-        settingsFirmwareNameLabel:"Firmware",
-        settingsProtocolLabel:"Protocol",
-        settingsGroupSerial:"Serial",
-        settingsGroupOperation:"Operation Mode",
-        settingsWifiInfoTitle:"Wi-Fi",
-        settingsWifiModeLabel:"Mode",
-        settingsWifiSsidLabel:"SSID",
-        settingsWifiChannelLabel:"Channel",
-        settingsWifiBandwidthLabel:"Bandwidth",
-        settingsWifiTxPowerLabel:"TX power",
-        settingsWifiIpLabel:"IP",
-        settingsWifiStaCountLabel:"Connected devices",
-        settingsWifiRssiLabel:"Signal (RSSI)",
-        settingsOpModeLabel:"Mode",
-        settingsOpModeHint:"Switch between Flight/DAQ.",
-        opModeDaq:"DAQ",
-        opModeFlight:"Flight",
-        settingsSerialStatusLabel:"Serial connection status",
-        settingsSerialRxLabel:"Apply serial RX logs",
-        settingsSerialRxHint:"Parse JSON lines from the board and reflect them in the UI/charts.",
-        settingsSerialTxLabel:"Send serial commands",
-        settingsSerialTxHint:"When ON, /set?... is also sent as serial \"SET ...\".",
-        settingsSimLabel:"Virtual device (simulation)",
-        settingsSimHint:"Generate virtual sensor data to test all functions.",
-        settingsWsKeepLabel:"Keep WebSocket",
-        settingsWsKeepHint:"Automatically reconnect if the connection drops.",
-        settingsGroupInterface:"Interface Settings",
-        settingsThrustUnitLabel:"Thrust unit",
-        settingsThrustUnitHint:"Only the display unit is converted. Saved RAW data uses <strong>kgf</strong>.",
-        settingsPressureUnitLabel:"Pressure unit",
-        settingsPressureUnitHint:"Pressure is now shown in MPa. Tune conversion constants in config.h for your sensor.",
-        settingsQuickDigitsLabel:"Quick data decimals",
-        settingsQuickDigitsHint:"Controls decimal places for thrust/pressure and Delay/Burn cards.",
-        settingsLoadcellChartDigitsLabel:"Loadcell chart decimals",
-        settingsLoadcellChartDigitsHint:"Controls decimal places for AVG/MAX thrust labels on the chart.",
-        settingsStorageExportDigitsLabel:"SD/export decimals",
-        settingsStorageExportDigitsHint:"Controls decimal places for thrust/pressure values in SD review reports and Flash exports. Time-axis precision stays unchanged.",
-        settingsGyroPreviewLabel:"Gyro preview",
-        settingsGyroPreviewHint:"Choose the preview for Flight mode.",
-        settingsGyroPreview3dBasic:"3D",
-        settingsGyroPreview3d:"3D PLUS",
-        settingsGyroPreviewNav:"Navball",
-        settingsMobileHudPreviewLabel:"Mobile HUD Preview",
-        settingsMobileHudPreviewHint:"Force the phone landscape interface even on desktop or tablet.",
-        settingsMobileFullscreenLabel:"Mobile fullscreen",
-        settingsMobileFullscreenHint:"Show the phone landscape HUD in fullscreen on supported browsers.",
-        langOptionKo:"Korean",
-        langOptionEn:"English",
-        settingsGroupSequence:"Ignition Sequence",
-        settingsIgnitionTimeLabel:"Ignition time (relay ON)",
-        settingsIgnitionTimeHint:"Sends <span class=\"mono\">/set?ign_ms=...</span> to the board. Watch heat/energizing duration.",
-        settingsIgnitionTimeRange:"100-3000 ms",
-        settingsDaqSequencePyroLabel:"DAQ sequence pyro channel",
-        settingsDaqSequencePyroHint:"Default channel used for sequence/immediate ignition in DAQ mode. Default is PYRO1.",
-        settingsGroupCountdown:"Countdown",
-        settingsCountdownTimeLabel:"Countdown time",
-        settingsCountdownTimeHint:"Sends <span class=\"mono\">/set?cd_ms=...</span> to the board. Allow enough time to clear personnel.",
-        settingsCountdownTimeRange:"3–60 s",
-        settingsGroupSafety:"Safety",
-        settingsRelaySafeHint:"When relay is <strong>abnormal</strong>, all control is suspended; control returns after restart.",
-        settingsIgniterSafetyHint:"Check/test igniter wiring.",
-        settingsSafetyToastLabel:"Safety alerts",
-        settingsSafetyToastHint:"Toast notifications appear on state changes. Click to dismiss.",
-        settingsSaveBtn:"Save",
-        opModeChangedToast:"Mode changed: {mode}",
-        confirmSequenceTitle:"Proceed with ignition sequence?",
-        confirmSequenceText:"If conditions aren't met, the board won't ignite.<br>Hold the button for 3 seconds to start the countdown.",
-        confirmSequenceNote:"• Keep safe distance · Verify igniter wiring/shorts!",
-        confirmCancel:"Cancel",
-        easterEggTitle:"Easter egg found!",
-        easterEggText:"You poked the logo five times and woke up Tetris.<br>Wait... was this even approved?",
-        easterEggOk:"OK, I confess",
-        tetrisWinTitle:"Congratulations!",
-        tetrisWinText:"10-line clear complete. Nice play.",
-        tetrisWinOk:"Next",
-        tetrisPrizeTitle:"Reward Card",
-        tetrisPrizeText:"This is your voucher code. Copy it if needed.",
-        tetrisPrizeCopy:"Copy code",
-        tetrisPrizeClose:"Close",
-        tetrisPrizeCopiedToast:"Code copied.",
-        tetrisPrizeCopyFailToast:"Copy failed.",
-        simEnabledToast:"Simulation mode enabled.",
-        simDisabledToast:"Simulation mode disabled.",
-        devParachuteOnToast:"Parachute descent simulation started (T-0, 6-floor height).",
-        devParachuteOffToast:"Parachute descent simulation disabled.",
-        forceConfirmTitle:"Proceed with force ignition?",
-        forceConfirmText:"Force ignition is high risk.<br>No personnel nearby · PPE recommended · Recheck wiring/shorts.",
-        forceLoadcellTitle:"Check the loadcell",
-        forceLoadcellText:"Loadcell status is not verified.<br>You can still force ignite, but proceed only if you understand the risk.",
-        forceConfirmYes:"Force Ignition",
-        forceSlideLabel:"Slide to Force Ignition",
-        forceConfirmCancel:"Cancel",
-        lockoutAck:"Acknowledge",
-        launcherTitle:"Launcher Control",
-        launcherNote:"Launcher motor/actuator control is enabled.<br>The motor runs while you hold the button.",
-        launcherHint:"Safety: Keep clear of the launcher. Stop immediately if anything seems abnormal.",
-        launcherAutoBtn:"Auto Stand",
-        launcherAutoStartToast:"Auto stand started.",
-        launcherAutoStopToast:"Auto stand complete.",
-        launcherAutoLog:"Launcher auto stand triggered.",
-        launcherAutoDesc:"Runs a single automatic stand-up sequence.",
-        launcherAutoConfirmTitle:"Run auto stand?",
-        launcherAutoConfirmText:"The launcher will raise automatically.<br>Proceed only after checking safety.",
-        launcherAutoConfirmBtn:"Run",
-        inspectionTitle:"Inspection",
-        inspectionSub:"Complete the automatic check to gain control authority.",
-        inspectionCurrentTitle:"Current check",
-        inspectionLabelLink:"Data link",
-        inspectionDescLink:"Wi-Fi/polling response",
-        inspectionDescSerial:"USB serial connection/permissions",
-        inspectionLabelIgniter:"Igniter",
-        inspectionDescIgniter:"Continuity/open status",
-        inspectionLabelLoadcell:"Loadcell",
-        inspectionDescLoadcell:"Thrust data reception",
-        inspectionLabelSwitch:"ARM",
-        inspectionDescSwitch:"LOW safety state",
-        inspectionDescRelay:"Abnormal relay HIGH status",
-        inspectionRetry:"Recheck",
-        footerMeta:"2026 ALTIS Propulsion Team Yoon Bobae - HANWOOL",
-        inspectionFailText:"Some inspection items failed.",
-        inspectionFailItemsLabel:"Failed items",
-        inspectionPassText:"All checks passed. Control authority granted.",
-        loadcellSettingsTitle:"Loadcell Calibration",
-        loadcellSettingsLabel:"Loadcell Zero/Calibration",
-        loadcellSettingsHint:"Save zero/calibration value to the board.",
-        loadcellOpenBtn:"Adjust Loadcell Zero",
-        loadcellResetLabel:"Loadcell Reset",
-        loadcellResetHint:"Reset zero/scale/noise values back to the initial state.",
-        loadcellResetBtn:"Reset Loadcell",
-        loadcellModalTitle:"Loadcell Zero Adjust",
-        loadcellModalBadge:"Calibration",
-        loadcellModalGuide:"Place the weight and check the value. Tap Next.",
-        loadcellGuideStabilizing:"Please wait. Stabilizing loadcell data. Do not touch the loadcell.",
-        loadcellGuideStableReady:"Stabilization complete. Press Save Zero.",
-        loadcellGuidePlaceWeight:"Place the reference weight, enter its mass, then tap Next.",
-        loadcellGuideComplete:"Loadcell calibration is complete.",
-        loadcellModalValueLabel:"Current value (kg)",
-        loadcellModalValueHint:"Calibration is saved in kg.",
-        loadcellModalInputLabel:"Enter weight (kg)",
-        loadcellModalInputHint:"1 kg = 1000 g",
-        loadcellModalNote:"This value will be saved to the board.",
-        loadcellCalcTitle:"Calibration Result",
-        loadcellCalcWeightLabel:"Input weight",
-        loadcellCalcScaleLabel:"Calculated scale",
-        loadcellCalcOffsetLabel:"Zero offset",
-        loadcellCompleteTitle:"Calibration Complete",
-        loadcellCompleteText:"Loadcell calibration is complete.",
-        loadcellCompleteCloseBtn:"Close",
-        loadcellStabilityFailTitle:"Loadcell Stabilization Failed",
-        loadcellStabilityFailText:"The value changed too abruptly. The loadcell or fixture was likely touched or the load changed.",
-        loadcellStabilityFailSub:"Remove all load and wait 5–10 seconds again. Do not touch the loadcell or jig.",
-        loadcellRetryBtn:"Retry",
-        loadcellModalApply:"Next",
-        loadcellModalCancel:"Cancel",
-        loadcellModalConfirmTitle:"Save calibration value?",
-        loadcellModalConfirmText:"Save calibration with {weight} kg. Previous value will be removed.",
-        loadcellModalConfirmSub:"After saving, the measurement reference changes. Remove the calibration weight and check the value.",
-        loadcellModalConfirmProceed:"Proceed",
-        loadcellModalConfirmCancel:"Cancel",
-        loadcellWeightInvalidToast:"Enter a valid weight.",
-        loadcellZeroSaveSuccessToast:"Zero saved.",
-        loadcellZeroSaveFailToast:"Failed to save loadcell zero.",
-        loadcellSaveSuccessToast:"Loadcell calibration is complete.",
-        loadcellSaveFailToast:"Failed to save loadcell calibration.",
-        loadcellResetSuccessToast:"Loadcell reset is complete.",
-        loadcellResetFailToast:"Failed to reset the loadcell.",
-        loadcellSaveLog:"Loadcell calibration save request (weight={weight} kg)",
-        loadcellResetLog:"Loadcell reset requested",
-        loadcellErrorToast:"Loadcell data error. Check sensor and wiring.",
-        loadcellStabilityFailToast:"Loadcell value jumped too much. Remove the load and retry.",
-        settingsLangLabel:"Language",
-        settingsLangHint:"Change display language.",
-        settingsThemeLabel:"Dark mode",
-        settingsThemeHint:"Toggle light/dark theme.",
-        exportXlsx:"Export Report",
-        exportPendingBadge:"Report Not Exported",
-        exportDoneBadge:"Report Exported",
-        exportLeaveTitle:"Report Not Exported",
-        exportLeaveText:"The report has not been exported yet.<br>Do you really want to leave this page?",
-        exportLeaveConfirm:"Leave",
-        exportLeaveCancel:"Cancel",
-        exportBeforeCloseConfirm:"Report export is not completed. Do you really want to leave?",
-        chartNoData:"NO DATA",
-        chartAxisTime:"Time",
-        chartAxisValue:"Value",
-        labelDelay:"Delay",
-        labelBurn:"Burn",
-        modeSerial:"SERIAL",
-        modeWifi:"WIFI",
-        modeAuto:"AUTO",
-        swHigh:"HIGH",
-        swLow:"LOW",
-        icOk:"OK",
-        icNo:"NO",
-        relayOn:"ON",
-        relayOff:"OFF",
-        dirUp:"UP",
-        dirDown:"DOWN",
-        confirmTitleReady:"Proceed with ignition sequence?",
-        confirmTitleEntering:"Entering ignition sequence in {sec}s",
-        confirmTitleCountdown:"Countdown start",
-        ignWindowDetected:"Ignition window detected",
-        ignWindowNone:"No ignition window",
-        igniterLostAbortLog:"Igniter lost during sequence → ABORT sent.",
-        igniterLostAbortToast:"Igniter lost during sequence. ABORT sent. {safety}",
-        lockoutModalTitle:"LOCKOUT · {name}",
-        lockoutModalText:"Abnormal relay HIGH detected ({name}). Control revoked.",
-        lockoutModalNote:"• Check relay/wiring/driver short then restart the board.",
-        connConnected:"CONNECTED",
-        connDisconnected:"DISCONNECTED",
-        statusDisconnected:"DISCONNECTED",
-        statusNoResponse:"No response from board",
-        wsTimeout:"WebSocket timeout",
-        noResponse:"No response from board",
-        hdrTimeIso:"time_iso",
-        hdrMessage:"message",
-        hdrIgnWindow:"ignition_window",
-        hdrIgnDelay:"ignition_delay_s",
-        hdrBurn:"effective_burn_s",
-        hdrThreshold:"threshold_kgf",
-        hdrAvgThrust:"avg_thrust_kgf",
-        hdrAvgPressure:"avg_pressure_mpa",
-        hdrMaxThrust:"max_thrust_kgf",
-        hdrMaxPressure:"max_pressure_mpa",
-        hdrAvgThrustN:"avg_thrust_n",
-        hdrMaxThrustN:"max_thrust_n",
-        hdrTag:"tag",
-        hdrThrust:"thrust_kgf",
-        hdrThrustN:"thrust_n",
-        hdrPressure:"pressure_mpa",
-        hdrGpsLat:"gps_lat",
-        hdrGpsLon:"gps_lon",
-        hdrGpsAlt:"gps_alt",
-        hdrAltitudeM:"altitude_m",
-        hdrSpeedMps:"speed_mps",
-        hdrAccelX:"accel_x_g",
-        hdrAccelY:"accel_y_g",
-        hdrAccelZ:"accel_z_g",
-        hdrTerminalVel:"terminal_velocity_mps",
-        hdrGyroX:"gyro_x_dps",
-        hdrGyroY:"gyro_y_dps",
-        hdrGyroZ:"gyro_z_dps",
-        hdrLoopMs:"loop_ms",
-        hdrElapsedMs:"elapsed_ms",
-        hdrHxHz:"hx_hz",
-        hdrCpuUs:"cpu_us",
-        hdrSwitch:"arm",
-        hdrIgnOk:"ign_ok",
-        hdrRelay:"relay",
-        hdrIgs:"igs_mode",
-        hdrState:"state",
-        hdrTdMs:"td_ms",
-        hdrRelTime:"rel_time_s",
-        hdrIgnWindowFlag:"is_ignition_window",
-        chartTitleIgnition:"Thrust/Pressure in ignition window (elapsed_ms)",
-        chartTitleThrust:"Thrust chart (ignition window)",
-        chartTitleThrustN:"Thrust (N) chart (ignition window)",
-        chartTitlePressure:"Pressure chart (ignition window)",
-        statusLockout:"LOCKOUT",
-        statusAbort:"ABORT",
-        statusIgnition:"IGNITION",
-        statusCountdown:"COUNTDOWN",
-        statusNotArmed:"NOT ARMED",
-        statusReady:"READY",
-        statusLoadcellCheck:"LOADCELL CHECK",
-        statusParachute:"PARACHUTE",
-        statusSequence:"SEQUENCE",
-        statusLockoutText:"Abnormal relay HIGH detected ({name}). Control revoked. Restart the board.",
-        statusAbortText:"Sequence aborted.",
-        statusAbortTextReason:"Sequence aborted. ({reason})",
-        statusIgnitionText:"Igniter firing.",
-        statusCountdownText:"Launch countdown in progress",
-        statusParachuteText:"Parachute deployment detected (CH{ch})",
-        statusSequenceText:"Sequence in progress",
-        statusNotArmedTextReady:"Igniter open / ignition sequence allowed",
-        statusNotArmedTextBlocked:"Igniter open / ignition sequence blocked",
-        statusReadyText:"System ready",
-        statusParachuteLog:"Parachute deployment detected (CH{ch})",
-        statusParachuteToast:"Parachute deployment detected (CH{ch})",
-        sequenceReadyBtn:"READY",
-        sequenceStartBtn:"SEQUENCE START",
-        sequenceEndBtn:"SEQUENCE END",
-        sequenceEndLog:"Sequence end requested.",
-        sequenceEndToast:"Sequence ended.",
-        relaySafeLockout:"LOCKOUT({name})",
-        relaySafeSafe:"SAFE",
-        relaySafeOff:"OFF",
-        serialOff:"OFF",
-        serialConnected:"CONNECTED",
-        serialDisconnected:"DISCONNECTED",
-        inspectFailToast:"Inspection failed. Check the status.",
-        inspectFailLog:"Inspection failed: some items did not pass.",
-        inspectPassToast:"Inspection passed. Control authority acquired.",
-        inspectPassLog:"Inspection complete. Control authority acquired.",
-        wsReconnect:"WebSocket reconnect scheduled ({reason}).",
-        wsConnecting:"WebSocket connecting: {url}",
-        wsConnected:"WebSocket connected: {url}",
-        wsClosed:"WebSocket closed (code {code}, reason {reason}).",
-        wsError:"WebSocket error.",
-        wsAlertTitle:"WebSocket disconnected",
-        wsAlertText:"WebSocket is not connected, so data is shown at 10 Hz.<br>Refresh the browser to fix it.",
-        wsAlertClose:"Close",
-        deviceDisconnectedTitle:"Device disconnected",
-        deviceDisconnectedText:"Connection to the device was lost.<br>Check cable/power.",
-        deviceDisconnectedOk:"OK",
-        wsLost:"Dashboard lost connection to board.",
-        boardUnstable:"Board response is unstable. Check power/wiring/Wi-Fi/polling interval.",
-        alarmWsDisconnected:"WebSocket disconnected. Real-time stream is down.",
-        alarmWsRecovered:"WebSocket connection recovered.",
-        alarmDataTimeout:"No data received for too long. Check communication/power. ({ms} ms)",
-        alarmDataTimeoutClear:"Data reception has recovered.",
-        alarmRxHzDrop:"Data receive rate dropped. Target {target} Hz, current {hz} Hz.",
-        alarmRxHzRecovered:"Data receive rate recovered to normal range.",
-        alarmRelayLockout:"LOCKOUT triggered by abnormal relay HIGH. ({name}) Restart the board.",
-        alarmWsBackpressure:"WebSocket send queue backpressure detected. Total {total} (this +{delta}).",
-        alarmReplayFormat:"Replay file format error: {reason}",
-        alarmReplayAutoStop:"Replay reached end-of-data and stopped automatically.",
-        alarmInternalException:"Repeated internal exceptions detected. source={source}, error={err}",
-        webserialUnsupported:"This browser does not support WebSerial. (Chrome/Edge recommended)",
-        webserialInsecureToast:"WebSerial requires HTTPS or localhost. Open this dashboard from localhost on desktop Chrome/Edge.",
-        webserialConnected:"WebSerial connected.",
-        webserialConnectedToast:"Serial (WebSerial) connected.",
-        serialReadEnded:"Serial read loop ended: {err}",
-        webserialConnectFailed:"WebSerial connect failed: {err}",
-        webserialConnectFailedToast:"Serial connect failed. Check port/permissions.",
-        webserialDisconnected:"WebSerial disconnected.",
-        serialWriteFailed:"Serial write failed: {err}",
-        linkEstablished:"Link established ({src}).",
-        linkEstablishedToast:"Connected to board. ({src})",
-        lockoutDetectedLog:"LOCKOUT: abnormal relay HIGH detected ({name}). Control revoked. Restart required.",
-        lockoutDetectedToast:"Abnormal relay HIGH detected ({name}). Control revoked. Restart the board.",
-        ignitionSignal:"Ignition signal detected (st=2). Tracking thrust over {thr} kgf.",
-        ignitionThresholdLog:"Thrust exceeded {thr} kgf. Ignition delay = {delay}s",
-        ignitionThresholdToast:"Thrust exceeded threshold ({thr} kgf). Ignition delay ≈ {delay}s. {safety}",
-        ignitionEndLog:"Ignition state finished. Burn duration ≈ {dur}s",
-        ignitionEndToast:"Effective thrust window ended. Approach after residual heat/gas.",
-        ignitionNoThrustLog:"Ignition state finished. No thrust over threshold detected.",
-        ignitionNoThrustToast:"Ignition ended. No effective thrust detected. Check wiring/igniter. {safety}",
-        switchHighLog:"ARM changed: HIGH (ON).",
-        switchHighToast:"ARM is HIGH (ON). Recheck sequence conditions and safety. {safety}",
-        switchLowLog:"ARM changed: LOW (OFF).",
-        switchLowToast:"ARM is LOW (OFF). Keep safe state. {safety}",
-        igniterOkLog:"Igniter continuity: OK.",
-        igniterOkToast:"Igniter state changed to OK. Recheck wiring/short/polarity before ignition. {safety}",
-        igniterNoLog:"Igniter continuity: NO / OPEN.",
-        igniterNoToast:"Igniter is NO(OPEN). Check connector/wiring/open circuit. {safety}",
-        igsOnLog:"Igniter Safety Test: ON (from board).",
-        igsOnToast:"Igniter Safety Test is ON. Risk of unintended power. {safety}",
-        igsOffLog:"Igniter Safety Test: OFF (from board).",
-        igsOffToast:"Igniter Safety Test is OFF. Returned to safe state. {safety}",
-        countdownStartLog:"Countdown started (st=1).",
-        countdownStartToast:"Countdown started. Maintain safe distance. {safety}",
-        ignitionFiringLog:"Ignition firing (st=2).",
-        ignitionFiringToast:"Ignition sequence in progress. Do not approach. {safety}",
-        sequenceCompleteLog:"Sequence complete. Back to idle.",
-        sequenceCompleteToast:"Sequence complete. Approach after residual heat/gas.",
-        sequenceAbortedLog:"Sequence aborted.",
-        sequenceAbortedToast:"ABORT processed. Recheck wiring/switch/environment before retry. {safety}",
-        sequenceAbortedToastReason:"Sequence aborted. ({reason}) {safety}",
-        abortReasonUser:"User abort",
-        abortReasonIgniter:"Igniter short",
-        abortReasonLockout:"Relay LOCKOUT",
-        abortReasonUnknown:"Unknown reason",
-        notArmedToast:"NOT ARMED. Check igniter connection. {safety}",
-        lockoutDetectedToastShort:"Abnormal relay HIGH detected ({name}). All control stopped. Restart the board.",
-        pollingErrorLog:"Polling error: {err}",
-        pollingErrorToast:"Polling error occurred. Check the log.",
-        lockoutNoControl:"LOCKOUT state: no control allowed. Restart the board.",
-        inspectionRequiredToast:"Complete inspection first. Control authority is granted after pass.",
-        preSequenceToast:"Do final safety check before sequence. Hold 3 seconds to enter. {safety}",
-        inspectionRequiredShort:"Complete inspection first. Control authority required.",
-        countdownRequestedLog:"Countdown requested from dashboard (long-press).",
-        countdownRequestedToast:"Countdown request sent to board. Keep checking signal/wiring/area. {safety}",
-        countdownIgniterRequired:"Countdown blocked: igniter missing while IGS is enabled. {safety}",
-        longPressCanceledToast:"Long-press canceled. Try again after securing safety. {safety}",
-        lockoutForceDenied:"LOCKOUT state: control including force ignition is not allowed. Restart the board.",
-        forceNotAllowed:"Force ignition is not allowed during sequence.",
-        forceWarning:"Force ignition is high risk. Proceed after final check. {safety}",
-        forceIgniterRequired:"Force ignition requires igniter OK when IGS is enabled.",
-        lockoutControlDenied:"LOCKOUT state: control not allowed.",
-        inspectionRequiredPlain:"Complete inspection first.",
-        launcherUpDownLog:"Launcher {dir} command sent.",
-        dirStop:"STOP",
-        lockoutCmdDenied:"LOCKOUT({name}) cannot send command. Restart the board.",
-        cmdSentLog:"CMD => {cmd}",
-        systemReadyLog:"System ready. Waiting for commands.",
-        dashboardStartToast:"Dashboard started. Check connection before operation. {safety}",
-        relaySafeOnToast:"RelaySafe is ON. LOCKOUT on abnormal relay HIGH.",
-        relaySafeOffToast:"RelaySafe is OFF. (Not recommended)",
-        igsToggledLog:"Igniter Safety Test toggled: {state}",
-        igsToggledOnToast:"Igniter Safety Test is ON. Watch igniter/wiring. {safety}",
-        igsToggledOffToast:"Igniter Safety Test is OFF. Keep safe state. {safety}",
-        serialRxOnToast:"Serial RX parsing ON",
-        serialRxOffToast:"Serial RX parsing OFF",
-        serialTxOnToast:"Serial TX ON",
-        serialTxOffToast:"Serial TX OFF",
-        lockoutAbortDenied:"LOCKOUT({name}) cannot ABORT. Restart the board.",
-        abortRequestedToast:"ABORT request sent to board. Recheck safety before retry. {safety}",
-        inspectionOpenToast:"Connect to board before running inspection.",
-        inspectionWait:"Wait",
-        inspectionRunningLabel:"Run",
-        inspectionChecking:"Checking",
-        inspectionOk:"OK",
-        inspectionNeed:"Check",
-        inspectionSkip:"SKIP",
-        inspectionIdleText:"Inspection ready…",
-        inspectionRunningText:"Inspection running…",
-        forceRequestedToast:"Force ignition request sent to board. Do not approach. {safety}",
-        lockoutAckLog:"LOCKOUT acknowledged ({name}). Restart required.",
-        lockoutAckToast:"LOCKOUT({name}) acknowledged (logged). Restart the board.",
-        logCopiedLog:"Log copied to clipboard.",
-        logCopiedToast:"Log copied to clipboard.",
-        clipboardCopyFailedLog:"Clipboard copy failed.",
-        clipboardCopyFailedToast:"Clipboard copy failed. Check browser permissions.",
-        copyFailedLog:"Copy failed: {err}",
-        copyFailedToast:"Copy failed. Check browser policy.",
-        xlsxExportLog:"Report exported (ZIP): {filename}",
-        xlsxExportToast:"Exported report as .zip file.",
-        thrustUnitChangedToast:"Thrust unit changed {from} → {to}. Display only. {safety}",
-        ignTimeChangedToast:"Ignition time changed {from}ms → {to}ms. Watch heating/drive time. {safety}",
-        countdownChangedToast:"Countdown changed {from}s → {to}s. Allow enough clearance time. {safety}",
-        settingsUpdatedLog:"Settings updated: thrustUnit={unit}, ignDuration={ign}ms, countdown={cd}s",
-        loadcellSettingsTitle:"Loadcell Calibration",
-        loadcellSettingsLabel:"Loadcell zero/calibration",
-        loadcellSettingsHint:"Save zero/calibration values to the board.",
-        loadcellOpenBtn:"Loadcell Zero Adjust",
-        loadcellResetLabel:"Loadcell Reset",
-        loadcellResetHint:"Reset zero/scale/noise values back to the initial state.",
-        loadcellResetBtn:"Reset Loadcell",
-        loadcellModalTitle:"Loadcell Zero Adjust",
-        loadcellModalBadge:"Calibration",
-        loadcellModalGuide:"Place the weight, verify the reading, then tap Next.",
-        loadcellGuideStabilizing:"Please wait. Stabilizing loadcell data. Do not touch the loadcell.",
-        loadcellGuideStableReady:"Stabilization complete. Press Save Zero.",
-        loadcellGuideNoiseReady:"Zero saved. Keep the loadcell unloaded and save the noise zero next.",
-        loadcellGuidePlaceWeight:"Place the reference weight, enter its mass, then tap Next.",
-        loadcellGuideComplete:"Loadcell calibration is complete.",
-        loadcellModalValueLabel:"Current reading (kg)",
-        loadcellModalValueHint:"Calibration is stored in kg.",
-        loadcellModalInputLabel:"Enter weight (kg)",
-        loadcellModalInputHint:"e.g. 1.250",
-        loadcellModalNote:"This value is saved to the board.",
-        loadcellCalcTitle:"Calibration Result",
-        loadcellCalcWeightLabel:"Input weight",
-        loadcellCalcScaleLabel:"Calculated scale",
-        loadcellCalcOffsetLabel:"Zero offset",
-        loadcellCompleteTitle:"Calibration Complete",
-        loadcellCompleteText:"Loadcell calibration is complete.",
-        loadcellCompleteCloseBtn:"Close",
-        loadcellStabilityFailTitle:"Loadcell Stabilization Failed",
-        loadcellStabilityFailText:"The value changed too abruptly. The loadcell or fixture was likely touched or the load changed.",
-        loadcellStabilityFailSub:"Remove all load and wait 5–10 seconds again. Do not touch the loadcell or jig.",
-        loadcellRetryBtn:"Retry",
-        loadcellModalApply:"Next",
-        loadcellModalCancel:"Cancel",
-        loadcellZeroSaveBtn:"Save Zero",
-        loadcellNoiseSaveBtn:"Save Noise Zero",
-        loadcellModalConfirmTitle:"Save calibration?",
-        loadcellModalConfirmText:"Save calibration using {weight} kg. Previous data will be overwritten.",
-        loadcellModalConfirmSub:"Measurement baseline will change after saving. Remove the weight and verify the reading.",
-        loadcellModalConfirmProceed:"Proceed",
-        loadcellModalConfirmCancel:"Cancel",
-        loadcellZeroConfirmTitle:"Save zero?",
-        loadcellZeroConfirmText:"Save current state as zero. Previous zero will be overwritten.",
-        loadcellWeightInvalidToast:"Enter a valid weight.",
-        loadcellZeroSaveSuccessToast:"Zero saved.",
-        loadcellZeroSaveFailToast:"Failed to save loadcell zero.",
-        loadcellNoiseSaveSuccessToast:"Loadcell noise zero saved.",
-        loadcellNoiseSaveFailToast:"Failed to save loadcell noise zero.",
-        loadcellSaveSuccessToast:"Loadcell calibration is complete.",
-        loadcellSaveFailToast:"Failed to save loadcell calibration.",
-        loadcellResetSuccessToast:"Loadcell reset is complete.",
-        loadcellResetFailToast:"Failed to reset the loadcell.",
-        loadcellZeroSaveLog:"Loadcell zero save requested",
-        loadcellNoiseSaveLog:"Loadcell noise zero save requested",
-        loadcellSaveLog:"Loadcell calibration requested (weight={weight} kg)",
-        loadcellResetLog:"Loadcell reset requested",
-        loadcellStabilityFailToast:"Loadcell value jumped too much. Remove the load and retry."
-      }
-    };
+    const I18N = (typeof window !== "undefined" && window.FLASH6_I18N) ? window.FLASH6_I18N : {ko:{}, en:{}};
+
 
     let currentLang = "ko";
     function t(key, vars){
@@ -4437,6 +4540,7 @@
       currentLang = (lang === "en") ? "en" : "ko";
       document.documentElement.lang = currentLang;
       updateStaticTexts();
+      updateLoadcellCalibrationCapabilityUi();
       updateQuickMetricLabels();
       updateSerialControlTile();
       updateExportGuardUi();
@@ -4624,6 +4728,7 @@
       if(el.armLockToggle){
         el.armLockToggle.checked = !!uiSettings.armLock;
         updateTogglePill(el.armLockPill, el.armLockToggle.checked);
+        updateMobileArmLockWideButton();
       }
       if(el.igswitch) el.igswitch.checked = !!uiSettings.igs;
 
@@ -4634,6 +4739,7 @@
       if(el.serialRxToggle) el.serialRxToggle.checked = uiSettings.serialRx !== false;
       if(el.serialTxToggle) el.serialTxToggle.checked = uiSettings.serialTx !== false;
       if(el.simToggle) el.simToggle.checked = !!uiSettings.simEnabled;
+      if(el.muteModeToggle) el.muteModeToggle.checked = !!uiSettings.muteMode;
       if(el.langSelect) el.langSelect.value = (uiSettings.lang === "en") ? "en" : "ko";
       if(el.themeToggle) el.themeToggle.checked = (uiSettings.theme === "dark");
       document.documentElement.classList.toggle("mode-flight", uiSettings.opMode === "flight");
@@ -4655,14 +4761,20 @@
       updateControlsToolbarLabels();
       updateSerialControlTile();
       updateExportGuardUi();
+      updateMissionEditLockUI();
       refreshStatusMapMarkerContent();
       refreshStatusMapSize();
+      syncControlsPanelTitle();
+      syncMobileModeControl();
       applyPhoneLandscapeLayout();
     }
     function updateControlsToolbarLabels(){
       if(el.missionOpenBtn){
         el.missionOpenBtn.setAttribute("title", t("missionToolbarBtn"));
         el.missionOpenBtn.setAttribute("aria-label", t("missionToolbarBtn"));
+      }
+      if(el.mobileMissionWideBtn){
+        el.mobileMissionWideBtn.setAttribute("aria-label", t("missionToolbarBtn"));
       }
       if(el.gyroZeroBtn){
         el.gyroZeroBtn.setAttribute("title", t("gyroZeroBtn"));
@@ -4750,10 +4862,10 @@
     }
 
     function lockoutImgSrc(mask){
-      if(mask===1) return "img/RS_1.svg";
-      if(mask===2) return "img/RS_2.svg";
-      if(mask===3) return "img/RS_all.svg";
-      return "img/RS_all.svg";
+      if(mask===1) return "img/Danger.svg";
+      if(mask===2) return "img/Activity.svg";
+      if(mask===3) return "img/Graph.svg";
+      return "img/Danger.svg";
     }
     function showLockoutModal(){
       hideMobileControlsPanel();
@@ -5290,7 +5402,7 @@
         r: simState.st === 2 ? 1 : 0,
         st: simState.st,
         td: simTd,
-        gs: (uiSettings && uiSettings.igs) ? 1 : 0,
+        gs: isIgniterCheckEnabled() ? 1 : 0,
         m: 2,
         gps_lat: simLat,
         gps_lon: simLon,
@@ -5301,375 +5413,19 @@
     // =====================
     // UI 헬퍼
     // =====================
-    function showTetrisOverlay(){
-      hideMobileControlsPanel();
-      if(el.tetrisOverlay){
-        el.tetrisOverlay.classList.remove("hidden");
-        el.tetrisOverlay.setAttribute("aria-hidden","false");
-      }
-      if(el.logView) el.logView.style.display = "none";
-      if(el.termTitle) el.termTitle.textContent = "hanwool-tms@board: tetris";
-    }
-
-    function hideTetrisOverlay(){
-      if(el.tetrisOverlay){
-        el.tetrisOverlay.classList.add("hidden");
-        el.tetrisOverlay.setAttribute("aria-hidden","true");
-      }
-      if(el.logView) el.logView.style.display = "block";
-      if(el.termTitle) el.termTitle.textContent = "hanwool-tms@board: ~";
-    }
-
-    function createTetrisGrid(){
-      return Array.from({length: TETRIS_H}, ()=>Array(TETRIS_W).fill(0));
-    }
-
-    function pieceCells(piece, rot){
-      return TETRIS_SHAPES[piece.shape][rot];
-    }
-
-    function collides(piece, nx, ny, nrot){
-      const cells = pieceCells(piece, nrot);
-      for(const [cx, cy] of cells){
-        const x = nx + cx;
-        const y = ny + cy;
-        if(x < 0 || x >= TETRIS_W || y >= TETRIS_H) return true;
-        if(y >= 0 && tetrisState.grid[y][x]) return true;
-      }
-      return false;
-    }
-
-    function makePiece(shape){
-      return {shape, rot:0, x:3, y:0};
-    }
-
-    function spawnPiece(){
-      if(tetrisState.nextPiece == null){
-        tetrisState.nextPiece = {shape: Math.floor(Math.random() * TETRIS_SHAPES.length), rot:0, x:0, y:0};
-      }
-      const piece = makePiece(tetrisState.nextPiece.shape);
-      tetrisState.nextPiece = {shape: Math.floor(Math.random() * TETRIS_SHAPES.length), rot:0, x:0, y:0};
-      if(collides(piece, piece.x, piece.y, piece.rot)){
-        tetrisState.gameOver = true;
+    function startTetris(){
+      if(!ENABLE_EASTER_TETRIS){
+        showToast("Light mode: easter/tetris disabled", "notice", {key:"lite-tetris-disabled"});
         return;
       }
-      tetrisState.piece = piece;
-      tetrisState.lockStartMs = null;
     }
 
-    function clearLines(){
-      let cleared = 0;
-      for(let y = TETRIS_H - 1; y >= 0; y--){
-        let full = true;
-        for(let x = 0; x < TETRIS_W; x++){
-          if(!tetrisState.grid[y][x]){ full = false; break; }
-        }
-        if(full){
-          tetrisState.grid.splice(y, 1);
-          tetrisState.grid.unshift(Array(TETRIS_W).fill(0));
-          cleared += 1;
-          y += 1;
-        }
-      }
-      if(cleared > 0){
-        tetrisState.lines += cleared;
-        tetrisState.score += cleared;
-        if(tetrisState.score >= 10){
-          tetrisState.win = true;
-          showTetrisWin();
-        }
-      }
-    }
-
-    function lockPiece(){
-      const {piece} = tetrisState;
-      for(const [cx, cy] of pieceCells(piece, piece.rot)){
-        const x = piece.x + cx;
-        const y = piece.y + cy;
-        if(y >= 0 && y < TETRIS_H && x >= 0 && x < TETRIS_W){
-          tetrisState.grid[y][x] = 1;
-        }
-      }
-      clearLines();
-      tetrisState.lockStartMs = null;
-      spawnPiece();
-      tetrisState.holdUsed = false;
-    }
-
-    function movePiece(dx, dy){
-      const {piece} = tetrisState;
-      const nx = piece.x + dx;
-      const ny = piece.y + dy;
-      if(collides(piece, nx, ny, piece.rot)) return false;
-      piece.x = nx;
-      piece.y = ny;
-      tetrisState.lockStartMs = null;
-      return true;
-    }
-
-    function rotatePiece(){
-      const {piece} = tetrisState;
-      const nr = (piece.rot + 1) % 4;
-      if(!collides(piece, piece.x, piece.y, nr)){
-        piece.rot = nr;
-        tetrisState.lockStartMs = null;
-      }
-    }
-
-    function stepTetris(){
-      if(!tetrisState || tetrisState.gameOver) return;
-      if(!movePiece(0, 1)){
-        const now = Date.now();
-        if(!tetrisState.lockStartMs){
-          tetrisState.lockStartMs = now;
-        }else if(now - tetrisState.lockStartMs >= TETRIS_LOCK_DELAY_MS){
-          lockPiece();
-        }
-      }
-      renderTetris();
-      if(tetrisState && tetrisState.win) stopTetris();
-    }
-
-    function startTetris(){
-      if(tetrisActive) return;
-      tetrisActive = true;
-      tetrisWinShown = false;
-      hideTetrisWin();
-      tetrisState = {
-        grid: createTetrisGrid(),
-        piece: null,
-        score: 0,
-        lines: 0,
-        gameOver: false,
-        intro: true,
-        nextPiece: null,
-        holdPiece: null,
-        holdUsed: false,
-        win: false,
-        lockStartMs: null
-      };
-      showTetrisOverlay();
-      renderTetris();
-
-      tetrisKeyHandler = (ev)=>{
-        if(!tetrisActive || !tetrisState) return;
-        if(tetrisState.intro){
-          if(ev.key === "Enter" || ev.key === " "){
-            tetrisState.intro = false;
-            spawnPiece();
-            renderTetris();
-            ev.preventDefault();
-          }else if(ev.key === "Escape"){
-            stopTetris();
-            ev.preventDefault();
-          }
-          return;
-        }
-        if(tetrisState.gameOver && ev.key !== "Enter" && ev.key !== "Escape") return;
-        if(ev.key === "ArrowLeft"){
-          movePiece(-1, 0);
-          renderTetris();
-          ev.preventDefault();
-        }else if(ev.key === "ArrowRight"){
-          movePiece(1, 0);
-          renderTetris();
-          ev.preventDefault();
-        }else if(ev.key === "ArrowDown"){
-          movePiece(0, 1);
-          renderTetris();
-          ev.preventDefault();
-        }else if(ev.key === "ArrowUp"){
-          rotatePiece();
-          renderTetris();
-          ev.preventDefault();
-        }else if(ev.key === "c" || ev.key === "C" || ev.code === "KeyC"){
-          holdCurrentPiece();
-          ev.preventDefault();
-        }else if(ev.key === "Escape"){
-          stopTetris();
-          ev.preventDefault();
-        }else if(ev.key === "Enter" && tetrisState.gameOver){
-          tetrisState.grid = createTetrisGrid();
-          tetrisState.score = 0;
-          tetrisState.lines = 0;
-          tetrisState.gameOver = false;
-          tetrisState.intro = false;
-          tetrisState.nextPiece = null;
-          tetrisState.holdPiece = null;
-          tetrisState.holdUsed = false;
-          tetrisState.win = false;
-          tetrisWinShown = false;
-          hideTetrisWin();
-          spawnPiece();
-          renderTetris();
-          ev.preventDefault();
-        }
-      };
-      document.addEventListener("keydown", tetrisKeyHandler);
-
-      tetrisTimer = setInterval(()=>{
-        if(!tetrisActive || !tetrisState || tetrisState.gameOver || tetrisState.intro) return;
-        stepTetris();
-      }, TETRIS_TICK_MS);
-    }
-
-    function stopTetris(){
-      tetrisActive = false;
-      if(tetrisTimer){ clearInterval(tetrisTimer); tetrisTimer = null; }
-      if(tetrisKeyHandler){
-        document.removeEventListener("keydown", tetrisKeyHandler);
-        tetrisKeyHandler = null;
-      }
-      hideTetrisOverlay();
-      tetrisState = null;
-    }
-
-    function holdCurrentPiece(){
-      if(!tetrisState || tetrisState.holdUsed || tetrisState.gameOver || tetrisState.intro) return;
-      const current = tetrisState.piece;
-      if(!current) return;
-      const shape = current.shape;
-      if(tetrisState.holdPiece == null){
-        tetrisState.holdPiece = shape;
-        spawnPiece();
-      }else{
-        const swapShape = tetrisState.holdPiece;
-        tetrisState.holdPiece = shape;
-        const next = makePiece(swapShape);
-        if(collides(next, next.x, next.y, next.rot)){
-          tetrisState.gameOver = true;
-        }else{
-          tetrisState.piece = next;
-        }
-      }
-      tetrisState.lockStartMs = null;
-      tetrisState.holdUsed = true;
-      renderTetris();
-    }
-
-    function writeOverlayMsg(rows, rowIndex, msg){
-      const row = rows[rowIndex].split("");
-      const insideWidth = Math.max(0, row.length - 2);
-      const start = Math.max(1, Math.floor((insideWidth - msg.length) / 2) + 1);
-      for(let i = 0; i < msg.length && (start + i) < row.length - 1; i++){
-        row[start + i] = msg[i];
-      }
-      rows[rowIndex] = row.join("");
-    }
-
-    function renderTetris(){
-      if(!el.tetrisScreen || !tetrisState) return;
-      const rows = [];
-      const panel = [];
-      const displayW = TETRIS_W * TETRIS_SCALE_X;
-      const totalRows = (TETRIS_H * TETRIS_SCALE_Y) + 2;
-      for(let i = 0; i < totalRows; i++) panel.push("");
-
-      if(tetrisState.intro){
-        const panelWidth = panel[0].length || 1;
-        const totalWidth = (displayW + 2) + panelWidth;
-        const blank = " ".repeat(totalWidth);
-        for(let i = 0; i < totalRows; i++) rows.push(blank);
-        const art = [
-          "     H  H  AA  N  N W  W  OO   OO  L       ",
-          "     H  H A  A NN N W  W O  O O  O L       ",
-          "     HHHH AAAA N NN W WW O  O O  O L       ",
-          "     H  H A  A N  N WW W O  O O  O L       ",
-          "     H  H A  A N  N W  W  OO   OO  LLLL    ",
-          "",
-          "                   TETRIS                  ",
-          "                 With ALTIS                "
-        ];
-        const mid = Math.max(0, Math.floor(totalRows / 2) - 5);
-        for(let i = 0; i < art.length; i++){
-          const text = art[i];
-          const start = Math.max(0, Math.floor((totalWidth - text.length) / 2));
-          rows[mid + i] = blank.slice(0, start) + text + blank.slice(start + text.length);
-        }
-        const hint = "                PRESS ENTER                ";
-        const hintRow = mid + art.length + 1;
-        if(hintRow < rows.length){
-          const start = Math.max(0, Math.floor((totalWidth - hint.length) / 2));
-          rows[hintRow] = blank.slice(0, start) + hint + blank.slice(start + hint.length);
-        }
-      }else{
-        const holdPreview = Array.from({length:4}, ()=>Array(4).fill("."));
-        if(tetrisState.holdPiece != null){
-          const shape = tetrisState.holdPiece;
-          for(const [cx, cy] of TETRIS_SHAPES[shape][0]){
-            if(cx >= 0 && cx < 4 && cy >= 0 && cy < 4){
-              holdPreview[cy][cx] = "#";
-            }
-          }
-        }
-        const holdLines = holdPreview.map(r=>r.map(c=>c === "#" ? TETRIS_CELL_ON : TETRIS_CELL_OFF).join(""));
-
-        const preview = Array.from({length:4}, ()=>Array(4).fill("."));
-        if(tetrisState.nextPiece){
-          const shape = tetrisState.nextPiece.shape;
-          for(const [cx, cy] of TETRIS_SHAPES[shape][0]){
-            if(cx >= 0 && cx < 4 && cy >= 0 && cy < 4){
-              preview[cy][cx] = "#";
-            }
-          }
-        }
-        const previewLines = preview.map(r=>r.map(c=>c === "#" ? TETRIS_CELL_ON : TETRIS_CELL_OFF).join(""));
-        const panelBoxWidth = 4 * TETRIS_SCALE_X;
-        panel[0] = "  HOLD";
-        panel[1] = "  +" + "-".repeat(panelBoxWidth) + "+";
-        for(let i = 0; i < 4; i++){
-          panel[2 + i] = "  |" + holdLines[i] + "|";
-        }
-        panel[6] = "  +" + "-".repeat(panelBoxWidth) + "+";
-        const clearCount = Math.min(tetrisState.score, 10);
-        panel[7] = "  CLEAR " + String(clearCount).padStart(2, "0") + "/10";
-        panel[8] = "  NEXT";
-        panel[9] = "  +" + "-".repeat(panelBoxWidth) + "+";
-        for(let i = 0; i < 4; i++){
-          panel[10 + i] = "  |" + previewLines[i] + "|";
-        }
-        panel[14] = "  +" + "-".repeat(panelBoxWidth) + "+";
-
-        rows.push("+" + "-".repeat(displayW) + "+");
-        const {piece} = tetrisState;
-        for(let y = 0; y < TETRIS_H; y++){
-          let line = "|";
-          for(let x = 0; x < TETRIS_W; x++){
-            let filled = tetrisState.grid[y][x] ? 1 : 0;
-            if(piece && !tetrisState.gameOver){
-              for(const [cx, cy] of pieceCells(piece, piece.rot)){
-                if(piece.x + cx === x && piece.y + cy === y){
-                  filled = 1;
-                  break;
-                }
-              }
-            }
-            line += filled ? TETRIS_CELL_ON : TETRIS_CELL_OFF;
-          }
-          line += "|";
-          for(let sy = 0; sy < TETRIS_SCALE_Y; sy++){
-            rows.push(line);
-          }
-        }
-        rows.push("+" + "-".repeat(displayW) + "+");
-
-        if(tetrisState.gameOver){
-          const mid = Math.floor(rows.length / 2);
-          writeOverlayMsg(rows, Math.max(1, mid - 1), "GAME OVER");
-          writeOverlayMsg(rows, Math.min(rows.length - 2, mid), "ENTER TO R");
-        }
-      }
-
-      if(el.tetrisScore){
-        el.tetrisScore.textContent = "TETRIS · SCORE " + String(tetrisState.score).padStart(4, "0");
-      }
-      if(el.tetrisLines){
-        el.tetrisLines.textContent = "LINES " + String(tetrisState.lines);
-      }
-
-      const out = rows.map((row, idx)=>row + (panel[idx] || ""));
-      el.tetrisScreen.textContent = out.join("\n");
-    }
+    function stopTetris(){ /* no-op in light mode */ }
+    function showTetrisWin(){ /* no-op in light mode */ }
+    function hideTetrisWin(){ /* no-op in light mode */ }
+    function showTetrisPrize(){ /* no-op in light mode */ }
+    function hideTetrisPrize(){ /* no-op in light mode */ }
+    function copyTetrisPrizeCode(){ /* no-op in light mode */ }
 
     function formatStatusMapCoord(v){
       return Number(v).toFixed(5);
@@ -5716,6 +5472,7 @@
         "<div class=\"status-map-offline-kr\"></div>" +
         "<div class=\"status-map-offline-jeju\"></div>" +
         "<div class=\"status-map-offline-marker\" aria-hidden=\"true\">🚀</div>" +
+        "<div class=\"status-map-offline-badge\">OFFLINE</div>" +
         "<div class=\"status-map-offline-label\">Offline map</div>";
       el.statusMap.appendChild(layer);
       return layer;
@@ -5736,6 +5493,14 @@
       if(!el.statusMap) return;
       el.statusMap.classList.toggle("status-map-canvas--offline", next);
       if(next){
+        // Stop repeated local tile retries when no tile ever loaded.
+        if(statusMapState.tileLoadCount === 0 && statusMapState.tileLayer){
+          try{
+            statusMapState.tileLayer.off();
+            statusMapState.tileLayer.remove();
+          }catch(e){}
+          statusMapState.tileLayer = null;
+        }
         ensureStatusMapOfflineLayer();
         updateStatusMapOfflineMarker();
       }else{
@@ -6131,7 +5896,7 @@
         return;
       }
       if(statusMapState.tileOffline){
-        el.statusMapZoomText.textContent = "offline map";
+        el.statusMapZoomText.textContent = "OFFLINE";
         return;
       }
       const zoomVal = (statusMapState.map && isFinite(statusMapState.map.getZoom())) ? statusMapState.map.getZoom() : statusMapState.zoom;
@@ -6160,6 +5925,15 @@
     }
     function isFlightModeUi(){
       return getStatusMapPopupMode() === "flight";
+    }
+    function getOperationModePanelTitle(){
+      return isFlightModeUi() ? "FLIGHT MODE" : "DAQ MODE";
+    }
+    function getOperationModeQuickIconSvg(mode){
+      if(mode === "flight"){
+        return "<svg viewBox=\"0 0 24 24\"><path d=\"M12 3c3.5 2.2 5.2 5.7 5.2 9.3L12 17.5 6.8 12.3C6.8 8.7 8.5 5.2 12 3Z\"/><circle cx=\"12\" cy=\"10\" r=\"1.3\"/><path d=\"M12 17.5V21\"/><path d=\"m9.2 18.8-2.2 1.6.8-2.8\"/><path d=\"m14.8 18.8 2.2 1.6-.8-2.8\"/></svg>";
+      }
+      return "<svg viewBox=\"0 0 24 24\"><rect x=\"4.5\" y=\"5\" width=\"15\" height=\"14\" rx=\"2\"/><path d=\"M8 9h8\"/><path d=\"M8 12h8\"/><path d=\"M8 15h5\"/></svg>";
     }
     function syncOperationModeToBoard(logIt){
       const mode = isFlightModeUi() ? "flight" : "daq";
@@ -6294,7 +6068,15 @@
               ? (data.st != null ? data.st : (data.state ?? currentSt))
               : currentSt)
       );
-      const motionActive = localTplusActive || (stateHint === 2);
+      let replayHasMotionSignal = false;
+      if(replaySourceActive && data && typeof data === "object"){
+        const altRaw = data.alt_m ?? data.altitude_m ?? data.altitude ?? data.alt ?? data.gps_alt ?? data.gpsAlt ?? data.nav_alt;
+        const spdRaw = data.speed_mps ?? data.speedMps ?? data.gps_speed_mps ?? data.gpsSpeedMps ?? data.speed ?? data.spd ?? data.vel ?? data.v;
+        const hasAlt = !(altRaw == null || (typeof altRaw === "string" && altRaw.trim() === ""));
+        const hasSpd = !(spdRaw == null || (typeof spdRaw === "string" && spdRaw.trim() === ""));
+        replayHasMotionSignal = hasAlt || hasSpd || !!extractTelemetryGeo(data, {koreaOnly:false});
+      }
+      const motionActive = localTplusActive || (stateHint === 2) || replayHasMotionSignal;
       if(!motionActive){
         return;
       }
@@ -6324,7 +6106,8 @@
     }
     function resetQuickFlightMetricsState(){
       quickFlightMetrics.originAlt = NaN;
-      quickFlightMetrics.originPressureMpa = SEA_LEVEL_PRESSURE_MPA;
+      // Use first valid pressure sample as baseline for relative altitude.
+      quickFlightMetrics.originPressureMpa = NaN;
       quickFlightMetrics.lastLat = NaN;
       quickFlightMetrics.lastLon = NaN;
       quickFlightMetrics.lastAlt = NaN;
@@ -6341,7 +6124,10 @@
         data.speed, data.spd, data.vel, data.v
       ];
       for(let i=0;i<candidates.length;i++){
-        const val = Number(candidates[i]);
+        const raw = candidates[i];
+        if(raw == null) continue;
+        if(typeof raw === "string" && raw.trim() === "") continue;
+        const val = Number(raw);
         if(isFinite(val)) return Math.max(0, val);
       }
       return NaN;
@@ -6366,20 +6152,32 @@
           data.alt_m, data.altitude_m, data.altitude, data.alt,
           data.gps_alt, data.gpsAlt, data.nav_alt
         ];
+        const hasReplayRelativeAlt =
+          replaySourceActive &&
+          (data.alt_m != null || data.altitude_m != null || data.altitude != null || data.alt != null);
         let altAbs = NaN;
         for(let i=0;i<altCandidates.length;i++){
-          const val = Number(altCandidates[i]);
+          const raw = altCandidates[i];
+          if(raw == null) continue;
+          if(typeof raw === "string" && raw.trim() === "") continue;
+          const val = Number(raw);
           if(isFinite(val)){
             altAbs = val;
             break;
           }
         }
         if(isFinite(altAbs)){
-          if(!isFinite(quickFlightMetrics.originAlt)) quickFlightMetrics.originAlt = altAbs;
-          if(isFinite(quickFlightMetrics.originAlt)){
-            altitudeM = altAbs - quickFlightMetrics.originAlt;
-          }else{
+          // Replay files usually store altitude already relative to mission start.
+          // Keep it as-is so seeking mid-stream does not re-zero altitude.
+          if(hasReplayRelativeAlt){
             altitudeM = altAbs;
+          }else{
+            if(!isFinite(quickFlightMetrics.originAlt)) quickFlightMetrics.originAlt = altAbs;
+            if(isFinite(quickFlightMetrics.originAlt)){
+              altitudeM = altAbs - quickFlightMetrics.originAlt;
+            }else{
+              altitudeM = altAbs;
+            }
           }
         }
       }
@@ -6388,8 +6186,11 @@
       if(!isFinite(altitudeM) && data && typeof data === "object"){
         const pressureMpa = parsePressureMpa(data);
         if(isFinite(pressureMpa) && pressureMpa > 0.03 && pressureMpa < 0.2){
-          const p0 = quickFlightMetrics.originPressureMpa;
-          if(isFinite(p0) && p0 > 0){
+          if(!isFinite(quickFlightMetrics.originPressureMpa) || !(quickFlightMetrics.originPressureMpa > 0)){
+            quickFlightMetrics.originPressureMpa = pressureMpa;
+            altitudeM = 0;
+          }else{
+            const p0 = quickFlightMetrics.originPressureMpa;
             const ratio = pressureMpa / p0;
             if(isFinite(ratio) && ratio > 0){
               const h = 44330.0 * (1.0 - Math.pow(ratio, 0.19029495718363465));
@@ -6472,6 +6273,7 @@
     function updateQuickAuxLabels(){
       const inFlightMode = isFlightModeUi();
       const quickRelay2Item = el.quickRelay2 ? el.quickRelay2.closest(".item") : null;
+      const quickNull2Item = el.quickNull2Value ? el.quickNull2Value.closest(".item") : null;
       const quickNull3Item = el.quickNull3Value ? el.quickNull3Value.closest(".item") : null;
       if(el.quickDelayLabel){
         el.quickDelayLabel.innerHTML = `<span class="label-icon"></span>${t("labelDelay")}`;
@@ -6486,7 +6288,7 @@
         el.quickRelay2Label.innerHTML = `<span class="label-icon"></span>GYRO X`;
       }
       if(el.quickHxHzLabel){
-        el.quickHxHzLabel.innerHTML = `<span class="label-icon"></span>${inFlightMode ? "NULL" : "LOADCELL"}`;
+        el.quickHxHzLabel.innerHTML = `<span class="label-icon"></span>${inFlightMode ? "SD CARD" : "LOADCELL"}`;
       }
       if(el.quickNullLabel){
         el.quickNullLabel.innerHTML = `<span class="label-icon"></span>${inFlightMode ? "GYRO Z" : "SD CARD"}`;
@@ -6500,12 +6302,15 @@
       if(quickRelay2Item){
         quickRelay2Item.classList.toggle("hidden", !inFlightMode);
       }
+      if(quickNull2Item){
+        quickNull2Item.classList.remove("hidden");
+      }
       if(quickNull3Item){
         quickNull3Item.classList.toggle("hidden", inFlightMode);
       }
       if(inFlightMode){
         if(el.quickRelay2) el.quickRelay2.innerHTML = formatQuickGyroDeg(NaN);
-        if(el.quickHxHz) el.quickHxHz.innerHTML = `<span class="num">null</span>`;
+        if(el.quickHxHz) el.quickHxHz.innerHTML = `<span class="num">--</span>`;
         if(el.quickNullValue) el.quickNullValue.innerHTML = formatQuickGyroDeg(NaN);
         if(el.quickNull2Value) el.quickNull2Value.innerHTML = `<span class="num">null</span>`;
         if(el.quickNull3Value) el.quickNull3Value.innerHTML = `<span class="num">null</span>`;
@@ -6948,15 +6753,18 @@
     function updateServoInfoUI(info){
       if(!info || !Array.isArray(info.channels)) return;
       for(const item of info.channels){
-        const ch = Number(item && (item.id != null ? item.id : item.ch));
-        if(!isFinite(ch) || SERVO_CHANNELS.indexOf(ch) < 0) continue;
-        setServoUiPin(ch, item.pin);
-        setServoUiAngle(ch, item.angle);
+        const hwCh = Number(item && (item.id != null ? item.id : item.ch));
+        if(!isFinite(hwCh) || SERVO_CHANNELS.indexOf(hwCh) < 0) continue;
+        const uiCh = mapServoHwToUiChannel(hwCh);
+        setServoUiPin(uiCh, item.pin);
+        setServoUiAngle(uiCh, item.angle);
       }
     }
     async function fetchServoInfo(){
       if(simEnabled) return;
       if(isLocalPreviewHost()) return;
+      const isServoModalVisible = el.hardwareServoOverlay && !el.hardwareServoOverlay.classList.contains("hidden");
+      if(!servoInfo || isServoModalVisible){
       try{
         const info = await fetchJsonTimeout("/servo", 700);
         servoInfo = info;
@@ -6975,11 +6783,15 @@
           }
         }
       }
+      }
     }
     async function sendServoCommand(channel, deg){
-      const path = "/servo?ch=" + channel + "&deg=" + deg;
+      const uiCh = Math.max(1, Math.min(4, Math.round(Number(channel) || 1)));
+      const hwCh = mapServoUiToHwChannel(uiCh);
+      const path = "/servo?ch=" + hwCh + "&deg=" + deg;
       if(simEnabled){
-        handleSimCommand({ http:path, ser:"SERVO " + channel + " " + deg });
+        // Keep simulator behavior tied to UI channel labels.
+        handleSimCommand({ http:"/servo?ch=" + uiCh + "&deg=" + deg, ser:"SERVO " + uiCh + " " + deg });
         return { ok:true, reason:"SIM" };
       }
 
@@ -6988,7 +6800,7 @@
       let serialReason = "";
       if(canSerial){
         try{
-          const ackPattern = new RegExp("^PWM" + String(channel) + "\\s*=\\s*(-?\\d+)$", "i");
+          const ackPattern = new RegExp("^PWM" + String(hwCh) + "\\s*=\\s*(-?\\d+)$", "i");
           const sendOneSerialServo = async (lineToSend)=>{
             const waiter = createSerialAckWaiter((evt)=>{
               if(evt.kind === "err") return true;
@@ -7013,7 +6825,7 @@
           // 1차: REST 형태(/servo?...), 2차: 레거시(SERVO ch deg) 폴백
           let serialResult = await sendOneSerialServo(path);
           if(!serialResult.ok){
-            serialResult = await sendOneSerialServo("SERVO " + channel + " " + deg);
+            serialResult = await sendOneSerialServo("SERVO " + hwCh + " " + deg);
           }
           if(serialResult.ok){
             return { ok:true, reason:serialResult.reason || "SERIAL_ACK", appliedDeg:serialResult.appliedDeg };
@@ -7034,7 +6846,7 @@
 
       const API_BASE = getApiBaseForCommands();
       const url = API_BASE ? (API_BASE + path) : path;
-      const opt = API_BASE ? { mode:"no-cors", cache:"no-cache" } : { cache:"no-cache" };
+      const opt = { cache:"no-cache" };
 
       try{
         const res = await fetch(url, opt);
@@ -7920,6 +7732,9 @@
     function isControlUnlocked(){
       return controlAuthority && inspectionState==="passed" && !lockoutLatched;
     }
+    function isArmLockEngaged(){
+      return !!(el.armLockToggle && el.armLockToggle.checked);
+    }
     function isSequenceBusyForPanelModes(){
       return sequenceActive || currentSt === 1 || currentSt === 2 || localTplusActive || tplusUiActive;
     }
@@ -7956,11 +7771,44 @@
       el.inspectionOpenBtn.setAttribute("aria-disabled", blocked ? "true" : "false");
     }
 
+    function markInspectionSyncPending(passed){
+      inspectionSyncPendingValue = passed ? 1 : 0;
+      inspectionSyncPendingUntilMs = Date.now() + 1500;
+    }
+
+    function applyInspectionAuthorityFromTelemetry(rawValue){
+      if(rawValue == null || inspectionRunning) return false;
+      const num = Number(rawValue);
+      if(!isFinite(num)) return false;
+      const value = num !== 0 ? 1 : 0;
+      const now = Date.now();
+      if(inspectionSyncPendingValue != null){
+        if(value === inspectionSyncPendingValue){
+          inspectionSyncPendingValue = null;
+          inspectionSyncPendingUntilMs = 0;
+        }else if(now < inspectionSyncPendingUntilMs){
+          return false;
+        }else{
+          inspectionSyncPendingValue = null;
+          inspectionSyncPendingUntilMs = 0;
+        }
+      }
+      const passed = value === 1;
+      const nextState = passed ? "passed" : "failed";
+      if(controlAuthority === passed && inspectionState === nextState) return false;
+      controlAuthority = passed;
+      inspectionState = nextState;
+      if(passed) inspectionLastFailedKeys = [];
+      updateInspectionPill();
+      updateControlAccessUI(currentSt);
+      return true;
+    }
+
     function updateControlAccessUI(st){
       const state = (st==null) ? currentSt : st;
       const unlocked=isControlUnlocked();
       if(el.forceBtn){
-        const igniterBlocked = (uiSettings && uiSettings.igs) && latestTelemetry.ic !== 1;
+        const igniterBlocked = isIgniterCheckEnabled() && latestTelemetry.ic !== 1;
         const blocked = replaySourceActive || ((!unlocked && !loadcellErrorActive) || lockoutLatched || state!==0 || sequenceActive || igniterBlocked || safetyModeEnabled);
         el.forceBtn.disabled = blocked;
         el.forceBtn.classList.toggle("disabled", blocked);
@@ -8117,7 +7965,14 @@
       return isForcedMobileHudPreview() || (MOBILE_PANEL_MEDIA.matches && isTouchCapableDevice());
     }
     function isTouchCapableDevice(){
-      return (navigator.maxTouchPoints || 0) > 0 || ("ontouchstart" in window);
+      if((navigator.maxTouchPoints || 0) > 0) return true;
+      if("ontouchstart" in window) return true;
+      if(window.matchMedia){
+        if(window.matchMedia("(pointer: coarse)").matches) return true;
+        if(window.matchMedia("(any-pointer: coarse)").matches) return true;
+      }
+      const ua = String((navigator && navigator.userAgent) || "");
+      return /Android|iPhone|iPad|iPod|Windows Phone|IEMobile|Opera Mini|Mobile/i.test(ua);
     }
     function isTabletControlsLayout(){
       return !isMobileLayout() && TABLET_CONTROLS_MEDIA.matches && isTouchCapableDevice();
@@ -8175,8 +8030,12 @@
       return "CONTROL PANEL";
     }
     function syncControlsPanelTitle(){
+      const title = getControlsPanelTitle();
       if(el.controlsCardTitle){
-        el.controlsCardTitle.textContent = getControlsPanelTitle();
+        el.controlsCardTitle.textContent = title;
+      }
+      if(el.mobileControlsHeadTitle){
+        el.mobileControlsHeadTitle.textContent = (title === "CONTROL PANEL") ? getOperationModePanelTitle() : title;
       }
     }
     function setMobileLauncherPanelVisible(show){
@@ -8195,6 +8054,7 @@
     }
     function setMobileMissionPanelVisible(show){
       if(!el.mobileControlsPanel) return;
+      if(show && isFlightModeUi()) return;
       const next = !!show;
       if(next){
         setMobileLauncherPanelVisible(false);
@@ -8277,6 +8137,7 @@
       updateNavActionState();
     }
     function setMissionPanelVisible(show){
+      if(show && isFlightModeUi()) return;
       missionPanelActive = !!show;
       if(missionPanelActive){
         setOverlayVisible(el.missionOverlay, false);
@@ -8541,6 +8402,31 @@
         setMobileQuickPillTone(inspectionPill, tone);
         setMobileQuickIconTone("inspection", tone === "pill-green" ? "tone-green" : (tone === "pill-red" ? "tone-red" : "tone-gray"));
       }
+      syncMobileModeControl();
+    }
+
+    function syncMobileModeControl(){
+      const mode = isFlightModeUi() ? "flight" : "daq";
+      const modeTitle = getOperationModePanelTitle();
+      if(el.mobileModeQuickLabel){
+        el.mobileModeQuickLabel.textContent = modeTitle;
+      }
+      if(el.mobileControlButtonMap){
+        const modeBtn = el.mobileControlButtonMap.mode;
+        if(modeBtn){
+          modeBtn.setAttribute("aria-label", modeTitle);
+          modeBtn.setAttribute("title", modeTitle);
+          const icon = modeBtn.querySelector(".mobile-quick-icon");
+          if(icon){
+            icon.classList.remove("tone-green", "tone-red", "tone-gray", "tone-blue");
+            icon.classList.add("tone-gray");
+            if(icon.getAttribute("data-mode-icon") !== mode){
+              icon.innerHTML = getOperationModeQuickIconSvg(mode);
+              icon.setAttribute("data-mode-icon", mode);
+            }
+          }
+        }
+      }
     }
 
     function setMobileControlButtonState(type, disabled){
@@ -8556,10 +8442,42 @@
       if(!el.mobileControlButtonMap) return;
       const sequenceDisabled = !!(el.igniteBtn && el.igniteBtn.disabled);
       const inspectionDisabled = !!(el.inspectionOpenBtn && el.inspectionOpenBtn.classList.contains("disabled"));
-      const missionDisabled = !isMissionEditableNow();
       setMobileControlButtonState("sequence", sequenceDisabled);
       setMobileControlButtonState("inspection", inspectionDisabled);
-      setMobileControlButtonState("mission", missionDisabled);
+      setMobileControlButtonState("mode", false);
+      if(el.mobileSequenceWideBtn){
+        el.mobileSequenceWideBtn.disabled = sequenceDisabled;
+        el.mobileSequenceWideBtn.classList.toggle("disabled", sequenceDisabled);
+        el.mobileSequenceWideBtn.setAttribute("aria-disabled", sequenceDisabled ? "true" : "false");
+      }
+    }
+
+    function updateMobileArmLockWideButton(){
+      const inFlightMode = isFlightModeUi();
+      if(el.mobileArmLockWideBtn){
+        const hasArmLockToggle = !!el.armLockToggle;
+        const active = !!(inFlightMode && hasArmLockToggle && el.armLockToggle.checked);
+        const visible = inFlightMode && hasArmLockToggle;
+        el.mobileArmLockWideBtn.classList.toggle("hidden", !visible);
+        const disabled = !visible;
+        el.mobileArmLockWideBtn.disabled = disabled;
+        el.mobileArmLockWideBtn.classList.toggle("disabled", disabled);
+        el.mobileArmLockWideBtn.classList.toggle("is-active", active);
+        el.mobileArmLockWideBtn.setAttribute("aria-hidden", visible ? "false" : "true");
+        el.mobileArmLockWideBtn.setAttribute("aria-disabled", disabled ? "true" : "false");
+        el.mobileArmLockWideBtn.title = visible
+          ? (active ? "ARM ON LOCK 켜짐 (터치하면 해제)" : "ARM ON LOCK 해제 (스위치 따름)")
+          : "Flight 모드에서만 사용 가능합니다.";
+      }
+      if(el.mobileMissionWideBtn){
+        const missionVisible = !inFlightMode;
+        el.mobileMissionWideBtn.classList.toggle("hidden", !missionVisible);
+        el.mobileMissionWideBtn.disabled = !missionVisible;
+        el.mobileMissionWideBtn.classList.toggle("disabled", !missionVisible);
+        el.mobileMissionWideBtn.setAttribute("aria-hidden", missionVisible ? "false" : "true");
+        el.mobileMissionWideBtn.setAttribute("aria-disabled", missionVisible ? "false" : "true");
+        el.mobileMissionWideBtn.title = missionVisible ? "" : "Flight 모드에서는 미션 프로필을 사용할 수 없습니다.";
+      }
     }
 
     function shouldShowMobileAbortButton(){
@@ -8601,12 +8519,21 @@
       }
       if(el.igniteBtn && !el.igniteLabel) el.igniteBtn.textContent = label;
       if(el.mobileSequenceLabel) el.mobileSequenceLabel.textContent = label;
+      if(el.mobileSequenceWideLabel) el.mobileSequenceWideLabel.textContent = label;
     }
 
     function toggleInput(node){
       if(!node) return;
       node.checked = !node.checked;
       node.dispatchEvent(new Event("change", {bubbles:true}));
+    }
+    function toggleOperationModeFromMobile(){
+      if(!el.opModeSelect) return;
+      const mode = isFlightModeUi() ? "flight" : "daq";
+      const nextMode = mode === "flight" ? "daq" : "flight";
+      if(el.opModeSelect.value === nextMode) return;
+      el.opModeSelect.value = nextMode;
+      el.opModeSelect.dispatchEvent(new Event("change", {bubbles:true}));
     }
 
     function setInspectionStepInfo(key){
@@ -8755,6 +8682,12 @@
           {freq:1100, dur:180, gap:0}
         ]);
       }
+      const inspectionPassedNow = !hasFail;
+      markInspectionSyncPending(inspectionPassedNow);
+      await sendCommand({
+        http:"/set?inspection=" + (inspectionPassedNow ? 1 : 0),
+        ser:"/set?inspection=" + (inspectionPassedNow ? 1 : 0)
+      }, false);
       setButtonsFromState(currentSt, lockoutLatched, sequenceActive);
       updateInspectionPill();
       return !hasFail;
@@ -9086,9 +9019,10 @@
       ctx.restore();
     }
 
-    function drawChart(canvasId, data, color, view){
+    function drawChart(canvasId, data, color, view, options){
       const canvas=document.getElementById(canvasId);
       if(!canvas) return;
+      const opts = options || {};
 
       const size = ensureCanvasSize(canvas);
       if(!size) return;
@@ -9122,7 +9056,13 @@
       let min=slice[0], max=slice[0], sum=0;
       for(let v of slice){ if(v<min) min=v; if(v>max) max=v; sum+=v; }
       const avg=sum/slice.length;
-      const displayRange = expandChartValueRange(min, max);
+      const hasCustomYRange =
+        isFinite(Number(opts.yMin)) &&
+        isFinite(Number(opts.yMax)) &&
+        Number(opts.yMax) > Number(opts.yMin);
+      const displayRange = hasCustomYRange
+        ? {min:Number(opts.yMin), max:Number(opts.yMax)}
+        : expandChartValueRange(min, max);
       const yAxis = buildNiceTicks(displayRange.min, displayRange.max, height < 220 ? 4 : 5);
       const yMin = yAxis.min;
       const yMax = yAxis.max;
@@ -9159,6 +9099,33 @@
       function xPos(index){
         const xValue = timeMeta ? timeMeta.values[index] : index;
         return plotLeft + (((xValue - xMin) / xSpan) * plotWidth);
+      }
+
+      const thresholdLines = Array.isArray(opts.thresholdLines) ? opts.thresholdLines : [];
+      if(thresholdLines.length){
+        ctx.save();
+        ctx.font = "10px -apple-system,BlinkMacSystemFont,system-ui,sans-serif";
+        ctx.textAlign = "left";
+        ctx.textBaseline = "bottom";
+        thresholdLines.forEach((line)=>{
+          if(!line) return;
+          const value = Number(line.value);
+          if(!isFinite(value) || value < yMin || value > yMax) return;
+          const y = yPos(value);
+          const lineColor = line.color || "rgba(249,115,22,0.88)";
+          ctx.strokeStyle = lineColor;
+          ctx.setLineDash([5,4]);
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(plotLeft, y);
+          ctx.lineTo(plotRight, y);
+          ctx.stroke();
+          if(line.label){
+            ctx.fillStyle = lineColor;
+            ctx.fillText(String(line.label), plotLeft + 4, Math.max(plotTop + 10, y - 3));
+          }
+        });
+        ctx.restore();
       }
 
       ctx.beginPath();
@@ -9475,7 +9442,7 @@
         if(el.statusPillMeta) el.statusPillMeta.className="status-disc";
         el.statusPill.textContent = t("statusNotArmed");
         if(el.statusPillMeta) el.statusPillMeta.textContent = t("statusNotArmed");
-        const allowSeq = !(uiSettings && uiSettings.igs);
+        const allowSeq = !isIgniterCheckEnabled();
         el.statusText.textContent = allowSeq ? t("statusNotArmedTextReady") : t("statusNotArmedTextBlocked");
         syncGyroStatusFromMain();
         return 3;
@@ -9561,6 +9528,7 @@
       }
       if(el.sequenceStatusLabel) el.sequenceStatusLabel.textContent = label;
       if(el.sequenceStatusDesktop) el.sequenceStatusDesktop.textContent = label;
+      if(el.mobileSequenceWideStatus) el.mobileSequenceWideStatus.textContent = label;
       if(el.mobileControlButtonMap && el.mobileControlButtonMap.sequence){
         const icon = el.mobileControlButtonMap.sequence.querySelector(".mobile-quick-icon");
         if(icon){
@@ -9821,6 +9789,7 @@
 
       if(type === "switch_rising") return !!ctx.switchRising;
       if(type === "switch_falling") return !!ctx.switchFalling;
+      if(type === "sequence_start") return !!ctx.sequenceStart;
       if(type === "boot") return true;
       if(type === "altitude_gte") return replayMissionCompare(ctx.altitudeM, threshold, cmp);
       if(type === "time_after_firing_ms") return replayMissionCompare(ctx.timeAfterFiringMs, threshold, cmp);
@@ -9878,10 +9847,11 @@
       const logPrefix = isReplayItem ? "Replay" : "Mission";
       if(type === "servo"){
         const servoCh = Math.max(1, Math.min(4, ch));
+        const servoHwCh = mapServoUiToHwChannel(servoCh);
         const angle = clampServoAngle(then.angle);
         setServoUiAngle(servoCh, angle);
         if(applyHardware){
-          sendCommand({http:"/servo?ch=" + servoCh + "&deg=" + angle, ser:"SERVO " + servoCh + " " + angle}, false);
+          sendCommand({http:"/servo?ch=" + servoHwCh + "&deg=" + angle, ser:"SERVO " + servoHwCh + " " + angle}, false);
           if(isReplayItem){
             addLogLine("Replay block #" + blockNo + " → SERVO CH" + servoCh + " = " + angle + "° (HW)", logTag);
           }else{
@@ -10010,6 +9980,7 @@
       const tdNow = Number(ctx && ctx.tdMs);
       const switchRising = (rt.lastSwitch === 0 && swNow === 1);
       const switchFalling = (rt.lastSwitch === 1 && swNow === 0);
+      const sequenceStart = (rt.lastState === 0) && (stNow === 1 || stNow === 2);
 
       if((stNow === 2 || (isFinite(thrustNow) && thrustNow >= IGN_THRUST_THRESHOLD)) && rt.firingStartMs == null){
         rt.firingStartMs = sampleTimeMs;
@@ -10045,6 +10016,7 @@
       const condCtx = {
         switchRising,
         switchFalling,
+        sequenceStart,
         altitudeM: Number(ctx && ctx.altitudeM),
         timeAfterFiringMs,
         gyroXDeg: Number(ctx && ctx.gyroXDeg),
@@ -10111,6 +10083,30 @@
       if(el.replayStatusText) el.replayStatusText.textContent = String(text || "");
     }
 
+    function setReplaySeekProcessingUi(visible, doneCount, totalCount){
+      replaySeekProcessing = !!visible;
+      if(!replaySeekProcessing){
+        replaySeekDisplayIndex = -1;
+      }
+      const done = Math.max(0, Number(doneCount) || 0);
+      const total = Math.max(0, Number(totalCount) || 0);
+      if(el.replaySeekOverlayText){
+        if(replaySeekProcessing){
+          const percent = (total > 0) ? Math.min(100, Math.max(0, Math.round((done * 100) / total))) : 0;
+          el.replaySeekOverlayText.textContent = "궤도 예측 중... 잠시만 기다려주세요. (" + percent + "%)";
+        }else{
+          el.replaySeekOverlayText.textContent = "궤도 예측 중... 잠시만 기다려주세요.";
+        }
+      }
+      setOverlayVisible(el.replaySeekOverlay, replaySeekProcessing);
+    }
+
+    function cancelReplaySeekProcessing(){
+      replaySeekTaskToken += 1;
+      setReplaySeekProcessingUi(false);
+      updateReplayModeUi();
+    }
+
     function setActiveDataSource(mode){
       const next = (mode === DATA_SOURCE_REPLAY) ? DATA_SOURCE_REPLAY : DATA_SOURCE_LIVE;
       if(activeDataSource === next) return;
@@ -10132,6 +10128,8 @@
       pressureBaseHistory = [];
       quickAltitudeHistory = [];
       gyroSpeedHistory = [];
+      chipTempHistory = [];
+      perfLoadHistory = [];
       accelMagHistory = [];
       accelXHistory = [];
       accelYHistory = [];
@@ -10151,11 +10149,22 @@
       rxWindowStartMs = 0;
       rxWindowCount = 0;
       rxHzWindow = 0;
+      sampleRateWindowStartMs = 0;
+      sampleRateWindowCount = 0;
+      sampleRateHzWindow = 0;
+      lastSampleTimelineMs = NaN;
       prevSwState = null;
       prevIcState = null;
       prevGsState = null;
       prevSmState = null;
       prevStForIgn = 0;
+      lastChipTempC = null;
+      lastChipTempSampleMs = 0;
+      lastPerfLoadRawPct = null;
+      lastPerfLoadPct = null;
+      lastPerfCpuUs = null;
+      lastPerfLoopUs = null;
+      lastPerfSampleMs = 0;
       ignitionAnalysis = {hasData:false,ignStartMs:null,thresholdMs:null,lastAboveMs:null,windowStartMs:null,windowEndMs:null,delaySec:null,durationSec:null,endNotified:false};
       lastBurnSeconds = null;
       resetQuickFlightMetricsState();
@@ -10204,10 +10213,15 @@
       const defaultIndex = (replayState.lastIndex >= 0)
         ? replayState.lastIndex
         : Math.max(0, replayState.index - 1);
-      const index = (overrideIndex == null) ? defaultIndex : Math.max(0, Math.min(maxIndex, Number(overrideIndex) || 0));
+      let index = (overrideIndex == null) ? defaultIndex : Math.max(0, Math.min(maxIndex, Number(overrideIndex) || 0));
+      if(overrideIndex == null && replaySeekProcessing && replaySeekDisplayIndex >= 0){
+        index = Math.max(0, Math.min(maxIndex, replaySeekDisplayIndex));
+      }
       if(el.replaySeekRange){
         el.replaySeekRange.max = String(maxIndex);
-        el.replaySeekRange.value = String(index);
+        if(!replaySeekInteracting || overrideIndex != null){
+          el.replaySeekRange.value = String(index);
+        }
         el.replaySeekRange.disabled = total <= 1;
       }
       if(el.replaySeekLabel){
@@ -10240,6 +10254,11 @@
           btn.setAttribute("title", "Replay");
         });
       }
+      const hasSamples = replayState.samples.length > 0;
+      const controlsDisabled = replaySeekProcessing;
+      if(el.replayPanel){
+        el.replayPanel.classList.toggle("replay-empty", !hasSamples);
+      }
       if(el.replayFileBtn){
         el.replayFileBtn.classList.toggle("is-loaded", !!replayState.fileName);
       }
@@ -10252,24 +10271,36 @@
           ? ("파일 변경: 클릭 또는 드래그 (" + replayState.samples.length + " samples)")
           : "파일을 드래그 하거나 클릭하여 업로드하세요.";
       }
-      const hasSamples = replayState.samples.length > 0;
       const hasProgress = replayState.lastIndex >= 0 || replayState.index > 0;
       if(el.replayStartBtn){
-        el.replayStartBtn.textContent = replayState.playing ? "재생 중" : (hasProgress ? "Replay 재개" : "Replay 시작");
-        el.replayStartBtn.disabled = !hasSamples || replayState.playing;
-      }
-      if(el.replayStopBtn){
-        el.replayStopBtn.disabled = !hasSamples || !replayState.playing;
+        const startLabel = replayState.playing ? "정지" : (hasProgress ? "재개" : "재생");
+        el.replayStartBtn.setAttribute("aria-label", startLabel);
+        el.replayStartBtn.setAttribute("title", startLabel);
+        el.replayStartBtn.classList.toggle("is-playing", !!replayState.playing);
+        el.replayStartBtn.disabled = !hasSamples || controlsDisabled;
       }
       if(el.replayRestartBtn){
-        el.replayRestartBtn.disabled = !hasSamples;
+        el.replayRestartBtn.setAttribute("aria-label", "처음으로");
+        el.replayRestartBtn.setAttribute("title", "처음으로");
+        el.replayRestartBtn.disabled = !hasSamples || controlsDisabled;
+      }
+      if(el.replayEndBtn){
+        el.replayEndBtn.setAttribute("aria-label", "끝으로");
+        el.replayEndBtn.setAttribute("title", "끝으로");
+        el.replayEndBtn.disabled = !hasSamples || controlsDisabled;
       }
       if(el.replayTminus10Btn){
-        el.replayTminus10Btn.disabled = !hasSamples;
+        el.replayTminus10Btn.disabled = !hasSamples || controlsDisabled;
+      }
+      if(el.replayConvertBtn){
+        el.replayConvertBtn.setAttribute("aria-label", "보고서 내보내기");
+        el.replayConvertBtn.setAttribute("title", "보고서 내보내기");
+        el.replayConvertBtn.disabled = !hasSamples || controlsDisabled;
       }
       updateReplaySeekUi();
       updateReplaySpeedUi();
       updateNavActionState();
+      updateExportButtonState();
     }
 
     function clearReplayTimer(){
@@ -10279,14 +10310,20 @@
       }
     }
 
-    function applyReplaySampleAt(index){
+    function applyReplaySampleAt(index, opts){
       if(index < 0 || index >= replayState.samples.length) return false;
       const frame = replayState.samples[index];
       if(!frame || !frame.sample) return false;
+      const options = opts || {};
       const replaySample = Object.assign({}, frame.sample, {_replayTsMs: frame.tsMs});
       onIncomingSample(replaySample, "REPLAY");
+      if(!options.suppressBoardSim){
+        sendBoardMissionSimSample(replaySample).catch(()=>{});
+      }
       replayState.lastIndex = index;
-      updateReplaySeekUi(index);
+      if(!options.suppressSeekUi){
+        updateReplaySeekUi();
+      }
       return true;
     }
 
@@ -10347,6 +10384,7 @@
       clearReplayTimer();
       const wasPlaying = replayState.playing;
       replayState.playing = false;
+      sendBoardMissionSimControl(false).catch(()=>{});
       updateReplayModeUi();
       if(wasPlaying && !silent){
         setReplayStatus("리플레이를 정지했습니다.");
@@ -10358,6 +10396,7 @@
         showToast("리플레이 파일(.xlsx/.csv/.bin)을 먼저 선택하세요.", "notice", {key:"replay-no-file"});
         return;
       }
+      if(replaySeekProcessing) return;
       if(replayState.playing) return;
       if(replayState.index >= replayState.samples.length){
         replayState.index = 0;
@@ -10367,6 +10406,7 @@
         resetReplayBuffers();
       }
       setActiveDataSource(DATA_SOURCE_REPLAY);
+      sendBoardMissionSimControl(true).catch(()=>{});
       replayState.playing = true;
       setReplayStatus("리플레이 재생 중");
       updateReplayModeUi();
@@ -10378,8 +10418,10 @@
         showToast("리플레이 파일(.xlsx/.csv/.bin)을 먼저 선택하세요.", "notice", {key:"replay-no-file"});
         return;
       }
+      if(replaySeekProcessing) return;
       pauseReplayPlayback({silent:true});
       setActiveDataSource(DATA_SOURCE_REPLAY);
+      sendBoardMissionSimControl(true).catch(()=>{});
       replayState.index = 0;
       replayState.lastIndex = -1;
       resetReplayBuffers();
@@ -10394,23 +10436,52 @@
       const maxIndex = replayState.samples.length - 1;
       const index = Math.max(0, Math.min(maxIndex, Number(targetIndex) || 0));
       const shouldResume = !!resumePlayback;
+      const taskToken = ++replaySeekTaskToken;
+      replaySeekDisplayIndex = index;
       pauseReplayPlayback({silent:true});
       setActiveDataSource(DATA_SOURCE_REPLAY);
       resetReplayBuffers();
-      applyReplaySampleAt(index);
-      replayState.index = index + 1;
-      setReplayStatus("리플레이 시점을 이동했습니다.");
+      setReplaySeekProcessingUi(true, 0, index + 1);
       updateReplayModeUi();
-      if(shouldResume && replayState.index <= maxIndex){
-        const nowTs = replayState.samples[index].tsMs;
-        const nextTs = replayState.samples[replayState.index].tsMs;
-        let deltaMs = Number(nextTs) - Number(nowTs);
-        if(!isFinite(deltaMs) || deltaMs < 1) deltaMs = 1;
-        const speed = (isFinite(replayState.speed) && replayState.speed > 0) ? replayState.speed : 1;
-        replayState.playing = true;
+
+      (async ()=>{
+        await delay(0);
+        let i = 0;
+        while(i <= index){
+          if(taskToken !== replaySeekTaskToken) return;
+          const chunkEnd = Math.min(index, i + REPLAY_SEEK_REBUILD_CHUNK - 1);
+          for(; i <= chunkEnd; i++){
+            if(!applyReplaySampleAt(i, {suppressSeekUi:true, suppressBoardSim:true})){
+              i = index + 1;
+              break;
+            }
+          }
+          if(taskToken !== replaySeekTaskToken) return;
+          setReplaySeekProcessingUi(true, Math.min(i, index + 1), index + 1);
+          await delay(0);
+        }
+        if(taskToken !== replaySeekTaskToken) return;
+        updateReplaySeekUi(index);
+        replayState.index = index + 1;
+        setReplayStatus("리플레이 시점을 이동했습니다.");
+        if(shouldResume && replayState.index <= maxIndex){
+          const nowTs = replayState.samples[index].tsMs;
+          const nextTs = replayState.samples[replayState.index].tsMs;
+          let deltaMs = Number(nextTs) - Number(nowTs);
+          if(!isFinite(deltaMs) || deltaMs < 1) deltaMs = 1;
+          const speed = (isFinite(replayState.speed) && replayState.speed > 0) ? replayState.speed : 1;
+          replayState.playing = true;
+          scheduleReplayTick(deltaMs / speed);
+        }
+      })().catch((err)=>{
+        if(taskToken !== replaySeekTaskToken) return;
+        const reason = (err && err.message) ? err.message : String(err || "unknown");
+        setReplayStatus("리플레이 시점 이동 실패: " + reason);
+      }).finally(()=>{
+        if(taskToken !== replaySeekTaskToken) return;
+        setReplaySeekProcessingUi(false);
         updateReplayModeUi();
-        scheduleReplayTick(deltaMs / speed);
-      }
+      });
     }
 
     function findReplayTminusIndex(targetMs){
@@ -10509,8 +10580,10 @@
     }
 
     function exitReplayMode(){
+      cancelReplaySeekProcessing();
       replayUiActive = false;
       pauseReplayPlayback({silent:true});
+      sendBoardMissionSimControl(false).catch(()=>{});
       setActiveDataSource(DATA_SOURCE_LIVE);
       setReplayStatus("실시간 모드");
       updateReplayModeUi();
@@ -10711,6 +10784,14 @@
     }
 
     function replayToNumber(value, fallback){
+      if(value == null) return fallback;
+      if(typeof value === "string"){
+        const s = value.trim();
+        if(s === "") return fallback;
+        const commaDecimal = s.replace(",", ".");
+        const numComma = Number(commaDecimal);
+        if(isFinite(numComma)) return numComma;
+      }
       const num = Number(value);
       return isFinite(num) ? num : fallback;
     }
@@ -10885,6 +10966,24 @@
 
       const samples = [];
       let prevTs = null;
+      const lastFinite = {
+        t: null,
+        p: null,
+        ax: null,
+        ay: null,
+        az: null,
+        gx: null,
+        gy: null,
+        gz: null
+      };
+      const holdFinite = (key, value, fallback)=>{
+        if(isFinite(value)){
+          lastFinite[key] = value;
+          return value;
+        }
+        if(isFinite(lastFinite[key])) return lastFinite[key];
+        return fallback;
+      };
       for(let r = headerRow + 1; r < rows.length; r++){
         const row = rows[r] || [];
         if(!row.length) continue;
@@ -10964,22 +11063,31 @@
         }
         prevTs = tsMs;
 
+        const tOut = holdFinite("t", thrustVal, 0);
+        const pOut = holdFinite("p", pressureVal, 0);
+        const axOut = holdFinite("ax", accelXVal, 0);
+        const ayOut = holdFinite("ay", accelYVal, 0);
+        const azOut = holdFinite("az", accelZVal, 0);
+        const gxOut = holdFinite("gx", gyroXVal, 0);
+        const gyOut = holdFinite("gy", gyroYVal, 0);
+        const gzOut = holdFinite("gz", gyroZVal, 0);
+
         samples.push({
           tsMs,
           sample: {
-            t: isFinite(thrustVal) ? thrustVal : 0,
-            p: isFinite(pressureVal) ? pressureVal : 0,
+            t: tOut,
+            p: pOut,
             gps_lat: isFinite(latReplay) ? latReplay : null,
             gps_lon: isFinite(lonReplay) ? lonReplay : null,
             gps_alt: isFinite(gpsAltReplay) ? gpsAltReplay : null,
             alt_m: isFinite(altReplay) ? altReplay : null,
             speed_mps: isFinite(speedReplay) ? speedReplay : null,
-            ax: isFinite(accelXVal) ? accelXVal : 0,
-            ay: isFinite(accelYVal) ? accelYVal : 0,
-            az: isFinite(accelZVal) ? accelZVal : 0,
-            gx: isFinite(gyroXVal) ? gyroXVal : 0,
-            gy: isFinite(gyroYVal) ? gyroYVal : 0,
-            gz: isFinite(gyroZVal) ? gyroZVal : 0,
+            ax: axOut,
+            ay: ayOut,
+            az: azOut,
+            gx: gxOut,
+            gy: gyOut,
+            gz: gzOut,
             lt: replayToNumber(col.loopMs >= 0 ? row[col.loopMs] : null, 0),
             hz: replayToNumber(col.hz >= 0 ? row[col.hz] : null, 0),
             ct: replayToNumber(col.cpuUs >= 0 ? row[col.cpuUs] : null, 0),
@@ -11142,6 +11250,8 @@
     const REPLAY_BIN_RECORD_HEADER_BYTES = 16;
     const REPLAY_BIN_SAMPLE_PAYLOAD_BYTES = 70;
     const REPLAY_BIN_RECORD_MARKER = 0xA55A;
+    const REPLAY_BIN_RECORD_MARKER_ALT = 0x5AA5;
+    const REPLAY_BIN_SCAN_MAX_BYTES = 1024 * 1024;
 
     function replayReadMagicText(dv, offset, len){
       let out = "";
@@ -11153,6 +11263,32 @@
       return out;
     }
 
+    function replayResolveRecordMarkers(hint){
+      const out = [];
+      const push = (raw)=>{
+        const mk = (Number(raw) || 0) & 0xFFFF;
+        if(mk !== REPLAY_BIN_RECORD_MARKER && mk !== REPLAY_BIN_RECORD_MARKER_ALT) return;
+        if(out.indexOf(mk) >= 0) return;
+        out.push(mk);
+      };
+      push(hint);
+      push(REPLAY_BIN_RECORD_MARKER);
+      push(REPLAY_BIN_RECORD_MARKER_ALT);
+      return out;
+    }
+
+    function replayLooksLikeFirmwareBin(dv){
+      if(!(dv instanceof DataView)) return false;
+      if(dv.byteLength < 8) return false;
+      const imageMagic = dv.getUint8(0);
+      const segmentCount = dv.getUint8(1);
+      const flashMode = dv.getUint8(2);
+      if(imageMagic !== 0xE9 && imageMagic !== 0xEA) return false;
+      if(segmentCount < 1 || segmentCount > 32) return false;
+      if(flashMode > 3) return false;
+      return true;
+    }
+
     function replayIsLikelyRawRecordStream(dv, startOffset, endOffset, marker){
       if(!(dv instanceof DataView)) return false;
       const start = Math.max(0, Number(startOffset) || 0);
@@ -11161,14 +11297,28 @@
 
       const mk = dv.getUint16(start + 0, true);
       const recVersion = dv.getUint8(start + 2);
+      const recType = dv.getUint8(start + 3);
       const payloadSize = dv.getUint16(start + 4, true);
       const nextOffset = start + REPLAY_BIN_RECORD_HEADER_BYTES + payloadSize;
 
       if(mk !== marker) return false;
-      if(recVersion !== 1) return false;
+      if(recVersion > 16) return false;
+      if(recType > 64 && recType !== 0xFF) return false;
       if(payloadSize === 0 || payloadSize > 2048) return false;
       if(nextOffset > end) return false;
       return true;
+    }
+
+    function replayNormalizePressureMpaForAltitude(rawPressure){
+      const p = Number(rawPressure);
+      if(!isFinite(p) || p <= 0) return NaN;
+      // Preferred: already MPa absolute pressure.
+      if(p > 0.03 && p < 0.2) return p;
+      // Common alternate units from legacy logs.
+      if(p > 50 && p < 200) return (p / 1000);      // kPa -> MPa
+      if(p > 50000 && p < 200000) return (p / 1000000); // Pa -> MPa
+      if(p > 0.5 && p < 2.0) return (p * 0.1);      // bar -> MPa
+      return NaN;
     }
 
     function replayParseBinRecordRange(dv, startOffset, endOffset, marker){
@@ -11177,6 +11327,7 @@
       const samples = [];
       let offset = start;
       let prevTs = null;
+      let originPressureMpa = NaN;
 
       while((offset + REPLAY_BIN_RECORD_HEADER_BYTES) <= end){
         const mk = dv.getUint16(offset + 0, true);
@@ -11197,17 +11348,19 @@
         }
         if(mk !== marker){
           if(samples.length > 0) break;
-          throw new Error("BIN 레코드 마커 오류");
+          offset += 1;
+          continue;
         }
-        if(recVersion !== 1){
+        if(recVersion !== 1 && recVersion !== 0){
           if(samples.length > 0){
             offset = nextOffset;
             continue;
           }
-          throw new Error("지원되지 않는 BIN 레코드 버전: " + recVersion);
+          offset += 1;
+          continue;
         }
 
-        if(recType === 1 && payloadSize >= REPLAY_BIN_SAMPLE_PAYLOAD_BYTES){
+        if((recType === 1 || recType === 0) && payloadSize >= REPLAY_BIN_SAMPLE_PAYLOAD_BYTES){
           const base = payloadOffset;
           const sample = {
             t: dv.getFloat32(base + 0, true),
@@ -11243,6 +11396,22 @@
             we: dv.getUint8(base + 69)
           };
 
+          // BIN payload v1 has no explicit altitude field.
+          // Derive relative altitude from absolute pressure when unit/range is recognized.
+          const pressureMpa = replayNormalizePressureMpaForAltitude(sample.p);
+          if(isFinite(pressureMpa)){
+            if(!isFinite(originPressureMpa) || !(originPressureMpa > 0)){
+              originPressureMpa = pressureMpa;
+              sample.alt_m = 0;
+            }else{
+              const ratio = pressureMpa / originPressureMpa;
+              if(isFinite(ratio) && ratio > 0){
+                const h = 44330.0 * (1.0 - Math.pow(ratio, 0.19029495718363465));
+                if(isFinite(h)) sample.alt_m = (Math.abs(h) < 0.05) ? 0 : h;
+              }
+            }
+          }
+
           if(prevTs != null && tsMs <= prevTs){
             tsMs = prevTs + 1;
           }
@@ -11268,41 +11437,65 @@
       }
 
       const dv = new DataView(arrayBuffer);
-      const magic = replayReadMagicText(dv, 0, 8);
-      if(magic === "HWLOGV1"){
-        const version = dv.getUint16(8, true);
-        const headerSize = dv.getUint16(10, true);
-        const dataBytes = dv.getUint32(12, true);
-        const declaredMarker = dv.getUint32(28, true) & 0xFFFF;
-        const marker = declaredMarker || REPLAY_BIN_RECORD_MARKER;
-        if(version !== 1){
-          throw new Error("지원되지 않는 BIN 버전: " + version);
-        }
-        if(headerSize < REPLAY_BIN_HEADER_MIN_BYTES){
-          throw new Error("BIN 헤더 크기가 잘못되었습니다.");
-        }
+      const magic = replayReadMagicText(dv, 0, 8).replace(/\0+$/g, "");
+      let headerErr = null;
+      if(magic.toUpperCase().indexOf("HWLOGV") === 0){
+        try{
+          const version = dv.getUint16(8, true);
+          const headerSize = dv.getUint16(10, true);
+          const dataBytes = dv.getUint32(12, true);
+          const declaredMarker = dv.getUint32(28, true) & 0xFFFF;
+          if(version < 1 || version > 16){
+            throw new Error("지원되지 않는 BIN 버전: " + version);
+          }
+          if(headerSize < REPLAY_BIN_HEADER_MIN_BYTES || headerSize > arrayBuffer.byteLength){
+            throw new Error("BIN 헤더 크기가 잘못되었습니다.");
+          }
 
-        const dataStart = headerSize;
-        const dataEnd = dataStart + dataBytes;
-        if(dataEnd > arrayBuffer.byteLength){
-          throw new Error("BIN 데이터 길이가 손상되었습니다.");
+          const dataStart = headerSize;
+          const dataEnd = (dataBytes > 0 && (dataStart + dataBytes) <= arrayBuffer.byteLength)
+            ? (dataStart + dataBytes)
+            : arrayBuffer.byteLength;
+          const markers = replayResolveRecordMarkers(declaredMarker);
+          let lastErr = null;
+          for(const marker of markers){
+            try{
+              return replayParseBinRecordRange(dv, dataStart, dataEnd, marker);
+            }catch(err){
+              lastErr = err;
+            }
+          }
+          if(lastErr) throw lastErr;
+          throw new Error("BIN 파일에 리플레이 샘플이 없습니다.");
+        }catch(err){
+          headerErr = err;
         }
-        return replayParseBinRecordRange(dv, dataStart, dataEnd, marker);
       }
 
-      if(replayIsLikelyRawRecordStream(dv, 0, arrayBuffer.byteLength, REPLAY_BIN_RECORD_MARKER)){
-        return replayParseBinRecordRange(dv, 0, arrayBuffer.byteLength, REPLAY_BIN_RECORD_MARKER);
+      const markers = replayResolveRecordMarkers(REPLAY_BIN_RECORD_MARKER);
+      for(const marker of markers){
+        if(replayIsLikelyRawRecordStream(dv, 0, arrayBuffer.byteLength, marker)){
+          return replayParseBinRecordRange(dv, 0, arrayBuffer.byteLength, marker);
+        }
       }
 
-      const scanLimit = Math.min(arrayBuffer.byteLength - 2, 4096);
+      const scanLimit = Math.min(arrayBuffer.byteLength - 2, REPLAY_BIN_SCAN_MAX_BYTES);
       for(let i = 0; i <= scanLimit; i++){
-        if(dv.getUint16(i, true) !== REPLAY_BIN_RECORD_MARKER) continue;
-        if(replayIsLikelyRawRecordStream(dv, i, arrayBuffer.byteLength, REPLAY_BIN_RECORD_MARKER)){
-          return replayParseBinRecordRange(dv, i, arrayBuffer.byteLength, REPLAY_BIN_RECORD_MARKER);
+        const mk = dv.getUint16(i, true);
+        if(mk !== REPLAY_BIN_RECORD_MARKER && mk !== REPLAY_BIN_RECORD_MARKER_ALT) continue;
+        if(replayIsLikelyRawRecordStream(dv, i, arrayBuffer.byteLength, mk)){
+          return replayParseBinRecordRange(dv, i, arrayBuffer.byteLength, mk);
         }
       }
 
-      throw new Error("지원되지 않는 BIN 매직입니다.");
+      if(replayLooksLikeFirmwareBin(dv)){
+        throw new Error("펌웨어 BIN입니다. 리플레이용 BIN(로그 덤프)을 선택하세요.");
+      }
+      if(headerErr){
+        const reason = (headerErr && headerErr.message) ? headerErr.message : String(headerErr || "UNKNOWN");
+        throw new Error("BIN 헤더 인식 실패: " + reason);
+      }
+      throw new Error("지원되지 않는 BIN 매직입니다. (기대: HWLOGV1 헤더 또는 raw 0xA55A/0x5AA5 레코드)");
     }
 
     async function parseReplayBin(file){
@@ -11367,14 +11560,104 @@
       throw new Error("자동 판별 실패 (" + reasons.join(" | ") + ")");
     }
 
+    function buildReplayExportRows(){
+      if(!replayState || !Array.isArray(replayState.samples) || !replayState.samples.length) return [];
+      const out = [];
+      const firstTs = Number(replayState.samples[0].tsMs);
+      const hasAbsTime = isFinite(firstTs) && firstTs > 946684800000; // >= 2000-01-01
+      const baseAbsMs = Date.now();
+      const asFiniteOrNull = (value)=>{
+        if(value == null) return null;
+        const n = Number(value);
+        return isFinite(n) ? n : null;
+      };
+      let originPressureMpa = null;
+      let prevAltM = null;
+      let prevRelMs = null;
+      for(let i = 0; i < replayState.samples.length; i++){
+        const frame = replayState.samples[i];
+        if(!frame || !frame.sample) continue;
+        const sample = frame.sample;
+        const ts = Number(frame.tsMs);
+        const relMs = (isFinite(ts) && isFinite(firstTs)) ? Math.max(0, ts - firstTs) : (i * 100);
+        const absMs = hasAbsTime && isFinite(ts) ? ts : (baseAbsMs + relMs);
+        const thrust = asFiniteOrNull(sample.t);
+        const pressure = asFiniteOrNull(sample.p);
+        let altM =
+          asFiniteOrNull(sample.alt_m) ??
+          asFiniteOrNull(sample.altitude_m) ??
+          asFiniteOrNull(sample.altitude) ??
+          asFiniteOrNull(sample.alt);
+        const gpsAlt =
+          asFiniteOrNull(sample.gps_alt) ??
+          asFiniteOrNull(sample.gpsAlt) ??
+          asFiniteOrNull(sample.gps_altitude) ??
+          asFiniteOrNull(sample.nav_alt);
+        if(altM == null && pressure != null && pressure > 0.001 && pressure < 0.2){
+          if(originPressureMpa == null) originPressureMpa = pressure;
+          const ratio = pressure / originPressureMpa;
+          if(isFinite(ratio) && ratio > 0){
+            const h = 44330.0 * (1.0 - Math.pow(ratio, 0.19029495718363465));
+            if(isFinite(h)) altM = h;
+          }
+        }
+        let speedMps =
+          asFiniteOrNull(sample.speed_mps) ??
+          asFiniteOrNull(sample.speedMps) ??
+          asFiniteOrNull(sample.speed);
+        if(speedMps == null && altM != null && prevAltM != null && prevRelMs != null){
+          const dtMs = relMs - prevRelMs;
+          if(isFinite(dtMs) && dtMs > 0){
+            const est = (altM - prevAltM) / (dtMs / 1000.0);
+            if(isFinite(est)) speedMps = est;
+          }
+        }
+        prevAltM = (altM != null) ? altM : prevAltM;
+        prevRelMs = relMs;
+        out.push({
+          time: new Date(absMs).toISOString(),
+          t: thrust,
+          p: pressure,
+          alt_m: altM,
+          speed_mps: speedMps,
+          gps_lat: asFiniteOrNull(sample.gps_lat ?? sample.gpsLat),
+          gps_lon: asFiniteOrNull(sample.gps_lon ?? sample.gpsLon),
+          gps_alt: gpsAlt,
+          ax: asFiniteOrNull(sample.ax),
+          ay: asFiniteOrNull(sample.ay),
+          az: asFiniteOrNull(sample.az),
+          gx: asFiniteOrNull(sample.gx),
+          gy: asFiniteOrNull(sample.gy),
+          gz: asFiniteOrNull(sample.gz),
+          lt: asFiniteOrNull(sample.lt),
+          elapsed: relMs,
+          hz: asFiniteOrNull(sample.hz),
+          ct: asFiniteOrNull(sample.ct),
+          s: asFiniteOrNull(sample.s),
+          ic: asFiniteOrNull(sample.ic),
+          r: asFiniteOrNull(sample.r),
+          gs: asFiniteOrNull(sample.gs),
+          st: asFiniteOrNull(sample.st),
+          td: asFiniteOrNull(sample.td) ?? 0
+        });
+      }
+      return out;
+    }
+
     // =====================
     // 통신: WebSocket 스트림
     // =====================
     function getWsUrl(){
-      const useFallback = isLocalPreviewHost();
-      const proto = (!useFallback && location.protocol === "https:") ? "wss" : "ws";
-      const host = useFallback ? "192.168.4.1" : (location.host || "192.168.4.1");
-      return proto + "://" + host + "/ws";
+      const API_BASE = getApiBaseForCommands();
+      if(API_BASE){
+        try{
+          const u = new URL(API_BASE);
+          const wsProto = (u.protocol === "https:") ? "wss:" : "ws:";
+          return wsProto + "//" + (u.host || "192.168.4.1") + "/ws";
+        }catch(_e){}
+      }
+      const proto = (location.protocol === "https:") ? "wss" : "ws";
+      return proto + "://" + (location.host || "192.168.4.1") + "/ws";
     }
 
     function addWsLog(msg){
@@ -11392,12 +11675,34 @@
       }
     }
 
+    function closeWsSocketSafe(closeCode, closeReason){
+      if(!wsSocket) return;
+      const sock = wsSocket;
+      wsSocket = null;
+      try{
+        if(sock.readyState === WebSocket.OPEN || sock.readyState === WebSocket.CONNECTING){
+          sock.close(closeCode || 1000, closeReason || "reconnect");
+        }
+      }catch(_e){}
+    }
+
     function openWebSocket(){
+      if(replaySourceActive) return;
+      if(wsSocket){
+        const rs = wsSocket.readyState;
+        if(rs === WebSocket.OPEN || rs === WebSocket.CONNECTING){
+          return;
+        }
+        wsSocket = null;
+      }
       const url = getWsUrl();
+      wsLastOpenAttemptMs = Date.now();
+      wsConnectStartedMs = wsLastOpenAttemptMs;
       addWsLog(t("wsConnecting", {url}));
       try{
         wsSocket = new WebSocket(url);
       }catch(e){
+        wsSocket = null;
         scheduleWsReconnect("open failed");
         return;
       }
@@ -11405,6 +11710,12 @@
       wsSocket.onopen = ()=>{
         wsConnected = true;
         wsEverConnected = true;
+        wsConnectStartedMs = 0;
+        wsLastMsgMs = Date.now();
+        if(!wsBootOpenBeaconSent){
+          wsBootOpenBeaconSent = true;
+          bootBeacon("ws_open");
+        }
         setAlarmActive("WS_DISCONNECTED", false);
         updateWsUI();
         wsRetryMs = 300;
@@ -11426,6 +11737,11 @@
 
       wsSocket.onerror = ()=>{
         wsConnected = false;
+        wsConnectStartedMs = 0;
+        if(!wsBootErrorBeaconSent){
+          wsBootErrorBeaconSent = true;
+          bootBeacon("ws_error");
+        }
         addWsLog(t("wsError"));
         setAlarmActive("WS_DISCONNECTED", true);
         updateWsUI();
@@ -11433,8 +11749,14 @@
 
       wsSocket.onclose = (ev)=>{
         wsConnected = false;
+        wsConnectStartedMs = 0;
+        wsSocket = null;
         const code = ev?.code ?? 0;
         const reason = ev?.reason || "-";
+        if(!wsBootErrorBeaconSent && code !== 1000){
+          wsBootErrorBeaconSent = true;
+          bootBeacon("ws_close", "code=" + code);
+        }
         addWsLog(t("wsClosed", {code, reason}));
         setAlarmActive("WS_DISCONNECTED", true);
         updateWsUI();
@@ -11444,11 +11766,26 @@
 
     function ensureWsAlive(){
       if(replaySourceActive) return;
-      if(wsConnected && (Date.now() - wsLastMsgMs) > DISCONNECT_GRACE_MS){
+      const now = Date.now();
+      if(wsConnected && (now - wsLastMsgMs) > DISCONNECT_GRACE_MS){
         failStreak = FAIL_STREAK_LIMIT;
         markDisconnectedIfNeeded(t("wsTimeout"));
         wsConnected = false;
+        closeWsSocketSafe(4001, "ws stale timeout");
+        scheduleWsReconnect("timeout");
         updateWsUI();
+      }else if(!wsConnected){
+        const socketState = wsSocket ? wsSocket.readyState : WebSocket.CLOSED;
+        if(socketState === WebSocket.CONNECTING){
+          if(wsConnectStartedMs > 0 && (now - wsConnectStartedMs) > WS_CONNECT_TIMEOUT_MS){
+            closeWsSocketSafe(4002, "connect timeout");
+            scheduleWsReconnect("connect timeout");
+          }
+        }else if((socketState === WebSocket.CLOSED || socketState === WebSocket.CLOSING) && !wsRetryTimer){
+          if((now - wsLastOpenAttemptMs) >= 300){
+            scheduleWsReconnect("ensure alive");
+          }
+        }
       }
       evaluateRuntimeAlarms(Date.now());
     }
@@ -11468,22 +11805,42 @@
       }
     }
 
-    async function fetchJsonWithFallback(){
+    function normalizeNetError(err, fallbackText){
+      const raw = (err && err.message) ? String(err.message) : String(err || "");
+      const low = raw.toLowerCase();
+      if(err && err.name === "AbortError") return "요청 시간 초과 (보드 연결/응답 지연)";
+      if(low.indexOf("aborted") >= 0) return "요청 시간 초과 (보드 연결/응답 지연)";
+      if(low.indexOf("failed to fetch") >= 0) return "보드에 연결할 수 없음";
+      if(low.indexOf("networkerror") >= 0) return "네트워크 오류";
+      if(low.indexOf("http ") >= 0) return raw.toUpperCase();
+      return raw || fallbackText || "알 수 없는 오류";
+    }
+
+    async function fetchJsonWithFallback(timeoutMs){
       const API_BASE = getApiBaseForCommands();
       const order = [preferredEndpoint, ...ENDPOINTS.filter(e=>e!==preferredEndpoint)];
       let lastErr = null;
+      const ctrl = new AbortController();
+      const timer = setTimeout(()=>{ try{ ctrl.abort(); }catch(_e){} }, timeoutMs || 1600);
 
-      for(const path of order){
-        const url = API_BASE ? (API_BASE + path) : path;
-        try{
-          const obj = await fetchJsonTimeout(url, 700);
-          preferredEndpoint = path;
-          return obj;
-        }catch(e){
-          lastErr = e;
+      try {
+        for(const path of order){
+          const url = API_BASE ? (API_BASE + path) : path;
+          try{
+            const resp = await fetch(url, { cache:"no-cache", signal: ctrl.signal });
+            if(!resp.ok) throw new Error("HTTP " + resp.status);
+            const obj = await resp.json();
+            preferredEndpoint = path;
+            return obj;
+          }catch(e){
+            if (e.name === 'AbortError') throw e;
+            lastErr = e;
+          }
         }
+        throw (lastErr || new Error("no valid endpoint"));
+      } finally {
+        clearTimeout(timer);
       }
-      throw (lastErr || new Error("no valid endpoint"));
     }
 
     function markDisconnectedIfNeeded(reason){
@@ -11870,6 +12227,54 @@
       }
     }
 
+    function formatMissionSimNum(value, digits){
+      const n = Number(value);
+      if(!isFinite(n)) return null;
+      return Number(n.toFixed(digits));
+    }
+
+    async function sendBoardMissionSimControl(enabled){
+      if(!serialConnected || !serialTxEnabled) return false;
+      return await serialWriteLine("/mission_sim?on=" + (enabled ? "1" : "0"));
+    }
+
+    async function sendBoardMissionSimSample(sample){
+      if(!serialConnected || !serialTxEnabled) return false;
+      if(!sample || typeof sample !== "object") return false;
+      const parts = ["on=1"];
+      const relMs = Number(sample._replayTsMs) - Number(replayState.samples && replayState.samples[0] ? replayState.samples[0].tsMs : sample._replayTsMs);
+      const stRaw = Number(sample.st);
+      const st = (isFinite(stRaw) && stRaw >= 0) ? stRaw : 2;
+      const sw = Number(sample.s);
+      const tdRaw = Number(sample.td);
+      const td = isFinite(tdRaw) ? tdRaw : (isFinite(relMs) ? Math.max(0, Math.round(relMs)) : 0);
+      const alt = Number(sample.alt_m != null ? sample.alt_m : sample.altitude_m);
+      const thrust = Number(sample.t);
+      const pressure = Number(sample.p);
+      const ax = Number(sample.ax);
+      const ay = Number(sample.ay);
+      const az = Number(sample.az);
+      const gx = Number(sample.gx);
+      const gy = Number(sample.gy);
+      const gz = Number(sample.gz);
+      const stOut = (Math.round(st) === 0) ? 2 : Math.max(0, Math.min(2, Math.round(st)));
+      parts.push("st=" + stOut);
+      if(isFinite(sw)) parts.push("s=" + (sw ? "1" : "0"));
+      if(isFinite(td)) parts.push("td=" + Math.round(td));
+      const altOut = formatMissionSimNum(alt, 2); if(altOut != null) parts.push("alt=" + altOut);
+      const thrustOut = formatMissionSimNum(thrust, 3); if(thrustOut != null) parts.push("t=" + thrustOut);
+      // Do not send zero/invalid pressure from replay files; firmware can derive pressure from alt.
+      const pressureOut = formatMissionSimNum(pressure, 5);
+      if(pressureOut != null && pressureOut > 0.02) parts.push("p=" + pressureOut);
+      const axOut = formatMissionSimNum(ax, 3); if(axOut != null) parts.push("ax=" + axOut);
+      const ayOut = formatMissionSimNum(ay, 3); if(ayOut != null) parts.push("ay=" + ayOut);
+      const azOut = formatMissionSimNum(az, 3); if(azOut != null) parts.push("az=" + azOut);
+      const gxOut = formatMissionSimNum(gx, 3); if(gxOut != null) parts.push("gx=" + gxOut);
+      const gyOut = formatMissionSimNum(gy, 3); if(gyOut != null) parts.push("gy=" + gyOut);
+      const gzOut = formatMissionSimNum(gz, 3); if(gzOut != null) parts.push("gz=" + gzOut);
+      return await serialWriteLine("/mission_sim?" + parts.join("&"));
+    }
+
     async function readSerialLoop(){
       const decoder = new TextDecoder();
       try{
@@ -11962,13 +12367,44 @@
         showToast(t("linkEstablishedToast", {src:srcTag}), "success", {duration:2600});
       }
 
+      // HTTP fallback로만 살아난 상황에서는 WS를 다시 붙여준다.
+      if(src === "WIFI" && !wsConnected && !wsRetryTimer){
+        const socketState = wsSocket ? wsSocket.readyState : WebSocket.CLOSED;
+        if(socketState !== WebSocket.CONNECTING && socketState !== WebSocket.OPEN){
+          scheduleWsReconnect("http alive");
+        }
+      }
+
       sampleCounter++;
 
       const nowDate=new Date();
-      const timeMs=nowDate.getTime();
+      const hostTimeMs=nowDate.getTime();
       const timeIso=nowDate.toISOString();
-      if(firstSampleMs === null) firstSampleMs = timeMs;
-      const elapsedMs = Math.max(0, timeMs - firstSampleMs);
+      const rawReplayTsMs = Number(data && data._replayTsMs);
+      const rawUptimeMs = Number(data && (data.ut != null ? data.ut : data.uptime_ms));
+      const replayTimelineMs = isFinite(rawReplayTsMs) ? rawReplayTsMs : NaN;
+      const uptimeTimelineMs = isFinite(rawUptimeMs) ? rawUptimeMs : NaN;
+      const timelineMs = isReplaySample
+        ? (isFinite(replayTimelineMs) ? replayTimelineMs : hostTimeMs)
+        : (isFinite(uptimeTimelineMs) ? uptimeTimelineMs : hostTimeMs);
+      const timeMs = timelineMs;
+      if(firstSampleMs === null || !isFinite(firstSampleMs)) firstSampleMs = timelineMs;
+      const elapsedMs = Math.max(0, timelineMs - firstSampleMs);
+      if(isFinite(timelineMs)){
+        if(sampleRateWindowStartMs === 0){
+          sampleRateWindowStartMs = timelineMs;
+          sampleRateWindowCount = 1;
+        }else if(isFinite(lastSampleTimelineMs) && timelineMs > lastSampleTimelineMs){
+          sampleRateWindowCount += 1;
+          const spanMs = timelineMs - sampleRateWindowStartMs;
+          if(spanMs >= 1000){
+            sampleRateHzWindow = Math.round((sampleRateWindowCount * 1000) / spanMs);
+            sampleRateWindowStartMs = timelineMs;
+            sampleRateWindowCount = 1;
+          }
+        }
+        lastSampleTimelineMs = timelineMs;
+      }
 
       const thrustVal = Number(data.t  != null ? data.t  : (data.thrust   ?? 0));
       const thrustHasData = (data.t != null || data.thrust != null);
@@ -11990,11 +12426,11 @@
       lastLoadcellHz = isFinite(hxHz) ? hxHz : 0;
       if(isFinite(hxHz) && hxHz > 0){
         lastLoadcellHzDisplay = hxHz;
-        lastLoadcellHzDisplayMs = timeMs;
+        lastLoadcellHzDisplayMs = hostTimeMs;
       }
       const hzDisplayHoldAlive =
         (!isReplaySample) &&
-        ((timeMs - lastLoadcellHzDisplayMs) <= LOADCELL_HZ_DISPLAY_HOLD_MS) &&
+        ((hostTimeMs - lastLoadcellHzDisplayMs) <= LOADCELL_HZ_DISPLAY_HOLD_MS) &&
         (lcRawOk || lastLoadcellRawValid) &&
         isFinite(lastLoadcellHzDisplay) &&
         lastLoadcellHzDisplay > 0;
@@ -12002,17 +12438,17 @@
       const hasHxHz = (data.hz != null || data.hx_hz != null);
       const loadcellRateLowNow = !isReplaySample && hasHxHz && elapsedMs >= LOADCELL_HZ_FAULT_GRACE_MS && isFinite(hxHz) && hxHz <= LOADCELL_HZ_FAULT_MIN;
       if(loadcellRateLowNow){
-        if(loadcellRateLowSinceMs === 0) loadcellRateLowSinceMs = timeMs;
+        if(loadcellRateLowSinceMs === 0) loadcellRateLowSinceMs = hostTimeMs;
       }else{
         loadcellRateLowSinceMs = 0;
       }
-      const loadcellRateFault = loadcellRateLowSinceMs !== 0 && (timeMs - loadcellRateLowSinceMs) >= LOADCELL_HZ_FAULT_HOLD_MS;
+      const loadcellRateFault = loadcellRateLowSinceMs !== 0 && (hostTimeMs - loadcellRateLowSinceMs) >= LOADCELL_HZ_FAULT_HOLD_MS;
       const loadcellOffsetFault = !isReplaySample && elapsedMs >= LOADCELL_HZ_FAULT_GRACE_MS && lastLoadcellOffsetValid === 0;
       const loadcellHardFault = !thrustHasData || !isFinite(thrustVal) || lastLoadcellSaturated || loadcellOffsetFault;
       const loadcellStreamFault = loadcellRateFault && !lastLoadcellRawValid;
       loadcellErrorActive = (simEnabled && devLoadcellError) || loadcellHardFault || loadcellStreamFault;
       if(loadcellErrorActive){
-        if(loadcellErrorSinceMs === 0) loadcellErrorSinceMs = timeMs;
+        if(loadcellErrorSinceMs === 0) loadcellErrorSinceMs = hostTimeMs;
       }else{
         loadcellErrorSinceMs = 0;
       }
@@ -12026,11 +12462,11 @@
       if(
         loadcellErrorActive &&
         loadcellErrorSinceMs !== 0 &&
-        (timeMs - loadcellErrorSinceMs) >= LOADCELL_ERROR_TOAST_HOLD_MS &&
-        (timeMs - lastLoadcellErrorToastMs) >= LOADCELL_ERROR_TOAST_DEBOUNCE_MS
+        (hostTimeMs - loadcellErrorSinceMs) >= LOADCELL_ERROR_TOAST_HOLD_MS &&
+        (hostTimeMs - lastLoadcellErrorToastMs) >= LOADCELL_ERROR_TOAST_DEBOUNCE_MS
       ){
         showToast(t("loadcellErrorToast"), "error", {key:"loadcell-error", duration:6000});
-        lastLoadcellErrorToastMs = timeMs;
+        lastLoadcellErrorToastMs = hostTimeMs;
       }
       const thrustMissing = loadcellErrorActive;
       updateLoadcellLiveValue(loadcellErrorActive ? null : thrustVal);
@@ -12045,18 +12481,44 @@
       const gp  = Number(data.gp != null ? data.gp : (data.gyro_pitch_deg ?? data.pitch_deg ?? NaN));
       const gyw = Number(data.gyw != null ? data.gyw : (data.gyro_yaw_deg ?? data.yaw_deg ?? NaN));
       const ga  = Number(data.ga != null ? data.ga : (data.gyro_att_ok ?? 0));
+      // Firmware `lt` is sampler loop period in milliseconds.
       const lt  = Number(data.lt != null ? data.lt : (data.loop ?? data.loopTime ?? 0));
+      const ltUs = (isFinite(lt) && lt > 0) ? (lt * 1000) : NaN;
       const ctUs = Number(data.ct != null ? data.ct : (data.cpu_us ?? data.cpu ?? 0));
+      const perfLoadPct = (isFinite(ctUs) && ctUs > 0 && isFinite(ltUs) && ltUs > 0)
+        ? Math.max(0, Math.min(100, (ctUs / ltUs) * 100))
+        : NaN;
+      if(isFinite(perfLoadPct)){
+        lastPerfLoadRawPct = Number(perfLoadPct);
+        if(lastPerfLoadPct == null || !isFinite(Number(lastPerfLoadPct))){
+          lastPerfLoadPct = Number(perfLoadPct);
+        }else{
+          const prev = Number(lastPerfLoadPct);
+          const smoothed = prev + ((Number(perfLoadPct) - prev) * PERF_LOAD_EMA_ALPHA);
+          lastPerfLoadPct = Math.max(0, Math.min(100, smoothed));
+        }
+        lastPerfCpuUs = isFinite(ctUs) ? ctUs : null;
+        lastPerfLoopUs = isFinite(ltUs) ? ltUs : null;
+        lastPerfSampleMs = hostTimeMs;
+      }
 
-      const swRaw  = (data.s  != null ? data.s  : data.sw  ?? 0);
-      const icRaw  = (data.ic != null ? data.ic : data.ign ?? 0);
-      const rlyRaw = (data.r  != null ? data.r  : data.rly ?? 0);
+      const swRaw  = (data.s  != null ? data.s  : (data.sw  != null ? data.sw  : null));
+      const icRaw  = (data.ic != null ? data.ic : (data.ign != null ? data.ign : null));
+      const rlyRaw = (data.r  != null ? data.r  : (data.rly != null ? data.rly : null));
       const sw = Number(swRaw);
       const ic = Number(icRaw);
       const rly = Number(rlyRaw);
-      const swOn = !!(Number.isFinite(sw) && sw !== 0);
-      const icOn = !!(Number.isFinite(ic) && ic !== 0);
-      const relayMask = Number.isFinite(rly) ? Math.max(0, Math.trunc(rly)) : 0;
+      const swKnown = Number.isFinite(sw);
+      const icKnown = Number.isFinite(ic);
+      const rlyKnown = Number.isFinite(rly);
+      const prevSwOn = !!(latestTelemetry && latestTelemetry.sw === 1);
+      const prevIcOn = (latestTelemetry && latestTelemetry.ic != null) ? (latestTelemetry.ic === 1) : true;
+      const prevRelayMask = (latestTelemetry && Number.isFinite(Number(latestTelemetry.rly)))
+        ? Math.max(0, Math.trunc(Number(latestTelemetry.rly)))
+        : 0;
+      const swOn = swKnown ? (sw !== 0) : prevSwOn;
+      const icOn = icKnown ? (ic !== 0) : prevIcOn;
+      const relayMask = rlyKnown ? Math.max(0, Math.trunc(rly)) : prevRelayMask;
       const st  = Number(data.st != null ? data.st : (data.state ?? 0));
       const td  = (data.td != null ? Number(data.td) : null);
       const uw  = Number(data.uw ?? 0);
@@ -12067,6 +12529,10 @@
       const sm = (smRaw != null) ? Number(smRaw) : null;
       const alRaw = (data.al != null ? data.al : (data.arm_lock != null ? data.arm_lock : null));
       const al = (alRaw != null) ? Number(alRaw) : null;
+      const ipRaw = (data.ip != null)
+        ? data.ip
+        : ((data.inspection != null) ? data.inspection : (data.insp != null ? data.insp : null));
+      const ip = (ipRaw != null) ? Number(ipRaw) : null;
       const srRaw = (data.sr != null) ? data.sr : (data.storage_ready != null ? data.storage_ready : null);
       const sr = (srRaw != null) ? Number(srRaw) : null;
       const mode = Number(data.m != null ? data.m : data.mode ?? -1);
@@ -12074,6 +12540,9 @@
 
       if(sr != null && Number.isFinite(sr)){
         spiFlashReadyState = (sr !== 0);
+      }
+      if(ip != null && Number.isFinite(ip)){
+        applyInspectionAuthorityFromTelemetry(ip);
       }
 
       if(!isReplaySample && isFinite(wsQueueDropCount)){
@@ -12093,6 +12562,17 @@
       if(battPctRaw != null && isFinite(Number(battPctRaw))){
         const pct = Math.max(0, Math.min(100, Number(battPctRaw)));
         lastBatteryPct = pct;
+      }
+      const chipTempOkRaw = data.chip_temp_ok ?? data.ctemp_ok ?? data.chipTempOk ?? null;
+      const chipTempRaw = data.chip_temp_c ?? data.ctemp ?? data.chip_temp ?? data.chipTemp ?? null;
+      const chipTempOk = (chipTempOkRaw == null) ? true : (Number(chipTempOkRaw) !== 0);
+      if(chipTempRaw != null && chipTempOk && isFinite(Number(chipTempRaw))){
+        const parsedChipTemp = Number(chipTempRaw);
+        if(lastChipTempSampleMs === 0 && chipTempHistory.length){
+          for(let i=0;i<chipTempHistory.length;i++) chipTempHistory[i] = parsedChipTemp;
+        }
+        lastChipTempC = parsedChipTemp;
+        lastChipTempSampleMs = Date.now();
       }
 
       currentSt=st;
@@ -12169,7 +12649,7 @@
       if(st===0){
         igniterAbortSent = false;
         if(!ab) lastAbortReason = null;
-      }else if(st===1 && (uiSettings && uiSettings.igs) && !ic && !igniterAbortSent){
+      }else if(st===1 && isIgniterCheckEnabled() && icKnown && !icOn && !igniterAbortSent){
         igniterAbortSent = true;
         lastAbortReason = "igniter";
         sendCommand({http:"/abort", ser:"ABORT"}, true);
@@ -12179,7 +12659,9 @@
 
       thrustBaseHistory.push(thrustVal);
       pressureBaseHistory.push(p);
-      quickAltitudeHistory.push(isFinite(quickAltitudeM) ? quickAltitudeM : 0);
+      // Keep altitude continuity: missing/invalid sample should not inject a hard zero spike.
+      const prevAltitude = quickAltitudeHistory.length ? quickAltitudeHistory[quickAltitudeHistory.length - 1] : 0;
+      quickAltitudeHistory.push(isFinite(quickAltitudeM) ? quickAltitudeM : (isFinite(prevAltitude) ? prevAltitude : 0));
       const gyroSpeedDps = Math.sqrt((gx * gx) + (gy * gy) + (gz * gz));
       gyroSpeedHistory.push(isFinite(gyroSpeedDps) ? gyroSpeedDps : 0);
       const accelMagVal = Math.sqrt((ax * ax) + (ay * ay) + (az * az));
@@ -12190,6 +12672,14 @@
       gyroXHistory.push(gx);
       gyroYHistory.push(gy);
       gyroZHistory.push(gz);
+      const prevChipTemp = chipTempHistory.length ? Number(chipTempHistory[chipTempHistory.length - 1]) : 0;
+      chipTempHistory.push((lastChipTempC != null && isFinite(Number(lastChipTempC)))
+        ? Number(lastChipTempC)
+        : (isFinite(prevChipTemp) ? prevChipTemp : 0));
+      const prevPerfLoad = perfLoadHistory.length ? Number(perfLoadHistory[perfLoadHistory.length - 1]) : 0;
+      perfLoadHistory.push((lastPerfLoadPct != null && isFinite(Number(lastPerfLoadPct)))
+        ? Number(lastPerfLoadPct)
+        : (isFinite(prevPerfLoad) ? prevPerfLoad : 0));
       chartTimeHistory.push(timeMs);
 
       const maxKeep=MAX_POINTS*4;
@@ -12206,6 +12696,8 @@
         gyroXHistory.splice(0,remove);
         gyroYHistory.splice(0,remove);
         gyroZHistory.splice(0,remove);
+        chipTempHistory.splice(0,remove);
+        perfLoadHistory.splice(0,remove);
         chartTimeHistory.splice(0,remove);
       }
 
@@ -12284,6 +12776,8 @@
       }
       prevStForIgn=st;
       updateMotorInfoPanel();
+      renderChipTempModal();
+      renderPerfModal();
 
       // UI 업데이트(시뮬레이션 모드에서는 더 부드럽게 갱신)
       const shouldRefreshUi = simEnabled || (sampleCounter % UI_SAMPLE_SKIP === 0);
@@ -12296,7 +12790,7 @@
           prevSwState=swOn;
           if(prevSwState){
             addLogLine(t("switchHighLog"), "SW");
-            if((uiSettings && uiSettings.igs) && !icOn){
+            if(isIgniterCheckEnabled() && icKnown && !icOn){
               showToast(t("countdownIgniterRequired", {safety:safetyLineSuffix()}), "notice");
             }else{
               showToast(t("switchHighToast", {safety:safetyLineSuffix()}),"warn");
@@ -12307,21 +12801,23 @@
           }
         }
 
-        if(prevIcState===null) prevIcState=!!ic;
-        else if(prevIcState!==!!ic){
-          prevIcState=!!ic;
-          if(prevIcState){
-            addLogLine(t("igniterOkLog"), "IGN");
-            showToast(t("igniterOkToast", {safety:safetyLineSuffix()}),"success");
-          }else{
-            addLogLine(t("igniterNoLog"), "IGN");
-            showToast(t("igniterNoToast", {safety:safetyLineSuffix()}),"warn");
-            if(uiSettings && uiSettings.igs){
-              controlAuthority = false;
-              inspectionState = "failed";
-              updateInspectionPill();
-              updateControlAccessUI(currentSt);
-              showToast(t("inspectionRequiredToast"), "notice");
+        if(icKnown){
+          if(prevIcState===null) prevIcState=icOn;
+          else if(prevIcState!==icOn){
+            prevIcState=icOn;
+            if(prevIcState){
+              addLogLine(t("igniterOkLog"), "IGN");
+              showToast(t("igniterOkToast", {safety:safetyLineSuffix()}),"success");
+            }else{
+              addLogLine(t("igniterNoLog"), "IGN");
+              showToast(t("igniterNoToast", {safety:safetyLineSuffix()}),"warn");
+              if(isIgniterCheckEnabled()){
+                controlAuthority = false;
+                inspectionState = "failed";
+                updateInspectionPill();
+                updateControlAccessUI(currentSt);
+                showToast(t("inspectionRequiredToast"), "notice");
+              }
             }
           }
         }
@@ -12434,49 +12930,53 @@
           el.pressureGauge.style.setProperty("--gauge-pct", pressurePct.toFixed(1) + "%");
         }
         if(el.lt){
-          el.lt.innerHTML = `
-            <span class="lt-line"><span class="num">${lt.toFixed(0)}</span><span class="unit">ms</span></span>
-            <span class="unit lt-sep">/</span>
-            <span class="lt-line"><span class="num">${elapsedMs.toFixed(0)}</span><span class="unit">ms</span></span>
-          `;
+        const spans = el.lt.querySelectorAll('.num');
+        if (spans.length === 2) {
+          spans[0].textContent = lt.toFixed(0);
+          spans[1].textContent = elapsedMs.toFixed(0);
+        } else {
+          el.lt.innerHTML = `<span class="lt-line"><span class="num">${lt.toFixed(0)}</span><span class="unit">ms</span></span><span class="unit lt-sep">/</span><span class="lt-line"><span class="num">${elapsedMs.toFixed(0)}</span><span class="unit">ms</span></span>`;
+        }
         }
 
         if(el.snapHz){
           const nowUi = Date.now();
           if((nowUi - lastSnapHzUiMs) >= 1000 || lastSnapHzUiMs === 0){
-            const snapHz = rxHzWindow;
+            const snapHz = (sampleRateHzWindow > 0) ? sampleRateHzWindow : rxHzWindow;
             el.snapHz.textContent = (snapHz>0 && isFinite(snapHz)) ? (snapHz.toFixed(0) + " Hz") : "-- Hz";
             lastSnapHzUiMs = nowUi;
           }
         }
         if(el.hxHz) el.hxHz.textContent = (hxHzDisplay>0 && isFinite(hxHzDisplay)) ? (hxHzDisplay.toFixed(0) + " Hz") : "-- Hz";
+        ensureSpiFlashStateKnown();
         if(el.quickHxHz){
           if(inFlightMode){
-            el.quickHxHz.innerHTML = `<span class="num">null</span>`;
-            setQuickItemStatus(el.quickHxHz, null);
+            const sdTextHx = (spiFlashReadyState == null) ? "--" : (spiFlashReadyState ? "READY" : "NOT READY");
+          updateNumValue(el.quickHxHz, sdTextHx);
+            setQuickItemStatus(el.quickHxHz, (spiFlashReadyState == null) ? null : (spiFlashReadyState ? "ok" : "warn"));
           }else{
             const hxNum = (hxHzDisplay>0 && isFinite(hxHzDisplay)) ? hxHzDisplay.toFixed(0) : "--";
-            el.quickHxHz.innerHTML = `<span class="num">${hxNum}</span><span class="unit">Hz</span>`;
+          updateNumValue(el.quickHxHz, hxNum, "Hz");
             setQuickItemStatus(el.quickHxHz, null);
           }
         }
         if(el.quickNullValue){
           if(inFlightMode){
             const displayYawDeg = getGyroDisplayYawDeg();
-            el.quickNullValue.innerHTML = formatQuickGyroDeg(displayYawDeg);
+          updateNumValue(el.quickNullValue, displayYawDeg.toFixed(1), "deg");
             setQuickItemStatus(el.quickNullValue, null);
           }else{
             const sdText = (spiFlashReadyState == null) ? "--" : (spiFlashReadyState ? "READY" : "NOT READY");
-            el.quickNullValue.innerHTML = `<span class="num">${sdText}</span>`;
+          updateNumValue(el.quickNullValue, sdText);
             setQuickItemStatus(el.quickNullValue, (spiFlashReadyState == null) ? null : (spiFlashReadyState ? "ok" : "warn"));
           }
         }
         if(el.quickNull2Value){
-          el.quickNull2Value.innerHTML = `<span class="num">null</span>`;
+        updateNumValue(el.quickNull2Value, "null");
           setQuickItemStatus(el.quickNull2Value, null);
         }
         if(el.quickNull3Value){
-          el.quickNull3Value.innerHTML = `<span class="num">null</span>`;
+        updateNumValue(el.quickNull3Value, "null");
           setQuickItemStatus(el.quickNull3Value, null);
         }
         if(el.cpuUs) el.cpuUs.textContent = (ctUs>0 && isFinite(ctUs)) ? (ctUs.toFixed(0) + " us") : "-- us";
@@ -12500,7 +13000,7 @@
         }
         if(el.quickSw){
           const swLabel = (sw == null || !Number.isFinite(sw)) ? "--" : (swOn ? "ON" : "OFF");
-          el.quickSw.innerHTML = `<span class="num">${swLabel}</span>`;
+        updateNumValue(el.quickSw, swLabel);
           setQuickItemStatus(el.quickSw, (sw == null || !Number.isFinite(sw)) ? null : (swOn ? "ok" : "warn"));
         }
 
@@ -12538,13 +13038,13 @@
               pyroLabel = "ERROR";
               pyroStatus = "bad";
             }
-            el.quickRelay1.innerHTML = `<span class="num">${pyroLabel}</span>`;
+          updateNumValue(el.quickRelay1, pyroLabel);
             setQuickItemStatus(el.quickRelay1, pyroStatus);
           }
           if(el.quickRelay2){
             if(inFlightMode){
               const displayRollDeg = getGyroDisplayRollDeg();
-              el.quickRelay2.innerHTML = formatQuickGyroDeg(displayRollDeg);
+            updateNumValue(el.quickRelay2, displayRollDeg.toFixed(1), "deg");
               setQuickItemStatus(el.quickRelay2, null);
             }else{
               let r2Label = (r2On == null) ? "--" : (r2On ? t("relayOn") : t("relayOff"));
@@ -12553,7 +13053,7 @@
                 r2Label = "ERROR";
                 r2Status = "bad";
               }
-              el.quickRelay2.innerHTML = `<span class="num">${r2Label}</span>`;
+            updateNumValue(el.quickRelay2, r2Label);
               setQuickItemStatus(el.quickRelay2, r2Status);
             }
           }
@@ -12574,13 +13074,13 @@
             if(loadcellErrorActive){
               stateLabel = t("statusLoadcellCheck");
             }else{
-              isNotArmed = (ic===0);
+              isNotArmed = !icOn;
               stateLabel = isNotArmed ? t("statusNotArmed") : t("statusReady");
             }
           }
           if(lockoutLatched || ab || st===2) stateStatus = "bad";
           else if(parachuteStatusActive) stateStatus = "ok";
-          else if(st===1 || sequenceActive || (st===0 && (ic===0 || loadcellErrorActive))) stateStatus = "warn";
+          else if(st===1 || sequenceActive || (st===0 && (!icOn || loadcellErrorActive))) stateStatus = "warn";
           else if(st===0) stateStatus = "ok";
           const loadcellLabel = t("statusLoadcellCheck");
           const stateHtml = (stateLabel === loadcellLabel) ? loadcellLabel.replace(" ", "<br>") : stateLabel;
@@ -12601,6 +13101,7 @@
         if(el.armLockToggle && al != null){
           el.armLockToggle.checked = !!al;
           updateTogglePill(el.armLockPill, el.armLockToggle.checked);
+          updateMobileArmLockWideButton();
         }
 
         let tplusActive = false;
@@ -12655,7 +13156,7 @@
           if(el.countdownBig) el.countdownBig.textContent = cdLabel;
         }
         updateAbortButtonLabel(tplusActive && st !== 2);
-        const statusCode=setStatusFromState(st,!!ic,!!ab,lockoutLatched, sequenceActive, parachuteStatusActive);
+        const statusCode=setStatusFromState(st,icOn,!!ab,lockoutLatched, sequenceActive, parachuteStatusActive);
         syncCountdownInlineStatus();
         if(el.countdownStatus && el.statusText){
           el.countdownStatus.textContent = el.statusText.textContent || "";
@@ -12727,26 +13228,42 @@
         onIncomingSample(buildSimSample(), "SIM");
         return;
       }
-      if(isUpdating) return;
+      const nowMs = Date.now();
+      if(isUpdating){
+        if(updateDataStartedMs > 0 && (nowMs - updateDataStartedMs) > UPDATE_DATA_GUARD_TIMEOUT_MS){
+          isUpdating = false;
+          updateDataStartedMs = 0;
+          if(!wsConnected && !wsRetryTimer) scheduleWsReconnect("poll guard");
+        }else{
+          return;
+        }
+      }
       if(wsConnected && (Date.now() - wsLastMsgMs) < WS_FRESH_MS) return;
-      isUpdating=true;
+      isUpdating = true;
+      updateDataStartedMs = nowMs;
       try{
         let data;
         try{
-          data=await fetchJsonWithFallback();
+          data = await fetchJsonWithFallback(UPDATE_DATA_SOFT_TIMEOUT_MS);
         }catch(err){
           failStreak++;
           markDisconnectedIfNeeded(t("noResponse"));
+          if((err && err.name) === "AbortError" && !wsConnected && !wsRetryTimer){
+            scheduleWsReconnect("poll timeout");
+          }
           return;
         }
         onIncomingSample(data, "WIFI");
       }finally{
-        isUpdating=false;
+        isUpdating = false;
+        updateDataStartedMs = 0;
       }
     }
 
     async function fetchWifiInfo(){
       if(simEnabled) return;
+      const isSettingsOpen = document.documentElement.classList.contains("settings-open");
+      if(!wifiInfo || isSettingsOpen){
       try{
         const API_BASE = getApiBaseForCommands();
         const url = (API_BASE ? API_BASE : "") + "/wifi_info";
@@ -12758,6 +13275,7 @@
         if(!wifiInfo || (Date.now() - wifiInfoLastMs) > 5000){
           updateWifiInfoUI(null);
         }
+      }
       }
     }
 
@@ -12797,7 +13315,6 @@
     function updateSpiFlashStatusUi(info, errMsg){
       if(!el.spiFlashStatusLine) return;
       if(errMsg){
-        spiFlashReadyState = null;
         el.spiFlashStatusLine.textContent = "SD CARD 상태 확인 실패: " + String(errMsg);
         return;
       }
@@ -12825,683 +13342,6 @@
 
     function canUseSerialForSpiFlash(){
       return !!(serialEnabled && serialConnected && serialTxEnabled);
-    }
-
-    function localSdSupported(){
-      return !!(
-        typeof window !== "undefined" &&
-        window.isSecureContext &&
-        typeof window.showDirectoryPicker === "function"
-      );
-    }
-
-    function ensureLocalSdToolsCss(){
-      if(document.getElementById("localSdToolsStyle")) return;
-      const style = document.createElement("style");
-      style.id = "localSdToolsStyle";
-      style.textContent = [
-        ".local-sd-tools{margin-top:10px;padding:10px 12px;border:1px solid rgba(148,163,184,.32);border-radius:12px;background:rgba(148,163,184,.06)}",
-        ".local-sd-tools-title{font-size:12px;letter-spacing:.08em;font-weight:700;color:#64748b;margin-bottom:6px}",
-        ".local-sd-tools-actions{display:flex;flex-wrap:wrap;gap:6px}",
-        ".local-sd-btn{border:1px solid rgba(100,116,139,.35);background:#fff;border-radius:9px;padding:7px 10px;font-size:12px;font-weight:600;color:#334155;cursor:pointer}",
-        ".local-sd-btn:disabled{opacity:.45;cursor:not-allowed}",
-        ".local-sd-status{margin-top:7px;font-size:12px;line-height:1.35;color:#475569;word-break:break-word}",
-        ".local-sd-status[data-tone=\"ok\"]{color:#166534}",
-        ".local-sd-status[data-tone=\"warn\"]{color:#92400e}",
-        ".local-sd-status[data-tone=\"error\"]{color:#b91c1c}",
-        ".local-sd-note{margin-top:4px;font-size:11px;color:#94a3b8}",
-        ".local-sd-input{display:none}"
-      ].join("");
-      document.head.appendChild(style);
-    }
-
-    function setLocalSdStatus(text, tone){
-      if(!el.localSdStatusLine) return;
-      el.localSdStatusLine.textContent = String(text || "");
-      if(tone){
-        el.localSdStatusLine.setAttribute("data-tone", String(tone));
-      }else{
-        el.localSdStatusLine.removeAttribute("data-tone");
-      }
-    }
-
-    function refreshLocalSdControls(){
-      const supported = localSdSupported();
-      const hasDir = !!localSdDirHandle;
-      if(el.localSdPickBtn) el.localSdPickBtn.disabled = localSdBusy || !supported;
-      if(el.localSdUploadBtn) el.localSdUploadBtn.disabled = localSdBusy || !supported || !hasDir;
-      if(el.localSdUploadFolderBtn) el.localSdUploadFolderBtn.disabled = localSdBusy || !supported || !hasDir;
-      if(el.localSdDeployBtn) el.localSdDeployBtn.disabled = localSdBusy || !supported || !hasDir;
-      if(el.localSdFormatBtn) el.localSdFormatBtn.disabled = localSdBusy || !supported || !hasDir;
-      if(el.localSdNote){
-        el.localSdNote.textContent = supported
-          ? "PC Chrome/Edge(HTTPS)에서 동작합니다. iPhone Safari는 제한될 수 있습니다."
-          : "이 브라우저는 SD 폴더 직접 쓰기를 지원하지 않습니다. (Chrome/Edge 권장)";
-      }
-    }
-
-    function setLocalSdBusy(next){
-      localSdBusy = !!next;
-      refreshLocalSdControls();
-    }
-
-    function pickVisibleNode(nodes){
-      const list = Array.from(nodes || []).filter(Boolean);
-      if(!list.length) return null;
-      for(let i = 0; i < list.length; i++){
-        const node = list[i];
-        if(node.offsetParent || node.getClientRects().length){
-          return node;
-        }
-      }
-      return list[0] || null;
-    }
-
-    function findVisibleById(id){
-      if(!id) return null;
-      return pickVisibleNode(document.querySelectorAll("#" + id));
-    }
-
-    function normalizeLocalSdTargetPath(path){
-      const normalized = replayNormalizeZipPath(String(path || "").replace(/^\/+/, ""));
-      return normalized || "";
-    }
-
-    function githubPagesRepoPrefix(){
-      const host = String(location && location.hostname || "").toLowerCase();
-      if(host.indexOf(".github.io") < 0) return "";
-      const parts = String(location && location.pathname || "").split("/").filter(Boolean);
-      if(!parts.length) return "";
-      if(parts[0].indexOf(".") >= 0) return "";
-      return parts[0] + "/";
-    }
-
-    function mapUrlPathToLocalSdTarget(pathname){
-      const rawPath = String(pathname || "");
-      const endedWithSlash = /\/$/.test(rawPath);
-      let path = normalizeLocalSdTargetPath(rawPath);
-      if(!path) return "index.html";
-      const repoPrefix = githubPagesRepoPrefix();
-      if(repoPrefix){
-        const repoNameOnly = repoPrefix.slice(0, -1);
-        if(path === repoNameOnly){
-          path = "";
-        }else if(path.indexOf(repoPrefix) === 0){
-          path = path.slice(repoPrefix.length);
-        }
-      }
-      if(!path) return "index.html";
-      if(endedWithSlash) return path + "/index.html";
-      return path;
-    }
-
-    async function localSdEnsureReadWritePermission(handle){
-      if(!handle) return false;
-      let usedPermissionApi = false;
-      try{
-        if(typeof handle.queryPermission === "function"){
-          usedPermissionApi = true;
-          const state = await handle.queryPermission({mode:"readwrite"});
-          if(state === "granted") return true;
-        }
-      }catch(_e){}
-      try{
-        if(typeof handle.requestPermission === "function"){
-          usedPermissionApi = true;
-          const state = await handle.requestPermission({mode:"readwrite"});
-          return state === "granted";
-        }
-      }catch(_e){}
-      return !usedPermissionApi;
-    }
-
-    async function localSdResolveDir(rootHandle, relDirPath){
-      let dirHandle = rootHandle;
-      const dir = normalizeLocalSdTargetPath(relDirPath);
-      if(!dir) return dirHandle;
-      const segments = dir.split("/");
-      for(let i = 0; i < segments.length; i++){
-        const seg = String(segments[i] || "").trim();
-        if(!seg) continue;
-        dirHandle = await dirHandle.getDirectoryHandle(seg, {create:true});
-      }
-      return dirHandle;
-    }
-
-    async function localSdWriteBytes(rootHandle, relPath, bytes){
-      const path = normalizeLocalSdTargetPath(relPath);
-      if(!path) return false;
-      const parts = path.split("/");
-      const fileName = parts.pop();
-      if(!fileName) return false;
-      const dirPath = parts.join("/");
-      const dirHandle = await localSdResolveDir(rootHandle, dirPath);
-      const fileHandle = await dirHandle.getFileHandle(fileName, {create:true});
-      const writable = await fileHandle.createWritable();
-      try{
-        await writable.write(bytes);
-      }finally{
-        await writable.close();
-      }
-      return true;
-    }
-
-    async function pickLocalSdDirectory(){
-      if(!localSdSupported()){
-        setLocalSdStatus("브라우저 미지원: Chrome/Edge(HTTPS)에서 실행해 주세요.", "error");
-        showToast("이 브라우저는 로컬 SD 폴더 쓰기를 지원하지 않습니다.", "notice", {key:"local-sd-unsupported"});
-        return;
-      }
-      try{
-        setLocalSdBusy(true);
-        setLocalSdStatus("SD 폴더 선택 중...", null);
-        const handle = await window.showDirectoryPicker({mode:"readwrite"});
-        const granted = await localSdEnsureReadWritePermission(handle);
-        if(!granted){
-          setLocalSdStatus("쓰기 권한이 거부되었습니다.", "error");
-          showToast("SD 폴더 쓰기 권한이 필요합니다.", "warn", {key:"local-sd-perm-denied"});
-          return;
-        }
-        localSdDirHandle = handle;
-        localSdDirLabel = String(handle.name || "SD");
-        setLocalSdStatus("선택됨: " + localSdDirLabel, "ok");
-        showToast("SD 폴더 선택 완료: " + localSdDirLabel, "success", {key:"local-sd-picked"});
-      }catch(err){
-        if(err && err.name === "AbortError"){
-          setLocalSdStatus("SD 폴더 선택이 취소되었습니다.", "warn");
-          return;
-        }
-        const reason = (err && err.message) ? err.message : String(err || "unknown");
-        setLocalSdStatus("SD 폴더 선택 실패: " + reason, "error");
-        showToast("SD 폴더 선택 실패: " + reason, "error", {key:"local-sd-pick-fail"});
-      }finally{
-        setLocalSdBusy(false);
-      }
-    }
-
-    async function writeLocalSdFiles(fileList){
-      if(!localSdDirHandle){
-        showToast("먼저 SD 폴더를 선택하세요.", "notice", {key:"local-sd-no-dir"});
-        setLocalSdStatus("SD 폴더가 아직 선택되지 않았습니다.", "warn");
-        return;
-      }
-      const granted = await localSdEnsureReadWritePermission(localSdDirHandle);
-      if(!granted){
-        showToast("SD 폴더 쓰기 권한이 없습니다.", "warn", {key:"local-sd-perm-no"});
-        setLocalSdStatus("쓰기 권한이 없어 업로드를 중단했습니다.", "error");
-        return;
-      }
-
-      const files = Array.from(fileList || []).filter(Boolean);
-      if(!files.length){
-        showToast("업로드할 파일을 선택해 주세요.", "notice", {key:"local-sd-no-files"});
-        return;
-      }
-
-      setLocalSdBusy(true);
-      let writtenCount = 0;
-      let writtenBytes = 0;
-      try{
-        for(let i = 0; i < files.length; i++){
-          const file = files[i];
-          const fileName = String(file && file.name || "").trim();
-          if(!fileName) continue;
-          setLocalSdStatus(
-            "SD 업로드 중... " + (i + 1) + "/" + files.length + " · " + fileName,
-            null
-          );
-
-          const lowerName = fileName.toLowerCase();
-          if(lowerName.endsWith(".zip")){
-            const entries = await replayUnzipEntries(await file.arrayBuffer());
-            for(const [entryPath, entryBytes] of entries.entries()){
-              const rel = normalizeLocalSdTargetPath(entryPath);
-              if(!rel || rel[rel.length - 1] === "/") continue;
-              if(rel.indexOf("__macosx/") === 0) continue;
-              await localSdWriteBytes(localSdDirHandle, rel, entryBytes);
-              writtenCount++;
-              writtenBytes += Number(entryBytes && entryBytes.byteLength || entryBytes && entryBytes.length || 0);
-            }
-            continue;
-          }
-
-          const relPathRaw = String(file.webkitRelativePath || fileName || "");
-          const relPath = normalizeLocalSdTargetPath(relPathRaw);
-          if(!relPath) continue;
-          const bytes = new Uint8Array(await file.arrayBuffer());
-          await localSdWriteBytes(localSdDirHandle, relPath, bytes);
-          writtenCount++;
-          writtenBytes += bytes.byteLength;
-        }
-        const kb = (writtenBytes / 1024).toFixed(1);
-        setLocalSdStatus("업로드 완료: " + writtenCount + "개 파일 · " + kb + "KB", "ok");
-        showToast("SD 업로드 완료: " + writtenCount + "개 파일", "success", {key:"local-sd-upload-ok"});
-      }catch(err){
-        const reason = (err && err.message) ? err.message : String(err || "unknown");
-        setLocalSdStatus("업로드 실패: " + reason, "error");
-        showToast("SD 업로드 실패: " + reason, "error", {key:"local-sd-upload-fail"});
-      }finally{
-        setLocalSdBusy(false);
-      }
-    }
-
-    function collectLocalSdAutoDeployAssets(){
-      const targets = new Map();
-      const addAsset = (rawUrl)=>{
-        if(!rawUrl) return;
-        let url;
-        try{
-          url = new URL(rawUrl, location.href);
-        }catch(_e){
-          return;
-        }
-        if(url.origin !== location.origin) return;
-        const target = mapUrlPathToLocalSdTarget(url.pathname || "/");
-        if(!target) return;
-        if(!targets.has(target)){
-          targets.set(target, url.toString());
-        }
-      };
-
-      addAsset(location.href);
-      const selector = "script[src],link[href],img[src],source[src],audio[src],video[src]";
-      document.querySelectorAll(selector).forEach(node=>{
-        if(node.hasAttribute("src")) addAsset(node.getAttribute("src"));
-        if(node.hasAttribute("href")) addAsset(node.getAttribute("href"));
-      });
-
-      ["flash6.html","index.html","flash6.js","dashboard.js","manifest.webmanifest","sw.js","favicon.ico"].forEach(path=>{
-        addAsset(path);
-      });
-
-      return Array.from(targets.entries()).map(([target, url])=>({target, url}));
-    }
-
-    function localSdFetchCandidatesForAsset(rawUrl){
-      const out = [];
-      const seen = new Set();
-      const push = (url)=>{
-        const u = String(url || "").trim();
-        if(!u || seen.has(u)) return;
-        seen.add(u);
-        out.push(u);
-      };
-
-      let base;
-      try{
-        base = new URL(rawUrl, location.href);
-      }catch(_e){
-        return out;
-      }
-      push(base.toString());
-
-      // GitHub Pages(project site) often has broken absolute-path assets (/img, /vendor).
-      const repoPrefix = githubPagesRepoPrefix(); // e.g. "my-repo/"
-      if(repoPrefix && base.origin === location.origin){
-        const repoName = repoPrefix.slice(0, -1);
-        const p = String(base.pathname || "");
-        if(p && p[0] === "/" && p.indexOf("/" + repoName + "/") !== 0){
-          push(base.origin + "/" + repoName + p + (base.search || ""));
-        }
-      }
-
-      return out;
-    }
-
-    async function deployCurrentWebAssetsToLocalSd(){
-      if(!localSdDirHandle){
-        showToast("먼저 SD 폴더를 선택하세요.", "notice", {key:"local-sd-no-dir"});
-        setLocalSdStatus("SD 폴더가 아직 선택되지 않았습니다.", "warn");
-        return;
-      }
-      const granted = await localSdEnsureReadWritePermission(localSdDirHandle);
-      if(!granted){
-        showToast("SD 폴더 쓰기 권한이 없습니다.", "warn", {key:"local-sd-perm-no"});
-        setLocalSdStatus("쓰기 권한이 없어 자동 배포를 중단했습니다.", "error");
-        return;
-      }
-
-      const assets = collectLocalSdAutoDeployAssets();
-      if(!assets.length){
-        setLocalSdStatus("자동 배포할 웹 파일을 찾지 못했습니다.", "warn");
-        showToast("자동 배포할 파일 목록이 비어 있습니다.", "notice", {key:"local-sd-deploy-empty"});
-        return;
-      }
-
-      setLocalSdBusy(true);
-      let okCount = 0;
-      let failCount = 0;
-      let totalBytes = 0;
-      const failedTargets = [];
-      try{
-        for(let i = 0; i < assets.length; i++){
-          const item = assets[i];
-          setLocalSdStatus(
-            "자동 배포 중... " + (i + 1) + "/" + assets.length + " · " + item.target,
-            null
-          );
-
-          const candidates = localSdFetchCandidatesForAsset(item.url);
-          let done = false;
-          let lastReason = "";
-          for(let c = 0; c < candidates.length; c++){
-            const candidateUrl = candidates[c];
-            try{
-              const resp = await fetch(candidateUrl, {cache:"no-store"});
-              if(!resp.ok){
-                lastReason = "HTTP " + resp.status;
-                continue;
-              }
-              const bytes = new Uint8Array(await resp.arrayBuffer());
-              await localSdWriteBytes(localSdDirHandle, item.target, bytes);
-              okCount++;
-              totalBytes += bytes.byteLength;
-              done = true;
-              break;
-            }catch(err){
-              lastReason = (err && err.message) ? err.message : String(err || "unknown");
-            }
-          }
-
-          if(!done){
-            failCount++;
-            failedTargets.push(item.target + (lastReason ? (" (" + lastReason + ")") : ""));
-          }
-        }
-
-        const kb = (totalBytes / 1024).toFixed(1);
-        if(okCount > 0 && failCount === 0){
-          setLocalSdStatus("자동 배포 완료: " + okCount + "개 파일 · " + kb + "KB", "ok");
-          showToast("SD 자동 배포 완료: " + okCount + "개 파일", "success", {key:"local-sd-deploy-ok"});
-        }else if(okCount > 0){
-          const preview = failedTargets.slice(0, 2).join(", ");
-          setLocalSdStatus(
-            "자동 배포 부분 완료: 성공 " + okCount + " / 실패 " + failCount +
-            (preview ? (" · 실패 예: " + preview) : ""),
-            "warn"
-          );
-          showToast("자동 배포 부분 완료: 성공 " + okCount + " / 실패 " + failCount, "warn", {key:"local-sd-deploy-partial"});
-        }else{
-          setLocalSdStatus("자동 배포 실패: 다운로드 가능한 파일이 없습니다.", "error");
-          showToast("자동 배포 실패: 같은 도메인 웹파일 확인 필요", "error", {key:"local-sd-deploy-fail"});
-        }
-      }catch(err){
-        const reason = (err && err.message) ? err.message : String(err || "unknown");
-        setLocalSdStatus("자동 배포 실패: " + reason, "error");
-        showToast("자동 배포 실패: " + reason, "error", {key:"local-sd-deploy-fail"});
-      }finally{
-        setLocalSdBusy(false);
-      }
-    }
-
-    async function formatLocalSdDirectory(){
-      if(!localSdDirHandle){
-        showToast("먼저 SD 폴더를 선택하세요.", "notice", {key:"local-sd-no-dir"});
-        return;
-      }
-      const ok = window.confirm("선택한 SD 폴더의 모든 파일을 삭제할까요? (되돌릴 수 없음)");
-      if(!ok) return;
-
-      const granted = await localSdEnsureReadWritePermission(localSdDirHandle);
-      if(!granted){
-        showToast("SD 폴더 쓰기 권한이 없습니다.", "warn", {key:"local-sd-perm-no"});
-        setLocalSdStatus("쓰기 권한이 없어 포맷을 중단했습니다.", "error");
-        return;
-      }
-
-      setLocalSdBusy(true);
-      let removed = 0;
-      let skipped = 0;
-      let failed = 0;
-      const failedNames = [];
-      try{
-        const names = [];
-        for await (const [name] of localSdDirHandle.entries()){
-          names.push(name);
-        }
-        for(let i = 0; i < names.length; i++){
-          const name = names[i];
-          setLocalSdStatus("포맷 중... " + (i + 1) + "/" + names.length + " · " + name, null);
-
-          // Some SD root metadata folders are protected by OS and should be skipped.
-          if(
-            name === ".Spotlight-V100" ||
-            name === ".Trashes" ||
-            name === ".fseventsd" ||
-            name === "System Volume Information" ||
-            name === "$RECYCLE.BIN"
-          ){
-            skipped++;
-            continue;
-          }
-
-          try{
-            await localSdDirHandle.removeEntry(name, {recursive:true});
-            removed++;
-          }catch(err){
-            const errName = String(err && err.name || "");
-            const errMsg = String(err && err.message || "").toLowerCase();
-            if(
-              errName === "NotFoundError" ||
-              errMsg.indexOf("could not be found") >= 0 ||
-              errMsg.indexOf("not be found") >= 0 ||
-              errMsg.indexOf("not found") >= 0
-            ){
-              // Entry disappeared during format; treat as already removed.
-              skipped++;
-              continue;
-            }
-            failed++;
-            failedNames.push(name);
-          }
-        }
-
-        if(failed === 0){
-          const suffix = skipped > 0 ? (" · 시스템/누락 항목 " + skipped + "개 스킵") : "";
-          setLocalSdStatus("포맷 완료: " + removed + "개 항목 삭제" + suffix, "ok");
-          showToast("SD 폴더 포맷 완료: " + removed + "개 항목 삭제", "success", {key:"local-sd-format-ok"});
-        }else if(removed > 0){
-          const preview = failedNames.slice(0, 2).join(", ");
-          setLocalSdStatus(
-            "포맷 부분 완료: 삭제 " + removed + "개 / 실패 " + failed + "개" +
-            (skipped > 0 ? (" / 스킵 " + skipped + "개") : "") +
-            (preview ? (" · 실패 예: " + preview) : ""),
-            "warn"
-          );
-          showToast("SD 포맷 부분 완료 (삭제 " + removed + ", 실패 " + failed + ")", "warn", {key:"local-sd-format-partial"});
-        }else{
-          const preview = failedNames.slice(0, 2).join(", ");
-          const msg = "SD 포맷 실패: 쓰기 금지 또는 잠금 상태일 수 있습니다" + (preview ? (" (" + preview + ")") : "");
-          setLocalSdStatus(msg, "error");
-          showToast(msg, "error", {key:"local-sd-format-fail"});
-        }
-      }catch(err){
-        const reason = (err && err.message) ? err.message : String(err || "unknown");
-        setLocalSdStatus("포맷 실패: " + reason, "error");
-        showToast("SD 포맷 실패: " + reason, "error", {key:"local-sd-format-fail"});
-      }finally{
-        setLocalSdBusy(false);
-      }
-    }
-
-    function ensureLocalSdToolsUi(){
-      ensureLocalSdToolsCss();
-
-      if(!el.localSdToolsWrap){
-        const existing = document.getElementById("localSdToolsWrap");
-        if(existing){
-          el.localSdToolsWrap = existing;
-          el.localSdPickBtn = document.getElementById("localSdPickBtn");
-          el.localSdUploadBtn = document.getElementById("localSdUploadBtn");
-          el.localSdUploadFolderBtn = document.getElementById("localSdUploadFolderBtn");
-          el.localSdDeployBtn = document.getElementById("localSdDeployBtn");
-          el.localSdFormatBtn = document.getElementById("localSdFormatBtn");
-          el.localSdStatusLine = document.getElementById("localSdStatusLine");
-          el.localSdNote = document.getElementById("localSdNote");
-          el.localSdUploadInput = document.getElementById("localSdUploadInput");
-          el.localSdUploadFolderInput = document.getElementById("localSdUploadFolderInput");
-        }
-      }
-      if(el.localSdToolsWrap){
-        refreshLocalSdControls();
-        return;
-      }
-
-      const visibleStatus = findVisibleById("spiFlashStatusLine") || el.spiFlashStatusLine || null;
-      const statusHost = (visibleStatus && visibleStatus.parentElement) ? visibleStatus.parentElement : null;
-      const rowHost = visibleStatus
-        ? (visibleStatus.closest(".hardware-row") || visibleStatus.closest(".hardware-item") || null)
-        : null;
-      const actionHostBtn = findVisibleById("spiFlashRefreshBtn") || findVisibleById("spiFlashDumpBtn") || null;
-      const actionHost = actionHostBtn
-        ? (actionHostBtn.closest(".hardware-row") || actionHostBtn.closest(".hardware-item") || actionHostBtn.parentElement || null)
-        : null;
-      const fallbackHardwareHost = (el.hardwareView && el.hardwareView.nodeType === 1) ? el.hardwareView : null;
-      const host = statusHost || actionHost || fallbackHardwareHost || null;
-      if(!host && !rowHost && !actionHost) return;
-
-      const wrap = document.createElement("section");
-      wrap.id = "localSdToolsWrap";
-      wrap.className = "local-sd-tools";
-
-      const title = document.createElement("div");
-      title.className = "local-sd-tools-title";
-      title.textContent = "LOCAL SD CARD (PC SLOT/HUB)";
-      wrap.appendChild(title);
-
-      const actions = document.createElement("div");
-      actions.className = "local-sd-tools-actions";
-      wrap.appendChild(actions);
-
-      const baseBtnClass = String((el.spiFlashRefreshBtn && el.spiFlashRefreshBtn.className) || "").trim();
-      const makeBtn = (id, label)=>{
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.id = id;
-        btn.classList.add("local-sd-btn");
-        if(baseBtnClass){
-          baseBtnClass.split(/\s+/).forEach(cls=>{ if(cls) btn.classList.add(cls); });
-        }
-        btn.textContent = label;
-        actions.appendChild(btn);
-        return btn;
-      };
-
-      const pickBtn = makeBtn("localSdPickBtn", "SD 폴더 선택");
-      const uploadBtn = makeBtn("localSdUploadBtn", "파일 업로드");
-      const uploadFolderBtn = makeBtn("localSdUploadFolderBtn", "폴더 업로드");
-      const deployBtn = makeBtn("localSdDeployBtn", "웹파일 자동배포");
-      const formatBtn = makeBtn("localSdFormatBtn", "포맷(전체삭제)");
-
-      const statusLine = document.createElement("div");
-      statusLine.id = "localSdStatusLine";
-      statusLine.className = "local-sd-status";
-      statusLine.textContent = "SD 폴더를 선택하면 업로드를 시작할 수 있습니다.";
-      wrap.appendChild(statusLine);
-
-      const note = document.createElement("div");
-      note.id = "localSdNote";
-      note.className = "local-sd-note";
-      wrap.appendChild(note);
-
-      const uploadInput = document.createElement("input");
-      uploadInput.id = "localSdUploadInput";
-      uploadInput.className = "local-sd-input";
-      uploadInput.type = "file";
-      uploadInput.multiple = true;
-      wrap.appendChild(uploadInput);
-
-      const uploadFolderInput = document.createElement("input");
-      uploadFolderInput.id = "localSdUploadFolderInput";
-      uploadFolderInput.className = "local-sd-input";
-      uploadFolderInput.type = "file";
-      uploadFolderInput.multiple = true;
-      uploadFolderInput.setAttribute("webkitdirectory", "");
-      uploadFolderInput.setAttribute("directory", "");
-      wrap.appendChild(uploadFolderInput);
-
-      const insertAfterRow = rowHost || actionHost;
-      if(insertAfterRow && insertAfterRow.parentElement){
-        if(insertAfterRow.nextSibling){
-          insertAfterRow.parentElement.insertBefore(wrap, insertAfterRow.nextSibling);
-        }else{
-          insertAfterRow.parentElement.appendChild(wrap);
-        }
-      }else if(host){
-        host.appendChild(wrap);
-      }else{
-        document.body.appendChild(wrap);
-      }
-
-      el.localSdToolsWrap = wrap;
-      el.localSdPickBtn = pickBtn;
-      el.localSdUploadBtn = uploadBtn;
-      el.localSdUploadFolderBtn = uploadFolderBtn;
-      el.localSdDeployBtn = deployBtn;
-      el.localSdFormatBtn = formatBtn;
-      el.localSdStatusLine = statusLine;
-      el.localSdNote = note;
-      el.localSdUploadInput = uploadInput;
-      el.localSdUploadFolderInput = uploadFolderInput;
-
-      refreshLocalSdControls();
-    }
-
-    function bindLocalSdToolsUiEvents(){
-      if(el.localSdPickBtn && !el.localSdPickBtn.dataset.bound){
-        el.localSdPickBtn.dataset.bound = "1";
-        el.localSdPickBtn.addEventListener("click", ()=>{ pickLocalSdDirectory(); });
-      }
-      if(el.localSdUploadBtn && el.localSdUploadInput && !el.localSdUploadBtn.dataset.bound){
-        el.localSdUploadBtn.dataset.bound = "1";
-        el.localSdUploadBtn.addEventListener("click", ()=>{
-          if(!localSdDirHandle){
-            showToast("먼저 SD 폴더를 선택하세요.", "notice", {key:"local-sd-no-dir"});
-            return;
-          }
-          el.localSdUploadInput.click();
-        });
-      }
-      if(el.localSdUploadFolderBtn && el.localSdUploadFolderInput && !el.localSdUploadFolderBtn.dataset.bound){
-        el.localSdUploadFolderBtn.dataset.bound = "1";
-        el.localSdUploadFolderBtn.addEventListener("click", ()=>{
-          if(!localSdDirHandle){
-            showToast("먼저 SD 폴더를 선택하세요.", "notice", {key:"local-sd-no-dir"});
-            return;
-          }
-          el.localSdUploadFolderInput.click();
-        });
-      }
-      if(el.localSdUploadInput && !el.localSdUploadInput.dataset.bound){
-        el.localSdUploadInput.dataset.bound = "1";
-        el.localSdUploadInput.addEventListener("change", async ()=>{
-          const files = el.localSdUploadInput.files;
-          try{
-            await writeLocalSdFiles(files);
-          }finally{
-            el.localSdUploadInput.value = "";
-          }
-        });
-      }
-      if(el.localSdUploadFolderInput && !el.localSdUploadFolderInput.dataset.bound){
-        el.localSdUploadFolderInput.dataset.bound = "1";
-        el.localSdUploadFolderInput.addEventListener("change", async ()=>{
-          const files = el.localSdUploadFolderInput.files;
-          try{
-            await writeLocalSdFiles(files);
-          }finally{
-            el.localSdUploadFolderInput.value = "";
-          }
-        });
-      }
-      if(el.localSdDeployBtn && !el.localSdDeployBtn.dataset.bound){
-        el.localSdDeployBtn.dataset.bound = "1";
-        el.localSdDeployBtn.addEventListener("click", ()=>{ deployCurrentWebAssetsToLocalSd(); });
-      }
-      if(el.localSdFormatBtn && !el.localSdFormatBtn.dataset.bound){
-        el.localSdFormatBtn.dataset.bound = "1";
-        el.localSdFormatBtn.addEventListener("click", ()=>{ formatLocalSdDirectory(); });
-      }
     }
 
     const SPI_FLASH_SERIAL_CHUNK_BYTES = 96;
@@ -13728,6 +13568,16 @@
       }
     }
 
+    function ensureSpiFlashStateKnown(){
+      if(spiFlashReadyState != null) return;
+      const now = Date.now();
+      if(spiFlashProbePending) return;
+      if((now - spiFlashProbeLastMs) < 5000) return;
+      spiFlashProbePending = true;
+      spiFlashProbeLastMs = now;
+      fetchSpiFlashStatus().catch(()=>{}).finally(()=>{ spiFlashProbePending = false; });
+    }
+
     async function resetSpiFlashStorage(){
       let serialReason = "";
       if(canUseSerialForSpiFlash()){
@@ -13837,6 +13687,10 @@
     }
 
     let pollTimer=null;
+    let updateDataStartedMs = 0;
+    const UPDATE_DATA_GUARD_TIMEOUT_MS = 3500;
+    const UPDATE_DATA_SOFT_TIMEOUT_MS = 1600;
+
     async function pollLoop(){
       const t0 = (performance?.now?.() ?? Date.now());
       try{ await updateData(); }
@@ -13954,16 +13808,12 @@
     let rebootConfirmActionsEl=null;
     let rebootConfirmWaiting=false;
     let rebootConfirmStartedMs=0;
+    let rebootRecoveryTimer=null;
+    let rebootRecoveryInFlight=false;
+    let rebootRecoveryReloaded=false;
     let easterOverlayEl=null;
     let easterEggOkEl=null;
     let easterEggPending=false;
-    let tetrisWinOverlayEl=null;
-    let tetrisWinOkEl=null;
-    let tetrisWinShown=false;
-    let tetrisPrizeOverlayEl=null;
-    let tetrisPrizeCopyEl=null;
-    let tetrisPrizeCloseEl=null;
-    let tetrisPrizeCodeEl=null;
 
     function resetLongPressVisual(){
       if(longPressSpinnerEl) longPressSpinnerEl.style.setProperty("--lp-angle","0deg");
@@ -13990,11 +13840,11 @@
         showToast(t("inspectionRequiredToast"), "notice");
         return;
       }
-      if(latestTelemetry.sw === 1){
+      if(latestTelemetry.sw === 1 && !isArmLockEngaged()){
         showToast(t("switchHighToast", {safety:safetyLineSuffix()}), "notice");
         return;
       }
-      if((uiSettings && uiSettings.igs) && latestTelemetry.ic !== 1){
+      if(isIgniterCheckEnabled() && latestTelemetry.ic !== 1){
         showToast(t("countdownIgniterRequired", {safety:safetyLineSuffix()}), "notice");
         return;
       }
@@ -14009,6 +13859,10 @@
     }
 
     function showEasterEggWarning(){
+      if(!ENABLE_EASTER_TETRIS){
+        showToast("Light mode: easter/tetris disabled", "notice", {key:"lite-easter-disabled"});
+        return;
+      }
       hideMobileControlsPanel();
       sendCommand({http:"/easter_bgm", ser:"/easter_bgm"}, false);
       if(easterOverlayEl){
@@ -14019,50 +13873,11 @@
       startTetris();
     }
     function hideEasterEggWarning(){
+      if(!ENABLE_EASTER_TETRIS) return;
       setOverlayVisible(easterOverlayEl, false);
       if(easterEggPending){
         easterEggPending = false;
         startTetris();
-      }
-    }
-
-    function showTetrisWin(){
-      hideMobileControlsPanel();
-      if(tetrisWinShown) return;
-      tetrisWinShown = true;
-      setOverlayVisible(tetrisWinOverlayEl, true);
-    }
-    function hideTetrisWin(){
-      setOverlayVisible(tetrisWinOverlayEl, false);
-    }
-    function showTetrisPrize(){
-      hideMobileControlsPanel();
-      setOverlayVisible(tetrisPrizeOverlayEl, true);
-    }
-    function hideTetrisPrize(){
-      setOverlayVisible(tetrisPrizeOverlayEl, false);
-    }
-    function copyTetrisPrizeCode(){
-      const code = tetrisPrizeCodeEl ? tetrisPrizeCodeEl.textContent.trim() : "";
-      if(!code) return;
-      if(navigator.clipboard && window.isSecureContext){
-        navigator.clipboard.writeText(code).then(()=>{
-          showToast(t("tetrisPrizeCopiedToast"), "success");
-        }).catch(()=>{
-          showToast(t("tetrisPrizeCopyFailToast"), "error");
-        });
-        return;
-      }
-      try{
-        const ta=document.createElement("textarea");
-        ta.value=code; ta.style.position="fixed"; ta.style.top="-9999px";
-        document.body.appendChild(ta);
-        ta.focus(); ta.select();
-        document.execCommand("copy");
-        document.body.removeChild(ta);
-        showToast(t("tetrisPrizeCopiedToast"), "success");
-      }catch(e){
-        showToast(t("tetrisPrizeCopyFailToast"), "error");
       }
     }
 
@@ -14072,11 +13887,11 @@
         showToast(t("inspectionRequiredShort"), "notice");
         return;
       }
-      if(latestTelemetry.sw === 1){
+      if(latestTelemetry.sw === 1 && !isArmLockEngaged()){
         showToast(t("switchHighToast", {safety:safetyLineSuffix()}), "notice");
         return;
       }
-      if((uiSettings && uiSettings.igs) && latestTelemetry.ic !== 1){
+      if(isIgniterCheckEnabled() && latestTelemetry.ic !== 1){
         showToast(t("countdownIgniterRequired", {safety:safetyLineSuffix()}), "notice");
         return;
       }
@@ -14108,13 +13923,13 @@
         if(left===0){
           clearInterval(lpTimer); lpTimer=null;
           resetLongPressVisual(); userWaitingLocal=false;
-          if(latestTelemetry.sw === 1){
+          if(latestTelemetry.sw === 1 && !isArmLockEngaged()){
             setOverlayVisible(confirmOverlayEl, false);
             sendCommand({http:"/precount?uw=0&cd=0", ser:"PRECOUNT 0 0"}, false);
             showToast(t("switchHighToast", {safety:safetyLineSuffix()}), "notice");
             return;
           }
-          if((uiSettings && uiSettings.igs) && latestTelemetry.ic !== 1){
+          if(isIgniterCheckEnabled() && latestTelemetry.ic !== 1){
             setOverlayVisible(confirmOverlayEl, false);
             sendCommand({http:"/precount?uw=0&cd=0", ser:"PRECOUNT 0 0"}, false);
             showToast(t("countdownIgniterRequired", {safety:safetyLineSuffix()}), "notice");
@@ -14212,9 +14027,8 @@
       );
     }
     function hasSequenceMissionRequirement(){
-      // DAQ 모드에서는 미션명이 없어도 시퀀스/강제점화를 허용.
-      if(!isFlightModeUi()) return true;
-      return hasMissionSelected();
+      // Flight/DAQ 모두 모터(미션명) 미선택 상태에서도 시퀀스 진행 허용.
+      return true;
     }
     function isMissionEditableNow(){
       if(replaySourceActive) return false;
@@ -14268,6 +14082,10 @@
       if(k === "pyro"){
         block.when = {type:"switch_falling", cmp:"eq", value:0, pin:2};
         block.then = {type:"pyro", channel:1, durationMs:300};
+      }else if(k === "cond_sequence_start"){
+        block.rowType = "condition";
+        block.once = true;
+        block.when = {type:"sequence_start", cmp:"eq", value:0, pin:1};
       }else if(k === "cond_altitude"){
         block.rowType = "condition";
         block.when = {type:"altitude_gte", cmp:"gt", value:120, pin:1};
@@ -14554,6 +14372,7 @@
       if(
         String(whenType || "") === "switch_falling" ||
         String(whenType || "") === "switch_rising" ||
+        String(whenType || "") === "sequence_start" ||
         String(whenType || "") === "boot"
       ){
         return "eq";
@@ -14563,7 +14382,7 @@
     function normalizeMissionTriggerValue(whenType, raw){
       const t = String(whenType || "");
       const n = toFiniteNumber(raw, 0);
-      if(t === "switch_falling" || t === "switch_rising" || t === "boot") return 0;
+      if(t === "switch_falling" || t === "switch_rising" || t === "sequence_start" || t === "boot") return 0;
       if(t === "var_value") return Math.max(-99999, Math.min(99999, n));
       if(t === "var_change_count") return Math.max(1, Math.min(99999, Math.round(n)));
       if(t === "gyro_x_deg" || t === "gyro_y_deg" || t === "gyro_z_deg"){
@@ -14578,7 +14397,7 @@
     function isMissionWhenTypeSupported(type){
       const t = String(type || "");
       return t === "altitude_gte" || t === "switch_falling" ||
-        t === "switch_rising" || t === "time_after_firing_ms" ||
+        t === "switch_rising" || t === "sequence_start" || t === "time_after_firing_ms" ||
         t === "gyro_x_deg" || t === "gyro_y_deg" || t === "gyro_z_deg" ||
         t === "var_value" || t === "var_change_count" || t === "boot";
     }
@@ -15015,6 +14834,7 @@
     }
     function getTriggerLabelAndUnit(type){
       if(type === "altitude_gte") return {phrase:"고도", unit:"m 이상", hasValue:true, keyMode:"none"};
+      if(type === "sequence_start") return {phrase:"시퀀스", unit:"시작", hasValue:false, keyMode:"none"};
       if(type === "boot") return {phrase:"부팅", unit:"시작", hasValue:false, keyMode:"none"};
       if(type === "time_after_firing_ms") return {phrase:"점화 후", unit:"ms 이후", hasValue:true, keyMode:"none"};
       if(type === "switch_rising") return {phrase:"ARM", unit:"OFF→ON", hasValue:false, keyMode:"pin"};
@@ -15458,6 +15278,7 @@
             "<span class=\"scratch-text scratch-text--if\">만일</span>" +
             "<select class=\"scratch-field scratch-select scratch-field--if-type\" data-role=\"triggerType\">" +
               "<option value=\"altitude_gte\"" + (triggerType === "altitude_gte" ? " selected" : "") + ">고도</option>" +
+              "<option value=\"sequence_start\"" + (triggerType === "sequence_start" ? " selected" : "") + ">시퀀스 시작</option>" +
               "<option value=\"switch_falling\"" + (triggerType === "switch_falling" ? " selected" : "") + ">ARM OFF</option>" +
               "<option value=\"switch_rising\"" + (triggerType === "switch_rising" ? " selected" : "") + ">ARM ON</option>" +
               "<option value=\"time_after_firing_ms\"" + (triggerType === "time_after_firing_ms" ? " selected" : "") + ">점화 후 시간</option>" +
@@ -15855,7 +15676,7 @@
       return k === "servo" || k === "pyro" || k === "time_servo" ||
         k === "time_pyro" || k === "switch_servo" || k === "altitude_pyro" ||
         k === "switch_pyro" || k === "altitude_servo_high" ||
-        k === "cond_altitude" || k === "cond_start_arm_off" || k === "cond_switch_falling" ||
+        k === "cond_sequence_start" || k === "cond_altitude" || k === "cond_start_arm_off" || k === "cond_switch_falling" ||
         k === "cond_switch_rising" || k === "cond_time_after_firing" || k === "cond_gyro_angle" || k === "cond_variable" || k === "cond_var_change_count" ||
         k === "act_wait" || k === "act_servo" || k === "act_servo_high" || k === "act_pyro" || k === "act_var_set" || k === "act_var_add" || k === "act_var_avg" || k === "act_alarm" ||
         k === "act_buzzer" || k === "act_find_buzzer" || k === "act_notone" ||
@@ -15880,7 +15701,7 @@
     }
     function missionPaletteKindIsCondition(kind){
       const k = String(kind || "");
-      return k === "cond_altitude" || k === "cond_start_arm_off" || k === "cond_switch_falling" ||
+      return k === "cond_sequence_start" || k === "cond_altitude" || k === "cond_start_arm_off" || k === "cond_switch_falling" ||
         k === "cond_switch_rising" || k === "cond_time_after_firing" || k === "cond_gyro_angle" || k === "cond_variable" || k === "cond_var_change_count";
     }
     function missionPaletteKindIsLoop(kind){
@@ -16590,10 +16411,6 @@
       stage.innerHTML = "";
       if(missionBlocksState.length === 0){
         updateMissionBlockCanvasState(0);
-        const empty = document.createElement("div");
-        empty.className = "mission-block-empty";
-        empty.textContent = "왼쪽 팔레트에서 블록을 드래그해 시퀀스를 만들어보세요.";
-        stage.appendChild(empty);
         updateMissionEditLockUI();
         return;
       }
@@ -16985,39 +16802,67 @@
         return { ok:false, reason:(e && e.message) ? e.message : "SERIAL_ERROR" };
       }
     }
+    async function sendMissionSerialAckCommandRetry(path, ackPrefix, timeoutMs, maxAttempts){
+      const attempts = Math.max(1, Math.round(Number(maxAttempts) || 1));
+      let last = { ok:false, reason:"SERIAL_FAIL" };
+      for(let i = 0; i < attempts; i++){
+        const res = await sendMissionSerialAckCommand(path, ackPrefix, timeoutMs);
+        if(res && res.ok) return res;
+        last = res || last;
+        const reason = String((res && res.reason) || "");
+        const isRetryable = (reason === "SERIAL_TIMEOUT" || reason === "SERIAL_CANCELLED");
+        if(!isRetryable) break;
+        if(i < attempts - 1){
+          await new Promise(resolve=>setTimeout(resolve, 140 + (i * 120)));
+        }
+      }
+      return last;
+    }
     async function saveMissionProfileViaSerial(body, bodyBytes){
       const canSerialSave = !!(serialEnabled && serialConnected && serialTxEnabled);
       if(!canSerialSave) return { ok:false, reason:"SERIAL_NOT_READY" };
-
-      const beginRes = await sendMissionSerialAckCommand(
-        "/mission_profile_begin?len=" + String(Math.max(0, bodyBytes || 0)),
-        "MISSION_PROFILE_BEGIN",
-        2200
-      );
-      if(!beginRes.ok) return beginRes;
-
-      const bytes = new TextEncoder().encode(String(body || ""));
-      const b64 = base64FromUtf8Bytes(bytes);
-      if(!b64){
-        await sendMissionSerialAckCommand("/mission_profile_cancel", "MISSION_PROFILE_CANCEL", 1200);
-        return { ok:false, reason:"SERIAL_B64_ENCODE_FAIL" };
+      const streamWasEnabled = !!serialRxEnabled;
+      if(streamWasEnabled){
+        try{ await setSerialStreamState(false); }catch(_e){}
       }
+      try{
 
-      for(let i = 0; i < b64.length; i += MISSION_SERIAL_CHUNK_B64_SIZE){
-        const chunk = b64.slice(i, i + MISSION_SERIAL_CHUNK_B64_SIZE);
-        const chunkRes = await sendMissionSerialAckCommand(
-          "/mission_profile_chunk?b64=" + chunk,
-          "MISSION_PROFILE_CHUNK",
-          2600
+        const beginRes = await sendMissionSerialAckCommandRetry(
+          "/mission_profile_begin?len=" + String(Math.max(0, bodyBytes || 0)),
+          "MISSION_PROFILE_BEGIN",
+          4500,
+          3
         );
-        if(!chunkRes.ok){
-          await sendMissionSerialAckCommand("/mission_profile_cancel", "MISSION_PROFILE_CANCEL", 1200);
-          return chunkRes;
+        if(!beginRes.ok) return beginRes;
+
+        const bytes = new TextEncoder().encode(String(body || ""));
+        const b64 = base64FromUtf8Bytes(bytes);
+        if(!b64){
+          await sendMissionSerialAckCommandRetry("/mission_profile_cancel", "MISSION_PROFILE_CANCEL", 1800, 2);
+          return { ok:false, reason:"SERIAL_B64_ENCODE_FAIL" };
+        }
+
+        for(let i = 0; i < b64.length; i += MISSION_SERIAL_CHUNK_B64_SIZE){
+          const chunk = b64.slice(i, i + MISSION_SERIAL_CHUNK_B64_SIZE);
+          const chunkRes = await sendMissionSerialAckCommandRetry(
+            "/mission_profile_chunk?b64=" + chunk,
+            "MISSION_PROFILE_CHUNK",
+            5000,
+            3
+          );
+          if(!chunkRes.ok){
+            await sendMissionSerialAckCommandRetry("/mission_profile_cancel", "MISSION_PROFILE_CANCEL", 1800, 2);
+            return chunkRes;
+          }
+        }
+
+        const endRes = await sendMissionSerialAckCommandRetry("/mission_profile_end", "MISSION_PROFILE_SAVED", 7000, 3);
+        return endRes;
+      } finally {
+        if(streamWasEnabled){
+          try{ await setSerialStreamState(true); }catch(_e){}
         }
       }
-
-      const endRes = await sendMissionSerialAckCommand("/mission_profile_end", "MISSION_PROFILE_SAVED", 5000);
-      return endRes;
     }
     async function saveMissionProfileToBoard(){
       if(missionBoardSavePending){
@@ -17070,12 +16915,10 @@
           return true;
         }
         addLogLine("Mission save via SERIAL failed: " + serialRes.reason, "ERR");
-        showToast("보드 저장 실패(SERIAL): " + (serialRes.reason || "SERIAL_FAIL"), "error", {
-          key:"mission-board-save-fail",
+        showToast("시리얼 저장 실패 → HTTP 저장 재시도: " + (serialRes.reason || "SERIAL_FAIL"), "notice", {
+          key:"mission-board-save-serial-fallback",
           forceToast:true
         });
-        missionBoardSavePending = false;
-        return false;
       }
       const API_BASE = getApiBaseForCommands();
       const url = (API_BASE ? API_BASE : "") + "/mission_profile";
@@ -17189,16 +17032,53 @@
     }
     function updateMissionEditLockUI(){
       const editable = isMissionEditableNow();
+      const missionProfileAvailable = !isFlightModeUi();
+      if(!missionProfileAvailable){
+        if(isMobileMissionPanelVisible()) setMobileMissionPanelVisible(false);
+        if(missionPanelActive) setMissionPanelVisible(false);
+        if(isMissionOverlayVisible()) setOverlayVisible(el.missionOverlay, false);
+      }
       if(el.missionOpenBtn){
-        el.missionOpenBtn.disabled = false;
-        el.missionOpenBtn.setAttribute("aria-disabled", editable ? "false" : "true");
-        el.missionOpenBtn.title = editable ? "" : "IDLE(시퀀스 전)에서만 미션 편집 가능";
+        el.missionOpenBtn.classList.toggle("hidden", !missionProfileAvailable);
+        el.missionOpenBtn.disabled = !missionProfileAvailable;
+        el.missionOpenBtn.setAttribute("aria-hidden", missionProfileAvailable ? "false" : "true");
+        el.missionOpenBtn.setAttribute("aria-disabled", (missionProfileAvailable && editable) ? "false" : "true");
+        el.missionOpenBtn.title = !missionProfileAvailable
+          ? "Flight 모드에서는 미션 프로필을 사용할 수 없습니다."
+          : (editable ? "" : "IDLE(시퀀스 전)에서만 미션 편집 가능");
       }
       if(el.missionViewOpenBtn){
-        el.missionViewOpenBtn.disabled = false;
-        el.missionViewOpenBtn.setAttribute("aria-disabled", editable ? "false" : "true");
-        el.missionViewOpenBtn.title = editable ? "" : "IDLE(시퀀스 전)에서만 미션 편집 가능";
+        el.missionViewOpenBtn.classList.toggle("hidden", !missionProfileAvailable);
+        el.missionViewOpenBtn.disabled = !missionProfileAvailable;
+        el.missionViewOpenBtn.setAttribute("aria-hidden", missionProfileAvailable ? "false" : "true");
+        el.missionViewOpenBtn.setAttribute("aria-disabled", (missionProfileAvailable && editable) ? "false" : "true");
+        el.missionViewOpenBtn.title = !missionProfileAvailable
+          ? "Flight 모드에서는 미션 프로필을 사용할 수 없습니다."
+          : (editable ? "" : "IDLE(시퀀스 전)에서만 미션 편집 가능");
       }
+      if(el.missionPanel){
+        el.missionPanel.classList.toggle("hidden", !missionProfileAvailable);
+        if(!missionProfileAvailable){
+          el.missionPanel.setAttribute("aria-hidden", "true");
+        }
+      }
+      if(el.mobileMissionPanel){
+        el.mobileMissionPanel.classList.toggle("hidden", !missionProfileAvailable);
+        if(!missionProfileAvailable){
+          el.mobileMissionPanel.setAttribute("aria-hidden", "true");
+        }
+      }
+      if(el.mobileMissionWideBtn){
+        el.mobileMissionWideBtn.classList.toggle("hidden", !missionProfileAvailable);
+        el.mobileMissionWideBtn.disabled = !missionProfileAvailable;
+        el.mobileMissionWideBtn.classList.toggle("disabled", !missionProfileAvailable);
+        el.mobileMissionWideBtn.setAttribute("aria-hidden", missionProfileAvailable ? "false" : "true");
+        el.mobileMissionWideBtn.setAttribute("aria-disabled", missionProfileAvailable ? "false" : "true");
+        el.mobileMissionWideBtn.title = !missionProfileAvailable
+          ? "Flight 모드에서는 미션 프로필을 사용할 수 없습니다."
+          : "";
+      }
+      updateMobileArmLockWideButton();
       if(el.missionSaveBoardBtn){
         // Always clickable so the user can see lock/fail reason toast.
         el.missionSaveBoardBtn.disabled = false;
@@ -17233,11 +17113,12 @@
         el.missionConfirmBtn.disabled = !editable;
         el.missionConfirmBtn.classList.toggle("disabled", !editable);
       }
-      setMobileControlButtonState("mission", !editable);
+      setMobileControlButtonState("mission", (!missionProfileAvailable || !editable));
     }
     function updateExportButtonState(){
       if(!el.exportCsvBtn) return;
-      const ok = hasMissionSelected();
+      const replayExportable = !!(replayState && Array.isArray(replayState.samples) && replayState.samples.length > 0);
+      const ok = hasMissionSelected() || replayExportable;
       el.exportCsvBtn.disabled = !ok;
       el.exportCsvBtn.classList.toggle("disabled", !ok);
       updateExportGuardUi();
@@ -17282,7 +17163,7 @@
     }
     function setQuickItemStatus(targetEl, status){
       if(!targetEl) return;
-      const item = targetEl.closest(".item, .status-battery");
+      const item = targetEl.closest(".item, .status-battery, .status-chiptemp");
       if(!item) return;
       const nextClass = status ? ("status-" + status) : "";
       const prevClass = item.dataset.statusClass || "";
@@ -17332,6 +17213,18 @@
         : null;
 
       el.batteryStatus.textContent = pctText;
+      if(el.chipTempStatus){
+        const chipTempText = (lastChipTempC != null && isFinite(lastChipTempC))
+          ? (lastChipTempC.toFixed(1) + "°C")
+          : "--°C";
+        el.chipTempStatus.textContent = chipTempText;
+      }
+      if(el.perfStatus){
+        const perfText = (lastPerfLoadPct != null && isFinite(Number(lastPerfLoadPct)))
+          ? (Math.round(Number(lastPerfLoadPct)) + "%")
+          : "--%";
+        el.perfStatus.textContent = perfText;
+      }
       el.commStatus.innerHTML = '<span class="num">' + commText + "</span>";
       const delayText = Number.isFinite(delaySec) ? formatQuickTimeDisplay(delaySec) : "--";
       el.motorDelay.innerHTML = '<span class="num">' + delayText + '</span><span class="unit">S</span>';
@@ -17378,12 +17271,209 @@
         else if(lastBatteryPct >= 40) batteryState = "warn";
         else batteryState = "bad";
       }
+      let chipTempState = null;
+      if(lastChipTempC != null && isFinite(lastChipTempC)){
+        if(lastChipTempC >= 75) chipTempState = "bad";
+        else if(lastChipTempC >= 60) chipTempState = "warn";
+        else chipTempState = "ok";
+      }
+      let perfState = null;
+      if(lastPerfLoadPct != null && isFinite(Number(lastPerfLoadPct))){
+        const perfLoad = Number(lastPerfLoadPct);
+        if(perfLoad >= 90) perfState = "bad";
+        else if(perfLoad >= 70) perfState = "warn";
+        else perfState = "ok";
+      }
       setQuickItemStatus(el.batteryStatus, batteryState);
+      setQuickItemStatus(el.chipTempStatus, chipTempState);
+      setQuickItemStatus(el.perfStatus, perfState);
       setQuickItemStatus(el.commStatus, connOk ? "ok" : "bad");
       updateStatusMotor();
       updateGyroMetaFromMain();
       syncGyroExpandedHud();
       syncStatusMapExpandedHud();
+    }
+    function getChipTempStateLabel(tempC){
+      if(tempC == null || !isFinite(Number(tempC))) return "NO DATA";
+      if(Number(tempC) >= 75) return "HOT";
+      if(Number(tempC) >= 60) return "WARN";
+      return "NORMAL";
+    }
+    function isChipTempModalVisible(){
+      return !!(el.chipTempOverlay && !el.chipTempOverlay.classList.contains("hidden"));
+    }
+    function renderChipTempModal(){
+      if(!isChipTempModalVisible()) return;
+      const hasValidTemp = lastChipTempSampleMs > 0;
+      if(!hasValidTemp){
+        if(el.chipTempNowValue) el.chipTempNowValue.textContent = "--°C";
+        if(el.chipTempMinValue) el.chipTempMinValue.textContent = "--°C";
+        if(el.chipTempMaxValue) el.chipTempMaxValue.textContent = "--°C";
+        if(el.chipTempAvgValue) el.chipTempAvgValue.textContent = "--°C";
+        if(el.chipTempStateValue) el.chipTempStateValue.textContent = "NO DATA";
+        if(el.chipTempChartNote) el.chipTempChartNote.textContent = "데이터 대기 중";
+        drawChart("chipTempChart", [], "#16a34a", {windowMs:30000, startMs:null});
+        return;
+      }
+      const values = [];
+      for(let i=0;i<chipTempHistory.length;i++){
+        const v = Number(chipTempHistory[i]);
+        if(isFinite(v)) values.push(v);
+      }
+      const current = (lastChipTempC != null && isFinite(Number(lastChipTempC)))
+        ? Number(lastChipTempC)
+        : (values.length ? Number(values[values.length - 1]) : NaN);
+      let min = NaN;
+      let max = NaN;
+      let avg = NaN;
+      if(values.length){
+        let sum = 0;
+        min = values[0];
+        max = values[0];
+        for(let i=0;i<values.length;i++){
+          const v = values[i];
+          sum += v;
+          if(v < min) min = v;
+          if(v > max) max = v;
+        }
+        avg = sum / values.length;
+      }
+
+      if(el.chipTempNowValue) el.chipTempNowValue.textContent = isFinite(current) ? (current.toFixed(1) + "°C") : "--°C";
+      if(el.chipTempMinValue) el.chipTempMinValue.textContent = isFinite(min) ? (min.toFixed(1) + "°C") : "--°C";
+      if(el.chipTempMaxValue) el.chipTempMaxValue.textContent = isFinite(max) ? (max.toFixed(1) + "°C") : "--°C";
+      if(el.chipTempAvgValue) el.chipTempAvgValue.textContent = isFinite(avg) ? (avg.toFixed(1) + "°C") : "--°C";
+      if(el.chipTempStateValue) el.chipTempStateValue.textContent = getChipTempStateLabel(current);
+      if(el.chipTempChartNote){
+        el.chipTempChartNote.textContent = "최근 30초 · 35~85°C";
+      }
+      drawChart(
+        "chipTempChart",
+        chipTempHistory,
+        "#16a34a",
+        {windowMs:30000, startMs:null},
+        {
+          yMin:35,
+          yMax:85,
+          thresholdLines:[
+            {value:60, label:"WARN 60°C", color:"rgba(245,158,11,0.92)"},
+            {value:75, label:"HOT 75°C", color:"rgba(239,68,68,0.92)"}
+          ]
+        }
+      );
+    }
+    function showChipTempModal(){
+      hideMobileControlsPanel();
+      setOverlayVisible(el.chipTempOverlay, true);
+      if(el.chipTempChart){
+        el.chipTempChart._cssW = null;
+        el.chipTempChart._cssH = null;
+      }
+      renderChipTempModal();
+    }
+    function hideChipTempModal(){
+      setOverlayVisible(el.chipTempOverlay, false);
+    }
+    function formatPerfPct(value){
+      return (value != null && isFinite(Number(value)))
+        ? (Math.round(Number(value)) + "%")
+        : "--%";
+    }
+    function getPerfStateLabel(loadPct){
+      if(loadPct == null || !isFinite(Number(loadPct))) return "NO DATA";
+      if(Number(loadPct) >= 90) return "CRITICAL";
+      if(Number(loadPct) >= 70) return "BUSY";
+      return "NORMAL";
+    }
+    function isPerfModalVisible(){
+      return !!(el.perfOverlay && !el.perfOverlay.classList.contains("hidden"));
+    }
+    function renderPerfModal(){
+      if(!isPerfModalVisible()) return;
+      const hasValidPerf = lastPerfSampleMs > 0;
+      if(!hasValidPerf){
+        if(el.perfNowValue) el.perfNowValue.textContent = "--%";
+        if(el.perfMinValue) el.perfMinValue.textContent = "--%";
+        if(el.perfMaxValue) el.perfMaxValue.textContent = "--%";
+        if(el.perfAvgValue) el.perfAvgValue.textContent = "--%";
+        if(el.perfCpuNow) el.perfCpuNow.textContent = "-- us";
+        if(el.perfLoopNow) el.perfLoopNow.textContent = "-- us";
+        if(el.perfStateValue) el.perfStateValue.textContent = "NO DATA";
+        if(el.perfChartNote) el.perfChartNote.textContent = "데이터 대기 중";
+        drawChart("perfChart", [], "#0ea5e9", {windowMs:30000, startMs:null});
+        return;
+      }
+
+      const values = [];
+      for(let i=0;i<perfLoadHistory.length;i++){
+        const v = Number(perfLoadHistory[i]);
+        if(isFinite(v)) values.push(v);
+      }
+      const current = (lastPerfLoadPct != null && isFinite(Number(lastPerfLoadPct)))
+        ? Number(lastPerfLoadPct)
+        : (values.length ? Number(values[values.length - 1]) : NaN);
+      const currentRaw = (lastPerfLoadRawPct != null && isFinite(Number(lastPerfLoadRawPct)))
+        ? Number(lastPerfLoadRawPct)
+        : NaN;
+      let min = NaN;
+      let max = NaN;
+      let avg = NaN;
+      if(values.length){
+        let sum = 0;
+        min = values[0];
+        max = values[0];
+        for(let i=0;i<values.length;i++){
+          const v = values[i];
+          sum += v;
+          if(v < min) min = v;
+          if(v > max) max = v;
+        }
+        avg = sum / values.length;
+      }
+
+      if(el.perfNowValue){
+        const nowText = formatPerfPct(current);
+        if(isFinite(currentRaw) && isFinite(current) && Math.abs(currentRaw - current) >= 8){
+          el.perfNowValue.textContent = nowText + " (raw " + Math.round(currentRaw) + "%)";
+        }else{
+          el.perfNowValue.textContent = nowText;
+        }
+      }
+      if(el.perfMinValue) el.perfMinValue.textContent = formatPerfPct(min);
+      if(el.perfMaxValue) el.perfMaxValue.textContent = formatPerfPct(max);
+      if(el.perfAvgValue) el.perfAvgValue.textContent = formatPerfPct(avg);
+      if(el.perfCpuNow) el.perfCpuNow.textContent = (lastPerfCpuUs != null && isFinite(Number(lastPerfCpuUs))) ? (Math.round(Number(lastPerfCpuUs)) + " us") : "-- us";
+      if(el.perfLoopNow) el.perfLoopNow.textContent = (lastPerfLoopUs != null && isFinite(Number(lastPerfLoopUs))) ? (Math.round(Number(lastPerfLoopUs)) + " us") : "-- us";
+      if(el.perfStateValue) el.perfStateValue.textContent = getPerfStateLabel(current);
+      if(el.perfChartNote){
+        el.perfChartNote.textContent = "최근 30초 · CPU/LOOP 점유율 (EMA)";
+      }
+      drawChart(
+        "perfChart",
+        perfLoadHistory,
+        "#0ea5e9",
+        {windowMs:30000, startMs:null},
+        {
+          yMin:0,
+          yMax:100,
+          thresholdLines:[
+            {value:70, label:"WARN 70%", color:"rgba(245,158,11,0.92)"},
+            {value:90, label:"CRIT 90%", color:"rgba(239,68,68,0.92)"}
+          ]
+        }
+      );
+    }
+    function showPerfModal(){
+      hideMobileControlsPanel();
+      setOverlayVisible(el.perfOverlay, true);
+      if(el.perfChart){
+        el.perfChart._cssW = null;
+        el.perfChart._cssH = null;
+      }
+      renderPerfModal();
+    }
+    function hidePerfModal(){
+      setOverlayVisible(el.perfOverlay, false);
     }
     function showMissionRequired(){
       hideMobileControlsPanel();
@@ -17410,6 +17500,10 @@
       setOverlayVisible(el.noMotorOverlay, false);
     }
     function showMission(){
+      if(isFlightModeUi()){
+        showToast("Flight 모드에서는 미션 프로필을 사용할 수 없습니다.", "notice", {key:"mission-profile-flight-disabled"});
+        return;
+      }
       if(!isMissionEditableNow()){
         showToast("시퀀스 중에는 미션 편집만 잠깁니다.", "notice", {key:"mission-edit-lock"});
       }
@@ -17482,6 +17576,19 @@
       btn.disabled = !!disabled;
       btn.hidden = !!hidden;
       btn.style.display = hidden ? "none" : "";
+    }
+    function updateLoadcellCalibrationCapabilityUi(){
+      if(LOADCELL_CALIBRATION_SUPPORTED) return;
+      if(el.loadcellCalOpen){
+        el.loadcellCalOpen.disabled = true;
+        el.loadcellCalOpen.classList.add("disabled");
+        el.loadcellCalOpen.setAttribute("aria-disabled", "true");
+      }
+      if(el.loadcellResetBtn){
+        el.loadcellResetBtn.disabled = true;
+        el.loadcellResetBtn.classList.add("disabled");
+        el.loadcellResetBtn.setAttribute("aria-disabled", "true");
+      }
     }
     function clearLoadcellDialogStateClasses(){
       if(!el.loadcellDialog) return;
@@ -17674,6 +17781,10 @@
       }
     }
     function showLoadcellModal(){
+      if(!LOADCELL_CALIBRATION_SUPPORTED){
+        showToast(t("loadcellUnsupportedToast"), "notice", {key:"loadcell-unsupported"});
+        return;
+      }
       hideMobileControlsPanel();
       setOverlayVisible(el.loadcellOverlay, true);
       clearLoadcellDialogStateClasses();
@@ -17716,6 +17827,43 @@
       pendingLoadcellZero = false;
       loadcellWarningMode = "";
     }
+    async function sendGyroZeroCommand(path){
+      const canSerialTx = !!(serialEnabled && serialConnected && serialTxEnabled && serialWriter);
+      if(canSerialTx){
+        const waiter = createSerialAckWaiter((evt)=>{
+          if(evt.kind === "err") return true;
+          return evt.kind === "ack" && String(evt.message || "").indexOf("GYRO_ZERO") === 0;
+        }, GYRO_ZERO_SERIAL_REPLY_TIMEOUT_MS);
+        try{
+          const wrote = await serialWriteLine(path);
+          if(!wrote){
+            cancelSerialAckWaiter(waiter, "SERIAL_WRITE_FAIL");
+            return { ok:false, reason:"SERIAL_WRITE_FAIL" };
+          }
+          const reply = await waiter.promise;
+          if(reply.ok) return { ok:true, reason:reply.message || "SERIAL_ACK" };
+          return { ok:false, reason:reply.message || reply.kind || "SERIAL_FAIL" };
+        }catch(e){
+          cancelSerialAckWaiter(waiter, "SERIAL_ERROR");
+          return { ok:false, reason:(e && e.message) ? e.message : "SERIAL_ERROR" };
+        }
+      }
+
+      const API_BASE = getApiBaseForCommands();
+      const url = (API_BASE ? API_BASE : "") + path;
+      const opt = { cache:"no-cache" };
+      try{
+        const res = await fetch(url, opt);
+        if(!res.ok){
+          let bodyText = "";
+          try{ bodyText = (await res.text()) || ""; }catch(_err){}
+          return { ok:false, reason:bodyText.trim() || ("HTTP " + res.status) };
+        }
+      }catch(e){
+        return { ok:false, reason:(e && e.message) ? e.message : "NETWORK_ERROR" };
+      }
+      return { ok:true, reason:"HTTP" };
+    }
     async function sendLoadcellCommand(path, ackPrefix){
       const serialMode = !!serialEnabled;
       if(serialMode){
@@ -17742,10 +17890,10 @@
 
       const API_BASE = getApiBaseForCommands();
       const url = (API_BASE ? API_BASE : "") + path;
-      const opt = API_BASE ? { mode:"no-cors", cache:"no-cache" } : { cache:"no-cache" };
+      const opt = { cache:"no-cache" };
       try{
         const res = await fetch(url, opt);
-        if(!API_BASE && !res.ok){
+        if(!res.ok){
           let bodyText = "";
           try{ bodyText = (await res.text()) || ""; }catch(_err){}
           return { ok:false, reason:bodyText.trim() || ("HTTP " + res.status) };
@@ -17827,6 +17975,10 @@
       }
     }
     async function resetLoadcellCalibration(){
+      if(!LOADCELL_CALIBRATION_SUPPORTED){
+        showToast(t("loadcellUnsupportedToast"), "notice", {key:"loadcell-unsupported"});
+        return;
+      }
       const applyResetState = ()=>{
         lastLoadcellScale = LOADCELL_SCALE_FALLBACK;
         lastLoadcellOffset = 0;
@@ -17899,7 +18051,7 @@
         showToast(t("forceNotAllowed"), "notice");
         return;
       }
-      if((uiSettings && uiSettings.igs) && latestTelemetry.ic !== 1){
+      if(isIgniterCheckEnabled() && latestTelemetry.ic !== 1){
         showToast(t("forceIgniterRequired"), "notice");
         return;
       }
@@ -18044,6 +18196,109 @@
     function hideLauncherAutoConfirm(){
       setOverlayVisible(launcherAutoOverlayEl, false);
     }
+    function stopRebootRecoveryLoop(){
+      if(rebootRecoveryTimer){
+        clearTimeout(rebootRecoveryTimer);
+        rebootRecoveryTimer = null;
+      }
+      rebootRecoveryInFlight = false;
+      rebootRecoveryReloaded = false;
+    }
+    function scheduleRebootRecoveryLoop(delayMs){
+      if(!rebootConfirmWaiting) return;
+      if(rebootRecoveryTimer) return;
+      const waitMs = Math.max(120, Number(delayMs) || REBOOT_RECOVERY_POLL_MS);
+      rebootRecoveryTimer = setTimeout(()=>{
+        rebootRecoveryTimer = null;
+        runRebootRecoveryLoop().catch((err)=>{ reportSilentException("reboot-recovery-loop", err); });
+      }, waitMs);
+    }
+    async function pingBoardQuick(timeoutMs){
+      const API_BASE = getApiBaseForCommands();
+      const url = (API_BASE ? API_BASE : "") + "/ping?_ts=" + Date.now();
+      const ctrl = new AbortController();
+      const timer = setTimeout(()=>{
+        try{ ctrl.abort(); }catch(_e){}
+      }, Math.max(250, Number(timeoutMs) || REBOOT_RECOVERY_PING_TIMEOUT_MS));
+      try{
+        const opt = { cache:"no-cache", signal: ctrl.signal };
+        const res = await fetch(url, opt);
+        return !!(res && res.ok);
+      }catch(_e){
+        return false;
+      }finally{
+        clearTimeout(timer);
+      }
+    }
+    function getRebootRecoveryUrl(){
+      const API_BASE = getApiBaseForCommands();
+      const base = API_BASE ? API_BASE : (location.origin || "");
+      return base + "/flash6.html?recovery=" + Date.now();
+    }
+    async function runRebootRecoveryLoop(){
+      if(!rebootConfirmWaiting) return;
+      if(rebootRecoveryInFlight){
+        scheduleRebootRecoveryLoop(REBOOT_RECOVERY_POLL_MS);
+        return;
+      }
+      rebootRecoveryInFlight = true;
+      try{
+        const now = Date.now();
+        const elapsed = rebootConfirmStartedMs > 0 ? (now - rebootConfirmStartedMs) : 0;
+
+        if(elapsed >= REBOOT_WAIT_AUTO_HIDE_MS){
+          hideRebootConfirm();
+          return;
+        }
+
+        if(isUpdating && updateDataStartedMs > 0 && (now - updateDataStartedMs) > UPDATE_DATA_GUARD_TIMEOUT_MS){
+          isUpdating = false;
+          updateDataStartedMs = 0;
+        }
+
+        if(!wsConnected && !wsRetryTimer) scheduleWsReconnect("reboot recovery");
+
+        if(elapsed >= REBOOT_RECOVERY_FIRST_PING_MS){
+          const alive = await pingBoardQuick(REBOOT_RECOVERY_PING_TIMEOUT_MS);
+          if(alive){
+            const socketState = wsSocket ? wsSocket.readyState : WebSocket.CLOSED;
+            if(socketState !== WebSocket.OPEN && socketState !== WebSocket.CONNECTING){
+              wsRetryMs = 300;
+              if(wsRetryTimer){
+                clearTimeout(wsRetryTimer);
+                wsRetryTimer = null;
+              }
+              openWebSocket();
+            }
+            updateData().catch(()=>{});
+          }
+        }
+
+        if(
+          rebootConfirmWaiting &&
+          !wsConnected &&
+          elapsed >= REBOOT_RECOVERY_HARD_RELOAD_MS &&
+          !rebootRecoveryReloaded
+        ){
+          rebootRecoveryReloaded = true;
+          const target = getRebootRecoveryUrl();
+          addLogLine("재부팅 후 자동 복구: 페이지 새로고침", "NET");
+          setTimeout(()=>{
+            try{
+              location.assign(target);
+            }catch(_e){
+              try{ location.reload(); }catch(_e2){}
+            }
+          }, 30);
+          return;
+        }
+      }finally{
+        rebootRecoveryInFlight = false;
+      }
+      if(rebootConfirmWaiting){
+        scheduleRebootRecoveryLoop(REBOOT_RECOVERY_POLL_MS);
+      }
+    }
     function updateRebootConfirmUi(){
       const waiting = !!rebootConfirmWaiting;
       if(rebootConfirmTitleEl){
@@ -18061,22 +18316,30 @@
     }
     function showRebootConfirm(){
       hideMobileControlsPanel();
+      stopRebootRecoveryLoop();
       rebootConfirmWaiting = false;
       rebootConfirmStartedMs = 0;
       updateRebootConfirmUi();
       setOverlayVisible(rebootConfirmOverlayEl, true);
     }
     function hideRebootConfirm(){
+      stopRebootRecoveryLoop();
       rebootConfirmWaiting = false;
       rebootConfirmStartedMs = 0;
       updateRebootConfirmUi();
       setOverlayVisible(rebootConfirmOverlayEl, false);
     }
     function setRebootConfirmWaiting(){
+      stopRebootRecoveryLoop();
       rebootConfirmWaiting = true;
       rebootConfirmStartedMs = Date.now();
+      wsConnected = false;
+      closeWsSocketSafe(4003, "board reboot");
+      if(!wsRetryTimer) scheduleWsReconnect("board reboot");
+      updateWsUI();
       updateRebootConfirmUi();
       setOverlayVisible(rebootConfirmOverlayEl, true);
+      scheduleRebootRecoveryLoop(260);
     }
 
     // =====================
@@ -18304,7 +18567,7 @@
         '<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart" Target="../charts/chart3.xml"/>' +
         "</Relationships>";
     }
-    function buildChartXml(sheetName, startRow, endRow, chartTitle, seriesCol, seriesNameCell, axisYTitle, lineColor, majorUnit, xMajorUnit, xNumFmt, axisXTitle, xMin, xMax, yMin, yMax, xTickSkip, xLabelCol){
+    function buildChartXml(sheetName, startRow, endRow, chartTitle, seriesCol, seriesNameCell, axisYTitle, lineColor, majorUnit, xMajorUnit, xNumFmt, axisXTitle, xMin, xMax, yMin, yMax, xTickSkip, xLabelCol, hideXGridlines){
       const xCol = xLabelCol || "A";
       const xRange = sheetName + "!$" + xCol + "$" + startRow + ":$" + xCol + "$" + endRow;
       const seriesRange = sheetName + "!$" + seriesCol + "$" + startRow + ":$" + seriesCol + "$" + endRow;
@@ -18319,6 +18582,7 @@
       const yMinVal = (yMin != null && isFinite(yMin)) ? Number(yMin.toFixed(6)) : null;
       const yMaxVal = (yMax != null && isFinite(yMax)) ? Number(yMax.toFixed(6)) : null;
       const xFmt = escapeXmlText(xNumFmt || "0.0");
+      const xGridlineXml = hideXGridlines ? "" : '<c:majorGridlines><c:spPr><a:ln w="12700"><a:solidFill><a:srgbClr val="D0D0D0"/></a:solidFill></a:ln></c:spPr></c:majorGridlines>';
       const axisBase = 120000 + (seriesCol.charCodeAt(0) - 64) * 10;
       const xAxisId = axisBase + 1;
       const yAxisId = axisBase + 2;
@@ -18395,7 +18659,118 @@
         '<c:delete val="0"/>' +
         '<c:scaling><c:orientation val="minMax"/></c:scaling>' +
         '<c:axPos val="b"/>' +
+        xGridlineXml +
+        '<c:numFmt formatCode="' + xFmt + '" sourceLinked="0"/>' +
+        (xTickSkip && xTickSkip > 1 ? ('<c:tickLblSkip val="' + xTickSkip + '"/><c:tickMarkSkip val="' + xTickSkip + '"/>') : '') +
+        '<c:majorTickMark val="out"/>' +
+        '<c:minorTickMark val="none"/>' +
+        '<c:tickLblPos val="nextTo"/>' +
+        axisTitleXml(xTitleText) +
+        '<c:crossAx val="' + yAxisId + '"/>' +
+        '<c:crosses val="autoZero"/>' +
+        '</c:catAx>' +
+        '<c:valAx>' +
+        '<c:axId val="' + yAxisId + '"/>' +
+        '<c:delete val="0"/>' +
+        '<c:scaling><c:orientation val="minMax"/>' +
+        (yMinVal != null ? ('<c:min val="' + yMinVal + '"/>') : '') +
+        (yMaxVal != null ? ('<c:max val="' + yMaxVal + '"/>') : '') +
+        '</c:scaling>' +
+        '<c:axPos val="l"/>' +
         '<c:majorGridlines><c:spPr><a:ln w="12700"><a:solidFill><a:srgbClr val="D0D0D0"/></a:solidFill></a:ln></c:spPr></c:majorGridlines>' +
+        '<c:numFmt formatCode="General" sourceLinked="1"/>' +
+        (unitVal ? ('<c:majorUnit val="' + unitVal + '"/>') : '') +
+        '<c:majorTickMark val="out"/>' +
+        '<c:minorTickMark val="none"/>' +
+        '<c:tickLblPos val="nextTo"/>' +
+        axisTitleXml(yTitleText) +
+        '<c:crossAx val="' + xAxisId + '"/>' +
+        '<c:crosses val="autoZero"/>' +
+        '</c:valAx>' +
+        '</c:plotArea>' +
+        '<c:plotVisOnly val="1"/>' +
+        '<c:dispBlanksAs val="gap"/>' +
+        '</c:chart>' +
+        '</c:chartSpace>';
+    }
+    function buildChartXmlMultiSeries(sheetName, startRow, endRow, chartTitle, seriesDefs, axisYTitle, majorUnit, xMajorUnit, xNumFmt, axisXTitle, xMin, xMax, yMin, yMax, xTickSkip, xLabelCol, hideXGridlines){
+      const xCol = xLabelCol || "A";
+      const xRange = sheetName + "!$" + xCol + "$" + startRow + ":$" + xCol + "$" + endRow;
+      const titleText = escapeXmlText(chartTitle || "");
+      const yTitleText = escapeXmlText(axisYTitle || "");
+      const xTitleText = escapeXmlText(axisXTitle || "time");
+      const unitVal = (majorUnit && isFinite(majorUnit) && majorUnit > 0) ? Number(majorUnit.toFixed(6)) : null;
+      const yMinVal = (yMin != null && isFinite(yMin)) ? Number(yMin.toFixed(6)) : null;
+      const yMaxVal = (yMax != null && isFinite(yMax)) ? Number(yMax.toFixed(6)) : null;
+      const xFmt = escapeXmlText(xNumFmt || "0.0");
+      const xGridlineXml = hideXGridlines ? "" : '<c:majorGridlines><c:spPr><a:ln w="12700"><a:solidFill><a:srgbClr val="D0D0D0"/></a:solidFill></a:ln></c:spPr></c:majorGridlines>';
+      const list = Array.isArray(seriesDefs) ? seriesDefs.filter((s)=>s && s.col && s.nameCell) : [];
+      const firstCol = list.length ? list[0].col : "B";
+      const axisBase = 130000 + (firstCol.charCodeAt(0) - 64) * 10;
+      const xAxisId = axisBase + 1;
+      const yAxisId = axisBase + 2;
+      const axisTitleXml = (text)=>{
+        if(!text) return "";
+        return '<c:title>' +
+          '<c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p><a:r>' +
+          '<a:rPr sz="1100"><a:solidFill><a:srgbClr val="404040"/></a:solidFill></a:rPr>' +
+          '<a:t>' + text + '</a:t>' +
+          '</a:r></a:p></c:rich></c:tx>' +
+          '<c:overlay val="0"/>' +
+          '</c:title>';
+      };
+      const chartTitleXml = (text)=>{
+        if(!text) return "";
+        return '<c:title>' +
+          '<c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p><a:r>' +
+          '<a:rPr sz="1400"><a:solidFill><a:srgbClr val="202020"/></a:solidFill></a:rPr>' +
+          '<a:t>' + text + '</a:t>' +
+          '</a:r></a:p></c:rich></c:tx>' +
+          '<c:overlay val="0"/>' +
+          '</c:title>';
+      };
+      const plotAreaLayout =
+        '<c:layout><c:manualLayout>' +
+        '<c:layoutTarget val="outer"/>' +
+        '<c:xMode val="edge"/><c:yMode val="edge"/>' +
+        '<c:x val="0.06"/><c:y val="0.20"/><c:w val="0.88"/><c:h val="0.70"/>' +
+        '</c:manualLayout></c:layout>';
+      let seriesXml = "";
+      for(let i = 0; i < list.length; i++){
+        const def = list[i];
+        const lineHex = escapeXmlText(def.color || "3B82F6");
+        const seriesRange = sheetName + "!$" + def.col + "$" + startRow + ":$" + def.col + "$" + endRow;
+        seriesXml +=
+          '<c:ser>' +
+          '<c:idx val="' + i + '"/><c:order val="' + i + '"/>' +
+          '<c:tx><c:strRef><c:f>' + def.nameCell + '</c:f></c:strRef></c:tx>' +
+          '<c:cat><c:numRef><c:f>' + xRange + '</c:f></c:numRef></c:cat>' +
+          '<c:val><c:numRef><c:f>' + seriesRange + '</c:f></c:numRef></c:val>' +
+          '<c:marker><c:symbol val="none"/></c:marker>' +
+          '<c:spPr><a:ln w="19000"><a:solidFill><a:srgbClr val="' + lineHex + '"/></a:solidFill></a:ln></c:spPr>' +
+          '</c:ser>';
+      }
+      return '<?xml version="1.0" encoding="UTF-8"?>' +
+        '<c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" ' +
+        'xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">' +
+        '<c:chart>' +
+        chartTitleXml(titleText) +
+        '<c:autoTitleDeleted val="0"/>' +
+        '<c:plotArea>' +
+        plotAreaLayout +
+        '<c:lineChart>' +
+        '<c:grouping val="standard"/>' +
+        '<c:varyColors val="0"/>' +
+        '<c:dLbls><c:delete val="1"/></c:dLbls>' +
+        seriesXml +
+        '<c:axId val="' + xAxisId + '"/><c:axId val="' + yAxisId + '"/>' +
+        '</c:lineChart>' +
+        '<c:catAx>' +
+        '<c:axId val="' + xAxisId + '"/>' +
+        '<c:delete val="0"/>' +
+        '<c:scaling><c:orientation val="minMax"/></c:scaling>' +
+        '<c:axPos val="b"/>' +
+        xGridlineXml +
         '<c:numFmt formatCode="' + xFmt + '" sourceLinked="0"/>' +
         (xTickSkip && xTickSkip > 1 ? ('<c:tickLblSkip val="' + xTickSkip + '"/><c:tickMarkSkip val="' + xTickSkip + '"/>') : '') +
         '<c:majorTickMark val="out"/>' +
@@ -18559,12 +18934,55 @@
         files.push({name:"xl/worksheets/sheet" + (i + 1) + ".xml", data:buildSheetXml(sheets[i].rows, drawingRelId, hiddenStart)});
       }
       if(chartCount > 0){
+        const chart1 = (chart && chart.chart1) ? chart.chart1 : {
+          title: chart.titleThrust,
+          axisYTitle: chart.axisTitleThrust,
+          majorUnit: chart.majorUnitThrust,
+          yMin: chart.yMinThrust,
+          yMax: chart.yMaxThrust,
+          series: [{col:"B", nameCell: chart.seriesNameThrust, color:"EF4444"}]
+        };
+        const chart2 = (chart && chart.chart2) ? chart.chart2 : {
+          title: chart.titlePressure,
+          axisYTitle: chart.axisTitlePressure,
+          majorUnit: chart.majorUnitPressure,
+          yMin: chart.yMinPressure,
+          yMax: chart.yMaxPressure,
+          series: [{col:"D", nameCell: chart.seriesNamePressure, color:"3B82F6"}]
+        };
+        const chart3 = (chart && chart.chart3) ? chart.chart3 : {
+          title: chart.titleThrustN,
+          axisYTitle: chart.axisTitleThrustN,
+          majorUnit: chart.majorUnitThrustN,
+          yMin: chart.yMinThrustN,
+          yMax: chart.yMaxThrustN,
+          series: [{col:"C", nameCell: chart.seriesNameThrustN, color:"F59E0B"}]
+        };
+        const buildChartFile = (conf)=>{
+          const hideXGridlines = !!((conf && conf.hideXGridlines) || (chart && chart.hideXGridlines));
+          if(conf && Array.isArray(conf.series) && conf.series.length > 1){
+            return buildChartXmlMultiSeries(
+              chart.sheetName, chart.startRow, chart.endRow, conf.title, conf.series, conf.axisYTitle,
+              conf.majorUnit, chart.xMajorUnit, chart.xNumFmt, chart.axisTitleX,
+              chart.xMin, chart.xMax, conf.yMin, conf.yMax, chart.xTickSkip, chart.xLabelCol, hideXGridlines
+            );
+          }
+          const one = (conf && Array.isArray(conf.series) && conf.series.length) ? conf.series[0] : null;
+          const col = one && one.col ? one.col : "B";
+          const nameCell = one && one.nameCell ? one.nameCell : (chart.sheetName + "!$" + col + "$1");
+          const color = one && one.color ? one.color : "3B82F6";
+          return buildChartXml(
+            chart.sheetName, chart.startRow, chart.endRow, conf ? conf.title : "", col, nameCell, conf ? conf.axisYTitle : "", color,
+            conf ? conf.majorUnit : null, chart.xMajorUnit, chart.xNumFmt, chart.axisTitleX, chart.xMin, chart.xMax,
+            conf ? conf.yMin : null, conf ? conf.yMax : null, chart.xTickSkip, chart.xLabelCol, hideXGridlines
+          );
+        };
         files.push({name:"xl/worksheets/_rels/sheet1.xml.rels", data:buildSheetRelsXml()});
         files.push({name:"xl/drawings/drawing1.xml", data:buildDrawingXml()});
         files.push({name:"xl/drawings/_rels/drawing1.xml.rels", data:buildDrawingRelsXml()});
-        files.push({name:"xl/charts/chart1.xml", data:buildChartXml(chart.sheetName, chart.startRow, chart.endRow, chart.titleThrust, "B", chart.seriesNameThrust, chart.axisTitleThrust, "EF4444", chart.majorUnitThrust, chart.xMajorUnit, chart.xNumFmt, chart.axisTitleX, chart.xMin, chart.xMax, chart.yMinThrust, chart.yMaxThrust, chart.xTickSkip, chart.xLabelCol)});
-        files.push({name:"xl/charts/chart2.xml", data:buildChartXml(chart.sheetName, chart.startRow, chart.endRow, chart.titlePressure, "D", chart.seriesNamePressure, chart.axisTitlePressure, "3B82F6", chart.majorUnitPressure, chart.xMajorUnit, chart.xNumFmt, chart.axisTitleX, chart.xMin, chart.xMax, chart.yMinPressure, chart.yMaxPressure, chart.xTickSkip, chart.xLabelCol)});
-        files.push({name:"xl/charts/chart3.xml", data:buildChartXml(chart.sheetName, chart.startRow, chart.endRow, chart.titleThrustN, "C", chart.seriesNameThrustN, chart.axisTitleThrustN, "F59E0B", chart.majorUnitThrustN, chart.xMajorUnit, chart.xNumFmt, chart.axisTitleX, chart.xMin, chart.xMax, chart.yMinThrustN, chart.yMaxThrustN, chart.xTickSkip, chart.xLabelCol)});
+        files.push({name:"xl/charts/chart1.xml", data:buildChartFile(chart1)});
+        files.push({name:"xl/charts/chart2.xml", data:buildChartFile(chart2)});
+        files.push({name:"xl/charts/chart3.xml", data:buildChartFile(chart3)});
       }
       return buildZip(files);
     }
@@ -18719,31 +19137,109 @@
         normalizedPath.startsWith("/abort") ||
         normalizedPath.startsWith("/sequence_end") ||
         normalizedPath.startsWith("/set?safe=") ||
-        normalizedPath.startsWith("/set?arm_lock=");
+        normalizedPath.startsWith("/set?arm_lock=") ||
+        normalizedPath.startsWith("/reset");
       if(lockoutLatched && !isLockoutBypassCmd){
         const name = relayMaskName(lockoutRelayMask);
         showToast(t("lockoutCmdDenied", {name}), "error");
         return;
       }
 
-	      const canSerialTx = !!(serialEnabled && serialConnected && serialTxEnabled && serLine);
-	      const API_BASE = getApiBaseForCommands();
+      const canSerialTx = !!(serialEnabled && serialConnected && serialTxEnabled && serLine);
+      const API_BASE = getApiBaseForCommands();
+      const httpPath = cmd.http ? String(cmd.http).trim() : "";
+      const isResetCmd = normalizedPath.startsWith("/reset");
+      const isCriticalDualPathCmd =
+        normalizedPath.startsWith("/countdown_start") ||
+        normalizedPath.startsWith("/ignite") ||
+        normalizedPath.startsWith("/force_ignite") ||
+        normalizedPath.startsWith("/abort") ||
+        normalizedPath.startsWith("/sequence_end");
+      const CMD_HTTP_TIMEOUT_CRITICAL_MS = 900;
+      const CMD_HTTP_TIMEOUT_DEFAULT_MS = 2200;
 
-	      if(cmd.http && !canSerialTx){
-	        const url = API_BASE ? (API_BASE + cmd.http) : cmd.http;
-	        const isPostCommand = String(cmd.http || "").indexOf("/storage/spi_flash/init") === 0;
-	        const opt = API_BASE
-	          ? (isPostCommand ? { method:"POST", mode:"no-cors", cache:"no-cache" } : { mode:"no-cors", cache:"no-cache" })
-	          : (isPostCommand ? { method:"POST", cache:"no-cache" } : { cache:"no-cache" });
-	        fetch(url, opt).catch(err=>{ reportSilentException("cmd-http", err); });
-	      }
+      const sendHttpCommand = async (emitTerminalLog, timeoutMs)=>{
+        if(!httpPath) return {ok:false, status:0, reason:"NO_HTTP_PATH"};
+        const url = API_BASE ? (API_BASE + httpPath) : httpPath;
+        const isPostCommand = httpPath.indexOf("/storage/spi_flash/init") === 0;
+        const controller = new AbortController();
+        const timeout = Math.max(250, Number(timeoutMs) || CMD_HTTP_TIMEOUT_DEFAULT_MS);
+        const timer = setTimeout(()=>{ try{ controller.abort(); }catch(_e){} }, timeout);
+        const opt = isPostCommand
+          ? { method:"POST", cache:"no-cache", signal:controller.signal }
+          : { cache:"no-cache", signal:controller.signal };
 
-	      if(canSerialTx){
-	        await serialWriteLine(serLine);
-	      }
+        try{
+          const res = await fetch(url, opt);
+          let bodyText = "";
+          try{ bodyText = await res.text(); }catch(_){}
+          if(!res.ok){
+            const reason = (bodyText && bodyText.trim()) ? bodyText.trim() : ("HTTP " + res.status);
+            if(emitTerminalLog){
+              addLogLine("HTTP ERR " + res.status + " " + httpPath + " :: " + reason, "ERR");
+            }
+            return {ok:false, status:res.status, reason};
+          }
+          if(emitTerminalLog){
+            const detail = (bodyText && bodyText.trim()) ? (" :: " + bodyText.trim()) : "";
+            addLogLine("HTTP OK " + res.status + " " + httpPath + detail, "HTTP");
+          }
+          return {ok:true, status:res.status, reason:"OK"};
+        }catch(err){
+          const timedOut = !!(err && err.name === "AbortError");
+          const reason = timedOut
+            ? ("TIMEOUT(" + timeout + "ms)")
+            : ((err && err.message) ? err.message : String(err || "HTTP_FAILED"));
+          if(emitTerminalLog){
+            addLogLine("HTTP EXC " + httpPath + " :: " + reason, "ERR");
+          }else{
+            reportSilentException("cmd-http", err);
+          }
+          return {ok:false, status:0, reason};
+        }finally{
+          clearTimeout(timer);
+        }
+      };
+
+      let httpResult = null;
+      let serialOk = false;
+
+      if(isCriticalDualPathCmd && canSerialTx){
+        serialOk = await serialWriteLine(serLine);
+        if(httpPath){
+          if(serialOk){
+            sendHttpCommand(false, CMD_HTTP_TIMEOUT_CRITICAL_MS).then((assistResult)=>{
+              if(!assistResult.ok){
+                addLogLine("HTTP ASSIST FAIL " + httpPath + " :: " + assistResult.reason, "NET");
+              }
+            });
+          }else{
+            addLogLine("SER TX failed, HTTP fallback: " + httpPath, "SER");
+            httpResult = await sendHttpCommand(!!logIt, CMD_HTTP_TIMEOUT_CRITICAL_MS);
+          }
+        }
+      }else{
+        if(httpPath && (isCriticalDualPathCmd || !canSerialTx || isResetCmd)){
+          const timeoutMs = isCriticalDualPathCmd
+            ? CMD_HTTP_TIMEOUT_CRITICAL_MS
+            : CMD_HTTP_TIMEOUT_DEFAULT_MS;
+          httpResult = await sendHttpCommand(!!logIt, timeoutMs);
+        }
+
+        if(canSerialTx){
+          serialOk = await serialWriteLine(serLine);
+          if(!serialOk && httpPath && !isResetCmd && !isCriticalDualPathCmd){
+            addLogLine("SER TX failed, HTTP fallback: " + httpPath, "SER");
+            httpResult = await sendHttpCommand(!!logIt, CMD_HTTP_TIMEOUT_DEFAULT_MS);
+          }
+        }
+      }
 
       if(logIt){
         addLogLine(t("cmdSentLog", {cmd:(cmd.http || cmd.ser || "?")}), "CMD");
+        if(httpPath && httpResult && !httpResult.ok){
+          addLogLine("CMD HTTP RESULT :: " + httpResult.reason, "ERR");
+        }
       }
     }
 
@@ -18847,25 +19343,38 @@
       return {http, ser};
     }
 
+    function updateNumValue(el, numText, unitText) {
+      if (!el) return;
+      let numSpan = el.querySelector('.num');
+      let unitSpan = el.querySelector('.unit');
+      if (numSpan) {
+        numSpan.textContent = numText;
+        if (unitSpan && unitText != null) unitSpan.textContent = unitText;
+      } else {
+        let html = `<span class="num">${numText}</span>`;
+        if (unitText != null) html += `<span class="unit">${unitText}</span>`;
+        el.innerHTML = html;
+      }
+    }
+
     // =====================
     // DOM Ready
     // =====================
-    document.addEventListener("DOMContentLoaded", async ()=>{
-      // ✅ 스플래시 + 프리로드 먼저
-      await runSplashAndPreload();
-      removeLegacyLuceText();
-      setTimeout(removeLegacyLuceText, 400);
-      setTimeout(removeLegacyLuceText, 1200);
+    const bootAfterDomReady = async ()=>{
+      bootBeacon("dom_ready_start");
+      try{
+        // ✅ 스플래시 + 프리로드 먼저
+        await runSplashAndPreload();
+        bootBeacon("dom_ready_after_preload");
+        removeLegacyLuceText();
+        setTimeout(removeLegacyLuceText, 400);
+        setTimeout(removeLegacyLuceText, 1200);
 
       el.toastContainer = document.getElementById("toastContainer");
       el.logView = document.getElementById("logView");
       el.termInput = document.getElementById("termInput");
       el.termSendBtn = document.getElementById("termSendBtn");
       el.termTitle = document.getElementById("termTitle");
-      el.tetrisOverlay = document.getElementById("tetrisOverlay");
-      el.tetrisScreen = document.getElementById("tetrisScreen");
-      el.tetrisScore = document.getElementById("tetrisScore");
-      el.tetrisLines = document.getElementById("tetrisLines");
       el.connDot = document.getElementById("conn-dot");
       el.connText = document.getElementById("conn-text");
       el.wsDot = document.getElementById("ws-dot");
@@ -19026,6 +19535,10 @@
       el.pressureGauge = document.querySelector(".status-gauge.pressure");
       el.lt = document.getElementById("lt");
       el.batteryStatus = document.getElementById("batteryStatus");
+      el.chipTempWrap = document.getElementById("chipTempWrap");
+      el.chipTempStatus = document.getElementById("chipTempStatus");
+      el.perfWrap = document.getElementById("perfWrap");
+      el.perfStatus = document.getElementById("perfStatus");
       el.commStatus = document.getElementById("commStatus");
       el.statusBar = document.getElementById("statusBar");
       el.batteryFill = document.getElementById("batteryFill");
@@ -19063,6 +19576,7 @@
       el.forceBtn = document.getElementById("forceIgniteBtn");
       el.copyLogBtn = document.getElementById("copyLogBtn");
       el.gyroZeroBtn = document.getElementById("gyroZeroBtn");
+      el.dashboardServoPanelBtn = document.getElementById("dashboardServoPanelBtn");
       el.missionOpenBtn = document.getElementById("missionOpenBtn");
       el.missionViewOpenBtn = document.getElementById("missionViewOpenBtn");
       el.missionViewMount = document.getElementById("missionViewMount");
@@ -19084,6 +19598,9 @@
       el.rebootConfirmTitle = document.getElementById("rebootConfirmTitle");
       el.rebootConfirmText = document.getElementById("rebootConfirmText");
       el.rebootConfirmActions = document.getElementById("rebootConfirmActions");
+      el.hardwareServoOpenBtn = document.getElementById("hardwareServoOpenBtn");
+      el.hardwareServoOverlay = document.getElementById("hardwareServoOverlay");
+      el.hardwareServoClose = document.getElementById("hardwareServoClose");
       el.missionOverlay = document.getElementById("missionOverlay");
       el.missionDialog = document.getElementById("missionDialog");
       el.inspectionDialog = document.getElementById("inspectionDialog");
@@ -19200,12 +19717,15 @@
       el.replayDropTitle = document.getElementById("replayDropTitle");
       el.replayDropGuide = document.getElementById("replayDropGuide");
       el.replayStartBtn = document.getElementById("replayStartBtn");
-      el.replayStopBtn = document.getElementById("replayStopBtn");
       el.replayRestartBtn = document.getElementById("replayRestartBtn");
+      el.replayEndBtn = document.getElementById("replayEndBtn");
       el.replayTminus10Btn = document.getElementById("replayTminus10Btn");
+      el.replayConvertBtn = document.getElementById("replayConvertBtn");
       el.replaySeekRange = document.getElementById("replaySeekRange");
       el.replaySeekLabel = document.getElementById("replaySeekLabel");
       el.replayStatusText = document.getElementById("replayStatusText");
+      el.replaySeekOverlay = document.getElementById("replaySeekOverlay");
+      el.replaySeekOverlayText = document.getElementById("replaySeekOverlayText");
       el.replaySpeedBtns = document.querySelectorAll("[data-replay-speed]");
       el.devToolsPanel = document.getElementById("devToolsPanel");
       el.devToolsClose = document.getElementById("devToolsClose");
@@ -19217,6 +19737,7 @@
       el.serialRxToggle = document.getElementById("serialRxToggle");
       el.serialTxToggle = document.getElementById("serialTxToggle");
       el.simToggle = document.getElementById("simToggle");
+      el.muteModeToggle = document.getElementById("muteModeToggle");
       el.serialStatus = document.getElementById("serialStatus");
       el.serialStatusText = document.getElementById("serialStatusText");
       el.hwBoardName = document.getElementById("hwBoardName");
@@ -19256,6 +19777,29 @@
       el.loadcellWarningSub = document.getElementById("loadcellWarningSub");
       el.loadcellWarningProceed = document.getElementById("loadcellWarningProceed");
       el.loadcellWarningCancel = document.getElementById("loadcellWarningCancel");
+      updateLoadcellCalibrationCapabilityUi();
+      el.chipTempOverlay = document.getElementById("chipTempOverlay");
+      el.chipTempDialog = document.getElementById("chipTempDialog");
+      el.chipTempClose = document.getElementById("chipTempClose");
+      el.chipTempChart = document.getElementById("chipTempChart");
+      el.chipTempNowValue = document.getElementById("chipTempNowValue");
+      el.chipTempMinValue = document.getElementById("chipTempMinValue");
+      el.chipTempMaxValue = document.getElementById("chipTempMaxValue");
+      el.chipTempAvgValue = document.getElementById("chipTempAvgValue");
+      el.chipTempStateValue = document.getElementById("chipTempStateValue");
+      el.chipTempChartNote = document.getElementById("chipTempChartNote");
+      el.perfOverlay = document.getElementById("perfOverlay");
+      el.perfDialog = document.getElementById("perfDialog");
+      el.perfClose = document.getElementById("perfClose");
+      el.perfChart = document.getElementById("perfChart");
+      el.perfNowValue = document.getElementById("perfNowValue");
+      el.perfMinValue = document.getElementById("perfMinValue");
+      el.perfMaxValue = document.getElementById("perfMaxValue");
+      el.perfAvgValue = document.getElementById("perfAvgValue");
+      el.perfStateValue = document.getElementById("perfStateValue");
+      el.perfCpuNow = document.getElementById("perfCpuNow");
+      el.perfLoopNow = document.getElementById("perfLoopNow");
+      el.perfChartNote = document.getElementById("perfChartNote");
       el.missionRequiredOverlay = document.getElementById("missionRequiredOverlay");
       el.missionRequiredOk = document.getElementById("missionRequiredOk");
       el.inspectionWarnOverlay = document.getElementById("inspectionWarnOverlay");
@@ -19286,6 +19830,10 @@
       el.controlsOverlaySlot = document.getElementById("controlsOverlaySlot");
       el.controlsOverlayClose = document.getElementById("controlsOverlayClose");
       el.controlsToggleBtns = document.querySelectorAll(".js-controls-open");
+      if(el.controlsCard && !controlsCardParent){
+        controlsCardParent = el.controlsCard.parentNode || null;
+        controlsCardNext = el.controlsCard.nextSibling || null;
+      }
 
       el.igniteLabel = document.getElementById("igniteBtnLabel");
       el.sequenceStatusDesktop = document.getElementById("sequenceStatusDesktop");
@@ -19293,8 +19841,15 @@
       el.mobileControlsHandle = el.mobileControlsPanel ? el.mobileControlsPanel.querySelector(".mobile-controls-handle") : null;
       el.mobileAbortBtn = document.getElementById("mobileAbortBtn");
       el.mobileAbortPanel = document.getElementById("mobileAbortPanel");
+      el.mobileSequenceWideBtn = document.getElementById("mobileSequenceWideBtn");
+      el.mobileSequenceWideLabel = document.getElementById("mobileSequenceWideLabel");
+      el.mobileSequenceWideStatus = document.getElementById("mobileSequenceWideStatus");
+      el.mobileArmLockWideBtn = document.getElementById("mobileArmLockWideBtn");
+      el.mobileMissionWideBtn = document.getElementById("mobileMissionWideBtn");
       el.tabletAbortBtn = document.getElementById("tabletAbortBtn");
       el.mobileSequenceLabel = document.getElementById("mobileSequenceLabel");
+      el.mobileModeQuickLabel = document.getElementById("mobileModeQuickLabel");
+      el.mobileControlsHeadTitle = el.mobileControlsPanel ? el.mobileControlsPanel.querySelector(".mobile-controls-head-title") : null;
       el.mobileControlButtons = el.mobileControlsPanel ? el.mobileControlsPanel.querySelectorAll("[data-mobile-control]") : null;
       el.mobileControlButtonMap = {};
       if(el.mobileControlButtons && el.mobileControlButtons.length){
@@ -19324,12 +19879,6 @@
       el.disconnectOk = document.getElementById("disconnectOk");
       el.easterOverlay = document.getElementById("easterOverlay");
       el.easterEggOk = document.getElementById("easterEggOk");
-      el.tetrisWinOverlay = document.getElementById("tetrisWinOverlay");
-      el.tetrisWinOk = document.getElementById("tetrisWinOk");
-      el.tetrisPrizeOverlay = document.getElementById("tetrisPrizeOverlay");
-      el.tetrisPrizeCopy = document.getElementById("tetrisPrizeCopy");
-      el.tetrisPrizeClose = document.getElementById("tetrisPrizeClose");
-      el.tetrisPrizeCode = document.getElementById("tetrisPrizeCode");
 
       if(el.replayOpenBtns && el.replayOpenBtns.length){
         el.replayOpenBtns.forEach(btn=>{
@@ -19342,6 +19891,7 @@
       }
       const loadReplayFile = async (file)=>{
         if(!file) return;
+        cancelReplaySeekProcessing();
         setReplayStatus("Replay 파일 자동 분석 중... (XLSX/CSV/BIN)");
         if(el.replayFileBtn) el.replayFileBtn.classList.remove("is-dragover");
         try{
@@ -19354,6 +19904,7 @@
           replayState.index = 0;
           replayState.lastIndex = -1;
           updateReplayModeUi();
+          updateExportButtonState();
           setReplayStatus("");
           showToast(
             "리플레이 파일 로딩 완료 (" + parsed.parserLabel + "): " + samples.length + " samples",
@@ -19367,6 +19918,7 @@
           replayState.index = 0;
           replayState.lastIndex = -1;
           updateReplayModeUi();
+          updateExportButtonState();
           setReplayStatus("리플레이 파일 파싱 실패: " + reason);
           notifyAlarm("REPLAY_FORMAT", {reason});
         }finally{
@@ -19416,24 +19968,74 @@
         });
       }
       if(el.replayStartBtn){
-        el.replayStartBtn.addEventListener("click",()=>startReplayPlayback());
-      }
-      if(el.replayStopBtn){
-        el.replayStopBtn.addEventListener("click",()=>pauseReplayPlayback());
+        el.replayStartBtn.addEventListener("click",()=>{
+          if(replayState.playing) pauseReplayPlayback();
+          else startReplayPlayback();
+        });
       }
       if(el.replayRestartBtn){
-        el.replayRestartBtn.addEventListener("click",()=>restartReplayPlayback());
+        el.replayRestartBtn.addEventListener("click",()=>{
+          if(!replayState.samples.length){
+            showToast("리플레이 파일(.xlsx/.csv/.bin)을 먼저 선택하세요.", "notice", {key:"replay-no-file"});
+            return;
+          }
+          seekReplayToIndex(0, false);
+          setReplayStatus("처음 지점으로 이동했습니다.");
+        });
+      }
+      if(el.replayEndBtn){
+        el.replayEndBtn.addEventListener("click",()=>{
+          if(!replayState.samples.length){
+            showToast("리플레이 파일(.xlsx/.csv/.bin)을 먼저 선택하세요.", "notice", {key:"replay-no-file"});
+            return;
+          }
+          const last = Math.max(0, replayState.samples.length - 1);
+          seekReplayToIndex(last, false);
+          setReplayStatus("끝 지점으로 이동했습니다.");
+        });
       }
       if(el.replayTminus10Btn){
         el.replayTminus10Btn.addEventListener("click",()=>seekReplayToTminus10());
       }
+      if(el.replayConvertBtn){
+        el.replayConvertBtn.addEventListener("click",()=>{
+          if(!replayState.samples.length){
+            showToast("리플레이 파일(.xlsx/.csv/.bin)을 먼저 선택하세요.", "notice", {key:"replay-no-file"});
+            return;
+          }
+          if(el.exportCsvBtn) el.exportCsvBtn.click();
+        });
+      }
       if(el.replaySeekRange){
+        const finishSeekInteraction = (force)=>{
+          if(!replaySeekInteracting && !force) return;
+          replaySeekInteracting = false;
+          const resume = replayState.playing;
+          seekReplayToIndex(Number(el.replaySeekRange.value), resume);
+        };
+        el.replaySeekRange.addEventListener("pointerdown",()=>{
+          replaySeekInteracting = true;
+        });
+        el.replaySeekRange.addEventListener("mousedown",()=>{
+          replaySeekInteracting = true;
+        });
+        el.replaySeekRange.addEventListener("touchstart",()=>{
+          replaySeekInteracting = true;
+        }, {passive:true});
+        el.replaySeekRange.addEventListener("pointerup", ()=>finishSeekInteraction(false));
+        el.replaySeekRange.addEventListener("pointercancel", ()=>finishSeekInteraction(false));
+        el.replaySeekRange.addEventListener("mouseup", ()=>finishSeekInteraction(false));
+        el.replaySeekRange.addEventListener("touchend", ()=>finishSeekInteraction(false));
+        el.replaySeekRange.addEventListener("touchcancel", ()=>finishSeekInteraction(false));
+        el.replaySeekRange.addEventListener("blur", ()=>finishSeekInteraction(false));
         el.replaySeekRange.addEventListener("input",()=>{
           updateReplaySeekUi(Number(el.replaySeekRange.value));
         });
         el.replaySeekRange.addEventListener("change",()=>{
-          const resume = replayState.playing;
-          seekReplayToIndex(Number(el.replaySeekRange.value), resume);
+          finishSeekInteraction(true);
+        });
+        el.replaySeekRange.addEventListener("click",()=>{
+          finishSeekInteraction(true);
         });
       }
       if(el.replaySpeedBtns && el.replaySpeedBtns.length){
@@ -19470,14 +20072,7 @@
       if(el.spiFlashDumpBtn){
         el.spiFlashDumpBtn.addEventListener("click", ()=>{ downloadSpiFlashDump(); });
       }
-      ensureLocalSdToolsUi();
-      bindLocalSdToolsUiEvents();
       fetchSpiFlashStatus();
-      setInterval(()=>{
-        if(!el.hardwareView || el.hardwareView.classList.contains("hidden")) return;
-        ensureLocalSdToolsUi();
-        bindLocalSdToolsUiEvents();
-      }, 2000);
 
       if(el.serialControlTile){
         el.serialControlTile.addEventListener("click",()=>{
@@ -19596,12 +20191,6 @@
       launcherOverlayEl=document.getElementById("launcherOverlay");
       easterOverlayEl=el.easterOverlay;
       easterEggOkEl=el.easterEggOk;
-      tetrisWinOverlayEl=el.tetrisWinOverlay;
-      tetrisWinOkEl=el.tetrisWinOk;
-      tetrisPrizeOverlayEl=el.tetrisPrizeOverlay;
-      tetrisPrizeCopyEl=el.tetrisPrizeCopy;
-      tetrisPrizeCloseEl=el.tetrisPrizeClose;
-      tetrisPrizeCodeEl=el.tetrisPrizeCode;
 
       const launcherCloseBtn=document.getElementById("launcherClose");
       const launcherUpBtn=document.getElementById("launcherUpModalBtn");
@@ -19681,6 +20270,7 @@
           uiSettings.armLock = armLockEnabled;
           saveSettings();
           updateTogglePill(el.armLockPill, armLockEnabled);
+          updateMobileArmLockWideButton();
           sendCommand({http:"/set?arm_lock="+(armLockEnabled?1:0), ser:"ARMLOCK "+(armLockEnabled?1:0)}, true);
           showToast(
             armLockEnabled ? "ARM ON LOCK 켜짐 (스위치 무시)" : "ARM ON LOCK 해제 (스위치 따름)",
@@ -19726,6 +20316,19 @@
             serialTxEnabled ? t("serialTxOnToast") : t("serialTxOffToast"),
             "info",
             {key:"serial-tx-toggle"}
+          );
+        });
+      }
+      if(el.muteModeToggle){
+        el.muteModeToggle.addEventListener("change",()=>{
+          const muteEnabled = !!el.muteModeToggle.checked;
+          uiSettings.muteMode = muteEnabled;
+          saveSettings();
+          sendCommand({http:"/set?mute="+(muteEnabled?1:0), ser:"/set?mute="+(muteEnabled?1:0)}, true);
+          showToast(
+            muteEnabled ? "무음 모드가 켜졌습니다. 버저 출력이 차단됩니다." : "무음 모드가 꺼졌습니다. 버저 출력이 다시 활성화됩니다.",
+            "info",
+            {key:"mute-mode-toggle"}
           );
         });
       }
@@ -20011,6 +20614,15 @@
       });
       applyTabletControlsLayout();
       applyPhoneLandscapeLayout();
+      if(isMobileLayout()){
+        hideControlsModal();
+        if(el.controlsCard){
+          el.controlsCard.classList.add(CONTROLS_MOBILE_CLASS);
+        }
+        if(el.controlsOverlay){
+          el.controlsOverlay.classList.add("hidden");
+        }
+      }
       updateNavActionState();
       if(el.mobileAbortBtn){
         el.mobileAbortBtn.addEventListener("click",(ev)=>{
@@ -20120,28 +20732,6 @@
           if(ev.target===easterOverlayEl) hideEasterEggWarning();
         });
       }
-      if(tetrisWinOkEl){
-        tetrisWinOkEl.addEventListener("click", ()=>{
-          hideTetrisWin();32
-          showTetrisPrize();
-        });
-      }
-      if(tetrisWinOverlayEl){
-        tetrisWinOverlayEl.addEventListener("click",(ev)=>{
-          if(ev.target===tetrisWinOverlayEl) hideTetrisWin();
-        });
-      }
-      if(tetrisPrizeCopyEl){
-        tetrisPrizeCopyEl.addEventListener("click", ()=>copyTetrisPrizeCode());
-      }
-      if(tetrisPrizeCloseEl){
-        tetrisPrizeCloseEl.addEventListener("click", ()=>hideTetrisPrize());
-      }
-      if(tetrisPrizeOverlayEl){
-        tetrisPrizeOverlayEl.addEventListener("click",(ev)=>{
-          if(ev.target===tetrisPrizeOverlayEl) hideTetrisPrize();
-        });
-      }
 
       if(el.fwLogoEaster){
         el.fwLogoEaster.addEventListener("click", ()=>{
@@ -20194,9 +20784,12 @@
             now.getFullYear().toString()+
             pad(now.getMonth()+1)+pad(now.getDate())+"_"+pad(now.getHours())+pad(now.getMinutes())+pad(now.getSeconds());
           const safeName = (s)=>String(s || "UNKNOWN").trim().replace(/\s+/g,"_").replace(/[^a-zA-Z0-9._-]/g,"");
+          const usingReplayExport = !!(replayUiActive && replayState && Array.isArray(replayState.samples) && replayState.samples.length > 0);
+          const flightExportMode = isFlightModeUi() || usingReplayExport;
           const motorLabel = safeName(selectedMotorName || (el.missionName && el.missionName.value) || "NO_MOTOR");
           const testLabel = safeName((el.missionTestCount && el.missionTestCount.value) || "NA");
-          const filenameBase = "ALTIS_FLASH_DAQ_" + motorLabel + "_T" + testLabel + "_" + fnameSuffix + "_data";
+          const filenamePrefix = flightExportMode ? "ALTIS_FLASH_FLIGHT_" : "ALTIS_FLASH_DAQ_";
+          const filenameBase = filenamePrefix + motorLabel + "_T" + testLabel + "_" + fnameSuffix + "_data";
           const filenameXlsx = filenameBase + ".xlsx";
           const filenameEng = filenameBase + ".eng";
           const filenameZip = filenameBase + ".zip";
@@ -20209,15 +20802,27 @@
             const rounded = roundFixedNumber(value, exportDigits);
             return rounded == null ? "-" : rounded;
           };
+          const exportRows = usingReplayExport ? buildReplayExportRows() : (Array.isArray(logData) ? logData.slice() : []);
+          if(!exportRows.length){
+            showToast("내보낼 데이터가 없습니다. (실시간 로그 또는 Replay 파일 필요)", "warn");
+            return;
+          }
+          const exportStartMs = Date.parse(exportRows[0].time);
+          const exportEndMs = Date.parse(exportRows[exportRows.length - 1].time);
 
-          const hasIgnitionWindow =
+          const hasIgnitionWindowLive =
             ignitionAnalysis.hasData &&
             ignitionAnalysis.ignStartMs!=null &&
             ignitionAnalysis.thresholdMs!=null &&
             ignitionAnalysis.lastAboveMs!=null;
+          const hasIgnitionWindow = hasIgnitionWindowLive || usingReplayExport;
 
-          const windowStartMs = hasIgnitionWindow ? (ignitionAnalysis.thresholdMs - IGN_PRE_WINDOW_MS) : null;
-          const windowEndMs   = hasIgnitionWindow ? (ignitionAnalysis.lastAboveMs + IGN_POST_WINDOW_MS) : null;
+          const windowStartMs = hasIgnitionWindowLive
+            ? (ignitionAnalysis.thresholdMs - IGN_PRE_WINDOW_MS)
+            : (isFinite(exportStartMs) ? exportStartMs : null);
+          const windowEndMs = hasIgnitionWindowLive
+            ? (ignitionAnalysis.lastAboveMs + IGN_POST_WINDOW_MS)
+            : (isFinite(exportEndMs) ? exportEndMs : null);
 
           const delayRounded = roundFixedNumber(ignitionAnalysis.delaySec, exportDigits);
           const durRounded = roundFixedNumber(ignitionAnalysis.durationSec, exportDigits);
@@ -20229,6 +20834,26 @@
           const missionGrainMassG = parseFloat(el.missionGrainMass && el.missionGrainMass.value);
           const missionTotalMassG = parseFloat(el.missionTotalMass && el.missionTotalMass.value);
           const missionVendor = (el.missionVendor && el.missionVendor.value) ? el.missionVendor.value.trim() : "";
+          const calcNiceUnit = (min, max, targetTicks)=>{
+            if(!isFinite(min) || !isFinite(max)) return null;
+            const range = max - min;
+            if(!(range > 0)) return null;
+            const rough = range / targetTicks;
+            const pow10 = Math.pow(10, Math.floor(Math.log10(rough)));
+            const n = rough / pow10;
+            let step;
+            if(n <= 1) step = 1;
+            else if(n <= 2) step = 2;
+            else if(n <= 5) step = 5;
+            else step = 10;
+            return step * pow10;
+          };
+          const axisMinMax = (min, max, step)=>{
+            if(!isFinite(min) || !isFinite(max) || !isFinite(step) || !(step > 0)) return {min:null, max:null};
+            const low = (min >= 0) ? 0 : Math.floor(min / step) * step;
+            const high = Math.ceil(max / step) * step;
+            return {min:low, max:high};
+          };
 
           let thrustMin = Infinity;
           let thrustMax = -Infinity;
@@ -20249,7 +20874,19 @@
           let lastXVal = null;
 
           const KGF_TO_N = 9.80665;
-          const t0ms = (logData && logData.length) ? Date.parse(logData[0].time) : null;
+          const t0ms = Date.parse(exportRows[0].time);
+          const rowRelSeconds = (row, parsedMs)=>{
+            if(row && row.elapsed != null && isFinite(Number(row.elapsed))){
+              return Number(row.elapsed) / 1000;
+            }
+            if(t0ms!=null && isFinite(parsedMs)) return (parsedMs - t0ms) / 1000;
+            return "";
+          };
+          const rowFiniteOrNaN = (value)=>{
+            if(value == null) return NaN;
+            const n = Number(value);
+            return isFinite(n) ? n : NaN;
+          };
           const engRows = [];
           let engBaseSec = null;
           let engBaseMs = null;
@@ -20289,12 +20926,254 @@
             t("hdrIgs"), t("hdrState"), t("hdrTdMs"), t("hdrRelTime"), t("hdrIgnWindowFlag")
           ]];
 
-          for(const row of logData){
+          if(flightExportMode){
+            let altMin = Infinity;
+            let altMax = -Infinity;
+            let speedMin = Infinity;
+            let speedMax = -Infinity;
+            let gyroMin = Infinity;
+            let gyroMax = -Infinity;
+            let maxAltitude = null;
+            let maxSpeed = null;
+            let gpsAltBase = null;
+            let lastAltForSpeed = null;
+            let lastAltTimeSec = null;
+            let baseElapsedSec = null;
+            let xMaxSec = null;
+            let xDeltaSum = 0;
+            let xDeltaCount = 0;
+            let lastXVal = null;
+            const flightRows = [[t("hdrElapsedMs"), t("hdrAltitudeM"), t("hdrGyroX"), t("hdrSpeedMps"), t("hdrGyroY"), t("hdrGyroZ"), "time_axis"]];
+
+            for(const row of exportRows){
+              const ms = Date.parse(row.time);
+              const rel = rowRelSeconds(row, ms);
+              const gpsAltVal = rowFiniteOrNaN(row.gps_alt);
+              let altVal = rowFiniteOrNaN(row.alt_m);
+              if(!isFinite(altVal) && isFinite(gpsAltVal)){
+                if(gpsAltBase == null) gpsAltBase = gpsAltVal;
+                altVal = gpsAltVal - gpsAltBase;
+              }
+              let speedVal = rowFiniteOrNaN(row.speed_mps);
+              const gxVal = rowFiniteOrNaN(row.gx);
+              const gyVal = rowFiniteOrNaN(row.gy);
+              const gzVal = rowFiniteOrNaN(row.gz);
+              const tVal = rowFiniteOrNaN(row.t);
+              const pVal = rowFiniteOrNaN(row.p);
+              const tNVal = isFinite(tVal) ? (tVal * KGF_TO_N) : NaN;
+
+              let xVal = "";
+              if(row.elapsed != null && isFinite(Number(row.elapsed))){
+                const elapsedSec = Number(row.elapsed) / 1000;
+                if(baseElapsedSec == null) baseElapsedSec = elapsedSec;
+                xVal = elapsedSec - baseElapsedSec;
+              }else if(isFinite(ms) && isFinite(exportStartMs)){
+                xVal = (ms - exportStartMs) / 1000;
+              }
+              if(xVal !== "" && isFinite(xVal)){
+                if(lastXVal != null){
+                  const d = xVal - lastXVal;
+                  if(isFinite(d) && d > 0){
+                    xDeltaSum += d;
+                    xDeltaCount += 1;
+                  }
+                }
+                lastXVal = xVal;
+                if(xMaxSec == null || xVal > xMaxSec) xMaxSec = xVal;
+              }else{
+                xVal = "";
+              }
+              if(!isFinite(speedVal) && isFinite(altVal) && xVal !== "" && isFinite(xVal)){
+                if(lastAltForSpeed != null && lastAltTimeSec != null){
+                  const dt = xVal - lastAltTimeSec;
+                  if(isFinite(dt) && dt > 0){
+                    const est = (altVal - lastAltForSpeed) / dt;
+                    if(isFinite(est)) speedVal = est;
+                  }
+                }
+                lastAltForSpeed = altVal;
+                lastAltTimeSec = xVal;
+              } else if(isFinite(altVal) && xVal !== "" && isFinite(xVal)) {
+                lastAltForSpeed = altVal;
+                lastAltTimeSec = xVal;
+              }
+              const xNum = (xVal !== "" ? Number(xVal.toFixed(3)) : "");
+              const xLabel = "";
+
+              if(isFinite(altVal)){
+                if(altVal < altMin) altMin = altVal;
+                if(altVal > altMax) altMax = altVal;
+                if(maxAltitude == null || altVal > maxAltitude) maxAltitude = altVal;
+              }
+              if(isFinite(speedVal)){
+                if(speedVal < speedMin) speedMin = speedVal;
+                if(speedVal > speedMax) speedMax = speedVal;
+                if(maxSpeed == null || speedVal > maxSpeed) maxSpeed = speedVal;
+              }
+              if(isFinite(gxVal)){
+                if(gxVal < gyroMin) gyroMin = gxVal;
+                if(gxVal > gyroMax) gyroMax = gxVal;
+              }
+              if(isFinite(gyVal)){
+                if(gyVal < gyroMin) gyroMin = gyVal;
+                if(gyVal > gyroMax) gyroMax = gyVal;
+              }
+              if(isFinite(gzVal)){
+                if(gzVal < gyroMin) gyroMin = gzVal;
+                if(gzVal > gyroMax) gyroMax = gzVal;
+              }
+
+              flightRows.push([
+                xNum,
+                (isFinite(altVal) ? Number(altVal.toFixed(2)) : ""),
+                (isFinite(gxVal) ? Number(gxVal.toFixed(3)) : ""),
+                (isFinite(speedVal) ? Number(speedVal.toFixed(2)) : ""),
+                (isFinite(gyVal) ? Number(gyVal.toFixed(3)) : ""),
+                (isFinite(gzVal) ? Number(gzVal.toFixed(3)) : ""),
+                xLabel
+              ]);
+
+              rawRows.push([
+                row.time || "",
+                exportMetric(tVal),
+                exportMetric(tNVal),
+                exportMetric(pVal),
+                (row.gps_lat != null && isFinite(Number(row.gps_lat))) ? Number(Number(row.gps_lat).toFixed(7)) : "",
+                (row.gps_lon != null && isFinite(Number(row.gps_lon))) ? Number(Number(row.gps_lon).toFixed(7)) : "",
+                (row.gps_alt != null && isFinite(Number(row.gps_alt))) ? Number(Number(row.gps_alt).toFixed(2)) : "",
+                (row.alt_m != null && isFinite(Number(row.alt_m))) ? Number(Number(row.alt_m).toFixed(2)) : "",
+                (row.speed_mps != null && isFinite(Number(row.speed_mps))) ? Number(Number(row.speed_mps).toFixed(2)) : "",
+                (row.ax != null && isFinite(Number(row.ax))) ? Number(Number(row.ax).toFixed(3)) : "",
+                (row.ay != null && isFinite(Number(row.ay))) ? Number(Number(row.ay).toFixed(3)) : "",
+                (row.az != null && isFinite(Number(row.az))) ? Number(Number(row.az).toFixed(3)) : "",
+                (row.gx != null && isFinite(Number(row.gx))) ? Number(Number(row.gx).toFixed(3)) : "",
+                (row.gy != null && isFinite(Number(row.gy))) ? Number(Number(row.gy).toFixed(3)) : "",
+                (row.gz != null && isFinite(Number(row.gz))) ? Number(Number(row.gz).toFixed(3)) : "",
+                (row.lt ?? ""),
+                (row.elapsed != null && isFinite(Number(row.elapsed)) ? Number(Number(row.elapsed).toFixed(0)) : ""),
+                (row.hz ?? ""),
+                (row.ct ?? ""),
+                (row.s  ?? 0),
+                (row.ic ?? 0),
+                (row.r  ?? 0),
+                (row.gs ?? 0),
+                (row.st ?? 0),
+                (row.td ?? 0),
+                (rel !== "" ? Number(rel.toFixed(3)) : ""),
+                0
+              ]);
+            }
+
+            const altUnit = calcNiceUnit(altMin, altMax, 6);
+            const speedUnit = calcNiceUnit(speedMin, speedMax, 6);
+            const gyroUnit = calcNiceUnit(gyroMin, gyroMax, 6);
+            const altAxis = axisMinMax(altMin, altMax, altUnit || 1);
+            const speedAxis = axisMinMax(speedMin, speedMax, speedUnit || 1);
+            const gyroAxis = axisMinMax(gyroMin, gyroMax, gyroUnit || 1);
+            const xMajorUnit = 0.5;
+            const minLabelIntervalSec = 5.0;
+            const xLabelIntervalSec = (xMaxSec != null && isFinite(xMaxSec) && xMaxSec > 0)
+              ? Math.max(minLabelIntervalSec, xMaxSec / 10)
+              : minLabelIntervalSec;
+            const avgDelta = (xDeltaCount > 0) ? (xDeltaSum / xDeltaCount) : null;
+            const xTickSkip = (avgDelta && isFinite(avgDelta) && avgDelta > 0)
+              ? Math.max(1, Math.round(xLabelIntervalSec / avgDelta))
+              : 1;
+            let lastLabelX = null;
+            for(let i = 1; i < flightRows.length; i++){
+              const x = Number(flightRows[i][0]);
+              if(!isFinite(x)){
+                flightRows[i][6] = "";
+                continue;
+              }
+              const shouldShow = ((i - 1) % xTickSkip) === 0 || i === (flightRows.length - 1);
+              if(!shouldShow){
+                flightRows[i][6] = "";
+                continue;
+              }
+              if(lastLabelX != null && Math.abs(x - lastLabelX) < (xLabelIntervalSec * 0.5)){
+                flightRows[i][6] = "";
+                continue;
+              }
+              flightRows[i][6] = Number(x.toFixed(1));
+              lastLabelX = x;
+            }
+            const xMax = (xMaxSec != null && isFinite(xMaxSec)) ? Math.max(xMajorUnit, Math.ceil(xMaxSec / xMajorUnit) * xMajorUnit) : null;
+            const chartConfig = (flightRows.length >= 3) ? {
+              sheetName:"FLIGHT_RECORD",
+              startRow:2,
+              endRow:flightRows.length,
+              axisTitleX:"time",
+              hideXGridlines:true,
+              xMajorUnit:xMajorUnit,
+              xNumFmt:"0.0",
+              xTickSkip:xTickSkip,
+              xMin:(xMax != null ? 0 : null),
+              xMax:xMax,
+              xLabelCol:"G",
+              chart1:{
+                title:t("hdrAltitudeM"),
+                axisYTitle:t("hdrAltitudeM"),
+                majorUnit:altUnit,
+                yMin:altAxis.min,
+                yMax:altAxis.max,
+                series:[{col:"B", nameCell:"FLIGHT_RECORD!$B$1", color:"10B981"}]
+              },
+              chart2:{
+                title:t("hdrSpeedMps"),
+                axisYTitle:t("hdrSpeedMps"),
+                majorUnit:speedUnit,
+                yMin:speedAxis.min,
+                yMax:speedAxis.max,
+                series:[{col:"D", nameCell:"FLIGHT_RECORD!$D$1", color:"3B82F6"}]
+              },
+              chart3:{
+                title:"GYRO_XYZ_DPS",
+                axisYTitle:"gyro_dps",
+                majorUnit:gyroUnit,
+                yMin:gyroAxis.min,
+                yMax:gyroAxis.max,
+                series:[
+                  {col:"C", nameCell:"FLIGHT_RECORD!$C$1", color:"EF4444"},
+                  {col:"E", nameCell:"FLIGHT_RECORD!$E$1", color:"F59E0B"},
+                  {col:"F", nameCell:"FLIGHT_RECORD!$F$1", color:"8B5CF6"}
+                ]
+              }
+            } : null;
+            const infoMaxAltitude = (maxAltitude != null && isFinite(maxAltitude)) ? maxAltitude : 0;
+            const infoMaxSpeed = (maxSpeed != null && isFinite(maxSpeed)) ? maxSpeed : 0;
+            const infoRows = [
+              {cells:["FLIGHT RECORD"], style:2},
+              {cells:["모터 이름: " + (missionMotor || "-")], style:3},
+              {cells:["실험 회차: " + ((el.missionTestCount && el.missionTestCount.value) ? el.missionTestCount.value.trim() : "-")], style:3},
+              {cells:["최대 고도 (m): " + exportMetricText(infoMaxAltitude)], style:3},
+              {cells:["최대 속도 (mps): " + exportMetricText(infoMaxSpeed)], style:3},
+              {cells:["시험 날짜: " + now.toISOString()], style:3}
+            ];
+            const xlsxBytes = buildXlsxBytes([
+              {name:"INFO", rows:infoRows},
+              {name:"FLIGHT_RECORD", rows:flightRows},
+              {name:"EVENT", rows:eventRows},
+              {name:"RAW", rows:rawRows}
+            ], chartConfig);
+            downloadBlobAsFile(
+              new Blob([xlsxBytes], {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}),
+              filenameXlsx
+            );
+            reportExportedRevision = logDataRevision;
+            reportExportedOnce = true;
+            updateExportGuardUi();
+            addLogLine("Flight XLSX export: " + filenameXlsx, "INFO");
+            showToast("Flight 데이터를 XLSX로 내보냈습니다.", "success");
+            return;
+          }
+
+          for(const row of exportRows){
             const ms = Date.parse(row.time);
-            const rel = (t0ms!=null && isFinite(ms)) ? ((ms - t0ms)/1000) : "";
+            const rel = rowRelSeconds(row, ms);
             const inWin = (hasIgnitionWindow && isFinite(ms) && ms>=windowStartMs && ms<=windowEndMs) ? 1 : 0;
-            const tVal = Number(row.t);
-            const pVal = Number(row.p);
+            const tVal = rowFiniteOrNaN(row.t);
+            const pVal = rowFiniteOrNaN(row.p);
             const tNVal = isFinite(tVal) ? (tVal * KGF_TO_N) : NaN;
             if(inWin){
               if(isFinite(tVal)){
@@ -20375,12 +21254,12 @@
             ]);
           }
 
-          for(const row of logData){
+          for(const row of exportRows){
             const ms = Date.parse(row.time);
             if(hasIgnitionWindow && (!isFinite(ms) || ms < windowStartMs || ms > windowEndMs)){
               continue;
             }
-            const tVal = Number(row.t);
+            const tVal = rowFiniteOrNaN(row.t);
             if(!isFinite(tVal)) continue;
             let sec = null;
             if(row.elapsed != null && isFinite(Number(row.elapsed))){
@@ -20408,27 +21287,6 @@
           if(summaryRows.length === 4){
             summaryRows.push(["","","","",""]);
           }
-
-          const calcNiceUnit = (min, max, targetTicks)=>{
-            if(!isFinite(min) || !isFinite(max)) return null;
-            const range = max - min;
-            if(!(range > 0)) return null;
-            const rough = range / targetTicks;
-            const pow10 = Math.pow(10, Math.floor(Math.log10(rough)));
-            const n = rough / pow10;
-            let step;
-            if(n <= 1) step = 1;
-            else if(n <= 2) step = 2;
-            else if(n <= 5) step = 5;
-            else step = 10;
-            return step * pow10;
-          };
-          const axisMinMax = (min, max, step)=>{
-            if(!isFinite(min) || !isFinite(max) || !isFinite(step) || !(step > 0)) return {min:null, max:null};
-            const low = (min >= 0) ? 0 : Math.floor(min / step) * step;
-            const high = Math.ceil(max / step) * step;
-            return {min:low, max:high};
-          };
 
           const thrustMajorUnit = calcNiceUnit(thrustMin, thrustMax, 6);
           const thrustNMajorUnit = calcNiceUnit(thrustNMin, thrustNMax, 6);
@@ -20639,14 +21497,13 @@
         document.body.classList.toggle("countdown-view-active", isCountdown);
         document.body.classList.toggle("dashboard-view-active", isDashboard);
         document.body.classList.toggle("home-view-active", isHome);
+        document.body.classList.toggle("mission-view-active", isMission);
         if(isHome) updateHomeUI();
         if(isDashboard){
           syncChartHeightToControls(0);
           scheduleStatusMapRefresh();
         }
         if(isHardware){
-          ensureLocalSdToolsUi();
-          bindLocalSdToolsUiEvents();
           fetchSpiFlashStatus();
         }
       };
@@ -20712,6 +21569,7 @@
           resizeGyroGl();
           if(gyroGl) renderGyroGl(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
           refreshStatusMapSize();
+          renderChipTempModal();
         });
         const active = Array.from(sideNavItems).find(item=>item.classList.contains("active"));
         setActiveView(active ? (active.dataset.pageTitle || active.textContent.trim()) : "Dashboard");
@@ -20721,19 +21579,68 @@
         el.settingsOverlay.addEventListener("click",(ev)=>{ if(ev.target===el.settingsOverlay) hideSettings(); });
       }
       if(el.gyroZeroBtn){
-        el.gyroZeroBtn.addEventListener("click", ()=>{
-          if(!applyGyroZeroReference()){
-            showToast(t("gyroZeroUnavailableToast"), "warn");
+        el.gyroZeroBtn.addEventListener("click", async ()=>{
+          if(simEnabled){
+            if(!applyGyroZeroReference()){
+              showToast(t("gyroZeroUnavailableToast"), "warn");
+              return;
+            }
+            showToast(t("gyroZeroDoneToast"), "success");
+            renderGyroGl(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
+            renderNavBall(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
+            renderGyroPreview(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
+            renderNavBallPreview(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
             return;
           }
-          showToast(t("gyroZeroDoneToast"), "success");
-          renderGyroGl(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
-          renderNavBall(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
-          renderGyroPreview(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
-          renderNavBallPreview(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
+
+          const path = "/gyro_zero?roll=0&pitch=0&yaw=0";
+          try{
+            const result = await sendGyroZeroCommand(path);
+            if(!result.ok){
+              const reason = String(result.reason || "");
+              if(reason.indexOf("GYRO_NOT_READY") >= 0){
+                showToast(t("gyroZeroUnavailableToast"), "warn");
+              }else{
+                showToast("자이로 영점 저장 실패: " + (reason || "UNKNOWN"), "error");
+              }
+              return;
+            }
+            // Board now publishes zeroed attitude; keep UI local zero neutral.
+            clearLocalGyroZeroReference();
+            showToast(t("gyroZeroDoneToast"), "success");
+            renderGyroGl(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
+            renderNavBall(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
+            renderGyroPreview(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
+            renderNavBallPreview(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
+          }catch(err){
+            const msg = (err && err.message) ? err.message : "UNKNOWN";
+            showToast("자이로 영점 저장 실패: " + msg, "error");
+          }
         });
       }
       if(el.missionOpenBtn) el.missionOpenBtn.addEventListener("click",()=>showMission());
+      if(el.dashboardServoPanelBtn){
+        el.dashboardServoPanelBtn.addEventListener("click",()=>{
+          setOverlayVisible(el.hardwareServoOverlay, true);
+        });
+      }
+      if(el.hardwareServoOpenBtn){
+        el.hardwareServoOpenBtn.addEventListener("click",()=>{
+          setOverlayVisible(el.hardwareServoOverlay, true);
+        });
+      }
+      if(el.hardwareServoClose){
+        el.hardwareServoClose.addEventListener("click",()=>{
+          setOverlayVisible(el.hardwareServoOverlay, false);
+        });
+      }
+      if(el.hardwareServoOverlay){
+        el.hardwareServoOverlay.addEventListener("click",(ev)=>{
+          if(ev.target === el.hardwareServoOverlay){
+            setOverlayVisible(el.hardwareServoOverlay, false);
+          }
+        });
+      }
       if(el.rebootBoardBtn){
         el.rebootBoardBtn.addEventListener("click",()=>{
           showRebootConfirm();
@@ -20954,12 +21861,13 @@
       }
       const mobileControlActions = {
         sequence: ()=>{ if(el.igniteBtn) el.igniteBtn.click(); },
+        mode: ()=>{ toggleOperationModeFromMobile(); },
         serial: ()=>{ toggleInput(el.serialToggle); },
         inspection: ()=>{ if(el.inspectionOpenBtn) el.inspectionOpenBtn.click(); },
         safety: ()=>{ toggleInput(el.safeModeToggle); },
         launcher: ()=>{ ensureDashboardViewForPanels(); showLauncher(); },
-        mission: ()=>{ if(el.missionOpenBtn) el.missionOpenBtn.click(); },
         export: ()=>{ if(el.exportCsvBtn) el.exportCsvBtn.click(); },
+        servo: ()=>{ setOverlayVisible(el.hardwareServoOverlay, true); },
       };
       if(el.mobileControlButtons && el.mobileControlButtons.length){
         el.mobileControlButtons.forEach(btn=>{
@@ -20968,17 +21876,49 @@
             const type = btn.getAttribute("data-mobile-control");
             const action = mobileControlActions[type];
             if(!action) return;
-            if(type === "export" ||
-              (type === "mission" && !isPhoneLandscapeLayout())){
+            if(type === "export"){
               hideMobileControlsPanel();
             }
             action();
           });
         });
       }
+      if(el.mobileSequenceWideBtn){
+        el.mobileSequenceWideBtn.addEventListener("click",(ev)=>{
+          ev.preventDefault();
+          if(el.mobileSequenceWideBtn.disabled) return;
+          if(el.igniteBtn) el.igniteBtn.click();
+        });
+      }
+      if(el.mobileMissionWideBtn){
+        el.mobileMissionWideBtn.addEventListener("click",(ev)=>{
+          ev.preventDefault();
+          if(el.mobileMissionWideBtn.disabled) return;
+          if(isMobileLayout() && el.mobileControlsPanel){
+            ensureDashboardViewForPanels();
+            setLauncherPanelVisible(false);
+            setInspectionPanelVisible(false);
+            setMissionPanelVisible(false);
+            setMobileLauncherPanelVisible(false);
+            setMobileInspectionPanelVisible(false);
+            setMobileMissionPanelVisible(true);
+            return;
+          }
+          showMission();
+        });
+      }
+      if(el.mobileArmLockWideBtn){
+        el.mobileArmLockWideBtn.addEventListener("click",(ev)=>{
+          ev.preventDefault();
+          if(el.mobileArmLockWideBtn.disabled || !el.armLockToggle) return;
+          el.armLockToggle.checked = !el.armLockToggle.checked;
+          el.armLockToggle.dispatchEvent(new Event("change", {bubbles:true}));
+        });
+      }
       updateAbortButtonLabel(false);
       updateMobileControlPills();
       updateMobileAbortButton();
+      updateMobileArmLockWideButton();
       if(el.mobileControlsHandle){
         let handleDragActive = false;
         let handleStartY = 0;
@@ -21412,6 +22352,36 @@
       if(el.loadcellOverlay){
         el.loadcellOverlay.addEventListener("click",(ev)=>{ if(ev.target===el.loadcellOverlay) hideLoadcellModal(); });
       }
+      if(el.chipTempWrap){
+        el.chipTempWrap.addEventListener("click", ()=>showChipTempModal());
+        el.chipTempWrap.addEventListener("keydown",(ev)=>{
+          if(ev.key === "Enter" || ev.key === " "){
+            ev.preventDefault();
+            showChipTempModal();
+          }
+        });
+      }
+      if(el.chipTempClose){
+        el.chipTempClose.addEventListener("click", ()=>hideChipTempModal());
+      }
+      if(el.chipTempOverlay){
+        el.chipTempOverlay.addEventListener("click",(ev)=>{ if(ev.target===el.chipTempOverlay) hideChipTempModal(); });
+      }
+      if(el.perfWrap){
+        el.perfWrap.addEventListener("click", ()=>showPerfModal());
+        el.perfWrap.addEventListener("keydown",(ev)=>{
+          if(ev.key === "Enter" || ev.key === " "){
+            ev.preventDefault();
+            showPerfModal();
+          }
+        });
+      }
+      if(el.perfClose){
+        el.perfClose.addEventListener("click", ()=>hidePerfModal());
+      }
+      if(el.perfOverlay){
+        el.perfOverlay.addEventListener("click",(ev)=>{ if(ev.target===el.perfOverlay) hidePerfModal(); });
+      }
       if(el.loadcellApply){
         el.loadcellApply.addEventListener("click",()=>{
           if(loadcellModalStage === LOADCELL_MODAL_STAGE_COMPLETE){
@@ -21768,6 +22738,19 @@
         ro.observe(controlsCard);
       }
       window.addEventListener("beforeunload", handleBeforeUnload);
+      window.addEventListener("online", ()=>{
+        if(!wsConnected && !wsRetryTimer) scheduleWsReconnect("browser online");
+        updateData();
+      });
+      window.addEventListener("focus", ()=>{
+        if(!wsConnected && !wsRetryTimer) scheduleWsReconnect("window focus");
+      });
+      document.addEventListener("visibilitychange", ()=>{
+        if(!document.hidden){
+          if(!wsConnected && !wsRetryTimer) scheduleWsReconnect("tab visible");
+          updateData();
+        }
+      });
       window.addEventListener("resize",()=>{
         applyPhoneLandscapeLayout();
         if(gyroGl){
@@ -21776,10 +22759,25 @@
         }
         refreshChartLayout();
         scheduleStatusMapRefresh();
+        renderChipTempModal();
       });
       window.addEventListener("orientationchange",()=>{
         applyPhoneLandscapeLayout();
         scheduleStatusMapRefresh();
+      });
+      window.addEventListener("pageshow",()=>{
+        applyTabletControlsLayout();
+        applyPhoneLandscapeLayout();
+        if(isMobileLayout()){
+          hideControlsModal();
+          if(el.controlsCard){
+            el.controlsCard.classList.add(CONTROLS_MOBILE_CLASS);
+          }
+          if(el.controlsOverlay){
+            el.controlsOverlay.classList.add("hidden");
+          }
+        }
+        updateNavActionState();
       });
       syncChartHeightToControls(0);
       setTimeout(()=>syncChartHeightToControls(1), 180);
@@ -21787,6 +22785,7 @@
         document.fonts.ready.then(()=>{ setTimeout(()=>syncChartHeightToControls(2), 120); });
       }
 
+      bootBeacon("net_bootstrap_start");
       openWebSocket();
       updateWsUI();
       setInterval(ensureWsAlive, 500);
@@ -21798,8 +22797,44 @@
       updateData().finally(()=>{ pollLoop(); });
       updateSerialPill();
       updateMissionEditLockUI();
+      bootBeacon("net_bootstrap_done");
 
       // ✅ KST 실시간 업데이트
       updateKstClock();
       setInterval(updateKstClock, 1000);
-    });
+
+      if (typeof window !== "undefined" && window.__flashBoot) {
+        window.__flashBoot.jsReady = true;
+        window.__flashBoot.phase = "app_ready";
+      }
+      bootBeacon("app_ready");
+      }catch(err){
+        const msg = (err && err.message) ? err.message : String(err || "dom_ready_error");
+        bootBeacon("dom_ready_fail", msg);
+        try{
+          if (typeof window !== "undefined" && window.__flashBoot) {
+            window.__flashBoot.lastError = msg;
+            window.__flashBoot.phase = "dom_ready_fail";
+          }
+        }catch(_e){}
+        console.error("[FLASH6][BOOT] DOM init failed:", err);
+      }
+    };
+    if(document.readyState === "loading"){
+      document.addEventListener("DOMContentLoaded", bootAfterDomReady, {once:true});
+    }else{
+      bootAfterDomReady();
+    }
+    function mapServoUiToHwChannel(channel){
+      const ch = Math.max(1, Math.min(4, Math.round(Number(channel) || 1)));
+      const mapped = Number(SERVO_UI_TO_HW_CHANNEL[ch]);
+      if(isFinite(mapped) && SERVO_CHANNELS.indexOf(mapped) >= 0) return mapped;
+      return ch;
+    }
+    function mapServoHwToUiChannel(channel){
+      const hw = Math.max(1, Math.min(4, Math.round(Number(channel) || 1)));
+      for(let ui = 1; ui <= 4; ui++){
+        if(Number(SERVO_UI_TO_HW_CHANNEL[ui]) === hw) return ui;
+      }
+      return hw;
+    }

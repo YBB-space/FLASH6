@@ -3,10 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta http-equiv="refresh" content="0; url=/flash6.html">
   <title>FLASH6</title>
   <script>
-    window.location.replace("/flash6.html");
+    (function(){
+      // 환경에 관계없이 항상 같은 폴더 내의 flash6.html로 이동하도록 수정
+      window.location.replace("flash6.html");
+    })();
   </script>
 </head>
 <body></body>

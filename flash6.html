@@ -10,23 +10,241 @@
   <meta name="apple-mobile-web-app-title" content="FLASH6">
   <title>FLASH6 - Intellignet platform</title>
   <link rel="icon" href="img/Flash_logo.svg" type="image/svg+xml" />
-  <link rel="manifest" href="/manifest.webmanifest" />
-  <link rel="apple-touch-icon" href="/img/hanwool_logo.png" />
-  <link rel="stylesheet" href="/vendor/leaflet/leaflet.css" onerror="this.onerror=null;this.href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';" />
+  <link rel="manifest" href="manifest.webmanifest" onerror="if(this.dataset.retry!=='1'){this.dataset.retry='1';this.href=(location.protocol==='file:'?'manifest.webmanifest':'/manifest.webmanifest');}" />
+  <link rel="apple-touch-icon" href="img/hanwool_logo.png" />
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css" onerror="if(this.dataset.retry!=='1'){this.dataset.retry='1';this.href=(location.protocol==='file:'?'vendor/leaflet/leaflet.css':'/vendor/leaflet/leaflet.css');return;}this.onerror=null;this.href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';" />
+  <script>
+    (function(){
+      var isLocalPreview = false;
+      var beaconEnabled = true;
+      try{
+        isLocalPreview =
+          (location && location.protocol === "file:") ||
+          /(?:^|[?&])vscode-livepreview=true(?:&|$)/.test(String((location && location.search) || "")) ||
+          (((location && location.hostname) === "127.0.0.1" || (location && location.hostname) === "localhost") &&
+           String((location && location.port) || "") === "3000");
+        var host = String((location && location.hostname) || "").toLowerCase();
+        beaconEnabled =
+          !host ||
+          host === "192.168.4.1" ||
+          host === "altis.local" ||
+          host === "localhost" ||
+          host === "127.0.0.1";
+      }catch(_e){}
+      function beacon(stage, detail){
+        try{
+          if(isLocalPreview || !beaconEnabled) return;
+          var s = encodeURIComponent(String(stage || "-").slice(0, 48));
+          var dRaw = String(detail || "").slice(0, 120);
+          var d = dRaw ? ("&detail=" + encodeURIComponent(dRaw)) : "";
+          var u = "/js_boot?stage=" + s + d + "&t=" + Date.now();
+          var img = new Image();
+          img.src = u;
+        }catch(_e){}
+      }
+      window.__flashBoot = window.__flashBoot || {};
+      window.__flashBoot.localPreview = !!isLocalPreview;
+      window.__flashBoot.beaconEnabled = !!beaconEnabled;
+      if(typeof window.__flashBoot.showBootError !== "function"){
+        window.__flashBoot.showBootError = function(msg){
+          try{
+            var text = String(msg || "unknown_error");
+            var box = document.getElementById("flashBootErrorBox");
+            if(!box){
+              box = document.createElement("div");
+              box.id = "flashBootErrorBox";
+              box.style.cssText = "position:fixed;left:10px;right:10px;bottom:10px;z-index:99999;padding:10px 12px;border-radius:8px;background:rgba(127,29,29,0.95);color:#fff;border:1px solid rgba(248,113,113,0.75);font:12px/1.4 ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;word-break:break-word;max-height:42vh;overflow:auto;box-shadow:0 10px 26px rgba(0,0,0,0.32)";
+              document.addEventListener("DOMContentLoaded", function(){
+                try{ document.body.appendChild(box); }catch(_e){}
+              }, {once:true});
+              if(document.body){
+                try{ document.body.appendChild(box); }catch(_e){}
+              }
+            }
+            box.textContent = "[FLASH6 BOOT ERROR]\\n" + text;
+          }catch(_e){}
+        };
+      }
+      if(typeof window.__flashBoot.emit !== "function"){
+        window.__flashBoot.emit = beacon;
+      }
+      beacon("html_head", location && location.pathname ? location.pathname : "/");
+    })();
+  </script>
 
-  <!-- ✅ 이미지 프리로드(LOCKOUT/토스트/아이콘 늦게 뜨는거 방지) -->
-  <link rel="preload" as="image" href="img/Flash_logo.svg ">
-  <link rel="preload" as="image" href="img/Flash_logo_plain.svg">
-  <link rel="preload" as="image" href="img/Danger.svg">
-  <link rel="preload" as="image" href="img/Tick.svg">
-  <link rel="preload" as="image" href="img/Graph.svg">
-  <link rel="preload" as="image" href="img/Activity.svg">
-  <link rel="preload" as="image" href="img/RS_1.svg">
-  <link rel="preload" as="image" href="img/RS_2.svg">
-  <link rel="preload" as="image" href="img/RS_all.svg">
-  <link rel="preload" as="image" href="img/altis_logo1.png">
-  <link rel="preload" as="image" href="img/gnu_logo.png">
-  <link rel="preload" as="image" href="img/hanwool_logo.png">
+  <!-- Preload 축소: AP 모드/저메모리 환경에서 동시 요청 버스트를 줄임 -->
+  <script>
+    (function(){
+      var ASSET_VER = "20260520-01";
+      window.__flashBoot = window.__flashBoot || {jsReady:false,lastError:"",phase:"static_loader",version:ASSET_VER};
+      var isLocalPreview = !!window.__flashBoot.localPreview;
+      var beaconEnabled = (window.__flashBoot.beaconEnabled !== false);
+      window.__flashBoot.version = ASSET_VER;
+      window.__flashBoot.emit = function(stage, detail){
+        try{
+          if(isLocalPreview || !beaconEnabled) return;
+          var s = encodeURIComponent(String(stage || "-").slice(0, 48));
+          var dRaw = String(detail || "").slice(0, 120);
+          var d = dRaw ? ("&detail=" + encodeURIComponent(dRaw)) : "";
+          var url = "/js_boot?stage=" + s + d;
+          if(navigator && navigator.sendBeacon){
+            try{
+              navigator.sendBeacon(url, "");
+              return;
+            }catch(_be){}
+          }
+          var img = new Image();
+          img.src = url + "&t=" + Date.now();
+        }catch(_e){}
+      };
+      window.__flashBoot.emit("html_boot", location && location.pathname ? location.pathname : "/");
+      if(typeof window.t !== "function"){
+        window.t = function(key){ return (key == null) ? "" : String(key); };
+      }
+      window.__flashBoot.onAssetError = function(stage, src){
+        try{
+          window.__flashBoot.lastError = String(stage || "asset") + ":" + String(src || "");
+        }catch(_e){}
+        try{
+          if(window.__flashBoot && window.__flashBoot.emit){
+            window.__flashBoot.emit("asset_error", String(stage || "asset") + ":" + String(src || ""));
+          }
+        }catch(_e){}
+        try{
+          var retryKey = "flash6_asset_retry_" + String(stage || "asset");
+          if(sessionStorage.getItem(retryKey)) return;
+          sessionStorage.setItem(retryKey, "1");
+          var u = new URL(location.href);
+          u.searchParams.set("boot_retry", String(Date.now()));
+          location.replace(u.toString());
+        }catch(_e){}
+      };
+
+      // 브라우저 동시 요청을 제한하여 ESP32 메모리 부족(OOM) 방지
+      // 메인 로직 + 번역본이 합쳐진 단일 스크립트를 지연 로드
+      window.__flashBoot.loadScriptLater = function(id, src, delayMs, onComplete){
+        var done = false;
+        var list = Array.isArray(src) ? src.slice() : [src];
+        list = list
+          .map(function(v){ return String(v || "").trim(); })
+          .filter(function(v){ return !!v; });
+        if(!list.length){
+          if(window.__flashBoot && typeof window.__flashBoot.showBootError === "function"){
+            window.__flashBoot.showBootError("script candidate list is empty");
+          }
+          return;
+        }
+        function withRetry(url){
+          return String(url) + ((String(url).indexOf("?") >= 0) ? "&" : "?") + "retry=" + Date.now();
+        }
+        function finishLoad(){
+          if(typeof onComplete === "function") onComplete();
+        }
+        function loadOne(index, cacheBust){
+          if(done) return;
+          if(index >= list.length){
+            try{
+              if(window.__flashBoot && typeof window.__flashBoot.showBootError === "function"){
+                window.__flashBoot.showBootError("script load failed: " + list.join(" | "));
+              }
+            }catch(_e){}
+            return;
+          }
+          var baseUrl = list[index];
+          var url = cacheBust ? withRetry(baseUrl) : baseUrl;
+          try{
+            var s = document.createElement("script");
+            s.defer = true;
+            s.src = url;
+            s.onload = function(){
+              if(done) return;
+              done = true;
+              try{
+                if(window.__flashBoot && window.__flashBoot.emit){
+                  window.__flashBoot.emit(id + "_loaded", baseUrl);
+                }
+              }catch(_e){}
+              finishLoad();
+            };
+            s.onerror = function(){
+              try{
+                if(window.__flashBoot && window.__flashBoot.emit){
+                  window.__flashBoot.emit(id + "_error", url);
+                }
+              }catch(_e){}
+              if(!cacheBust){
+                setTimeout(function(){ loadOne(index, true); }, 450);
+              }else{
+                setTimeout(function(){ loadOne(index + 1, false); }, 180);
+              }
+            };
+            document.head.appendChild(s);
+          }catch(_e){
+            if(!cacheBust){
+              setTimeout(function(){ loadOne(index, true); }, 450);
+            }else{
+              setTimeout(function(){ loadOne(index + 1, false); }, 180);
+            }
+          }
+        }
+        setTimeout(function(){ loadOne(0, false); }, delayMs || 500);
+      };
+
+      // [통합 파일 로드]
+      // 번역본과 메인 로직이 합쳐진 단일 파일을 호출합니다.
+      var modernJsOk = true;
+      try{
+        // flash6.js uses modern syntax (optional chaining/nullish coalescing).
+        // Parse-check here so old browsers fail with a visible message.
+        new Function("var a={b:1}; return (a?.b ?? 0);");
+      }catch(_syntaxErr){
+        modernJsOk = false;
+        if(window.__flashBoot && typeof window.__flashBoot.showBootError === "function"){
+          window.__flashBoot.showBootError(
+            "This browser is too old for FLASH6 dashboard JS.\\n" +
+            "Please use latest Chrome/Edge/Safari.\\n" +
+            "detail: " + String((_syntaxErr && _syntaxErr.message) || _syntaxErr || "syntax_error")
+          );
+        }
+        try{
+          if(window.__flashBoot && window.__flashBoot.emit){
+            window.__flashBoot.emit("browser_old_js", String((_syntaxErr && _syntaxErr.message) || _syntaxErr || "syntax_error"));
+          }
+        }catch(_e){}
+      }
+
+      if(modernJsOk){
+        var scriptCandidates;
+        if(location && location.protocol === "file:"){
+          scriptCandidates = [
+            "./flash6.js",
+            "./flash6.full.js",
+            "./flash6.full.bundle.js"
+          ];
+        }else{
+          scriptCandidates = [
+            "./flash6.js?v=" + ASSET_VER,
+            "/flash6.js?v=" + ASSET_VER,
+            "/flash6/flash6.js?v=" + ASSET_VER,
+            "./flash6.js",
+            "/flash6.js",
+            "/flash6/flash6.js",
+            "./flash6.full.js?v=" + ASSET_VER,
+            "/flash6.full.js?v=" + ASSET_VER,
+            "/flash6/flash6.full.js?v=" + ASSET_VER,
+            "./flash6.full.js",
+            "/flash6.full.js",
+            "/flash6/flash6.full.js",
+            "./flash6.full.bundle.js",
+            "/flash6.full.bundle.js",
+            "/flash6/flash6.full.bundle.js",
+            "/dashboard.js"
+          ];
+        }
+        window.__flashBoot.loadScriptLater("flash6_js", scriptCandidates, 400);
+      }
+    })();
+  </script>
 
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -46,7 +264,7 @@
       --radius-xl:10px;--radius-lg:8px;--radius-md:6px;--radius-pill:999px;
       --page-pad-x:48px;--page-pad-y:24px;--page-pad-bottom:56px;
       --shell-gap:14px;--card-pad:16px;
-      --chart-height:540px;
+      --chart-height:590px;
       --log-height:clamp(180px,24vh,260px);
       --mobile-nav-height:72px;
       --mobile-nav-gap:12px;
@@ -57,7 +275,7 @@
         radial-gradient(circle at top left,#e0edff 0,transparent 55%),
         radial-gradient(circle at top right,#fde2ff 0,transparent 55%),
         linear-gradient(180deg,#f9fafb,#eef2ff);
-      min-height:100vh;display:flex;justify-content:flex-start;align-items:flex-start;
+      min-height:100dvh;display:flex;justify-content:flex-start;align-items:flex-start;
       padding:0;margin:0;color:var(--text-main);
     }
     body::before{
@@ -73,8 +291,9 @@
       width:100%;
       display:flex;gap:28px;align-items:flex-start;
       padding:0;
-      height:100dvh;
+      height:auto;
       min-height:100dvh;
+      padding-bottom:env(safe-area-inset-bottom, 0px);
     }
     .side-nav{
       display:flex;
@@ -83,7 +302,7 @@
       display:none;
     }
     .side-nav-desktop{
-      width:64px;min-height:100dvh;height:100dvh;
+      width:64px;min-height:100dvh;height:auto;
       background:#ffffff;border-right:1px solid #e5e7eb;
       display:flex;flex-direction:column;align-items:center;
       padding:18px 10px;gap:14px;position:sticky;top:0;
@@ -118,7 +337,7 @@
       stroke:currentColor;fill:none;stroke-width:1.8;
       transform:scale(1);
       stroke-linecap:round;stroke-linejoin:round;
-    }
+    } 
     .side-nav-action svg{
       width:20px;height:20px;min-width:20px;min-height:20px;
       flex:0 0 20px;
@@ -398,6 +617,7 @@
     .top-right{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
     .status-bar{
       display:flex;align-items:center;gap:8px;
+      flex-wrap:wrap;
       padding:0;
       background:transparent;
       border:none;
@@ -491,6 +711,40 @@
     .status-bar .status-battery.status-bad .battery-icon{border-color:var(--danger);opacity:.75}
     .status-bar .status-battery.status-bad .battery-icon::after{background:var(--danger);opacity:.75}
     .status-bar .status-battery.status-bad .battery-fill{background:var(--danger);opacity:.7}
+    .status-bar .status-chiptemp{
+      display:flex;align-items:center;justify-content:flex-start;
+      gap:6px;
+      height:22px;padding:0 9px;
+      background:rgba(255,255,255,0.75);
+      border:1px solid rgba(148,163,184,0.35);
+      border-radius:999px;
+      box-shadow:0 6px 14px rgba(15,23,42,0.08);
+      cursor:pointer;
+      transition:transform .14s ease, box-shadow .14s ease, border-color .14s ease;
+    }
+    .status-bar .status-chiptemp:hover{
+      transform:translateY(-1px);
+      box-shadow:0 9px 18px rgba(15,23,42,0.12);
+      border-color:rgba(34,197,94,0.4);
+    }
+    .status-bar .status-chiptemp:focus-visible{
+      outline:none;
+      box-shadow:0 0 0 2px rgba(34,197,94,0.28),0 9px 18px rgba(15,23,42,0.12);
+      border-color:rgba(34,197,94,0.65);
+    }
+    .status-bar .chiptemp-label{
+      line-height:1;
+      font-size:9px;font-weight:700;letter-spacing:.06em;
+      color:#64748b;
+    }
+    .status-bar .chiptemp-text{
+      line-height:1;
+      font-size:10px;font-weight:600;letter-spacing:.02em;
+      color:#1f2937;
+    }
+    .status-bar .status-chiptemp.status-ok .chiptemp-text{color:#15803d}
+    .status-bar .status-chiptemp.status-warn .chiptemp-text{color:#b45309}
+    .status-bar .status-chiptemp.status-bad .chiptemp-text{color:var(--danger)}
     .chip{
       display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:var(--radius-pill);
       background:rgba(255,255,255,0.9);border:1px solid var(--border-subtle);
@@ -763,6 +1017,23 @@
       letter-spacing:.12em;
       text-transform:uppercase;
       pointer-events:none;
+    }
+    .status-map-offline-badge{
+      position:absolute;
+      right:10px;
+      top:10px;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid rgba(239,68,68,0.45);
+      background:rgba(127,29,29,0.86);
+      color:#fee2e2;
+      font-size:11px;
+      font-weight:900;
+      letter-spacing:.13em;
+      text-transform:uppercase;
+      box-shadow:0 8px 20px rgba(127,29,29,0.32);
+      pointer-events:none;
+      z-index:6;
     }
     .status-map-offline-marker{
       position:absolute;
@@ -2279,6 +2550,8 @@
     .motor-card .quick-data-header .status-bar{
       margin-left:auto;
       flex-shrink:0;
+      row-gap:6px;
+      max-width:100%;
     }
     .motor-card .card-title{
       letter-spacing:.28em;
@@ -2732,6 +3005,7 @@
     html:not(.tablet-controls-layout) .controls-card.devtools-mode .tablet-controls-close{
       display:inline-flex!important;
     }
+    .controls-card.replay-mode,
     .controls-card.launcher-mode,
     .controls-card.mission-mode,
     .controls-card.inspection-mode{
@@ -2988,11 +3262,24 @@
       from{opacity:0;transform:translateY(6px)}
       to{opacity:1;transform:translateY(0)}
     }
-    .replay-file-row{display:flex;flex-direction:column;gap:6px}
+    .replay-layout-row{
+      display:flex;
+      flex-direction:column;
+      align-items:stretch;
+      gap:10px;
+    }
+    .replay-file-row{
+      display:flex;
+      width:100%;
+      max-width:none;
+      justify-content:flex-start;
+      align-items:flex-start;
+    }
     .replay-dropzone{
       position:relative;
       width:100%;
-      min-height:84px;
+      aspect-ratio:auto;
+      min-height:86px;
       padding:10px 8px;
       border-radius:12px;
       border:1px dashed rgba(100,116,139,0.78);
@@ -3009,6 +3296,38 @@
       cursor:pointer;
       overflow:hidden;
       transition:border-color .18s ease,background .18s ease,transform .18s ease,color .18s ease,box-shadow .18s ease;
+    }
+    .replay-panel.replay-empty .replay-layout-row{
+      display:block;
+    }
+    .replay-panel.replay-empty .replay-file-row{
+      width:100%;
+      max-width:none;
+      flex:1 1 auto;
+    }
+    .replay-panel.replay-empty .replay-dropzone{
+      width:100%;
+      max-width:none;
+      aspect-ratio:auto;
+      min-height:280px;
+    }
+    .replay-panel.replay-empty .replay-playback-box,
+    .replay-panel.replay-empty .replay-speed-row,
+    .replay-panel.replay-empty .replay-export-row{
+      display:none;
+    }
+    .replay-playback-box{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      padding:8px 2px 2px;
+      border:none;
+      background:transparent;
+    }
+    .replay-playback-box .replay-seek-row{
+      border:none;
+      background:transparent;
+      padding:0;
     }
     .replay-dropzone:hover{
       border-color:#475569;
@@ -3068,53 +3387,114 @@
       line-height:1.3;
     }
     .replay-control-row{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:7px;
+      display:flex;
+      align-items:center;
+      justify-content:flex-start;
+      gap:4px;
     }
-    .replay-control-row .toolbar-btn,
-    .replay-control-row .primary-btn{
-      height:38px;
+    .replay-action-row{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      width:100%;
+    }
+    .replay-icon-btn{
+      width:100%;
+      min-height:42px;
       padding:0 12px;
+      border:none;
+      border-radius:12px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      color:#475569;
+      background:linear-gradient(180deg,#e2e8f0,#cbd5e1);
+      box-shadow:0 6px 12px rgba(15,23,42,0.12);
+      transition:transform .16s ease,box-shadow .16s ease,opacity .16s ease,background .16s ease,color .16s ease;
+    }
+    .replay-icon-btn svg{
+      width:18px;
+      height:18px;
+      fill:none;
+      stroke:currentColor;
+      stroke-width:2.2;
+      stroke-linecap:round;
+      stroke-linejoin:round;
+    }
+    .replay-icon-btn .replay-btn-label{
       font-size:12px;
       font-weight:700;
-      border-radius:12px;
       letter-spacing:.01em;
+      line-height:1;
     }
-    .replay-control-row .toolbar-btn{
-      border:1px solid rgba(148,163,184,0.48);
-      background:linear-gradient(180deg,#f8fafc,#edf2f7);
-      color:#334155;
-      box-shadow:0 3px 8px rgba(15,23,42,0.06);
+    .replay-icon-only{
+      width:34px;
+      min-height:34px;
+      padding:0;
+      gap:0;
+      background:transparent !important;
+      box-shadow:none !important;
+      border-radius:0;
+      color:#64748b;
     }
-    .replay-control-row .toolbar-btn:disabled{
-      background:linear-gradient(180deg,#f1f5f9,#e5e7eb);
-      border-color:rgba(148,163,184,0.3);
+    .replay-icon-only .replay-btn-label{
+      display:none;
+    }
+    .replay-icon-only .icon-pause{
+      display:none;
+    }
+    .replay-icon-only.is-playing .icon-play{
+      display:none;
+    }
+    .replay-icon-only.is-playing .icon-pause{
+      display:block;
+    }
+    .replay-icon-only.replay-icon-btn-start{
+      color:#f97316;
+    }
+    .replay-icon-only:disabled{
+      background:transparent !important;
+      box-shadow:none !important;
       color:#94a3b8;
+      opacity:0.5;
     }
-    .replay-control-row #replayStartBtn.primary-btn{
-      border:1px solid rgba(249,115,22,0.6);
+    .replay-icon-only:not(:disabled):hover{
+      background:transparent !important;
+      box-shadow:none !important;
+      transform:none;
+    }
+    .replay-icon-btn:disabled{
+      background:linear-gradient(180deg,#e5e7eb,#d1d5db);
+      color:#94a3b8;
+      box-shadow:none;
+      opacity:0.95;
+      cursor:not-allowed;
+    }
+    .replay-icon-btn:not(:disabled):hover{
+      transform:translateY(-1px);
+      box-shadow:0 8px 16px rgba(15,23,42,0.16);
+    }
+    .replay-icon-btn-start{
       background:linear-gradient(135deg,#f97316,#fb923c);
       color:#fff7ed;
-      box-shadow:0 8px 16px rgba(249,115,22,0.24);
-      text-shadow:none;
+      box-shadow:0 10px 18px rgba(249,115,22,0.3);
     }
-    .replay-control-row #replayStartBtn.primary-btn:disabled{
-      border-color:rgba(148,163,184,0.38);
-      background:linear-gradient(180deg,#f1f5f9,#e5e7eb);
+    .replay-icon-btn-start:disabled{
+      background:linear-gradient(180deg,#e5e7eb,#d1d5db);
       color:#94a3b8;
       box-shadow:none;
     }
     .replay-speed-row{
+      margin-left:auto;
       display:flex;
       align-items:center;
       justify-content:flex-start;
-      gap:8px;
+      gap:6px;
       flex-wrap:nowrap;
-      padding:8px 10px;
-      border-radius:12px;
-      border:1px solid rgba(148,163,184,0.3);
-      background:rgba(255,255,255,0.68);
+      padding:0;
+      border:none;
+      background:transparent;
     }
     .replay-speed-label{
       font-size:11px;
@@ -3124,75 +3504,77 @@
       color:#64748b;
     }
     .replay-speed-buttons{
-      display:grid;
-      width:100%;
-      grid-template-columns:repeat(4,minmax(0,1fr));
+      display:flex;
+      width:auto;
       align-items:center;
       gap:6px;
     }
-    .replay-speed-btn{
+    .replay-speed-buttons .pill.replay-speed-btn{
       min-width:0;
-      width:100%;
-      height:30px;
-      padding:0 8px;
+      width:auto;
+      min-height:0;
+      height:auto;
+      padding:0 4px;
       font-size:11px;
       white-space:nowrap;
       justify-content:center;
-      border:1px solid rgba(148,163,184,0.48);
-      background:linear-gradient(180deg,#f8fafc,#f1f5f9);
-      color:#475569;
+      border:none !important;
+      background:transparent !important;
+      box-shadow:none !important;
+      color:#64748b !important;
       font-weight:700;
+      border-radius:0 !important;
     }
     .replay-tminus-btn{
       letter-spacing:0;
     }
-    .replay-speed-btn.is-active{
-      border-color:#334155;
-      background:linear-gradient(180deg,#334155,#1f2937);
-      color:#f8fafc;
-      box-shadow:0 8px 14px rgba(15,23,42,0.2);
+    .replay-speed-buttons .pill.replay-speed-btn.is-active{
+      border:none !important;
+      background:transparent !important;
+      color:#f97316 !important;
+      box-shadow:none !important;
     }
     .replay-seek-row{
       display:flex;
       flex-direction:column;
-      gap:6px;
-      padding:8px 10px;
-      border-radius:12px;
-      border:1px solid rgba(148,163,184,0.28);
-      background:rgba(255,255,255,0.72);
+      gap:4px;
+      padding:0;
+      border:none;
+      background:transparent;
     }
     .replay-seek-row input[type="range"]{
       width:100%;
       appearance:none;
       -webkit-appearance:none;
-      height:6px;
+      height:4px;
       border-radius:999px;
-      background:linear-gradient(90deg,rgba(100,116,139,0.34),rgba(148,163,184,0.24));
+      background:rgba(148,163,184,0.35);
       outline:none;
     }
     .replay-seek-row input[type="range"]::-webkit-slider-thumb{
       appearance:none;
       -webkit-appearance:none;
-      width:16px;
-      height:16px;
+      width:12px;
+      height:12px;
       border-radius:999px;
-      border:1px solid rgba(51,65,85,0.45);
-      background:#f8fafc;
-      box-shadow:0 2px 6px rgba(15,23,42,0.2);
+      border:1px solid rgba(71,85,105,0.35);
+      background:#ffffff;
+      box-shadow:none;
       cursor:pointer;
     }
     .replay-seek-row input[type="range"]::-moz-range-thumb{
-      width:16px;
-      height:16px;
+      width:12px;
+      height:12px;
       border-radius:999px;
-      border:1px solid rgba(51,65,85,0.45);
-      background:#f8fafc;
-      box-shadow:0 2px 6px rgba(15,23,42,0.2);
+      border:1px solid rgba(71,85,105,0.35);
+      background:#ffffff;
+      box-shadow:none;
       cursor:pointer;
     }
     .replay-seek-label{
-      font-size:12px;
-      color:#475569;
+      font-size:11px;
+      color:#64748b;
+      letter-spacing:0;
       font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Courier New",monospace;
     }
     .replay-status-text{
@@ -3216,6 +3598,16 @@
       background:#64748b;
       transform:translateY(-50%);
       box-shadow:0 0 0 3px rgba(148,163,184,0.22);
+    }
+    .replay-export-row{
+      display:flex;
+      align-items:center;
+      justify-content:flex-start;
+      margin-top:0;
+    }
+    .replay-convert-btn{
+      width:100%;
+      min-height:44px;
     }
     html[data-theme="dark"] .replay-panel{
       border:none;
@@ -3246,53 +3638,70 @@
     }
     html[data-theme="dark"] .replay-dropzone-title{color:#e2e8f0}
     html[data-theme="dark"] .replay-dropzone-guide{color:#94a3b8}
-    html[data-theme="dark"] .replay-control-row .toolbar-btn{
-      border-color:rgba(71,85,105,0.8);
-      background:linear-gradient(180deg,#111827,#0f172a);
+    html[data-theme="dark"] .replay-icon-btn{
+      background:linear-gradient(180deg,#334155,#1f2937);
       color:#e2e8f0;
+      box-shadow:0 8px 16px rgba(2,6,23,0.36);
     }
-    html[data-theme="dark"] .replay-control-row .toolbar-btn:disabled{
-      border-color:rgba(71,85,105,0.45);
-      background:linear-gradient(180deg,rgba(15,23,42,0.8),rgba(15,23,42,0.72));
+    html[data-theme="dark"] .replay-icon-btn:disabled{
+      background:linear-gradient(180deg,#1f2937,#111827);
       color:#64748b;
+      box-shadow:none;
     }
-    html[data-theme="dark"] .replay-control-row #replayStartBtn.primary-btn{
-      border-color:rgba(251,146,60,0.72);
+    html[data-theme="dark"] .replay-icon-btn-start{
       background:linear-gradient(135deg,#ea580c,#f97316);
       color:#fff7ed;
     }
-    html[data-theme="dark"] .replay-control-row #replayStartBtn.primary-btn:disabled{
-      border-color:rgba(71,85,105,0.48);
-      background:linear-gradient(180deg,rgba(15,23,42,0.82),rgba(15,23,42,0.72));
+    html[data-theme="dark"] .replay-icon-btn-start:disabled{
+      background:linear-gradient(180deg,#1f2937,#111827);
       color:#64748b;
+      box-shadow:none;
+    }
+    html[data-theme="dark"] .replay-icon-only,
+    html[data-theme="dark"] .replay-icon-only.replay-icon-btn-start{
+      background:transparent !important;
+      box-shadow:none !important;
+      color:#cbd5e1;
+    }
+    html[data-theme="dark"] .replay-icon-only:disabled{
+      color:#64748b;
+      opacity:0.5;
     }
     html[data-theme="dark"] .replay-speed-row,
-    html[data-theme="dark"] .replay-seek-row,
     html[data-theme="dark"] .replay-status-text{
       border-color:rgba(71,85,105,0.7);
       background:rgba(15,23,42,0.58);
     }
-    html[data-theme="dark"] .replay-speed-label{color:#94a3b8}
-    html[data-theme="dark"] .replay-speed-btn{
-      border-color:rgba(71,85,105,0.72);
-      background:linear-gradient(180deg,#111827,#0f172a);
-      color:#cbd5e1;
+    html[data-theme="dark"] .replay-speed-row{
+      border:none;
+      background:transparent;
     }
-    html[data-theme="dark"] .replay-speed-btn.is-active{
-      border-color:#e2e8f0;
-      background:linear-gradient(180deg,#475569,#334155);
-      color:#f8fafc;
-      box-shadow:0 8px 14px rgba(2,6,23,0.4);
+    html[data-theme="dark"] .replay-playback-box,
+    html[data-theme="dark"] .replay-seek-row{
+      border:none;
+      background:transparent;
+    }
+    html[data-theme="dark"] .replay-speed-label{color:#94a3b8}
+    html[data-theme="dark"] .replay-speed-buttons .pill.replay-speed-btn{
+      border:none !important;
+      background:transparent !important;
+      color:#cbd5e1 !important;
+    }
+    html[data-theme="dark"] .replay-speed-buttons .pill.replay-speed-btn.is-active{
+      border:none !important;
+      background:transparent !important;
+      color:#fb923c !important;
+      box-shadow:none !important;
     }
     html[data-theme="dark"] .replay-seek-row input[type="range"]{
-      background:linear-gradient(90deg,rgba(148,163,184,0.38),rgba(71,85,105,0.32));
+      background:rgba(148,163,184,0.35);
     }
     html[data-theme="dark"] .replay-seek-row input[type="range"]::-webkit-slider-thumb{
-      border-color:rgba(148,163,184,0.64);
+      border-color:rgba(148,163,184,0.5);
       background:#e2e8f0;
     }
     html[data-theme="dark"] .replay-seek-row input[type="range"]::-moz-range-thumb{
-      border-color:rgba(148,163,184,0.64);
+      border-color:rgba(148,163,184,0.5);
       background:#e2e8f0;
     }
     html[data-theme="dark"] .replay-seek-label,
@@ -3302,6 +3711,12 @@
     html[data-theme="dark"] .replay-status-text::before{
       background:#94a3b8;
       box-shadow:0 0 0 3px rgba(71,85,105,0.36);
+    }
+    html[data-theme="dark"] .replay-convert-btn{
+      border-color:rgba(148,163,184,0.62);
+      background:linear-gradient(180deg,#1e293b,#111827);
+      color:#f1f5f9;
+      box-shadow:0 8px 14px rgba(2,6,23,0.36);
     }
     .devtools-panel{
       display:none;
@@ -3368,6 +3783,8 @@
     .chart-title-main--flight{display:none}
     .mode-flight .chart-title-main--daq{display:none}
     .mode-flight .chart-title-main--flight{display:block}
+    .mode-flight #missionOpenBtn,
+    .mode-flight #missionViewOpenBtn{display:none !important;}
     .chart-controls{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
     .chart-btn{
       border-radius:var(--radius-pill);border:1px solid rgba(148,163,184,0.7);
@@ -3612,17 +4029,33 @@
       min-height:0;
     }
     .mission-view{
+      display:flex;
+      flex-direction:column;
       flex:1;
       min-height:0;
+      overflow:hidden;
     }
     .mission-view .shell{
       display:flex;
       flex-direction:column;
+      flex:1 1 auto;
       gap:8px;
       min-height:0;
+      overflow:hidden;
     }
     .mission-landing-card{
-      padding:16px 20px 10px;
+      display:flex;
+      flex-direction:column;
+      flex:1 1 auto;
+      min-height:0;
+      padding:14px 20px;
+      overflow:hidden;
+    }
+    .mission-landing-card > .card-header:empty,
+    .mission-landing-card > .mission-landing-actions:empty{
+      display:none;
+      margin:0;
+      padding:0;
     }
     .mission-landing-title{
       font-size:18px;
@@ -3643,13 +4076,15 @@
       gap:10px;
     }
     .mission-view-mount{
-      margin-top:2px;
-      min-height:520px;
+      margin-top:0;
+      flex:1 1 auto;
+      min-height:0;
+      height:100%;
       max-height:none;
       border:none;
       background:transparent;
       padding:0;
-      overflow:auto;
+      overflow:hidden;
     }
     .mission-view-mount .mission-dialog.is-embedded-panel{
       border-radius:0;
@@ -3659,10 +4094,12 @@
       backdrop-filter:none;
       -webkit-backdrop-filter:none;
       padding:0;
-      min-height:100%;
+      min-height:0;
       max-height:none;
-      height:auto;
-      overflow:auto;
+      height:100%;
+      display:flex;
+      flex-direction:column;
+      overflow:hidden;
     }
     .mission-view-mount .mission-dialog.is-embedded-panel::before{
       display:none;
@@ -3671,8 +4108,10 @@
       display:none !important;
     }
     .mission-view-mount .mission-dialog.is-embedded-panel .mission-header{
-      padding-bottom:6px;
-      margin-bottom:8px;
+      display:none;
+      padding:0;
+      margin:0;
+      border-bottom:none;
     }
     .mission-view-mount .mission-dialog.is-embedded-panel .mission-sub{
       max-width:none;
@@ -4069,6 +4508,47 @@
       padding:16px;
     }
     .controls-overlay.hidden{display:none}
+    .replay-seek-overlay{
+      position:fixed;inset:0;z-index:92;
+      display:flex;align-items:center;justify-content:center;
+      background:rgba(2,6,23,0.42);
+      backdrop-filter:blur(3px);
+      -webkit-backdrop-filter:blur(3px);
+      padding:18px;
+    }
+    .replay-seek-dialog{
+      width:auto;
+      border-radius:0;
+      background:transparent;
+      border:none;
+      box-shadow:none;
+      padding:0;
+      text-align:center;
+      color:#e5e7eb;
+    }
+    .replay-seek-spinner{
+      width:28px;height:28px;
+      border-radius:50%;
+      border:3px solid rgba(148,163,184,0.35);
+      border-top-color:#fb923c;
+      margin:0 auto 10px;
+      animation:replaySeekSpin .9s linear infinite;
+    }
+    .replay-seek-title{
+      font-size:14px;
+      font-weight:800;
+      letter-spacing:.03em;
+      color:#f8fafc;
+      margin-bottom:4px;
+    }
+    .replay-seek-text{
+      font-size:12px;
+      line-height:1.5;
+      color:#cbd5e1;
+      font-weight:600;
+      letter-spacing:.01em;
+    }
+    @keyframes replaySeekSpin{to{transform:rotate(360deg)}}
     .controls-overlay-slot{
       position:relative;
       width:min(96vw,560px);
@@ -4875,6 +5355,13 @@
       color:#1f2937;
       font-weight:700;
       letter-spacing:.04em;
+      white-space:nowrap;
+      writing-mode:horizontal-tb;
+      line-height:1;
+      min-height:34px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
       cursor:pointer;
     }
     .settings-inline-btn:hover{filter:brightness(0.98)}
@@ -4893,6 +5380,108 @@
       color:#b91c1c;
       border-color:rgba(248,113,113,0.45);
       box-shadow:0 5px 12px rgba(239,68,68,0.10);
+    }
+    .chiptemp-dialog{
+      width:720px;max-width:94vw;height:auto;max-height:88vh;
+      padding:16px 18px 14px;
+    }
+    .chiptemp-body{
+      display:flex;flex-direction:column;gap:12px;
+      min-height:0;overflow-y:auto;padding-right:2px;
+    }
+    .chiptemp-kicker{
+      display:inline-flex;align-self:flex-start;
+      font-size:10px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;
+      color:#166534;background:rgba(34,197,94,0.12);
+      border:1px solid rgba(34,197,94,0.2);border-radius:999px;
+      padding:4px 9px;
+    }
+    .chiptemp-summary{
+      display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;
+    }
+    .chiptemp-stat{
+      padding:10px 10px 9px;border-radius:12px;
+      border:1px solid rgba(148,163,184,0.22);
+      background:rgba(248,250,252,0.85);
+      box-shadow:0 6px 12px rgba(15,23,42,0.06);
+    }
+    .chiptemp-stat-label{
+      font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#64748b;
+    }
+    .chiptemp-stat-value{
+      margin-top:5px;font-size:16px;font-weight:800;letter-spacing:.01em;color:#0f172a;
+    }
+    .chiptemp-chart-card{
+      border:none;
+      border-radius:0;
+      background:transparent;
+      padding:0;
+    }
+    .chiptemp-chart-head{
+      display:none;
+    }
+    .chiptemp-chart-title{
+      font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#334155;
+    }
+    .chiptemp-chart-note{
+      font-size:11px;color:#64748b;
+    }
+    .chiptemp-chart-stage{
+      position:relative;
+      border:1px solid rgba(148,163,184,0.2);
+      background:rgba(248,250,252,0.8);
+      border-radius:12px;
+      padding:4px;
+      min-height:290px;
+    }
+    .chiptemp-chart-stage canvas{
+      width:100%;
+      height:100%;
+      min-height:270px;
+      display:block;
+    }
+    .chiptemp-meta{
+      display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;
+    }
+    .chiptemp-meta-item{
+      border:1px solid rgba(148,163,184,0.22);
+      border-radius:12px;padding:9px 10px;
+      background:rgba(255,255,255,0.82);
+    }
+    .chiptemp-meta-key{
+      font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#64748b;
+    }
+    .chiptemp-meta-value{
+      margin-top:4px;font-size:13px;font-weight:700;color:#0f172a;
+      word-break:break-word;
+    }
+    @media(max-width:760px){
+      .chiptemp-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .chiptemp-meta{grid-template-columns:1fr}
+      .chiptemp-chart-stage{min-height:240px}
+    }
+    html[data-theme="dark"] .chiptemp-kicker{
+      color:#86efac;background:rgba(22,163,74,0.16);border-color:rgba(74,222,128,0.28);
+    }
+    html[data-theme="dark"] .chiptemp-stat,
+    html[data-theme="dark"] .chiptemp-meta-item{
+      background:rgba(15,23,42,0.72);
+      border-color:rgba(100,116,139,0.35);
+      box-shadow:none;
+    }
+    html[data-theme="dark"] .chiptemp-stat-label,
+    html[data-theme="dark"] .chiptemp-meta-key,
+    html[data-theme="dark"] .chiptemp-chart-note{
+      color:#94a3b8;
+    }
+    html[data-theme="dark"] .chiptemp-stat-value,
+    html[data-theme="dark"] .chiptemp-meta-value,
+    html[data-theme="dark"] .chiptemp-chart-title{
+      color:#e2e8f0;
+    }
+    html[data-theme="dark"] .chiptemp-chart-stage{
+      background:rgba(15,23,42,0.58);
+      border-color:rgba(100,116,139,0.4);
     }
 
     .mission-dialog{
@@ -4965,6 +5554,8 @@
       display:flex;
       flex-direction:column;
       gap:10px;
+      width:100%;
+      min-width:0;
     }
     .mission-block-head{
       display:flex;
@@ -4987,6 +5578,8 @@
       display:flex;
       gap:10px;
       align-items:stretch;
+      width:100%;
+      min-width:0;
       height:520px;
       min-height:480px;
       max-height:520px;
@@ -5086,6 +5679,8 @@
     }
     .mission-block-canvas{
       flex:1 1 auto;
+      min-width:0;
+      max-width:100%;
       border:1px solid rgba(148,163,184,0.3);
       border-radius:14px;
       padding:10px;
@@ -5096,6 +5691,7 @@
       flex-direction:column;
       gap:8px;
       min-height:0;
+      overflow:hidden;
       box-shadow:inset 0 1px 0 rgba(255,255,255,0.86);
     }
     .mission-block-canvas.is-empty{
@@ -5110,13 +5706,17 @@
     .mission-block-canvas-top{
       display:flex;
       align-items:center;
-      justify-content:space-between;
+      justify-content:flex-start;
+      flex-wrap:wrap;
       gap:10px;
       padding:0 2px;
     }
     .mission-block-canvas-meta{
       display:flex;
       align-items:center;
+      justify-content:flex-end;
+      flex-wrap:wrap;
+      margin-left:auto;
       gap:8px;
     }
     .mission-block-canvas-label{
@@ -5194,6 +5794,8 @@
       flex:1 1 auto;
       min-height:260px;
       min-width:0;
+      width:100%;
+      max-width:100%;
       overflow:auto;
       overscroll-behavior:contain;
       touch-action:pan-x pan-y;
@@ -5900,8 +6502,23 @@
     .mission-sync-row--top{
       margin-top:0;
       padding-top:0;
+      justify-content:flex-start;
+      flex-wrap:wrap;
+    }
+    .mission-sync-row--canvas{
+      margin:0;
+      padding:0;
+      gap:6px;
+      align-items:center;
       justify-content:flex-end;
       flex-wrap:wrap;
+    }
+    .mission-sync-row--canvas .settings-btn,
+    .mission-sync-row--canvas .mission-import-label{
+      min-height:30px;
+      min-width:88px;
+      padding:6px 10px;
+      font-size:11px;
     }
     .mission-sync-row .settings-btn{
       min-width:92px;
@@ -6439,7 +7056,7 @@
         --page-pad-bottom:44px;
         --shell-gap:12px;
         --card-pad:14px;
-        --chart-height:clamp(360px,44vh,500px);
+        --chart-height:clamp(400px,46vh,540px);
         --log-height:clamp(160px,20vh,230px);
       }
       html.tablet-controls-layout body{overflow-y:auto}
@@ -6496,7 +7113,7 @@
       html.tablet-controls-layout .page-title{font-size:32px}
     }
     @media (min-width: 768px) and (max-width: 1440px){
-      html.tablet-controls-layout{--chart-height:clamp(440px,52vh,640px)}
+      html.tablet-controls-layout{--chart-height:clamp(470px,55vh,680px)}
       html.tablet-controls-layout .chart-box{min-height:clamp(190px,27vh,260px)}
     }
     @media(max-width:980px){
@@ -6505,7 +7122,7 @@
     @media(max-width:600px){
       body{padding:0;overflow-y:auto;display:block}
       .app-shell{
-        min-height:100vh;
+        min-height:100dvh;
         padding-bottom:calc(96px + env(safe-area-inset-bottom, 0px));
       }
       .side-nav-desktop{display:none}
@@ -6748,6 +7365,101 @@
       .mobile-controls-head{display:none}
       .mobile-controls-head-title{font-weight:600;color:#94a3b8}
       .mobile-controls-head-sub{font-size:14px;font-weight:700;color:var(--text-main);letter-spacing:0;text-transform:none}
+      .mobile-controls-top-actions{
+        display:grid;
+        grid-template-columns:repeat(4,minmax(0,1fr));
+        align-items:stretch;
+        gap:8px;
+        margin:0 0 8px;
+        padding-right:2px;
+      }
+      .mobile-top-action-btn{
+        min-width:0;
+        min-height:48px;
+        height:100%;
+        border-radius:12px;
+        border:1px solid rgba(148,163,184,0.46);
+        background:#ffffff;
+        color:#1e293b;
+        font-size:13px;
+        font-weight:800;
+        letter-spacing:.03em;
+        cursor:pointer;
+      }
+      .mobile-controls-top-actions .mobile-top-action-sequence.primary-btn.sequence-btn{
+        grid-column:span 3;
+        min-height:48px;
+        height:100%;
+        border-radius:12px;
+        padding:8px 12px;
+      }
+      .mobile-top-action-btn.mobile-top-action-arm{
+        grid-column:span 1;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        padding:0;
+        color:#64748b;
+      }
+      .mobile-top-action-btn.mobile-top-action-arm.is-active{
+        border-color:rgba(239,68,68,0.6);
+        background:rgba(239,68,68,0.14);
+        color:#b91c1c;
+      }
+      .mobile-top-action-btn.mobile-top-action-mission{
+        grid-column:span 1;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        padding:0;
+      }
+      .mobile-top-action-btn.mobile-top-action-arm svg{
+        width:20px;
+        height:20px;
+        fill:none;
+        stroke:currentColor;
+        stroke-width:2;
+        stroke-linecap:round;
+        stroke-linejoin:round;
+      }
+      .mobile-top-action-btn.mobile-top-action-arm .arm-icon-unlocked{
+        display:block;
+      }
+      .mobile-top-action-btn.mobile-top-action-arm .arm-icon-locked{
+        display:none;
+      }
+      .mobile-top-action-btn.mobile-top-action-arm.is-active .arm-icon-unlocked{
+        display:none;
+      }
+      .mobile-top-action-btn.mobile-top-action-arm.is-active .arm-icon-locked{
+        display:block;
+      }
+      .mobile-top-action-btn.mobile-top-action-mission svg{
+        width:20px;
+        height:20px;
+        fill:none;
+        stroke:currentColor;
+        stroke-width:2;
+        stroke-linecap:round;
+        stroke-linejoin:round;
+      }
+      html.mode-flight #mobileMissionWideBtn{
+        display:none !important;
+      }
+      html.mode-flight #mobileArmLockWideBtn{
+        display:flex !important;
+      }
+      html.mode-daq #mobileArmLockWideBtn{
+        display:none !important;
+      }
+      html.mode-daq #mobileMissionWideBtn{
+        display:flex !important;
+      }
+      .mobile-top-action-btn:disabled,
+      .mobile-top-action-btn.disabled{
+        opacity:.45;
+        cursor:not-allowed;
+      }
       .mobile-controls-slot{
         display:grid;
         grid-template-columns:repeat(4,minmax(0,1fr));
@@ -6900,8 +7612,13 @@
         display:none;
       }
       .mobile-controls-panel.is-launcher-view .mobile-controls-slot,
+      .mobile-controls-panel.is-launcher-view .mobile-controls-top-actions,
       .mobile-controls-panel.is-mission-view .mobile-controls-slot,
+      .mobile-controls-panel.is-mission-view .mobile-controls-top-actions,
       .mobile-controls-panel.is-inspection-view .mobile-controls-slot{
+        display:none;
+      }
+      .mobile-controls-panel.is-inspection-view .mobile-controls-top-actions{
         display:none;
       }
       .mobile-controls-panel.is-launcher-view .mobile-launcher-panel,
@@ -7027,7 +7744,17 @@
         background:rgba(255,255,255,0.92);
         color:#334155;
       }
-      .replay-control-row{grid-template-columns:1fr}
+      .replay-layout-row{
+        display:flex;
+        flex-direction:column;
+        align-items:stretch;
+      }
+      .replay-file-row{
+        flex:0 0 auto;
+        width:100%;
+        max-width:none;
+      }
+      .replay-control-row{gap:3px}
       .settings-body{flex-direction:column;overflow:hidden;padding-right:2px}
       .settings-panels{overflow-y:auto;padding-right:10px}
       .settings-nav{
@@ -7303,6 +8030,26 @@
       overflow:visible;
       grid-auto-flow:row dense;
     }
+    html.phone-landscape-layout .mobile-controls-top-actions{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      align-items:stretch;
+      gap:8px;
+      margin:0 0 8px;
+      padding-right:2px;
+    }
+    html.phone-landscape-layout .mobile-top-action-btn{
+      min-height:46px;
+      height:100%;
+      border-radius:11px;
+      font-size:12px;
+    }
+    html.phone-landscape-layout .mobile-controls-top-actions .mobile-top-action-sequence.primary-btn.sequence-btn{
+      grid-column:span 3;
+      min-height:46px;
+      border-radius:11px;
+      padding:8px 10px;
+    }
     html.phone-landscape-layout .mobile-controls-panel .mobile-launcher-panel{
       display:none;
     }
@@ -7313,8 +8060,15 @@
     html.phone-landscape-layout .mobile-controls-panel.is-launcher-view .mobile-controls-slot{
       display:none;
     }
+    html.phone-landscape-layout .mobile-controls-panel.is-launcher-view .mobile-controls-top-actions{
+      display:none;
+    }
     html.phone-landscape-layout .mobile-controls-panel.is-mission-view .mobile-controls-slot,
     html.phone-landscape-layout .mobile-controls-panel.is-inspection-view .mobile-controls-slot{
+      display:none;
+    }
+    html.phone-landscape-layout .mobile-controls-panel.is-mission-view .mobile-controls-top-actions,
+    html.phone-landscape-layout .mobile-controls-panel.is-inspection-view .mobile-controls-top-actions{
       display:none;
     }
     html.phone-landscape-layout .mobile-controls-panel.is-launcher-view{
@@ -8478,7 +9232,7 @@
       :root{
         --page-pad-y:20px;
         --card-pad:14px;
-        --chart-height:clamp(360px,50vh,500px);
+        --chart-height:clamp(390px,53vh,540px);
         --log-height:clamp(170px,22vh,230px);
       }
       .page-title{font-size:32px}
@@ -8490,7 +9244,7 @@
         --page-pad-y:16px;
         --card-pad:12px;
         --shell-gap:10px;
-        --chart-height:clamp(300px,46vh,420px);
+        --chart-height:clamp(335px,49vh,460px);
         --log-height:clamp(140px,18vh,200px);
       }
       .page-title{font-size:28px}
@@ -9625,6 +10379,12 @@
       gap:var(--shell-gap);
       overflow:hidden;
     }
+    @media(min-width:768px){
+      body.mission-view-active .page-wrap{
+        padding-top:var(--page-pad-y);
+        padding-bottom:var(--page-pad-y);
+      }
+    }
     .top-bar{align-items:flex-start;margin-bottom:6px}
     body.countdown-view-active .countdown-header{display:none}
     .page-kicker{
@@ -10223,7 +10983,7 @@
       max-width:none;
     }
     #missionOverlay .mission-sync-row--top{
-      justify-content:flex-end;
+      justify-content:flex-start;
       gap:6px;
     }
     #missionOverlay .mission-sync-row .settings-btn,
@@ -10305,6 +11065,7 @@
       grid-template-rows:auto minmax(0, 1fr);
       gap:10px;
       min-height:0;
+      min-width:0;
       overflow:hidden;
     }
     #missionOverlay .mission-meta-panel{
@@ -10357,24 +11118,36 @@
       margin-top:0;
       min-height:0;
       height:100%;
+      width:100%;
+      max-width:100%;
+      min-width:0;
     }
     #missionOverlay #missionBlockEditor .mission-block-workspace{
       height:100%;
       min-height:0;
       max-height:none;
+      width:100%;
+      min-width:0;
     }
     #missionOverlay #missionBlockEditor .mission-block-palette{
       flex:0 0 272px;
       min-width:238px;
       max-width:286px;
+      height:100%;
+      min-height:0;
+      overflow-y:auto;
+      overflow-x:hidden;
       padding:9px;
     }
     #missionOverlay #missionBlockEditor .mission-block-canvas{
       min-height:0;
       height:100%;
+      min-width:0;
+      overflow:hidden;
     }
     #missionOverlay #missionBlockEditor .mission-block-list{
       min-height:0;
+      min-width:0;
     }
     #missionOverlay #missionBlockEditor .mission-block-stage{
       min-width:max(100%, 1180px);
@@ -10399,8 +11172,9 @@
     }
     #missionOverlay .mission-header,
     .mission-dialog.is-embedded-panel .mission-header{
-      padding-bottom:0;
-      margin-bottom:6px;
+      display:none;
+      padding:0;
+      margin:0;
       border-bottom:none;
     }
     #missionOverlay .mission-designer-layout,
@@ -10465,6 +11239,7 @@
       grid-template-rows:auto minmax(0, 1fr);
       gap:10px;
       min-height:0;
+      min-width:0;
       overflow:hidden;
     }
     .mission-dialog .mission-meta-panel{
@@ -10498,24 +11273,36 @@
       margin-top:0;
       min-height:0;
       height:100%;
+      width:100%;
+      max-width:100%;
+      min-width:0;
     }
     .mission-dialog #missionBlockEditor .mission-block-workspace{
       height:100%;
       min-height:0;
       max-height:none;
+      width:100%;
+      min-width:0;
     }
     .mission-dialog #missionBlockEditor .mission-block-palette{
       flex:0 0 272px;
       min-width:238px;
       max-width:286px;
+      height:100%;
+      min-height:0;
+      overflow-y:auto;
+      overflow-x:hidden;
       padding:9px;
     }
     .mission-dialog #missionBlockEditor .mission-block-canvas{
       min-height:0;
       height:100%;
+      min-width:0;
+      overflow:hidden;
     }
     .mission-dialog #missionBlockEditor .mission-block-list{
       min-height:0;
+      min-width:0;
     }
     .mission-dialog #missionBlockEditor .mission-block-stage{
       min-width:max(100%, 1180px);
@@ -10524,6 +11311,29 @@
     }
     .mission-view-mount .mission-dialog.is-embedded-panel .mission-designer-layout{
       height:100%;
+      min-height:0;
+      overflow:hidden;
+    }
+    .mission-view-mount .mission-dialog.is-embedded-panel #missionFields,
+    .mission-view-mount .mission-dialog.is-embedded-panel #missionBlockEditor{
+      height:100%;
+      min-height:0;
+    }
+    .mission-view-mount .mission-dialog.is-embedded-panel #missionBlockEditor .mission-block-workspace{
+      height:100% !important;
+      min-height:0 !important;
+      max-height:none !important;
+    }
+    .mission-view-mount .mission-dialog.is-embedded-panel #missionBlockEditor .mission-block-palette{
+      height:100% !important;
+      min-height:0 !important;
+      overflow-y:auto !important;
+      overflow-x:hidden !important;
+    }
+    .mission-view-mount .mission-dialog.is-embedded-panel #missionBlockEditor .mission-block-canvas{
+      height:100% !important;
+      min-height:0 !important;
+      overflow:hidden !important;
     }
     .mission-view-mount .mission-dialog.is-embedded-panel #missionPresetBlock,
     .mission-view-mount .mission-dialog.is-embedded-panel .mission-grid{
@@ -10711,26 +11521,28 @@
       background:linear-gradient(180deg,rgba(15,23,42,0.36) 0,rgba(15,23,42,0.16) 44%,rgba(15,23,42,0) 100%);
     }
     .home-ref-shell{
+      width:min(100%, 1480px);
+      margin:0 auto;
       display:grid;
-      grid-template-columns:520px minmax(0, 1fr);
-      gap:44px;
-      min-height:calc(100dvh - 238px);
+      grid-template-columns:minmax(360px, 440px) minmax(0, 1fr);
+      gap:24px;
+      min-height:calc(100dvh - 250px);
       align-items:stretch;
     }
     .home-ref-left{
       display:flex;
       flex-direction:column;
-      gap:16px;
+      gap:12px;
       max-width:none;
-      padding-top:8px;
+      padding-top:4px;
     }
     .home-ref-search{
-      height:68px;
-      border-radius:14px;
+      height:56px;
+      border-radius:12px;
       display:flex;
       align-items:center;
       gap:12px;
-      padding:0 16px;
+      padding:0 14px;
       background:#161923;
       border:1px solid rgba(255,255,255,0.06);
       color:#94a3b8;
@@ -10741,19 +11553,19 @@
       outline:none;
       background:transparent;
       color:#cbd5e1;
-      font-size:20px;
+      font-size:16px;
       font-weight:500;
     }
     .home-ref-fly{
       border:none;
       outline:none;
       text-align:left;
-      border-radius:16px;
-      padding:14px 14px 16px;
+      border-radius:14px;
+      padding:12px;
       background:#171b26;
       border:1px solid rgba(255,255,255,0.06);
       box-shadow:0 14px 24px rgba(2,6,23,0.2);
-      min-height:196px;
+      min-height:156px;
       display:flex;
       flex-direction:column;
       gap:10px;
@@ -10763,7 +11575,7 @@
     .home-ref-fly:hover{transform:translateY(-1px);border-color:rgba(56,189,248,0.45)}
     .home-ref-fly-title{
       color:#f8fafc;
-      font-size:52px;
+      font-size:clamp(34px, 2.5vw, 42px);
       font-weight:750;
       letter-spacing:-0.03em;
       line-height:1;
@@ -10771,7 +11583,7 @@
     }
     .home-ref-fly-sub{
       color:#a6b0bf;
-      font-size:22px;
+      font-size:16px;
       line-height:1.3;
     }
     .home-ref-fly-zone{
@@ -10780,23 +11592,23 @@
       align-items:center;
       gap:10px;
       color:#f1f5f9;
-      font-size:20px;
+      font-size:16px;
       font-weight:550;
     }
     .home-ref-zone-dot{
-      width:13px;
-      height:13px;
+      width:10px;
+      height:10px;
       border-radius:50%;
       background:#13d97d;
-      box-shadow:0 0 0 7px rgba(19,217,125,0.25);
+      box-shadow:0 0 0 5px rgba(19,217,125,0.25);
     }
     .home-ref-tools{
       display:grid;
       grid-template-columns:repeat(2, minmax(0,1fr));
-      gap:10px;
+      gap:8px;
     }
     .home-ref-tool{
-      min-height:156px;
+      min-height:128px;
       border:none;
       border-radius:14px;
       background:#171b26;
@@ -10807,11 +11619,11 @@
       flex-direction:column;
       align-items:center;
       justify-content:center;
-      gap:16px;
+      gap:10px;
       transition:transform .14s ease,border-color .14s ease;
     }
     .home-ref-tool-compact{
-      min-height:148px;
+      min-height:120px;
       gap:10px;
     }
     .home-ref-tool.is-active{
@@ -10819,16 +11631,16 @@
       transform:translateY(-1px);
     }
     .home-ref-tool-icon{
-      width:56px;
-      height:56px;
+      width:44px;
+      height:44px;
       border-radius:50%;
       display:grid;
       place-items:center;
       background:rgba(148,163,184,0.18);
-      font-size:22px;
+      font-size:18px;
     }
     .home-ref-tool-label{
-      font-size:15px;
+      font-size:14px;
       font-weight:680;
       letter-spacing:-0.01em;
     }
@@ -10836,43 +11648,43 @@
       position:relative;
       border-radius:0;
       overflow:visible;
-      padding:0 8px 12px;
+      padding:0 2px 10px;
       background:transparent;
       border:none;
       box-shadow:none;
       display:grid;
       grid-template-rows:auto auto minmax(0,1fr) auto auto;
-      gap:8px;
+      gap:6px;
       min-height:100%;
     }
     .home-ref-head{
       display:flex;
       align-items:flex-start;
       justify-content:space-between;
-      gap:12px;
+      gap:10px;
       padding:2px 8px 0;
     }
     .home-ref-title-wrap{
       display:flex;
       align-items:flex-end;
-      gap:10px;
+      gap:8px;
       flex-wrap:wrap;
     }
     .home-ref-head h2{
       color:#eef2f7;
-      font-size:clamp(40px, 3.5vw, 64px);
+      font-size:clamp(28px, 2.4vw, 42px);
       font-weight:700;
       letter-spacing:.01em;
       line-height:1;
     }
     .home-ref-live{
-      height:28px;
-      padding:0 10px;
+      height:24px;
+      padding:0 9px;
       border-radius:999px;
       border:1px solid rgba(59,130,246,0.45);
       background:rgba(37,99,235,0.2);
       color:#cfe5ff;
-      font-size:11px;
+      font-size:10px;
       font-weight:700;
       display:inline-flex;
       align-items:center;
@@ -10886,59 +11698,59 @@
     }
     .home-ref-head-icons{
       color:#e5e7eb;
-      font-size:30px;
+      font-size:24px;
       display:flex;
-      gap:16px;
+      gap:12px;
       padding-top:4px;
     }
     .home-ref-update{
       width:fit-content;
       max-width:100%;
       margin:0 8px 0 auto;
-      padding:13px 20px;
+      padding:10px 14px;
       border-radius:10px;
       background:#090c12;
       color:#e2e8f0;
       display:flex;
       align-items:center;
-      gap:18px;
-      font-size:14px;
+      gap:12px;
+      font-size:13px;
     }
     .home-ref-update strong{
       color:#35a4ff;
       font-weight:700;
     }
     .home-ref-stage{
-      height:clamp(400px, 60vh, 740px);
+      height:clamp(260px, 42vh, 470px);
       display:flex;
       align-items:flex-end;
       justify-content:center;
       padding:0;
     }
     .home-ref-stage img{
-      width:clamp(420px, 56vw, 940px);
+      width:min(100%, 620px);
       max-height:100%;
       object-fit:contain;
       filter:drop-shadow(0 22px 28px rgba(2,6,23,0.44));
-      transform:translateX(4%) translateY(1%);
+      transform:translateX(0) translateY(0);
     }
     .home-ref-foot-icons{
       color:#cbd5e1;
       opacity:.75;
-      font-size:20px;
+      font-size:16px;
       text-align:right;
       padding:0 16px;
       letter-spacing:.12em;
     }
     .home-ref-go{
-      width:min(78%, 820px);
-      height:72px;
+      width:min(72%, 520px);
+      height:58px;
       margin:4px auto 0;
       border:none;
       border-radius:14px;
       background:linear-gradient(180deg,#30a4ff,#1d76e8);
       color:#e6f4ff;
-      font-size:28px;
+      font-size:22px;
       font-weight:720;
       letter-spacing:.04em;
       cursor:pointer;
@@ -10948,13 +11760,13 @@
       background:linear-gradient(180deg,#4fb4ff,#2380f0);
     }
     .home-ref-bottom-nav{
-      margin-top:14px;
+      margin-top:8px;
       display:flex;
       align-items:center;
-      gap:44px;
+      gap:26px;
       color:#e2e8f0;
       opacity:.92;
-      font-size:18px;
+      font-size:15px;
       font-weight:600;
       padding:0 8px 2px;
     }
@@ -10963,21 +11775,229 @@
     @media(max-width:1200px){
       .home-ref-shell{grid-template-columns:1fr}
       .home-ref-left{max-width:none}
-      .home-ref-head h2{font-size:40px}
+      .home-ref-head h2{font-size:34px}
       .home-ref-stage img{transform:none;width:min(88%, 680px)}
       .home-ref-go{width:100%;margin-right:0}
     }
     @media(max-width:760px){
-      .home-ref-search input{font-size:20px}
-      .home-ref-fly-title{font-size:38px}
-      .home-ref-fly-zone{font-size:24px}
-      .home-ref-tool{min-height:130px}
-      .home-ref-tool-label{font-size:20px}
+      .home-ref-search input{font-size:16px}
+      .home-ref-fly-title{font-size:32px}
+      .home-ref-fly-zone{font-size:16px}
+      .home-ref-tool{min-height:108px}
+      .home-ref-tool-label{font-size:14px}
       .home-ref-head h2{font-size:30px}
-      .home-ref-update{font-size:14px;padding:10px 14px}
-      .home-ref-go{height:54px;font-size:24px}
-      .home-ref-bottom-nav{font-size:16px;gap:14px;flex-wrap:wrap}
+      .home-ref-update{font-size:13px;padding:10px 12px}
+      .home-ref-go{height:52px;font-size:20px}
+      .home-ref-bottom-nav{font-size:14px;gap:12px;flex-wrap:wrap}
     }
+
+    /* Transit-style dark mode refresh */
+    html[data-theme="dark"]{
+      --ui-bg:#040b14;
+      --ui-surface:#0b1421;
+      --ui-line:rgba(141,159,186,0.24);
+      --ui-text:#e8eef7;
+      --ui-muted:#97a6bf;
+      --ui-accent:#4f73ff;
+      --ui-accent-soft:rgba(79,115,255,0.16);
+      --ui-success:#9fd7a9;
+      --ui-warn:#f2a95b;
+      --ui-danger:#f57676;
+      --ui-glass-1:rgba(10,17,28,0.72);
+      --ui-glass-2:rgba(9,15,24,0.86);
+      --ui-glass-line:rgba(200,216,240,0.16);
+      --ui-glass-highlight:rgba(220,233,255,0.1);
+      --ui-shadow:0 24px 40px rgba(2,7,14,0.56);
+    }
+    html[data-theme="dark"] body{
+      background:
+        radial-gradient(900px 560px at 14% -16%, rgba(71,110,157,0.24), transparent 60%),
+        radial-gradient(780px 520px at 86% -20%, rgba(51,88,134,0.2), transparent 64%),
+        radial-gradient(820px 440px at 66% 100%, rgba(82,98,66,0.16), transparent 62%),
+        linear-gradient(180deg,#040b14 0%, #030a12 48%, #02070f 100%);
+      color:var(--ui-text);
+    }
+    html[data-theme="dark"] body::before{
+      background:linear-gradient(180deg,rgba(2,8,16,0.72) 0,rgba(2,8,16,0.22) 56%,rgba(2,8,16,0) 100%);
+    }
+    html[data-theme="dark"] .side-nav-desktop,
+    html[data-theme="dark"] .side-nav-mobile{
+      background:linear-gradient(180deg,rgba(8,15,25,0.96),rgba(6,12,20,0.96));
+      border-right:1px solid rgba(146,167,198,0.2);
+      box-shadow:10px 0 28px rgba(1,5,10,0.58);
+    }
+    html[data-theme="dark"] .side-nav-item.active{
+      color:#90aaff;
+      text-shadow:0 0 14px rgba(79,115,255,0.35);
+    }
+    html[data-theme="dark"] .side-nav-item:hover:not(.active),
+    html[data-theme="dark"] .side-nav-action:hover,
+    html[data-theme="dark"] .side-nav-btn:hover{
+      background:rgba(143,166,201,0.12);
+      color:#d8e5fb;
+    }
+    html[data-theme="dark"] .top-bar{
+      background:linear-gradient(180deg,rgba(4,9,16,0.44),rgba(4,9,16,0));
+      border-radius:16px;
+      padding:4px 8px 0;
+    }
+    html[data-theme="dark"] .page-title{
+      color:#f1f6ff;
+      letter-spacing:.02em;
+      text-shadow:0 8px 24px rgba(44,87,150,0.18);
+    }
+    html[data-theme="dark"] .page-kicker{
+      color:#c0cde1;
+    }
+    html[data-theme="dark"] .card-base{
+      background:
+        linear-gradient(160deg, var(--ui-glass-1), var(--ui-glass-2)),
+        linear-gradient(180deg, rgba(226,238,255,0.04), rgba(226,238,255,0));
+      border:1px solid var(--ui-glass-line);
+      box-shadow:var(--ui-shadow);
+      backdrop-filter:blur(14px) saturate(115%);
+      -webkit-backdrop-filter:blur(14px) saturate(115%);
+    }
+    html[data-theme="dark"] .card-base.status-frame{
+      border-color:rgba(173,193,224,0.22);
+      box-shadow:0 26px 44px rgba(1,6,12,0.62);
+    }
+    html[data-theme="dark"] .card-title{
+      color:#aebed6;
+    }
+    html[data-theme="dark"] .pill{
+      background:rgba(17,28,42,0.88);
+      border-color:rgba(156,178,212,0.24);
+      color:#d9e6fb;
+    }
+    html[data-theme="dark"] .pill-toggle.is-on{
+      background:linear-gradient(180deg,rgba(79,115,255,0.34),rgba(79,115,255,0.2));
+      border-color:rgba(133,158,255,0.62);
+      color:#eaf0ff;
+      box-shadow:0 8px 18px rgba(79,115,255,0.32);
+    }
+    html[data-theme="dark"] .pill-toggle.is-off{
+      background:rgba(33,44,58,0.82);
+      border-color:rgba(136,152,176,0.32);
+      color:#a6b4ca;
+    }
+    html[data-theme="dark"] .toolbar-btn,
+    html[data-theme="dark"] .primary-btn,
+    html[data-theme="dark"] .settings-btn,
+    html[data-theme="dark"] .settings-inline-btn{
+      background:linear-gradient(180deg,rgba(21,33,49,0.96),rgba(13,23,36,0.96));
+      border:1px solid rgba(156,178,212,0.3);
+      color:#e7eefb;
+      box-shadow:0 10px 20px rgba(1,7,13,0.4);
+    }
+    html[data-theme="dark"] .primary-btn.sequence-btn{
+      background:
+        radial-gradient(circle at 20% 0, rgba(87,123,255,0.24), transparent 42%),
+        linear-gradient(180deg,rgba(22,37,57,0.98),rgba(12,22,34,0.98));
+      border-color:rgba(128,155,255,0.48);
+      color:#ecf2ff;
+    }
+    html[data-theme="dark"] .control-tile{
+      background:
+        linear-gradient(165deg,rgba(13,22,35,0.92),rgba(9,17,27,0.94));
+      border-color:rgba(168,188,221,0.2);
+      box-shadow:inset 0 1px 0 rgba(222,236,255,0.07), 0 14px 24px rgba(1,7,13,0.32);
+    }
+    html[data-theme="dark"] .control-tile-sub{
+      color:#9caec8;
+    }
+    html[data-theme="dark"] .chart-box{
+      background:
+        radial-gradient(circle at 76% -14%, rgba(84,120,172,0.16), transparent 45%),
+        linear-gradient(180deg, rgba(12,21,33,0.94), rgba(8,15,24,0.96));
+      border-color:rgba(159,183,220,0.2);
+      box-shadow:0 20px 30px rgba(1,6,12,0.52);
+    }
+    html[data-theme="dark"] .status-card .status-map-panel{
+      border-color:rgba(175,195,224,0.24);
+      box-shadow:0 20px 36px rgba(1,6,11,0.6);
+    }
+    html[data-theme="dark"] .status-map-card,
+    html[data-theme="dark"] .status-map-rocket-pill,
+    html[data-theme="dark"] .status-map-panel .leaflet-popup.status-map-popup .leaflet-popup-content-wrapper{
+      background:
+        linear-gradient(165deg,rgba(19,31,46,0.78),rgba(11,20,31,0.86));
+      border-color:rgba(186,204,233,0.24);
+      backdrop-filter:blur(12px) saturate(112%);
+      -webkit-backdrop-filter:blur(12px) saturate(112%);
+    }
+    html[data-theme="dark"] .status-map-rocket-kicker,
+    html[data-theme="dark"] .status-map-popup-kicker{
+      color:#9ac07e;
+    }
+    html[data-theme="dark"] .status-map-btn{
+      background:rgba(15,25,38,0.86);
+      border-color:rgba(170,191,225,0.24);
+      color:#d8e6fb;
+    }
+    html[data-theme="dark"] .status-map-btn:hover{
+      background:rgba(25,39,58,0.92);
+    }
+    html[data-theme="dark"] .countdown-card{
+      background:
+        radial-gradient(circle at 15% -12%, rgba(72,111,167,0.26), transparent 44%),
+        linear-gradient(180deg, rgba(12,20,32,0.97), rgba(7,14,23,0.98));
+      border-color:rgba(170,191,226,0.24);
+    }
+    html[data-theme="dark"] .countdown-inline-status-pill{
+      background:rgba(19,32,47,0.84);
+      border-color:rgba(156,178,212,0.28);
+      color:#d5e2f8;
+    }
+    html[data-theme="dark"] .settings-dialog,
+    html[data-theme="dark"] .mission-dialog,
+    html[data-theme="dark"] .loadcell-dialog,
+    html[data-theme="dark"] .inspection-dialog,
+    html[data-theme="dark"] .launcher-dialog{
+      background:
+        radial-gradient(circle at 82% -28%, rgba(81,118,175,0.18), transparent 46%),
+        linear-gradient(165deg,rgba(11,19,30,0.97),rgba(8,14,23,0.98));
+      border:1px solid rgba(173,193,224,0.24);
+      box-shadow:0 28px 48px rgba(1,6,12,0.64);
+      backdrop-filter:blur(16px) saturate(116%);
+      -webkit-backdrop-filter:blur(16px) saturate(116%);
+    }
+    html[data-theme="dark"] .settings-select,
+    html[data-theme="dark"] .settings-number,
+    html[data-theme="dark"] .control-tile-select,
+    html[data-theme="dark"] .loadcell-input,
+    html[data-theme="dark"] .mission-input,
+    html[data-theme="dark"] .mission-test-input{
+      background:rgba(11,20,32,0.92);
+      border-color:rgba(158,180,215,0.3);
+      color:#e7eefb;
+    }
+    html[data-theme="dark"] .mobile-controls-panel{
+      background:
+        linear-gradient(180deg,rgba(8,14,22,0.98),rgba(5,10,17,0.98));
+      border-top:1px solid rgba(155,176,208,0.22);
+      box-shadow:0 -18px 40px rgba(1,6,11,0.6);
+    }
+    html[data-theme="dark"] .home-ref-search,
+    html[data-theme="dark"] .home-ref-fly,
+    html[data-theme="dark"] .home-ref-tool{
+      background:
+        linear-gradient(165deg,rgba(13,22,35,0.92),rgba(9,17,27,0.96));
+      border-color:rgba(165,188,224,0.2);
+      box-shadow:0 16px 28px rgba(1,7,13,0.42);
+    }
+    html[data-theme="dark"] .home-ref-update{
+      background:linear-gradient(180deg,rgba(17,30,46,0.92),rgba(10,20,31,0.95));
+      border:1px solid rgba(169,191,225,0.24);
+      backdrop-filter:blur(10px);
+      -webkit-backdrop-filter:blur(10px);
+    }
+    html[data-theme="dark"] .home-ref-go{
+      background:linear-gradient(180deg,#5a83ff,#3d66ea);
+      color:#edf2ff;
+      box-shadow:0 18px 30px rgba(61,102,234,0.4);
+    }
+
   </style>
 </head>
 <body>
@@ -10999,9 +12019,6 @@
         <img src="img/Flash_logo.svg " alt="FLASH">
       </div>
       <div class="side-nav-menu">
-        <button class="side-nav-item" data-page-title="Home" aria-label="Home">
-          <svg viewBox="0 0 24 24"><path d="M4 12l8-7 8 7"/><path d="M6 10v9h12v-9"/></svg>
-        </button>
         <button class="side-nav-item active" data-page-title="Dashboard" aria-label="Dashboard">
           <svg viewBox="0 0 24 24">
             <path d="M3.5 16a8.5 8.5 0 0 1 17 0"/>
@@ -11065,12 +12082,40 @@
         <div class="mobile-controls-head">
           <div class="mobile-controls-head-title">CONTROL PANEL</div>
         </div>
-        <div class="mobile-controls-slot">
-          <button type="button" class="control-tile mobile-control mobile-quick-btn" data-mobile-control="mission">
-            <span class="mobile-quick-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><rect x="6" y="4.5" width="12" height="15" rx="2"/><path d="M9 8.5h6"/><path d="M9 12h6"/><path d="M9 15.5h4"/></svg>
+        <div class="mobile-controls-top-actions">
+          <button id="mobileSequenceWideBtn" class="primary-btn sequence-btn mobile-top-action-sequence" type="button">
+            <span class="sequence-btn-text">
+              <span id="mobileSequenceWideLabel" class="sequence-btn-title" data-i18n="sequenceStartBtn">SEQUENCE START</span>
             </span>
-            <span class="mobile-quick-label">미션</span>
+            <span id="mobileSequenceWideStatus" class="sequence-status-pill">준비</span>
+          </button>
+          <button id="mobileArmLockWideBtn" class="mobile-top-action-btn mobile-top-action-arm hidden" type="button" aria-label="ARM ON LOCK">
+            <svg class="arm-icon-locked" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="5" y="11" width="14" height="9" rx="2"></rect>
+              <path d="M8 11V8a4 4 0 1 1 8 0v3"></path>
+              <circle cx="12" cy="15.5" r="1"></circle>
+            </svg>
+            <svg class="arm-icon-unlocked" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="5" y="11" width="14" height="9" rx="2"></rect>
+              <path d="M8 11V8a4 4 0 1 1 6.8-2.8"></path>
+              <circle cx="12" cy="15.5" r="1"></circle>
+            </svg>
+            <span class="sr-only">ARM ON LOCK</span>
+          </button>
+          <button id="mobileMissionWideBtn" class="mobile-top-action-btn mobile-top-action-mission" type="button" aria-label="미션 지정">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M7 20V6"></path>
+              <path d="M7 7h9l-1.6 2.8L16 13H7"></path>
+            </svg>
+            <span class="sr-only">미션 지정</span>
+          </button>
+        </div>
+        <div class="mobile-controls-slot">
+          <button type="button" class="control-tile mobile-control mobile-quick-btn" data-mobile-control="mode">
+            <span class="mobile-quick-icon tone-gray" aria-hidden="true" data-mobile-mode-icon>
+              <svg viewBox="0 0 24 24"><rect x="4.5" y="5" width="15" height="14" rx="2"/><path d="M8 9h8"/><path d="M8 12h8"/><path d="M8 15h5"/></svg>
+            </span>
+            <span id="mobileModeQuickLabel" class="mobile-quick-label">DAQ MODE</span>
           </button>
           <button type="button" class="control-tile mobile-control mobile-quick-btn" data-mobile-control="launcher">
             <span class="mobile-quick-icon" aria-hidden="true">
@@ -11083,6 +12128,20 @@
               <svg viewBox="0 0 24 24"><path d="M12 5v9"/><path d="m8.5 11 3.5 3.5 3.5-3.5"/><path d="M6.5 18.5h11"/></svg>
             </span>
             <span class="mobile-quick-label">보고서</span>
+          </button>
+          <button type="button" class="control-tile mobile-control mobile-quick-btn" data-mobile-control="servo">
+            <span class="mobile-quick-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <rect x="4.5" y="8" width="15" height="8" rx="2"></rect>
+                <path d="M8 8V6"></path>
+                <path d="M12 8V6"></path>
+                <path d="M16 8V6"></path>
+                <circle cx="8" cy="12" r="1"></circle>
+                <circle cx="12" cy="12" r="1"></circle>
+                <circle cx="16" cy="12" r="1"></circle>
+              </svg>
+            </span>
+            <span class="mobile-quick-label">서보모터</span>
           </button>
           <button type="button" class="control-tile mobile-control mobile-control-primary mobile-quick-btn" data-mobile-control="sequence">
             <span class="mobile-quick-icon" aria-hidden="true">
@@ -11531,6 +12590,14 @@
                 </span>
                 <span id="batteryStatus" class="battery-text">--%</span>
               </div>
+              <div id="chipTempWrap" class="status-chiptemp" aria-label="Chip temperature" role="button" tabindex="0">
+                <span class="chiptemp-label">CHIP</span>
+                <span id="chipTempStatus" class="chiptemp-text">--°C</span>
+              </div>
+              <div id="perfWrap" class="status-chiptemp" aria-label="Performance" role="button" tabindex="0">
+                <span class="chiptemp-label">PERF</span>
+                <span id="perfStatus" class="chiptemp-text">--%</span>
+              </div>
               <span id="commStatus" class="sr-only">DISCONNECTED</span>
             </div>
           </div>
@@ -11783,39 +12850,87 @@
                 </div>
               </div>
 
+              <div class="control-tile control-tile-mode span-2">
+                <div>
+                  <div class="control-tile-label">서보모터 제어</div>
+                  <div class="control-tile-sub">Servo motor control panel</div>
+                </div>
+                <div class="control-tile-actions">
+                  <button id="dashboardServoPanelBtn" class="control-tile-select" type="button" aria-label="서보모터 제어 패널 열기">열기</button>
+                </div>
+              </div>
+
             </div>
           </div>
 
           <div id="replayPanel" class="replay-panel hidden" aria-hidden="true">
             <input id="replayFileInput" class="hidden-input" type="file" accept=".xlsx,.csv,.bin,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,application/octet-stream">
-            <div class="replay-file-row">
-              <button id="replayFileBtn" class="replay-dropzone" type="button">
-                <span class="replay-dropzone-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24">
-                    <path d="M7 18a4 4 0 0 1-.4-8A5 5 0 0 1 16 8a3.5 3.5 0 0 1 .7 6.9"></path>
-                    <path d="M12 11.5v7"></path>
-                    <path d="m9.8 13.7 2.2-2.2 2.2 2.2"></path>
-                  </svg>
-                </span>
-                <span id="replayDropTitle" class="replay-dropzone-title">Replay 파일 업로드</span>
-                <span id="replayDropGuide" class="replay-dropzone-guide">파일을 드래그 하거나 클릭하여 업로드하세요.</span>
-              </button>
-            </div>
-            <div class="replay-speed-row">
-              <div class="replay-speed-buttons">
-                <button class="pill replay-speed-btn" data-replay-speed="0.5" type="button">0.5x</button>
-                <button class="pill replay-speed-btn is-active" data-replay-speed="1" type="button">1x</button>
-                <button class="pill replay-speed-btn" data-replay-speed="2" type="button">2x</button>
-                <button id="replayTminus10Btn" class="pill replay-speed-btn replay-tminus-btn" type="button">QUICK</button>
+            <div class="replay-layout-row">
+              <div class="replay-file-row">
+                <button id="replayFileBtn" class="replay-dropzone" type="button">
+                  <span class="replay-dropzone-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24">
+                      <path d="M7 18a4 4 0 0 1-.4-8A5 5 0 0 1 16 8a3.5 3.5 0 0 1 .7 6.9"></path>
+                      <path d="M12 11.5v7"></path>
+                      <path d="m9.8 13.7 2.2-2.2 2.2 2.2"></path>
+                    </svg>
+                  </span>
+                  <span id="replayDropTitle" class="replay-dropzone-title">Replay 파일 업로드</span>
+                  <span id="replayDropGuide" class="replay-dropzone-guide">파일을 드래그 하거나 클릭하여 업로드하세요.</span>
+                </button>
               </div>
-            </div>
-            <div class="replay-seek-row">
-              <input id="replaySeekRange" type="range" min="0" max="0" value="0" step="1">
-              <div id="replaySeekLabel" class="replay-seek-label">00:00.000 / 00:00.000</div>
-            </div>
-            <div class="replay-control-row">
-              <button id="replayStartBtn" class="primary-btn" type="button">Replay 시작</button>
-              <button id="replayStopBtn" class="toolbar-btn" type="button">정지</button>
+              <div class="replay-playback-box">
+                <div class="replay-seek-row">
+                  <input id="replaySeekRange" type="range" min="0" max="0" value="0" step="1">
+                  <div id="replaySeekLabel" class="replay-seek-label">00:00.000 / 00:00.000</div>
+                </div>
+                <div class="replay-action-row">
+                  <div class="replay-control-row">
+                    <button id="replayRestartBtn" class="replay-icon-btn replay-icon-only" type="button" aria-label="처음으로" title="처음으로">
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M6 6v12"></path>
+                        <path d="m18 7-8 5 8 5z"></path>
+                      </svg>
+                      <span class="replay-btn-label">처음으로</span>
+                    </button>
+                    <button id="replayStartBtn" class="replay-icon-btn replay-icon-btn-start replay-icon-only" type="button" aria-label="재생" title="재생">
+                      <svg class="icon-play" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="m8 6 10 6-10 6z"></path>
+                      </svg>
+                      <svg class="icon-pause" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M9 6v12"></path>
+                        <path d="M15 6v12"></path>
+                      </svg>
+                      <span class="replay-btn-label">재생</span>
+                    </button>
+                    <button id="replayEndBtn" class="replay-icon-btn replay-icon-only" type="button" aria-label="끝으로" title="끝으로">
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M18 6v12"></path>
+                        <path d="m6 7 8 5-8 5z"></path>
+                      </svg>
+                      <span class="replay-btn-label">끝으로</span>
+                    </button>
+                  </div>
+                  <div class="replay-speed-row">
+                    <div class="replay-speed-buttons">
+                      <button class="pill replay-speed-btn" data-replay-speed="0.5" type="button">0.5x</button>
+                      <button class="pill replay-speed-btn is-active" data-replay-speed="1" type="button">1x</button>
+                      <button class="pill replay-speed-btn" data-replay-speed="2" type="button">2x</button>
+                      <button id="replayTminus10Btn" class="pill replay-speed-btn replay-tminus-btn" type="button">QUICK</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="replay-export-row">
+                <button id="replayConvertBtn" class="replay-icon-btn replay-convert-btn" type="button" aria-label="보고서 내보내기" title="보고서 내보내기">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 4v10"></path>
+                    <path d="m8.5 10.5 3.5 3.5 3.5-3.5"></path>
+                    <path d="M5 19h14"></path>
+                  </svg>
+                  <span class="replay-btn-label">보고서 내보내기</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -12175,6 +13290,16 @@
                     <span class="slider"></span>
                   </label>
                 </div>
+                <div class="settings-row">
+                  <div>
+                    <div class="settings-label" data-i18n="settingsMuteModeLabel">무음 모드</div>
+                    <div class="hint-mini" data-i18n="settingsMuteModeHint">ON이면 보드 버저가 울리지 않습니다. 재부팅 후에도 유지됩니다.</div>
+                  </div>
+                  <label class="switch">
+                    <input type="checkbox" id="muteModeToggle">
+                    <span class="slider"></span>
+                  </label>
+                </div>
               </div>
 
             </div>
@@ -12288,8 +13413,8 @@
                       <div class="fw-team-inline-label">TEAM</div>
                       <div class="fw-team-inline-logos">
                         <img src="img/altis_logo1.png" alt="">
-                        <img src="img/gnu_logo.png" alt="">
-                        <img class="is-invert is-small" src="img/hanwool_logo.png" alt="">
+                        <img loading="lazy" decoding="async" src="img/gnu_logo.png" alt="">
+                        <img loading="lazy" decoding="async" class="is-invert is-small" src="img/hanwool_logo.png" alt="">
                       </div>
                     </div>
                     뒤로가는 얘들 챙겨야 속도만 느려진다 새겨 들어라- PHC<br>
@@ -12321,14 +13446,6 @@
             <div class="mission-sub">블록 시퀀스를 바로 설계합니다.</div>
             <div class="mission-sub-note">(미션 설계는 최고 권한이 주어지니 안전에 유의하세요!)</div>
           </div>
-          <div class="mission-head-right">
-            <div class="mission-sync-row mission-sync-row--top">
-              <button id="missionExportBtn" class="settings-btn" type="button">미션 내보내기</button>
-              <label class="settings-btn mission-import-label" for="missionImportInput">미션 불러오기</label>
-              <input id="missionImportInput" type="file" accept=".json,application/json" class="mission-import-input" />
-              <button id="missionSaveBoardBtn" class="settings-btn" type="button">보드 저장</button>
-            </div>
-          </div>
         </div>
         <div class="mission-designer-layout">
           <div id="missionPresetBlock" class="mission-preset-block">
@@ -12345,11 +13462,11 @@
                     <div class="mission-preset-sub">메타데이터 없이 진행</div>
                   </button>
                   <button class="mission-preset-btn" type="button" data-mission="frontier2025">
-                    <div class="mission-preset-photo"><img src="img/frontier2025_img.png" alt="frontier2025"></div>
+                    <div class="mission-preset-photo"><img src="img/altis_logo1.png" alt="frontier2025"></div>
                     <div class="mission-preset-name">frontier2025</div>
                   </button>
                   <button class="mission-preset-btn" type="button" data-mission="frontier2026 stg1">
-                    <div class="mission-preset-photo"><img src="img/frontier2026_stg1_img.png" alt="frontier2026 stg1"></div>
+                    <div class="mission-preset-photo"><img src="img/altis_logo1.png" alt="frontier2026 stg1"></div>
                     <div class="mission-preset-name">frontier2026 stg1</div>
                   </button>
                   <button class="mission-preset-btn" type="button" data-mission="frontier2026 stg2 cnc">
@@ -12357,11 +13474,11 @@
                     <div class="mission-preset-name">frontier2026 stg2 cnc</div>
                   </button>
                   <button class="mission-preset-btn" type="button" data-mission="frontier2026 stg2 pvc">
-                    <div class="mission-preset-photo"><img src="img/frontier2026_stg2_pvc_img.png" alt="frontier2026 stg2 pvc"></div>
+                    <div class="mission-preset-photo"><img src="img/altis_logo1.png" alt="frontier2026 stg2 pvc"></div>
                     <div class="mission-preset-name">frontier2026 stg2 pvc</div>
                   </button>
                   <button class="mission-preset-btn" type="button" data-mission="QUAIL1 motor">
-                    <div class="mission-preset-photo"><img src="img/QUAIL1_path.svg" alt="QUAIL1"></div>
+                    <div class="mission-preset-photo"><img src="img/altis_logo1.png" alt="QUAIL1"></div>
                     <div class="mission-preset-name">QUAIL1 motor</div>
                   </button>
                   <button class="mission-preset-btn" type="button" data-mission="motor-support">
@@ -12439,6 +13556,10 @@
                 <div class="mission-palette-title">BLOCKS</div>
                 <div class="mission-palette-group">
                   <div class="mission-palette-group-title">조건(IF)</div>
+                  <button class="mission-tool-btn mission-tool-btn--event" type="button" draggable="true" data-add-kind="cond_sequence_start">
+                    <span class="mission-tool-main">시퀀스 시작</span>
+                    <span class="mission-tool-sub">카운트다운/점화 시작 시 1회 실행</span>
+                  </button>
                   <button class="mission-tool-btn mission-tool-btn--event" type="button" draggable="true" data-add-kind="cond_switch_falling">
                     <span class="mission-tool-main">시작 (ARM OFF)</span>
                     <span class="mission-tool-sub">ARM 해제(ON → OFF) 감지 시 1회 시작</span>
@@ -12539,7 +13660,12 @@
                 <div class="mission-block-canvas-top">
                   <div class="mission-block-canvas-label">WORKSPACE</div>
                   <div class="mission-block-canvas-meta">
-                    <div id="missionBlockCount" class="mission-block-canvas-count">총 0개</div>
+                    <div class="mission-sync-row mission-sync-row--canvas">
+                      <button id="missionExportBtn" class="settings-btn" type="button">미션 내보내기</button>
+                      <label class="settings-btn mission-import-label" for="missionImportInput">미션 불러오기</label>
+                      <input id="missionImportInput" type="file" accept=".json,application/json" class="mission-import-input" />
+                      <button id="missionSaveBoardBtn" class="settings-btn" type="button">보드 저장</button>
+                    </div>
                     <div class="mission-canvas-zoom-controls" role="group" aria-label="canvas zoom">
                       <button id="missionCanvasZoomOut" class="mission-canvas-zoom-btn" type="button" aria-label="zoom out">−</button>
                       <button id="missionCanvasZoomReset" class="mission-canvas-zoom-reset" type="button" aria-label="zoom reset">100%</button>
@@ -12547,7 +13673,6 @@
                     </div>
                   </div>
                 </div>
-                <div class="mission-block-canvas-hint">팁: 조건 블록 아래로 동작/조건 블록을 놓으면 중첩 if 구조로 묶입니다.</div>
                 <div id="missionBlockList" class="mission-block-list">
                   <div id="missionBlockStage" class="mission-block-stage"></div>
                 </div>
@@ -12662,6 +13787,108 @@
             <div class="loadcell-actions">
               <button id="loadcellWarningProceed" class="loadcell-primary" data-i18n="loadcellModalConfirmProceed">진행</button>
               <button id="loadcellWarningCancel" class="loadcell-cancel" data-i18n="loadcellModalConfirmCancel">취소</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="chipTempOverlay" class="settings-overlay hidden" style="display:none;">
+      <div id="chipTempDialog" class="settings-dialog chiptemp-dialog" role="dialog" aria-modal="true" aria-labelledby="chipTempTitle">
+        <div class="settings-header">
+          <div id="chipTempTitle" class="settings-title">Chip Temperature</div>
+          <button id="chipTempClose" class="settings-close-btn" type="button" aria-label="close">×</button>
+        </div>
+        <div class="chiptemp-body">
+          <span class="chiptemp-kicker">Thermal Monitor</span>
+          <div class="chiptemp-summary">
+            <div class="chiptemp-stat">
+              <div class="chiptemp-stat-label">Current</div>
+              <div id="chipTempNowValue" class="chiptemp-stat-value">--°C</div>
+            </div>
+            <div class="chiptemp-stat">
+              <div class="chiptemp-stat-label">Min</div>
+              <div id="chipTempMinValue" class="chiptemp-stat-value">--°C</div>
+            </div>
+            <div class="chiptemp-stat">
+              <div class="chiptemp-stat-label">Max</div>
+              <div id="chipTempMaxValue" class="chiptemp-stat-value">--°C</div>
+            </div>
+            <div class="chiptemp-stat">
+              <div class="chiptemp-stat-label">Avg</div>
+              <div id="chipTempAvgValue" class="chiptemp-stat-value">--°C</div>
+            </div>
+          </div>
+          <div class="chiptemp-chart-card">
+            <div class="chiptemp-chart-head">
+              <div class="chiptemp-chart-title">Chip Temp Trend</div>
+              <div id="chipTempChartNote" class="chiptemp-chart-note">최근 30초 · 35~85°C</div>
+            </div>
+            <div class="chiptemp-chart-stage">
+              <div class="chart-axis-tag chart-axis-tag--y">°C</div>
+              <canvas id="chipTempChart"></canvas>
+              <div class="chart-axis-tag chart-axis-tag--x">시간</div>
+            </div>
+          </div>
+          <div class="chiptemp-meta">
+            <div class="chiptemp-meta-item">
+              <div class="chiptemp-meta-key">Status</div>
+              <div id="chipTempStateValue" class="chiptemp-meta-value">--</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="perfOverlay" class="settings-overlay hidden" style="display:none;">
+      <div id="perfDialog" class="settings-dialog chiptemp-dialog" role="dialog" aria-modal="true" aria-labelledby="perfTitle">
+        <div class="settings-header">
+          <div id="perfTitle" class="settings-title">System Performance</div>
+          <button id="perfClose" class="settings-close-btn" type="button" aria-label="close">×</button>
+        </div>
+        <div class="chiptemp-body">
+          <span class="chiptemp-kicker">Runtime Load</span>
+          <div class="chiptemp-summary">
+            <div class="chiptemp-stat">
+              <div class="chiptemp-stat-label">Current</div>
+              <div id="perfNowValue" class="chiptemp-stat-value">--%</div>
+            </div>
+            <div class="chiptemp-stat">
+              <div class="chiptemp-stat-label">Min</div>
+              <div id="perfMinValue" class="chiptemp-stat-value">--%</div>
+            </div>
+            <div class="chiptemp-stat">
+              <div class="chiptemp-stat-label">Max</div>
+              <div id="perfMaxValue" class="chiptemp-stat-value">--%</div>
+            </div>
+            <div class="chiptemp-stat">
+              <div class="chiptemp-stat-label">Avg</div>
+              <div id="perfAvgValue" class="chiptemp-stat-value">--%</div>
+            </div>
+          </div>
+          <div class="chiptemp-chart-card">
+            <div class="chiptemp-chart-head">
+              <div class="chiptemp-chart-title">CPU Load Trend</div>
+              <div id="perfChartNote" class="chiptemp-chart-note">최근 30초 · CPU/LOOP 점유율</div>
+            </div>
+            <div class="chiptemp-chart-stage">
+              <div class="chart-axis-tag chart-axis-tag--y">%</div>
+              <canvas id="perfChart"></canvas>
+              <div class="chart-axis-tag chart-axis-tag--x">시간</div>
+            </div>
+          </div>
+          <div class="chiptemp-meta">
+            <div class="chiptemp-meta-item">
+              <div class="chiptemp-meta-key">CPU</div>
+              <div id="perfCpuNow" class="chiptemp-meta-value">-- us</div>
+            </div>
+            <div class="chiptemp-meta-item">
+              <div class="chiptemp-meta-key">Loop</div>
+              <div id="perfLoopNow" class="chiptemp-meta-value">-- us</div>
+            </div>
+            <div class="chiptemp-meta-item">
+              <div class="chiptemp-meta-key">Status</div>
+              <div id="perfStateValue" class="chiptemp-meta-value">--</div>
             </div>
           </div>
         </div>
@@ -12864,6 +14091,14 @@
           해결하려면 브라우저를 새로고침 하세요.
         </div>
         <button id="wsAlertClose" class="ws-alert-close-btn" data-i18n="wsAlertClose">닫기</button>
+      </div>
+    </div>
+
+    <div id="replaySeekOverlay" class="replay-seek-overlay hidden" style="display:none;">
+      <div class="replay-seek-dialog" role="status" aria-live="polite" aria-atomic="true">
+        <div class="replay-seek-spinner" aria-hidden="true"></div>
+        <div class="replay-seek-title">데이터 리플레이</div>
+        <div id="replaySeekOverlayText" class="replay-seek-text">궤도 예측 중... 잠시만 기다려주세요.</div>
       </div>
     </div>
 
@@ -13073,7 +14308,42 @@
     (function(){
       window.__flashBoot = window.__flashBoot || { jsReady:false, lastError:"" };
       window.addEventListener("error", function(ev){
-        try{ window.__flashBoot.lastError = String(ev && (ev.message || ev.error || "")); }catch(_e){}
+        try{
+          var msg = String(ev && (ev.message || ev.error || ""));
+          var lowerMsg = String(msg || "").toLowerCase();
+          // iOS/Safari in-app bridge noise from external/runtime contexts.
+          if(lowerMsg.indexOf("response.result") >= 0){
+            return;
+          }
+          window.__flashBoot.lastError = msg;
+          if(window.__flashBoot && typeof window.__flashBoot.showBootError === "function"){
+            window.__flashBoot.showBootError("window error: " + msg);
+          }
+          if(window.__flashBoot && window.__flashBoot.emit){
+            window.__flashBoot.emit("window_error", msg);
+          }
+        }catch(_e){}
+      });
+      window.addEventListener("unhandledrejection", function(ev){
+        try{
+          var reason = ev && ev.reason;
+          var msg = "promise_reject";
+          if(reason && typeof reason === "object" && reason.message) msg = reason.message;
+          else if(reason != null) msg = String(reason);
+          var lowerMsg = String(msg || "").toLowerCase();
+          // iOS/Safari in-app bridge noise from external/runtime contexts.
+          // Not a FLASH6 app fault and should not block UI boot.
+          if(lowerMsg.indexOf("response.result") >= 0){
+            return;
+          }
+          window.__flashBoot.lastError = msg;
+          if(window.__flashBoot && typeof window.__flashBoot.showBootError === "function"){
+            window.__flashBoot.showBootError("promise reject: " + msg);
+          }
+          if(window.__flashBoot && window.__flashBoot.emit){
+            window.__flashBoot.emit("window_reject", msg);
+          }
+        }catch(_e){}
       });
       setTimeout(function(){
         var app = document.querySelector(".page-wrap");
@@ -13084,18 +14354,111 @@
         if(splash && !splash.classList.contains("hide")){
           splash.classList.add("hide");
         }
-      }, 8000);
+      }, 3500);
     })();
   </script>
-  <script src="/vendor/leaflet/leaflet.js" onerror="this.onerror=null;var s=document.createElement('script');s.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';document.head.appendChild(s);"></script>
-  <script src="flash6.js?v=20260404-008"></script>
+  
+  <script>
+    window.addEventListener("load", function(){
+      try{
+        if(window.__flashBoot && window.__flashBoot.emit){
+          window.__flashBoot.emit("html_load");
+        }
+      }catch(_e){}
+      setTimeout(function(){
+        if(window.__flashBoot && window.__flashBoot.localPreview) return;
+        if(window.__flashBoot && window.__flashBoot.beaconEnabled === false) return;
+        if(window.__flashBoot && window.__flashBoot.jsReady) return;
+        try{
+          if(window.__flashBoot && window.__flashBoot.emit){
+            window.__flashBoot.emit("flash6_watchdog", window.__flashBoot.lastError || "js_not_ready");
+          }
+        }catch(_e){}
+      }, 10000);
+
+      // If main app JS is not ready, run a tiny inline fallback probe so we can
+      // verify /data + /ws path independently in serial logs.
+      setTimeout(function(){
+        if(window.__flashBoot && window.__flashBoot.localPreview) return;
+        if(window.__flashBoot && window.__flashBoot.beaconEnabled === false) return;
+        if(window.__flashBoot && window.__flashBoot.jsReady) return;
+        try{
+          if(window.__flashBoot && window.__flashBoot.emit){
+            window.__flashBoot.emit("fallback_probe_start");
+          }
+        }catch(_e){}
+
+        try{
+          fetch("/data", {cache:"no-store"})
+            .then(function(resp){
+              if(!resp || !resp.ok) throw new Error("HTTP_" + (resp ? resp.status : 0));
+              return resp.text();
+            })
+            .then(function(){
+              try{
+                if(window.__flashBoot && window.__flashBoot.emit){
+                  window.__flashBoot.emit("fallback_data_ok");
+                }
+              }catch(_e){}
+            })
+            .catch(function(err){
+              try{
+                if(window.__flashBoot && window.__flashBoot.emit){
+                  window.__flashBoot.emit("fallback_data_fail", String((err && err.message) || err || "data_fail"));
+                }
+              }catch(_e){}
+            });
+        }catch(_e){}
+
+        try{
+          var wsProto = (location.protocol === "https:") ? "wss://" : "ws://";
+          var ws = new WebSocket(wsProto + location.host + "/ws");
+          ws.onopen = function(){
+            try{
+              if(window.__flashBoot && window.__flashBoot.emit){
+                window.__flashBoot.emit("fallback_ws_open");
+              }
+            }catch(_e){}
+            try{ ws.close(1000, "probe_done"); }catch(_e){}
+          };
+          ws.onerror = function(){
+            try{
+              if(window.__flashBoot && window.__flashBoot.emit){
+                window.__flashBoot.emit("fallback_ws_error");
+              }
+            }catch(_e){}
+          };
+          ws.onclose = function(ev){
+            try{
+              if(window.__flashBoot && window.__flashBoot.emit){
+                window.__flashBoot.emit("fallback_ws_close", "code=" + ((ev && ev.code) || 0));
+              }
+            }catch(_e){}
+          };
+        }catch(_e){
+          try{
+            if(window.__flashBoot && window.__flashBoot.emit){
+              window.__flashBoot.emit("fallback_ws_fail", String((_e && _e.message) || _e || "ws_fail"));
+            }
+          }catch(_ex){}
+        }
+      }, 4500);
+    });
+  </script>
   <script>
     if ("serviceWorker" in navigator) {
-      window.addEventListener("load", () => {
-        navigator.serviceWorker.getRegistrations()
-          .then((regs) => Promise.all(regs.map((reg) => reg.unregister())))
-          .catch((err) => console.warn("Service worker cleanup failed:", err));
-      });
+      navigator.serviceWorker.getRegistrations()
+        .then((regs) => Promise.all(regs.map((reg) => reg.unregister())))
+        .catch((err) => console.warn("Service worker cleanup failed:", err));
+    }
+    if ("caches" in window) {
+      caches.keys()
+        .then((keys) => Promise.all(
+          keys
+            .filter((key) => /^flash6-shell-v/i.test(key))
+            .map((key) => caches.delete(key))
+        ))
+        .catch((err) => console.warn("Cache cleanup failed:", err));
     }
   </script>
 
