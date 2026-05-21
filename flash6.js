@@ -36,16 +36,16 @@ window.FLASH6_I18N = {
         connectModeWifiToast:"연결 모드: Wi-Fi",
         connectModeSerialToast:"연결 모드: Serial",
         connectSerialAlready:"이미 Serial 연결됨",
-        connectWifiTitle:"Wi-Fi 암호",
-        connectWifiGuideText:"휴대폰 Wi-Fi 연결 정보를 ALTIS에 공유하시겠습니까?",
-        connectWifiGuideHint:"SSID: ALTIS_INTELLIGNET... 에 먼저 연결해 주세요.",
+        connectWifiTitle:"Wi-Fi 연결",
+        connectWifiGuideText:"클라이언트 기기와 보드를 아래 SSID로 연결하세요.",
+        connectWifiGuideHint:"SSID: ALTIS_INTELLIGNET_2_XXXXXX",
         connectWifiWaitingText:"보드 연결 대기중...",
         connectWifiWaitingHint:"연결 상태를 확인하고 있습니다.",
         connectWifiSuccessText:"Wi-Fi 연결 성공",
         connectWifiSuccessHint:"이제 텔레메트리/제어를 사용할 수 있습니다.",
         connectWifiFailText:"아직 연결되지 않았습니다.",
         connectWifiFailHint:"ALTIS AP 연결 상태를 확인하고 다시 시도하세요.",
-        connectWifiNext:"암호 공유",
+        connectWifiNext:"연결",
         connectWifiWaitingBtn:"연결 확인 중...",
         connectWifiRetry:"다시 확인",
         connectWifiClose:"닫기",
@@ -1135,6 +1135,11 @@ window.FLASH6_I18N = {
     let gyroZHistory = [];
     let chipTempHistory = [];
     let perfLoadHistory = [];
+    let chipPerfUiLastUpdateMs = 0;
+    let chipTempUiDisplayText = "--°C";
+    let perfUiDisplayText = "--%";
+    let chipTempModalLastRenderMs = 0;
+    let perfModalLastRenderMs = 0;
     let chartTimeHistory = [];
     let sampleHistory = [];
     const SAMPLE_HISTORY_MAX = 10000;
@@ -4006,6 +4011,7 @@ window.FLASH6_I18N = {
     let wifiConnectStage = "idle";
     let wifiConnectWaitTimer = null;
     let wifiConnectWaitUntilMs = 0;
+    let serialConnectStage = "idle";
     let simEnabled = false;
     let simState = createSimState();
     const WIFI_CONNECT_WAIT_TIMEOUT_MS = 12000;
@@ -5112,6 +5118,70 @@ window.FLASH6_I18N = {
       setWifiConnectWizardStage("guide");
       setOverlayVisible(el.wifiConnectOverlay, true);
     }
+    function setSerialConnectWizardStage(stage){
+      serialConnectStage = stage || "guide";
+      if(!el.serialConnectTitle || !el.serialConnectDesc || !el.serialConnectHint || !el.serialConnectNextBtn || !el.serialConnectCancelBtn){
+        return;
+      }
+      const spinner = el.serialConnectSpinner || null;
+      const isWaiting = (serialConnectStage === "waiting");
+      if(spinner){
+        spinner.classList.toggle("hidden", !isWaiting);
+        spinner.style.display = isWaiting ? "block" : "none";
+      }
+      if(serialConnectStage === "waiting"){
+        el.serialConnectTitle.textContent = "시리얼 연결 중";
+        el.serialConnectDesc.textContent = "포트 권한을 허용하고 잠시 기다려 주세요.";
+        el.serialConnectHint.textContent = "브라우저 포트 선택 창에서 ALTIS 보드를 선택하세요.";
+        el.serialConnectNextBtn.textContent = "연결 중...";
+        el.serialConnectNextBtn.disabled = true;
+        el.serialConnectCancelBtn.textContent = "취소";
+      }else if(serialConnectStage === "success"){
+        el.serialConnectTitle.textContent = "시리얼 연결 완료";
+        el.serialConnectDesc.textContent = "보드와 시리얼 연결이 정상적으로 완료되었습니다.";
+        el.serialConnectHint.textContent = "확인을 누르면 모달이 닫힙니다.";
+        el.serialConnectNextBtn.textContent = "확인";
+        el.serialConnectNextBtn.disabled = false;
+        el.serialConnectCancelBtn.style.display = "none";
+      }else if(serialConnectStage === "fail"){
+        el.serialConnectTitle.textContent = "시리얼 연결 실패";
+        el.serialConnectDesc.textContent = "포트/권한을 확인한 뒤 다시 시도하세요.";
+        el.serialConnectHint.textContent = "USB 연결 상태와 브라우저 권한을 확인해주세요.";
+        el.serialConnectNextBtn.textContent = "다시 시도";
+        el.serialConnectNextBtn.disabled = false;
+        el.serialConnectCancelBtn.style.display = "inline-block";
+        el.serialConnectCancelBtn.textContent = "닫기";
+      }else{
+        el.serialConnectTitle.textContent = "시리얼 연결";
+        el.serialConnectDesc.textContent = "USB 케이블 연결 후 브라우저 포트 선택 창에서 보드를 선택하세요.";
+        el.serialConnectHint.textContent = "연결 버튼을 누르면 포트 권한 요청 창이 뜹니다.";
+        el.serialConnectNextBtn.textContent = "연결";
+        el.serialConnectNextBtn.disabled = false;
+        el.serialConnectCancelBtn.style.display = "inline-block";
+        el.serialConnectCancelBtn.textContent = "취소";
+      }
+    }
+    function openSerialConnectWizard(){
+      if(!el.serialConnectOverlay) return;
+      setSerialConnectWizardStage("guide");
+      setOverlayVisible(el.serialConnectOverlay, true);
+    }
+    function closeSerialConnectWizard(){
+      serialConnectStage = "idle";
+      setOverlayVisible(el.serialConnectOverlay, false);
+    }
+    async function startSerialConnectFromWizard(){
+      if(serialConnectStage === "waiting") return;
+      setSerialConnectWizardStage("waiting");
+      await serialConnect();
+      updateSerialControlTile();
+      updateSerialPill();
+      if(serialConnected){
+        setSerialConnectWizardStage("success");
+      }else{
+        setSerialConnectWizardStage("fail");
+      }
+    }
     async function setConnectTransportMode(nextMode, opts){
       const options = opts || {};
       const mode = (nextMode === "serial") ? "serial" : "wifi";
@@ -5124,6 +5194,9 @@ window.FLASH6_I18N = {
       saveSettings();
       if(mode !== "wifi"){
         closeWifiConnectWizard();
+      }
+      if(mode !== "serial"){
+        closeSerialConnectWizard();
       }
 
       if(mode === "wifi" && serialConnected){
@@ -5156,9 +5229,7 @@ window.FLASH6_I18N = {
         showToast(t("connectSerialAlready"), "info", {key:"serial-already"});
         return;
       }
-      await serialConnect();
-      updateSerialControlTile();
-      updateSerialPill();
+      openSerialConnectWizard();
     }
     function updateTogglePill(pillEl, checked){
       if(!pillEl) return;
@@ -17454,18 +17525,18 @@ window.FLASH6_I18N = {
         : null;
 
       el.batteryStatus.textContent = pctText;
-      if(el.chipTempStatus){
-        const chipTempText = (lastChipTempC != null && isFinite(lastChipTempC))
+      const nowChipPerfUiMs = Date.now();
+      if((nowChipPerfUiMs - chipPerfUiLastUpdateMs) >= 3000){
+        chipTempUiDisplayText = (lastChipTempC != null && isFinite(lastChipTempC))
           ? (lastChipTempC.toFixed(1) + "°C")
           : "--°C";
-        el.chipTempStatus.textContent = chipTempText;
-      }
-      if(el.perfStatus){
-        const perfText = (lastPerfLoadPct != null && isFinite(Number(lastPerfLoadPct)))
+        perfUiDisplayText = (lastPerfLoadPct != null && isFinite(Number(lastPerfLoadPct)))
           ? (Math.round(Number(lastPerfLoadPct)) + "%")
           : "--%";
-        el.perfStatus.textContent = perfText;
+        chipPerfUiLastUpdateMs = nowChipPerfUiMs;
       }
+      if(el.chipTempStatus) el.chipTempStatus.textContent = chipTempUiDisplayText;
+      if(el.perfStatus) el.perfStatus.textContent = perfUiDisplayText;
       el.commStatus.innerHTML = '<span class="num">' + commText + "</span>";
       const delayText = Number.isFinite(delaySec) ? formatQuickTimeDisplay(delaySec) : "--";
       el.motorDelay.innerHTML = '<span class="num">' + delayText + '</span><span class="unit">S</span>';
@@ -17543,16 +17614,21 @@ window.FLASH6_I18N = {
     function isChipTempModalVisible(){
       return !!(el.chipTempOverlay && !el.chipTempOverlay.classList.contains("hidden"));
     }
-    function renderChipTempModal(){
+    function renderChipTempModal(force){
       if(!isChipTempModalVisible()) return;
+      const nowMs = Date.now();
+      const shouldUpdateText = !!force || ((nowMs - chipTempModalLastRenderMs) >= 3000);
+      if(shouldUpdateText) chipTempModalLastRenderMs = nowMs;
       const hasValidTemp = lastChipTempSampleMs > 0;
       if(!hasValidTemp){
-        if(el.chipTempNowValue) el.chipTempNowValue.textContent = "--°C";
-        if(el.chipTempMinValue) el.chipTempMinValue.textContent = "--°C";
-        if(el.chipTempMaxValue) el.chipTempMaxValue.textContent = "--°C";
-        if(el.chipTempAvgValue) el.chipTempAvgValue.textContent = "--°C";
-        if(el.chipTempStateValue) el.chipTempStateValue.textContent = "NO DATA";
-        if(el.chipTempChartNote) el.chipTempChartNote.textContent = "데이터 대기 중";
+        if(shouldUpdateText){
+          if(el.chipTempNowValue) el.chipTempNowValue.textContent = "--°C";
+          if(el.chipTempMinValue) el.chipTempMinValue.textContent = "--°C";
+          if(el.chipTempMaxValue) el.chipTempMaxValue.textContent = "--°C";
+          if(el.chipTempAvgValue) el.chipTempAvgValue.textContent = "--°C";
+          if(el.chipTempStateValue) el.chipTempStateValue.textContent = "NO DATA";
+          if(el.chipTempChartNote) el.chipTempChartNote.textContent = "데이터 대기 중";
+        }
         drawChart("chipTempChart", [], "#16a34a", {windowMs:30000, startMs:null});
         return;
       }
@@ -17580,13 +17656,15 @@ window.FLASH6_I18N = {
         avg = sum / values.length;
       }
 
-      if(el.chipTempNowValue) el.chipTempNowValue.textContent = isFinite(current) ? (current.toFixed(1) + "°C") : "--°C";
-      if(el.chipTempMinValue) el.chipTempMinValue.textContent = isFinite(min) ? (min.toFixed(1) + "°C") : "--°C";
-      if(el.chipTempMaxValue) el.chipTempMaxValue.textContent = isFinite(max) ? (max.toFixed(1) + "°C") : "--°C";
-      if(el.chipTempAvgValue) el.chipTempAvgValue.textContent = isFinite(avg) ? (avg.toFixed(1) + "°C") : "--°C";
-      if(el.chipTempStateValue) el.chipTempStateValue.textContent = getChipTempStateLabel(current);
-      if(el.chipTempChartNote){
-        el.chipTempChartNote.textContent = "최근 30초 · 35~85°C";
+      if(shouldUpdateText){
+        if(el.chipTempNowValue) el.chipTempNowValue.textContent = isFinite(current) ? (current.toFixed(1) + "°C") : "--°C";
+        if(el.chipTempMinValue) el.chipTempMinValue.textContent = isFinite(min) ? (min.toFixed(1) + "°C") : "--°C";
+        if(el.chipTempMaxValue) el.chipTempMaxValue.textContent = isFinite(max) ? (max.toFixed(1) + "°C") : "--°C";
+        if(el.chipTempAvgValue) el.chipTempAvgValue.textContent = isFinite(avg) ? (avg.toFixed(1) + "°C") : "--°C";
+        if(el.chipTempStateValue) el.chipTempStateValue.textContent = getChipTempStateLabel(current);
+        if(el.chipTempChartNote){
+          el.chipTempChartNote.textContent = "최근 30초 · 35~85°C";
+        }
       }
       drawChart(
         "chipTempChart",
@@ -17606,11 +17684,12 @@ window.FLASH6_I18N = {
     function showChipTempModal(){
       hideMobileControlsPanel();
       setOverlayVisible(el.chipTempOverlay, true);
+      chipTempModalLastRenderMs = 0;
       if(el.chipTempChart){
         el.chipTempChart._cssW = null;
         el.chipTempChart._cssH = null;
       }
-      renderChipTempModal();
+      renderChipTempModal(true);
     }
     function hideChipTempModal(){
       setOverlayVisible(el.chipTempOverlay, false);
@@ -17629,18 +17708,23 @@ window.FLASH6_I18N = {
     function isPerfModalVisible(){
       return !!(el.perfOverlay && !el.perfOverlay.classList.contains("hidden"));
     }
-    function renderPerfModal(){
+    function renderPerfModal(force){
       if(!isPerfModalVisible()) return;
+      const nowMs = Date.now();
+      const shouldUpdateText = !!force || ((nowMs - perfModalLastRenderMs) >= 3000);
+      if(shouldUpdateText) perfModalLastRenderMs = nowMs;
       const hasValidPerf = lastPerfSampleMs > 0;
       if(!hasValidPerf){
-        if(el.perfNowValue) el.perfNowValue.textContent = "--%";
-        if(el.perfMinValue) el.perfMinValue.textContent = "--%";
-        if(el.perfMaxValue) el.perfMaxValue.textContent = "--%";
-        if(el.perfAvgValue) el.perfAvgValue.textContent = "--%";
-        if(el.perfCpuNow) el.perfCpuNow.textContent = "-- us";
-        if(el.perfLoopNow) el.perfLoopNow.textContent = "-- us";
-        if(el.perfStateValue) el.perfStateValue.textContent = "NO DATA";
-        if(el.perfChartNote) el.perfChartNote.textContent = "데이터 대기 중";
+        if(shouldUpdateText){
+          if(el.perfNowValue) el.perfNowValue.textContent = "--%";
+          if(el.perfMinValue) el.perfMinValue.textContent = "--%";
+          if(el.perfMaxValue) el.perfMaxValue.textContent = "--%";
+          if(el.perfAvgValue) el.perfAvgValue.textContent = "--%";
+          if(el.perfCpuNow) el.perfCpuNow.textContent = "-- us";
+          if(el.perfLoopNow) el.perfLoopNow.textContent = "-- us";
+          if(el.perfStateValue) el.perfStateValue.textContent = "NO DATA";
+          if(el.perfChartNote) el.perfChartNote.textContent = "데이터 대기 중";
+        }
         drawChart("perfChart", [], "#0ea5e9", {windowMs:30000, startMs:null});
         return;
       }
@@ -17672,22 +17756,24 @@ window.FLASH6_I18N = {
         avg = sum / values.length;
       }
 
-      if(el.perfNowValue){
-        const nowText = formatPerfPct(current);
-        if(isFinite(currentRaw) && isFinite(current) && Math.abs(currentRaw - current) >= 8){
-          el.perfNowValue.textContent = nowText + " (raw " + Math.round(currentRaw) + "%)";
-        }else{
-          el.perfNowValue.textContent = nowText;
+      if(shouldUpdateText){
+        if(el.perfNowValue){
+          const nowText = formatPerfPct(current);
+          if(isFinite(currentRaw) && isFinite(current) && Math.abs(currentRaw - current) >= 8){
+            el.perfNowValue.textContent = nowText + " (raw " + Math.round(currentRaw) + "%)";
+          }else{
+            el.perfNowValue.textContent = nowText;
+          }
         }
-      }
-      if(el.perfMinValue) el.perfMinValue.textContent = formatPerfPct(min);
-      if(el.perfMaxValue) el.perfMaxValue.textContent = formatPerfPct(max);
-      if(el.perfAvgValue) el.perfAvgValue.textContent = formatPerfPct(avg);
-      if(el.perfCpuNow) el.perfCpuNow.textContent = (lastPerfCpuUs != null && isFinite(Number(lastPerfCpuUs))) ? (Math.round(Number(lastPerfCpuUs)) + " us") : "-- us";
-      if(el.perfLoopNow) el.perfLoopNow.textContent = (lastPerfLoopUs != null && isFinite(Number(lastPerfLoopUs))) ? (Math.round(Number(lastPerfLoopUs)) + " us") : "-- us";
-      if(el.perfStateValue) el.perfStateValue.textContent = getPerfStateLabel(current);
-      if(el.perfChartNote){
-        el.perfChartNote.textContent = "최근 30초 · CPU/LOOP 점유율 (EMA)";
+        if(el.perfMinValue) el.perfMinValue.textContent = formatPerfPct(min);
+        if(el.perfMaxValue) el.perfMaxValue.textContent = formatPerfPct(max);
+        if(el.perfAvgValue) el.perfAvgValue.textContent = formatPerfPct(avg);
+        if(el.perfCpuNow) el.perfCpuNow.textContent = (lastPerfCpuUs != null && isFinite(Number(lastPerfCpuUs))) ? (Math.round(Number(lastPerfCpuUs)) + " us") : "-- us";
+        if(el.perfLoopNow) el.perfLoopNow.textContent = (lastPerfLoopUs != null && isFinite(Number(lastPerfLoopUs))) ? (Math.round(Number(lastPerfLoopUs)) + " us") : "-- us";
+        if(el.perfStateValue) el.perfStateValue.textContent = getPerfStateLabel(current);
+        if(el.perfChartNote){
+          el.perfChartNote.textContent = "최근 30초 · CPU/LOOP 점유율 (EMA)";
+        }
       }
       drawChart(
         "perfChart",
@@ -17707,11 +17793,12 @@ window.FLASH6_I18N = {
     function showPerfModal(){
       hideMobileControlsPanel();
       setOverlayVisible(el.perfOverlay, true);
+      perfModalLastRenderMs = 0;
       if(el.perfChart){
         el.perfChart._cssW = null;
         el.perfChart._cssH = null;
       }
-      renderPerfModal();
+      renderPerfModal(true);
     }
     function hidePerfModal(){
       setOverlayVisible(el.perfOverlay, false);
@@ -20128,6 +20215,13 @@ window.FLASH6_I18N = {
       el.wifiConnectNextBtn = document.getElementById("wifiConnectNextBtn");
       el.wifiConnectCancelBtn = document.getElementById("wifiConnectCancelBtn");
       el.wifiConnectCloseBtn = document.getElementById("wifiConnectCloseBtn");
+      el.serialConnectOverlay = document.getElementById("serialConnectOverlay");
+      el.serialConnectTitle = document.getElementById("serialConnectTitle");
+      el.serialConnectDesc = document.getElementById("serialConnectDesc");
+      el.serialConnectHint = document.getElementById("serialConnectHint");
+      el.serialConnectSpinner = document.getElementById("serialConnectSpinner");
+      el.serialConnectNextBtn = document.getElementById("serialConnectNextBtn");
+      el.serialConnectCancelBtn = document.getElementById("serialConnectCancelBtn");
       el.easterOverlay = document.getElementById("easterOverlay");
       el.easterEggOk = document.getElementById("easterEggOk");
 
@@ -20771,6 +20865,27 @@ window.FLASH6_I18N = {
         el.wifiConnectOverlay.addEventListener("click",(ev)=>{
           if(ev.target === el.wifiConnectOverlay){
             closeWifiConnectWizard();
+          }
+        });
+      }
+      if(el.serialConnectNextBtn){
+        el.serialConnectNextBtn.addEventListener("click", async ()=>{
+          if(serialConnectStage === "success"){
+            closeSerialConnectWizard();
+            return;
+          }
+          await startSerialConnectFromWizard();
+        });
+      }
+      if(el.serialConnectCancelBtn){
+        el.serialConnectCancelBtn.addEventListener("click", ()=>{
+          closeSerialConnectWizard();
+        });
+      }
+      if(el.serialConnectOverlay){
+        el.serialConnectOverlay.addEventListener("click",(ev)=>{
+          if(ev.target === el.serialConnectOverlay){
+            closeSerialConnectWizard();
           }
         });
       }
