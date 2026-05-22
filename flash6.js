@@ -7534,13 +7534,21 @@ window.FLASH6_I18N = {
       return raw;
     }
 
-    function getToastIconPath(type){
+    function getToastIconSvg(type){
       const tType = normalizeToastType(type);
-      if(tType==="success") return "img/Tick.svg";
-      if(tType==="warn") return "img/Danger.svg";
-      if(tType==="error") return "img/Danger.svg";
-      if(tType==="ignite") return "img/Graph.svg";
-      return "img/Activity.svg";
+      if(tType === "success"){
+        return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.2 4.2L19 7.8"/></svg>';
+      }
+      if(tType === "warn"){
+        return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4.8l7.5 13h-15z"/><path d="M12 9.2v4.9"/><circle cx="12" cy="16.8" r="1"/></svg>';
+      }
+      if(tType === "error"){
+        return '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M9.2 9.2l5.6 5.6M14.8 9.2l-5.6 5.6"/></svg>';
+      }
+      if(tType === "ignite"){
+        return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12.4 3.8c.9 2-.1 3.1-1.1 4.3-1.1 1.3-2.2 2.6-2.2 4.8 0 2.4 1.9 4.3 4.3 4.3s4.3-1.9 4.3-4.3c0-2.6-1.8-4.1-3-5.2-.8-.7-1.5-1.3-2.3-3.9z"/><path d="M11.1 14.8c.4.9 1 1.4 2 1.7"/></svg>';
+      }
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 8.6v4.7"/><circle cx="12" cy="16.6" r="1"/></svg>';
     }
 
     function dismissToast(toast){
@@ -7682,8 +7690,6 @@ window.FLASH6_I18N = {
 
       if(existingToast){
         existingToast.className = "toast toast-" + toastType;
-        const img = existingToast.querySelector(".toast-icon img");
-        if(img) img.src = getToastIconPath(toastType);
         const titleDiv = existingToast.querySelector(".toast-title");
         if(titleDiv) titleDiv.textContent = titleText;
         const textDiv = existingToast.querySelector(".toast-text");
@@ -7707,12 +7713,6 @@ window.FLASH6_I18N = {
       if(key) toast.dataset.key = key;
       if(sticky) toast.dataset.sticky = "1";
 
-      const iconDiv = document.createElement("div");
-      iconDiv.className = "toast-icon";
-      const img = document.createElement("img");
-      img.src = getToastIconPath(toastType);
-      img.alt = "";
-      iconDiv.appendChild(img);
 
       const bodyDiv = document.createElement("div");
       bodyDiv.className = "toast-body";
@@ -7729,7 +7729,6 @@ window.FLASH6_I18N = {
       bodyDiv.appendChild(titleDiv);
       bodyDiv.appendChild(textDiv);
 
-      toast.appendChild(iconDiv);
       toast.appendChild(bodyDiv);
 
       const closeBtn = document.createElement("button");
@@ -22715,6 +22714,33 @@ window.FLASH6_I18N = {
         await sendCommand({http:"/pyro_test?ch=" + ch + "&ms=" + durMs, ser:"PYRO " + ch + " " + durMs}, true);
         addLogLine("Hardware PYRO CH" + ch + " → ON " + durMs + "ms", "CMD");
       };
+      const forceHardwarePyroRowLayout = ()=>{
+        try{
+          const ch1 = el.hardwarePyroFireCh1Btn || document.getElementById("hardwarePyroFireCh1Btn");
+          if(!ch1) return;
+          const wrap = ch1.parentElement;
+          if(!wrap) return;
+          wrap.classList.add("hardware-action-wrap", "hardware-action-wrap-pyro");
+          wrap.style.display = "grid";
+          wrap.style.gridTemplateColumns = "repeat(4,minmax(0,1fr))";
+          wrap.style.gap = "8px";
+          wrap.style.alignItems = "stretch";
+          wrap.style.justifyContent = "stretch";
+          const input = el.hardwarePyroDurationInput || document.getElementById("hardwarePyroDurationInput");
+          if(input){
+            input.style.gridColumn = "1 / -1";
+            input.style.width = "100%";
+          }
+          [el.hardwarePyroFireCh1Btn, el.hardwarePyroFireCh2Btn, el.hardwarePyroFireCh3Btn, el.hardwarePyroFireCh4Btn].forEach(btn=>{
+            if(!btn) return;
+            btn.style.gridColumn = "auto";
+            btn.style.width = "100%";
+            btn.style.minWidth = "0";
+          });
+        }catch(_e){}
+      };
+      forceHardwarePyroRowLayout();
+      window.addEventListener("resize", forceHardwarePyroRowLayout);
       if(el.hardwarePyroFireCh1Btn){
         el.hardwarePyroFireCh1Btn.addEventListener("click", async ()=>{ await runHardwarePyroTest(1); });
       }
@@ -22727,6 +22753,14 @@ window.FLASH6_I18N = {
       if(el.hardwarePyroFireCh4Btn){
         el.hardwarePyroFireCh4Btn.addEventListener("click", async ()=>{ await runHardwarePyroTest(4); });
       }
+      document.querySelectorAll("[data-pyro-ms]").forEach(btn=>{
+        btn.addEventListener("click", ()=>{
+          if(!el.hardwarePyroDurationInput) return;
+          const ms = Math.round(Number(btn.getAttribute("data-pyro-ms") || 0));
+          if(!isFinite(ms) || ms <= 0) return;
+          el.hardwarePyroDurationInput.value = String(ms);
+        });
+      });
       if(el.loadcellCalOpen) el.loadcellCalOpen.addEventListener("click",()=>showLoadcellModal());
       if(el.loadcellResetBtn) el.loadcellResetBtn.addEventListener("click",()=>resetLoadcellCalibration());
       if(el.loadcellClose) el.loadcellClose.addEventListener("click",()=>hideLoadcellModal());
