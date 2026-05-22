@@ -2125,7 +2125,23 @@
       .gyro-stage{flex-direction:column;align-items:stretch}
       .gyro-left,.gyro-right{width:100%}
       .mode-flight .status-gyro{display:none}
-      .mode-flight .main-card.status-card.status-map-only .status-map-layout{grid-template-columns:1fr}
+      .mode-flight .main-card.status-card.status-map-only .status-map-layout{
+        display:block !important;
+        grid-template-columns:1fr !important;
+        grid-template-areas:"map" !important;
+      }
+      .mode-flight .main-card.status-card.status-map-only .status-map-panel{display:none !important}
+      .mode-flight .main-card.status-card.status-map-only .status-flight-preview{
+        display:flex !important;
+        width:100% !important;
+        min-height:260px !important;
+        height:260px !important;
+        align-items:stretch !important;
+      }
+      .mode-flight .main-card.status-card.status-map-only .status-flight-preview .status-gyro-canvas{
+        width:100% !important;
+        height:100% !important;
+      }
     }
     .gyro-canvas{
       width:240px;
@@ -4261,16 +4277,44 @@
       border-top:1px solid rgba(229,231,235,0.9);
     }
     .hardware-servo-dialog{
-      width:min(920px, 96vw);
-      max-width:min(920px, 96vw);
+      width:min(980px, 96vw);
+      max-width:min(980px, 96vw);
       height:auto;
-      max-height:min(92vh, 760px);
-      padding:16px 18px;
+      max-height:min(92vh, 780px);
+      padding:16px 18px 18px;
+      border-radius:16px;
+      border:1px solid rgba(148,163,184,0.3);
+      background:
+        radial-gradient(120% 100% at 0% 0%, rgba(191,219,254,0.22), transparent 60%),
+        linear-gradient(180deg,#f8fafc 0%,#eef2f7 100%);
+      box-shadow:0 18px 40px rgba(15,23,42,0.2);
+    }
+    .hardware-servo-dialog .settings-header{
+      min-height:62px;
+      padding:2px 4px 12px;
+      border-bottom:1px solid rgba(203,213,225,0.78);
+      margin-bottom:12px;
+    }
+    .hardware-servo-dialog .settings-title{
+      letter-spacing:.09em;
+      font-size:14px;
+      font-weight:800;
+      color:#1e293b;
+    }
+    .hardware-servo-dialog .settings-close-btn{
+      width:38px;
+      height:38px;
+      border-radius:10px;
+      border:1px solid rgba(148,163,184,0.52);
+      background:#ffffff;
+      color:#334155;
+      font-size:22px;
+      line-height:1;
     }
     .hardware-servo-dialog-body{
       min-height:0;
       overflow-y:auto;
-      padding-right:2px;
+      padding-right:4px;
     }
     .hardware-servo-dialog .hardware-servo-group{
       margin-top:0;
@@ -4284,12 +4328,13 @@
       gap:10px;
     }
     .hardware-servo-row{
-      border:1px solid rgba(148,163,184,0.35);
+      border:1px solid rgba(148,163,184,0.34);
       border-radius:12px;
-      background:#f8fafc;
-      padding:10px 12px;
+      background:rgba(255,255,255,0.96);
+      padding:12px 12px 12px;
       display:grid;
-      gap:8px;
+      gap:9px;
+      box-shadow:0 3px 10px rgba(15,23,42,0.06);
     }
     .hardware-servo-head{
       display:flex;
@@ -4301,6 +4346,8 @@
       font-size:11px;
       color:#64748b;
       white-space:nowrap;
+      font-weight:700;
+      letter-spacing:.03em;
     }
     .hardware-servo-slider{
       -webkit-appearance:none;
@@ -4308,37 +4355,37 @@
       width:100%;
       height:8px;
       border-radius:999px;
-      border:1px solid rgba(148,163,184,0.4);
-      background:linear-gradient(90deg, rgba(59,130,246,0.18), rgba(30,64,175,0.2));
+      border:1px solid rgba(148,163,184,0.3);
+      background:linear-gradient(90deg, rgba(148,163,184,0.24), rgba(59,130,246,0.3));
       outline:none;
     }
     .hardware-servo-slider::-webkit-slider-thumb{
       -webkit-appearance:none;
       appearance:none;
-      width:17px;
-      height:17px;
+      width:18px;
+      height:18px;
       border-radius:50%;
       background:#2563eb;
       border:2px solid #ffffff;
-      box-shadow:0 2px 8px rgba(15,23,42,0.22);
+      box-shadow:0 2px 7px rgba(15,23,42,0.22);
     }
     .hardware-servo-slider::-moz-range-thumb{
-      width:17px;
-      height:17px;
+      width:18px;
+      height:18px;
       border-radius:50%;
       background:#2563eb;
       border:2px solid #ffffff;
-      box-shadow:0 2px 8px rgba(15,23,42,0.22);
+      box-shadow:0 2px 7px rgba(15,23,42,0.22);
     }
     .hardware-servo-actions{
       display:flex;
       justify-content:flex-end;
-      gap:8px;
+      gap:6px;
     }
     .hardware-servo-presets{
       display:grid;
       grid-template-columns:repeat(2, minmax(0, 1fr));
-      gap:8px;
+      gap:6px;
       margin-top:2px;
     }
     .hardware-servo-preset{
@@ -4353,8 +4400,8 @@
       min-width:0;
       padding:7px 8px;
       font-size:12px;
-      border-radius:10px;
-      border:1px solid rgba(148,163,184,0.9);
+      border-radius:8px;
+      border:1px solid rgba(148,163,184,0.7);
       background:#ffffff;
       color:#0f172a;
       text-align:center;
@@ -4367,13 +4414,18 @@
     .hardware-servo-preset-btn{
       padding:7px 10px;
       font-size:11px;
-      border-radius:10px;
-      border:1px solid rgba(148,163,184,0.75);
+      border-radius:8px;
+      border:1px solid rgba(148,163,184,0.66);
       background:#ffffff;
       color:#1f2937;
       font-weight:700;
       letter-spacing:.03em;
       white-space:nowrap;
+    }
+    .hardware-servo-preset-btn:hover{
+      border-color:rgba(99,102,241,0.68);
+      color:#1e3a8a;
+      background:#f8fafc;
     }
     html[data-theme="dark"] .hardware-servo-group{
       border-top-color:rgba(71,85,105,0.8);
@@ -4415,13 +4467,17 @@
         width:min(100%, 440px);
         max-width:calc(100vw - 28px);
         max-height:calc(100dvh - max(20px, env(safe-area-inset-top, 10px) + env(safe-area-inset-bottom, 10px)));
-        padding:14px;
+        padding:14px 12px;
       }
       .hardware-servo-grid{
         grid-template-columns:1fr;
       }
       .hardware-servo-presets{
         grid-template-columns:1fr;
+      }
+      .hardware-servo-dialog .settings-header{
+        min-height:58px;
+        padding:0 2px 10px;
       }
     }
     .tetris-overlay{
@@ -4472,21 +4528,25 @@
     @keyframes toastIn{to{opacity:1;transform:translateY(0)}}
     @keyframes toastOut{to{opacity:0;transform:translateY(-8px)}}
     .toast-icon{
-      width:36px;height:36px;border-radius:999px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
-      position:relative;
-      background:var(--toast-icon-bg, #111827);
-      border:1px solid rgba(255,255,255,0.08);
-      box-shadow:0 8px 18px rgba(0,0,0,0.35);
+      display:none !important;
+      width:0 !important;
+      height:0 !important;
+      min-width:0 !important;
+      min-height:0 !important;
+      margin:0 !important;
+      padding:0 !important;
+      overflow:hidden !important;
     }
     .toast-icon::after{
-      content:"";
-      position:absolute;inset:-8px;border-radius:999px;
-      background:var(--toast-glow, rgba(148,163,184,0.18));
-      filter:blur(6px);
-      opacity:0.6;
-      pointer-events:none;
+      content:none;
     }
-    .toast-icon img{width:18px;height:18px;display:block;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.22))}
+    .toast-icon img{
+      width:28px;
+      height:28px;
+      display:block;
+      filter:grayscale(12%) contrast(0.72) brightness(1.06);
+      opacity:0.68;
+    }
     .toast-body{
       flex:1;min-width:0;
       display:flex;flex-direction:column;gap:6px;
@@ -4551,7 +4611,7 @@
     @media(max-width:600px){
       .toast-container{bottom:calc(108px + env(safe-area-inset-bottom, 0px));left:12px;right:12px}
       .toast{width:100%;max-width:calc(100vw - 24px)}
-      .toast-icon{display:none}
+      .toast-icon{display:none !important}
       #controlsCard.controls-mobile-hidden{display:none}
     }
 
@@ -4820,15 +4880,15 @@
       color:#ffffff;
     }
     .confirm-icon span{
-      font-size:36px;font-weight:900;color:currentColor;line-height:1;
+      font-size:46px;font-weight:900;color:currentColor;line-height:1;
       text-shadow:0 1px 2px rgba(15,23,42,0.35)
     }
     .confirm-icon img{
-      width:34px;height:34px;display:block;
+      width:46px;height:46px;display:block;
       filter:brightness(0) invert(1);
     }
     .confirm-icon svg{
-      width:36px;height:36px;display:block;
+      width:46px;height:46px;display:block;
       stroke:currentColor;fill:none;stroke-width:2;
       stroke-linecap:round;stroke-linejoin:round;
     }
@@ -4990,10 +5050,11 @@
       display:none;
     }
     .warning-fullscreen .confirm-icon{
-      width:72px;height:72px;border-radius:22px;
+      width:auto;height:auto;border-radius:0;
+      background:none !important;border:none !important;box-shadow:none !important;
     }
     .warning-fullscreen .confirm-icon svg{
-      width:28px;height:28px;stroke-width:1.8;
+      width:52px;height:52px;stroke-width:1.9;
     }
     .warning-fullscreen .confirm-title,
     .warning-fullscreen .ws-alert-title{
@@ -7476,7 +7537,7 @@
         justify-content:flex-start;
         gap:12px;
         min-height:0;
-        max-height:min(58dvh, 435px);
+        max-height:calc(100dvh - 24px);
         transform:translateY(calc(100% + 20px));
         transition:transform .32s cubic-bezier(0.22,0.61,0.36,1),opacity .28s ease;
         opacity:0;
@@ -7535,14 +7596,20 @@
         display:grid;
         grid-template-columns:repeat(4,minmax(0,1fr));
         align-items:stretch;
-        gap:8px;
+        gap:12px 10px;
         margin:0 0 8px;
-        padding-right:2px;
+        width:100%;
+        padding-right:0;
+        padding-left:4px;
+        padding-right:4px;
+        box-sizing:border-box;
       }
       .mobile-top-action-btn{
         min-width:0;
-        min-height:48px;
+        min-height:56px;
         height:100%;
+        width:92%;
+        justify-self:center;
         border-radius:12px;
         border:1px solid rgba(148,163,184,0.46);
         background:#ffffff;
@@ -7554,8 +7621,10 @@
       }
       .mobile-controls-top-actions .mobile-top-action-sequence.primary-btn.sequence-btn{
         grid-column:span 3;
-        min-height:48px;
+        min-height:56px;
         height:100%;
+        width:92%;
+        justify-self:center;
         border-radius:12px;
         padding:8px 12px;
       }
@@ -7629,16 +7698,20 @@
       .mobile-controls-slot{
         display:grid;
         grid-template-columns:repeat(4,minmax(0,1fr));
-        gap:10px 8px;
+        gap:6px;
+        row-gap:24px;
         flex:1 1 auto;
         min-height:0;
         width:100%;
         max-height:none;
         overflow-y:auto;
         overflow-x:hidden;
-        padding-right:2px;
+        padding-right:0;
+        padding-left:4px;
+        padding-right:4px;
         grid-auto-flow:row dense;
         align-content:start;
+        box-sizing:border-box;
       }
       .mobile-controls-slot .control-tile:first-of-type{
         grid-column:auto;
@@ -7650,8 +7723,8 @@
         color:#334155;
         min-width:0;
         width:100%;
-        gap:6px;
-        align-items:flex-start;
+        gap:8px;
+        align-items:center;
         justify-content:flex-start;
         padding:0;
         border-radius:0;
@@ -7660,71 +7733,86 @@
       .mobile-controls-toolbar{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 8px}
       .mobile-controls-toolbar-top{
         margin:0;
+        padding:4px 0 10px;
+        border-bottom:1px solid rgba(203,213,225,0.72);
       }
       .mobile-toolbar-btn{
         min-width:0;
-        min-height:0;
-        border:none;
-        background:transparent;
+        width:100%;
+        height:46px;
+        border:1px solid rgba(203,213,225,0.9);
+        background:#ffffff;
         color:#334155;
         padding:0;
-        border-radius:0;
+        border-radius:12px;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        box-shadow:none;
       }
       .mobile-controls-panel .mobile-quick-btn{
         display:flex;
         flex-direction:column;
         align-items:center;
         justify-content:center;
-        gap:6px;
+        gap:0;
         text-align:center;
         cursor:pointer;
         border-radius:12px;
+        min-height:0;
+        aspect-ratio:1 / 1;
+        padding:4px 1px;
+        width:78%;
+        max-width:84px;
+        justify-self:center;
+        border:1px solid rgba(148,163,184,0.46);
+        background:#ffffff;
+        box-sizing:border-box;
+        position:relative;
+        overflow:visible;
       }
       .mobile-controls-panel .mobile-quick-icon{
-        width:48px;
-        height:48px;
+        width:34px;
+        height:34px;
         border-radius:12px;
-        border:1px solid rgba(148,163,184,0.34);
-        background:#f8fafc;
+        border:none;
+        background:transparent;
         display:inline-flex;
         align-items:center;
         justify-content:center;
-        box-shadow:0 6px 14px rgba(15,23,42,0.12), inset 0 1px 0 rgba(255,255,255,0.92);
+        box-shadow:none;
       }
       .mobile-controls-panel .mobile-quick-icon.tone-gray{
-        border-color:rgba(148,163,184,0.34);
-        background:#f8fafc;
+        border-color:rgba(148,163,184,0.48);
+        background:#ffffff;
       }
       .mobile-controls-panel .mobile-quick-icon.tone-gray svg{
         stroke:#334155;
       }
       .mobile-controls-panel .mobile-quick-icon.tone-green{
-        border-color:rgba(74,222,128,0.5);
-        background:rgba(22,163,74,0.26);
-        box-shadow:0 0 0 1px rgba(74,222,128,0.24), inset 0 1px 0 rgba(255,255,255,0.1);
+        border-color:rgba(148,163,184,0.48);
+        background:#ffffff;
       }
       .mobile-controls-panel .mobile-quick-icon.tone-green svg{
-        stroke:#166534;
+        stroke:#334155;
       }
       .mobile-controls-panel .mobile-quick-icon.tone-red{
-        border-color:rgba(248,113,113,0.52);
-        background:rgba(220,38,38,0.3);
-        box-shadow:0 0 0 1px rgba(248,113,113,0.26), inset 0 1px 0 rgba(255,255,255,0.1);
+        border-color:rgba(148,163,184,0.48);
+        background:#ffffff;
       }
       .mobile-controls-panel .mobile-quick-icon.tone-red svg{
-        stroke:#991b1b;
+        stroke:#334155;
       }
       .mobile-controls-panel .mobile-quick-icon.tone-blue{
-        border-color:rgba(96,165,250,0.55);
-        background:rgba(30,64,175,0.3);
-        box-shadow:0 0 0 1px rgba(96,165,250,0.24), inset 0 1px 0 rgba(255,255,255,0.1);
+        border-color:rgba(148,163,184,0.48);
+        background:#ffffff;
       }
       .mobile-controls-panel .mobile-quick-icon.tone-blue svg{
-        stroke:#dbeafe;
+        stroke:#334155;
       }
       .mobile-controls-panel .mobile-quick-icon svg{
-        width:24px;
-        height:24px;
+        width:23px;
+        height:23px;
         stroke:#334155;
         fill:none;
         stroke-width:1.9;
@@ -7732,10 +7820,10 @@
         stroke-linejoin:round;
       }
       .mobile-controls-panel [data-mobile-control="launcher"] .mobile-quick-icon{
-        border-radius:12px;
-        border-color:rgba(148,163,184,0.34);
-        background:#f8fafc;
-        box-shadow:0 6px 14px rgba(15,23,42,0.12), inset 0 1px 0 rgba(255,255,255,0.92);
+        border-radius:10px;
+        border-color:rgba(148,163,184,0.48);
+        background:#ffffff;
+        box-shadow:none;
       }
       .mobile-controls-panel [data-mobile-control="launcher"] .mobile-quick-icon svg{
         stroke:#334155;
@@ -7754,13 +7842,21 @@
       }
       .mobile-controls-panel .mobile-quick-label{
         font-size:10px;
-        font-weight:600;
+        font-weight:700;
         color:#334155;
         line-height:1.2;
-        min-height:22px;
+        min-height:0;
         letter-spacing:0;
         white-space:normal;
         word-break:keep-all;
+        display:block;
+        position:absolute;
+        left:50%;
+        bottom:-18px;
+        transform:translateX(-50%);
+        width:100%;
+        text-align:center;
+        pointer-events:none;
       }
       .mobile-controls-panel .mobile-quick-state{
         display:none !important;
@@ -9447,9 +9543,8 @@
     .lockout-close{position:absolute;right:12px;top:12px;color:#94a3b8;}
     .lockout-close:hover{background:rgba(148,163,184,0.22);color:#0f172a;}
     .lockout-dialog .confirm-icon{
-      width:64px;height:64px;border-radius:20px;margin-top:8px;
-      background:radial-gradient(circle at 30% 20%,#ff7a7a,#ef4444);
-      box-shadow:0 8px 18px rgba(239,68,68,0.24),0 0 0 8px rgba(248,113,113,0.12);
+      width:auto;height:auto;border-radius:0;margin-top:8px;
+      background:none !important;border:none !important;box-shadow:none !important;
     }
     .lockout-dialog .confirm-title{letter-spacing:.08em}
     .lockout-dialog .confirm-text{color:#475569}
@@ -12177,64 +12272,367 @@
       box-shadow:0 18px 30px rgba(61,102,234,0.4);
     }
 
-    @media(max-width:760px){
-      #hardwareView .hardware-card{padding:14px 12px}
-      #hardwareView .settings-row{
-        flex-direction:column !important;
-        align-items:stretch !important;
-        gap:10px !important;
+    #hardwareView .hardware-card{padding:14px 12px}
+    #hardwareView .settings-row{
+      flex-direction:column !important;
+      align-items:stretch !important;
+      gap:10px !important;
+    }
+    #hardwareView .settings-row > div{
+      flex:0 0 auto !important;
+      width:100% !important;
+      min-width:0 !important;
+    }
+    #hardwareView .hardware-row-block{
+      margin-top:12px !important;
+      padding-top:12px !important;
+    }
+    #hardwareView .settings-btn,
+    #hardwareView .settings-number{
+      background:#ffffff !important;
+      color:#334155 !important;
+      border:1px solid rgba(148,163,184,0.72) !important;
+      box-shadow:none !important;
+      border-radius:12px !important;
+    }
+    #hardwareView .settings-btn{
+      min-height:42px !important;
+      padding:9px 12px !important;
+      font-size:14px !important;
+    }
+    #hardwareView .settings-number{
+      min-height:42px !important;
+      width:100% !important;
+      text-align:center !important;
+    }
+    #hardwareView #hardwareServoOpenBtn,
+    #hardwareView #swUpdateBtn{width:100% !important}
+    #hardwareView .hardware-action-wrap{
+      width:100% !important;
+      gap:8px !important;
+      justify-content:stretch !important;
+    }
+    #hardwareView .hardware-action-wrap-pyro{
+      display:grid !important;
+      grid-template-columns:repeat(4,minmax(0,1fr)) !important;
+      align-items:stretch !important;
+    }
+    #hardwareView #hardwarePyroDurationInput{grid-column:1 / -1 !important}
+    #hardwareView #hardwarePyroFireCh1Btn,
+    #hardwareView #hardwarePyroFireCh2Btn,
+    #hardwareView #hardwarePyroFireCh3Btn,
+    #hardwareView #hardwarePyroFireCh4Btn{width:100% !important}
+    #hardwareView .hardware-action-wrap-flash{
+      display:grid !important;
+      grid-template-columns:1fr !important;
+    }
+    #hardwareView #spiFlashRefreshBtn,
+    #hardwareView #spiFlashInitBtn,
+    #hardwareView #spiFlashDumpBtn{width:100% !important}
+    /* Final hard lock: top row only */
+    .mobile-controls-panel{
+      --mobile-btn-size:84px;
+      --mobile-btn-gap:6px;
+    }
+    .mobile-controls-panel .mobile-controls-top-actions{
+      grid-template-columns:repeat(4,var(--mobile-btn-size)) !important;
+      gap:var(--mobile-btn-gap) !important;
+      width:max-content !important;
+      margin-left:auto !important;
+      margin-right:auto !important;
+      padding:0 !important;
+    }
+    .mobile-controls-panel .mobile-controls-top-actions .mobile-top-action-btn{
+      width:var(--mobile-btn-size) !important;
+      min-width:var(--mobile-btn-size) !important;
+      max-width:var(--mobile-btn-size) !important;
+      height:64px !important;
+      min-height:64px !important;
+      box-sizing:border-box !important;
+    }
+    .mobile-controls-panel .mobile-controls-top-actions .mobile-top-action-sequence.primary-btn.sequence-btn{
+      width:calc(var(--mobile-btn-size) * 3 + var(--mobile-btn-gap) * 2) !important;
+      max-width:calc(var(--mobile-btn-size) * 3 + var(--mobile-btn-gap) * 2) !important;
+      height:64px !important;
+      min-height:64px !important;
+      box-sizing:border-box !important;
+    }
+    html.phone-landscape-layout .mobile-controls-panel{
+      --mobile-btn-size:84px;
+      --mobile-btn-gap:6px;
+    }
+    /* Toast final override: bottom-left black toast, no icon */
+    .toast-container{
+      position:fixed !important;
+      top:auto !important;
+      right:auto !important;
+      left:14px !important;
+      bottom:16px !important;
+      transform:none !important;
+      z-index:320 !important;
+      align-items:flex-start !important;
+    }
+    .toast{
+      width:420px !important;
+      min-width:420px !important;
+      max-width:420px !important;
+      height:86px !important;
+      min-height:86px !important;
+      max-height:86px !important;
+      padding:9px 38px 9px 12px !important;
+      border-radius:10px !important;
+      background:rgba(17,24,39,0.96) !important;
+      border:1px solid rgba(148,163,184,0.22) !important;
+      box-shadow:0 6px 14px rgba(2,6,23,0.28) !important;
+      color:#f8fafc !important;
+      gap:0 !important;
+      align-items:center !important;
+    }
+    .toast::after{content:none !important}
+    .toast-body{
+      display:flex !important;
+      flex-direction:column !important;
+      align-items:flex-start !important;
+      justify-content:center !important;
+      gap:2px !important;
+      width:100% !important;
+    }
+    .toast-title{
+      display:block !important;
+      font-size:11px !important;
+      font-weight:800 !important;
+      letter-spacing:.05em !important;
+      color:#f8fafc !important;
+      line-height:1.2 !important;
+    }
+    .toast-text{
+      font-size:12px !important;
+      line-height:1.45 !important;
+      font-weight:400 !important;
+      color:#cbd5e1 !important;
+      white-space:normal !important;
+      overflow:visible !important;
+      text-overflow:clip !important;
+      word-break:keep-all !important;
+      padding-right:0 !important;
+    }
+    .toast-close{
+      display:flex !important;
+      position:absolute !important;
+      right:10px !important;
+      top:50% !important;
+      transform:translateY(-50%) !important;
+      width:18px !important;
+      height:18px !important;
+      align-items:center !important;
+      justify-content:center !important;
+      border:none !important;
+      background:transparent !important;
+      color:#94a3b8 !important;
+      font-size:16px !important;
+      line-height:1 !important;
+      padding:0 !important;
+      margin:0 !important;
+      border-radius:0 !important;
+      box-shadow:none !important;
+      cursor:pointer !important;
+    }
+    .toast-close:hover{color:#e2e8f0 !important}
+    .toast-icon{
+      display:none !important;
+      width:0 !important;
+      height:0 !important;
+      min-width:0 !important;
+      min-height:0 !important;
+      margin:0 !important;
+      padding:0 !important;
+      border:none !important;
+      border-radius:0 !important;
+      background:transparent !important;
+      box-shadow:none !important;
+      overflow:hidden !important;
+    }
+    .toast-icon::after{content:none !important}
+    .toast-icon img{display:none !important}
+    .toast-icon svg,
+    .toast-icon svg *{
+      fill:none !important;
+      stroke:#334155 !important;
+      stroke-width:1.45 !important;
+      stroke-linecap:round !important;
+      stroke-linejoin:round !important;
+      vector-effect:non-scaling-stroke;
+    }
+    .toast-icon svg{
+      width:28px !important;
+      height:28px !important;
+      display:block !important;
+      opacity:.95 !important;
+    }
+    .toast-expanded{
+      width:420px !important;
+      min-width:420px !important;
+      max-width:420px !important;
+      height:86px !important;
+      min-height:86px !important;
+      max-height:86px !important;
+      padding:9px 38px 9px 12px !important;
+      border-radius:10px !important;
+      background:rgba(17,24,39,0.96) !important;
+      box-shadow:0 6px 14px rgba(2,6,23,0.28) !important;
+    }
+    .toast-expanded .toast-text{
+      font-size:12px !important;
+      line-height:1.45 !important;
+      font-weight:400 !important;
+      white-space:normal !important;
+      overflow:visible !important;
+      text-overflow:clip !important;
+    }
+
+    /* Global icon simplification (line style) */
+    .side-nav-item svg,
+    .side-nav-action svg,
+    .side-nav-btn svg,
+    .mobile-top-action-btn svg,
+    .mobile-controls-panel .mobile-quick-icon svg,
+    .controls-toolbar-icon svg,
+    .controls-gear-btn svg,
+    .status-compact-clock svg,
+    .status-compact-link svg,
+    .status-compact-settings svg,
+    .replay-dropzone-icon svg,
+    .replay-icon-btn svg,
+    .conn-icon{
+      fill:none !important;
+      stroke:currentColor !important;
+      stroke-width:1.6 !important;
+      stroke-linecap:round !important;
+      stroke-linejoin:round !important;
+      vector-effect:non-scaling-stroke;
+    }
+    @media(min-width:761px){
+      #hardwareView .shell{
+        max-width:760px;
+        margin:0 auto;
       }
-      #hardwareView .settings-row > div{
-        flex:0 0 auto !important;
-        width:100% !important;
-        min-width:0 !important;
+      #hardwareView .hardware-card{
+        max-width:760px;
+        margin:0 auto;
       }
-      #hardwareView .hardware-row-block{
-        margin-top:12px !important;
-        padding-top:12px !important;
+    }
+    @media(max-width:600px){
+      .toast-container{
+        left:12px !important;
+        right:12px !important;
+        bottom:calc(108px + env(safe-area-inset-bottom, 0px)) !important;
       }
-      #hardwareView .settings-btn,
-      #hardwareView .settings-number{
-        background:#ffffff !important;
-        color:#334155 !important;
-        border:1px solid rgba(148,163,184,0.72) !important;
-        box-shadow:none !important;
-        border-radius:12px !important;
+      .toast{
+        width:calc(100vw - 24px) !important;
+        min-width:calc(100vw - 24px) !important;
+        max-width:calc(100vw - 24px) !important;
+        height:86px !important;
+        min-height:86px !important;
+        max-height:86px !important;
       }
-      #hardwareView .settings-btn{
-        min-height:42px !important;
-        padding:9px 12px !important;
-        font-size:14px !important;
+      .toast-icon{display:none !important}
+      .toast-text{font-size:12px !important}
+    }
+  
+    /* Pyro CH buttons hard lock: 1 row x 4 on desktop+mobile */
+    #hardwareView .hardware-action-wrap.hardware-action-wrap-pyro{
+      display:grid !important;
+      grid-template-columns:repeat(4,minmax(0,1fr)) !important;
+      gap:8px !important;
+      align-items:stretch !important;
+    }
+    #hardwareView #hardwarePyroDurationInput{
+      grid-column:1 / -1 !important;
+    }
+    #hardwareView .hardware-pyro-duration-row{
+      grid-column:1 / -1 !important;
+      display:flex;
+      align-items:center;
+      gap:8px;
+      width:100%;
+    }
+    #hardwareView .hardware-pyro-duration-row #hardwarePyroDurationInput{
+      flex:1 1 auto;
+      width:100% !important;
+      min-width:0;
+    }
+    #hardwareView .hardware-pyro-presets{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      flex:0 0 auto;
+    }
+    #hardwareView .hardware-pyro-preset-btn{
+      height:30px;
+      padding:0 10px;
+      border-radius:8px;
+      border:1px solid rgba(148,163,184,0.55);
+      background:#ffffff;
+      color:#334155;
+      font-size:11px;
+      font-weight:700;
+      line-height:1;
+      white-space:nowrap;
+    }
+    #hardwareView .hardware-pyro-preset-btn:hover{
+      border-color:rgba(99,102,241,0.66);
+      color:#1e3a8a;
+      background:#f8fafc;
+    }
+    #hardwareView #hardwarePyroFireCh1Btn,
+    #hardwareView #hardwarePyroFireCh2Btn,
+    #hardwareView #hardwarePyroFireCh3Btn,
+    #hardwareView #hardwarePyroFireCh4Btn{
+      grid-column:auto !important;
+      width:100% !important;
+      min-width:0 !important;
+    }
+    @media (max-width:900px){
+      #hardwareView .hardware-action-wrap.hardware-action-wrap-pyro{
+        grid-template-columns:repeat(4,minmax(0,1fr)) !important;
       }
-      #hardwareView .settings-number{
-        min-height:42px !important;
-        width:100% !important;
-        text-align:center !important;
+      #hardwareView .hardware-pyro-duration-row{
+        flex-wrap:wrap;
       }
-      #hardwareView #hardwareServoOpenBtn,
-      #hardwareView #swUpdateBtn{width:100% !important}
-      #hardwareView .hardware-action-wrap{
-        width:100% !important;
-        gap:8px !important;
-        justify-content:stretch !important;
+      #hardwareView .hardware-pyro-presets{
+        width:100%;
+        justify-content:flex-end;
       }
-      #hardwareView .hardware-action-wrap-pyro{
-        display:grid !important;
-        grid-template-columns:repeat(2,minmax(0,1fr)) !important;
-        align-items:stretch !important;
-      }
-      #hardwareView #hardwarePyroDurationInput{grid-column:1 / -1 !important}
-      #hardwareView #hardwarePyroFireCh1Btn,
-      #hardwareView #hardwarePyroFireCh2Btn,
-      #hardwareView #hardwarePyroFireCh3Btn,
-      #hardwareView #hardwarePyroFireCh4Btn{width:100% !important}
-      #hardwareView .hardware-action-wrap-flash{
-        display:grid !important;
-        grid-template-columns:1fr !important;
-      }
-      #hardwareView #spiFlashRefreshBtn,
-      #hardwareView #spiFlashInitBtn,
-      #hardwareView #spiFlashDumpBtn{width:100% !important}
+    }
+
+    /* Disconnect modal: remove box and keep centered */
+    #disconnectOverlay{
+      display:flex;
+      align-items:center !important;
+      justify-content:center !important;
+    }
+    #disconnectOverlay .disconnect-dialog{
+      background:transparent !important;
+      border:none !important;
+      box-shadow:none !important;
+      backdrop-filter:none !important;
+      -webkit-backdrop-filter:none !important;
+      min-width:0 !important;
+      width:min(92vw, 420px) !important;
+      max-width:min(92vw, 420px) !important;
+      padding:0 !important;
+      margin:0 auto !important;
+      text-align:center !important;
+    }
+    #disconnectOverlay .disconnect-title{
+      margin-top:10px !important;
+      color:#f8fafc !important;
+    }
+    #disconnectOverlay .disconnect-text{
+      color:#cbd5e1 !important;
+    }
+    #disconnectOverlay .disconnect-actions{
+      margin-top:12px !important;
     }
   </style>
 </head>
@@ -12585,7 +12983,7 @@
           <div class="card-header">
             <div class="card-title">HARDWARE</div>
           </div>
-          <div class="hardware-title">Hardware Overview</div>
+          <div class="hardware-title">Hardware Control</div>
           <div class="hardware-desc">서보모터 제어는 버튼으로 모달 창에서 확인/조작할 수 있습니다.</div>
           <div class="settings-row hardware-servo-open-row">
             <div>
@@ -12602,8 +13000,15 @@
               <div class="settings-label">파이로 테스트</div>
               <div class="hint-mini">ON 시간(ms)을 설정한 뒤 점화 신호를 수동 전송합니다.</div>
             </div>
-            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
-              <input id="hardwarePyroDurationInput" type="number" min="10" max="30000" step="10" class="settings-number" value="5000" style="width:120px;">
+            <div class="hardware-action-wrap hardware-action-wrap-pyro">
+              <div class="hardware-pyro-duration-row">
+                <input id="hardwarePyroDurationInput" type="number" min="10" max="30000" step="10" class="settings-number" value="5000">
+                <div class="hardware-pyro-presets">
+                  <button class="hardware-pyro-preset-btn" type="button" data-pyro-ms="500">500</button>
+                  <button class="hardware-pyro-preset-btn" type="button" data-pyro-ms="1000">1000</button>
+                  <button class="hardware-pyro-preset-btn" type="button" data-pyro-ms="2000">2000</button>
+                </div>
+              </div>
               <button id="hardwarePyroFireCh1Btn" class="settings-btn" type="button">CH1 동작</button>
               <button id="hardwarePyroFireCh2Btn" class="settings-btn" type="button">CH2 동작</button>
               <button id="hardwarePyroFireCh3Btn" class="settings-btn" type="button">CH3 동작</button>
