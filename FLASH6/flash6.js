@@ -2973,11 +2973,13 @@ function requestMobileMockup3dMesh(){
         uniform float uAmbient;
         varying vec4 vCol;
         varying float vShade;
+        varying float vLight;
         varying float vDepth;
         void main(){
           vec4 worldPos = uModel * vec4(aPos, 1.0);
           vec3 worldN = normalize((uModel * vec4(aNorm, 0.0)).xyz);
           float lit = max(dot(worldN, normalize(uLightDir)), 0.0);
+          vLight = lit;
           vShade = uAmbient + ((1.0 - uAmbient) * lit);
           vCol = aCol;
           vec4 viewPos = uView * worldPos;
@@ -2988,16 +2990,18 @@ function requestMobileMockup3dMesh(){
         precision mediump float;
         varying vec4 vCol;
         varying float vShade;
+        varying float vLight;
         varying float vDepth;
         uniform vec3 uFogColor;
         uniform float uFogNear;
         uniform float uFogFar;
         uniform float uColorLift;
+        uniform float uSheen;
         uniform float uOpacity;
         void main(){
           float fogT = clamp((uFogFar - vDepth) / max(0.0001, (uFogFar - uFogNear)), 0.0, 1.0);
           vec3 liftedColor = mix(vCol.rgb, vec3(1.0), uColorLift);
-          vec3 lit = liftedColor * vShade;
+          vec3 lit = (liftedColor * vShade) + vec3(pow(vLight, 5.0) * uSheen);
           vec3 outCol = mix(uFogColor, lit, fogT);
           gl_FragColor = vec4(outCol, vCol.a * uOpacity);
         }`;
@@ -3138,6 +3142,7 @@ function requestMobileMockup3dMesh(){
           uFogNear: gl.getUniformLocation(solidProg, "uFogNear"),
           uFogFar: gl.getUniformLocation(solidProg, "uFogFar"),
           uColorLift: gl.getUniformLocation(solidProg, "uColorLift"),
+          uSheen: gl.getUniformLocation(solidProg, "uSheen"),
           uOpacity: gl.getUniformLocation(solidProg, "uOpacity"),
           floorPosBuf: createGyroArrayBuffer(gl, solidGeom.floor.pos, gl.STATIC_DRAW),
           floorNormBuf: createGyroArrayBuffer(gl, solidGeom.floor.norm, gl.STATIC_DRAW),
@@ -4818,6 +4823,7 @@ function requestMobileMockup3dMesh(){
       const fogFar = (style && isFinite(style.fogFar)) ? style.fogFar : 34;
       const ambient = (style && isFinite(style.ambient)) ? style.ambient : 0.34;
       const colorLift = (style && isFinite(style.colorLift)) ? Math.max(0, Math.min(1, style.colorLift)) : 0;
+      const sheen = (style && isFinite(style.sheen)) ? Math.max(0, Math.min(1, style.sheen)) : 0;
       const opacity = (style && isFinite(style.opacity)) ? Math.max(0, Math.min(1, style.opacity)) : 1;
       const lightDir = (style && style.lightDir) ? style.lightDir : [0.34, 0.88, 0.29];
       gl.uniformMatrix4fv(solid.uModel, false, new Float32Array(model));
@@ -4829,6 +4835,7 @@ function requestMobileMockup3dMesh(){
       gl.uniform1f(solid.uFogNear, fogNear);
       gl.uniform1f(solid.uFogFar, fogFar);
       gl.uniform1f(solid.uColorLift, colorLift);
+      gl.uniform1f(solid.uSheen, sheen);
       gl.uniform1f(solid.uOpacity, opacity);
       gl.drawArrays(gl.TRIANGLES, 0, count);
     }
@@ -5054,9 +5061,10 @@ function requestMobileMockup3dMesh(){
       }
       if(inCameraPreview){
         renderStyle.clear = [0.01,0.018,0.03,0.03];
-        renderStyle.ambient = 0.52;
+        renderStyle.ambient = 0.62;
         renderStyle.lightDir = [-0.32,0.88,0.36];
-        renderStyle.colorLift = 0;
+        renderStyle.colorLift = 0.03;
+        renderStyle.sheen = 0.12;
       }
 
       if(!inExpanded){
