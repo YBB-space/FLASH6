@@ -5712,6 +5712,11 @@ function requestMobileMockup3dMesh(){
     // ✅ RelaySafe/LOCKOUT
     let relaySafeEnabled = true;
     let safetyModeEnabled = false;
+    const BOARD_CONTROL_CONFIRM_TIMEOUT_MS = 3600;
+    const pendingBoardControls = {
+      safety:null,
+      armLock:null
+    };
     let lockoutLatched = false;
     let lockoutRelayMask = 0; // bit0=rly1, bit1=rly2
     let lastLockoutToastMs = 0;
@@ -5963,7 +5968,7 @@ function requestMobileMockup3dMesh(){
     const SERVO_SERIAL_REPLY_TIMEOUT_MS = 1200;
     const LOADCELL_SERIAL_REPLY_TIMEOUT_MS = 3000;
     const MISSION_SERIAL_REPLY_TIMEOUT_MS = 3200;
-    const GYRO_ZERO_SERIAL_REPLY_TIMEOUT_MS = 1800;
+    const GYRO_ZERO_SERIAL_REPLY_TIMEOUT_MS = 3200;
     const MISSION_SERIAL_CHUNK_B64_SIZE = 128;
     const MISSION_CANVAS_ZOOM_MIN = 0.5;
     const MISSION_CANVAS_ZOOM_MAX = 2.0;
@@ -9356,6 +9361,101 @@ function requestMobileMockup3dMesh(){
       pillEl.classList.toggle("is-off", !checked);
     }
 
+    function boardControlUi(kind){
+      if(kind === "safety"){
+        return {toggle:el.safeModeToggle, pill:el.safeModePill};
+      }
+      return {toggle:el.armLockToggle, pill:el.armLockPill};
+    }
+
+    function syncBoardControlPendingUi(kind){
+      const ui = boardControlUi(kind);
+      const pending = pendingBoardControls[kind];
+      if(ui.pill){
+        ui.pill.classList.toggle("is-pending", !!pending);
+        ui.pill.setAttribute("aria-busy", pending ? "true" : "false");
+      }
+    }
+
+    function clearBoardControlPending(kind, token){
+      const pending = pendingBoardControls[kind];
+      if(!pending || (token && pending !== token)) return null;
+      if(pending.timer) clearTimeout(pending.timer);
+      pending.timer = null;
+      pendingBoardControls[kind] = null;
+      syncBoardControlPendingUi(kind);
+      return pending;
+    }
+
+    function applyBoardControlUiValue(kind, value){
+      const enabled = !!value;
+      const ui = boardControlUi(kind);
+      if(ui.toggle) ui.toggle.checked = enabled;
+      updateTogglePill(ui.pill, enabled);
+      if(kind === "safety"){
+        safetyModeEnabled = enabled;
+        if(uiSettings) uiSettings.safetyMode = enabled;
+        updateMobileDashboardSafetyArmState();
+        setButtonsFromState(currentSt, lockoutLatched, sequenceActive);
+        updateControlAccessUI(currentSt);
+      }else{
+        if(uiSettings) uiSettings.armLock = enabled;
+        updateMobileArmLockWideButton();
+      }
+      if(uiSettings) saveSettings();
+    }
+
+    function rejectBoardControlPending(kind, token, reason){
+      const pending = clearBoardControlPending(kind, token);
+      if(!pending) return;
+      const fallback = pending.lastObserved == null
+        ? pending.previous
+        : pending.lastObserved;
+      applyBoardControlUiValue(kind, fallback);
+      const label = kind === "safety" ? "안전 모드" : "ARM";
+      showToast(label + " 적용 실패: " + (reason || "보드 응답 시간 초과"), "error", {
+        key:"board-control-" + kind,
+        duration:4200
+      });
+    }
+
+    function beginBoardControlPending(kind, expected, previous){
+      clearBoardControlPending(kind);
+      const token = {
+        expected:!!expected,
+        previous:!!previous,
+        lastObserved:null,
+        timer:null
+      };
+      pendingBoardControls[kind] = token;
+      token.timer = setTimeout(()=>{
+        rejectBoardControlPending(kind, token, "실제 상태 확인 시간 초과");
+      }, BOARD_CONTROL_CONFIRM_TIMEOUT_MS);
+      syncBoardControlPendingUi(kind);
+      return token;
+    }
+
+    function reconcileBoardControlTelemetry(kind, rawValue, allowConfirm = true){
+      if(rawValue == null || !Number.isFinite(Number(rawValue))) return rawValue;
+      const incoming = Number(rawValue) !== 0;
+      const pending = pendingBoardControls[kind];
+      if(!pending) return incoming ? 1 : 0;
+      if(!allowConfirm) return pending.expected ? 1 : 0;
+      pending.lastObserved = incoming;
+      if(incoming !== pending.expected){
+        // AIL and USB both have transport latency. Do not let an older 100 Hz
+        // telemetry frame undo the operator's selection while it is in flight.
+        return pending.expected ? 1 : 0;
+      }
+      clearBoardControlPending(kind, pending);
+      const label = kind === "safety" ? "안전 모드" : "ARM ON LOCK";
+      showToast(label + (incoming ? " 켜짐" : " 꺼짐"), incoming ? "info" : "warn", {
+        key:"board-control-" + kind,
+        duration:2600
+      });
+      return incoming ? 1 : 0;
+    }
+
     function createSimState(){
       return {
         st:0,
@@ -9968,8 +10068,8 @@ function requestMobileMockup3dMesh(){
         td: simTd,
         gs: isIgniterCheckEnabled() ? 1 : 0,
         m: 2,
-        sm:0,
-        al:0,
+        sm:safetyModeEnabled ? 1 : 0,
+        al:(uiSettings && uiSettings.armLock) ? 1 : 0,
         ip:1,
         bo:1,
         sr:1,
@@ -20249,7 +20349,7 @@ function requestMobileMockup3dMesh(){
         fw_program:"Altis_Intelligent3_firmware1",
         fw_board:"Altis_Intelligent3_b3",
         fw_protocol:"Flash6-Intelligent-b3",
-        fw_build:"v6 b7"
+        fw_build:"v6 b8"
       };
     }
 
@@ -21640,9 +21740,17 @@ function requestMobileMockup3dMesh(){
       const ic = Number(icRaw);
       const rly = Number(rlyRaw);
       const smRaw = (data.sm != null ? data.sm : (data.safe != null ? data.safe : null));
-      const sm = (smRaw != null) ? Number(smRaw) : null;
+      const sm = reconcileBoardControlTelemetry(
+        "safety",
+        (smRaw != null) ? Number(smRaw) : null,
+        !flashLinkWaitingForRemote
+      );
       const alRaw = (data.al != null ? data.al : (data.arm_lock != null ? data.arm_lock : null));
-      const al = (alRaw != null) ? Number(alRaw) : null;
+      const al = reconcileBoardControlTelemetry(
+        "armLock",
+        (alRaw != null) ? Number(alRaw) : null,
+        !flashLinkWaitingForRemote
+      );
       const spRaw = (data.sp != null ? data.sp : (data.arm_physical != null ? data.arm_physical : null));
       const sp = (spRaw != null) ? Number(spRaw) : null;
       const swKnown = Number.isFinite(sw);
@@ -29405,17 +29513,20 @@ function requestMobileMockup3dMesh(){
       loadcellWarningMode = "";
     }
     async function sendGyroZeroCommand(path){
-      const canSerialTx = !!(serialEnabled && serialConnected && serialTxEnabled && serialWriter);
-      if(canSerialTx){
-        const commandCode = String(path || "").indexOf("reset=1") >= 0 ? 16 : 15;
+      if(serialEnabled){
+        if(!serialConnected || !serialWriter){
+          return {ok:false, reason:"SERIAL_DISCONNECTED"};
+        }
+        if(!serialTxEnabled){
+          return {ok:false, reason:"SERIAL_TX_DISABLED"};
+        }
         const waiter = createSerialAckWaiter((evt)=>{
           if(evt.kind === "err") return true;
           if(evt.kind !== "ack") return false;
           const message = String(evt.message || "").toUpperCase();
-          if(message.indexOf("GYRO_ZERO") === 0) return true;
-          // Compatibility with ground firmware that only acknowledges queueing.
-          return message.indexOf("FLASH_LINK_COMMAND_QUEUED") === 0 &&
-            new RegExp("\\bCODE=" + commandCode + "(?:\\b|$)").test(message);
+          // Direct avionics replies with GYRO_ZERO; a ground node only replies
+          // GYRO_ZERO_REMOTE after the vehicle has really executed the command.
+          return message.indexOf("GYRO_ZERO") === 0;
         }, GYRO_ZERO_SERIAL_REPLY_TIMEOUT_MS);
         try{
           const wrote = await serialWriteLine(path);
@@ -29448,7 +29559,13 @@ function requestMobileMockup3dMesh(){
       return { ok:true, reason:"HTTP" };
     }
     async function sendCalibrationCommand(path, ackPrefix){
-      if(serialEnabled && serialConnected && serialTxEnabled && serialWriter){
+      if(serialEnabled){
+        if(!serialConnected || !serialWriter){
+          return {ok:false, reason:"SERIAL_DISCONNECTED"};
+        }
+        if(!serialTxEnabled){
+          return {ok:false, reason:"SERIAL_TX_DISABLED"};
+        }
         const queuedCode = String(ackPrefix || "").toUpperCase() === "BARO_REFERENCE" ? 20 : null;
         const waiter = createSerialAckWaiter((evt)=>{
           if(evt.kind === "err") return true;
@@ -31548,6 +31665,72 @@ function requestMobileMockup3dMesh(){
       }
     }
 
+    async function sendBoardToggleCommand(kind, enabled){
+      const isSafety = kind === "safety";
+      const param = isSafety ? "safe" : "arm_lock";
+      const commandCode = isSafety ? 1 : 2;
+      const value = enabled ? 1 : 0;
+      const path = "/set?" + param + "=" + value;
+      if(simEnabled){
+        return {ok:true, reason:"SIM"};
+      }
+      if(serialEnabled){
+        if(!serialConnected || !serialWriter){
+          return {ok:false, reason:"SERIAL_DISCONNECTED"};
+        }
+        if(!serialTxEnabled){
+          return {ok:false, reason:"SERIAL_TX_DISABLED"};
+        }
+        const result = await requestSerialCommandAck(
+          path,
+          (evt)=>{
+            const message = String(evt.message || "").toUpperCase();
+            if(message.indexOf("FLASH_LINK_COMMANDS_QUEUED") === 0) return true;
+            if(message.indexOf("FLASH_LINK_STATE") === 0){
+              return new RegExp("\\bCODE=" + commandCode + "(?:\\b|$)").test(message) &&
+                new RegExp("\\bVALUE=" + value + "(?:\\b|$)").test(message);
+            }
+            if(message.indexOf("STREAM=") === 0){
+              const field = isSafety ? "SAFE" : "ARM_LOCK";
+              return new RegExp("\\b" + field + "=" + value + "(?:\\b|$)").test(message);
+            }
+            return false;
+          },
+          {timeoutMs:2200, writeTimeoutMs:1400}
+        );
+        return {
+          ok:!!(result && result.ok),
+          reason:(result && (result.message || result.kind)) || "SERIAL_NO_REPLY"
+        };
+      }
+
+      const API_BASE = getApiBaseForCommands();
+      const controller = createAbortControllerSafe();
+      const timer = controller ? setTimeout(()=>{
+        try{ controller.abort(); }catch(_e){}
+      }, 2400) : null;
+      try{
+        const res = await fetch((API_BASE || "") + path, Object.assign(
+          {cache:"no-cache"},
+          controller ? {signal:controller.signal} : {}
+        ));
+        const body = await res.text().catch(()=>"");
+        return {
+          ok:res.ok,
+          reason:(body && body.trim()) || ("HTTP " + res.status)
+        };
+      }catch(err){
+        return {
+          ok:false,
+          reason:(err && err.name === "AbortError")
+            ? "HTTP_TIMEOUT"
+            : ((err && err.message) || "NETWORK_ERROR")
+        };
+      }finally{
+        if(timer) clearTimeout(timer);
+      }
+    }
+
     function showTerminalHelp(){
       addLogLine("Terminal commands:", "HELP");
       addLogLine("  HTTP paths: /set?... /launcher?dir=up|down|stop /servo?ch=1~5&deg=0~180 /pyro_test?ch=1~2&ms=10~30000 /countdown_start /ignite /force_ignite /abort /sequence_end /precount?uw=0|1&cd=ms", "HELP");
@@ -32890,14 +33073,30 @@ function requestMobileMockup3dMesh(){
       }
 
       if(el.safeModeToggle){
-        el.safeModeToggle.addEventListener("change",()=>{
-          safetyModeEnabled = !!el.safeModeToggle.checked;
-          uiSettings.safetyMode = safetyModeEnabled;
+        el.safeModeToggle.addEventListener("change",async ()=>{
+          const previous = !!safetyModeEnabled;
+          const requested = !!el.safeModeToggle.checked;
+          const pending = beginBoardControlPending("safety", requested, previous);
+          safetyModeEnabled = requested;
+          uiSettings.safetyMode = requested;
           updateTogglePill(el.safeModePill, el.safeModeToggle.checked);
           updateMobileDashboardSafetyArmState();
           saveSettings();
-          sendCommand({http:"/set?safe="+(safetyModeEnabled?1:0), ser:"SAFE "+(safetyModeEnabled?1:0)}, true);
-          if(safetyModeEnabled && currentSt !== 0){
+          setButtonsFromState(currentSt, lockoutLatched, sequenceActive);
+          updateControlAccessUI(currentSt);
+          showToast(
+            requested ? "안전 모드 적용 확인 중" : "안전 모드 해제 확인 중",
+            "info",
+            {key:"safety-mode-toggle", duration:2600}
+          );
+          const result = await sendBoardToggleCommand("safety", requested);
+          if(!result.ok){
+            rejectBoardControlPending("safety", pending, result.reason);
+            return;
+          }
+          if(pendingBoardControls.safety && pendingBoardControls.safety !== pending) return;
+          if(safetyModeEnabled !== requested) return;
+          if(requested && currentSt !== 0){
             if(simEnabled){
               resetSimState();
               resetGyroPathTracking();
@@ -32905,28 +33104,27 @@ function requestMobileMockup3dMesh(){
               sendCommand({http:"/abort", ser:"ABORT"}, true);
             }
           }
-          setButtonsFromState(currentSt, lockoutLatched, sequenceActive);
-          updateControlAccessUI(currentSt);
-          showToast(
-            safetyModeEnabled ? t("safetyModeOnToast") : t("safetyModeOffToast"),
-            safetyModeEnabled ? "info" : "warn",
-          {key:"safety-mode-toggle", keep:true, duration:5000}
-          );
         });
       }
       if(el.armLockToggle){
-        el.armLockToggle.addEventListener("change",()=>{
+        el.armLockToggle.addEventListener("change",async ()=>{
+          const previous = !!uiSettings.armLock;
           const armLockEnabled = !!el.armLockToggle.checked;
+          const pending = beginBoardControlPending("armLock", armLockEnabled, previous);
           uiSettings.armLock = armLockEnabled;
           saveSettings();
           updateTogglePill(el.armLockPill, armLockEnabled);
           updateMobileArmLockWideButton();
-          sendCommand({http:"/set?arm_lock="+(armLockEnabled?1:0), ser:"ARMLOCK "+(armLockEnabled?1:0)}, true);
           showToast(
-            armLockEnabled ? "ARM ON LOCK 켜짐 (스위치 무시)" : "ARM ON LOCK 해제 (스위치 따름)",
-            armLockEnabled ? "warn" : "info",
-            {key:"arm-lock-toggle", keep:true, duration:4500}
+            armLockEnabled ? "ARM ON LOCK 적용 확인 중" : "ARM ON LOCK 해제 확인 중",
+            "info",
+            {key:"arm-lock-toggle", duration:2600}
           );
+          const result = await sendBoardToggleCommand("armLock", armLockEnabled);
+          if(!result.ok){
+            rejectBoardControlPending("armLock", pending, result.reason);
+            return;
+          }
         });
       }
 

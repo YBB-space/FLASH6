@@ -3314,6 +3314,14 @@
       color:#4b5563;
       border-color:rgba(148,163,184,0.5);
     }
+    .pill-toggle.is-pending{
+      cursor:progress;
+      animation:board-control-pending 1s ease-in-out infinite;
+    }
+    @keyframes board-control-pending{
+      0%,100%{opacity:1}
+      50%{opacity:.55}
+    }
     .hidden-input{display:none}
     .pill strong{color:var(--text-main);font-weight:600;margin-right:4px}
     .pill-sep{opacity:.55;margin:0 2px}

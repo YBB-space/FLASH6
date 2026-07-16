@@ -2146,7 +2146,19 @@ void flashLinkHandlePacket(FlashLinkRxSlot& slot) {
       flashLink.lastCommandResult = ack.result;
       const bool commandOk =
         ack.result == static_cast<uint8_t>(FlashLinkCommandResult::Ok);
-      if (ack.code == static_cast<uint8_t>(FlashLinkCommandCode::GyroZero) ||
+      if (ack.code == static_cast<uint8_t>(FlashLinkCommandCode::SetSafety) ||
+          ack.code == static_cast<uint8_t>(FlashLinkCommandCode::SetArmLock)) {
+        if (commandOk) {
+          Serial.printf("ACK FLASH_LINK_STATE code=%u value=%ld\n",
+                        (unsigned)ack.code,
+                        (long)ack.detail);
+        } else {
+          Serial.printf("ERR FLASH_LINK_STATE code=%u result=%s detail=%ld\n",
+                        (unsigned)ack.code,
+                        flashLinkCommandResultName(ack.result),
+                        (long)ack.detail);
+        }
+      } else if (ack.code == static_cast<uint8_t>(FlashLinkCommandCode::GyroZero) ||
           ack.code == static_cast<uint8_t>(FlashLinkCommandCode::GyroZeroReset)) {
         if (commandOk) {
           Serial.printf("ACK GYRO_ZERO_REMOTE detail=%ld\n", (long)ack.detail);

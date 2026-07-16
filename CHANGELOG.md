@@ -3,6 +3,21 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.8.2 — v6 b8 — 2026-07-17
+
+Protocol: `Flash6-Intelligent-b3` (wire version `3`, unchanged)
+
+- Added explicit USB serial completion acknowledgements when remote safety-mode
+  and ARM-lock commands have actually executed on the avionics node.
+- Prevented stale 100 Hz telemetry frames from immediately reverting safety and
+  ARM controls while their USB/AIL commands are still awaiting confirmation.
+- Made the UI restore the last confirmed board value on transport failure or
+  confirmation timeout instead of leaving a false optimistic state.
+- Made gyro zero and intelligent calibration stay on the selected serial
+  transport and report disconnected/TX-disabled states instead of silently
+  falling through to HTTP.
+- Extended gyro-zero acknowledgement time for the ground-to-avionics relay path.
+
 ## 0.8.1 — v6 b7 — 2026-07-17
 
 Protocol: `Flash6-Intelligent-b3` (wire version `3`, unchanged)
