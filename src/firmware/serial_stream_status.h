@@ -193,10 +193,11 @@ void handleSerialLine(const char* line) {
   }
 
   if (cmd == "/rates") {
-    Serial.printf("ACK RATES sample_hz=%lu serial_hz=%lu wifi_hz=%lu record_hz=%lu baro_hz=%lu gps_hz=%lu loadcell_hz=%u\n",
+    Serial.printf("ACK RATES sample_hz=%lu serial_hz=%lu wifi_hz=%lu flash_link_hz=%lu record_hz=%lu baro_hz=%lu gps_hz=%lu loadcell_hz=%u\n",
                   (unsigned long)kImuSampleHz,
                   (unsigned long)kSerialStreamHz,
-                  (unsigned long)kWifiStreamHz,
+                  (unsigned long)activeWifiStreamHz(),
+                  (unsigned long)flashLinkTelemetryHz(),
                   (unsigned long)kStorageRecordHz,
                   (unsigned long)kBaroSampleHz,
                   (unsigned long)kGpsTargetHz,
@@ -205,7 +206,7 @@ void handleSerialLine(const char* line) {
   }
 
   if (cmd == "/settings") {
-    Serial.printf("ACK SETTINGS ign_ms=%lu cd_ms=%lu daq_seq_pyro=%u safe=%u arm_lock=%u inspection=%u mute=%u flash_link_role=%s flash_link_node_id=%u flash_link_target_node_id=%u\n",
+    Serial.printf("ACK SETTINGS ign_ms=%lu cd_ms=%lu daq_seq_pyro=%u safe=%u arm_lock=%u inspection=%u mute=%u flash_link_role=%s flash_link_node_id=%u flash_link_target_node_id=%u flash_link_stage2_mode=%u flash_link_hz=%lu\n",
                   (unsigned long)ignitionDurationMs,
                   (unsigned long)countdownDurationMs,
                   (unsigned)daqSequencePyroChannel,
@@ -215,7 +216,9 @@ void handleSerialLine(const char* line) {
                   buzzerMuted ? 1U : 0U,
                   flashLinkRoleName(),
                   (unsigned)flashLinkNodeId,
-                  (unsigned)flashLinkTargetNodeId);
+                  (unsigned)flashLinkTargetNodeId,
+                  flashLinkStage2Enabled ? 1U : 0U,
+                  (unsigned long)flashLinkTelemetryHz());
     return;
   }
 
@@ -425,6 +428,7 @@ void handleSerialLine(const char* line) {
     const uint8_t oldRole = flashLinkRoleCode();
     const uint8_t oldDataMode = flashLinkDataModeCode();
     const uint8_t oldNodeId = flashLinkNodeId;
+    const bool oldStage2Mode = flashLinkStage2Enabled;
     const bool forwardRemote = flashLinkGroundRole();
     bool remoteRequested = false;
     bool remoteQueued = true;
@@ -432,6 +436,7 @@ void handleSerialLine(const char* line) {
     String requestedRole;
     String requestedDataMode;
     String requestedNodeId;
+    String requestedStage2Mode;
     auto queueRemote = [&](FlashLinkCommandCode code, int32_t value) {
       remoteRequested = true;
       if (!flashLinkQueueCommand(code, value)) remoteQueued = false;
@@ -468,6 +473,8 @@ void handleSerialLine(const char* line) {
         else if (key == "op_mode" || key == "mode") requestedMode = val;
         else if (key == "flash_link_role" || key == "fl_role") requestedRole = val;
         else if (key == "flash_link_node_id" || key == "fl_node") requestedNodeId = val;
+        else if (key == "flash_link_stage2_mode" || key == "fl_stage2_mode" ||
+                 key == "stage2_mode") requestedStage2Mode = val;
         else if (key == "flash_link_data_mode" || key == "fl_data_mode" || key == "data_mode") requestedDataMode = val;
         else if (key == "mute") {
           if (forwardRemote) queueRemote(FlashLinkCommandCode::SetMute, truthy(val) ? 1 : 0);
@@ -506,6 +513,9 @@ void handleSerialLine(const char* line) {
     if (requestedMode.length() > 0) setOperationMode(requestedMode);
     if (requestedRole.length() > 0) setFlashLinkRole(requestedRole);
     if (requestedNodeId.length() > 0) setFlashLinkNodeId(requestedNodeId);
+    if (requestedStage2Mode.length() > 0) {
+      flashLinkSetStage2Mode(truthy(requestedStage2Mode), true);
+    }
     if (requestedDataMode.length() > 0) {
       String normalizedDataMode = requestedDataMode;
       normalizedDataMode.trim();
@@ -526,8 +536,10 @@ void handleSerialLine(const char* line) {
     const bool roleChanged = oldRole != flashLinkRoleCode();
     const bool dataModeChanged = oldDataMode != flashLinkDataModeCode();
     const bool nodeIdChanged = oldNodeId != flashLinkNodeId;
+    const bool stage2ModeChanged = oldStage2Mode != flashLinkStage2Enabled;
     const bool communicationChanged =
-      modeChanged || roleChanged || dataModeChanged || nodeIdChanged;
+      modeChanged || roleChanged || dataModeChanged || nodeIdChanged ||
+      stage2ModeChanged;
     const bool restartRequired =
       modeChanged ||
       dataModeChanged ||
@@ -548,7 +560,7 @@ void handleSerialLine(const char* line) {
           : "ERR FLASH_LINK_COMMAND_QUEUE_FULL");
       return;
     }
-    Serial.printf("ACK STREAM=%u SAFE=%u ARM_LOCK=%u INSPECTION=%u DEV_MODE=%u OP_MODE=%s FLASH_LINK_ROLE=%s FLASH_LINK_NODE=%u FLASH_LINK_TARGET=%u FLASH_LINK_DATA_MODE=%s RESTART=%u MUTE=%u IGN_MS=%lu CD_MS=%lu DAQ_SEQ_PYRO=%u\n",
+    Serial.printf("ACK STREAM=%u SAFE=%u ARM_LOCK=%u INSPECTION=%u DEV_MODE=%u OP_MODE=%s FLASH_LINK_ROLE=%s FLASH_LINK_NODE=%u FLASH_LINK_TARGET=%u FLASH_LINK_STAGE2_MODE=%u FLASH_LINK_HZ=%lu FLASH_LINK_DATA_MODE=%s RESTART=%u MUTE=%u IGN_MS=%lu CD_MS=%lu DAQ_SEQ_PYRO=%u\n",
                   serialStream ? 1U : 0U,
                   safetyMode ? 1U : 0U,
                   armLock ? 1U : 0U,
@@ -558,6 +570,8 @@ void handleSerialLine(const char* line) {
                   flashLinkRoleName(),
                   (unsigned)flashLinkNodeId,
                   (unsigned)flashLinkTargetNodeId,
+                  flashLinkStage2Enabled ? 1U : 0U,
+                  (unsigned long)flashLinkTelemetryHz(),
                   dataOperationModeNameFor(flashLinkDataModeCode()),
                   restartRequired ? 1U : 0U,
                   buzzerMuted ? 1U : 0U,
@@ -1020,10 +1034,11 @@ void sendPeriodicTelemetry() {
   if (flashLinkAvionicsRole() && !serialStream) return;
   const uint32_t nowUs = micros();
   const uint32_t serialPeriodUs = flashLinkGroundRole()
-    ? kFlashLinkTelemetryPeriodUs
+    ? flashLinkTelemetryPeriodUs()
     : kSerialPeriodUs;
+  const uint32_t wsPeriodUs = activeWifiStreamPeriodUs();
   const bool wsDue =
-    !flashLinkAvionicsRole() && (uint32_t)(nowUs - lastWsUs) >= kWsPeriodUs;
+    !flashLinkAvionicsRole() && (uint32_t)(nowUs - lastWsUs) >= wsPeriodUs;
   const bool serialDue =
     serialStream && (uint32_t)(nowUs - lastSerialUs) >= serialPeriodUs;
   const bool wsCanWrite =

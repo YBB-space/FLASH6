@@ -10,12 +10,44 @@ bool flashLinkAvionicsRole() {
   return flashLinkMode && flashLinkRole == FlashLinkRole::Avionics;
 }
 
-bool flashLinkStage1RelayRole() {
+bool flashLinkStage1NodeRole() {
   return flashLinkAvionicsRole() && flashLinkNodeId == kFlashLinkNodeIdStage1;
 }
 
-bool flashLinkStage2LeafRole() {
+bool flashLinkStage2NodeRole() {
   return flashLinkAvionicsRole() && flashLinkNodeId == kFlashLinkNodeIdStage2;
+}
+
+bool flashLinkStage1RelayRole() {
+  return flashLinkStage2Enabled && flashLinkStage1NodeRole();
+}
+
+bool flashLinkStage2LeafRole() {
+  return flashLinkStage2Enabled && flashLinkStage2NodeRole();
+}
+
+uint32_t flashLinkTelemetryHz() {
+  return flashLinkStage2Enabled
+    ? kFlashLinkDualStageTelemetryHz
+    : kFlashLinkSingleStageTelemetryHz;
+}
+
+uint32_t flashLinkTelemetryPeriodUs() {
+  return 1000000UL / flashLinkTelemetryHz();
+}
+
+uint8_t flashLinkAckEveryFrames() {
+  return (uint8_t)max<uint32_t>(1U, flashLinkTelemetryHz() / kFlashLinkAckHz);
+}
+
+uint32_t activeWifiStreamHz() {
+  return flashLinkGroundRole() && !flashLinkStage2Enabled
+    ? kFlashLinkSingleStageTelemetryHz
+    : kWifiStreamHz;
+}
+
+uint32_t activeWifiStreamPeriodUs() {
+  return 1000000UL / activeWifiStreamHz();
 }
 
 uint8_t clampFlashLinkVehicleNodeId(long value) {

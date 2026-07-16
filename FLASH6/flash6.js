@@ -6061,6 +6061,7 @@ function requestMobileMockup3dMesh(){
     let flashLinkUiHasStatus = false;
     let flashLinkUiNodeId = 1;
     let flashLinkUiTargetNodeId = 1;
+    let flashLinkUiStage2Mode = false;
     let flashLinkStage1Connected = false;
     let flashLinkStage2Connected = false;
     let flashLinkStage2Route = "relay";
@@ -6097,9 +6098,9 @@ function requestMobileMockup3dMesh(){
 
     const DISCONNECT_GRACE_MS = 5000;  // 이 시간 동안 샘플이 없으면 끊김 후보
     const FAIL_STREAK_LIMIT   = 20;    // 연속 실패가 이 이상이고, grace도 지났으면 DISCONNECTED
-    const TARGET_STREAM_HZ = 50;
-    const RX_HZ_WARN_THRESHOLD = 35;
-    const RX_HZ_RECOVER_THRESHOLD = 45;
+    function targetStreamHz(){ return flashLinkUiStage2Mode ? 50 : 100; }
+    function rxHzWarnThreshold(){ return flashLinkUiStage2Mode ? 35 : 75; }
+    function rxHzRecoverThreshold(){ return flashLinkUiStage2Mode ? 45 : 90; }
     const DATA_TIMEOUT_ALARM_MS = 4500;
     let lastWsQueueDropCount = 0;
 
@@ -6504,6 +6505,7 @@ function requestMobileMockup3dMesh(){
         flashLinkRole:"avionics",
         flashLinkNodeId:1,
         flashLinkTargetNodeId:1,
+        flashLinkStage2Mode:false,
         flashLinkDataMode:"flight",
         gyroPreview:"3d",
         mobileHudPreview:false,
@@ -6553,6 +6555,7 @@ function requestMobileMockup3dMesh(){
         uiSettings.flashLinkRole = normalizeFlashLinkRole(uiSettings.flashLinkRole);
         uiSettings.flashLinkNodeId = normalizeFlashLinkNodeId(uiSettings.flashLinkNodeId);
         uiSettings.flashLinkTargetNodeId = normalizeFlashLinkNodeId(uiSettings.flashLinkTargetNodeId);
+        uiSettings.flashLinkStage2Mode = uiSettings.flashLinkStage2Mode === true;
         uiSettings.flashLinkDataMode = normalizeDataModeValue(uiSettings.flashLinkDataMode, "flight");
       }
       relaySafeEnabled = !!uiSettings.relaySafe;
@@ -7035,11 +7038,15 @@ function requestMobileMockup3dMesh(){
       if(!el.stageTelemetryDeck) return;
       el.stageTelemetryDeck.classList.toggle("hidden", !stageTelemetryModeActive);
       const motorCard = el.stageTelemetryDeck.closest(".motor-card");
-      if(motorCard) motorCard.classList.toggle("is-dual-stage", stageTelemetryModeActive);
+      if(motorCard) motorCard.classList.toggle(
+        "is-dual-stage",
+        stageTelemetryModeActive && flashLinkUiStage2Mode
+      );
       [1, 2].forEach((stageId)=>{
         const state = stageTelemetryStore[stageId];
         const card = el.stageTelemetryDeck.querySelector('[data-stage-card="' + stageId + '"]');
         if(!card) return;
+        card.classList.toggle("hidden", stageId === 2 && !flashLinkUiStage2Mode);
         card.classList.toggle("is-linked", !!state.connected);
         card.classList.toggle("is-active-hud", cameraHudActiveStageId === stageId);
         const set = (key, value)=>{
@@ -7079,6 +7086,11 @@ function requestMobileMockup3dMesh(){
 
     function updateAutomaticActiveStage(data){
       if(!stageTelemetryModeActive) return;
+      if(!flashLinkUiStage2Mode){
+        cameraHudStageSwitchLatched = false;
+        setAutomaticActiveStage(1, "STAGE 1 ONLY");
+        return;
+      }
       const stage1 = stageTelemetryStore[1];
       const stage2 = stageTelemetryStore[2];
       const boardTargetRaw = Number(data && (data.fl_target ?? data.flash_link_target_node_id));
@@ -7151,7 +7163,7 @@ function requestMobileMockup3dMesh(){
       trimStageTelemetryHistory(state.speedHistory);
       trimStageTelemetryHistory(state.gforceHistory);
 
-      if(stageId === 1){
+      if(stageId === 1 && flashLinkUiStage2Mode){
         const deploymentState = Number(sample.deployment_state) || 0;
         const deploymentFlags = Number(sample.deployment_flags) || 0;
         const primaryServoFailed = (deploymentFlags & (1 << 3)) !== 0;
@@ -7168,12 +7180,16 @@ function requestMobileMockup3dMesh(){
           setAutomaticActiveStage(2, "SEPARATION");
           latchCameraEventState("단분리 · HUD 2단 전환");
         }
+      }else if(stageId === 1){
+        cameraHudStageSwitchLatched = false;
       }
       updateStageTelemetryDashboard();
     }
 
     function ingestStageTelemetryBundle(data, src, isReplaySample){
       if(!data || typeof data !== "object") return;
+      const stage2ModeRaw = data.fl_stage2_mode ?? data.flash_link_stage2_mode;
+      if(stage2ModeRaw != null) flashLinkUiStage2Mode = Number(stage2ModeRaw) !== 0;
       const bundle = Array.isArray(data.stage_telemetry)
         ? data.stage_telemetry
         : (Array.isArray(data.stageTelemetry) ? data.stageTelemetry : []);
@@ -7182,6 +7198,7 @@ function requestMobileMockup3dMesh(){
         bundle.forEach((sample)=>{
           const stageId = resolveTelemetryStageId(sample);
           if(stageId !== 1 && stageId !== 2) return;
+          if(stageId === 2 && !flashLinkUiStage2Mode) return;
           recordStageTelemetrySample(stageId, sample);
           handleMissionAlarmTelemetry(sample, src, isReplaySample, stageId);
         });
@@ -8018,6 +8035,33 @@ function requestMobileMockup3dMesh(){
         el.flashLinkEnabledPill.classList.toggle("is-on", flashLinkEnabled);
         el.flashLinkEnabledPill.classList.toggle("is-off", !flashLinkEnabled);
       }
+      const stage2ModeEnabled = uiSettings.flashLinkStage2Mode === true;
+      if(el.flashLinkStage2ModePill){
+        el.flashLinkStage2ModePill.textContent = stage2ModeEnabled ? "ON" : "OFF";
+        el.flashLinkStage2ModePill.classList.toggle("is-on", stage2ModeEnabled);
+        el.flashLinkStage2ModePill.classList.toggle("is-off", !stage2ModeEnabled);
+        el.flashLinkStage2ModePill.disabled = !flashLinkEnabled;
+      }
+      if(el.flashLinkStatusHint){
+        el.flashLinkStatusHint.textContent = currentLang === "ko"
+          ? (stage2ModeEnabled
+              ? "ALTIS INTELLIGENT LINK1 · 채널 6 · 1M_L · 2단 운용 50Hz"
+              : "ALTIS INTELLIGENT LINK1 · 채널 6 · 1M_L · 1단 전용 100Hz")
+          : (stage2ModeEnabled
+              ? "ALTIS INTELLIGENT LINK1 · channel 6 · 1M_L · dual-stage 50Hz"
+              : "ALTIS INTELLIGENT LINK1 · channel 6 · 1M_L · stage-1-only 100Hz");
+      }
+      if(el.flashLinkStageStatus){
+        const stage2Status = el.flashLinkStageStatus.querySelector('[data-stage-link="2"]');
+        if(stage2Status){
+          if(!stage2ModeEnabled){
+            stage2Status.classList.remove("is-linked");
+            stage2Status.textContent = currentLang === "ko" ? "2단 사용 안 함" : "S2 DISABLED";
+          }else if(/DISABLED|사용 안 함/.test(stage2Status.textContent || "")){
+            stage2Status.textContent = currentLang === "ko" ? "2단 --" : "S2 --";
+          }
+        }
+      }
       if(el.flashLinkRoleSelect) el.flashLinkRoleSelect.value = normalizeFlashLinkRole(uiSettings.flashLinkRole);
       if(el.flashLinkNodeSelect) el.flashLinkNodeSelect.value = String(normalizeFlashLinkNodeId(uiSettings.flashLinkNodeId));
       if(el.flashLinkDataModeSelect) el.flashLinkDataModeSelect.value = normalizeDataModeValue(uiSettings.flashLinkDataMode, "flight");
@@ -8028,6 +8072,10 @@ function requestMobileMockup3dMesh(){
         if(el.flashLinkNodeRow) el.flashLinkNodeRow.hidden = role !== "avionics";
         if(el.flashLinkTargetRow) el.flashLinkTargetRow.hidden = role !== "ground";
         if(el.flashLinkNodeSelect) el.flashLinkNodeSelect.disabled = !flashLinkEnabled || role !== "avionics";
+        if(el.flashLinkNodeSelect){
+          const stage2Option = el.flashLinkNodeSelect.querySelector('option[value="2"]');
+          if(stage2Option) stage2Option.disabled = !stage2ModeEnabled;
+        }
         if(el.flashLinkDataModeSelect) el.flashLinkDataModeSelect.disabled = dataModeDisabled;
         if(el.flashLinkDataModeRow) el.flashLinkDataModeRow.classList.toggle("is-disabled", !flashLinkEnabled || dataModeDisabled);
         if(el.flashLinkStatus) el.flashLinkStatus.classList.toggle("is-disabled", !flashLinkEnabled);
@@ -8676,7 +8724,7 @@ function requestMobileMockup3dMesh(){
           detail:"잠시 뒤 자동 재연결됩니다.\n계속 유지되면 Wi‑Fi 신호와 보드 웹서버 상태를 확인하세요."
         });
       }
-      if(wsConnected && rxHzWindow > 0 && rxHzWindow <= RX_HZ_WARN_THRESHOLD){
+      if(wsConnected && rxHzWindow > 0 && rxHzWindow <= rxHzWarnThreshold()){
         push({
           key:"rxhz",
           severity:"warning",
@@ -10679,7 +10727,8 @@ function requestMobileMockup3dMesh(){
       const dataMode = normalizeDataModeValue(uiSettings && uiSettings.flashLinkDataMode, "flight");
       const dataModePart = role === "avionics" ? ("&flash_link_data_mode=" + dataMode) : "";
       const nodePart = "&flash_link_node_id=" + normalizeFlashLinkNodeId(uiSettings && uiSettings.flashLinkNodeId);
-      const path = "/set?op_mode=" + mode + "&flash_link_role=" + role + nodePart + dataModePart;
+      const stage2Part = "&flash_link_stage2_mode=" + ((uiSettings && uiSettings.flashLinkStage2Mode) ? 1 : 0);
+      const path = "/set?op_mode=" + mode + "&flash_link_role=" + role + nodePart + stage2Part + dataModePart;
       sendCommand({http:path, ser:path}, !!logIt);
     }
     function setFlashLinkEnabled(enabled){
@@ -10713,14 +10762,21 @@ function requestMobileMockup3dMesh(){
       const dataMode = normalizeDataModeValue(uiSettings && uiSettings.flashLinkDataMode, "flight");
       const dataModePart = role === "avionics" ? ("&flash_link_data_mode=" + dataMode) : "";
       const nodePart = "&flash_link_node_id=" + normalizeFlashLinkNodeId(uiSettings && uiSettings.flashLinkNodeId);
+      const stage2Part = "&flash_link_stage2_mode=" + ((uiSettings && uiSettings.flashLinkStage2Mode) ? 1 : 0);
       sendCommand({
-        http:"/set?flash_link_role=" + role + nodePart + dataModePart,
-        ser:"/set?flash_link_role=" + role + nodePart + dataModePart
+        http:"/set?flash_link_role=" + role + nodePart + stage2Part + dataModePart,
+        ser:"/set?flash_link_role=" + role + nodePart + stage2Part + dataModePart
       }, !!logIt);
     }
     function syncFlashLinkNodeSelectionToBoard(logIt){
       const nodeId = normalizeFlashLinkNodeId(uiSettings && uiSettings.flashLinkNodeId);
-      const path = "/set?flash_link_node_id=" + nodeId;
+      const stage2 = (uiSettings && uiSettings.flashLinkStage2Mode) ? 1 : 0;
+      const path = "/set?flash_link_node_id=" + nodeId + "&flash_link_stage2_mode=" + stage2;
+      sendCommand({http:path, ser:path}, !!logIt);
+    }
+    function syncFlashLinkStage2ModeToBoard(logIt){
+      const enabled = (uiSettings && uiSettings.flashLinkStage2Mode) ? 1 : 0;
+      const path = "/set?flash_link_stage2_mode=" + enabled;
       sendCommand({http:path, ser:path}, !!logIt);
     }
     function syncFlashLinkDataModeToBoard(logIt){
@@ -11221,6 +11277,10 @@ function requestMobileMockup3dMesh(){
     }
     function calcFlashLinkReportStats(samples){
       const list = Array.isArray(samples) ? samples : [];
+      const modeSample = list.find((sample)=>sample && sample.stage2Mode != null);
+      const targetHz = modeSample
+        ? (modeSample.stage2Mode ? 50 : 100)
+        : targetStreamHz();
       const sampleCount = list.length;
       const hzStats = calcNumberStats(flashLinkReportNumbers(list, "rxHz"));
       const lossStats = calcNumberStats(flashLinkReportNumbers(list, "lossPct"));
@@ -11236,7 +11296,7 @@ function requestMobileMockup3dMesh(){
         const operational = !!sample.operational;
         if(operational) operationalCount += 1;
         if(sample.remoteValid) remoteValidCount += 1;
-        if(isFinite(Number(sample.rxHz)) && Number(sample.rxHz) >= 45) stableHzCount += 1;
+        if(isFinite(Number(sample.rxHz)) && Number(sample.rxHz) >= targetHz * 0.9) stableHzCount += 1;
         const dt = Math.max(0, Math.min(1000,
           i + 1 < list.length ? (Number(list[i + 1].time) - Number(sample.time)) : FLASH_LINK_REPORT_SAMPLE_MS
         ));
@@ -11252,13 +11312,13 @@ function requestMobileMockup3dMesh(){
       const avgRssi = rssiStats.avg == null ? -127 : rssiStats.avg;
       let grade = "FAIL";
       let verdict = currentLang === "ko" ? "링크 품질 확인 필요" : "Link quality needs review";
-      if(sampleCount > 0 && availabilityPct >= 99 && avgHz >= 45 && avgLoss <= 5 && avgRssi >= -70){
+      if(sampleCount > 0 && availabilityPct >= 99 && avgHz >= targetHz * 0.9 && avgLoss <= 5 && avgRssi >= -70){
         grade = "EXCELLENT";
         verdict = currentLang === "ko" ? "대회 보고서에 쓰기 좋은 매우 안정적인 링크" : "Very stable link, suitable for report evidence";
-      }else if(sampleCount > 0 && availabilityPct >= 95 && avgHz >= 40 && avgLoss <= 10 && avgRssi >= -80){
+      }else if(sampleCount > 0 && availabilityPct >= 95 && avgHz >= targetHz * 0.8 && avgLoss <= 10 && avgRssi >= -80){
         grade = "GOOD";
         verdict = currentLang === "ko" ? "운용 가능한 안정 링크" : "Operationally stable link";
-      }else if(sampleCount > 0 && availabilityPct >= 85 && avgHz >= 30){
+      }else if(sampleCount > 0 && availabilityPct >= 85 && avgHz >= targetHz * 0.6){
         grade = "CHECK";
         verdict = currentLang === "ko" ? "안테나 배치/차폐/거리 재확인 권장" : "Recheck antenna placement, blockage, and distance";
       }
@@ -11269,6 +11329,7 @@ function requestMobileMockup3dMesh(){
           : 0,
         availabilityPct,
         remoteValidPct,
+        targetHz,
         stableHzPct,
         offlineSec: offlineMs / 1000,
         dropoutCount,
@@ -11303,7 +11364,7 @@ function requestMobileMockup3dMesh(){
         {cells:["Protocol", "Flash6-Intelligent-b3 / ALTIS INTELLIGENT LINK1 ESP-NOW LR"], style:3},
         {cells:["Board role", roleLabel], style:3},
         {cells:["Peer", peer || "--"], style:3},
-        {cells:["Target rate", "50 Hz"], style:3},
+        {cells:["Target rate", stats.targetHz + " Hz"], style:3},
         {cells:["Capture duration target", (FLASH_LINK_REPORT_DURATION_MS / 1000) + " s"], style:3},
         {cells:["Captured samples", stats.sampleCount], style:3},
         {cells:["Verdict", stats.grade + " - " + stats.verdict], style:3},
@@ -11316,7 +11377,7 @@ function requestMobileMockup3dMesh(){
         ["Capture span", reportRound(stats.durationSec, 2), "s", "First to last captured report sample"],
         ["Link availability", reportRound(stats.availabilityPct, 2), "%", "LINKED and remote data valid"],
         ["Remote/avionics data valid", reportRound(stats.remoteValidPct, 2), "%", "Ground station receiving avionics telemetry"],
-        ["Stable rate ratio", reportRound(stats.stableHzPct, 2), "%", "Samples with receive Hz >= 45"],
+        ["Stable rate ratio", reportRound(stats.stableHzPct, 2), "%", "Samples with receive Hz >= " + (stats.targetHz * 0.9).toFixed(0)],
         ["Dropout events", stats.dropoutCount, "count", "Contiguous offline periods in the capture"],
         ["Estimated offline time", reportRound(stats.offlineSec, 2), "s", "Estimated from report sample intervals"],
         ["Average receive rate", reportRound(stats.hz.avg, 2), "Hz", "ALTIS INTELLIGENT LINK1 receive Hz"],
@@ -11451,6 +11512,19 @@ function requestMobileMockup3dMesh(){
       );
       const roleNode1 = flashLinkUiRole === "avionics" && flashLinkUiNodeId === 1;
       const roleNode2 = flashLinkUiRole === "avionics" && flashLinkUiNodeId === 2;
+      const stage2ModeEnabled = flashLinkUiHasStatus
+        ? !!flashLinkUiStage2Mode
+        : !!(uiSettings && uiSettings.flashLinkStage2Mode);
+      if(el.flashTopologyModeDescription){
+        el.flashTopologyModeDescription.textContent = stage2ModeEnabled
+          ? "1단 중계 우선 · 링크 단절 시 2단 직통 백업 자동 전환"
+          : "1단 전용 · 100Hz 저지연 텔레메트리";
+      }
+      if(el.flashTopologyStage1Role){
+        el.flashTopologyStage1Role.textContent = stage2ModeEnabled
+          ? "RELAY + FLIGHT"
+          : "PRIMARY FLIGHT · 100Hz";
+      }
       const groundLinked = flashLinkUiRole === "ground" && flashLinkUiLinked;
       const stage1Online = flashLinkEnabled && (
         flashLinkStage1Connected ||
@@ -11460,7 +11534,7 @@ function requestMobileMockup3dMesh(){
       const connectedStage2 = flashLinkStage2Connected ||
         (roleNode2 && flashLinkUiLinked) ||
         (flashLinkUiRole === "ground" && flashLinkUiTargetNodeId === 2 && flashLinkUiRemoteValid);
-      const stage2Online = flashLinkEnabled && connectedStage2;
+      const stage2Online = flashLinkEnabled && stage2ModeEnabled && connectedStage2;
       const directRoute = stage2Online && flashLinkStage2Route === "direct";
       const relayRoute = stage2Online && !directRoute && stage1Online;
       const groundOnline = transportOnline;
@@ -11471,8 +11545,12 @@ function requestMobileMockup3dMesh(){
       setFlashTopologyNodeState(
         "stage2",
         stage2Online,
-        stage2Online ? (directRoute ? "DIRECT BACKUP" : "RELAY LINK") : "OFFLINE",
+        !stage2ModeEnabled
+          ? "DISABLED"
+          : (stage2Online ? (directRoute ? "DIRECT BACKUP" : "RELAY LINK") : "OFFLINE"),
         false);
+      const stage2Node = el.flashLinkTopologyOverlay.querySelector('[data-topology-node="stage2"]');
+      if(stage2Node) stage2Node.classList.toggle("is-mode-disabled", !stage2ModeEnabled);
       setFlashTopologyNodeState("stage1", stage1Online, stage1Online ? "LINKED" : "OFFLINE", false);
       setFlashTopologyNodeState("ground", groundOnline, groundOnline ? "ONLINE" : "WAITING", false);
       setFlashTopologyNodeState("mobile", mobileOnline, mobileOnline ? "CONNECTED" : "STANDBY", currentClient === "mobile");
@@ -11485,14 +11563,19 @@ function requestMobileMockup3dMesh(){
       setFlashTopologyLinkState("ground-pc", pcOnline);
 
       const activeClientOnline = currentClient === "mobile" ? mobileOnline : pcOnline;
-      const allOnline = stage1Online && stage2Online && groundOnline && activeClientOnline;
+      const allOnline = stage1Online && (!stage2ModeEnabled || stage2Online) &&
+        groundOnline && activeClientOnline;
       if(el.flashTopologyOverall){
         el.flashTopologyOverall.classList.toggle("is-online", allOnline);
         el.flashTopologyOverall.classList.toggle("is-degraded", !allOnline && groundOnline);
         el.flashTopologyOverall.textContent = allOnline
-          ? "LINK STATUS · ALL LINKS NOMINAL"
+          ? (stage2ModeEnabled
+              ? "LINK STATUS · ALL LINKS NOMINAL"
+              : "LINK STATUS · STAGE 1 100Hz NOMINAL")
           : stage1Online && groundOnline
-          ? "LINK STATUS · STAGE 1 LINKED / STAGE 2 OFFLINE"
+          ? (stage2ModeEnabled
+              ? "LINK STATUS · STAGE 1 LINKED / STAGE 2 OFFLINE"
+              : "LINK STATUS · STAGE 1 LINKED · 100Hz MODE")
           : groundOnline
           ? "LINK STATUS · GROUND ONLINE / VEHICLE OFFLINE"
           : "LINK STATUS · WAITING";
@@ -11532,6 +11615,10 @@ function requestMobileMockup3dMesh(){
       const rssiDbm = Number(src.fl_rssi_dbm ?? src.flash_link_rssi_dbm);
       const rssiAgeMs = Number(src.fl_rssi_age_ms ?? src.flash_link_rssi_age_ms);
       const peer = String(src.fl_peer ?? src.flash_link_peer ?? "").trim();
+      const stage2ModeRaw = src.fl_stage2_mode ?? src.flash_link_stage2_mode;
+      const stage2ModeEnabled = stage2ModeRaw == null
+        ? !!(uiSettings && uiSettings.flashLinkStage2Mode)
+        : Number(stage2ModeRaw) !== 0;
       const nodeId = normalizeFlashLinkNodeId(src.fl_node ?? src.flash_link_node_id ?? (uiSettings && uiSettings.flashLinkNodeId));
       const targetNodeId = normalizeFlashLinkNodeId(src.fl_target ?? src.flash_link_target_node_id ?? (uiSettings && uiSettings.flashLinkTargetNodeId));
       const stage1Linked = Number(src.fl_stage1 ?? src.flash_link_stage1_connected ?? 0) !== 0;
@@ -11551,8 +11638,9 @@ function requestMobileMockup3dMesh(){
       flashLinkUiLossPermille = isFinite(lossPermille) ? Math.max(0, lossPermille) : 0;
       flashLinkUiNodeId = nodeId;
       flashLinkUiTargetNodeId = targetNodeId;
+      flashLinkUiStage2Mode = stage2ModeEnabled;
       flashLinkStage1Connected = stage1Linked;
-      flashLinkStage2Connected = stage2Linked;
+      flashLinkStage2Connected = stage2ModeEnabled && stage2Linked;
       if(stage2RouteRaw != null){
         const route = String(stage2RouteRaw).trim().toLowerCase();
         flashLinkStage2Route = route === "direct" ? "direct" : (route === "relay" ? "relay" : "offline");
@@ -11564,9 +11652,17 @@ function requestMobileMockup3dMesh(){
           ? "relay"
           : (flashLinkStage2DirectConnected ? "direct" : "offline");
       }
+      if(!stage2ModeEnabled){
+        flashLinkStage2Route = "offline";
+        flashLinkStage2DirectConnected = false;
+        flashLinkStage2RelayConnected = false;
+      }
       if(uiSettings){
         if(document.activeElement !== el.flashLinkNodeSelect) uiSettings.flashLinkNodeId = nodeId;
         uiSettings.flashLinkTargetNodeId = targetNodeId;
+        if(document.activeElement !== el.flashLinkStage2ModePill){
+          uiSettings.flashLinkStage2Mode = stage2ModeEnabled;
+        }
       }
       if(el.flashLinkNodeSelect && document.activeElement !== el.flashLinkNodeSelect){
         el.flashLinkNodeSelect.value = String(nodeId);
@@ -11579,8 +11675,10 @@ function requestMobileMockup3dMesh(){
           stage1.textContent = (currentLang === "ko" ? "1단 " : "S1 ") + (stage1Linked ? "LINK" : "--");
         }
         if(stage2){
-          stage2.classList.toggle("is-linked", stage2Linked);
-          stage2.textContent = (currentLang === "ko" ? "2단 " : "S2 ") + (stage2Linked ? "LINK" : "--");
+          stage2.classList.toggle("is-linked", stage2ModeEnabled && stage2Linked);
+          stage2.textContent = !stage2ModeEnabled
+            ? (currentLang === "ko" ? "2단 사용 안 함" : "S2 DISABLED")
+            : (currentLang === "ko" ? "2단 " : "S2 ") + (stage2Linked ? "LINK" : "--");
         }
       }
       const avionicsRole = flashLinkUiRole === "avionics";
@@ -11622,6 +11720,7 @@ function requestMobileMockup3dMesh(){
       }
       recordFlashLinkReportSample({
         role:flashLinkUiRole,
+        stage2Mode:stage2ModeEnabled,
         linked,
         remoteValid,
         operational,
@@ -14217,16 +14316,16 @@ function requestMobileMockup3dMesh(){
       const sinceOk = Math.max(0, now - (lastOkMs || 0));
       const wsDisconnected = !!(wsEverConnected && connOk && !wsConnected);
       const dataTimedOut = !!(sampleCounter > 0 && sinceOk >= DATA_TIMEOUT_ALARM_MS);
-      const hzDrop = !!(sampleCounter > 0 && wsConnected && rxHzWindow > 0 && rxHzWindow <= RX_HZ_WARN_THRESHOLD);
-      const hzRecovered = (rxHzWindow <= 0 || rxHzWindow >= RX_HZ_RECOVER_THRESHOLD || !wsConnected);
+      const hzDrop = !!(sampleCounter > 0 && wsConnected && rxHzWindow > 0 && rxHzWindow <= rxHzWarnThreshold());
+      const hzRecovered = (rxHzWindow <= 0 || rxHzWindow >= rxHzRecoverThreshold() || !wsConnected);
 
       setAlarmActive("WS_DISCONNECTED", wsDisconnected, {ms: sinceOk});
       setAlarmActive("DATA_TIMEOUT", dataTimedOut, {ms: sinceOk});
 
       if(hzDrop){
-        setAlarmActive("RX_HZ_DROP", true, {target: TARGET_STREAM_HZ, hz: rxHzWindow});
+        setAlarmActive("RX_HZ_DROP", true, {target: targetStreamHz(), hz: rxHzWindow});
       }else if(hzRecovered){
-        setAlarmActive("RX_HZ_DROP", false, {target: TARGET_STREAM_HZ, hz: rxHzWindow});
+        setAlarmActive("RX_HZ_DROP", false, {target: targetStreamHz(), hz: rxHzWindow});
       }
     }
 
@@ -20070,6 +20169,7 @@ function requestMobileMockup3dMesh(){
         fl_target:(frame[88] != null && isFinite(Number(frame[88]))) ? Number(frame[88]) : 1,
         fl_stage1:(frame[89] != null) ? (Number(frame[89]) ? 1 : 0) : 0,
         fl_stage2:(frame[90] != null) ? (Number(frame[90]) ? 1 : 0) : 0,
+        fl_stage2_mode:(frame[93] != null) ? (Number(frame[93]) ? 1 : 0) : null,
         stage_telemetry:stageTelemetry,
         p:Number(frame[3]) || 0,
         alt_m:Number(frame[4]) || 0,
@@ -20149,7 +20249,7 @@ function requestMobileMockup3dMesh(){
         fw_program:"Altis_Intelligent3_firmware1",
         fw_board:"Altis_Intelligent3_b3",
         fw_protocol:"Flash6-Intelligent-b3",
-        fw_build:"v6 b5"
+        fw_build:"v6 b6"
       };
     }
 
@@ -21626,6 +21726,7 @@ function requestMobileMockup3dMesh(){
         const boardFlashLinkDataModeRaw = data.flash_link_data_mode ?? data.fl_data_mode ?? null;
         const boardFlashLinkNodeRaw = data.flash_link_node_id ?? data.fl_node ?? null;
         const boardFlashLinkTargetRaw = data.flash_link_target_node_id ?? data.fl_target ?? null;
+        const boardFlashLinkStage2ModeRaw = data.flash_link_stage2_mode ?? data.fl_stage2_mode ?? null;
         let boardSettingsChanged = false;
         if(boardOpModeRaw != null && activeEl !== el.opModeSelect){
           const nextMode = normalizeOperationModeValue(boardOpModeRaw);
@@ -21662,6 +21763,13 @@ function requestMobileMockup3dMesh(){
           const nextTargetNodeId = normalizeFlashLinkNodeId(boardFlashLinkTargetRaw);
           if(nextTargetNodeId !== uiSettings.flashLinkTargetNodeId){
             uiSettings.flashLinkTargetNodeId = nextTargetNodeId;
+            boardSettingsChanged = true;
+          }
+        }
+        if(boardFlashLinkStage2ModeRaw != null && activeEl !== el.flashLinkStage2ModePill){
+          const nextStage2Mode = Number(boardFlashLinkStage2ModeRaw) !== 0;
+          if(nextStage2Mode !== uiSettings.flashLinkStage2Mode){
+            uiSettings.flashLinkStage2Mode = nextStage2Mode;
             boardSettingsChanged = true;
           }
         }
@@ -31313,6 +31421,8 @@ function requestMobileMockup3dMesh(){
         normalizedPath.startsWith("/set?fl_role=") ||
         normalizedPath.startsWith("/set?flash_link_node_id=") ||
         normalizedPath.startsWith("/set?fl_node=") ||
+        normalizedPath.startsWith("/set?flash_link_stage2_mode=") ||
+        normalizedPath.startsWith("/set?fl_stage2_mode=") ||
         normalizedPath.startsWith("/set?flash_link_data_mode=") ||
         normalizedPath.startsWith("/set?fl_data_mode=") ||
         normalizedPath.startsWith("/set?data_mode=") ||
@@ -31322,6 +31432,8 @@ function requestMobileMockup3dMesh(){
         normalizedPath.indexOf("&fl_role=") >= 0 ||
         normalizedPath.indexOf("&flash_link_node_id=") >= 0 ||
         normalizedPath.indexOf("&fl_node=") >= 0 ||
+        normalizedPath.indexOf("&flash_link_stage2_mode=") >= 0 ||
+        normalizedPath.indexOf("&fl_stage2_mode=") >= 0 ||
         normalizedPath.indexOf("&flash_link_data_mode=") >= 0 ||
         normalizedPath.indexOf("&fl_data_mode=") >= 0 ||
         normalizedPath.indexOf("&data_mode=") >= 0;
@@ -32003,6 +32115,9 @@ function requestMobileMockup3dMesh(){
       el.countdownSave = document.getElementById("countdownSave");
       el.opModeSelect = document.getElementById("opModeSelect");
       el.flashLinkEnabledPill = document.getElementById("flashLinkEnabledPill");
+      el.flashLinkStage2ModePill = document.getElementById("flashLinkStage2ModePill");
+      el.flashLinkStage2ModeRow = document.getElementById("flashLinkStage2ModeRow");
+      el.flashLinkStatusHint = document.getElementById("flashLinkStatusHint");
       el.flashLinkRoleSelect = document.getElementById("flashLinkRoleSelect");
       el.flashLinkNodeRow = document.getElementById("flashLinkNodeRow");
       el.flashLinkNodeSelect = document.getElementById("flashLinkNodeSelect");
@@ -32022,6 +32137,8 @@ function requestMobileMockup3dMesh(){
       el.flashLinkCommandStatus = document.getElementById("flashLinkCommandStatus");
       el.flashLinkTopologyBtn = document.getElementById("flashLinkTopologyBtn");
       el.flashLinkTopologyOverlay = document.getElementById("flashLinkTopologyOverlay");
+      el.flashTopologyModeDescription = document.getElementById("flashTopologyModeDescription");
+      el.flashTopologyStage1Role = document.getElementById("flashTopologyStage1Role");
       el.flashLinkTopologyClose = document.getElementById("flashLinkTopologyClose");
       el.flashTopologyOverall = document.getElementById("flashTopologyOverall");
       el.flashTopologyRate = document.getElementById("flashTopologyRate");
@@ -36303,6 +36420,29 @@ function requestMobileMockup3dMesh(){
         el.flashLinkEnabledPill.addEventListener("click", ()=>{
           const enabled = getSettingsOperationModeValue() === "flash_link";
           setFlashLinkEnabled(!enabled);
+        });
+      }
+      if(el.flashLinkStage2ModePill){
+        el.flashLinkStage2ModePill.addEventListener("click", ()=>{
+          if(!uiSettings || getSettingsOperationModeValue() !== "flash_link") return;
+          const enabled = uiSettings.flashLinkStage2Mode !== true;
+          uiSettings.flashLinkStage2Mode = enabled;
+          flashLinkUiStage2Mode = enabled;
+          if(!enabled){
+            flashLinkStage2Connected = false;
+            cameraHudStageSwitchLatched = false;
+            setAutomaticActiveStage(1, "STAGE 1 ONLY");
+          }
+          saveSettings();
+          applySettingsToUI();
+          updateStageTelemetryDashboard();
+          syncFlashLinkTopologyUi();
+          syncFlashLinkStage2ModeToBoard(false);
+          showToast(
+            enabled ? "2단 운용 ON · 50Hz" : "1단 전용 ON · 100Hz",
+            enabled ? "info" : "success",
+            {key:"flash-link-stage-mode", duration:3200}
+          );
         });
       }
       if(el.flashLinkRoleSelect){

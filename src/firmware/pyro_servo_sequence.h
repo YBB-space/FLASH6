@@ -186,6 +186,10 @@ void saveSequenceSettings() {
   if (settingsPrefs.getUChar("fl_node", 0xFFU) != flashLinkNodeId) {
     settingsPrefs.putUChar("fl_node", flashLinkNodeId);
   }
+  if (settingsPrefs.getBool("fl_stage2", !flashLinkStage2Enabled) !=
+      flashLinkStage2Enabled) {
+    settingsPrefs.putBool("fl_stage2", flashLinkStage2Enabled);
+  }
 }
 
 void saveBootOnceMode(const char* mode) {
@@ -211,6 +215,9 @@ void loadSequenceSettings() {
   flashLinkDataFlightMode = settingsPrefs.getUChar("fl_data", 1U) != 0U;
   flashLinkNodeId = clampFlashLinkVehicleNodeId(
     settingsPrefs.getUChar("fl_node", kFlashLinkNodeIdStage1));
+  // The current launch plan is stage-1-only. Dual-stage networking remains
+  // available as an explicit opt-in and is coordinated by the ground node.
+  flashLinkStage2Enabled = settingsPrefs.getBool("fl_stage2", false);
   // Ground control/HUD target is selected automatically at runtime.
   flashLinkTargetNodeId = kFlashLinkNodeIdStage1;
   developerMode = settingsPrefs.getBool("dev", false);

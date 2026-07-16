@@ -148,10 +148,11 @@ size_t buildTelemetryJson(char* json, size_t jsonLen, bool full) {
   const bool stage1Connected = stage1Peer.peerReady && stage1Peer.linked &&
     stage1Peer.remoteValid && stage1Peer.lastTelemetryRxMs != 0U &&
     (uint32_t)(nowMs - stage1Peer.lastTelemetryRxMs) <= kFlashLinkTelemetryStaleMs;
-  const bool stage2Connected = stage2Peer.peerReady && stage2Peer.linked &&
+  const bool stage2Connected = flashLinkStage2Enabled &&
+    stage2Peer.peerReady && stage2Peer.linked &&
     stage2Peer.remoteValid && stage2Peer.lastTelemetryRxMs != 0U &&
     (uint32_t)(nowMs - stage2Peer.lastTelemetryRxMs) <= kFlashLinkTelemetryStaleMs;
-  char fullFields[600] = {};
+  char fullFields[640] = {};
   if (full) {
     const bool outputImuReady = remoteOutput ? output.sampleValid : imuReady;
     const bool outputBaroReady = remoteOutput ? output.baroValid : baroReady;
@@ -164,6 +165,7 @@ size_t buildTelemetryJson(char* json, size_t jsonLen, bool full) {
       "\"fw_board\":\"%s\","
       "\"fw_protocol\":\"%s\","
       "\"sample_hz\":%lu,\"serial_hz\":%lu,\"wifi_hz\":%lu,"
+      "\"flash_link_hz\":%lu,"
       "\"record_hz\":%lu,\"baro_hz\":%lu,\"gps_hz\":%lu,\"loadcell_hz\":%u,"
       "\"imu_ready\":%u,\"baro_ready\":%u,\"gps_ready\":%u,"
       "\"loadcell_ready\":%u,\"loadcell_valid\":%u",
@@ -176,7 +178,8 @@ size_t buildTelemetryJson(char* json, size_t jsonLen, bool full) {
       kFirmwareProtocol,
       (unsigned long)kImuSampleHz,
       (unsigned long)kSerialStreamHz,
-      (unsigned long)kWifiStreamHz,
+      (unsigned long)activeWifiStreamHz(),
+      (unsigned long)flashLinkTelemetryHz(),
       (unsigned long)kStorageRecordHz,
       (unsigned long)kBaroSampleHz,
       (unsigned long)kGpsTargetHz,
@@ -217,6 +220,7 @@ size_t buildTelemetryJson(char* json, size_t jsonLen, bool full) {
            "\"heap_free\":%lu,\"heap_min_free\":%lu,\"heap_max_alloc\":%lu,"
            "\"wq\":%lu,\"we\":%u,\"sq\":%lu,"
            "\"fl_role\":\"%s\",\"fl_node\":%u,\"fl_target\":%u,"
+           "\"fl_stage2_mode\":%u,"
            "\"fl_stage1\":%u,\"fl_stage2\":%u,"
            "\"fl_link\":%u,\"fl_remote_valid\":%u,"
            "\"fl_rx_hz\":%u,\"fl_loss_permille\":%u,\"fl_peer_age_ms\":%lu,"
@@ -298,6 +302,7 @@ size_t buildTelemetryJson(char* json, size_t jsonLen, bool full) {
            flashLinkRoleName(),
            (unsigned)flashLinkNodeId,
            (unsigned)flashLinkTargetNodeId,
+           flashLinkStage2Enabled ? 1U : 0U,
            stage1Connected ? 1U : 0U,
            stage2Connected ? 1U : 0U,
            flashLinkOperational() ? 1U : 0U,
@@ -377,7 +382,7 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
   //  apogee,flight_phase_elapsed,attitude_qw,qx,qy,qz,
   //  ignition_delay_ms,ignition_delay_valid,deployment_state,deployment_flags,
   //  arm_physical,flash_node,flash_target,stage1_connected,stage2_connected,
-  //  stage1_snapshot,stage2_snapshot]
+  //  stage1_snapshot,stage2_snapshot,stage2_mode]
   const bool remoteOutput = flashLinkGroundRole();
   const Telemetry& output = remoteOutput ? flashLinkRemoteSnap : snap;
   const uint16_t remoteFlags = remoteOutput ? flashLinkRemoteState.flags : 0;
@@ -448,7 +453,8 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
   const bool streamStage1Connected = streamStage1.peerReady && streamStage1.linked &&
     streamStage1.remoteValid && streamStage1.lastTelemetryRxMs != 0U &&
     (uint32_t)(nowMs - streamStage1.lastTelemetryRxMs) <= kFlashLinkTelemetryStaleMs;
-  const bool streamStage2Connected = streamStage2.peerReady && streamStage2.linked &&
+  const bool streamStage2Connected = flashLinkStage2Enabled &&
+    streamStage2.peerReady && streamStage2.linked &&
     streamStage2.remoteValid && streamStage2.lastTelemetryRxMs != 0U &&
     (uint32_t)(nowMs - streamStage2.lastTelemetryRxMs) <= kFlashLinkTelemetryStaleMs;
   const uint8_t outputLoadcellRawOk =
@@ -478,7 +484,7 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
   //  ign_delay_ms,alarm_seq,alarm_block,alarm_title,alarm_message,rx_seq]
   char stageSnapshots[2][448];
   for (uint8_t i = 0; i < 2; ++i) {
-    if (!remoteOutput) {
+    if (!remoteOutput || (!flashLinkStage2Enabled && i == 1U)) {
       strlcpy(stageSnapshots[i], "null", sizeof(stageSnapshots[i]));
       continue;
     }
@@ -547,7 +553,7 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
            "%u,%lu,%lu,%u,%u,%lu,%u,%u,%ld,%d,%lu,"
            "%.3f,%u,%ld,%u,%u,%u,%u,%.3f,%.6f,%lu,%lu,%lu,"
            "%lu,%lu,%u,\"%s\",\"%s\",%u,%.2f,%.2f,%lu,%.6f,%.6f,%.6f,%.6f,"
-           "%lu,%u,%u,%u,%u,%u,%u,%u,%u,%s,%s]",
+           "%lu,%u,%u,%u,%u,%u,%u,%u,%u,%s,%s,%u]",
            (unsigned long)frameSequence,
            (unsigned long)output.ut,
            output.baroValid ? output.p : 0.0f,
@@ -636,7 +642,8 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
                streamStage1Connected ? 1U : 0U,
                streamStage2Connected ? 1U : 0U,
                stageSnapshots[0],
-               stageSnapshots[1]);
+               stageSnapshots[1],
+               flashLinkStage2Enabled ? 1U : 0U);
   if (n <= 0) {
     if (jsonLen) json[0] = '\0';
     return 0;
@@ -790,7 +797,7 @@ String healthJson() {
            (int)snap.gpsTxPin,
            (unsigned long)kImuSampleHz,
            (unsigned long)kSerialStreamHz,
-           (unsigned long)kWifiStreamHz,
+           (unsigned long)activeWifiStreamHz(),
            (unsigned long)kStorageRecordHz,
            (unsigned long)kBaroSampleHz,
            (unsigned)snap.loadcellHz,
@@ -849,10 +856,12 @@ String ratesJson() {
   char json[220];
   snprintf(json, sizeof(json),
            "{\"ok\":1,\"sample_hz\":%lu,\"serial_hz\":%lu,\"wifi_hz\":%lu,"
-           "\"record_hz\":%lu,\"baro_hz\":%lu,\"gps_hz\":%lu,\"loadcell_hz\":%u}",
+           "\"flash_link_hz\":%lu,\"record_hz\":%lu,\"baro_hz\":%lu,"
+           "\"gps_hz\":%lu,\"loadcell_hz\":%u}",
            (unsigned long)kImuSampleHz,
            (unsigned long)kSerialStreamHz,
-           (unsigned long)kWifiStreamHz,
+           (unsigned long)activeWifiStreamHz(),
+           (unsigned long)flashLinkTelemetryHz(),
            (unsigned long)kStorageRecordHz,
            (unsigned long)kBaroSampleHz,
            (unsigned long)kGpsTargetHz,
@@ -972,7 +981,7 @@ String settingsJson() {
   FlashLinkGroundPeer& stage2 = flashLinkGroundPeers[1];
   if (flashLinkGroundRole()) {
     flashLinkGroundChooseRoute(stage1);
-    flashLinkGroundChooseRoute(stage2);
+    if (flashLinkStage2Enabled) flashLinkGroundChooseRoute(stage2);
     flashLinkGroundRefreshSelectedPeer();
   }
   char peerMac[20];
@@ -986,21 +995,22 @@ String settingsJson() {
   const bool stage1Connected = stage1.peerReady && stage1.linked && stage1.remoteValid &&
     stage1.lastTelemetryRxMs != 0U &&
     (uint32_t)(nowMs - stage1.lastTelemetryRxMs) <= kFlashLinkTelemetryStaleMs;
-  const bool stage2Connected = stage2.peerReady && stage2.linked && stage2.remoteValid &&
+  const bool stage2Connected = flashLinkStage2Enabled &&
+    stage2.peerReady && stage2.linked && stage2.remoteValid &&
     stage2.lastTelemetryRxMs != 0U &&
     (uint32_t)(nowMs - stage2.lastTelemetryRxMs) <= kFlashLinkTelemetryStaleMs;
-  const bool stage2RelayConnected = flashLinkGroundRole()
+  const bool stage2RelayConnected = flashLinkStage2Enabled && (flashLinkGroundRole()
     ? stage2.relayReady && stage2.relayLinked &&
       flashLinkRouteFresh(
         stage2.lastRelayTelemetryRxMs != 0U
           ? stage2.lastRelayTelemetryRxMs
           : stage2.lastRelayRxMs,
         kFlashLinkPrimaryRouteFreshMs)
-    : flashLinkStage2RelayActive(nowMs);
-  const bool stage2DirectConnected = flashLinkGroundRole()
+    : flashLinkStage2RelayActive(nowMs));
+  const bool stage2DirectConnected = flashLinkStage2Enabled && (flashLinkGroundRole()
     ? stage2.directReady && stage2.directLinked && stage2.lastDirectRxMs != 0U &&
       (uint32_t)(nowMs - stage2.lastDirectRxMs) <= kFlashLinkPeerTimeoutMs
-    : flashLinkStage2DirectGroundActive(nowMs);
+    : flashLinkStage2DirectGroundActive(nowMs));
   const char* stage2Route = stage2RelayConnected
     ? "relay"
     : (stage2DirectConnected ? "direct" : "offline");
@@ -1012,6 +1022,7 @@ String settingsJson() {
            "\"dev_mode\":%u,\"developer_mode\":%u,\"mute\":%u,"
            "\"flash_link_role\":\"%s\",\"flash_link_protocol\":\"ALTIS INTELLIGENT LINK1\"," 
            "\"flash_link_node_id\":%u,\"flash_link_target_node_id\":%u,"
+           "\"flash_link_stage2_mode\":%u,"
            "\"flash_link_stage1_connected\":%u,\"flash_link_stage2_connected\":%u,"
            "\"flash_link_stage2_relay_connected\":%u,"
            "\"flash_link_stage2_direct_connected\":%u,"
@@ -1039,6 +1050,7 @@ String settingsJson() {
            flashLinkRoleName(),
            (unsigned)flashLinkNodeId,
            (unsigned)flashLinkTargetNodeId,
+           flashLinkStage2Enabled ? 1U : 0U,
            stage1Connected ? 1U : 0U,
            stage2Connected ? 1U : 0U,
            stage2RelayConnected ? 1U : 0U,
@@ -1047,7 +1059,7 @@ String settingsJson() {
            (unsigned)kFlashLinkChannel,
            flashLinkRateName,
            flashLinkRateError,
-           (unsigned long)kFlashLinkTelemetryHz,
+           (unsigned long)flashLinkTelemetryHz(),
            flashLinkOperational() ? 1U : 0U,
            flashLinkRemoteActive() ? 1U : 0U,
            (unsigned)flashLink.rxHz,
@@ -1433,7 +1445,8 @@ void setupRoutes() {
              "\"attitude_qw\",\"attitude_qx\",\"attitude_qy\",\"attitude_qz\","
              "\"ignition_delay_ms\",\"ignition_delay_valid\",\"deployment_state\","
              "\"deployment_flags\",\"arm_physical\",\"flash_node\",\"flash_target\","
-             "\"stage1_connected\",\"stage2_connected\",\"stage1_snapshot\",\"stage2_snapshot\"],"
+             "\"stage1_connected\",\"stage2_connected\",\"stage1_snapshot\","
+             "\"stage2_snapshot\",\"stage2_mode\"],"
              "\"flags\":{\"sample\":0,\"baro\":1,\"attitude\":2,\"gps_fix\":3,\"gps_seen\":4,"
              "\"arm\":5,\"igniter\":6,\"user_wait\":7,\"abort\":8,\"safety\":9,"
              "\"arm_lock\":10,\"inspection\":11,\"storage\":12,\"serial\":13,"
@@ -1441,6 +1454,7 @@ void setupRoutes() {
              "\"flash_link\":{\"name\":\"ALTIS INTELLIGENT LINK1\",\"transport\":\"ESP-NOW\","
              "\"topology\":\"stage2-stage1-ground-primary+stage2-ground-backup\","
              "\"channel\":6,\"rate\":\"%s\",\"telemetry_hz\":%lu,"
+             "\"single_stage_hz\":%lu,\"dual_stage_hz\":%lu,\"stage2_mode\":%u,"
              "\"pairing\":\"automatic\",\"unicast_encrypted\":1,\"ack_interval\":%u,"
              "\"command_ack\":1,\"command_retry_ms\":%lu,\"command_max_attempts\":%u,"
              "\"rx_queue_depth\":%u,\"relay_queue_depth\":%u,\"telemetry_coalescing\":1,"
@@ -1455,8 +1469,11 @@ void setupRoutes() {
              kFirmwareVersion,
              kFirmwareBoard,
              kFlashLinkEspNowRateName,
-             (unsigned long)kFlashLinkTelemetryHz,
-             (unsigned)kFlashLinkAckEveryFrames,
+             (unsigned long)flashLinkTelemetryHz(),
+             (unsigned long)kFlashLinkSingleStageTelemetryHz,
+             (unsigned long)kFlashLinkDualStageTelemetryHz,
+             flashLinkStage2Enabled ? 1U : 0U,
+             (unsigned)flashLinkAckEveryFrames(),
              (unsigned long)kFlashLinkCommandRetryMs,
              (unsigned)kFlashLinkCommandMaxAttempts,
              (unsigned)kFlashLinkRxQueueDepth,
@@ -1606,6 +1623,7 @@ void setupRoutes() {
     const uint8_t oldRole = flashLinkRoleCode();
     const uint8_t oldDataMode = flashLinkDataModeCode();
     const uint8_t oldNodeId = flashLinkNodeId;
+    const bool oldStage2Mode = flashLinkStage2Enabled;
     const bool forwardRemote = flashLinkGroundRole();
     bool remoteRequested = false;
     bool remoteQueued = true;
@@ -1691,6 +1709,16 @@ void setupRoutes() {
     if (request->hasParam("fl_role")) setFlashLinkRole(request->getParam("fl_role")->value());
     if (request->hasParam("flash_link_node_id")) setFlashLinkNodeId(request->getParam("flash_link_node_id")->value());
     if (request->hasParam("fl_node")) setFlashLinkNodeId(request->getParam("fl_node")->value());
+    const char* stage2ModeKey = request->hasParam("flash_link_stage2_mode")
+      ? "flash_link_stage2_mode"
+      : (request->hasParam("fl_stage2_mode")
+          ? "fl_stage2_mode"
+          : (request->hasParam("stage2_mode") ? "stage2_mode" : nullptr));
+    if (stage2ModeKey) {
+      flashLinkSetStage2Mode(
+        truthy(request->getParam(stage2ModeKey)->value()),
+        true);
+    }
     const char* dataModeKey = request->hasParam("flash_link_data_mode")
       ? "flash_link_data_mode"
       : (request->hasParam("fl_data_mode")
@@ -1717,8 +1745,10 @@ void setupRoutes() {
     const bool roleChanged = oldRole != flashLinkRoleCode();
     const bool dataModeChanged = oldDataMode != flashLinkDataModeCode();
     const bool nodeIdChanged = oldNodeId != flashLinkNodeId;
+    const bool stage2ModeChanged = oldStage2Mode != flashLinkStage2Enabled;
     const bool communicationChanged =
-      modeChanged || roleChanged || dataModeChanged || nodeIdChanged;
+      modeChanged || roleChanged || dataModeChanged || nodeIdChanged ||
+      stage2ModeChanged;
     const bool restartRequired =
       modeChanged ||
       dataModeChanged ||

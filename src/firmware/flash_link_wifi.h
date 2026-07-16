@@ -45,7 +45,10 @@ FlashLinkGroundPeer* flashLinkGroundPeerForNode(uint8_t nodeId) {
 
 FlashLinkGroundPeer* flashLinkGroundPeerForMac(const uint8_t* mac) {
   if (!mac) return nullptr;
-  for (uint8_t i = 0; i < kFlashLinkVehicleNodeCount; ++i) {
+  const uint8_t peerCount = flashLinkStage2Enabled
+    ? kFlashLinkVehicleNodeCount
+    : 1U;
+  for (uint8_t i = 0; i < peerCount; ++i) {
     FlashLinkGroundPeer& peer = flashLinkGroundPeers[i];
     if (peer.occupied && peer.directReady &&
         memcmp(peer.directMac, mac, ESP_NOW_ETH_ALEN) == 0) {
@@ -929,6 +932,13 @@ void flashLinkOnReceive(const uint8_t* mac, const uint8_t* data, int dataLen) {
     hasHeader &&
     incomingHeader.magic == kFlashLinkMagic &&
     incomingHeader.type == static_cast<uint8_t>(FlashLinkPacketType::Telemetry);
+  if (hasHeader && incomingHeader.magic == kFlashLinkMagic &&
+      !flashLinkStage2Enabled &&
+      flashLinkPacketSourceNode(incomingHeader) == kFlashLinkNodeIdStage2) {
+    // Single-stage mode deliberately drops stage-2 traffic before it enters
+    // the RX queue, preserving queue headroom and CPU time for stage 1.
+    return;
+  }
 
   portENTER_CRITICAL(&flashLinkRxMux);
   if ((flashLinkGroundRole() || flashLinkStage1RelayRole()) && incomingTelemetry) {
@@ -991,7 +1001,9 @@ void flashLinkPromiscuousRx(void* buf, wifi_promiscuous_pkt_type_t type) {
   if (flashLinkGroundRole()) {
     FlashLinkGroundPeer* stage1 = flashLinkGroundPeerForNode(kFlashLinkNodeIdStage1);
     const uint32_t nowMs = millis();
-    FlashLinkGroundPeer* stage2 = flashLinkGroundPeerForNode(kFlashLinkNodeIdStage2);
+    FlashLinkGroundPeer* stage2 = flashLinkStage2Enabled
+      ? flashLinkGroundPeerForNode(kFlashLinkNodeIdStage2)
+      : nullptr;
     if (stage1 && stage1->directReady &&
         memcmp(sourceMac, stage1->directMac, ESP_NOW_ETH_ALEN) == 0) {
       stage1->directRssiDbm = pkt->rx_ctrl.rssi;
@@ -1152,8 +1164,56 @@ void flashLinkResetGroundPeer(FlashLinkGroundPeer& peer) {
   flashLinkGroundRefreshSelectedPeer();
 }
 
+void flashLinkSetStage2Mode(bool enabled, bool persist) {
+  const bool changed = flashLinkStage2Enabled != enabled;
+  if (!changed) {
+    if (persist) saveSequenceSettings();
+    return;
+  }
+  flashLinkStage2Enabled = enabled;
+  flashLink.lastDiscoveryMs = 0;
+  flashLink.lastTelemetryTxUs = 0;
+  lastWsUs = 0;
+  lastSerialUs = 0;
+
+  if (!enabled) {
+    flashLinkTargetNodeId = kFlashLinkNodeIdStage1;
+    if (flashLinkGroundRole()) {
+      FlashLinkGroundPeer* stage2 =
+        flashLinkGroundPeerForNode(kFlashLinkNodeIdStage2);
+      if (stage2) flashLinkResetGroundPeer(*stage2);
+      flashLinkGroundRefreshSelectedPeer();
+    }
+
+    if (flashLinkRelay.stage2PeerReady &&
+        esp_now_is_peer_exist(flashLinkRelay.stage2Mac)) {
+      esp_now_del_peer(flashLinkRelay.stage2Mac);
+    }
+    flashLinkRelay = {};
+    flashLinkRelayTxHead = 0;
+    flashLinkRelayTxTail = 0;
+    flashLinkRelayTxCount = 0;
+
+    if (flashLinkDirectGround.peerReady &&
+        esp_now_is_peer_exist(flashLinkDirectGround.mac)) {
+      esp_now_del_peer(flashLinkDirectGround.mac);
+    }
+    flashLinkDirectGround = {};
+  }
+
+  if (persist) saveSequenceSettings();
+  if (changed) {
+    Serial.printf(
+      "[FLASH_LINK] network mode=%s telemetry=%luHz source=%s\n",
+      enabled ? "dual_stage" : "stage1_only",
+      (unsigned long)flashLinkTelemetryHz(),
+      persist ? "local" : "ground");
+  }
+}
+
 bool flashLinkEnsureRelayedGroundPeer(const uint8_t* relayMac, uint8_t nodeId) {
-  if (!flashLinkGroundRole() || !relayMac || nodeId != kFlashLinkNodeIdStage2) return false;
+  if (!flashLinkStage2Enabled || !flashLinkGroundRole() || !relayMac ||
+      nodeId != kFlashLinkNodeIdStage2) return false;
   FlashLinkGroundPeer* stage1 = flashLinkGroundPeerForNode(kFlashLinkNodeIdStage1);
   FlashLinkGroundPeer* stage2 = flashLinkGroundPeerForNode(kFlashLinkNodeIdStage2);
   if (!stage1 || !stage2 || !stage1->directReady ||
@@ -1466,12 +1526,14 @@ bool flashLinkDrainRelayTxQueue() {
 bool flashLinkSendDiscovery(FlashLinkPacketType type) {
   FlashLinkDiscoveryV1 discovery{};
   discovery.deviceId = ESP.getEfuseMac();
-  discovery.telemetryHz = kFlashLinkTelemetryHz;
+  discovery.telemetryHz = (uint16_t)flashLinkTelemetryHz();
   discovery.channel = kFlashLinkChannel;
-  // bit 4: stage-1 relay, bit 5: stage-2 direct-ground standby.
+  // bit 4: stage-1 relay, bit 5: stage-2 direct-ground standby,
+  // bit 6: dual-stage network mode requested by the ground node.
   discovery.capabilities = 0x0FU |
-    (flashLinkStage1RelayRole() ? 0x10U : 0U) |
-    (flashLinkStage2LeafRole() ? 0x20U : 0U);
+    (flashLinkStage1RelayRole() ? kFlashLinkCapabilityStage1Relay : 0U) |
+    (flashLinkStage2LeafRole() ? kFlashLinkCapabilityStage2Direct : 0U) |
+    (flashLinkStage2Enabled ? kFlashLinkCapabilityDualStageMode : 0U);
   return flashLinkSendPacket(type, kFlashLinkBroadcastMac, &discovery, sizeof(discovery));
 }
 
@@ -1791,7 +1853,7 @@ bool flashLinkHandleStage2RelayUplink(
         flashLinkRelay.stage2Linked = true;
       }
       if (duplicate ||
-          (flashLinkRelay.stage2RxTelemetryFrames % kFlashLinkAckEveryFrames) == 0U) {
+          (flashLinkRelay.stage2RxTelemetryFrames % flashLinkAckEveryFrames()) == 0U) {
         flashLinkRelay.stage2AckPending = true;
       }
       if (duplicate) return true;
@@ -1832,6 +1894,19 @@ void flashLinkHandlePacket(FlashLinkRxSlot& slot) {
   const bool relayedPacket = flashLinkPacketRelayed(*header);
   bool directGroundPacket = false;
 
+  if (type == FlashLinkPacketType::Discover &&
+      header->payloadBytes == sizeof(FlashLinkDiscoveryV1) &&
+      flashLinkAvionicsRole() &&
+      header->role == static_cast<uint8_t>(FlashLinkRole::Ground) &&
+      incomingNodeId == kFlashLinkNodeIdGround && !relayedPacket) {
+    const FlashLinkDiscoveryV1& discovery =
+      *reinterpret_cast<const FlashLinkDiscoveryV1*>(
+        slot.data + sizeof(FlashLinkHeaderV1));
+    flashLinkSetStage2Mode(
+      (discovery.capabilities & kFlashLinkCapabilityDualStageMode) != 0U,
+      false);
+  }
+
   if (flashLinkHandleStage2RelayUplink(slot, *header, type, nowMs)) return;
   if (flashLinkGroundRole() && incomingNodeId == kFlashLinkNodeIdGround) {
     incomingNodeId = kFlashLinkNodeIdStage1;  // Protocol v2 single-node compatibility.
@@ -1844,9 +1919,11 @@ void flashLinkHandlePacket(FlashLinkRxSlot& slot) {
       const bool directStage1 = incomingNodeId == kFlashLinkNodeIdStage1 &&
         !relayedPacket && header->role == static_cast<uint8_t>(FlashLinkRole::Avionics);
       const bool directStage2 = incomingNodeId == kFlashLinkNodeIdStage2 &&
-        !relayedPacket && header->role == static_cast<uint8_t>(FlashLinkRole::Avionics);
+        flashLinkStage2Enabled && !relayedPacket &&
+        header->role == static_cast<uint8_t>(FlashLinkRole::Avionics);
       const bool relayedStage2 = incomingNodeId == kFlashLinkNodeIdStage2 &&
-        relayedPacket && header->role == static_cast<uint8_t>(FlashLinkRole::Avionics);
+        flashLinkStage2Enabled && relayedPacket &&
+        header->role == static_cast<uint8_t>(FlashLinkRole::Avionics);
       if (directStage1 || directStage2) {
         if (!flashLinkEnsurePeer(slot.mac, incomingNodeId)) return;
       } else if (relayedStage2) {
@@ -1872,7 +1949,7 @@ void flashLinkHandlePacket(FlashLinkRxSlot& slot) {
       if (relayedStage2) groundPeer->lastRelayRxMs = nowMs;
       else groundPeer->lastDirectRxMs = nowMs;
       flashLinkGroundRefreshSelectedPeer();
-    } else if (flashLinkStage2LeafRole()) {
+    } else if (flashLinkStage2NodeRole()) {
       const bool stage1Discovery =
         header->role == static_cast<uint8_t>(FlashLinkRole::Avionics) &&
         incomingNodeId == kFlashLinkNodeIdStage1 && !relayedPacket;
@@ -1921,6 +1998,9 @@ void flashLinkHandlePacket(FlashLinkRxSlot& slot) {
 
   if (flashLinkGroundRole()) {
     if (header->role != static_cast<uint8_t>(FlashLinkRole::Avionics)) return;
+    if (incomingNodeId == kFlashLinkNodeIdStage2 && !flashLinkStage2Enabled) {
+      return;
+    }
     if (incomingNodeId == kFlashLinkNodeIdStage2 && relayedPacket) {
       if (!flashLinkEnsureRelayedGroundPeer(slot.mac, incomingNodeId)) return;
       groundPeer = flashLinkGroundPeerForNode(kFlashLinkNodeIdStage2);
@@ -2381,7 +2461,7 @@ void flashLinkHandlePacket(FlashLinkRxSlot& slot) {
   const uint32_t ackFrameCount = groundPeer
     ? groundPeer->rxTelemetryFrames
     : flashLink.rxTelemetryFrames;
-  if ((ackFrameCount % kFlashLinkAckEveryFrames) == 0U) {
+  if ((ackFrameCount % flashLinkAckEveryFrames()) == 0U) {
     if (groundPeer) {
       memcpy(
         groundPeer->ackDestination,
@@ -2464,7 +2544,7 @@ void setupFlashLink() {
                 flashIf == WIFI_IF_AP ? "AP" : "STA",
                 (unsigned)kFlashLinkChannel,
                 rateName,
-                (unsigned long)kFlashLinkTelemetryHz,
+                (unsigned long)flashLinkTelemetryHz(),
                 (int)rateErr);
 }
 
@@ -2505,6 +2585,15 @@ void flashLinkGroundCancelPendingForNode(uint8_t nodeId) {
 void flashLinkGroundAutoSelectTarget(uint32_t nowMs) {
   if (!flashLinkGroundRole()) return;
   static bool stage2MissionLatched = false;
+  if (!flashLinkStage2Enabled) {
+    stage2MissionLatched = false;
+    if (flashLinkTargetNodeId != kFlashLinkNodeIdStage1) {
+      flashLinkGroundCancelPendingForNode(flashLinkTargetNodeId);
+      flashLinkTargetNodeId = kFlashLinkNodeIdStage1;
+      flashLinkGroundRefreshSelectedPeer();
+    }
+    return;
+  }
   FlashLinkGroundPeer* stage1 =
     flashLinkGroundPeerForNode(kFlashLinkNodeIdStage1);
   FlashLinkGroundPeer* stage2 =
@@ -2557,7 +2646,10 @@ void flashLinkGroundAutoSelectTarget(uint32_t nowMs) {
 
 void flashLinkGroundTick(uint32_t nowMs) {
   bool selectedStatsChanged = false;
-  for (uint8_t i = 0; i < kFlashLinkVehicleNodeCount; ++i) {
+  const uint8_t activePeerCount = flashLinkStage2Enabled
+    ? kFlashLinkVehicleNodeCount
+    : 1U;
+  for (uint8_t i = 0; i < activePeerCount; ++i) {
     FlashLinkGroundPeer& peer = flashLinkGroundPeers[i];
     if (!peer.occupied) continue;
     if (peer.directReady && peer.lastDirectRxMs != 0U &&
@@ -2606,7 +2698,7 @@ void flashLinkGroundTick(uint32_t nowMs) {
   if (selectedStatsChanged) flashLinkGroundRefreshSelectedPeer();
 
   if (!flashLink.txBusy) {
-    for (uint8_t i = 0; i < kFlashLinkVehicleNodeCount; ++i) {
+    for (uint8_t i = 0; i < activePeerCount; ++i) {
       FlashLinkGroundPeer& peer = flashLinkGroundPeers[i];
       if (!peer.peerReady || !peer.ackPending) continue;
       if (flashLinkSendPacket(
@@ -2681,7 +2773,7 @@ void flashLinkGroundTick(uint32_t nowMs) {
   }
 
   if (!flashLink.txBusy) {
-    for (uint8_t i = 0; i < kFlashLinkVehicleNodeCount; ++i) {
+    for (uint8_t i = 0; i < activePeerCount; ++i) {
       FlashLinkGroundPeer& peer = flashLinkGroundPeers[i];
       if (!peer.peerReady ||
           (peer.lastHelloMs != 0U &&
@@ -2702,7 +2794,7 @@ void flashLinkGroundTick(uint32_t nowMs) {
   }
 
   if (!flashLink.txBusy) {
-    for (uint8_t i = 0; i < kFlashLinkVehicleNodeCount; ++i) {
+    for (uint8_t i = 0; i < activePeerCount; ++i) {
       FlashLinkGroundPeer& peer = flashLinkGroundPeers[i];
       if (!peer.peerReady || !peer.linked ||
           (peer.lastHeartbeatMs != 0U &&
@@ -2720,12 +2812,13 @@ void flashLinkGroundTick(uint32_t nowMs) {
 
   FlashLinkGroundPeer* stage2Peer =
     flashLinkGroundPeerForNode(kFlashLinkNodeIdStage2);
-  const bool stage2StandbyReady = stage2Peer && stage2Peer->directReady &&
-    stage2Peer->directLinked;
-  const bool allRequiredLinksReady =
-    flashLinkGroundPeerActive(kFlashLinkNodeIdStage1) &&
-    flashLinkGroundPeerActive(kFlashLinkNodeIdStage2) &&
-    stage2StandbyReady;
+  const bool stage2StandbyReady = flashLinkStage2Enabled && stage2Peer &&
+    stage2Peer->directReady && stage2Peer->directLinked;
+  const bool stage1Ready = flashLinkGroundPeerActive(kFlashLinkNodeIdStage1);
+  const bool allRequiredLinksReady = !flashLinkStage2Enabled
+    ? stage1Ready
+    : stage1Ready && flashLinkGroundPeerActive(kFlashLinkNodeIdStage2) &&
+      stage2StandbyReady;
   const uint32_t groundDiscoveryPeriod = allRequiredLinksReady
     ? kFlashLinkLinkedDiscoveryPeriodMs
     : kFlashLinkDiscoveryPeriodMs;
@@ -3089,7 +3182,8 @@ void flashLinkTick() {
   }
 
   if (flashLinkAvionicsRole() &&
-      (uint32_t)(nowUs - flashLink.lastTelemetryTxUs) >= kFlashLinkTelemetryPeriodUs) {
+      (uint32_t)(nowUs - flashLink.lastTelemetryTxUs) >=
+        flashLinkTelemetryPeriodUs()) {
     flashLink.lastTelemetryTxUs = nowUs;
     if (flashLink.txBusy) {
       flashLink.txSkipped++;

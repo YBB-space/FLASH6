@@ -1,15 +1,16 @@
 # ALTIS INTELLIGENT LINK1
 
-ALTIS INTELLIGENT LINK1 is the ESP-NOW transport used by one ground board and up
-to two Altis Intelligent 3 avionics boards. Avionics nodes are identified as
-`stage 1` and `stage 2`.
+ALTIS INTELLIGENT LINK1 is the ESP-NOW transport used by one ground board and
+one or two Altis Intelligent 3 avionics boards. Avionics nodes are identified
+as `stage 1` and optional `stage 2`.
 
 ## Radio Profile
 
 - ESP-NOW, 2.4 GHz
 - Fixed channel: 6
 - ESP-NOW PHY rate: 1M_L
-- Telemetry target: 50 Hz per avionics node
+- Stage-1-only mode (default): 100 Hz stage-1 telemetry
+- Dual-stage mode: 50 Hz telemetry per avionics node
 - Primary peer topology: stage 2 ↔ stage 1 ↔ ground. Stage 1 is the encrypted
   radio relay and is always preferred by stage 2.
 - Backup peer topology: stage 2 ↔ ground. This direct encrypted link remains on
@@ -29,6 +30,11 @@ to two Altis Intelligent 3 avionics boards. Avionics nodes are identified as
 5. Short telemetry gaps retain the peer and last remote sample for 1.5 seconds.
 6. A peer is discarded after 6 seconds without received traffic or a successful
    unicast MAC acknowledgement, then discovery starts again.
+
+Discovery capability bit `6` carries the ground node's dual-stage-mode state.
+Stage 1 and stage 2 follow that state at runtime. With the bit clear, stage 1
+does not discover or service a stage-2 relay and the ground node ignores stage-2
+traffic. Bits `4` and `5` continue to advertise relay and direct-standby support.
 
 Discovery is broadcast and unencrypted. Telemetry, hello, heartbeat, and ACK
 packets are encrypted unicast packets using the ALTIS INTELLIGENT LINK1 PMK/LMK.
@@ -83,10 +89,12 @@ from this sequence.
 
 The UI stream appends GPS clock metadata after the stable 53-field compact frame:
 `gps_time_valid` and `gps_utc_ms`. Older decoders can ignore these trailing
-fields.
+fields. Build `v6 b6` also appends `stage2_mode` after the two optional stage
+snapshots; the stage-2 snapshot is `null` in stage-1-only mode.
 
-The ground board ACKs every 10 telemetry frames per stage. Telemetry is not retransmitted:
-the newest state is more valuable than a delayed old state. Send
+The ground board sends five telemetry ACKs per second: every 20 frames in
+stage-1-only 100 Hz mode and every 10 frames per stage in dual-stage 50 Hz mode.
+Telemetry is not retransmitted: the newest state is more valuable than a delayed old state. Send
 failures, sequence gaps, duplicate frames, CRC failures, queue drops, receive
 rate, and peer age are tracked separately.
 
@@ -172,7 +180,10 @@ Supported controls:
   then writes larger contiguous batches to reduce repeated page programs.
 - Probes the W25Q256 bus up to 40 MHz at boot and falls back to the highest
   lower clock with a stable JEDEC identity.
-- Sends packed ALTIS INTELLIGENT LINK1 telemetry at 50 Hz.
+- Sends packed ALTIS INTELLIGENT LINK1 telemetry at 100 Hz in stage-1-only mode
+  or 50 Hz in dual-stage mode.
+- In stage-1-only mode, stage 1 bypasses stage-2 discovery, receive processing,
+  relay queuing, and backup-route servicing.
 - Stage 2 sends that telemetry through stage 1 whenever the relay is healthy;
   the direct-ground peer carries only standby control traffic until failover.
 - Does not publish periodic telemetry over USB serial or Wi-Fi.
@@ -186,14 +197,14 @@ Supported controls:
 - Prefers the stage-1 relay for stage-2 traffic and activates the direct path
   only when the primary path is stale.
 - Relays the automatically active stage telemetry to the Flash6 UI:
-  - Wi-Fi WebSocket: 50 Hz
-  - USB serial: 50 Hz output scheduler, using the newest remote sample
+  - Stage-1-only: Wi-Fi WebSocket and USB serial at 100 Hz
+  - Dual-stage: Wi-Fi WebSocket and USB serial at 50 Hz, using the newest remote sample
 - Reports link state, receive rate, loss, peer age, and peer MAC to the UI.
 - Accepts controls from Wi-Fi HTTP or USB serial and forwards them to avionics.
 - Reports pending, acknowledged, failed, retried, and last-result command
   counters to the UI.
-- Sends telemetry ACKs every 10 received telemetry frames to reduce reverse-link
-  airtime while still detecting sequence gaps.
+- Sends telemetry ACKs at a constant 5 Hz to reduce reverse-link airtime while
+  still detecting sequence gaps.
 - Reads remote W25Q storage through up to three pipelined 192-byte ESP-NOW read
   requests per HTTP chunk. Busy responses are retried within the request window.
 - Requests storage sessions in batches of up to eight entries. Each entry carries
@@ -234,9 +245,11 @@ blocking the UI at high stream rates.
 
 ## Configuration
 
-The ALTIS INTELLIGENT LINK1 role and avionics stage ID are stored in ESP32
-Preferences. The ground control/HUD stage is selected automatically from
-separation and link state. Entering ALTIS INTELLIGENT LINK1 uses a
+The ALTIS INTELLIGENT LINK1 role, avionics stage ID, and 2-stage operation mode
+are stored in ESP32 Preferences. Stage-1-only is the default. The ground node
+advertises its selected network mode to avionics through discovery. The ground
+control/HUD stage is selected automatically from separation and link state only
+while dual-stage mode is enabled; it remains on stage 1 otherwise. Entering ALTIS INTELLIGENT LINK1 uses a
 one-time boot reservation so the automatic restart can initialize the radio.
 That reservation is consumed during startup. A later manual reboot or power
 cycle always returns the board to Flight mode while preserving its role.
@@ -254,9 +267,10 @@ revisions should rotate keys per fleet or per paired board.
 
 ## Firmware Revision
 
-- Firmware version: `0.7.1`
-- Build ID: `v6 b5`
+- Firmware version: `0.8.0`
+- Build ID: `v6 b6`
 - Wire protocol: `Flash6-Intelligent-b3` / numeric version `3`
 - Storage record format: version `4` (unchanged and backward compatible)
-- Compatibility: all three radio nodes must be updated together; wire-version
-  `2` and `3` frames are intentionally not mixed in one flight network.
+- Compatibility: the wire layout remains version `3`. Ground and stage 1 must
+  both run `v6 b6` to coordinate stage-1-only 100 Hz mode. Update all three
+  nodes before enabling dual-stage operation.

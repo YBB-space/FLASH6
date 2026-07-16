@@ -22312,6 +22312,16 @@ body.camera-view-active .page-wrap{
   font-weight:560;
 }
 .flash-topology-node.is-offline{opacity:.5;filter:none}
+.flash-topology-node.is-mode-disabled{
+  opacity:.28;
+  border-style:dashed;
+  box-shadow:none;
+}
+.flash-topology-node.is-mode-disabled em{
+  border-color:rgba(148,163,184,.14);
+  background:rgba(15,23,42,.38);
+  color:#64748b;
+}
 .flash-topology-node.is-online{
   opacity:1;
   border-color:rgba(56,189,248,.34);

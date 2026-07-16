@@ -1,7 +1,7 @@
 
 constexpr char kFirmwareProgram[] = "Altis_Intelligent3_firmware1";
-constexpr char kFirmwareVersion[] = "0.7.1";
-constexpr char kFirmwareBuildId[] = "v6 b5";
+constexpr char kFirmwareVersion[] = "0.8.0";
+constexpr char kFirmwareBuildId[] = "v6 b6";
 constexpr char kFirmwareBoard[] = "Altis_Intelligent3_b3";
 constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b3";
 
@@ -19,7 +19,6 @@ constexpr uint32_t kGpsHousekeepingPeriodMs = 20;
 constexpr uint32_t kI2cBusHz = 400000;
 constexpr uint16_t kI2cTimeoutMs = 5;
 constexpr uint32_t kSamplePeriodUs = 1000000UL / kImuSampleHz;
-constexpr uint32_t kWsPeriodUs = 1000000UL / kWifiStreamHz;
 constexpr uint32_t kSerialPeriodUs = 1000000UL / kSerialStreamHz;
 constexpr uint32_t kBaroPeriodUs = 1000000UL / kBaroSampleHz;
 constexpr uint16_t kSerialRxDrainMaxBytes = 256;
@@ -131,8 +130,8 @@ static_assert((kFlashLinkNodeIdMask & kFlashLinkTargetNodeMask) == 0U,
 static_assert((kFlashLinkRelayedFlag &
               (kFlashLinkNodeIdMask | kFlashLinkTargetNodeMask)) == 0U,
               "ALTIS INTELLIGENT LINK1 relay flag overlaps routing flags");
-constexpr uint32_t kFlashLinkTelemetryHz = 50;
-constexpr uint32_t kFlashLinkTelemetryPeriodUs = 1000000UL / kFlashLinkTelemetryHz;
+constexpr uint32_t kFlashLinkSingleStageTelemetryHz = 100;
+constexpr uint32_t kFlashLinkDualStageTelemetryHz = 50;
 constexpr uint32_t kFlashLinkServiceMinPeriodUs = 500;
 constexpr uint32_t kFlashLinkStorageStatusPeriodMs = 1000;
 constexpr uint32_t kFlashLinkDiscoveryPeriodMs = 250;
@@ -144,7 +143,10 @@ constexpr uint32_t kFlashLinkPeerTimeoutMs = 6000;
 constexpr uint32_t kFlashLinkPrimaryRouteFreshMs = 650;
 constexpr uint8_t kFlashLinkRelayCommandAttempts = 2;
 constexpr uint32_t kFlashLinkTxBusyTimeoutMs = 250;
-constexpr uint8_t kFlashLinkAckEveryFrames = 10;
+constexpr uint8_t kFlashLinkAckHz = 5;
+constexpr uint8_t kFlashLinkCapabilityStage1Relay = 1U << 4;
+constexpr uint8_t kFlashLinkCapabilityStage2Direct = 1U << 5;
+constexpr uint8_t kFlashLinkCapabilityDualStageMode = 1U << 6;
 constexpr uint8_t kFlashLinkRxQueueDepth = 12;
 constexpr uint8_t kFlashLinkTelemetryQueueSoftLimit = 4;
 constexpr uint8_t kFlashLinkRxDrainLimit = kFlashLinkRxQueueDepth;
@@ -256,6 +258,7 @@ volatile bool inspectionPassed = true;
 volatile bool flightMode = true;
 volatile bool flashLinkMode = false;
 volatile bool flashLinkDataFlightMode = true;
+volatile bool flashLinkStage2Enabled = false;
 volatile bool developerMode = false;
 enum class FlashLinkRole : uint8_t {
   Avionics = 0,
@@ -1471,6 +1474,7 @@ void flashLinkGroundRefreshSelectedPeer();
 bool flashLinkRouteFresh(uint32_t lastRxMs, uint32_t maxAgeMs);
 void flashLinkGroundChooseRoute(FlashLinkGroundPeer& peer);
 void flashLinkGroundAutoSelectTarget(uint32_t nowMs);
+void flashLinkSetStage2Mode(bool enabled, bool persist = true);
 bool flashLinkStage2RelayActive(uint32_t nowMs);
 bool flashLinkStage2DirectGroundActive(uint32_t nowMs);
 void saveSequenceSettings();

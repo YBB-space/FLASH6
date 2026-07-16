@@ -3,6 +3,25 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.8.0 — v6 b6 — 2026-07-17
+
+Protocol: `Flash6-Intelligent-b3` (wire version `3`, unchanged)
+
+- Added a persistent 2-stage operation toggle. The new default is stage-1-only
+  for the revised launch plan; the existing relay/direct-backup topology remains
+  available when the toggle is enabled.
+- Raised stage-1-only ESP-NOW telemetry, ground WebSocket, and ground USB
+  telemetry from 50 Hz to 100 Hz. Dual-stage mode remains at 50 Hz per node.
+- Advertised the network mode through the existing discovery capability byte so
+  stage 1 follows the ground setting automatically without a separate selector.
+- Disabled stage-2 discovery, relay queues, direct-backup servicing, peer scans,
+  and UI snapshot generation in stage-1-only mode.
+- Dropped disabled stage-2 frames before the firmware RX queue and kept telemetry
+  ACK airtime fixed at five acknowledgements per second (20 frames at 100 Hz,
+  10 frames at 50 Hz).
+- Updated Flash6 settings, link status, rate alarms, active-stage behavior, and
+  topology details for both network modes.
+
 ## 0.7.1 — v6 b5 — 2026-07-17
 
 Protocol: `Flash6-Intelligent-b3` (wire version `3`, unchanged)
