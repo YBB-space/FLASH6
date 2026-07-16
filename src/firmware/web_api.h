@@ -967,21 +967,44 @@ bool saveLoadcellScaleFromWeight(float weightKg) {
 }
 
 String settingsJson() {
-  char peerMac[20];
-  flashLinkFormatMac(flashLink.peerReady ? flashLink.peerMac : nullptr, peerMac, sizeof(peerMac));
   const uint32_t nowMs = millis();
+  FlashLinkGroundPeer& stage1 = flashLinkGroundPeers[0];
+  FlashLinkGroundPeer& stage2 = flashLinkGroundPeers[1];
+  if (flashLinkGroundRole()) {
+    flashLinkGroundChooseRoute(stage1);
+    flashLinkGroundChooseRoute(stage2);
+    flashLinkGroundRefreshSelectedPeer();
+  }
+  char peerMac[20];
+  flashLinkFormatMac(
+    flashLink.peerReady ? flashLink.peerMac : nullptr,
+    peerMac,
+    sizeof(peerMac));
   const uint32_t flashRssiAgeMs = flashLink.lastRssiMs
     ? (uint32_t)(nowMs - flashLink.lastRssiMs)
     : UINT32_MAX;
-  const FlashLinkGroundPeer& stage1 = flashLinkGroundPeers[0];
-  const FlashLinkGroundPeer& stage2 = flashLinkGroundPeers[1];
   const bool stage1Connected = stage1.peerReady && stage1.linked && stage1.remoteValid &&
     stage1.lastTelemetryRxMs != 0U &&
     (uint32_t)(nowMs - stage1.lastTelemetryRxMs) <= kFlashLinkTelemetryStaleMs;
   const bool stage2Connected = stage2.peerReady && stage2.linked && stage2.remoteValid &&
     stage2.lastTelemetryRxMs != 0U &&
     (uint32_t)(nowMs - stage2.lastTelemetryRxMs) <= kFlashLinkTelemetryStaleMs;
-  char json[1200];
+  const bool stage2RelayConnected = flashLinkGroundRole()
+    ? stage2.relayReady && stage2.relayLinked &&
+      flashLinkRouteFresh(
+        stage2.lastRelayTelemetryRxMs != 0U
+          ? stage2.lastRelayTelemetryRxMs
+          : stage2.lastRelayRxMs,
+        kFlashLinkPrimaryRouteFreshMs)
+    : flashLinkStage2RelayActive(nowMs);
+  const bool stage2DirectConnected = flashLinkGroundRole()
+    ? stage2.directReady && stage2.directLinked && stage2.lastDirectRxMs != 0U &&
+      (uint32_t)(nowMs - stage2.lastDirectRxMs) <= kFlashLinkPeerTimeoutMs
+    : flashLinkStage2DirectGroundActive(nowMs);
+  const char* stage2Route = stage2RelayConnected
+    ? "relay"
+    : (stage2DirectConnected ? "direct" : "offline");
+  char json[1400];
   snprintf(json, sizeof(json),
            "{\"ok\":1,\"ign_ms\":%lu,\"cd_ms\":%lu,\"countdown_sec\":%lu,\"daq_seq_pyro\":%u,"
            "\"op_mode\":\"%s\",\"link_mode\":\"%s\",\"data_mode\":\"%s\","
@@ -990,6 +1013,9 @@ String settingsJson() {
            "\"flash_link_role\":\"%s\",\"flash_link_protocol\":\"ALTIS INTELLIGENT LINK1\"," 
            "\"flash_link_node_id\":%u,\"flash_link_target_node_id\":%u,"
            "\"flash_link_stage1_connected\":%u,\"flash_link_stage2_connected\":%u,"
+           "\"flash_link_stage2_relay_connected\":%u,"
+           "\"flash_link_stage2_direct_connected\":%u,"
+           "\"flash_link_stage2_route\":\"%s\","
            "\"flash_link_channel\":%u,\"flash_link_rate\":\"%s\",\"flash_link_rate_err\":%d,"
            "\"flash_link_hz\":%lu,\"flash_link_connected\":%u,"
            "\"flash_link_remote_valid\":%u,\"flash_link_rx_hz\":%u,"
@@ -1015,6 +1041,9 @@ String settingsJson() {
            (unsigned)flashLinkTargetNodeId,
            stage1Connected ? 1U : 0U,
            stage2Connected ? 1U : 0U,
+           stage2RelayConnected ? 1U : 0U,
+           stage2DirectConnected ? 1U : 0U,
+           stage2Route,
            (unsigned)kFlashLinkChannel,
            flashLinkRateName,
            flashLinkRateError,
@@ -1380,7 +1409,7 @@ void setupRoutes() {
     sendText(request, 200, "application/json", String(json));
   });
   server.on("/protocol", HTTP_GET, [](AsyncWebServerRequest* request) {
-    char json[2304];
+    char json[2816];
     const int n = snprintf(json, sizeof(json),
              "{\"name\":\"%s\",\"version\":%u,\"build_id\":\"%s\","
              "\"firmware\":\"%s\",\"firmware_version\":\"%s\",\"board\":\"%s\","
@@ -1410,11 +1439,13 @@ void setupRoutes() {
              "\"arm_lock\":10,\"inspection\":11,\"storage\":12,\"serial\":13,"
              "\"station\":14,\"chip_temp\":15},"
              "\"flash_link\":{\"name\":\"ALTIS INTELLIGENT LINK1\",\"transport\":\"ESP-NOW\","
-             "\"topology\":\"ground-stage1-stage2-relay\","
+             "\"topology\":\"stage2-stage1-ground-primary+stage2-ground-backup\","
              "\"channel\":6,\"rate\":\"%s\",\"telemetry_hz\":%lu,"
              "\"pairing\":\"automatic\",\"unicast_encrypted\":1,\"ack_interval\":%u,"
              "\"command_ack\":1,\"command_retry_ms\":%lu,\"command_max_attempts\":%u,"
-             "\"rx_queue_depth\":%u,\"relay_queue_depth\":%u,\"telemetry_coalescing\":1},"
+             "\"rx_queue_depth\":%u,\"relay_queue_depth\":%u,\"telemetry_coalescing\":1,"
+             "\"route_policy\":\"relay-primary-direct-fallback\","
+             "\"primary_stale_ms\":%lu},"
              "\"storage\":{\"header\":\"HWLOGV2\",\"record_version\":4,\"record_bytes\":84,"
              "\"crc\":\"crc16-ccitt\",\"loadcell\":\"thrustMilliKgf+raw+hz+flags\"}}",
              kFirmwareProtocol,
@@ -1429,7 +1460,8 @@ void setupRoutes() {
              (unsigned long)kFlashLinkCommandRetryMs,
              (unsigned)kFlashLinkCommandMaxAttempts,
              (unsigned)kFlashLinkRxQueueDepth,
-             (unsigned)kFlashLinkRelayTxQueueDepth);
+             (unsigned)kFlashLinkRelayTxQueueDepth,
+             (unsigned long)kFlashLinkPrimaryRouteFreshMs);
     if (n <= 0 || (size_t)n >= sizeof(json)) {
       sendText(request, 500, "application/json",
                "{\"ok\":0,\"err\":\"PROTOCOL_OVERFLOW\"}");

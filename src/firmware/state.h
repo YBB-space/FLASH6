@@ -1,9 +1,9 @@
 
 constexpr char kFirmwareProgram[] = "Altis_Intelligent3_firmware1";
-constexpr char kFirmwareVersion[] = "0.6.1";
-constexpr char kFirmwareBuildId[] = "v6 b3";
+constexpr char kFirmwareVersion[] = "0.7.0";
+constexpr char kFirmwareBuildId[] = "v6 b4";
 constexpr char kFirmwareBoard[] = "Altis_Intelligent3_b3";
-constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b2";
+constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b3";
 
 constexpr uint32_t kSerialBaud = 921600;
 constexpr size_t kSerialTxBufferActiveBytes = 16384;
@@ -116,7 +116,7 @@ constexpr uint8_t kWifiChannel = 6;
 constexpr uint8_t kWifiMaxClients = 2;
 constexpr char kWifiPass[] = "12345678";
 constexpr uint32_t kFlashLinkMagic = 0x314B4C46UL;  // FLK1
-constexpr uint8_t kFlashLinkVersion = 2;
+constexpr uint8_t kFlashLinkVersion = 3;
 constexpr uint8_t kFlashLinkChannel = 6;
 constexpr uint8_t kFlashLinkVehicleNodeCount = 2;
 constexpr uint8_t kFlashLinkNodeIdGround = 0;
@@ -141,6 +141,8 @@ constexpr uint32_t kFlashLinkHeartbeatPeriodMs = 1000;
 constexpr uint32_t kFlashLinkTelemetryStaleMs = 1500;
 constexpr uint32_t kFlashLinkRecoveryPeerResetMs = 3000;
 constexpr uint32_t kFlashLinkPeerTimeoutMs = 6000;
+constexpr uint32_t kFlashLinkPrimaryRouteFreshMs = 1200;
+constexpr uint8_t kFlashLinkRelayCommandAttempts = 2;
 constexpr uint32_t kFlashLinkTxBusyTimeoutMs = 250;
 constexpr uint8_t kFlashLinkAckEveryFrames = 10;
 constexpr uint8_t kFlashLinkRxQueueDepth = 12;
@@ -990,6 +992,7 @@ struct FlashLinkRuntime {
   bool ackPending = false;
   bool commandAckPending = false;
   FlashLinkCommandAckV1 commandAck{};
+  uint8_t commandAckDestination[ESP_NOW_ETH_ALEN] = {};
   uint32_t lastCommandTransaction = 0;
   FlashLinkCommandAckV1 lastCommandAck{};
   FlashLinkCommandAckV1 commandAckCache[kFlashLinkCommandQueueDepth]{};
@@ -1056,12 +1059,23 @@ struct FlashLinkGroundPeer {
   bool remoteValid = false;
   bool ackPending = false;
   bool relayed = false;
+  bool directReady = false;
+  bool relayReady = false;
+  bool directLinked = false;
+  bool relayLinked = false;
   uint8_t nodeId = 0;
   uint8_t mac[ESP_NOW_ETH_ALEN] = {};
+  uint8_t directMac[ESP_NOW_ETH_ALEN] = {};
+  uint8_t relayMac[ESP_NOW_ETH_ALEN] = {};
+  uint8_t ackDestination[ESP_NOW_ETH_ALEN] = {};
   uint32_t session = 0;
   uint32_t rxTelemetrySeq = 0;
   uint32_t lastPeerRxMs = 0;
   uint32_t lastTelemetryRxMs = 0;
+  uint32_t lastDirectRxMs = 0;
+  uint32_t lastRelayRxMs = 0;
+  uint32_t lastDirectTelemetryRxMs = 0;
+  uint32_t lastRelayTelemetryRxMs = 0;
   uint32_t lastHelloMs = 0;
   uint32_t lastHeartbeatMs = 0;
   uint32_t rxFrames = 0;
@@ -1074,7 +1088,11 @@ struct FlashLinkGroundPeer {
   uint16_t rxHz = 0;
   uint16_t rxLossPermille = 0;
   int8_t rssiDbm = -127;
+  int8_t directRssiDbm = -127;
+  int8_t relayRssiDbm = -127;
   uint32_t lastRssiMs = 0;
+  uint32_t lastDirectRssiMs = 0;
+  uint32_t lastRelayRssiMs = 0;
   Telemetry snap{};
   FlashLinkRemoteState state{};
   uint32_t alarmSeq = 0;
@@ -1082,6 +1100,22 @@ struct FlashLinkGroundPeer {
   uint16_t alarmBlockIndex = 0;
   char alarmTitle[24] = {};
   char alarmMessage[64] = {};
+};
+
+struct FlashLinkDirectGroundRuntime {
+  bool peerReady = false;
+  bool linked = false;
+  bool ackPending = false;
+  uint8_t mac[ESP_NOW_ETH_ALEN] = {};
+  uint32_t session = 0;
+  uint32_t lastRxMs = 0;
+  uint32_t lastHelloMs = 0;
+  uint32_t lastHeartbeatMs = 0;
+  volatile uint32_t lastMacAckMs = 0;
+  int8_t rssiDbm = -127;
+  uint32_t lastRssiMs = 0;
+  uint32_t txFrames = 0;
+  uint32_t txFail = 0;
 };
 
 struct FlashLinkRelayRuntime {
@@ -1115,6 +1149,7 @@ FlashLinkStorageListClient flashLinkStorageListClient;
 FlashLinkRemoteState flashLinkRemoteState;
 FlashLinkGroundPeer flashLinkGroundPeers[kFlashLinkVehicleNodeCount];
 FlashLinkRelayRuntime flashLinkRelay;
+FlashLinkDirectGroundRuntime flashLinkDirectGround;
 FlashLinkRelayTxSlot flashLinkRelayTxQueue[kFlashLinkRelayTxQueueDepth];
 volatile uint8_t flashLinkRelayTxHead = 0;
 volatile uint8_t flashLinkRelayTxTail = 0;
@@ -1433,6 +1468,10 @@ uint32_t flashLinkPeerAgeMs();
 bool flashLinkRemoteActive();
 bool flashLinkOperational();
 void flashLinkGroundRefreshSelectedPeer();
+bool flashLinkRouteFresh(uint32_t lastRxMs, uint32_t maxAgeMs);
+void flashLinkGroundChooseRoute(FlashLinkGroundPeer& peer);
+bool flashLinkStage2RelayActive(uint32_t nowMs);
+bool flashLinkStage2DirectGroundActive(uint32_t nowMs);
 void saveSequenceSettings();
 void saveBootOnceMode(const char* mode);
 bool flashLinkQueueCommand(

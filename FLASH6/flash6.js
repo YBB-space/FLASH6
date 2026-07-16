@@ -6063,6 +6063,9 @@ function requestMobileMockup3dMesh(){
     let flashLinkUiTargetNodeId = 1;
     let flashLinkStage1Connected = false;
     let flashLinkStage2Connected = false;
+    let flashLinkStage2Route = "relay";
+    let flashLinkStage2DirectConnected = false;
+    let flashLinkStage2RelayConnected = false;
     let flashLinkDisplayDataMode = null;
     let flashLinkGroundBlanked = false;
     const FLASH_LINK_CHART_WINDOW_MS = 30000;
@@ -11266,7 +11269,7 @@ function requestMobileMockup3dMesh(){
       const infoRows = [
         {cells:["ALTIS INTELLIGENT LINK1 COMMUNICATION REPORT"], style:2},
         {cells:["Generated at", now.toISOString()], style:3},
-        {cells:["Protocol", "Flash6-Intelligent-b2 / ALTIS INTELLIGENT LINK1 ESP-NOW LR"], style:3},
+        {cells:["Protocol", "Flash6-Intelligent-b3 / ALTIS INTELLIGENT LINK1 ESP-NOW LR"], style:3},
         {cells:["Board role", roleLabel], style:3},
         {cells:["Peer", peer || "--"], style:3},
         {cells:["Target rate", "50 Hz"], style:3},
@@ -11421,24 +11424,31 @@ function requestMobileMockup3dMesh(){
       const stage1Online = flashLinkEnabled && (
         flashLinkStage1Connected ||
         (roleNode1 && (flashLinkUiLinked || transportOnline)) ||
-        groundLinked
+        (groundLinked && flashLinkUiTargetNodeId === 1)
       );
-      const relayedStage2 = flashLinkStage2Connected ||
+      const connectedStage2 = flashLinkStage2Connected ||
         (roleNode2 && flashLinkUiLinked) ||
         (flashLinkUiRole === "ground" && flashLinkUiTargetNodeId === 2 && flashLinkUiRemoteValid);
-      const stage2Online = flashLinkEnabled && stage1Online && relayedStage2;
+      const stage2Online = flashLinkEnabled && connectedStage2;
+      const directRoute = stage2Online && flashLinkStage2Route === "direct";
+      const relayRoute = stage2Online && !directRoute && stage1Online;
       const groundOnline = transportOnline;
       const mobileOnline = groundOnline && mobileClient && !serialConnected;
       const pcOnline = groundOnline && (!mobileClient || serialConnected);
       const currentClient = mobileClient && !serialConnected ? "mobile" : "pc";
 
-      setFlashTopologyNodeState("stage2", stage2Online, stage2Online ? "RELAY LINK" : "OFFLINE", false);
+      setFlashTopologyNodeState(
+        "stage2",
+        stage2Online,
+        stage2Online ? (directRoute ? "DIRECT BACKUP" : "RELAY LINK") : "OFFLINE",
+        false);
       setFlashTopologyNodeState("stage1", stage1Online, stage1Online ? "LINKED" : "OFFLINE", false);
       setFlashTopologyNodeState("ground", groundOnline, groundOnline ? "ONLINE" : "WAITING", false);
       setFlashTopologyNodeState("mobile", mobileOnline, mobileOnline ? "CONNECTED" : "STANDBY", currentClient === "mobile");
       setFlashTopologyNodeState("pc", pcOnline, pcOnline ? "CONNECTED" : "STANDBY", currentClient === "pc");
 
-      setFlashTopologyLinkState("stage2-stage1", stage2Online && stage1Online);
+      setFlashTopologyLinkState("stage2-stage1", relayRoute);
+      setFlashTopologyLinkState("stage2-ground", directRoute);
       setFlashTopologyLinkState("stage1-ground", stage1Online && groundOnline);
       setFlashTopologyLinkState("ground-mobile", mobileOnline);
       setFlashTopologyLinkState("ground-pc", pcOnline);
@@ -11495,6 +11505,9 @@ function requestMobileMockup3dMesh(){
       const targetNodeId = normalizeFlashLinkNodeId(src.fl_target ?? src.flash_link_target_node_id ?? (uiSettings && uiSettings.flashLinkTargetNodeId));
       const stage1Linked = Number(src.fl_stage1 ?? src.flash_link_stage1_connected ?? 0) !== 0;
       const stage2Linked = Number(src.fl_stage2 ?? src.flash_link_stage2_connected ?? 0) !== 0;
+      const stage2RouteRaw = src.fl_stage2_route ?? src.flash_link_stage2_route ?? null;
+      const stage2DirectRaw = src.fl_stage2_direct ?? src.flash_link_stage2_direct_connected ?? null;
+      const stage2RelayRaw = src.fl_stage2_relay ?? src.flash_link_stage2_relay_connected ?? null;
       const wasOperational = flashLinkUiLinked &&
         (flashLinkUiRemoteValid || flashLinkUiRole === "avionics");
       flashLinkUiRole = normalizeFlashLinkRole(
@@ -11509,6 +11522,17 @@ function requestMobileMockup3dMesh(){
       flashLinkUiTargetNodeId = targetNodeId;
       flashLinkStage1Connected = stage1Linked;
       flashLinkStage2Connected = stage2Linked;
+      if(stage2RouteRaw != null){
+        const route = String(stage2RouteRaw).trim().toLowerCase();
+        flashLinkStage2Route = route === "direct" ? "direct" : (route === "relay" ? "relay" : "offline");
+      }
+      if(stage2DirectRaw != null) flashLinkStage2DirectConnected = Number(stage2DirectRaw) !== 0;
+      if(stage2RelayRaw != null) flashLinkStage2RelayConnected = Number(stage2RelayRaw) !== 0;
+      if(stage2RouteRaw == null && (stage2DirectRaw != null || stage2RelayRaw != null)){
+        flashLinkStage2Route = flashLinkStage2RelayConnected
+          ? "relay"
+          : (flashLinkStage2DirectConnected ? "direct" : "offline");
+      }
       if(uiSettings){
         if(document.activeElement !== el.flashLinkNodeSelect) uiSettings.flashLinkNodeId = nodeId;
         if(document.activeElement !== el.flashLinkTargetSelect && document.activeElement !== el.controlTargetSelect){
@@ -20155,8 +20179,8 @@ function requestMobileMockup3dMesh(){
         fl_rssi_age_ms:(frame[56] != null && isFinite(Number(frame[56]))) ? Number(frame[56]) : 4294967295,
         fw_program:"Altis_Intelligent3_firmware1",
         fw_board:"Altis_Intelligent3_b3",
-        fw_protocol:"Flash6-Intelligent-b2",
-        fw_build:"v6 b3"
+        fw_protocol:"Flash6-Intelligent-b3",
+        fw_build:"v6 b4"
       };
     }
 

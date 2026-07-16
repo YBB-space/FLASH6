@@ -22210,6 +22210,7 @@ body.camera-view-active .page-wrap{
   white-space:nowrap;
 }
 .flash-topology-link-label--relay{left:11.2%;top:48%;transform:rotate(-90deg)}
+.flash-topology-link-label--backup{left:35%;top:38%;transform:rotate(33deg)}
 .flash-topology-link-label--uplink{left:34%;top:70%;transform:rotate(-8deg)}
 .flash-topology-link-label--wifi{left:73.4%;top:37%;transform:rotate(-62deg)}
 .flash-topology-link-label--wired{left:73.6%;top:75%}

@@ -124,7 +124,7 @@
   <!-- Preload 축소: AP 모드/저메모리 환경에서 동시 요청 버스트를 줄임 -->
   <script>
     (function(){
-    var ASSET_VER = "20260717-firmware-b3-281";
+    var ASSET_VER = "20260717-dual-link-v3-282";
       window.__flashBoot = window.__flashBoot || {jsReady:false,lastError:"",phase:"static_loader",version:ASSET_VER};
       var isLocalPreview = !!window.__flashBoot.localPreview;
       var beaconEnabled = (window.__flashBoot.beaconEnabled !== false);
@@ -374,7 +374,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="styles/flash6.css?v=20260717-firmware-b3-281">
+  <link rel="stylesheet" href="styles/flash6.css?v=20260717-dual-link-v3-282">
 </head>
 <body>
   <!-- ✅ LOCKOUT 배경 오버레이 -->
@@ -2554,8 +2554,8 @@
                 <div class="settings-group-title" style="margin:0;">ALTIS INTELLIGENT 3</div>
 
                 <div class="settings-row"><div class="settings-label"><br>Program</div><div class="settings-desc"><br>Altis_Intelligent3_firmware1</div></div>
-                <div class="settings-row"><div class="settings-label">Build ID</div><div class="settings-desc">v6 b3</div></div>
-                <div class="settings-row"><div class="settings-label">Protocol</div><div class="settings-desc">Flash6-Intelligent-b2</div></div>
+                <div class="settings-row"><div class="settings-label">Build ID</div><div class="settings-desc">v6 b4</div></div>
+                <div class="settings-row"><div class="settings-label">Protocol</div><div class="settings-desc">Flash6-Intelligent-b3</div></div>
                 <div class="settings-row">
                   <div class="settings-desc" style="text-align:left;">
                     <div class="fw-team-inline" aria-hidden="true">
@@ -3234,7 +3234,7 @@
           <div>
             <div class="flash-link-topology-eyebrow">ALTIS INTELLIGENT LINK</div>
             <h2 id="flashLinkTopologyTitle">COMMUNICATION TOPOLOGY</h2>
-            <p>2단 텔레메트리는 1단 에비오닉스를 거쳐 지상국으로 릴레이됩니다.</p>
+            <p>2단은 1단 중계를 주 경로로 사용하고, 중계 단절 시 지상국 직통 경로로 자동 전환됩니다.</p>
           </div>
           <div class="flash-link-topology-header-actions">
             <span id="flashTopologyOverall" class="flash-link-topology-overall">LINK STATUS · WAITING</span>
@@ -3252,12 +3252,14 @@
         <div class="flash-link-topology-canvas">
           <svg class="flash-link-topology-lines flash-link-topology-lines--desktop" viewBox="0 0 1200 650" preserveAspectRatio="none" aria-hidden="true">
             <path class="is-wireless" data-topology-link="stage2-stage1" d="M150 170 L150 425"></path>
+            <path class="is-wireless" data-topology-link="stage2-ground" d="M232 145 L668 425"></path>
             <path class="is-wireless" data-topology-link="stage1-ground" d="M232 500 L668 438"></path>
             <path class="is-wireless" data-topology-link="ground-mobile" d="M842 420 L960 190"></path>
             <path class="is-wired" data-topology-link="ground-pc" d="M842 490 L960 500"></path>
           </svg>
           <svg class="flash-link-topology-lines flash-link-topology-lines--mobile" viewBox="0 0 400 760" preserveAspectRatio="none" aria-hidden="true">
             <path class="is-wireless" data-topology-link="stage2-stage1" d="M200 120 L200 265"></path>
+            <path class="is-wireless" data-topology-link="stage2-ground" d="M260 110 C365 245 350 410 250 500"></path>
             <path class="is-wireless" data-topology-link="stage1-ground" d="M200 340 L200 475"></path>
             <path class="is-wireless" data-topology-link="ground-mobile" d="M200 555 L105 655"></path>
             <path class="is-wired" data-topology-link="ground-pc" d="M200 555 L295 655"></path>
@@ -3295,6 +3297,7 @@
           </article>
 
           <span class="flash-topology-link-label flash-topology-link-label--relay">STAGE RELAY</span>
+          <span class="flash-topology-link-label flash-topology-link-label--backup">DIRECT BACKUP</span>
           <span class="flash-topology-link-label flash-topology-link-label--uplink">PRIMARY UPLINK</span>
           <span class="flash-topology-link-label flash-topology-link-label--wifi">Wi-Fi</span>
           <span class="flash-topology-link-label flash-topology-link-label--wired">USB / LAN</span>
@@ -3305,7 +3308,7 @@
             <span><i class="is-wireless"></i>무선 링크</span>
             <span><i class="is-wired"></i>유선 링크</span>
           </div>
-          <p>2단은 지상국과 직접 통신하지 않으며, 1단 링크가 끊기면 2단 릴레이도 중단됩니다.</p>
+          <p>정상 운용은 2단 → 1단 → 지상국이며, 1단 중계가 끊긴 동안에만 2단 → 지상국 백업 경로가 텔레메트리와 명령을 담당합니다.</p>
         </footer>
       </section>
     </div>
