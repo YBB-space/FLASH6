@@ -598,6 +598,8 @@ if (typeof window !== "undefined") {
     let gyroPitchDeg = 0;
     let gyroRollDeg = 0;
     let gyroAttitudeQuat = [1,0,0,0];
+    let gyroUiAttitudeQuat = [1,0,0,0];
+    let gyroUiAttitudeReady = false;
     let gyroZeroRollOffsetDeg = 0;
     let gyroZeroPitchOffsetDeg = 0;
     let gyroZeroYawOffsetDeg = 0;
@@ -1110,22 +1112,38 @@ if (typeof window !== "undefined") {
       gyroZeroYawOffsetDeg = -gyroYawDeg;
       const targetQuat = quatFromRenderEuler(targetPitchDeg, targetYawDeg, targetRollDeg);
       gyroZeroQuat = quatNormalize(quatMul(targetQuat, quatConjugate(quatNormalize(gyroAttitudeQuat))));
+      updateGyroUiAttitudeFromEuler(gyroRollDeg, gyroPitchDeg, gyroYawDeg, false);
       return true;
     }
-    function gyroRenderQuatToVehicleUiQuat(renderQuat){
-      const q = quatNormalize(renderQuat);
-      // Physics uses sensor X/Y/Z -> render X/-Z/Y. The upright rocket model,
-      // however, uses Y as its longitudinal (roll) axis. Convert only the UI
-      // model orientation so the physical controls read as:
-      // roll -> vehicle Y, pitch -> render X, yaw -> -render Z.
-      // Keep trajectory/world acceleration in the original sensor basis.
-      return quatNormalize([q[0], -q[3], q[1], -q[2]]);
+    function quatFromVehicleUiEuler(rollDeg, pitchDeg, yawDeg){
+      const qRoll = quatFromAxisAngle([0,1,0], (Number(rollDeg) || 0) * DEG_TO_RAD);
+      const qPitch = quatFromAxisAngle([1,0,0], (Number(pitchDeg) || 0) * DEG_TO_RAD);
+      const qYaw = quatFromAxisAngle([0,0,-1], (Number(yawDeg) || 0) * DEG_TO_RAD);
+      return quatNormalize(quatMul(qYaw, quatMul(qPitch, qRoll)));
+    }
+    function updateGyroUiAttitudeFromEuler(rollDeg, pitchDeg, yawDeg, smooth){
+      const target = quatFromVehicleUiEuler(
+        getGyroDisplayRollDeg(rollDeg),
+        getGyroDisplayPitchDeg(pitchDeg),
+        getGyroDisplayYawDeg(yawDeg)
+      );
+      if(smooth && gyroUiAttitudeReady){
+        const current = quatNormalize(gyroUiAttitudeQuat);
+        const dot = Math.abs(
+          (current[0] * target[0]) + (current[1] * target[1]) +
+          (current[2] * target[2]) + (current[3] * target[3])
+        );
+        const angleDeg = 2 * Math.acos(clampLocal(dot, -1, 1)) * RAD_TO_DEG;
+        const response = angleDeg > 35 ? 0.58 : (angleDeg > 8 ? 0.38 : 0.24);
+        gyroUiAttitudeQuat = quatSlerpShortest(current, target, response);
+      }else{
+        gyroUiAttitudeQuat = target;
+      }
+      gyroUiAttitudeReady = true;
     }
     function getGyroRocketModelQuat(){
       const baseQuat = quatFromAxisAngle([1,0,0], GYRO_ROCKET_RENDER_PITCH_UPRIGHT_DEG * DEG_TO_RAD);
-      const zeroedQuat = quatNormalize(quatMul(gyroZeroQuat, gyroAttitudeQuat));
-      const vehicleUiQuat = gyroRenderQuatToVehicleUiQuat(zeroedQuat);
-      return quatNormalize(quatMul(vehicleUiQuat, baseQuat));
+      return quatNormalize(quatMul(gyroUiAttitudeQuat, baseQuat));
     }
     function resetGyroAttitudeState(){
       gyroLastUiMs = 0;
@@ -1135,6 +1153,8 @@ if (typeof window !== "undefined") {
       gyroPitchDeg = 0;
       gyroRollDeg = 0;
       gyroAttitudeQuat = [1,0,0,0];
+      gyroUiAttitudeQuat = [1,0,0,0];
+      gyroUiAttitudeReady = false;
       gyroZeroRollOffsetDeg = 0;
       gyroZeroPitchOffsetDeg = 0;
       gyroZeroYawOffsetDeg = 0;
@@ -1145,6 +1165,7 @@ if (typeof window !== "undefined") {
       gyroZeroPitchOffsetDeg = 0;
       gyroZeroYawOffsetDeg = 0;
       gyroZeroQuat = [1,0,0,0];
+      updateGyroUiAttitudeFromEuler(gyroRollDeg, gyroPitchDeg, gyroYawDeg, false);
     }
     function clampLocal(value, min, max){
       return Math.max(min, Math.min(max, value));
@@ -4496,6 +4517,7 @@ function requestMobileMockup3dMesh(){
         gyroYawDeg = normalizeAngleDeg(gyroYawDeg);
         gyroAttitudeQuat = quatFromRenderEuler(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
         gyroAttitudeReady = true;
+        updateGyroUiAttitudeFromEuler(gyroRollDeg, gyroPitchDeg, gyroYawDeg, false);
         return;
       }
 
@@ -4533,6 +4555,7 @@ function requestMobileMockup3dMesh(){
           gyroPitchDeg = clampLocal(gyroPitchDeg + ((accelPitchDeg - gyroPitchDeg) * blend), -89.5, 89.5);
         }
       }
+      updateGyroUiAttitudeFromEuler(gyroRollDeg, gyroPitchDeg, gyroYawDeg, false);
     }
 
     function applyFirmwareGyroAttitudeEstimate(
@@ -4558,20 +4581,7 @@ function requestMobileMockup3dMesh(){
       const targetQuat = firmwareQuat ||
         quatFromRenderEuler(pitchDeg, yawDeg, rollDeg);
       const smoothRelayedQuat = !!(options && options.smoothRelayedQuat);
-      if(firmwareQuat && smoothRelayedQuat && gyroAttitudeReady){
-        // Radio snapshots arrive at a lower rate than the local IMU stream and
-        // are quantized to int16. Interpolate only this relayed display source;
-        // local attitude and trajectory physics retain the firmware quaternion.
-        const current = quatNormalize(gyroAttitudeQuat);
-        const target = quatNormalize(firmwareQuat);
-        const dot = Math.abs(
-          (current[0] * target[0]) + (current[1] * target[1]) +
-          (current[2] * target[2]) + (current[3] * target[3])
-        );
-        const angleDeg = 2 * Math.acos(clampLocal(dot, -1, 1)) * RAD_TO_DEG;
-        const response = angleDeg > 35 ? 0.58 : (angleDeg > 8 ? 0.38 : 0.24);
-        gyroAttitudeQuat = quatSlerpShortest(current, target, response);
-      }else if(firmwareQuat){
+      if(firmwareQuat){
         // It has already passed the firmware's Mahony filter and gyro bias
         // correction. A second rate limiter here caused the physics attitude
         // to lag the IMU sample during the high-g launch transient.
@@ -4608,6 +4618,12 @@ function requestMobileMockup3dMesh(){
       gyroYawDeg = normalizeAngleDeg(yawDeg);
       gyroAttitudeReady = true;
       gyroAttitudeLastMs = now;
+      updateGyroUiAttitudeFromEuler(
+        gyroRollDeg,
+        gyroPitchDeg,
+        gyroYawDeg,
+        smoothRelayedQuat
+      );
       return true;
     }
 
