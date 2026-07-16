@@ -1112,10 +1112,20 @@ if (typeof window !== "undefined") {
       gyroZeroQuat = quatNormalize(quatMul(targetQuat, quatConjugate(quatNormalize(gyroAttitudeQuat))));
       return true;
     }
+    function gyroRenderQuatToVehicleUiQuat(renderQuat){
+      const q = quatNormalize(renderQuat);
+      // Physics uses sensor X/Y/Z -> render X/-Z/Y. The upright rocket model,
+      // however, uses Y as its longitudinal (roll) axis. Convert only the UI
+      // model orientation so the physical controls read as:
+      // roll -> vehicle Y, pitch -> render X, yaw -> -render Z.
+      // Keep trajectory/world acceleration in the original sensor basis.
+      return quatNormalize([q[0], -q[3], q[1], -q[2]]);
+    }
     function getGyroRocketModelQuat(){
       const baseQuat = quatFromAxisAngle([1,0,0], GYRO_ROCKET_RENDER_PITCH_UPRIGHT_DEG * DEG_TO_RAD);
       const zeroedQuat = quatNormalize(quatMul(gyroZeroQuat, gyroAttitudeQuat));
-      return quatNormalize(quatMul(zeroedQuat, baseQuat));
+      const vehicleUiQuat = gyroRenderQuatToVehicleUiQuat(zeroedQuat);
+      return quatNormalize(quatMul(vehicleUiQuat, baseQuat));
     }
     function resetGyroAttitudeState(){
       gyroLastUiMs = 0;
