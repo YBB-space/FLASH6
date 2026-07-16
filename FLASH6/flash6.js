@@ -5053,10 +5053,10 @@ function requestMobileMockup3dMesh(){
         renderStyle.fogFar = 220;
       }
       if(inCameraPreview){
-        renderStyle.clear = [0.02,0.035,0.06,0.04];
-        renderStyle.ambient = 0.76;
+        renderStyle.clear = [0.01,0.018,0.03,0.10];
+        renderStyle.ambient = 0.9;
         renderStyle.lightDir = [-0.32,0.88,0.36];
-        renderStyle.colorLift = 0.14;
+        renderStyle.colorLift = 0.48;
       }
 
       if(!inExpanded){
