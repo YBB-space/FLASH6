@@ -1,5 +1,13 @@
 
+constexpr char kFirmwareProgram[] = "Altis_Intelligent3_firmware1";
+constexpr char kFirmwareVersion[] = "0.6.1";
+constexpr char kFirmwareBuildId[] = "v6 b3";
+constexpr char kFirmwareBoard[] = "Altis_Intelligent3_b3";
+constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b2";
+
 constexpr uint32_t kSerialBaud = 921600;
+constexpr size_t kSerialTxBufferActiveBytes = 16384;
+constexpr size_t kSerialTxBufferIdleBytes = 4096;
 constexpr uint32_t kImuSampleHz = 200;
 constexpr uint32_t kSerialStreamHz = 100;
 constexpr uint32_t kWifiStreamHz = 50;
@@ -7,6 +15,7 @@ constexpr uint32_t kStorageRecordHz = 200;
 constexpr uint32_t kBaroSampleHz = 50;
 constexpr uint32_t kGpsTargetHz = 10;
 constexpr uint32_t kGpsTargetFixIntervalMs = 1000UL / kGpsTargetHz;
+constexpr uint32_t kGpsHousekeepingPeriodMs = 20;
 constexpr uint32_t kI2cBusHz = 400000;
 constexpr uint16_t kI2cTimeoutMs = 5;
 constexpr uint32_t kSamplePeriodUs = 1000000UL / kImuSampleHz;
@@ -14,14 +23,17 @@ constexpr uint32_t kWsPeriodUs = 1000000UL / kWifiStreamHz;
 constexpr uint32_t kSerialPeriodUs = 1000000UL / kSerialStreamHz;
 constexpr uint32_t kBaroPeriodUs = 1000000UL / kBaroSampleHz;
 constexpr uint16_t kSerialRxDrainMaxBytes = 256;
-constexpr size_t kMinSerialWriteRoom = 512;
 // Ground stations publish the selected vehicle as the legacy top-level sample
 // and both vehicle snapshots at the tail of the v2 frame.  Keep enough room
 // for two alarm messages without dropping the complete telemetry frame.
 constexpr size_t kStreamJsonMaxBytes = 2048;
-constexpr uint32_t kStorageFlushIntervalMs = 20;
+constexpr size_t kMinSerialWriteRoom = kStreamJsonMaxBytes + 1U;
+// At 200 Hz, a 50 ms batch normally contains ten 84-byte records.  Larger
+// contiguous writes avoid repeatedly programming the same NOR page while the
+// queue still keeps several seconds of headroom.
+constexpr uint32_t kStorageFlushIntervalMs = 50;
 constexpr uint16_t kStorageQueueDepth = 256;
-constexpr uint16_t kStorageDrainBatchMax = 4;
+constexpr uint16_t kStorageDrainBatchMax = 12;
 constexpr TickType_t kStorageLockWaitTicks = pdMS_TO_TICKS(3000);
 constexpr uint16_t kStorageRecordMarker = 0xA55A;
 constexpr uint8_t kStorageRecordVersionV1 = 1;
@@ -83,7 +95,9 @@ constexpr float kLoadcellDefaultScale = 6510.0f;
 constexpr float kLoadcellNoiseDeadbandKg = 0.030f;
 constexpr float kLoadcellFilterAlpha = 0.22f;
 
-constexpr uint32_t kNorSpiHz = 20000000UL;
+// W25Q256 normal-read (0x03) supports this clock; boot probing falls back to
+// the highest lower rate that returns a stable JEDEC identity.
+constexpr uint32_t kNorSpiHz = 40000000UL;
 constexpr uint32_t kNorExpectedCapacityBytes = 32UL * 1024UL * 1024UL;
 constexpr uint32_t kNorSectorBytes = 4096;
 constexpr uint32_t kNorPageBytes = 256;
@@ -119,6 +133,7 @@ static_assert((kFlashLinkRelayedFlag &
               "ALTIS INTELLIGENT LINK1 relay flag overlaps routing flags");
 constexpr uint32_t kFlashLinkTelemetryHz = 50;
 constexpr uint32_t kFlashLinkTelemetryPeriodUs = 1000000UL / kFlashLinkTelemetryHz;
+constexpr uint32_t kFlashLinkServiceMinPeriodUs = 500;
 constexpr uint32_t kFlashLinkStorageStatusPeriodMs = 1000;
 constexpr uint32_t kFlashLinkDiscoveryPeriodMs = 250;
 constexpr uint32_t kFlashLinkLinkedDiscoveryPeriodMs = 5000;
@@ -128,10 +143,10 @@ constexpr uint32_t kFlashLinkRecoveryPeerResetMs = 3000;
 constexpr uint32_t kFlashLinkPeerTimeoutMs = 6000;
 constexpr uint32_t kFlashLinkTxBusyTimeoutMs = 250;
 constexpr uint8_t kFlashLinkAckEveryFrames = 10;
-constexpr uint8_t kFlashLinkRxQueueDepth = 32;
+constexpr uint8_t kFlashLinkRxQueueDepth = 12;
 constexpr uint8_t kFlashLinkTelemetryQueueSoftLimit = 4;
-constexpr uint8_t kFlashLinkRxDrainLimit = 24;
-constexpr uint8_t kFlashLinkRelayTxQueueDepth = 24;
+constexpr uint8_t kFlashLinkRxDrainLimit = kFlashLinkRxQueueDepth;
+constexpr uint8_t kFlashLinkRelayTxQueueDepth = 8;
 constexpr uint8_t kFlashLinkCommandQueueDepth = 8;
 constexpr uint32_t kFlashLinkCommandRetryMs = 60;
 constexpr uint8_t kFlashLinkCommandMaxAttempts = 8;
@@ -1084,6 +1099,7 @@ struct FlashLinkRelayRuntime {
   uint32_t stage2LastHeartbeatMs = 0;
   uint32_t forwardedUp = 0;
   uint32_t forwardedDown = 0;
+  uint32_t telemetryCoalesced = 0;
   uint32_t queueDrops = 0;
 };
 
@@ -1391,7 +1407,7 @@ void pollGps();
 void initGps();
 void stopGps();
 void updateSharedSensorPins();
-void syncGpsTelemetry();
+void syncGpsTelemetry(bool force = false);
 void sequenceTick();
 void sampleImu();
 void sampleLoadcell();
@@ -1426,12 +1442,6 @@ bool flashLinkQueueCommand(
   int32_t arg2 = 0);
 bool flashLinkGroundControlActive();
 bool flashLinkCanProxyStorage();
-bool flashLinkRequestStorageRead(
-  uint32_t offset,
-  uint16_t len,
-  uint8_t* out,
-  uint16_t& outLen,
-  uint32_t timeoutMs = 1800);
 bool flashLinkRequestStorageReadWindowed(
   uint32_t offset,
   uint16_t len,

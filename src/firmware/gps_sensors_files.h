@@ -53,21 +53,6 @@ bool writeTextFile(const char* path, const String& body) {
   return wrote == body.length();
 }
 
-bool writeTextFile(const char* path, const char* body, size_t len) {
-  if (!flashFsReady || !path || !body || len == 0 || len > kMissionProfileMaxBytes) {
-    return false;
-  }
-  FileSystemLock lock;
-  if (!lock) return false;
-  File f = LittleFS.open(path, FILE_WRITE);
-  if (!f) return false;
-  const size_t wrote = f.write(
-    reinterpret_cast<const uint8_t*>(body), len);
-  f.flush();
-  f.close();
-  return wrote == len;
-}
-
 String missionProfileJson() {
   String body = readTextFile(kMissionProfilePath, kMissionProfileMaxBytes);
   if (body.length() == 0) {
@@ -465,7 +450,6 @@ void pollGps() {
   }
   if (!gpsState.ready) initGps();
   if (!gpsState.ready) return;
-  gpsServiceAutodetect();
 
   uint16_t drained = 0;
   while (gpsUart.available() > 0 && drained < 256U) {
@@ -490,6 +474,13 @@ void pollGps() {
   }
 
   const uint32_t nowMs = millis();
+  static uint32_t lastHousekeepingMs = 0;
+  if (drained == 0U &&
+      lastHousekeepingMs != 0U &&
+      (uint32_t)(nowMs - lastHousekeepingMs) < kGpsHousekeepingPeriodMs) {
+    return;
+  }
+  lastHousekeepingMs = nowMs;
   const uint32_t sentenceAgeMs = gpsState.lastSentenceMs
     ? (uint32_t)(nowMs - gpsState.lastSentenceMs)
     : UINT32_MAX;
@@ -510,8 +501,15 @@ void pollGps() {
   gpsServiceAutodetect();
 }
 
-void syncGpsTelemetry() {
+void syncGpsTelemetry(bool force) {
   const uint32_t nowMs = millis();
+  static uint32_t lastSyncMs = 0;
+  if (!force &&
+      lastSyncMs != 0U &&
+      (uint32_t)(nowMs - lastSyncMs) < kGpsHousekeepingPeriodMs) {
+    return;
+  }
+  lastSyncMs = nowMs;
   snap.gpsReady = gpsState.ready;
   snap.gpsFix = gpsState.fix;
   snap.gpsSeen = gpsState.seen;

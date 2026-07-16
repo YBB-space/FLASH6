@@ -51,14 +51,24 @@ void setup() {
   loadBuzzerConfig();
   buzzerPlayBootMelody();
 
+  // Load the role before sizing USB serial. Avionics normally has periodic
+  // serial telemetry disabled, so reserving the ground station's 16 KiB TX
+  // queue there only reduces runtime heap.
+  loadSequenceSettings();
   Serial.begin(kSerialBaud);
   Serial.setTimeout(2);
   Serial.setTxTimeoutMs(2);
 #if ARDUINO_USB_MODE
-  Serial.setTxBufferSize(16384);
+  Serial.setTxBufferSize(
+    serialStream ? kSerialTxBufferActiveBytes : kSerialTxBufferIdleBytes);
 #endif
   delay(200);
-  Serial.println("[BOOT] Altis_Intelligent3_firmware1 board=Altis_Intelligent3_b3 protocol=Flash6-Intelligent-b2 build=v6 b2");
+  Serial.printf("[BOOT] %s version=%s board=%s protocol=%s build=%s\n",
+                kFirmwareProgram,
+                kFirmwareVersion,
+                kFirmwareBoard,
+                kFirmwareProtocol,
+                kFirmwareBuildId);
   Serial.printf("[BOOT] reset_reason=%s code=%u\n",
                 resetReasonName(bootResetReason),
                 (unsigned)bootResetReason);
@@ -68,7 +78,6 @@ void setup() {
   if (!fileSystemMutex) {
     Serial.println("[LFS] recursive mutex allocation failed; mission storage disabled");
   }
-  loadSequenceSettings();
   if (flashLinkGroundRole()) {
     setSerialStreamRequested(true);
     Serial.println("[FLASH_LINK] ground serial telemetry enabled");
@@ -87,7 +96,7 @@ void setup() {
     initBarometer();
     sensorPinsRuntimeReady = true;
     updateSharedSensorPins();
-    syncGpsTelemetry();
+    syncGpsTelemetry(true);
   } else {
     sensorPinsRuntimeReady = true;
     updateSharedSensorPins();

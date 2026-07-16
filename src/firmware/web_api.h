@@ -158,15 +158,22 @@ size_t buildTelemetryJson(char* json, size_t jsonLen, bool full) {
     snprintf(
       fullFields,
       sizeof(fullFields),
-      ",\"fw_program\":\"Altis_Intelligent3_firmware1\","
-      "\"fw_ver\":\"0.6.0\",\"fw_build\":\"v6 b2\","
-      "\"fw_ver_build\":\"0.6.0+v6 b2\","
-      "\"fw_board\":\"Altis_Intelligent3_b3\","
-      "\"fw_protocol\":\"Flash6-Intelligent-b2\","
+      ",\"fw_program\":\"%s\","
+      "\"fw_ver\":\"%s\",\"fw_build\":\"%s\","
+      "\"fw_ver_build\":\"%s+%s\","
+      "\"fw_board\":\"%s\","
+      "\"fw_protocol\":\"%s\","
       "\"sample_hz\":%lu,\"serial_hz\":%lu,\"wifi_hz\":%lu,"
       "\"record_hz\":%lu,\"baro_hz\":%lu,\"gps_hz\":%lu,\"loadcell_hz\":%u,"
       "\"imu_ready\":%u,\"baro_ready\":%u,\"gps_ready\":%u,"
       "\"loadcell_ready\":%u,\"loadcell_valid\":%u",
+      kFirmwareProgram,
+      kFirmwareVersion,
+      kFirmwareBuildId,
+      kFirmwareVersion,
+      kFirmwareBuildId,
+      kFirmwareBoard,
+      kFirmwareProtocol,
       (unsigned long)kImuSampleHz,
       (unsigned long)kSerialStreamHz,
       (unsigned long)kWifiStreamHz,
@@ -1328,14 +1335,25 @@ void sendRemoteStorageReadResponse(AsyncWebServerRequest* request, uint32_t offs
     return;
   }
   b64[b64Len] = '\0';
-  char json[460];
-  snprintf(
-    json,
-    sizeof(json),
-    "{\"ok\":1,\"remote\":1,\"off\":%lu,\"len\":%u,\"b64\":\"%s\"}",
+  char prefix[96];
+  const int prefixLen = snprintf(
+    prefix,
+    sizeof(prefix),
+    "{\"ok\":1,\"remote\":1,\"off\":%lu,\"len\":%u,\"b64\":\"",
     (unsigned long)offset,
-    (unsigned)totalLen,
-    b64);
+    (unsigned)totalLen);
+  if (prefixLen <= 0 || (size_t)prefixLen >= sizeof(prefix)) {
+    sendText(request, 500, "application/json", "{\"ok\":0,\"err\":\"RESPONSE_OVERFLOW\"}");
+    return;
+  }
+  String json;
+  if (!json.reserve((size_t)prefixLen + b64Len + 3U)) {
+    sendText(request, 503, "application/json", "{\"ok\":0,\"err\":\"LOW_MEMORY\"}");
+    return;
+  }
+  json.concat(prefix, (unsigned int)prefixLen);
+  json.concat(b64, (unsigned int)b64Len);
+  json += "\"}";
   sendText(request, 200, "application/json", json);
 }
 
@@ -1362,10 +1380,10 @@ void setupRoutes() {
     sendText(request, 200, "application/json", String(json));
   });
   server.on("/protocol", HTTP_GET, [](AsyncWebServerRequest* request) {
-    char json[2048];
+    char json[2304];
     const int n = snprintf(json, sizeof(json),
-             "{\"name\":\"Flash6-Intelligent-b2\",\"version\":2,\"build_id\":\"v6 b2\","
-             "\"firmware\":\"Altis_Intelligent3_firmware1\",\"board\":\"Altis_Intelligent3_b3\","
+             "{\"name\":\"%s\",\"version\":%u,\"build_id\":\"%s\","
+             "\"firmware\":\"%s\",\"firmware_version\":\"%s\",\"board\":\"%s\","
              "\"fields\":[\"v\",\"seq\",\"ut\",\"p\",\"alt_m\",\"ax\",\"ay\",\"az\","
              "\"gx\",\"gy\",\"gz\",\"gr\",\"gp\",\"gyw\",\"lt\",\"ct\",\"flags\",\"r\","
              "\"st\",\"td\",\"ar\",\"m\",\"chip_temp_c\",\"gps_lat\",\"gps_lon\","
@@ -1395,12 +1413,23 @@ void setupRoutes() {
              "\"topology\":\"ground-stage1-stage2-relay\","
              "\"channel\":6,\"rate\":\"%s\",\"telemetry_hz\":%lu,"
              "\"pairing\":\"automatic\",\"unicast_encrypted\":1,\"ack_interval\":%u,"
-             "\"command_ack\":1,\"command_retry_ms\":140,\"command_max_attempts\":12},"
+             "\"command_ack\":1,\"command_retry_ms\":%lu,\"command_max_attempts\":%u,"
+             "\"rx_queue_depth\":%u,\"relay_queue_depth\":%u,\"telemetry_coalescing\":1},"
              "\"storage\":{\"header\":\"HWLOGV2\",\"record_version\":4,\"record_bytes\":84,"
              "\"crc\":\"crc16-ccitt\",\"loadcell\":\"thrustMilliKgf+raw+hz+flags\"}}",
+             kFirmwareProtocol,
+             (unsigned)kFlashLinkVersion,
+             kFirmwareBuildId,
+             kFirmwareProgram,
+             kFirmwareVersion,
+             kFirmwareBoard,
              kFlashLinkEspNowRateName,
              (unsigned long)kFlashLinkTelemetryHz,
-             (unsigned)kFlashLinkAckEveryFrames);
+             (unsigned)kFlashLinkAckEveryFrames,
+             (unsigned long)kFlashLinkCommandRetryMs,
+             (unsigned)kFlashLinkCommandMaxAttempts,
+             (unsigned)kFlashLinkRxQueueDepth,
+             (unsigned)kFlashLinkRelayTxQueueDepth);
     if (n <= 0 || (size_t)n >= sizeof(json)) {
       sendText(request, 500, "application/json",
                "{\"ok\":0,\"err\":\"PROTOCOL_OVERFLOW\"}");
@@ -1468,7 +1497,7 @@ void setupRoutes() {
   });
   server.on("/gps_reset", HTTP_GET, [](AsyncWebServerRequest* request) {
     gpsApplyConfig(0, !serialStream);
-    syncGpsTelemetry();
+    syncGpsTelemetry(true);
     sendText(request, 200, "application/json", gpsJson());
   });
   server.on("/baro_zero", HTTP_GET, [](AsyncWebServerRequest* request) {

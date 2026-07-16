@@ -43,7 +43,9 @@ void serviceRealtimeDuringStorageWait() {
     sampleLoadcell();
     sampleImu();
     sampleBarometer();
+    flightPhaseTick();
     sampleChipTemperature();
+    missionRuntimeTick();
   }
   flashLinkTick();
   bootButtonTick();
@@ -503,21 +505,27 @@ bool norAppendRecords(const uint8_t* records, uint16_t recordSize, uint8_t recor
     return false;
   }
 
-  storageSectorRecordCounts[sectorIndex] =
+  const uint8_t nextRecordCount =
     (uint8_t)(storageSectorRecordCounts[sectorIndex] + recordCount);
-  storageSectorPrefix[sectorIndex + 1U] =
-    storageSectorPrefix[sectorIndex] + storageSectorRecordCounts[sectorIndex];
-  storageSectorBytePrefix[sectorIndex + 1U] =
-    storageSectorBytePrefix[sectorIndex] +
-    (uint32_t)storageSectorRecordCounts[sectorIndex] * recordSize;
-  storageState.recordCount += recordCount;
-  storageState.usedBytes += (uint32_t)writeBytes;
-  if (storageSectorRecordCounts[sectorIndex] >= recordLimit) {
-    if (!norCloseSector(sectorIndex, storageSectorRecordCounts[sectorIndex])) {
+  // Close the sector before publishing the drained records into the counters.
+  // Samples queued by serviceRealtimeDuringStorageWait then still see the old
+  // persisted count plus the not-yet-popped queue, so sequence IDs stay
+  // contiguous even while the footer page is being programmed.
+  if (nextRecordCount >= recordLimit) {
+    if (!norCloseSector(sectorIndex, nextRecordCount)) {
       storageState.writeErrors++;
     }
     storageCurrentSectorWritable = false;
   }
+
+  storageSectorRecordCounts[sectorIndex] = nextRecordCount;
+  storageSectorPrefix[sectorIndex + 1U] =
+    storageSectorPrefix[sectorIndex] + nextRecordCount;
+  storageSectorBytePrefix[sectorIndex + 1U] =
+    storageSectorBytePrefix[sectorIndex] +
+    (uint32_t)nextRecordCount * recordSize;
+  storageState.recordCount += recordCount;
+  storageState.usedBytes += (uint32_t)writeBytes;
   return true;
 }
 
@@ -557,7 +565,13 @@ bool initFlashStorage() {
   storageSpi.end();
   storageSpi.begin(kFlashSclk, kFlashMiso, kFlashMosi, kFlashCs);
   storageSpi.setHwCs(false);
-  static constexpr uint32_t probeSpeeds[] = {1000000UL, 4000000UL, 10000000UL, kNorSpiHz};
+  static constexpr uint32_t probeSpeeds[] = {
+    1000000UL,
+    4000000UL,
+    10000000UL,
+    20000000UL,
+    kNorSpiHz,
+  };
   uint32_t bestSpiHz = 0;
   uint8_t bestMfr = 0;
   uint8_t bestType = 0;
@@ -856,7 +870,15 @@ void storageEnqueueSample(uint32_t timestampMs) {
     storageLockSkippedSamples++;
     return;
   }
-  if (storageState.busy || storageWaitServiceActive) {
+  // NOR page-program and sector-erase waits are serviced on the loop task.
+  // The queue is safe to append from that recursive service path and doing so
+  // prevents the 200 Hz recorder from losing every sample taken during an
+  // erase. Other tasks still have to wait for the storage owner.
+  const bool realtimeWaitOnLoopTask =
+    storageWaitServiceActive &&
+    loopTaskHandle != nullptr &&
+    xTaskGetCurrentTaskHandle() == loopTaskHandle;
+  if (storageState.busy && !realtimeWaitOnLoopTask) {
     storageLockSkippedSamples++;
     return;
   }
@@ -887,15 +909,15 @@ void storageEnqueueSample(uint32_t timestampMs) {
 
   rec.payload.p = snap.baroValid ? snap.p : 0.0f;
   rec.payload.altM = snap.baroValid ? snap.altM : 0.0f;
-  rec.payload.axMilliG = (int16_t)lroundf(clampFloat(snap.ax, -32.767f, 32.767f) * 1000.0f);
-  rec.payload.ayMilliG = (int16_t)lroundf(clampFloat(snap.ay, -32.767f, 32.767f) * 1000.0f);
-  rec.payload.azMilliG = (int16_t)lroundf(clampFloat(snap.az, -32.767f, 32.767f) * 1000.0f);
-  rec.payload.gxDeciDps = (int16_t)lroundf(clampFloat(snap.gx, -3276.7f, 3276.7f) * 10.0f);
-  rec.payload.gyDeciDps = (int16_t)lroundf(clampFloat(snap.gy, -3276.7f, 3276.7f) * 10.0f);
-  rec.payload.gzDeciDps = (int16_t)lroundf(clampFloat(snap.gz, -3276.7f, 3276.7f) * 10.0f);
-  rec.payload.rollCentiDeg = (int16_t)lroundf(clampFloat(snap.roll, -180.0f, 180.0f) * 100.0f);
-  rec.payload.pitchCentiDeg = (int16_t)lroundf(clampFloat(snap.pitch, -180.0f, 180.0f) * 100.0f);
-  rec.payload.yawCentiDeg = (int16_t)lroundf(clampFloat(snap.yaw, -180.0f, 180.0f) * 100.0f);
+  rec.payload.axMilliG = quantizeInt16(snap.ax, -32.767f, 32.767f, 1000.0f);
+  rec.payload.ayMilliG = quantizeInt16(snap.ay, -32.767f, 32.767f, 1000.0f);
+  rec.payload.azMilliG = quantizeInt16(snap.az, -32.767f, 32.767f, 1000.0f);
+  rec.payload.gxDeciDps = quantizeInt16(snap.gx, -3276.7f, 3276.7f, 10.0f);
+  rec.payload.gyDeciDps = quantizeInt16(snap.gy, -3276.7f, 3276.7f, 10.0f);
+  rec.payload.gzDeciDps = quantizeInt16(snap.gz, -3276.7f, 3276.7f, 10.0f);
+  rec.payload.rollCentiDeg = quantizeInt16(snap.roll, -180.0f, 180.0f, 100.0f);
+  rec.payload.pitchCentiDeg = quantizeInt16(snap.pitch, -180.0f, 180.0f, 100.0f);
+  rec.payload.yawCentiDeg = quantizeInt16(snap.yaw, -180.0f, 180.0f, 100.0f);
   rec.payload.td = sequenceTdMs(nowMs);
   rec.payload.loopUs = (uint16_t)min<uint32_t>(
     65535U, (uint32_t)fmaxf(1.0f, snap.lt * 1000.0f));
@@ -922,19 +944,19 @@ void storageEnqueueSample(uint32_t timestampMs) {
   rec.payload.abortReason = sequenceAbortReason;
   rec.payload.mode = dataOperationModeCode();
   rec.payload.thrustMilliKgf = snap.loadcellValid
-    ? (int32_t)lroundf(clampFloat(snap.thrustKgf, -2147483.0f, 2147483.0f) * 1000.0f)
+    ? quantizeInt32(snap.thrustKgf, -2147483.0f, 2147483.0f, 1000.0f)
     : INT32_MIN;
   rec.payload.loadcellRaw = snap.loadcellRaw;
   rec.payload.loadcellHz = snap.loadcellHz;
   rec.payload.loadcellFlags = loadcellFlagsForTelemetry(snap);
   rec.payload.gpsLatE7 = (snap.gpsFix && isfinite(snap.gpsLat))
-    ? (int32_t)lroundf(clampFloat(snap.gpsLat, -90.0f, 90.0f) * 10000000.0f)
+    ? quantizeInt32(snap.gpsLat, -90.0f, 90.0f, 10000000.0f)
     : INT32_MIN;
   rec.payload.gpsLonE7 = (snap.gpsFix && isfinite(snap.gpsLon))
-    ? (int32_t)lroundf(clampFloat(snap.gpsLon, -180.0f, 180.0f) * 10000000.0f)
+    ? quantizeInt32(snap.gpsLon, -180.0f, 180.0f, 10000000.0f)
     : INT32_MIN;
   rec.payload.gpsAltCm = (snap.gpsFix && isfinite(snap.gpsAlt))
-    ? (int32_t)lroundf(clampFloat(snap.gpsAlt, -21474836.0f, 21474836.0f) * 100.0f)
+    ? quantizeInt32(snap.gpsAlt, -21474836.0f, 21474836.0f, 100.0f)
     : INT32_MIN;
   rec.payload.gpsAgeMs = (uint16_t)min<uint32_t>(65535U, snap.gpsAgeMs);
   uint16_t gpsFlags = 0;
@@ -986,10 +1008,14 @@ bool storageEnqueueMissionAlarm(
   rec.payload.eventSeq = eventSeq;
   rec.payload.blockIndex = (uint8_t)min<uint16_t>(UINT8_MAX, blockIndex);
   rec.payload.severity = 1U;
-  snprintf(rec.payload.title, sizeof(rec.payload.title), "%s",
-           title && title[0] ? title : "Mission alarm");
-  snprintf(rec.payload.message, sizeof(rec.payload.message), "%s",
-           message && message[0] ? message : "Alarm triggered");
+  strlcpy(
+    rec.payload.title,
+    title && title[0] ? title : "Mission alarm",
+    sizeof(rec.payload.title));
+  strlcpy(
+    rec.payload.message,
+    message && message[0] ? message : "Alarm triggered",
+    sizeof(rec.payload.message));
   if (snap.gpsDateValid && snap.gpsEpochMs >= 946684800000ULL) {
     int64_t eventEpochMs = (int64_t)snap.gpsEpochMs;
     const int32_t sampleDeltaMs = (int32_t)(timestampMs - snap.ut);

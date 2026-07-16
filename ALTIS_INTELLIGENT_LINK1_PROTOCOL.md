@@ -10,17 +10,19 @@ to two Altis Intelligent 3 avionics boards. Avionics nodes are identified as
 - Fixed channel: 6
 - ESP-NOW PHY rate: 1M_L
 - Telemetry target: 50 Hz per avionics node
-- Peer topology: one ground board with encrypted unicast peers for stage 1 and stage 2
+- Peer topology: ground ↔ stage 1 ↔ stage 2. Stage 1 is the encrypted radio
+  relay for stage 2; stage 2 does not open a separate ground link.
 - Ground board: Wi-Fi AP and ESP-NOW share channel 6
 - Avionics board: ESP-NOW station interface only; no Wi-Fi AP
 
 ## Pairing
 
-1. Both boards broadcast a discovery packet every 250 ms while unpaired.
-2. A board accepts only a discovery packet from the opposite role.
-3. The ground board installs each stage MAC in its own encrypted peer slot.
-4. The avionics board starts telemetry as soon as the encrypted peer is installed;
-   Hello and ACK packets then confirm the bidirectional link.
+1. Unpaired nodes broadcast a discovery packet every 250 ms.
+2. The ground board accepts stage 1, while stage 1 separately accepts stage 2.
+3. Stage 1 preserves the stage 2 source/session fields while forwarding its
+   packets, so the ground board maintains independent virtual stage slots.
+4. Each avionics node starts telemetry as soon as its encrypted peer is
+   installed; Hello and ACK packets then confirm the bidirectional link.
 5. Short telemetry gaps retain the peer and last remote sample for 1.5 seconds.
 6. A peer is discarded after 6 seconds without received traffic or a successful
    unicast MAC acknowledgement, then discovery starts again.
@@ -45,7 +47,8 @@ All multibyte values use the ESP32 little-endian representation.
 | Payload size | 2 |
 | CRC16-CCITT | 2 |
 
-The packed header is 24 bytes. The current telemetry frame is 133 bytes total, below the
+The packed header is 24 bytes. The current wire protocol value is `2`; the
+version field itself occupies one byte. The current telemetry frame is 133 bytes total, below the
 ESP-NOW v1 payload limit of 250 bytes.
 
 Header `flags & 0x03` carries the sender node ID: `0` for ground, `1` for stage 1,
@@ -83,6 +86,11 @@ The ground board ACKs every 10 telemetry frames per stage. Telemetry is not retr
 the newest state is more valuable than a delayed old state. Send
 failures, sequence gaps, duplicate frames, CRC failures, queue drops, receive
 rate, and peer age are tracked separately.
+
+Receive and relay queues coalesce delayed telemetry by source stage once a
+backlog forms. Commands, command ACKs, alarms, discovery, and storage packets
+remain ordered; only an older unsent telemetry snapshot can be replaced by a
+newer snapshot from the same stage. This bounds UI latency during radio bursts.
 
 Mission alarm sequence, timestamp, and block index remain in telemetry. Alarm
 title and message are sent in a separate encrypted mission-alarm packet when
@@ -146,6 +154,10 @@ Supported controls:
 
 - Samples local IMU, barometer, GPS, and chip state.
 - Writes local records to the external W25Q256 flash at the configured rate.
+- Buffers samples while NOR page-program or sector-erase operations are busy,
+  then writes larger contiguous batches to reduce repeated page programs.
+- Probes the W25Q256 bus up to 40 MHz at boot and falls back to the highest
+  lower clock with a stable JEDEC identity.
 - Sends packed ALTIS INTELLIGENT LINK1 telemetry at 50 Hz.
 - Does not publish periodic telemetry over USB serial or Wi-Fi.
 
@@ -157,7 +169,7 @@ Supported controls:
   for stage 1 and stage 2.
 - Relays the currently selected stage telemetry to the Flash6 UI:
   - Wi-Fi WebSocket: 50 Hz
-  - USB serial: 100 Hz output scheduler, using the newest 50 Hz remote sample
+  - USB serial: 50 Hz output scheduler, using the newest remote sample
 - Reports link state, receive rate, loss, peer age, and peer MAC to the UI.
 - Accepts controls from Wi-Fi HTTP or USB serial and forwards them to avionics.
 - Reports pending, acknowledged, failed, retried, and last-result command
@@ -220,3 +232,10 @@ USB serial telemetry is available only when developer mode is enabled.
 
 Protocol keys are compile-time firmware material in this revision. Production
 revisions should rotate keys per fleet or per paired board.
+
+## Firmware Revision
+
+- Firmware version: `0.6.1`
+- Build ID: `v6 b3`
+- Wire protocol: `Flash6-Intelligent-b2` / numeric version `2`
+- Storage record format: version `4` (unchanged and backward compatible)

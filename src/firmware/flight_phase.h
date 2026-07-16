@@ -120,6 +120,16 @@ void flightPhaseUpdateBarometer(uint32_t nowMs) {
 }
 
 void flightPhaseTick() {
+  // The phase estimator consumes the 200 Hz IMU stream. Running the same
+  // square-root and condition checks multiple times between IMU samples only
+  // burns CPU and cannot add information.
+  static uint32_t lastTickUs = 0;
+  const uint32_t nowUs = micros();
+  if (lastTickUs != 0U &&
+      (uint32_t)(nowUs - lastTickUs) < kSamplePeriodUs) {
+    return;
+  }
+  lastTickUs = nowUs;
   const uint32_t nowMs = millis();
   FlightPhaseRuntime& rt = flightPhaseRuntime;
   if (sequenceState == kSequenceStateFiring || sequenceState == kSequenceStateTplus) {

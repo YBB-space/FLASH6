@@ -148,16 +148,6 @@ uint32_t flashLinkNextStorageReadTransaction() {
   return transaction;
 }
 
-bool flashLinkRequestStorageRead(
-  uint32_t offset,
-  uint16_t len,
-  uint8_t* out,
-  uint16_t& outLen,
-  uint32_t timeoutMs
-) {
-  return flashLinkRequestStorageReadWindowed(offset, len, out, outLen, timeoutMs);
-}
-
 bool flashLinkRequestStorageReadWindowed(
   uint32_t offset,
   uint16_t len,
@@ -790,18 +780,6 @@ uint32_t flashLinkPeerAgeMs() {
   return millis() - lastActivityMs;
 }
 
-int16_t flashLinkRoundInt16(float value, float lo, float hi, float scale, int16_t invalid = 0) {
-  if (!isfinite(value)) return invalid;
-  const float scaled = clampFloat(value, lo, hi) * scale;
-  return (int16_t)(scaled >= 0.0f ? scaled + 0.5f : scaled - 0.5f);
-}
-
-int32_t flashLinkRoundInt32(float value, float lo, float hi, float scale, int32_t invalid = 0) {
-  if (!isfinite(value)) return invalid;
-  const float scaled = clampFloat(value, lo, hi) * scale;
-  return (int32_t)(scaled >= 0.0f ? scaled + 0.5f : scaled - 0.5f);
-}
-
 bool flashLinkRemoteActive() {
   return flashLinkGroundRole() &&
          flashLink.remoteValid &&
@@ -831,6 +809,19 @@ void flashLinkOnSend(const uint8_t* mac, esp_now_send_status_t status) {
   flashLink.txBusy = false;
 }
 
+bool flashLinkRxSlotIsTelemetryFrom(
+  const FlashLinkRxSlot& slot,
+  uint8_t sourceNodeId
+) {
+  if (slot.len < sizeof(FlashLinkHeaderV1)) return false;
+  FlashLinkHeaderV1 header{};
+  memcpy(&header, slot.data, sizeof(header));
+  return header.magic == kFlashLinkMagic &&
+         header.version == kFlashLinkVersion &&
+         header.type == static_cast<uint8_t>(FlashLinkPacketType::Telemetry) &&
+         flashLinkPacketSourceNode(header) == sourceNodeId;
+}
+
 void flashLinkOnReceive(const uint8_t* mac, const uint8_t* data, int dataLen) {
   if (!mac || !data || dataLen <= 0 || dataLen > (int)kFlashLinkMaxPacketBytes) return;
   FlashLinkHeaderV1 incomingHeader{};
@@ -843,6 +834,24 @@ void flashLinkOnReceive(const uint8_t* mac, const uint8_t* data, int dataLen) {
 
   portENTER_CRITICAL(&flashLinkRxMux);
   if ((flashLinkGroundRole() || flashLinkStage1RelayRole()) && incomingTelemetry) {
+    // A delayed telemetry sample has no value once a newer sample from the
+    // same stage is waiting. Replace it in place instead of growing latency.
+    if (flashLinkRxCount >= kFlashLinkTelemetryQueueSoftLimit) {
+      const uint8_t sourceNodeId = flashLinkPacketSourceNode(incomingHeader);
+      for (uint8_t offset = 0; offset < flashLinkRxCount; ++offset) {
+        const uint8_t index = (uint8_t)(
+          (flashLinkRxHead + flashLinkRxCount - 1U - offset) %
+          kFlashLinkRxQueueDepth);
+        FlashLinkRxSlot& pending = flashLinkRxQueue[index];
+        if (!flashLinkRxSlotIsTelemetryFrom(pending, sourceNodeId)) continue;
+        memcpy(pending.mac, mac, ESP_NOW_ETH_ALEN);
+        pending.len = (uint16_t)dataLen;
+        memcpy(pending.data, data, (size_t)dataLen);
+        flashLink.rxQueueDrops++;
+        portEXIT_CRITICAL(&flashLinkRxMux);
+        return;
+      }
+    }
     while (flashLinkRxCount >= kFlashLinkTelemetryQueueSoftLimit) {
       const FlashLinkRxSlot& oldest = flashLinkRxQueue[flashLinkRxHead];
       const bool oldestIsTelemetry =
@@ -906,10 +915,14 @@ void flashLinkPromiscuousRx(void* buf, wifi_promiscuous_pkt_type_t type) {
 }
 
 bool flashLinkPopRx(FlashLinkRxSlot& out) {
+  if (flashLinkRxCount == 0U) return false;
   bool available = false;
   portENTER_CRITICAL(&flashLinkRxMux);
   if (flashLinkRxCount > 0) {
-    out = flashLinkRxQueue[flashLinkRxHead];
+    const FlashLinkRxSlot& queued = flashLinkRxQueue[flashLinkRxHead];
+    out.len = queued.len;
+    memcpy(out.mac, queued.mac, ESP_NOW_ETH_ALEN);
+    memcpy(out.data, queued.data, queued.len);
     flashLinkRxHead = (uint8_t)((flashLinkRxHead + 1U) % kFlashLinkRxQueueDepth);
     flashLinkRxCount--;
     available = true;
@@ -1232,6 +1245,38 @@ bool flashLinkQueueRelayedFrame(
       incoming.len > kFlashLinkMaxPacketBytes) {
     return false;
   }
+  FlashLinkHeaderV1 incomingHeader{};
+  memcpy(&incomingHeader, incoming.data, sizeof(incomingHeader));
+  if (!downlink &&
+      incomingHeader.type == static_cast<uint8_t>(FlashLinkPacketType::Telemetry)) {
+    for (uint8_t offset = 0; offset < flashLinkRelayTxCount; ++offset) {
+      const uint8_t index = (uint8_t)(
+        (flashLinkRelayTxHead + flashLinkRelayTxCount - 1U - offset) %
+        kFlashLinkRelayTxQueueDepth);
+      FlashLinkRelayTxSlot& pending = flashLinkRelayTxQueue[index];
+      if (pending.len < sizeof(FlashLinkHeaderV1) ||
+          memcmp(pending.destination, destination, ESP_NOW_ETH_ALEN) != 0) {
+        continue;
+      }
+      FlashLinkHeaderV1 pendingHeader{};
+      memcpy(&pendingHeader, pending.data, sizeof(pendingHeader));
+      if (pendingHeader.type != incomingHeader.type ||
+          flashLinkPacketSourceNode(pendingHeader) !=
+            flashLinkPacketSourceNode(incomingHeader)) {
+        continue;
+      }
+      pending.len = incoming.len;
+      memcpy(pending.data, incoming.data, incoming.len);
+      FlashLinkHeaderV1* header =
+        reinterpret_cast<FlashLinkHeaderV1*>(pending.data);
+      header->flags |= kFlashLinkRelayedFlag;
+      header->crc16 = 0;
+      header->crc16 = crc16Ccitt(pending.data, pending.len);
+      flashLinkRelay.forwardedUp++;
+      flashLinkRelay.telemetryCoalesced++;
+      return true;
+    }
+  }
   if (flashLinkRelayTxCount >= kFlashLinkRelayTxQueueDepth) {
     flashLinkRelay.queueDrops++;
     return false;
@@ -1281,27 +1326,27 @@ void flashLinkFillTelemetry(FlashLinkTelemetryV1& out) {
   out.uptimeMs = snap.ut;
   out.pressureMpa = snap.baroValid ? snap.p : 0.0f;
   out.altitudeM = snap.baroValid ? snap.altM : 0.0f;
-  out.axMilliG = flashLinkRoundInt16(snap.ax, -32.767f, 32.767f, 1000.0f);
-  out.ayMilliG = flashLinkRoundInt16(snap.ay, -32.767f, 32.767f, 1000.0f);
-  out.azMilliG = flashLinkRoundInt16(snap.az, -32.767f, 32.767f, 1000.0f);
-  out.gxDeciDps = flashLinkRoundInt16(snap.gx, -3276.7f, 3276.7f, 10.0f);
-  out.gyDeciDps = flashLinkRoundInt16(snap.gy, -3276.7f, 3276.7f, 10.0f);
-  out.gzDeciDps = flashLinkRoundInt16(snap.gz, -3276.7f, 3276.7f, 10.0f);
-  out.rollCentiDeg = flashLinkRoundInt16(snap.roll, -180.0f, 180.0f, 100.0f);
-  out.pitchCentiDeg = flashLinkRoundInt16(snap.pitch, -180.0f, 180.0f, 100.0f);
-  out.yawCentiDeg = flashLinkRoundInt16(snap.yaw, -180.0f, 180.0f, 100.0f);
+  out.axMilliG = quantizeInt16(snap.ax, -32.767f, 32.767f, 1000.0f);
+  out.ayMilliG = quantizeInt16(snap.ay, -32.767f, 32.767f, 1000.0f);
+  out.azMilliG = quantizeInt16(snap.az, -32.767f, 32.767f, 1000.0f);
+  out.gxDeciDps = quantizeInt16(snap.gx, -3276.7f, 3276.7f, 10.0f);
+  out.gyDeciDps = quantizeInt16(snap.gy, -3276.7f, 3276.7f, 10.0f);
+  out.gzDeciDps = quantizeInt16(snap.gz, -3276.7f, 3276.7f, 10.0f);
+  out.rollCentiDeg = quantizeInt16(snap.roll, -180.0f, 180.0f, 100.0f);
+  out.pitchCentiDeg = quantizeInt16(snap.pitch, -180.0f, 180.0f, 100.0f);
+  out.yawCentiDeg = quantizeInt16(snap.yaw, -180.0f, 180.0f, 100.0f);
   out.gpsLatE7 = snap.gpsFix
-    ? flashLinkRoundInt32(snap.gpsLat, -90.0f, 90.0f, 10000000.0f, INT32_MIN)
+    ? quantizeInt32(snap.gpsLat, -90.0f, 90.0f, 10000000.0f, INT32_MIN)
     : INT32_MIN;
   out.gpsLonE7 = snap.gpsFix
-    ? flashLinkRoundInt32(snap.gpsLon, -180.0f, 180.0f, 10000000.0f, INT32_MIN)
+    ? quantizeInt32(snap.gpsLon, -180.0f, 180.0f, 10000000.0f, INT32_MIN)
     : INT32_MIN;
   out.gpsAltCm = snap.gpsFix
-    ? flashLinkRoundInt32(snap.gpsAlt, -21474836.0f, 21474836.0f, 100.0f, INT32_MIN)
+    ? quantizeInt32(snap.gpsAlt, -21474836.0f, 21474836.0f, 100.0f, INT32_MIN)
     : INT32_MIN;
   out.gpsAgeMs = (uint16_t)min<uint32_t>(65535U, snap.gpsAgeMs);
   out.gpsUtcMs = snap.gpsTimeValid ? snap.gpsUtcMs : UINT32_MAX;
-  out.chipTempDeciC = flashLinkRoundInt16(
+  out.chipTempDeciC = quantizeInt16(
     snap.chipTempC,
     -3276.7f,
     3276.7f,
@@ -1334,7 +1379,7 @@ void flashLinkFillTelemetry(FlashLinkTelemetryV1& out) {
   out.mode = flashLinkDataModeCode();
   out.pyroChannel = daqSequencePyroChannel;
   out.thrustMilliKgf = snap.loadcellValid
-    ? flashLinkRoundInt32(snap.thrustKgf, -2147483.0f, 2147483.0f, 1000.0f, INT32_MIN)
+    ? quantizeInt32(snap.thrustKgf, -2147483.0f, 2147483.0f, 1000.0f, INT32_MIN)
     : INT32_MIN;
   out.loadcellRaw = snap.loadcellRaw;
   out.loadcellHz = snap.loadcellHz;
@@ -1343,16 +1388,16 @@ void flashLinkFillTelemetry(FlashLinkTelemetryV1& out) {
   out.missionAlarmSeq = missionAlarmLocal.seq;
   out.missionAlarmTimestampMs = missionAlarmLocal.timestampMs;
   out.missionAlarmBlock = missionAlarmLocal.blockIndex;
-  out.verticalSpeedDeciMps = (int16_t)flashLinkRoundInt32(
+  out.verticalSpeedDeciMps = quantizeInt16(
     snap.flightVerticalSpeedMps,
     -3276.8f,
     3276.7f,
     10.0f,
     0);
-  out.attitudeQw = flashLinkRoundInt16(snap.attitudeQw, -1.0f, 1.0f, 32767.0f);
-  out.attitudeQx = flashLinkRoundInt16(snap.attitudeQx, -1.0f, 1.0f, 32767.0f);
-  out.attitudeQy = flashLinkRoundInt16(snap.attitudeQy, -1.0f, 1.0f, 32767.0f);
-  out.attitudeQz = flashLinkRoundInt16(snap.attitudeQz, -1.0f, 1.0f, 32767.0f);
+  out.attitudeQw = quantizeInt16(snap.attitudeQw, -1.0f, 1.0f, 32767.0f);
+  out.attitudeQx = quantizeInt16(snap.attitudeQx, -1.0f, 1.0f, 32767.0f);
+  out.attitudeQy = quantizeInt16(snap.attitudeQy, -1.0f, 1.0f, 32767.0f);
+  out.attitudeQz = quantizeInt16(snap.attitudeQz, -1.0f, 1.0f, 32767.0f);
   out.ignitionDelayMs = (snap.deploymentFlags & 1U) != 0U
     ? (uint16_t)min<uint32_t>(65534U, snap.ignitionDelayMs)
     : UINT16_MAX;
@@ -1369,78 +1414,99 @@ void flashLinkFillMissionAlarm(FlashLinkMissionAlarmV1& out) {
   missionCopyText(out.message, sizeof(out.message), missionAlarmLocal.message);
 }
 
-void flashLinkApplyTelemetry(const FlashLinkTelemetryV1& in) {
-  flashLinkRemoteSnap.p = in.pressureMpa;
-  flashLinkRemoteSnap.altM = in.altitudeM;
-  flashLinkRemoteSnap.ax = in.axMilliG / 1000.0f;
-  flashLinkRemoteSnap.ay = in.ayMilliG / 1000.0f;
-  flashLinkRemoteSnap.az = in.azMilliG / 1000.0f;
-  flashLinkRemoteSnap.gx = in.gxDeciDps / 10.0f;
-  flashLinkRemoteSnap.gy = in.gyDeciDps / 10.0f;
-  flashLinkRemoteSnap.gz = in.gzDeciDps / 10.0f;
-  flashLinkRemoteSnap.roll = in.rollCentiDeg / 100.0f;
-  flashLinkRemoteSnap.pitch = in.pitchCentiDeg / 100.0f;
-  flashLinkRemoteSnap.yaw = in.yawCentiDeg / 100.0f;
-  flashLinkRemoteSnap.gpsLat = in.gpsLatE7 != INT32_MIN ? in.gpsLatE7 / 10000000.0f : NAN;
-  flashLinkRemoteSnap.gpsLon = in.gpsLonE7 != INT32_MIN ? in.gpsLonE7 / 10000000.0f : NAN;
-  flashLinkRemoteSnap.gpsAlt = in.gpsAltCm != INT32_MIN ? in.gpsAltCm / 100.0f : NAN;
-  flashLinkRemoteSnap.gpsAgeMs = in.gpsAgeMs;
-  flashLinkRemoteSnap.gpsTimeValid = in.gpsUtcMs < kDayMs;
-  flashLinkRemoteSnap.gpsUtcMs = flashLinkRemoteSnap.gpsTimeValid ? in.gpsUtcMs : UINT32_MAX;
-  flashLinkRemoteSnap.chipTempC = in.chipTempDeciC != INT16_MIN ? in.chipTempDeciC / 10.0f : NAN;
-  flashLinkRemoteSnap.lt = in.loopUs / 1000.0f;
-  flashLinkRemoteSnap.ct = in.cpuUs;
-  flashLinkRemoteSnap.ut = in.uptimeMs;
-  flashLinkRemoteSnap.sampleValid = (in.flags & (1U << 0)) != 0;
-  flashLinkRemoteSnap.baroValid = (in.flags & (1U << 1)) != 0;
-  flashLinkRemoteSnap.attitudeValid = (in.flags & (1U << 2)) != 0;
-  flashLinkRemoteSnap.gpsFix = (in.flags & (1U << 3)) != 0;
-  flashLinkRemoteSnap.gpsSeen = (in.flags & (1U << 4)) != 0;
-  flashLinkRemoteSnap.gpsReady = flashLinkRemoteSnap.gpsSeen || flashLinkRemoteSnap.gpsFix;
-  flashLinkRemoteSnap.thrustKgf =
+void flashLinkDecodeTelemetry(
+  const FlashLinkTelemetryV1& in,
+  Telemetry& output,
+  FlashLinkRemoteState& state,
+  uint32_t& alarmSeq,
+  uint32_t& alarmTimestampMs,
+  uint16_t& alarmBlockIndex,
+  char* alarmTitle,
+  char* alarmMessage
+) {
+  output.p = in.pressureMpa;
+  output.altM = in.altitudeM;
+  output.ax = in.axMilliG / 1000.0f;
+  output.ay = in.ayMilliG / 1000.0f;
+  output.az = in.azMilliG / 1000.0f;
+  output.gx = in.gxDeciDps / 10.0f;
+  output.gy = in.gyDeciDps / 10.0f;
+  output.gz = in.gzDeciDps / 10.0f;
+  output.roll = in.rollCentiDeg / 100.0f;
+  output.pitch = in.pitchCentiDeg / 100.0f;
+  output.yaw = in.yawCentiDeg / 100.0f;
+  output.gpsLat = in.gpsLatE7 != INT32_MIN ? in.gpsLatE7 / 10000000.0f : NAN;
+  output.gpsLon = in.gpsLonE7 != INT32_MIN ? in.gpsLonE7 / 10000000.0f : NAN;
+  output.gpsAlt = in.gpsAltCm != INT32_MIN ? in.gpsAltCm / 100.0f : NAN;
+  output.gpsAgeMs = in.gpsAgeMs;
+  output.gpsTimeValid = in.gpsUtcMs < kDayMs;
+  output.gpsUtcMs = output.gpsTimeValid ? in.gpsUtcMs : UINT32_MAX;
+  output.chipTempC = in.chipTempDeciC != INT16_MIN ? in.chipTempDeciC / 10.0f : NAN;
+  output.lt = in.loopUs / 1000.0f;
+  output.ct = in.cpuUs;
+  output.ut = in.uptimeMs;
+  output.sampleValid = (in.flags & (1U << 0)) != 0;
+  output.baroValid = (in.flags & (1U << 1)) != 0;
+  output.attitudeValid = (in.flags & (1U << 2)) != 0;
+  output.gpsFix = (in.flags & (1U << 3)) != 0;
+  output.gpsSeen = (in.flags & (1U << 4)) != 0;
+  output.gpsReady = output.gpsSeen || output.gpsFix;
+  output.thrustKgf =
     in.thrustMilliKgf != INT32_MIN ? in.thrustMilliKgf / 1000.0f : 0.0f;
-  flashLinkRemoteSnap.loadcellRaw = in.loadcellRaw;
-  flashLinkRemoteSnap.loadcellHz = in.loadcellHz;
-  flashLinkRemoteSnap.loadcellReady = (in.loadcellFlags & (1U << 0)) != 0;
-  flashLinkRemoteSnap.loadcellValid = (in.loadcellFlags & (1U << 1)) != 0;
-  flashLinkRemoteSnap.loadcellSaturated = (in.loadcellFlags & (1U << 2)) != 0;
-  flashLinkRemoteSnap.loadcellOffsetValid = (in.loadcellFlags & (1U << 3)) != 0;
-  flashLinkRemoteSnap.loadcellNoiseKg = kLoadcellNoiseDeadbandKg;
-  flashLinkRemoteSnap.loadcellScale = kLoadcellDefaultScale;
-  flashLinkRemoteSnap.flightPhase = in.flightPhase <= static_cast<uint8_t>(FlightPhase::Landed)
+  output.loadcellRaw = in.loadcellRaw;
+  output.loadcellHz = in.loadcellHz;
+  output.loadcellReady = (in.loadcellFlags & (1U << 0)) != 0;
+  output.loadcellValid = (in.loadcellFlags & (1U << 1)) != 0;
+  output.loadcellSaturated = (in.loadcellFlags & (1U << 2)) != 0;
+  output.loadcellOffsetValid = (in.loadcellFlags & (1U << 3)) != 0;
+  output.loadcellNoiseKg = kLoadcellNoiseDeadbandKg;
+  output.loadcellScale = kLoadcellDefaultScale;
+  output.flightPhase = in.flightPhase <= static_cast<uint8_t>(FlightPhase::Landed)
     ? in.flightPhase
     : static_cast<uint8_t>(FlightPhase::PreFlight);
-  flashLinkRemoteSnap.flightVerticalSpeedMps = in.verticalSpeedDeciMps / 10.0f;
-  flashLinkRemoteSnap.flightApogeeM = 0.0f;
-  flashLinkRemoteSnap.flightPhaseElapsedMs = 0;
-  flashLinkRemoteSnap.attitudeQw = in.attitudeQw / 32767.0f;
-  flashLinkRemoteSnap.attitudeQx = in.attitudeQx / 32767.0f;
-  flashLinkRemoteSnap.attitudeQy = in.attitudeQy / 32767.0f;
-  flashLinkRemoteSnap.attitudeQz = in.attitudeQz / 32767.0f;
-  flashLinkRemoteSnap.ignitionDelayMs =
+  output.flightVerticalSpeedMps = in.verticalSpeedDeciMps / 10.0f;
+  output.flightApogeeM = 0.0f;
+  output.flightPhaseElapsedMs = 0;
+  output.attitudeQw = in.attitudeQw / 32767.0f;
+  output.attitudeQx = in.attitudeQx / 32767.0f;
+  output.attitudeQy = in.attitudeQy / 32767.0f;
+  output.attitudeQz = in.attitudeQz / 32767.0f;
+  output.ignitionDelayMs =
     ((in.deploymentFlags & 1U) != 0U && in.ignitionDelayMs != UINT16_MAX)
       ? in.ignitionDelayMs
       : UINT32_MAX;
-  flashLinkRemoteSnap.deploymentState = in.deploymentState;
-  flashLinkRemoteSnap.deploymentFlags = in.deploymentFlags;
-  flashLinkRemoteState.flags = in.flags;
-  flashLinkRemoteState.relayMask = in.relayMask;
-  flashLinkRemoteState.state = in.state;
-  flashLinkRemoteState.abortReason = in.abortReason;
-  flashLinkRemoteState.tdMs = in.tdMs;
-  flashLinkRemoteState.ignitionMs = in.ignitionMs;
-  flashLinkRemoteState.countdownMs = in.countdownMs;
-  flashLinkRemoteState.mode = in.mode == 1U ? 1U : 0U;
-  flashLinkRemoteState.pyroChannel = clampPyroChannel(in.pyroChannel);
-  if (missionAlarmRemote.seq != in.missionAlarmSeq) {
-    missionAlarmRemote.seq = in.missionAlarmSeq;
-    missionAlarmRemote.timestampMs = in.missionAlarmTimestampMs;
-    missionAlarmRemote.blockIndex = in.missionAlarmBlock;
+  output.deploymentState = in.deploymentState;
+  output.deploymentFlags = in.deploymentFlags;
+  state.flags = in.flags;
+  state.relayMask = in.relayMask;
+  state.state = in.state;
+  state.abortReason = in.abortReason;
+  state.tdMs = in.tdMs;
+  state.ignitionMs = in.ignitionMs;
+  state.countdownMs = in.countdownMs;
+  state.mode = in.mode == 1U ? 1U : 0U;
+  state.pyroChannel = clampPyroChannel(in.pyroChannel);
+  if (alarmSeq != in.missionAlarmSeq) {
+    alarmSeq = in.missionAlarmSeq;
+    alarmTimestampMs = in.missionAlarmTimestampMs;
+    alarmBlockIndex = in.missionAlarmBlock;
     if (in.missionAlarmSeq == 0U) {
-      missionAlarmRemote.title[0] = '\0';
-      missionAlarmRemote.message[0] = '\0';
+      if (alarmTitle) alarmTitle[0] = '\0';
+      if (alarmMessage) alarmMessage[0] = '\0';
     }
   }
+}
+
+void flashLinkApplyTelemetry(const FlashLinkTelemetryV1& in) {
+  flashLinkDecodeTelemetry(
+    in,
+    flashLinkRemoteSnap,
+    flashLinkRemoteState,
+    missionAlarmRemote.seq,
+    missionAlarmRemote.timestampMs,
+    missionAlarmRemote.blockIndex,
+    missionAlarmRemote.title,
+    missionAlarmRemote.message);
   flashLink.remoteValid = true;
 }
 
@@ -1463,30 +1529,16 @@ void flashLinkApplyTelemetryForGroundPeer(
   FlashLinkGroundPeer& peer,
   const FlashLinkTelemetryV1& in
 ) {
-  const Telemetry previousSnap = flashLinkRemoteSnap;
-  const FlashLinkRemoteState previousState = flashLinkRemoteState;
-  const MissionAlarmState previousAlarm = missionAlarmRemote;
-  const bool previousValid = flashLink.remoteValid;
-  flashLinkRemoteSnap = peer.snap;
-  flashLinkRemoteState = peer.state;
-  missionAlarmRemote.seq = peer.alarmSeq;
-  missionAlarmRemote.timestampMs = peer.alarmTimestampMs;
-  missionAlarmRemote.blockIndex = peer.alarmBlockIndex;
-  missionCopyText(missionAlarmRemote.title, sizeof(missionAlarmRemote.title), peer.alarmTitle);
-  missionCopyText(missionAlarmRemote.message, sizeof(missionAlarmRemote.message), peer.alarmMessage);
-  flashLinkApplyTelemetry(in);
-  peer.snap = flashLinkRemoteSnap;
-  peer.state = flashLinkRemoteState;
-  peer.alarmSeq = missionAlarmRemote.seq;
-  peer.alarmTimestampMs = missionAlarmRemote.timestampMs;
-  peer.alarmBlockIndex = missionAlarmRemote.blockIndex;
-  missionCopyText(peer.alarmTitle, sizeof(peer.alarmTitle), missionAlarmRemote.title);
-  missionCopyText(peer.alarmMessage, sizeof(peer.alarmMessage), missionAlarmRemote.message);
+  flashLinkDecodeTelemetry(
+    in,
+    peer.snap,
+    peer.state,
+    peer.alarmSeq,
+    peer.alarmTimestampMs,
+    peer.alarmBlockIndex,
+    peer.alarmTitle,
+    peer.alarmMessage);
   peer.remoteValid = true;
-  flashLinkRemoteSnap = previousSnap;
-  flashLinkRemoteState = previousState;
-  missionAlarmRemote = previousAlarm;
-  flashLink.remoteValid = previousValid;
 }
 
 void flashLinkApplyMissionAlarmForGroundPeer(
@@ -1922,8 +1974,6 @@ void flashLinkHandlePacket(FlashLinkRxSlot& slot) {
       response.status = 2;
     } else if (storageState.busy || storageWaitServiceActive) {
       response.status = 1;
-    } else if (storageQueueCount > 0 && !storageFlush(true)) {
-      response.status = 1;
     } else if (storageRead(request.offset, response.data, readLen)) {
       response.len = readLen;
       response.status = 0;
@@ -2078,7 +2128,9 @@ void flashLinkHandlePacket(FlashLinkRxSlot& slot) {
     groundPeer->lastTelemetryRxMs = nowMs;
     groundPeer->linked = true;
     flashLinkApplyTelemetryForGroundPeer(*groundPeer, telemetry);
-    flashLinkGroundRefreshSelectedPeer();
+    if (groundPeer->nodeId == flashLinkTargetNodeId) {
+      flashLinkGroundRefreshSelectedPeer();
+    }
   } else {
     flashLink.rxRateWindowFrames++;
     flashLink.lastTelemetryRxMs = nowMs;
@@ -2176,6 +2228,7 @@ void setupFlashLink() {
 }
 
 void flashLinkGroundTick(uint32_t nowMs) {
+  bool selectedStatsChanged = false;
   for (uint8_t i = 0; i < kFlashLinkVehicleNodeCount; ++i) {
     FlashLinkGroundPeer& peer = flashLinkGroundPeers[i];
     if (!peer.occupied) continue;
@@ -2192,6 +2245,7 @@ void flashLinkGroundTick(uint32_t nowMs) {
       peer.rxRateWindowFrames = 0;
       peer.rxRateWindowDrops = 0;
       peer.rxRateWindowMs = nowMs;
+      if (peer.nodeId == flashLinkTargetNodeId) selectedStatsChanged = true;
     }
     if (peer.lastTelemetryRxMs != 0U &&
         (uint32_t)(nowMs - peer.lastTelemetryRxMs) > kFlashLinkTelemetryStaleMs) {
@@ -2206,7 +2260,7 @@ void flashLinkGroundTick(uint32_t nowMs) {
       flashLinkResetGroundPeer(peer);
     }
   }
-  flashLinkGroundRefreshSelectedPeer();
+  if (selectedStatsChanged) flashLinkGroundRefreshSelectedPeer();
 
   if (!flashLink.txBusy) {
     for (uint8_t i = 0; i < kFlashLinkVehicleNodeCount; ++i) {
@@ -2422,7 +2476,17 @@ bool flashLinkStage1RelayTick(uint32_t nowMs) {
 void flashLinkTick() {
   if (!flashLinkMode || !flashLink.initialized) return;
 
-  FlashLinkRxSlot slot{};
+  static uint32_t lastServiceUs = 0;
+  const uint32_t serviceNowUs = micros();
+  if (flashLinkRxCount == 0U &&
+      lastServiceUs != 0U &&
+      (uint32_t)(serviceNowUs - lastServiceUs) <
+        kFlashLinkServiceMinPeriodUs) {
+    return;
+  }
+  lastServiceUs = serviceNowUs;
+
+  FlashLinkRxSlot slot;
   uint8_t processed = 0;
   while (processed < kFlashLinkRxDrainLimit && flashLinkPopRx(slot)) {
     flashLinkHandlePacket(slot);
@@ -2549,80 +2613,6 @@ void flashLinkTick() {
       flashLink.lastMissionAlarmTxSeq = missionAlarmLocal.seq;
       flashLink.lastMissionAlarmTxMs = nowMs;
       return;
-    }
-  }
-
-  if (flashLinkGroundRole() &&
-      flashLink.linked &&
-      flashLink.peerReady &&
-      !flashLink.txBusy) {
-    FlashLinkCommandQueueEntry pending{};
-    bool hasPending = false;
-    portENTER_CRITICAL(&flashLinkCommandMux);
-    if (flashLinkCommandCount > 0) {
-      pending = flashLinkCommandQueue[flashLinkCommandHead];
-      hasPending = true;
-    }
-    portEXIT_CRITICAL(&flashLinkCommandMux);
-
-    if (hasPending) {
-      const uint32_t retryMs = flashLinkCommandIsLongRunning(pending.command.code)
-        ? kFlashLinkLongCommandRetryMs
-        : kFlashLinkCommandRetryMs;
-      const uint8_t maxAttempts = flashLinkCommandIsLongRunning(pending.command.code)
-        ? kFlashLinkLongCommandMaxAttempts
-        : kFlashLinkCommandMaxAttempts;
-      const bool retryDue =
-        pending.lastSendMs == 0 ||
-        (uint32_t)(nowMs - pending.lastSendMs) >= retryMs;
-      if (pending.attempts >= maxAttempts && retryDue) {
-        portENTER_CRITICAL(&flashLinkCommandMux);
-        if (flashLinkCommandCount > 0 &&
-            flashLinkCommandQueue[flashLinkCommandHead].command.transaction ==
-              pending.command.transaction) {
-          flashLinkCommandHead =
-            (uint8_t)((flashLinkCommandHead + 1U) % kFlashLinkCommandQueueDepth);
-          flashLinkCommandCount--;
-        }
-        portEXIT_CRITICAL(&flashLinkCommandMux);
-        flashLink.commandFailed++;
-        flashLink.lastCommandCode = pending.command.code;
-        flashLink.lastCommandResult =
-          static_cast<uint8_t>(FlashLinkCommandResult::Busy);
-        Serial.printf("[FLASH_LINK] command timeout txn=%lu code=%u attempts=%u\n",
-                      (unsigned long)pending.command.transaction,
-                      (unsigned)pending.command.code,
-                      (unsigned)pending.attempts);
-        return;
-      }
-      if (retryDue) {
-        const bool accepted = flashLinkSendPacket(
-          FlashLinkPacketType::Command,
-          flashLink.peerMac,
-          &pending.command,
-          sizeof(pending.command));
-        if (accepted) {
-          portENTER_CRITICAL(&flashLinkCommandMux);
-          if (flashLinkCommandCount > 0 &&
-              flashLinkCommandQueue[flashLinkCommandHead].command.transaction ==
-                pending.command.transaction) {
-            FlashLinkCommandQueueEntry& head =
-              flashLinkCommandQueue[flashLinkCommandHead];
-            if (head.attempts > 0) flashLink.commandRetries++;
-            head.attempts++;
-            head.lastSendMs = nowMs;
-          }
-          portEXIT_CRITICAL(&flashLinkCommandMux);
-          return;
-        }
-        portENTER_CRITICAL(&flashLinkCommandMux);
-        if (flashLinkCommandCount > 0 &&
-            flashLinkCommandQueue[flashLinkCommandHead].command.transaction ==
-              pending.command.transaction) {
-          flashLinkCommandQueue[flashLinkCommandHead].lastSendMs = nowMs;
-        }
-        portEXIT_CRITICAL(&flashLinkCommandMux);
-      }
     }
   }
 

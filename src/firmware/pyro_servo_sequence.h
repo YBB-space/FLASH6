@@ -43,11 +43,6 @@ bool parseLongStrict(const String& raw, long& out) {
   return true;
 }
 
-bool getQueryLong(const String& cmd, const char* key, long& out) {
-  String raw;
-  return getQueryValue(cmd, key, raw) && parseLongStrict(raw, out);
-}
-
 uint32_t clampU32(long value, uint32_t lo, uint32_t hi, uint32_t fallback) {
   if (value <= 0 && fallback >= lo && fallback <= hi) value = (long)fallback;
   if (value < (long)lo) return lo;

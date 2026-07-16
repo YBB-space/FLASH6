@@ -333,7 +333,7 @@ void handleSerialLine(const char* line) {
 
   if (cmd == "/gps_reset") {
     gpsApplyConfig(0, !serialStream);
-    syncGpsTelemetry();
+    syncGpsTelemetry(true);
     Serial.printf("ACK GPS_RESET baud=%lu rx=%d tx=%d\n",
                   (unsigned long)snap.gpsBaud,
                   (int)snap.gpsRxPin,
@@ -1033,9 +1033,11 @@ void sendPeriodicTelemetry() {
     serialStream && (uint32_t)(nowUs - lastSerialUs) >= serialPeriodUs;
   const bool wsCanWrite =
     wsDue && ws.count() > 0 && ws.availableForWriteAll();
+  const bool serialCanWrite =
+    serialDue && Serial.availableForWrite() >= (int)kMinSerialWriteRoom;
   char json[kStreamJsonMaxBytes];
   size_t len = 0;
-  if (wsCanWrite || serialDue) {
+  if (wsCanWrite || serialCanWrite) {
     len = buildStreamJsonV2(json, sizeof(json));
     if (len == 0) {
       if (wsDue) {
@@ -1075,7 +1077,7 @@ void sendPeriodicTelemetry() {
 
   if (serialDue) {
     lastSerialUs = nowUs;
-    if (len > 0U) {
+    if (serialCanWrite && len > 0U) {
       const size_t written = Serial.write((const uint8_t*)json, len);
       const size_t newlineWritten = Serial.write('\n');
       if (written != len || newlineWritten != 1U) {
