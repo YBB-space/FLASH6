@@ -1624,7 +1624,17 @@ void setupRoutes() {
     const uint8_t oldDataMode = flashLinkDataModeCode();
     const uint8_t oldNodeId = flashLinkNodeId;
     const bool oldStage2Mode = flashLinkStage2Enabled;
-    const bool forwardRemote = flashLinkGroundRole();
+    // Communication-role changes are local board configuration. Do not decide
+    // remote forwarding from the old role and then change the role midway
+    // through the same request; that made ground -> avionics activation try to
+    // queue its data-mode setting after ground control had already been closed.
+    const bool localCommunicationRequest =
+      request->hasParam("op_mode") || request->hasParam("mode") ||
+      request->hasParam("flash_link_role") || request->hasParam("fl_role") ||
+      request->hasParam("flash_link_node_id") || request->hasParam("fl_node") ||
+      request->hasParam("flash_link_stage2_mode") ||
+      request->hasParam("fl_stage2_mode") || request->hasParam("stage2_mode");
+    const bool forwardRemote = flashLinkGroundRole() && !localCommunicationRequest;
     bool remoteRequested = false;
     bool remoteQueued = true;
     auto queueRemote = [&](FlashLinkCommandCode code, int32_t value) {

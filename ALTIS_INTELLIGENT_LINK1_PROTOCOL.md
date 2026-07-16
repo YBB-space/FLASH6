@@ -89,7 +89,7 @@ from this sequence.
 
 The UI stream appends GPS clock metadata after the stable 53-field compact frame:
 `gps_time_valid` and `gps_utc_ms`. Older decoders can ignore these trailing
-fields. Build `v6 b6` also appends `stage2_mode` after the two optional stage
+fields. Build `v6 b6` and later append `stage2_mode` after the two optional stage
 snapshots; the stage-2 snapshot is `null` in stage-1-only mode.
 
 The ground board sends five telemetry ACKs per second: every 20 frames in
@@ -254,6 +254,12 @@ one-time boot reservation so the automatic restart can initialize the radio.
 That reservation is consumed during startup. A later manual reboot or power
 cycle always returns the board to Flight mode while preserving its role.
 
+An HTTP or USB serial `/set` request containing `op_mode`, role, node, or
+stage-2-mode fields is an atomic local communication configuration request.
+Its data-mode field is applied to the same local board even if the board was a
+ground node before the request. Operational `/set` requests without those
+communication fields continue to be forwarded from ground to avionics.
+
 Ground role enables ALTIS INTELLIGENT LINK1, USB serial telemetry, and the Wi-Fi AP for UI
 clients. Avionics role disables the Wi-Fi AP and web server while keeping the
 STA radio active for ESP-NOW ALTIS INTELLIGENT LINK1.
@@ -267,10 +273,11 @@ revisions should rotate keys per fleet or per paired board.
 
 ## Firmware Revision
 
-- Firmware version: `0.8.0`
-- Build ID: `v6 b6`
+- Firmware version: `0.8.1`
+- Build ID: `v6 b7`
 - Wire protocol: `Flash6-Intelligent-b3` / numeric version `3`
 - Storage record format: version `4` (unchanged and backward compatible)
 - Compatibility: the wire layout remains version `3`. Ground and stage 1 must
-  both run `v6 b6` to coordinate stage-1-only 100 Hz mode. Update all three
+  both run `v6 b7` to coordinate stage-1-only 100 Hz mode and reliably apply
+  ground-to-avionics role changes. Update all three
   nodes before enabling dual-stage operation.

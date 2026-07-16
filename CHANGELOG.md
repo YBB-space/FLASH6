@@ -3,6 +3,17 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.8.1 — v6 b7 — 2026-07-17
+
+Protocol: `Flash6-Intelligent-b3` (wire version `3`, unchanged)
+
+- Fixed AIL ground-to-avionics activation when operation mode, board role,
+  node ID, stage-2 mode, and avionics data mode are applied in one request.
+- Communication configuration requests are now handled atomically as local
+  board settings instead of deciding remote forwarding from the board's old
+  role and failing after the role changes mid-request.
+- Applied the same routing fix to HTTP and USB serial `/set` paths.
+
 ## 0.8.0 — v6 b6 — 2026-07-17
 
 Protocol: `Flash6-Intelligent-b3` (wire version `3`, unchanged)

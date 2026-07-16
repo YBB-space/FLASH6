@@ -429,7 +429,18 @@ void handleSerialLine(const char* line) {
     const uint8_t oldDataMode = flashLinkDataModeCode();
     const uint8_t oldNodeId = flashLinkNodeId;
     const bool oldStage2Mode = flashLinkStage2Enabled;
-    const bool forwardRemote = flashLinkGroundRole();
+    const bool localCommunicationRequest =
+      cmd.indexOf("?op_mode=") >= 0 || cmd.indexOf("&op_mode=") >= 0 ||
+      cmd.indexOf("?mode=") >= 0 || cmd.indexOf("&mode=") >= 0 ||
+      cmd.indexOf("?flash_link_role=") >= 0 || cmd.indexOf("&flash_link_role=") >= 0 ||
+      cmd.indexOf("?fl_role=") >= 0 || cmd.indexOf("&fl_role=") >= 0 ||
+      cmd.indexOf("?flash_link_node_id=") >= 0 || cmd.indexOf("&flash_link_node_id=") >= 0 ||
+      cmd.indexOf("?fl_node=") >= 0 || cmd.indexOf("&fl_node=") >= 0 ||
+      cmd.indexOf("?flash_link_stage2_mode=") >= 0 ||
+      cmd.indexOf("&flash_link_stage2_mode=") >= 0 ||
+      cmd.indexOf("?fl_stage2_mode=") >= 0 || cmd.indexOf("&fl_stage2_mode=") >= 0 ||
+      cmd.indexOf("?stage2_mode=") >= 0 || cmd.indexOf("&stage2_mode=") >= 0;
+    const bool forwardRemote = flashLinkGroundRole() && !localCommunicationRequest;
     bool remoteRequested = false;
     bool remoteQueued = true;
     String requestedMode;
