@@ -15,7 +15,10 @@ constexpr uint32_t kSerialPeriodUs = 1000000UL / kSerialStreamHz;
 constexpr uint32_t kBaroPeriodUs = 1000000UL / kBaroSampleHz;
 constexpr uint16_t kSerialRxDrainMaxBytes = 256;
 constexpr size_t kMinSerialWriteRoom = 512;
-constexpr size_t kStreamJsonMaxBytes = 1408;
+// Ground stations publish the selected vehicle as the legacy top-level sample
+// and both vehicle snapshots at the tail of the v2 frame.  Keep enough room
+// for two alarm messages without dropping the complete telemetry frame.
+constexpr size_t kStreamJsonMaxBytes = 2048;
 constexpr uint32_t kStorageFlushIntervalMs = 20;
 constexpr uint16_t kStorageQueueDepth = 256;
 constexpr uint16_t kStorageDrainBatchMax = 4;

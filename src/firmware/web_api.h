@@ -369,7 +369,8 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
   //  mission_alarm_title,mission_alarm_message,flight_phase,vertical_speed,
   //  apogee,flight_phase_elapsed,attitude_qw,qx,qy,qz,
   //  ignition_delay_ms,ignition_delay_valid,deployment_state,deployment_flags,
-  //  arm_physical,flash_node,flash_target,stage1_connected,stage2_connected]
+  //  arm_physical,flash_node,flash_target,stage1_connected,stage2_connected,
+  //  stage1_snapshot,stage2_snapshot]
   const bool remoteOutput = flashLinkGroundRole();
   const Telemetry& output = remoteOutput ? flashLinkRemoteSnap : snap;
   const uint16_t remoteFlags = remoteOutput ? flashLinkRemoteState.flags : 0;
@@ -459,6 +460,75 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
   char alarmMessage[132];
   formatJsonEscaped(outputAlarm.title, alarmTitle, sizeof(alarmTitle));
   formatJsonEscaped(outputAlarm.message, alarmMessage, sizeof(alarmMessage));
+
+  // A ground station receives both peers continuously.  The legacy fields
+  // above intentionally remain the operator-selected target for backwards
+  // compatibility; these compact tail arrays expose both peers to FLASH6.
+  // Snapshot fields:
+  // [node,connected,valid,age,alt,ax,ay,az,roll,pitch,yaw,
+  //  qw,qx,qy,qz,flight_phase,vertical_speed,deployment_state,
+  //  deployment_flags,relay,state,td,arm,arm_physical,ign_delay_valid,
+  //  ign_delay_ms,alarm_seq,alarm_block,alarm_title,alarm_message,rx_seq]
+  char stageSnapshots[2][448];
+  for (uint8_t i = 0; i < 2; ++i) {
+    if (!remoteOutput) {
+      strlcpy(stageSnapshots[i], "null", sizeof(stageSnapshots[i]));
+      continue;
+    }
+    const FlashLinkGroundPeer& peer = flashLinkGroundPeers[i];
+    const bool valid = peer.occupied && peer.remoteValid && peer.lastTelemetryRxMs != 0U;
+    const bool connected = valid && peer.peerReady && peer.linked &&
+      (uint32_t)(nowMs - peer.lastTelemetryRxMs) <= kFlashLinkTelemetryStaleMs;
+    const uint32_t ageMs = peer.lastTelemetryRxMs != 0U
+      ? (uint32_t)(nowMs - peer.lastTelemetryRxMs)
+      : UINT32_MAX;
+    const bool ignitionDelayValid =
+      (peer.snap.deploymentFlags & 1U) != 0U && peer.snap.ignitionDelayMs != UINT32_MAX;
+    char stageAlarmTitle[52];
+    char stageAlarmMessage[132];
+    formatJsonEscaped(peer.alarmTitle, stageAlarmTitle, sizeof(stageAlarmTitle));
+    formatJsonEscaped(peer.alarmMessage, stageAlarmMessage, sizeof(stageAlarmMessage));
+    const int stageLen = snprintf(
+      stageSnapshots[i],
+      sizeof(stageSnapshots[i]),
+      "[%u,%u,%u,%lu,%.2f,%.3f,%.3f,%.3f,%.2f,%.2f,%.2f,"
+      "%.6f,%.6f,%.6f,%.6f,%u,%.2f,%u,%u,%u,%u,%ld,%u,%u,"
+      "%u,%lu,%lu,%u,\"%s\",\"%s\",%lu]",
+      (unsigned)(i + kFlashLinkNodeIdStage1),
+      connected ? 1U : 0U,
+      valid ? 1U : 0U,
+      (unsigned long)ageMs,
+      peer.snap.baroValid ? peer.snap.altM : 0.0f,
+      peer.snap.ax,
+      peer.snap.ay,
+      peer.snap.az,
+      peer.snap.roll,
+      peer.snap.pitch,
+      peer.snap.yaw,
+      peer.snap.attitudeQw,
+      peer.snap.attitudeQx,
+      peer.snap.attitudeQy,
+      peer.snap.attitudeQz,
+      (unsigned)peer.snap.flightPhase,
+      peer.snap.flightVerticalSpeedMps,
+      (unsigned)peer.snap.deploymentState,
+      (unsigned)peer.snap.deploymentFlags,
+      (unsigned)peer.state.relayMask,
+      (unsigned)peer.state.state,
+      (long)peer.state.tdMs,
+      (peer.state.flags & (1U << 5)) ? 1U : 0U,
+      (peer.state.flags & (1U << 13)) ? 1U : 0U,
+      ignitionDelayValid ? 1U : 0U,
+      (unsigned long)(ignitionDelayValid ? peer.snap.ignitionDelayMs : 0U),
+      (unsigned long)peer.alarmSeq,
+      (unsigned)peer.alarmBlockIndex,
+      stageAlarmTitle,
+      stageAlarmMessage,
+      (unsigned long)peer.rxTelemetrySeq);
+    if (stageLen <= 0 || (size_t)stageLen >= sizeof(stageSnapshots[i])) {
+      strlcpy(stageSnapshots[i], "null", sizeof(stageSnapshots[i]));
+    }
+  }
 	  const int n = snprintf(json, jsonLen,
            "[2,%lu,%lu,%.5f,%.2f,"
            "%.3f,%.3f,%.3f,%.2f,%.2f,%.2f,"
@@ -470,7 +540,7 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
            "%u,%lu,%lu,%u,%u,%lu,%u,%u,%ld,%d,%lu,"
            "%.3f,%u,%ld,%u,%u,%u,%u,%.3f,%.6f,%lu,%lu,%lu,"
            "%lu,%lu,%u,\"%s\",\"%s\",%u,%.2f,%.2f,%lu,%.6f,%.6f,%.6f,%.6f,"
-           "%lu,%u,%u,%u,%u,%u,%u,%u,%u]",
+           "%lu,%u,%u,%u,%u,%u,%u,%u,%u,%s,%s]",
            (unsigned long)frameSequence,
            (unsigned long)output.ut,
            output.baroValid ? output.p : 0.0f,
@@ -557,7 +627,9 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
                (unsigned)flashLinkNodeId,
                (unsigned)flashLinkTargetNodeId,
                streamStage1Connected ? 1U : 0U,
-               streamStage2Connected ? 1U : 0U);
+               streamStage2Connected ? 1U : 0U,
+               stageSnapshots[0],
+               stageSnapshots[1]);
   if (n <= 0) {
     if (jsonLen) json[0] = '\0';
     return 0;
@@ -1306,7 +1378,15 @@ void setupRoutes() {
              "\"flash_cmd_last_result\",\"flash_cmd_retries\",\"data_origin\","
              "\"gps_time_valid\",\"gps_utc_ms\",\"flash_rssi_dbm\",\"flash_rssi_age_ms\","
              "\"t\",\"hx_hz\",\"lc_raw\",\"lc_raw_ok\",\"lc_ready\",\"lc_sat\","
-             "\"lc_offset_ok\",\"lc_noise\",\"lc_scale\"],"
+             "\"lc_offset_ok\",\"lc_noise\",\"lc_scale\","
+             "\"remote_storage_used\",\"remote_storage_capacity\",\"remote_storage_records\","
+             "\"mission_alarm_seq\",\"mission_alarm_ts\",\"mission_alarm_block\","
+             "\"mission_alarm_title\",\"mission_alarm_message\",\"flight_phase\","
+             "\"vertical_speed\",\"apogee\",\"flight_phase_elapsed\","
+             "\"attitude_qw\",\"attitude_qx\",\"attitude_qy\",\"attitude_qz\","
+             "\"ignition_delay_ms\",\"ignition_delay_valid\",\"deployment_state\","
+             "\"deployment_flags\",\"arm_physical\",\"flash_node\",\"flash_target\","
+             "\"stage1_connected\",\"stage2_connected\",\"stage1_snapshot\",\"stage2_snapshot\"],"
              "\"flags\":{\"sample\":0,\"baro\":1,\"attitude\":2,\"gps_fix\":3,\"gps_seen\":4,"
              "\"arm\":5,\"igniter\":6,\"user_wait\":7,\"abort\":8,\"safety\":9,"
              "\"arm_lock\":10,\"inspection\":11,\"storage\":12,\"serial\":13,"

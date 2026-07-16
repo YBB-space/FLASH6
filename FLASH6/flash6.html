@@ -921,6 +921,7 @@
       </div>
         <div id="cameraSequenceDock" class="camera-sequence-dock" aria-label="시퀀스 시간">
           <span id="cameraSequenceMissionName" class="camera-sequence-kicker">SEQUENCE</span>
+          <span id="cameraHudStageSource" class="camera-hud-stage-source hidden"></span>
           <div class="camera-sequence-time">
             <span id="cameraHudTimerTag" class="camera-tmark">T-</span>
             <strong id="cameraHudCountdown" class="camera-count-time">--:--</strong>
@@ -1442,6 +1443,34 @@
               </div>
               <span id="commStatus" class="sr-only">DISCONNECTED</span>
             </div>
+          </div>
+          <div id="stageTelemetryDeck" class="stage-telemetry-deck hidden" aria-label="1단 및 2단 텔레메트리">
+            <article class="stage-telemetry-card" data-stage-card="1">
+              <header>
+                <div><span>VEHICLE</span><strong>STAGE 1</strong></div>
+                <em data-stage-value="link">OFFLINE</em>
+              </header>
+              <div class="stage-telemetry-phase" data-stage-value="phase">NO DATA</div>
+              <div class="stage-telemetry-metrics">
+                <span><small>ALT</small><b data-stage-value="altitude">--</b><i>m</i></span>
+                <span><small>VEL</small><b data-stage-value="speed">--</b><i>m/s</i></span>
+                <span><small>G</small><b data-stage-value="gforce">--</b><i>g</i></span>
+              </div>
+              <footer><span>LAST EVENT</span><b data-stage-value="event">--</b></footer>
+            </article>
+            <article class="stage-telemetry-card" data-stage-card="2">
+              <header>
+                <div><span>VEHICLE</span><strong>STAGE 2</strong></div>
+                <em data-stage-value="link">OFFLINE</em>
+              </header>
+              <div class="stage-telemetry-phase" data-stage-value="phase">NO DATA</div>
+              <div class="stage-telemetry-metrics">
+                <span><small>ALT</small><b data-stage-value="altitude">--</b><i>m</i></span>
+                <span><small>VEL</small><b data-stage-value="speed">--</b><i>m/s</i></span>
+                <span><small>G</small><b data-stage-value="gforce">--</b><i>g</i></span>
+              </div>
+              <footer><span>LAST EVENT</span><b data-stage-value="event">--</b></footer>
+            </article>
           </div>
           <div class="quick-data-body">
             <div class="mobile-device-control-title mobile-quick-data-title">퀵데이터</div>
