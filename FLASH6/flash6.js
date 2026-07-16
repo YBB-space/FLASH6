@@ -6014,6 +6014,14 @@ function requestMobileMockup3dMesh(){
     let flashLinkUiRemoteValid = false;
     let flashLinkUiRxHz = 0;
     let flashLinkUiLossPermille = 0;
+    let flashLinkUiRssiDbm = NaN;
+    let flashLinkUiRssiValid = false;
+    let flashLinkUiPeer = "--";
+    let flashLinkUiHasStatus = false;
+    let flashLinkUiNodeId = 1;
+    let flashLinkUiTargetNodeId = 1;
+    let flashLinkStage1Connected = false;
+    let flashLinkStage2Connected = false;
     let flashLinkDisplayDataMode = null;
     let flashLinkGroundBlanked = false;
     const FLASH_LINK_CHART_WINDOW_MS = 30000;
@@ -11312,6 +11320,98 @@ function requestMobileMockup3dMesh(){
       addLogLine("ALTIS INTELLIGENT LINK1 communication report XLSX export: " + filename, "INFO");
       showToast(currentLang === "ko" ? "통신 보고서 내보내기 완료" : "Communication report exported as XLSX.", "success", {key:"flash-link-report"});
     }
+    function setFlashTopologyNodeState(name, online, statusText, current){
+      if(!el.flashLinkTopologyOverlay) return;
+      const node = el.flashLinkTopologyOverlay.querySelector('[data-topology-node="' + name + '"]');
+      const status = el.flashLinkTopologyOverlay.querySelector('[data-topology-status="' + name + '"]');
+      if(node){
+        node.classList.toggle("is-online", !!online);
+        node.classList.toggle("is-offline", !online);
+        node.classList.toggle("is-current", !!current);
+      }
+      if(status) status.textContent = statusText;
+    }
+    function setFlashTopologyLinkState(name, online){
+      if(!el.flashLinkTopologyOverlay) return;
+      el.flashLinkTopologyOverlay.querySelectorAll('[data-topology-link="' + name + '"]').forEach((link)=>{
+        link.classList.toggle("is-online", !!online);
+        link.classList.toggle("is-offline", !online);
+      });
+    }
+    function syncFlashLinkTopologyUi(){
+      if(!el.flashLinkTopologyOverlay) return;
+      const flashLinkEnabled = getSettingsOperationModeValue() === "flash_link";
+      const transportOnline = !!(connOk || wsConnected || serialConnected);
+      const mobileClient = !!(
+        isMobileLayout() ||
+        (window.matchMedia && window.matchMedia("(max-width: 700px) and (pointer: coarse)").matches)
+      );
+      const roleNode1 = flashLinkUiRole === "avionics" && flashLinkUiNodeId === 1;
+      const roleNode2 = flashLinkUiRole === "avionics" && flashLinkUiNodeId === 2;
+      const groundLinked = flashLinkUiRole === "ground" && flashLinkUiLinked;
+      const stage1Online = flashLinkEnabled && (
+        flashLinkStage1Connected ||
+        (roleNode1 && (flashLinkUiLinked || transportOnline)) ||
+        groundLinked
+      );
+      const relayedStage2 = flashLinkStage2Connected ||
+        (roleNode2 && flashLinkUiLinked) ||
+        (flashLinkUiRole === "ground" && flashLinkUiTargetNodeId === 2 && flashLinkUiRemoteValid);
+      const stage2Online = flashLinkEnabled && stage1Online && relayedStage2;
+      const groundOnline = transportOnline;
+      const mobileOnline = groundOnline && mobileClient && !serialConnected;
+      const pcOnline = groundOnline && (!mobileClient || serialConnected);
+      const currentClient = mobileClient && !serialConnected ? "mobile" : "pc";
+
+      setFlashTopologyNodeState("stage2", stage2Online, stage2Online ? "RELAY LINK" : "OFFLINE", false);
+      setFlashTopologyNodeState("stage1", stage1Online, stage1Online ? "LINKED" : "OFFLINE", false);
+      setFlashTopologyNodeState("ground", groundOnline, groundOnline ? "ONLINE" : "WAITING", false);
+      setFlashTopologyNodeState("mobile", mobileOnline, mobileOnline ? "CONNECTED" : "STANDBY", currentClient === "mobile");
+      setFlashTopologyNodeState("pc", pcOnline, pcOnline ? "CONNECTED" : "STANDBY", currentClient === "pc");
+
+      setFlashTopologyLinkState("stage2-stage1", stage2Online && stage1Online);
+      setFlashTopologyLinkState("stage1-ground", stage1Online && groundOnline);
+      setFlashTopologyLinkState("ground-mobile", mobileOnline);
+      setFlashTopologyLinkState("ground-pc", pcOnline);
+
+      const activeClientOnline = currentClient === "mobile" ? mobileOnline : pcOnline;
+      const allOnline = stage1Online && stage2Online && groundOnline && activeClientOnline;
+      if(el.flashTopologyOverall){
+        el.flashTopologyOverall.classList.toggle("is-online", allOnline);
+        el.flashTopologyOverall.classList.toggle("is-degraded", !allOnline && groundOnline);
+        el.flashTopologyOverall.textContent = allOnline
+          ? "LINK STATUS · ALL LINKS NOMINAL"
+          : stage1Online && groundOnline
+          ? "LINK STATUS · STAGE 1 LINKED / STAGE 2 OFFLINE"
+          : groundOnline
+          ? "LINK STATUS · GROUND ONLINE / VEHICLE OFFLINE"
+          : "LINK STATUS · WAITING";
+      }
+      if(el.flashTopologyRate){
+        el.flashTopologyRate.textContent = flashLinkUiHasStatus ? Math.round(flashLinkUiRxHz) + " Hz" : "-- Hz";
+      }
+      if(el.flashTopologyLoss){
+        el.flashTopologyLoss.textContent = flashLinkUiHasStatus ? (flashLinkUiLossPermille / 10).toFixed(1) + "%" : "--";
+      }
+      if(el.flashTopologyRssi){
+        el.flashTopologyRssi.textContent = flashLinkUiRssiValid
+          ? Math.round(flashLinkUiRssiDbm) + " dBm"
+          : "-- dBm";
+      }
+      if(el.flashTopologyPeer) el.flashTopologyPeer.textContent = flashLinkUiPeer || "--";
+    }
+    function showFlashLinkTopologyOverlay(){
+      if(!el.flashLinkTopologyOverlay) return;
+      if(el.settingsOverlay && !el.settingsOverlay.classList.contains("hidden")) hideSettings();
+      syncFlashLinkTopologyUi();
+      setOverlayVisible(el.flashLinkTopologyOverlay, true);
+      requestAnimationFrame(()=>{
+        if(el.flashLinkTopologyClose) el.flashLinkTopologyClose.focus({preventScroll:true});
+      });
+    }
+    function hideFlashLinkTopologyOverlay(){
+      setOverlayVisible(el.flashLinkTopologyOverlay, false);
+    }
     function updateFlashLinkStatusUi(data){
       const src = data || {};
       const flashLinkEnabled = getSettingsOperationModeValue() === "flash_link";
@@ -11331,10 +11431,15 @@ function requestMobileMockup3dMesh(){
       flashLinkUiRole = normalizeFlashLinkRole(
         src.flash_link_role ?? src.fl_role ?? (uiSettings && uiSettings.flashLinkRole)
       );
+      flashLinkUiHasStatus = true;
       flashLinkUiLinked = linked;
       flashLinkUiRemoteValid = remoteValid;
       flashLinkUiRxHz = isFinite(rxHz) ? Math.max(0, rxHz) : 0;
       flashLinkUiLossPermille = isFinite(lossPermille) ? Math.max(0, lossPermille) : 0;
+      flashLinkUiNodeId = nodeId;
+      flashLinkUiTargetNodeId = targetNodeId;
+      flashLinkStage1Connected = stage1Linked;
+      flashLinkStage2Connected = stage2Linked;
       if(uiSettings){
         if(document.activeElement !== el.flashLinkNodeSelect) uiSettings.flashLinkNodeId = nodeId;
         if(document.activeElement !== el.flashLinkTargetSelect && document.activeElement !== el.controlTargetSelect){
@@ -11382,6 +11487,9 @@ function requestMobileMockup3dMesh(){
       }
       const rssiValid = isFinite(rssiDbm) && rssiDbm > -126 &&
         (!isFinite(rssiAgeMs) || rssiAgeMs <= 6000);
+      flashLinkUiRssiDbm = rssiDbm;
+      flashLinkUiRssiValid = rssiValid;
+      flashLinkUiPeer = peer && peer !== "--" ? peer : "--";
       if(el.flashLinkRssi){
         el.flashLinkRssi.textContent = rssiValid
           ? ("RSSI " + Math.round(rssiDbm) + " dBm")
@@ -11439,6 +11547,7 @@ function requestMobileMockup3dMesh(){
       }
       syncMobileBoardHeader();
       syncWelcomeConnectScreen(isGroundStationTransportConnected());
+      syncFlashLinkTopologyUi();
     }
     function syncDaqSequencePyroChannelToBoard(logIt){
       const channel = normalizePyroChannel(uiSettings && uiSettings.daqSequencePyroChannel, 1);
@@ -31857,6 +31966,14 @@ function requestMobileMockup3dMesh(){
       el.flashLinkChartValue = document.getElementById("flashLinkChartValue");
       el.flashLinkPeer = document.getElementById("flashLinkPeer");
       el.flashLinkCommandStatus = document.getElementById("flashLinkCommandStatus");
+      el.flashLinkTopologyBtn = document.getElementById("flashLinkTopologyBtn");
+      el.flashLinkTopologyOverlay = document.getElementById("flashLinkTopologyOverlay");
+      el.flashLinkTopologyClose = document.getElementById("flashLinkTopologyClose");
+      el.flashTopologyOverall = document.getElementById("flashTopologyOverall");
+      el.flashTopologyRate = document.getElementById("flashTopologyRate");
+      el.flashTopologyLoss = document.getElementById("flashTopologyLoss");
+      el.flashTopologyRssi = document.getElementById("flashTopologyRssi");
+      el.flashTopologyPeer = document.getElementById("flashTopologyPeer");
       el.flashLinkReportBtn = document.getElementById("flashLinkReportBtn");
       el.flashLinkReportStatus = document.getElementById("flashLinkReportStatus");
       el.flashLinkReportOverlay = document.getElementById("flashLinkReportOverlay");
@@ -31869,6 +31986,7 @@ function requestMobileMockup3dMesh(){
       el.flashLinkReportCancel = document.getElementById("flashLinkReportCancel");
       initFlashLinkQualityChart();
       updateFlashLinkReportUi();
+      syncFlashLinkTopologyUi();
       el.gyro3dViewport = document.getElementById("gyro3dViewport");
       el.gyro3dMapOpenBtn = document.getElementById("gyro3dMapOpenBtn");
       el.gyro3dMapCloseBtn = document.getElementById("gyro3dMapCloseBtn");
@@ -34333,6 +34451,39 @@ function requestMobileMockup3dMesh(){
           showToast(t("xlsxExportToast"), "success");
         });
       }
+
+      if(el.flashLinkTopologyBtn){
+        el.flashLinkTopologyBtn.addEventListener("click", showFlashLinkTopologyOverlay);
+      }
+      if(el.flashLinkTopologyClose){
+        el.flashLinkTopologyClose.addEventListener("click", hideFlashLinkTopologyOverlay);
+      }
+      if(el.flashLinkTopologyOverlay){
+        el.flashLinkTopologyOverlay.addEventListener("click",(ev)=>{
+          if(ev.target === el.flashLinkTopologyOverlay) hideFlashLinkTopologyOverlay();
+        });
+      }
+      [el.flashLinkStatus, el.connStatusLabel].forEach((target)=>{
+        if(!target) return;
+        target.setAttribute("role", "button");
+        target.setAttribute("tabindex", "0");
+        target.setAttribute("title", currentLang === "ko" ? "통신 상세 보기" : "View communication details");
+        target.addEventListener("click", showFlashLinkTopologyOverlay);
+        target.addEventListener("keydown",(ev)=>{
+          if(ev.key !== "Enter" && ev.key !== " ") return;
+          ev.preventDefault();
+          showFlashLinkTopologyOverlay();
+        });
+      });
+      document.addEventListener("keydown",(ev)=>{
+        if(ev.key !== "Escape" || !el.flashLinkTopologyOverlay) return;
+        if(el.flashLinkTopologyOverlay.classList.contains("hidden")) return;
+        hideFlashLinkTopologyOverlay();
+      });
+      window.addEventListener("resize",()=>{
+        if(!el.flashLinkTopologyOverlay || el.flashLinkTopologyOverlay.classList.contains("hidden")) return;
+        syncFlashLinkTopologyUi();
+      }, {passive:true});
 
       if(el.flashLinkReportBtn){
         el.flashLinkReportBtn.addEventListener("click",(ev)=>{

@@ -2192,6 +2192,13 @@
                   </div>
                   <span id="flashLinkCommandStatus" class="settings-desc mono">--</span>
                 </div>
+                <div class="settings-row flash-link-detail-row">
+                  <div>
+                    <div class="settings-label">통신 상세</div>
+                    <div class="hint-mini">2단 릴레이부터 지상국과 클라이언트까지 전체 연결 상태를 확인합니다.</div>
+                  </div>
+                  <button id="flashLinkTopologyBtn" class="settings-btn flash-link-topology-btn" type="button">토폴로지 보기</button>
+                </div>
                 <div class="settings-row">
                   <div>
                     <div class="settings-label" data-i18n="settingsFlashLinkReportLabel">통신 보고서</div>
@@ -3219,6 +3226,88 @@
           </div>
         </div>
       </div>
+    </div>
+
+    <div id="flashLinkTopologyOverlay" class="flash-link-topology-overlay hidden" style="display:none;" aria-hidden="true">
+      <section class="flash-link-topology-dialog" role="dialog" aria-modal="true" aria-labelledby="flashLinkTopologyTitle">
+        <header class="flash-link-topology-header">
+          <div>
+            <div class="flash-link-topology-eyebrow">ALTIS INTELLIGENT LINK</div>
+            <h2 id="flashLinkTopologyTitle">COMMUNICATION TOPOLOGY</h2>
+            <p>2단 텔레메트리는 1단 에비오닉스를 거쳐 지상국으로 릴레이됩니다.</p>
+          </div>
+          <div class="flash-link-topology-header-actions">
+            <span id="flashTopologyOverall" class="flash-link-topology-overall">LINK STATUS · WAITING</span>
+            <button id="flashLinkTopologyClose" class="flash-link-topology-close" type="button" aria-label="통신 상세 닫기">×</button>
+          </div>
+        </header>
+
+        <div class="flash-link-topology-metrics" aria-label="Communication link metrics">
+          <div><span>RX RATE</span><strong id="flashTopologyRate" class="mono">-- Hz</strong></div>
+          <div><span>PACKET LOSS</span><strong id="flashTopologyLoss" class="mono">--</strong></div>
+          <div><span>RSSI</span><strong id="flashTopologyRssi" class="mono">-- dBm</strong></div>
+          <div><span>GROUND PEER</span><strong id="flashTopologyPeer" class="mono">--</strong></div>
+        </div>
+
+        <div class="flash-link-topology-canvas">
+          <svg class="flash-link-topology-lines flash-link-topology-lines--desktop" viewBox="0 0 1200 650" preserveAspectRatio="none" aria-hidden="true">
+            <path class="is-wireless" data-topology-link="stage2-stage1" d="M150 170 L150 425"></path>
+            <path class="is-wireless" data-topology-link="stage1-ground" d="M232 500 L668 438"></path>
+            <path class="is-wireless" data-topology-link="ground-mobile" d="M842 420 L960 190"></path>
+            <path class="is-wired" data-topology-link="ground-pc" d="M842 490 L960 500"></path>
+          </svg>
+          <svg class="flash-link-topology-lines flash-link-topology-lines--mobile" viewBox="0 0 400 760" preserveAspectRatio="none" aria-hidden="true">
+            <path class="is-wireless" data-topology-link="stage2-stage1" d="M200 120 L200 265"></path>
+            <path class="is-wireless" data-topology-link="stage1-ground" d="M200 340 L200 475"></path>
+            <path class="is-wireless" data-topology-link="ground-mobile" d="M200 555 L105 655"></path>
+            <path class="is-wired" data-topology-link="ground-pc" d="M200 555 L295 655"></path>
+          </svg>
+
+          <article class="flash-topology-node flash-topology-node--stage flash-topology-node--stage2" data-topology-node="stage2">
+            <span class="flash-topology-node-kicker">VEHICLE NODE 02</span>
+            <strong>2단 AVIONICS</strong>
+            <em data-topology-status="stage2">OFFLINE</em>
+            <small>LEAF TELEMETRY</small>
+          </article>
+          <article class="flash-topology-node flash-topology-node--stage flash-topology-node--stage1" data-topology-node="stage1">
+            <span class="flash-topology-node-kicker">VEHICLE NODE 01</span>
+            <strong>1단 AVIONICS</strong>
+            <em data-topology-status="stage1">OFFLINE</em>
+            <small>RELAY + FLIGHT</small>
+          </article>
+          <article class="flash-topology-node flash-topology-node--ground" data-topology-node="ground">
+            <span class="flash-topology-node-kicker">BASE NODE</span>
+            <strong>GROUND</strong>
+            <em data-topology-status="ground">WAITING</em>
+            <small>CONTROL GATEWAY</small>
+          </article>
+          <article class="flash-topology-node flash-topology-node--client flash-topology-node--mobile" data-topology-node="mobile">
+            <span class="flash-topology-node-kicker">WIRELESS CLIENT</span>
+            <strong>MOBILE</strong>
+            <em data-topology-status="mobile">STANDBY</em>
+            <small>Wi-Fi / WEB UI</small>
+          </article>
+          <article class="flash-topology-node flash-topology-node--client flash-topology-node--pc" data-topology-node="pc">
+            <span class="flash-topology-node-kicker">WIRED CLIENT</span>
+            <strong>PC</strong>
+            <em data-topology-status="pc">STANDBY</em>
+            <small>USB / LAN</small>
+          </article>
+
+          <span class="flash-topology-link-label flash-topology-link-label--relay">STAGE RELAY</span>
+          <span class="flash-topology-link-label flash-topology-link-label--uplink">PRIMARY UPLINK</span>
+          <span class="flash-topology-link-label flash-topology-link-label--wifi">Wi-Fi</span>
+          <span class="flash-topology-link-label flash-topology-link-label--wired">USB / LAN</span>
+        </div>
+
+        <footer class="flash-link-topology-footer">
+          <div class="flash-link-topology-legend">
+            <span><i class="is-wireless"></i>무선 링크</span>
+            <span><i class="is-wired"></i>유선 링크</span>
+          </div>
+          <p>2단은 지상국과 직접 통신하지 않으며, 1단 링크가 끊기면 2단 릴레이도 중단됩니다.</p>
+        </footer>
+      </section>
     </div>
 
     <!-- 페이지 이동 전 보고서 내보내기 확인 -->
