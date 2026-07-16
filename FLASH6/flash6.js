@@ -34726,7 +34726,7 @@ function requestMobileMockup3dMesh(){
         });
       }
       const sideNavItems = document.querySelectorAll(".side-nav-item");
-      const setActiveView = (title)=>{
+      const setActiveView = (title, options = {})=>{
         closeIgnitionModals();
         const label = title || "Dashboard";
         const lower = label.toLowerCase();
@@ -34803,7 +34803,9 @@ function requestMobileMockup3dMesh(){
         document.body.classList.toggle("mission-view-active", isMission);
         document.body.classList.toggle("camera-view-active", isCamera);
         document.body.classList.toggle("camera-dashboard-default", dashboardUsesCamera);
-        if(dashboardUsesCamera) document.body.classList.remove("camera-gyro-plus-layout");
+        if(dashboardUsesCamera && !options.preserveCameraGyroPlus){
+          document.body.classList.remove("camera-gyro-plus-layout");
+        }
         if(!isCamera) document.body.classList.remove("camera-gyro-plus-layout");
         if(!isCamera) setCameraControlMenuOpen(false);
         document.body.classList.toggle("mobile-board-header-active", isDashboard || isHardware || isTerminal);
@@ -34827,9 +34829,9 @@ function requestMobileMockup3dMesh(){
           fetchSpiFlashStatus({background:true});
         }
       };
-      const activateNavItem = (title)=>{
+      const activateNavItem = (title, options = {})=>{
         if(!sideNavItems.length){
-          setActiveView(title);
+          setActiveView(title, options);
           return;
         }
         const match = Array.from(sideNavItems).find(item=>{
@@ -34840,7 +34842,7 @@ function requestMobileMockup3dMesh(){
           sideNavItems.forEach(btn=>btn.classList.remove("active"));
           match.classList.add("active");
         }
-        setActiveView(title);
+        setActiveView(title, options);
       };
       const ensureDashboardViewForPanels = ()=>{
         const active = Array.from(sideNavItems).find(item=>item.classList.contains("active"));
@@ -34886,7 +34888,7 @@ function requestMobileMockup3dMesh(){
           const returningToCamera = document.body.classList.contains("camera-gyro-plus-layout");
           if(returningToCamera){
             document.body.classList.remove("camera-gyro-plus-layout");
-            activateNavItem("Camera");
+            activateNavItem("Dashboard");
             syncCameraGyroPreviewMount();
             return;
           }
@@ -34896,7 +34898,9 @@ function requestMobileMockup3dMesh(){
             saveSettings();
             applySettingsToUI();
           }
-          activateNavItem("Camera");
+          // Keep the 3D+ camera canvas inside the desktop dashboard shell so
+          // the navigation rail remains available while the shortcut is active.
+          activateNavItem("Dashboard", {preserveCameraGyroPlus:true});
           ensureGyroTerrainForGeo(getGyroTerrainReferenceGeo());
           syncCameraGyroPreviewMount();
           return;

@@ -13,6 +13,8 @@ Protocol: `Flash6-Intelligent-b3` (wire version `3`, unchanged)
   board settings instead of deciding remote forwarding from the board's old
   role and failing after the role changes mid-request.
 - Applied the same routing fix to HTTP and USB serial `/set` paths.
+- Kept the desktop navigation rail visible when `Shift+C` toggles the camera
+  3D+ view, and constrained the canvas to the remaining dashboard width.
 
 ## 0.8.0 — v6 b6 — 2026-07-17
 

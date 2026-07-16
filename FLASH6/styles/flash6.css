@@ -23930,7 +23930,7 @@ body.camera-view-active .camera-switch-btn:not(:disabled):hover{
   body.camera-view-active.camera-gyro-plus-layout .camera-view{
     display:block !important;
     position:relative !important;
-    width:100vw !important;
+    width:100% !important;
     height:100dvh !important;
     overflow:hidden !important;
     background:#080b11 !important;
