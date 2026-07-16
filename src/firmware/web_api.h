@@ -469,7 +469,7 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
   formatJsonEscaped(outputAlarm.message, alarmMessage, sizeof(alarmMessage));
 
   // A ground station receives both peers continuously.  The legacy fields
-  // above intentionally remain the operator-selected target for backwards
+  // above intentionally remain the automatically active target for backwards
   // compatibility; these compact tail arrays expose both peers to FLASH6.
   // Snapshot fields:
   // [node,connected,valid,age,alt,ax,ay,az,roll,pitch,yaw,
@@ -1606,7 +1606,6 @@ void setupRoutes() {
     const uint8_t oldRole = flashLinkRoleCode();
     const uint8_t oldDataMode = flashLinkDataModeCode();
     const uint8_t oldNodeId = flashLinkNodeId;
-    const uint8_t oldTargetNodeId = flashLinkTargetNodeId;
     const bool forwardRemote = flashLinkGroundRole();
     bool remoteRequested = false;
     bool remoteQueued = true;
@@ -1692,8 +1691,6 @@ void setupRoutes() {
     if (request->hasParam("fl_role")) setFlashLinkRole(request->getParam("fl_role")->value());
     if (request->hasParam("flash_link_node_id")) setFlashLinkNodeId(request->getParam("flash_link_node_id")->value());
     if (request->hasParam("fl_node")) setFlashLinkNodeId(request->getParam("fl_node")->value());
-    if (request->hasParam("flash_link_target_node_id")) setFlashLinkTargetNodeId(request->getParam("flash_link_target_node_id")->value());
-    if (request->hasParam("fl_target")) setFlashLinkTargetNodeId(request->getParam("fl_target")->value());
     const char* dataModeKey = request->hasParam("flash_link_data_mode")
       ? "flash_link_data_mode"
       : (request->hasParam("fl_data_mode")
@@ -1720,9 +1717,8 @@ void setupRoutes() {
     const bool roleChanged = oldRole != flashLinkRoleCode();
     const bool dataModeChanged = oldDataMode != flashLinkDataModeCode();
     const bool nodeIdChanged = oldNodeId != flashLinkNodeId;
-    const bool targetNodeChanged = oldTargetNodeId != flashLinkTargetNodeId;
-    const bool communicationChanged = modeChanged || roleChanged || dataModeChanged ||
-      nodeIdChanged || targetNodeChanged;
+    const bool communicationChanged =
+      modeChanged || roleChanged || dataModeChanged || nodeIdChanged;
     const bool restartRequired =
       modeChanged ||
       dataModeChanged ||

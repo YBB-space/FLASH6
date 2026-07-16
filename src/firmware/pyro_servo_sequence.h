@@ -186,9 +186,6 @@ void saveSequenceSettings() {
   if (settingsPrefs.getUChar("fl_node", 0xFFU) != flashLinkNodeId) {
     settingsPrefs.putUChar("fl_node", flashLinkNodeId);
   }
-  if (settingsPrefs.getUChar("fl_target", 0xFFU) != flashLinkTargetNodeId) {
-    settingsPrefs.putUChar("fl_target", flashLinkTargetNodeId);
-  }
 }
 
 void saveBootOnceMode(const char* mode) {
@@ -214,8 +211,8 @@ void loadSequenceSettings() {
   flashLinkDataFlightMode = settingsPrefs.getUChar("fl_data", 1U) != 0U;
   flashLinkNodeId = clampFlashLinkVehicleNodeId(
     settingsPrefs.getUChar("fl_node", kFlashLinkNodeIdStage1));
-  flashLinkTargetNodeId = clampFlashLinkVehicleNodeId(
-    settingsPrefs.getUChar("fl_target", kFlashLinkNodeIdStage1));
+  // Ground control/HUD target is selected automatically at runtime.
+  flashLinkTargetNodeId = kFlashLinkNodeIdStage1;
   developerMode = settingsPrefs.getBool("dev", false);
   const uint8_t savedMode = settingsPrefs.getUChar("opm", 1U);
   if (savedMode == 2U) {

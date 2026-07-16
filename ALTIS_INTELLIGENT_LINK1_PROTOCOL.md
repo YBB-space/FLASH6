@@ -96,7 +96,7 @@ remain ordered; only an older unsent telemetry snapshot can be replaced by a
 newer snapshot from the same stage. This bounds UI latency during radio bursts.
 
 Stage 2 uses only one telemetry uplink at a time. The stage-1 relay is the
-primary route. If no primary-route packet is received for 1.2 seconds, stage 2
+primary route. If no primary-route packet is received for 650 ms, stage 2
 switches telemetry to its direct-ground standby before the 1.5-second telemetry
 stale deadline. When the relay becomes fresh again, stage 2 automatically moves
 traffic back to stage 1. Ground deduplicates the stage-2 session and telemetry
@@ -120,12 +120,13 @@ or reconnect.
 
 ## Reliable Control Channel
 
-The ground board forwards UI and USB serial controls to the selected avionics stage.
+The ground board forwards UI and USB serial controls to the automatically active
+avionics stage.
 Commands use encrypted unicast frames and a 32-bit transaction ID.
 
-Each queued command and storage request captures its target stage ID. Changing
-the UI target while a request is in flight cannot redirect its ACK or storage
-response to the other stage.
+Each queued command and storage request captures its automatic target stage ID.
+When the active stage changes, unfinished work for the unavailable stage is
+cancelled instead of blocking control traffic for the newly active stage.
 
 - One command is active on the radio at a time.
 - An unacknowledged command is retried every 60 ms, up to 8 attempts.
@@ -184,7 +185,7 @@ Supported controls:
   for stage 1 and stage 2, plus direct and relayed path state for stage 2.
 - Prefers the stage-1 relay for stage-2 traffic and activates the direct path
   only when the primary path is stale.
-- Relays the currently selected stage telemetry to the Flash6 UI:
+- Relays the automatically active stage telemetry to the Flash6 UI:
   - Wi-Fi WebSocket: 50 Hz
   - USB serial: 50 Hz output scheduler, using the newest remote sample
 - Reports link state, receive rate, loss, peer age, and peer MAC to the UI.
@@ -233,8 +234,9 @@ blocking the UI at high stream rates.
 
 ## Configuration
 
-The ALTIS INTELLIGENT LINK1 role, avionics stage ID, and ground control target are
-stored in ESP32 Preferences. Entering ALTIS INTELLIGENT LINK1 uses a
+The ALTIS INTELLIGENT LINK1 role and avionics stage ID are stored in ESP32
+Preferences. The ground control/HUD stage is selected automatically from
+separation and link state. Entering ALTIS INTELLIGENT LINK1 uses a
 one-time boot reservation so the automatic restart can initialize the radio.
 That reservation is consumed during startup. A later manual reboot or power
 cycle always returns the board to Flight mode while preserving its role.
@@ -252,8 +254,8 @@ revisions should rotate keys per fleet or per paired board.
 
 ## Firmware Revision
 
-- Firmware version: `0.7.0`
-- Build ID: `v6 b4`
+- Firmware version: `0.7.1`
+- Build ID: `v6 b5`
 - Wire protocol: `Flash6-Intelligent-b3` / numeric version `3`
 - Storage record format: version `4` (unchanged and backward compatible)
 - Compatibility: all three radio nodes must be updated together; wire-version

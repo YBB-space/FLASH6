@@ -425,7 +425,6 @@ void handleSerialLine(const char* line) {
     const uint8_t oldRole = flashLinkRoleCode();
     const uint8_t oldDataMode = flashLinkDataModeCode();
     const uint8_t oldNodeId = flashLinkNodeId;
-    const uint8_t oldTargetNodeId = flashLinkTargetNodeId;
     const bool forwardRemote = flashLinkGroundRole();
     bool remoteRequested = false;
     bool remoteQueued = true;
@@ -433,7 +432,6 @@ void handleSerialLine(const char* line) {
     String requestedRole;
     String requestedDataMode;
     String requestedNodeId;
-    String requestedTargetNodeId;
     auto queueRemote = [&](FlashLinkCommandCode code, int32_t value) {
       remoteRequested = true;
       if (!flashLinkQueueCommand(code, value)) remoteQueued = false;
@@ -470,7 +468,6 @@ void handleSerialLine(const char* line) {
         else if (key == "op_mode" || key == "mode") requestedMode = val;
         else if (key == "flash_link_role" || key == "fl_role") requestedRole = val;
         else if (key == "flash_link_node_id" || key == "fl_node") requestedNodeId = val;
-        else if (key == "flash_link_target_node_id" || key == "fl_target") requestedTargetNodeId = val;
         else if (key == "flash_link_data_mode" || key == "fl_data_mode" || key == "data_mode") requestedDataMode = val;
         else if (key == "mute") {
           if (forwardRemote) queueRemote(FlashLinkCommandCode::SetMute, truthy(val) ? 1 : 0);
@@ -509,7 +506,6 @@ void handleSerialLine(const char* line) {
     if (requestedMode.length() > 0) setOperationMode(requestedMode);
     if (requestedRole.length() > 0) setFlashLinkRole(requestedRole);
     if (requestedNodeId.length() > 0) setFlashLinkNodeId(requestedNodeId);
-    if (requestedTargetNodeId.length() > 0) setFlashLinkTargetNodeId(requestedTargetNodeId);
     if (requestedDataMode.length() > 0) {
       String normalizedDataMode = requestedDataMode;
       normalizedDataMode.trim();
@@ -530,9 +526,8 @@ void handleSerialLine(const char* line) {
     const bool roleChanged = oldRole != flashLinkRoleCode();
     const bool dataModeChanged = oldDataMode != flashLinkDataModeCode();
     const bool nodeIdChanged = oldNodeId != flashLinkNodeId;
-    const bool targetNodeChanged = oldTargetNodeId != flashLinkTargetNodeId;
-    const bool communicationChanged = modeChanged || roleChanged || dataModeChanged ||
-      nodeIdChanged || targetNodeChanged;
+    const bool communicationChanged =
+      modeChanged || roleChanged || dataModeChanged || nodeIdChanged;
     const bool restartRequired =
       modeChanged ||
       dataModeChanged ||

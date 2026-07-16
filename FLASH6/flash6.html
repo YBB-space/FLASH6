@@ -124,7 +124,7 @@
   <!-- Preload 축소: AP 모드/저메모리 환경에서 동시 요청 버스트를 줄임 -->
   <script>
     (function(){
-    var ASSET_VER = "20260717-dark-link-hud-283";
+    var ASSET_VER = "20260717-auto-stage-b5-284";
       window.__flashBoot = window.__flashBoot || {jsReady:false,lastError:"",phase:"static_loader",version:ASSET_VER};
       var isLocalPreview = !!window.__flashBoot.localPreview;
       var beaconEnabled = (window.__flashBoot.beaconEnabled !== false);
@@ -374,7 +374,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="styles/flash6.css?v=20260717-dark-link-hud-283">
+  <link rel="stylesheet" href="styles/flash6.css?v=20260717-auto-stage-b5-284">
 </head>
 <body>
   <!-- ✅ LOCKOUT 배경 오버레이 -->
@@ -545,12 +545,6 @@
           </button>
         </div>
         <div class="mobile-controls-slot">
-          <button type="button" class="control-tile mobile-control mobile-quick-btn" data-mobile-control="target" aria-label="제어 대상 선택">
-            <span class="mobile-quick-icon tone-blue" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"></circle><circle cx="12" cy="12" r="2"></circle><path d="M12 2v3"></path><path d="M12 19v3"></path><path d="M2 12h3"></path><path d="M19 12h3"></path></svg>
-            </span>
-            <span id="mobileTargetQuickLabel" class="mobile-quick-label">제어 대상 · 1단부</span>
-          </button>
           <button type="button" class="control-tile mobile-control mobile-quick-btn" data-mobile-control="launcher">
             <span class="mobile-quick-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24"><path d="M12 4v16"/><path d="M8 9l4-4 4 4"/><path d="M8 15l4 4 4-4"/></svg>
@@ -840,40 +834,6 @@
               <span>보드 없이 데모 데이터 실행</span>
             </button>
           </div>
-        </div>
-        <button id="mobileTargetChangeBtn" class="mobile-board-mode-btn" type="button" aria-label="제어 대상 선택">
-          <span class="mobile-board-mode-copy">
-            <span class="mobile-board-mode-label">제어 대상</span>
-            <span id="mobileTargetCurrentText" class="mobile-board-mode-sub">현재: 1단부</span>
-          </span>
-          <span class="mobile-board-mode-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24">
-              <path d="M7 7h10"></path>
-              <path d="m14 4 3 3-3 3"></path>
-              <path d="M17 17H7"></path>
-              <path d="m10 14-3 3 3 3"></path>
-            </svg>
-          </span>
-        </button>
-        <div id="mobileBoardTargetOptions" class="mobile-board-mode-options" aria-hidden="true">
-          <button class="mobile-board-mode-option" type="button" data-mobile-board-target="1">
-            <span class="mobile-board-mode-option-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><path d="M12 3v18"></path><path d="M8 7l4-4 4 4"></path><path d="M8 17h8"></path></svg>
-            </span>
-            <span class="mobile-board-mode-option-copy">
-              <strong>1단부</strong>
-              <span>1단 에비오닉스 제어</span>
-            </span>
-          </button>
-          <button class="mobile-board-mode-option" type="button" data-mobile-board-target="2">
-            <span class="mobile-board-mode-option-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><path d="M12 3v18"></path><path d="M8 7l4-4 4 4"></path><path d="M8 13h8"></path><path d="M8 18h8"></path></svg>
-            </span>
-            <span class="mobile-board-mode-option-copy">
-              <strong>2단부</strong>
-              <span>2단 에비오닉스 제어</span>
-            </span>
-          </button>
         </div>
       </div>
     </header>
@@ -1786,19 +1746,6 @@
               </div>
             </div>
             <div class="control-row">
-              <div class="control-tile control-tile-mode span-2">
-                <div>
-                  <div class="control-tile-label">제어 대상</div>
-                  <div class="control-tile-sub">ALTIS INTELLIGENT LINK1</div>
-                </div>
-                <div class="control-tile-actions">
-                  <select id="controlTargetSelect" class="control-tile-select" aria-label="제어 대상">
-                    <option value="1">1단부</option>
-                    <option value="2">2단부</option>
-                  </select>
-                </div>
-              </div>
-
               <div id="storageOpenBtn" class="control-tile is-btn span-2" role="button" tabindex="0" aria-label="저장공간 열기">
                 <div>
                   <div class="control-tile-label" data-i18n="controlsSectionData">저장공간</div>
@@ -2129,15 +2076,14 @@
                 </div>
                 <div class="settings-row" id="flashLinkTargetRow">
                   <div>
-                    <div class="settings-label" data-i18n="settingsFlashLinkTargetLabel">제어 대상</div>
+                    <div class="settings-label">자동 활성 단</div>
+                    <div class="hint-mini">단분리 및 링크 상태에 따라 HUD와 제어 대상이 자동 전환됩니다.</div>
+                  </div>
+                  <div>
                     <div id="flashLinkStageStatus" class="flash-link-node-status mono">
                       <span data-stage-link="1">1단 --</span><span data-stage-link="2">2단 --</span>
                     </div>
                   </div>
-                  <select id="flashLinkTargetSelect" class="settings-select" aria-label="Ground control target stage">
-                    <option value="1" data-i18n="flashLinkStage1">1단</option>
-                    <option value="2" data-i18n="flashLinkStage2">2단</option>
-                  </select>
                 </div>
                 <div class="settings-row" id="flashLinkDataModeRow">
                   <div>
@@ -2554,7 +2500,7 @@
                 <div class="settings-group-title" style="margin:0;">ALTIS INTELLIGENT 3</div>
 
                 <div class="settings-row"><div class="settings-label"><br>Program</div><div class="settings-desc"><br>Altis_Intelligent3_firmware1</div></div>
-                <div class="settings-row"><div class="settings-label">Build ID</div><div class="settings-desc">v6 b4</div></div>
+                <div class="settings-row"><div class="settings-label">Build ID</div><div class="settings-desc">v6 b5</div></div>
                 <div class="settings-row"><div class="settings-label">Protocol</div><div class="settings-desc">Flash6-Intelligent-b3</div></div>
                 <div class="settings-row">
                   <div class="settings-desc" style="text-align:left;">
@@ -3566,28 +3512,6 @@
           <div id="serialConnectHint" class="connection-sheet-note">연결 버튼을 누르면 포트 권한 요청 창이 뜹니다.</div>
           <div id="serialConnectSpinner" class="wifi-connect-spinner hidden" aria-hidden="true"></div>
           <button id="serialConnectNextBtn" class="connection-sheet-primary" type="button">연결</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="targetSelectOverlay" class="settings-overlay connection-sheet-overlay hidden" style="display:none;">
-      <div class="settings-dialog connection-sheet-dialog" role="dialog" aria-modal="true" aria-labelledby="targetSelectTitle" aria-describedby="targetSelectDesc">
-        <div class="settings-header">
-          <div id="targetSelectTitle" class="settings-title">제어 대상</div>
-          <button id="targetSelectCloseBtn" class="settings-close-btn" type="button" aria-label="닫기">×</button>
-        </div>
-        <div class="connection-sheet-body">
-          <div id="targetSelectDesc" class="connection-sheet-desc">명령과 저장 데이터 요청을 보낼 에비오닉스를 선택하세요.</div>
-          <div class="mode-select-actions">
-            <button id="targetSelectStage1Btn" class="mode-select-btn" type="button" data-target-select="1">
-              <strong>1단부</strong>
-              <span>1단 에비오닉스 제어 및 데이터</span>
-            </button>
-            <button id="targetSelectStage2Btn" class="mode-select-btn" type="button" data-target-select="2">
-              <strong>2단부</strong>
-              <span>2단 에비오닉스 제어 및 데이터</span>
-            </button>
-          </div>
         </div>
       </div>
     </div>

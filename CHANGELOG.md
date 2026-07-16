@@ -3,6 +3,20 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.7.1 — v6 b5 — 2026-07-17
+
+Protocol: `Flash6-Intelligent-b3` (wire version `3`, unchanged)
+
+- Removed manual stage targeting from desktop, settings, mobile controls, and
+  the mobile target-selection dialog.
+- Added automatic active-stage selection: stage 1 before separation, stage 2
+  after confirmed separation or when stage-1 telemetry is lost.
+- Reduced relay-to-direct failover detection from 1.2 s to 650 ms.
+- Cancelled stale commands and remote-storage requests when the active stage
+  changes so an unavailable node cannot block subsequent control traffic.
+- Forced the newly active stage quaternion into the gyro preview immediately
+  on an automatic switch.
+
 ## 0.7.0 — v6 b4 — 2026-07-17
 
 Protocol: `Flash6-Intelligent-b3` (wire version `3`)

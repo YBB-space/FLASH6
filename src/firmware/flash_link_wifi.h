@@ -2362,6 +2362,7 @@ void flashLinkHandlePacket(FlashLinkRxSlot& slot) {
     }
     groundPeer->linked = groundPeer->directLinked || groundPeer->relayLinked;
     flashLinkApplyTelemetryForGroundPeer(*groundPeer, telemetry);
+    flashLinkGroundAutoSelectTarget(nowMs);
     if (groundPeer->nodeId == flashLinkTargetNodeId) {
       flashLinkGroundRefreshSelectedPeer();
     }
@@ -2467,6 +2468,93 @@ void setupFlashLink() {
                 (int)rateErr);
 }
 
+void flashLinkGroundCancelPendingForNode(uint8_t nodeId) {
+  uint8_t removedCommands = 0;
+  portENTER_CRITICAL(&flashLinkCommandMux);
+  FlashLinkCommandQueueEntry kept[kFlashLinkCommandQueueDepth]{};
+  uint8_t keptCount = 0;
+  for (uint8_t i = 0; i < flashLinkCommandCount; ++i) {
+    const uint8_t index =
+      (uint8_t)((flashLinkCommandHead + i) % kFlashLinkCommandQueueDepth);
+    if (flashLinkCommandQueue[index].targetNodeId == nodeId) {
+      removedCommands++;
+    } else {
+      kept[keptCount++] = flashLinkCommandQueue[index];
+    }
+  }
+  for (uint8_t i = 0; i < keptCount; ++i) flashLinkCommandQueue[i] = kept[i];
+  flashLinkCommandHead = 0;
+  flashLinkCommandCount = keptCount;
+  flashLinkCommandTail = (uint8_t)(keptCount % kFlashLinkCommandQueueDepth);
+  portEXIT_CRITICAL(&flashLinkCommandMux);
+  flashLink.commandFailed += removedCommands;
+
+  portENTER_CRITICAL(&flashLinkStorageReadMux);
+  for (uint8_t i = 0; i < kFlashLinkStorageWindowDepth; ++i) {
+    if (flashLinkStorageReadClients[i].targetNodeId != nodeId) continue;
+    flashLinkStorageReadClients[i].pending = false;
+    flashLinkStorageReadClients[i].ready = false;
+  }
+  if (flashLinkStorageListClient.targetNodeId == nodeId) {
+    flashLinkStorageListClient.pending = false;
+    flashLinkStorageListClient.ready = false;
+  }
+  portEXIT_CRITICAL(&flashLinkStorageReadMux);
+}
+
+void flashLinkGroundAutoSelectTarget(uint32_t nowMs) {
+  if (!flashLinkGroundRole()) return;
+  static bool stage2MissionLatched = false;
+  FlashLinkGroundPeer* stage1 =
+    flashLinkGroundPeerForNode(kFlashLinkNodeIdStage1);
+  FlashLinkGroundPeer* stage2 =
+    flashLinkGroundPeerForNode(kFlashLinkNodeIdStage2);
+  if (!stage1 || !stage2) return;
+
+  const auto telemetryFresh = [nowMs](const FlashLinkGroundPeer& peer) {
+    return peer.peerReady && peer.linked && peer.remoteValid &&
+      peer.lastTelemetryRxMs != 0U &&
+      (uint32_t)(nowMs - peer.lastTelemetryRxMs) <=
+        kFlashLinkPrimaryRouteFreshMs;
+  };
+  const bool stage1Fresh = telemetryFresh(*stage1);
+  const bool stage2Fresh = telemetryFresh(*stage2);
+  const bool primaryDeploymentSucceeded =
+    stage1->remoteValid &&
+    stage1->snap.deploymentState >=
+      static_cast<uint8_t>(LaunchMissionState::WaitingSecondary) &&
+    (stage1->snap.deploymentFlags & (1U << 3)) == 0U;
+  if (primaryDeploymentSucceeded) stage2MissionLatched = true;
+  if (stage1Fresh && stage2Fresh &&
+      stage1->snap.deploymentState ==
+        static_cast<uint8_t>(LaunchMissionState::Idle) &&
+      stage2->snap.deploymentState ==
+        static_cast<uint8_t>(LaunchMissionState::Idle) &&
+      stage1->state.state == 0U && stage2->state.state == 0U) {
+    stage2MissionLatched = false;
+  }
+
+  uint8_t desiredNodeId = flashLinkTargetNodeId;
+  if (stage2MissionLatched && stage2Fresh) {
+    desiredNodeId = kFlashLinkNodeIdStage2;
+  } else if (stage1Fresh) {
+    desiredNodeId = kFlashLinkNodeIdStage1;
+  } else if (stage2Fresh) {
+    desiredNodeId = kFlashLinkNodeIdStage2;
+  }
+  if (desiredNodeId == flashLinkTargetNodeId) return;
+
+  const uint8_t previousNodeId = flashLinkTargetNodeId;
+  flashLinkGroundCancelPendingForNode(previousNodeId);
+  flashLinkTargetNodeId = desiredNodeId;
+  flashLinkGroundRefreshSelectedPeer();
+  Serial.printf(
+    "[FLASH_LINK] active stage auto switch %u->%u reason=%s\n",
+    (unsigned)previousNodeId,
+    (unsigned)desiredNodeId,
+    stage2MissionLatched ? "separation" : "link_fallback");
+}
+
 void flashLinkGroundTick(uint32_t nowMs) {
   bool selectedStatsChanged = false;
   for (uint8_t i = 0; i < kFlashLinkVehicleNodeCount; ++i) {
@@ -2514,6 +2602,7 @@ void flashLinkGroundTick(uint32_t nowMs) {
       flashLinkResetGroundPeer(peer);
     }
   }
+  flashLinkGroundAutoSelectTarget(nowMs);
   if (selectedStatsChanged) flashLinkGroundRefreshSelectedPeer();
 
   if (!flashLink.txBusy) {

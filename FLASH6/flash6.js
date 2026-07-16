@@ -7055,6 +7055,52 @@ function requestMobileMockup3dMesh(){
       });
     }
 
+    function setAutomaticActiveStage(stageId, reason){
+      const next = Number(stageId) === 2 ? 2 : 1;
+      if(cameraHudActiveStageId === next) return false;
+      cameraHudActiveStageId = next;
+      const state = stageTelemetryStore[next];
+      if(state){
+        // Force the newly active stage quaternion into the preview immediately.
+        // A per-stage revision may already have been rendered earlier, so it
+        // cannot be used as the switch gate here.
+        state.gyroAppliedRevision = -1;
+      }
+      gyroAttitudeLastMs = 0;
+      gyroUiAttitudeReady = false;
+      applyActiveStageGyroAttitude(Date.now());
+      updateStageTelemetryDashboard();
+      addLogLine(
+        "HUD/CONTROL AUTO STAGE " + next + (reason ? " · " + reason : ""),
+        "AIL"
+      );
+      return true;
+    }
+
+    function updateAutomaticActiveStage(data){
+      if(!stageTelemetryModeActive) return;
+      const stage1 = stageTelemetryStore[1];
+      const stage2 = stageTelemetryStore[2];
+      const boardTargetRaw = Number(data && (data.fl_target ?? data.flash_link_target_node_id));
+      const boardTarget = boardTargetRaw === 2 ? 2 : (boardTargetRaw === 1 ? 1 : null);
+      let desired = cameraHudActiveStageId;
+      let reason = "LINK HOLD";
+      if(cameraHudStageSwitchLatched && stage2.connected){
+        desired = 2;
+        reason = "SEPARATION";
+      }else if(boardTarget && stageTelemetryStore[boardTarget].connected){
+        desired = boardTarget;
+        reason = "GROUND AUTO";
+      }else if(stage1.connected){
+        desired = 1;
+        reason = "STAGE 1 PRIMARY";
+      }else if(stage2.connected){
+        desired = 2;
+        reason = "STAGE 1 LOST";
+      }
+      setAutomaticActiveStage(desired, reason);
+    }
+
     function recordStageTelemetrySample(stageId, sample){
       const state = stageTelemetryStore[stageId];
       if(!state || !sample || typeof sample !== "object") return;
@@ -7115,11 +7161,11 @@ function requestMobileMockup3dMesh(){
         const returnedToPreflight = wasDeploymentState >= 2 && deploymentState === 0 &&
           Number(sample.flight_phase_code) === 0 && Number(sample.st) === 0;
         if(missionReset || returnedToPreflight){
-          cameraHudActiveStageId = 1;
+          setAutomaticActiveStage(1, "MISSION RESET");
           cameraHudStageSwitchLatched = false;
         }else if(separationConfirmed && !cameraHudStageSwitchLatched){
-          cameraHudActiveStageId = 2;
           cameraHudStageSwitchLatched = true;
+          setAutomaticActiveStage(2, "SEPARATION");
           latchCameraEventState("단분리 · HUD 2단 전환");
         }
       }
@@ -7139,19 +7185,40 @@ function requestMobileMockup3dMesh(){
           recordStageTelemetrySample(stageId, sample);
           handleMissionAlarmTelemetry(sample, src, isReplaySample, stageId);
         });
+        updateAutomaticActiveStage(data);
       }else{
         const explicitRoleRaw = data.flash_link_role ?? data.fl_role;
+        const groundSample = explicitRoleRaw != null &&
+          normalizeFlashLinkRole(explicitRoleRaw) === "ground";
         const leaveGroundMode = isReplaySample ||
-          (explicitRoleRaw != null && normalizeFlashLinkRole(explicitRoleRaw) !== "ground");
+          (explicitRoleRaw != null && !groundSample);
         if(leaveGroundMode && stageTelemetryModeActive){
           stageTelemetryModeActive = false;
-          cameraHudActiveStageId = 1;
+          setAutomaticActiveStage(1, "GROUND MODE END");
           cameraHudStageSwitchLatched = false;
+        }else if(groundSample){
+          stageTelemetryModeActive = true;
+          if(data.fl_stage1 != null || data.flash_link_stage1_connected != null){
+            stageTelemetryStore[1].connected = Number(
+              data.fl_stage1 ?? data.flash_link_stage1_connected
+            ) !== 0;
+          }
+          if(data.fl_stage2 != null || data.flash_link_stage2_connected != null){
+            stageTelemetryStore[2].connected = Number(
+              data.fl_stage2 ?? data.flash_link_stage2_connected
+            ) !== 0;
+          }
         }
       }
-      if(!bundle.length && !stageTelemetryModeActive){
+      if(!bundle.length){
         const stageId = resolveTelemetryStageId(data);
-        if(stageId === 1 || stageId === 2) recordStageTelemetrySample(stageId, data);
+        if(stageId === 1 || stageId === 2){
+          recordStageTelemetrySample(stageId, Object.assign({}, data, {
+            stage_connected:stageTelemetryStore[stageId].connected ? 1 : 0,
+            stage_valid:Number(data.fl_remote_valid ?? data.flash_link_remote_valid ?? 1) ? 1 : 0
+          }));
+        }
+        updateAutomaticActiveStage(data);
       }
       updateStageTelemetryDashboard();
     }
@@ -7953,8 +8020,6 @@ function requestMobileMockup3dMesh(){
       }
       if(el.flashLinkRoleSelect) el.flashLinkRoleSelect.value = normalizeFlashLinkRole(uiSettings.flashLinkRole);
       if(el.flashLinkNodeSelect) el.flashLinkNodeSelect.value = String(normalizeFlashLinkNodeId(uiSettings.flashLinkNodeId));
-      if(el.flashLinkTargetSelect) el.flashLinkTargetSelect.value = String(normalizeFlashLinkNodeId(uiSettings.flashLinkTargetNodeId));
-      if(el.controlTargetSelect) el.controlTargetSelect.value = String(normalizeFlashLinkNodeId(uiSettings.flashLinkTargetNodeId));
       if(el.flashLinkDataModeSelect) el.flashLinkDataModeSelect.value = normalizeDataModeValue(uiSettings.flashLinkDataMode, "flight");
       {
         const role = normalizeFlashLinkRole(uiSettings.flashLinkRole);
@@ -7963,7 +8028,6 @@ function requestMobileMockup3dMesh(){
         if(el.flashLinkNodeRow) el.flashLinkNodeRow.hidden = role !== "avionics";
         if(el.flashLinkTargetRow) el.flashLinkTargetRow.hidden = role !== "ground";
         if(el.flashLinkNodeSelect) el.flashLinkNodeSelect.disabled = !flashLinkEnabled || role !== "avionics";
-        if(el.flashLinkTargetSelect) el.flashLinkTargetSelect.disabled = !flashLinkEnabled || role !== "ground";
         if(el.flashLinkDataModeSelect) el.flashLinkDataModeSelect.disabled = dataModeDisabled;
         if(el.flashLinkDataModeRow) el.flashLinkDataModeRow.classList.toggle("is-disabled", !flashLinkEnabled || dataModeDisabled);
         if(el.flashLinkStatus) el.flashLinkStatus.classList.toggle("is-disabled", !flashLinkEnabled);
@@ -8028,7 +8092,6 @@ function requestMobileMockup3dMesh(){
       refreshStatusMapMarkerContent();
       refreshStatusMapSize();
       syncControlsPanelTitle();
-      syncControlTargetUi();
       applyPhoneLandscapeLayout();
     }
     function updateControlsToolbarLabels(){
@@ -9060,35 +9123,6 @@ function requestMobileMockup3dMesh(){
       serialConnectStage = "idle";
       setOverlayVisible(el.serialConnectOverlay, false);
       syncMobileGroundStationWaitOverlay();
-    }
-    function updateTargetSelectModalUi(){
-      const target = normalizeFlashLinkNodeId(uiSettings && uiSettings.flashLinkTargetNodeId);
-      if(el.targetSelectStage1Btn) el.targetSelectStage1Btn.classList.toggle("is-active", target === 1);
-      if(el.targetSelectStage2Btn) el.targetSelectStage2Btn.classList.toggle("is-active", target === 2);
-    }
-    function openTargetSelectModal(){
-      if(!el.targetSelectOverlay) return;
-      updateTargetSelectModalUi();
-      setOverlayVisible(el.targetSelectOverlay, true);
-    }
-    function closeTargetSelectModal(){
-      setOverlayVisible(el.targetSelectOverlay, false);
-    }
-    function selectControlTarget(target, announce){
-      if(!uiSettings) return;
-      const before = normalizeFlashLinkNodeId(uiSettings.flashLinkTargetNodeId);
-      const next = normalizeFlashLinkNodeId(target);
-      uiSettings.flashLinkTargetNodeId = next;
-      saveSettings();
-      applySettingsToUI();
-      if(before !== next){
-        syncFlashLinkNodeSelectionToBoard(false);
-        if(announce !== false){
-          showToast((currentLang === "ko" ? "제어 대상: " : "Control target: ") +
-            (next === 2 ? t("flashLinkStage2") : t("flashLinkStage1")), "info");
-        }
-      }
-      closeTargetSelectModal();
     }
     async function startSerialConnectFromWizard(){
       if(serialConnectStage === "waiting") return;
@@ -10645,8 +10679,7 @@ function requestMobileMockup3dMesh(){
       const dataMode = normalizeDataModeValue(uiSettings && uiSettings.flashLinkDataMode, "flight");
       const dataModePart = role === "avionics" ? ("&flash_link_data_mode=" + dataMode) : "";
       const nodePart = "&flash_link_node_id=" + normalizeFlashLinkNodeId(uiSettings && uiSettings.flashLinkNodeId);
-      const targetPart = "&flash_link_target_node_id=" + normalizeFlashLinkNodeId(uiSettings && uiSettings.flashLinkTargetNodeId);
-      const path = "/set?op_mode=" + mode + "&flash_link_role=" + role + nodePart + targetPart + dataModePart;
+      const path = "/set?op_mode=" + mode + "&flash_link_role=" + role + nodePart + dataModePart;
       sendCommand({http:path, ser:path}, !!logIt);
     }
     function setFlashLinkEnabled(enabled){
@@ -10680,16 +10713,14 @@ function requestMobileMockup3dMesh(){
       const dataMode = normalizeDataModeValue(uiSettings && uiSettings.flashLinkDataMode, "flight");
       const dataModePart = role === "avionics" ? ("&flash_link_data_mode=" + dataMode) : "";
       const nodePart = "&flash_link_node_id=" + normalizeFlashLinkNodeId(uiSettings && uiSettings.flashLinkNodeId);
-      const targetPart = "&flash_link_target_node_id=" + normalizeFlashLinkNodeId(uiSettings && uiSettings.flashLinkTargetNodeId);
       sendCommand({
-        http:"/set?flash_link_role=" + role + nodePart + targetPart + dataModePart,
-        ser:"/set?flash_link_role=" + role + nodePart + targetPart + dataModePart
+        http:"/set?flash_link_role=" + role + nodePart + dataModePart,
+        ser:"/set?flash_link_role=" + role + nodePart + dataModePart
       }, !!logIt);
     }
     function syncFlashLinkNodeSelectionToBoard(logIt){
       const nodeId = normalizeFlashLinkNodeId(uiSettings && uiSettings.flashLinkNodeId);
-      const targetNodeId = normalizeFlashLinkNodeId(uiSettings && uiSettings.flashLinkTargetNodeId);
-      const path = "/set?flash_link_node_id=" + nodeId + "&flash_link_target_node_id=" + targetNodeId;
+      const path = "/set?flash_link_node_id=" + nodeId;
       sendCommand({http:path, ser:path}, !!logIt);
     }
     function syncFlashLinkDataModeToBoard(logIt){
@@ -11535,17 +11566,11 @@ function requestMobileMockup3dMesh(){
       }
       if(uiSettings){
         if(document.activeElement !== el.flashLinkNodeSelect) uiSettings.flashLinkNodeId = nodeId;
-        if(document.activeElement !== el.flashLinkTargetSelect && document.activeElement !== el.controlTargetSelect){
-          uiSettings.flashLinkTargetNodeId = targetNodeId;
-        }
+        uiSettings.flashLinkTargetNodeId = targetNodeId;
       }
       if(el.flashLinkNodeSelect && document.activeElement !== el.flashLinkNodeSelect){
         el.flashLinkNodeSelect.value = String(nodeId);
       }
-      if(el.flashLinkTargetSelect && document.activeElement !== el.flashLinkTargetSelect){
-        el.flashLinkTargetSelect.value = String(targetNodeId);
-      }
-      syncControlTargetUi();
       if(el.flashLinkStageStatus){
         const stage1 = el.flashLinkStageStatus.querySelector('[data-stage-link="1"]');
         const stage2 = el.flashLinkStageStatus.querySelector('[data-stage-link="2"]');
@@ -13323,11 +13348,6 @@ function requestMobileMockup3dMesh(){
         if(el.mobileBoardAddBtn) el.mobileBoardAddBtn.setAttribute("aria-expanded", "false");
         if(el.mobileConnectInfoBtn) el.mobileConnectInfoBtn.setAttribute("aria-expanded", "false");
       }
-      if(!open && el.mobileBoardTargetOptions){
-        el.mobileBoardTargetOptions.classList.remove("is-open");
-        el.mobileBoardTargetOptions.setAttribute("aria-hidden", "true");
-        if(el.mobileTargetChangeBtn) el.mobileTargetChangeBtn.setAttribute("aria-expanded", "false");
-      }
     }
 
     function getMobileBoardHzText(){
@@ -13560,25 +13580,6 @@ function requestMobileMockup3dMesh(){
           const open = !el.mobileBoardConnectSection.classList.contains("is-info-open");
           el.mobileBoardConnectSection.classList.toggle("is-info-open", open);
           el.mobileConnectInfoBtn.setAttribute("aria-expanded", open ? "true" : "false");
-        });
-      }
-      if(el.mobileTargetChangeBtn && el.mobileBoardTargetOptions){
-        el.mobileTargetChangeBtn.addEventListener("click", ()=>{
-          setMobileBoardPanelOpen(true);
-          const open = !el.mobileBoardTargetOptions.classList.contains("is-open");
-          el.mobileBoardTargetOptions.classList.toggle("is-open", open);
-          el.mobileBoardTargetOptions.setAttribute("aria-hidden", open ? "false" : "true");
-          el.mobileTargetChangeBtn.setAttribute("aria-expanded", open ? "true" : "false");
-        });
-      }
-      if(el.mobileBoardTargetOptions){
-        el.mobileBoardTargetOptions.querySelectorAll("[data-mobile-board-target]").forEach(btn=>{
-          btn.addEventListener("click", ()=>{
-            selectControlTarget(btn.getAttribute("data-mobile-board-target"), true);
-            el.mobileBoardTargetOptions.classList.remove("is-open");
-            el.mobileBoardTargetOptions.setAttribute("aria-hidden", "true");
-            if(el.mobileTargetChangeBtn) el.mobileTargetChangeBtn.setAttribute("aria-expanded", "false");
-          });
         });
       }
       if(el.mobileBoardSearchInput && el.mobileBoardRow){
@@ -15346,37 +15347,6 @@ function requestMobileMockup3dMesh(){
         setMobileQuickPillTone(inspectionPill, tone);
         setMobileQuickIconTone("inspection", tone === "pill-green" ? "tone-green" : (tone === "pill-red" ? "tone-red" : "tone-gray"));
       }
-      syncControlTargetUi();
-    }
-
-    function syncControlTargetUi(){
-      const target = normalizeFlashLinkNodeId(uiSettings && uiSettings.flashLinkTargetNodeId);
-      const stageLabel = target === 2 ? t("flashLinkStage2") : t("flashLinkStage1");
-      if(el.controlTargetSelect && document.activeElement !== el.controlTargetSelect){
-        el.controlTargetSelect.value = String(target);
-      }
-      if(el.mobileTargetQuickLabel){
-        el.mobileTargetQuickLabel.textContent = (currentLang === "ko" ? "제어 대상 · " : "TARGET · ") + stageLabel;
-      }
-      if(el.mobileTargetCurrentText){
-        el.mobileTargetCurrentText.textContent = (currentLang === "ko" ? "현재: " : "Current: ") + stageLabel;
-      }
-      if(el.mobileTargetChangeBtn){
-        const label = (currentLang === "ko" ? "제어 대상, 현재 " : "Control target, current ") + stageLabel;
-        el.mobileTargetChangeBtn.setAttribute("aria-label", label);
-        el.mobileTargetChangeBtn.setAttribute("title", label);
-      }
-      if(el.mobileBoardTargetOptions){
-        el.mobileBoardTargetOptions.querySelectorAll("[data-mobile-board-target]").forEach(btn=>{
-          btn.classList.toggle("is-active", normalizeFlashLinkNodeId(btn.getAttribute("data-mobile-board-target")) === target);
-        });
-      }
-      if(el.mobileControlButtonMap && el.mobileControlButtonMap.target){
-        const targetBtn = el.mobileControlButtonMap.target;
-        targetBtn.setAttribute("aria-label", (currentLang === "ko" ? "제어 대상 " : "Control target ") + stageLabel);
-        targetBtn.setAttribute("title", stageLabel);
-      }
-      updateTargetSelectModalUi();
     }
 
     function setMobileControlButtonState(type, disabled){
@@ -15395,7 +15365,6 @@ function requestMobileMockup3dMesh(){
       const inspectionDisabled = !!(inspectionRunning || replaySourceActive);
       setMobileControlButtonState("sequence", sequenceDisabled);
       setMobileControlButtonState("inspection", inspectionDisabled);
-      setMobileControlButtonState("target", false);
       if(el.mobileSequenceWideBtn){
         el.mobileSequenceWideBtn.disabled = mobileSequenceBlocked;
         el.mobileSequenceWideBtn.classList.toggle("disabled", mobileSequenceBlocked);
@@ -20180,7 +20149,7 @@ function requestMobileMockup3dMesh(){
         fw_program:"Altis_Intelligent3_firmware1",
         fw_board:"Altis_Intelligent3_b3",
         fw_protocol:"Flash6-Intelligent-b3",
-        fw_build:"v6 b4"
+        fw_build:"v6 b5"
       };
     }
 
@@ -21689,7 +21658,7 @@ function requestMobileMockup3dMesh(){
             boardSettingsChanged = true;
           }
         }
-        if(boardFlashLinkTargetRaw != null && activeEl !== el.flashLinkTargetSelect && activeEl !== el.controlTargetSelect){
+        if(boardFlashLinkTargetRaw != null){
           const nextTargetNodeId = normalizeFlashLinkNodeId(boardFlashLinkTargetRaw);
           if(nextTargetNodeId !== uiSettings.flashLinkTargetNodeId){
             uiSettings.flashLinkTargetNodeId = nextTargetNodeId;
@@ -31344,8 +31313,6 @@ function requestMobileMockup3dMesh(){
         normalizedPath.startsWith("/set?fl_role=") ||
         normalizedPath.startsWith("/set?flash_link_node_id=") ||
         normalizedPath.startsWith("/set?fl_node=") ||
-        normalizedPath.startsWith("/set?flash_link_target_node_id=") ||
-        normalizedPath.startsWith("/set?fl_target=") ||
         normalizedPath.startsWith("/set?flash_link_data_mode=") ||
         normalizedPath.startsWith("/set?fl_data_mode=") ||
         normalizedPath.startsWith("/set?data_mode=") ||
@@ -31355,8 +31322,6 @@ function requestMobileMockup3dMesh(){
         normalizedPath.indexOf("&fl_role=") >= 0 ||
         normalizedPath.indexOf("&flash_link_node_id=") >= 0 ||
         normalizedPath.indexOf("&fl_node=") >= 0 ||
-        normalizedPath.indexOf("&flash_link_target_node_id=") >= 0 ||
-        normalizedPath.indexOf("&fl_target=") >= 0 ||
         normalizedPath.indexOf("&flash_link_data_mode=") >= 0 ||
         normalizedPath.indexOf("&fl_data_mode=") >= 0 ||
         normalizedPath.indexOf("&data_mode=") >= 0;
@@ -31715,9 +31680,6 @@ function requestMobileMockup3dMesh(){
       el.mobileBoardPanelStatus = document.getElementById("mobileBoardPanelStatus");
       el.mobileBoardRow = document.getElementById("mobileBoardRow");
       el.mobileBoardSearchInput = document.getElementById("mobileBoardSearchInput");
-      el.mobileTargetChangeBtn = document.getElementById("mobileTargetChangeBtn");
-      el.mobileTargetCurrentText = document.getElementById("mobileTargetCurrentText");
-      el.mobileBoardTargetOptions = document.getElementById("mobileBoardTargetOptions");
       initMobileBoardHeader();
       syncMobileBoardHeader();
       el.mobileSequenceStatusText = document.getElementById("mobileSequenceStatusText");
@@ -32040,13 +32002,11 @@ function requestMobileMockup3dMesh(){
       el.ignTimeSave = document.getElementById("ignTimeSave");
       el.countdownSave = document.getElementById("countdownSave");
       el.opModeSelect = document.getElementById("opModeSelect");
-      el.controlTargetSelect = document.getElementById("controlTargetSelect");
       el.flashLinkEnabledPill = document.getElementById("flashLinkEnabledPill");
       el.flashLinkRoleSelect = document.getElementById("flashLinkRoleSelect");
       el.flashLinkNodeRow = document.getElementById("flashLinkNodeRow");
       el.flashLinkNodeSelect = document.getElementById("flashLinkNodeSelect");
       el.flashLinkTargetRow = document.getElementById("flashLinkTargetRow");
-      el.flashLinkTargetSelect = document.getElementById("flashLinkTargetSelect");
       el.flashLinkStageStatus = document.getElementById("flashLinkStageStatus");
       el.flashLinkDataModeRow = document.getElementById("flashLinkDataModeRow");
       el.flashLinkDataModeSelect = document.getElementById("flashLinkDataModeSelect");
@@ -32291,7 +32251,6 @@ function requestMobileMockup3dMesh(){
       el.intelligentCalibrationCoordText = document.getElementById("intelligentCalibrationCoordText");
       el.tabletAbortBtn = document.getElementById("tabletAbortBtn");
       el.mobileSequenceLabel = document.getElementById("mobileSequenceLabel");
-      el.mobileTargetQuickLabel = document.getElementById("mobileTargetQuickLabel");
       el.mobileControlsHeadTitle = el.mobileControlsPanel ? el.mobileControlsPanel.querySelector(".mobile-controls-head-title") : null;
       el.mobileControlButtons = el.mobileControlsPanel ? el.mobileControlsPanel.querySelectorAll("[data-mobile-control]") : null;
       el.mobileControlButtonMap = {};
@@ -32359,10 +32318,6 @@ function requestMobileMockup3dMesh(){
       el.serialConnectNextBtn = document.getElementById("serialConnectNextBtn");
       el.serialConnectCancelBtn = document.getElementById("serialConnectCancelBtn");
       el.serialConnectCloseBtn = document.getElementById("serialConnectCloseBtn");
-      el.targetSelectOverlay = document.getElementById("targetSelectOverlay");
-      el.targetSelectCloseBtn = document.getElementById("targetSelectCloseBtn");
-      el.targetSelectStage1Btn = document.getElementById("targetSelectStage1Btn");
-      el.targetSelectStage2Btn = document.getElementById("targetSelectStage2Btn");
       el.gpsHelpOverlay = document.getElementById("gpsHelpOverlay");
       el.gpsHelpCloseBtn = document.getElementById("gpsHelpCloseBtn");
       el.gpsHelpOkBtn = document.getElementById("gpsHelpOkBtn");
@@ -33198,28 +33153,6 @@ function requestMobileMockup3dMesh(){
           if(ev.target === el.serialConnectOverlay){
             closeSerialConnectWizard();
           }
-        });
-      }
-      if(el.targetSelectCloseBtn){
-        el.targetSelectCloseBtn.addEventListener("click", ()=>{
-          closeTargetSelectModal();
-        });
-      }
-      if(el.targetSelectOverlay){
-        el.targetSelectOverlay.addEventListener("click",(ev)=>{
-          if(ev.target === el.targetSelectOverlay){
-            closeTargetSelectModal();
-          }
-        });
-      }
-      if(el.targetSelectStage1Btn){
-        el.targetSelectStage1Btn.addEventListener("click", ()=>{
-          selectControlTarget(1, true);
-        });
-      }
-      if(el.targetSelectStage2Btn){
-        el.targetSelectStage2Btn.addEventListener("click", ()=>{
-          selectControlTarget(2, true);
         });
       }
       if(el.gpsHelpCloseBtn){
@@ -35345,7 +35278,6 @@ function requestMobileMockup3dMesh(){
       }
       const mobileControlActions = {
         sequence: ()=>{ if(el.igniteBtn) el.igniteBtn.click(); },
-        target: ()=>{ openTargetSelectModal(); },
         serial: ()=>{ handleConnectAction(); },
         inspection: ()=>{ openInspectionFromUI(); },
         safety: ()=>{ toggleInput(el.safeModeToggle); },
@@ -36401,16 +36333,6 @@ function requestMobileMockup3dMesh(){
             showToast((currentLang === "ko" ? "에비오닉스 위치: " : "Avionics position: ") +
               (uiSettings.flashLinkNodeId === 2 ? t("flashLinkStage2") : t("flashLinkStage1")), "info");
           }
-        });
-      }
-      if(el.flashLinkTargetSelect){
-        el.flashLinkTargetSelect.addEventListener("change",()=>{
-          selectControlTarget(el.flashLinkTargetSelect.value, true);
-        });
-      }
-      if(el.controlTargetSelect){
-        el.controlTargetSelect.addEventListener("change",()=>{
-          selectControlTarget(el.controlTargetSelect.value, true);
         });
       }
       if(el.flashLinkDataModeSelect){

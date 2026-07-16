@@ -44,24 +44,6 @@ bool setFlashLinkNodeId(const String& value) {
   return false;
 }
 
-bool setFlashLinkTargetNodeId(const String& value) {
-  String node = value;
-  node.trim();
-  node.toLowerCase();
-  node.replace('-', '_');
-  if (node == "stage_1" || node == "stage1" || node == "first" || node == "1") {
-    flashLinkTargetNodeId = kFlashLinkNodeIdStage1;
-    if (flashLinkGroundRole()) flashLinkGroundRefreshSelectedPeer();
-    return true;
-  }
-  if (node == "stage_2" || node == "stage2" || node == "second" || node == "2") {
-    flashLinkTargetNodeId = kFlashLinkNodeIdStage2;
-    if (flashLinkGroundRole()) flashLinkGroundRefreshSelectedPeer();
-    return true;
-  }
-  return false;
-}
-
 wifi_interface_t flashLinkWifiInterface() {
   return WIFI_IF_STA;
 }

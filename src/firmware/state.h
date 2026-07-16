@@ -1,7 +1,7 @@
 
 constexpr char kFirmwareProgram[] = "Altis_Intelligent3_firmware1";
-constexpr char kFirmwareVersion[] = "0.7.0";
-constexpr char kFirmwareBuildId[] = "v6 b4";
+constexpr char kFirmwareVersion[] = "0.7.1";
+constexpr char kFirmwareBuildId[] = "v6 b5";
 constexpr char kFirmwareBoard[] = "Altis_Intelligent3_b3";
 constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b3";
 
@@ -23,7 +23,7 @@ constexpr uint32_t kWsPeriodUs = 1000000UL / kWifiStreamHz;
 constexpr uint32_t kSerialPeriodUs = 1000000UL / kSerialStreamHz;
 constexpr uint32_t kBaroPeriodUs = 1000000UL / kBaroSampleHz;
 constexpr uint16_t kSerialRxDrainMaxBytes = 256;
-// Ground stations publish the selected vehicle as the legacy top-level sample
+// Ground stations publish the automatically active vehicle as the legacy top-level sample
 // and both vehicle snapshots at the tail of the v2 frame.  Keep enough room
 // for two alarm messages without dropping the complete telemetry frame.
 constexpr size_t kStreamJsonMaxBytes = 2048;
@@ -141,7 +141,7 @@ constexpr uint32_t kFlashLinkHeartbeatPeriodMs = 1000;
 constexpr uint32_t kFlashLinkTelemetryStaleMs = 1500;
 constexpr uint32_t kFlashLinkRecoveryPeerResetMs = 3000;
 constexpr uint32_t kFlashLinkPeerTimeoutMs = 6000;
-constexpr uint32_t kFlashLinkPrimaryRouteFreshMs = 1200;
+constexpr uint32_t kFlashLinkPrimaryRouteFreshMs = 650;
 constexpr uint8_t kFlashLinkRelayCommandAttempts = 2;
 constexpr uint32_t kFlashLinkTxBusyTimeoutMs = 250;
 constexpr uint8_t kFlashLinkAckEveryFrames = 10;
@@ -1470,6 +1470,7 @@ bool flashLinkOperational();
 void flashLinkGroundRefreshSelectedPeer();
 bool flashLinkRouteFresh(uint32_t lastRxMs, uint32_t maxAgeMs);
 void flashLinkGroundChooseRoute(FlashLinkGroundPeer& peer);
+void flashLinkGroundAutoSelectTarget(uint32_t nowMs);
 bool flashLinkStage2RelayActive(uint32_t nowMs);
 bool flashLinkStage2DirectGroundActive(uint32_t nowMs);
 void saveSequenceSettings();
