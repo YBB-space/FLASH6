@@ -1112,10 +1112,19 @@ if (typeof window !== "undefined") {
       gyroZeroQuat = quatNormalize(quatMul(targetQuat, quatConjugate(quatNormalize(gyroAttitudeQuat))));
       return true;
     }
+    function gyroAttitudeToRocketDisplayQuat(attitudeQuat){
+      const q = quatNormalize(attitudeQuat);
+      // The 3D rocket's longitudinal axis is render Y. The attitude filter's
+      // roll axis is sensor X, so applying q directly makes roll tip the model
+      // sideways around render X. Remap the attitude basis so sensor roll spins
+      // around the vehicle length, while pitch/yaw remain the two lateral tilts.
+      return quatNormalize([q[0], q[3], q[1], q[2]]);
+    }
     function getGyroRocketModelQuat(){
       const baseQuat = quatFromAxisAngle([1,0,0], GYRO_ROCKET_RENDER_PITCH_UPRIGHT_DEG * DEG_TO_RAD);
       const zeroedQuat = quatNormalize(quatMul(gyroZeroQuat, gyroAttitudeQuat));
-      return quatNormalize(quatMul(zeroedQuat, baseQuat));
+      const vehicleDisplayQuat = gyroAttitudeToRocketDisplayQuat(zeroedQuat);
+      return quatNormalize(quatMul(vehicleDisplayQuat, baseQuat));
     }
     function resetGyroAttitudeState(){
       gyroLastUiMs = 0;
@@ -5005,11 +5014,19 @@ function requestMobileMockup3dMesh(){
         fullVisualCenter[1] + ((stage1VisualCenter[1] - fullVisualCenter[1]) * cameraFocusEase),
         fullVisualCenter[2] + ((stage1VisualCenter[2] - fullVisualCenter[2]) * cameraFocusEase)
       ];
+      // Keep the complete vehicle's visual center as a fixed rotation pivot.
+      // Any sampled-mesh center offset must not become apparent X/Y motion as
+      // the attitude changes; only stage-separation focus may move the target.
+      const focusFromPivot = [
+        focusCenter[0] - fullVisualCenter[0],
+        focusCenter[1] - fullVisualCenter[1],
+        focusCenter[2] - fullVisualCenter[2]
+      ];
       const visualCenterOffset = mat4TransformVec4(
         rocketRotation,
-        focusCenter[0] * rocketDisplayScale,
-        focusCenter[1] * rocketDisplayScale,
-        focusCenter[2] * rocketDisplayScale,
+        focusFromPivot[0] * rocketDisplayScale,
+        focusFromPivot[1] * rocketDisplayScale,
+        focusFromPivot[2] * rocketDisplayScale,
         0
       );
       const rocketLookTarget = {
@@ -5100,7 +5117,13 @@ function requestMobileMockup3dMesh(){
 
       const rocketModel = mat4Mul(
         mat4Translate(rocketRenderPos.x, rocketRenderPos.y, rocketRenderPos.z),
-        mat4Mul(rocketRotation, mat4Scale(rocketDisplayScale, rocketDisplayScale, rocketDisplayScale))
+        mat4Mul(
+          rocketRotation,
+          mat4Mul(
+            mat4Scale(rocketDisplayScale, rocketDisplayScale, rocketDisplayScale),
+            mat4Translate(-fullVisualCenter[0], -fullVisualCenter[1], -fullVisualCenter[2])
+          )
+        )
       );
       const basis = getGyroCameraBasis();
       let eye = [
@@ -5365,7 +5388,10 @@ function requestMobileMockup3dMesh(){
                   rocketRotation,
                   mat4Mul(
                     mat4Translate(sample[0], (moveEase * 0.22) + sample[1], sample[2]),
-                    mat4Scale(rocketDisplayScale, rocketDisplayScale, rocketDisplayScale)
+                    mat4Mul(
+                      mat4Scale(rocketDisplayScale, rocketDisplayScale, rocketDisplayScale),
+                      mat4Translate(-fullVisualCenter[0], -fullVisualCenter[1], -fullVisualCenter[2])
+                    )
                   )
                 )
               );
