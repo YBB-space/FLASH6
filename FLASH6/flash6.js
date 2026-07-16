@@ -7161,22 +7161,32 @@ function requestMobileMockup3dMesh(){
       });
     }
 
-    function applyCameraHudStageAttitude(){
-      if(!stageTelemetryModeActive || !document.body.classList.contains("camera-view-active")) return;
+    function getActiveGyroTelemetryData(fallbackData){
+      if(!stageTelemetryModeActive) return fallbackData || null;
       const state = stageTelemetryStore[cameraHudActiveStageId];
-      const data = state && state.valid ? state.data : null;
-      if(!data) return;
+      // In dual-stage ground mode never fall back to the ground board's own
+      // IMU. Alternating ground and vehicle quaternions on every packet makes
+      // the preview jump between two unrelated attitudes. If the selected
+      // vehicle becomes stale, hold the last pose until that stage returns.
+      return state && state.valid && state.connected && state.data
+        ? state.data
+        : null;
+    }
+    function applyActiveStageGyroAttitude(nowMs){
+      const data = getActiveGyroTelemetryData(null);
+      if(!data) return false;
       const applied = applyFirmwareGyroAttitudeEstimate(
         Number(data.gr),
         Number(data.gp),
         Number(data.gyw),
-        Date.now(),
+        nowMs || Date.now(),
         Number(data.gx),
         Number(data.gy),
         Number(data.gz),
         data.attitude_q
       );
       if(applied) scheduleLiveGyroRender(Number(data.gy) || 0);
+      return applied;
     }
 
     function drawCameraHudChart(){
@@ -21284,7 +21294,7 @@ function requestMobileMockup3dMesh(){
         applyFlashLinkGroundWaitingUi(false);
         syncMobileBoardHeader();
         if(stageTelemetryModeActive){
-          applyCameraHudStageAttitude();
+          applyActiveStageGyroAttitude(nowOk);
           syncCameraHud(buildCameraHudStageValues({}));
         }
         return;
@@ -21754,16 +21764,37 @@ function requestMobileMockup3dMesh(){
       if(!isFastReplaySeek){
         updateStatusMapFromTelemetry(data);
       }
-      if(!(ga !== 0 && applyFirmwareGyroAttitudeEstimate(
-        gr,
-        gp,
-        gyw,
-        timeMs,
-        gx,
-        gy,
-        gz,
-        data.attitude_q ?? data.attitudeQuat ?? null))){
-        updateGyroAttitudeEstimate(ax, ay, az, gx, gy, gz, timeMs);
+      const gyroTelemetryData = getActiveGyroTelemetryData(data);
+      if(gyroTelemetryData){
+        const gyroGa = Number(gyroTelemetryData.ga ?? gyroTelemetryData.gyro_attitude_valid ?? 0);
+        const gyroAx = Number(gyroTelemetryData.ax);
+        const gyroAy = Number(gyroTelemetryData.ay);
+        const gyroAz = Number(gyroTelemetryData.az);
+        const gyroGx = Number(gyroTelemetryData.gx);
+        const gyroGy = Number(gyroTelemetryData.gy);
+        const gyroGz = Number(gyroTelemetryData.gz);
+        const gyroRoll = Number(gyroTelemetryData.gr);
+        const gyroPitch = Number(gyroTelemetryData.gp);
+        const gyroYaw = Number(gyroTelemetryData.gyw);
+        if(!(gyroGa !== 0 && applyFirmwareGyroAttitudeEstimate(
+          gyroRoll,
+          gyroPitch,
+          gyroYaw,
+          timeMs,
+          gyroGx,
+          gyroGy,
+          gyroGz,
+          gyroTelemetryData.attitude_q ?? gyroTelemetryData.attitudeQuat ?? null))){
+          updateGyroAttitudeEstimate(
+            gyroAx,
+            gyroAy,
+            gyroAz,
+            gyroGx,
+            gyroGy,
+            gyroGz,
+            timeMs
+          );
+        }
       }
       const quickFlight = getQuickFlightMetrics(data, timeMs);
       const quickAltitudeM = isFinite(quickFlight.altitudeM)
@@ -21791,7 +21822,8 @@ function requestMobileMockup3dMesh(){
           : null
       });
       if(!isFastReplaySeek){
-        scheduleLiveGyroRender(gy);
+        const activeGyroRateY = gyroTelemetryData ? Number(gyroTelemetryData.gy) : gy;
+        scheduleLiveGyroRender(activeGyroRateY);
       }
       // Only the 3D gyro rocket is pinned to the pad before launch. Charts and
       // telemetry HUDs must continue to show the actual barometric altitude.
@@ -22522,7 +22554,6 @@ function requestMobileMockup3dMesh(){
           missionAlarmTitle:data.mission_alarm_title,
           missionAlarmMessage:data.mission_alarm_message
         };
-        applyCameraHudStageAttitude();
         syncCameraHud(buildCameraHudStageValues(cameraHudFallbackValues));
         updateHomeUI();
         if(statusCode!==lastStatusCode){
