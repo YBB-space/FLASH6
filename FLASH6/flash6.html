@@ -124,7 +124,7 @@
   <!-- Preload 축소: AP 모드/저메모리 환경에서 동시 요청 버스트를 줄임 -->
   <script>
     (function(){
-    var ASSET_VER = "20260717-dual-link-v3-282";
+    var ASSET_VER = "20260717-dark-link-hud-283";
       window.__flashBoot = window.__flashBoot || {jsReady:false,lastError:"",phase:"static_loader",version:ASSET_VER};
       var isLocalPreview = !!window.__flashBoot.localPreview;
       var beaconEnabled = (window.__flashBoot.beaconEnabled !== false);
@@ -374,7 +374,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="styles/flash6.css?v=20260717-dual-link-v3-282">
+  <link rel="stylesheet" href="styles/flash6.css?v=20260717-dark-link-hud-283">
 </head>
 <body>
   <!-- ✅ LOCKOUT 배경 오버레이 -->
@@ -3232,9 +3232,9 @@
       <section class="flash-link-topology-dialog" role="dialog" aria-modal="true" aria-labelledby="flashLinkTopologyTitle">
         <header class="flash-link-topology-header">
           <div>
-            <div class="flash-link-topology-eyebrow">ALTIS INTELLIGENT LINK</div>
-            <h2 id="flashLinkTopologyTitle">COMMUNICATION TOPOLOGY</h2>
-            <p>2단은 1단 중계를 주 경로로 사용하고, 중계 단절 시 지상국 직통 경로로 자동 전환됩니다.</p>
+            <div class="flash-link-topology-eyebrow">ALTIS INTELLIGENT LINK1</div>
+            <h2 id="flashLinkTopologyTitle">AI LINK ROUTING</h2>
+            <p>1단 중계 우선 · 링크 단절 시 2단 직통 백업 자동 전환</p>
           </div>
           <div class="flash-link-topology-header-actions">
             <span id="flashTopologyOverall" class="flash-link-topology-overall">LINK STATUS · WAITING</span>
@@ -3250,19 +3250,19 @@
         </div>
 
         <div class="flash-link-topology-canvas">
-          <svg class="flash-link-topology-lines flash-link-topology-lines--desktop" viewBox="0 0 1200 650" preserveAspectRatio="none" aria-hidden="true">
-            <path class="is-wireless" data-topology-link="stage2-stage1" d="M150 170 L150 425"></path>
-            <path class="is-wireless" data-topology-link="stage2-ground" d="M232 145 L668 425"></path>
-            <path class="is-wireless" data-topology-link="stage1-ground" d="M232 500 L668 438"></path>
-            <path class="is-wireless" data-topology-link="ground-mobile" d="M842 420 L960 190"></path>
-            <path class="is-wired" data-topology-link="ground-pc" d="M842 490 L960 500"></path>
+          <svg class="flash-link-topology-lines flash-link-topology-lines--desktop" viewBox="0 0 1200 500" preserveAspectRatio="none" aria-hidden="true">
+            <path class="is-wireless" data-topology-link="stage2-stage1" d="M264 174 L348 174"></path>
+            <path class="is-wireless" data-topology-link="stage1-ground" d="M552 174 L660 174"></path>
+            <path class="is-wireless is-backup" data-topology-link="stage2-ground" d="M162 246 C270 415 630 415 762 246"></path>
+            <path class="is-wireless" data-topology-link="ground-mobile" d="M864 156 C914 156 930 112 960 112"></path>
+            <path class="is-wired" data-topology-link="ground-pc" d="M864 202 C914 214 930 338 960 338"></path>
           </svg>
-          <svg class="flash-link-topology-lines flash-link-topology-lines--mobile" viewBox="0 0 400 760" preserveAspectRatio="none" aria-hidden="true">
-            <path class="is-wireless" data-topology-link="stage2-stage1" d="M200 120 L200 265"></path>
-            <path class="is-wireless" data-topology-link="stage2-ground" d="M260 110 C365 245 350 410 250 500"></path>
-            <path class="is-wireless" data-topology-link="stage1-ground" d="M200 340 L200 475"></path>
-            <path class="is-wireless" data-topology-link="ground-mobile" d="M200 555 L105 655"></path>
-            <path class="is-wired" data-topology-link="ground-pc" d="M200 555 L295 655"></path>
+          <svg class="flash-link-topology-lines flash-link-topology-lines--mobile" viewBox="0 0 400 700" preserveAspectRatio="none" aria-hidden="true">
+            <path class="is-wireless" data-topology-link="stage2-stage1" d="M200 132 L200 188"></path>
+            <path class="is-wireless" data-topology-link="stage1-ground" d="M200 300 L200 356"></path>
+            <path class="is-wireless is-backup" data-topology-link="stage2-ground" d="M280 76 C382 178 382 350 280 412"></path>
+            <path class="is-wireless" data-topology-link="ground-mobile" d="M170 468 L90 560"></path>
+            <path class="is-wired" data-topology-link="ground-pc" d="M230 468 L310 560"></path>
           </svg>
 
           <article class="flash-topology-node flash-topology-node--stage flash-topology-node--stage2" data-topology-node="stage2">
@@ -3308,7 +3308,7 @@
             <span><i class="is-wireless"></i>무선 링크</span>
             <span><i class="is-wired"></i>유선 링크</span>
           </div>
-          <p>정상 운용은 2단 → 1단 → 지상국이며, 1단 중계가 끊긴 동안에만 2단 → 지상국 백업 경로가 텔레메트리와 명령을 담당합니다.</p>
+          <p class="mono">PRIMARY&nbsp; 2STG → 1STG → GROUND&nbsp;&nbsp;·&nbsp;&nbsp;BACKUP&nbsp; 2STG → GROUND</p>
         </footer>
       </section>
     </div>

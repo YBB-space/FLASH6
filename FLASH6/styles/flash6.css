@@ -22288,6 +22288,306 @@ body.camera-view-active .page-wrap{
   .flash-link-topology-footer p{text-align:left}
 }
 
+/* Communication topology · dark HUD skin */
+.flash-link-topology-btn{
+  border:1px solid rgba(148,163,184,.25);
+  border-radius:7px;
+  background:rgba(15,23,42,.72);
+  color:#e5e7eb;
+}
+.flash-link-topology-btn:hover{
+  border-color:rgba(125,211,252,.46);
+  background:rgba(30,41,59,.88);
+}
+.flash-link-topology-overlay{
+  padding:clamp(12px,2vw,26px);
+  background:rgba(0,3,12,.84);
+  -webkit-backdrop-filter:blur(18px) saturate(.8);
+  backdrop-filter:blur(18px) saturate(.8);
+}
+.flash-link-topology-dialog{
+  width:min(1360px,100%);
+  border:1px solid rgba(148,163,184,.18);
+  border-radius:16px;
+  background:
+    radial-gradient(circle at 50% -30%,rgba(30,64,175,.14),transparent 42%),
+    #030712;
+  color:#e5e7eb;
+  box-shadow:0 30px 100px rgba(0,0,0,.58),inset 0 1px 0 rgba(255,255,255,.025);
+}
+.flash-link-topology-header{
+  align-items:center;
+  padding:22px 25px 18px;
+  border-bottom:1px solid rgba(148,163,184,.14);
+  background:rgba(2,6,23,.7);
+}
+.flash-link-topology-eyebrow{
+  margin-bottom:6px;
+  color:#7dd3fc;
+  font-size:9px;
+  font-weight:620;
+  letter-spacing:.2em;
+}
+.flash-link-topology-header h2{
+  color:#f8fafc;
+  font-size:clamp(19px,1.8vw,26px);
+  font-weight:520;
+  letter-spacing:.01em;
+}
+.flash-link-topology-header p{
+  margin-top:8px;
+  color:#7f8ca3;
+  font-size:11px;
+}
+.flash-link-topology-header-actions{gap:10px}
+.flash-link-topology-overall{
+  min-height:29px;
+  padding:0 12px;
+  border:1px solid rgba(148,163,184,.2);
+  border-radius:999px;
+  background:rgba(15,23,42,.72);
+  color:#94a3b8;
+  font-weight:540;
+  letter-spacing:.09em;
+}
+.flash-link-topology-overall.is-online{
+  border-color:rgba(52,211,153,.35);
+  background:rgba(6,78,59,.22);
+  color:#6ee7b7;
+}
+.flash-link-topology-overall.is-degraded{
+  border-color:rgba(251,191,36,.3);
+  background:rgba(120,53,15,.18);
+  color:#fcd34d;
+}
+.flash-link-topology-close{
+  width:36px;
+  height:36px;
+  border:1px solid rgba(148,163,184,.2);
+  border-radius:9px;
+  background:rgba(15,23,42,.72);
+  color:#94a3b8;
+  font-size:22px;
+}
+.flash-link-topology-close:hover{
+  border-color:rgba(226,232,240,.34);
+  background:rgba(30,41,59,.92);
+  color:#f8fafc;
+}
+.flash-link-topology-metrics{
+  gap:0;
+  border-bottom:1px solid rgba(148,163,184,.12);
+  background:rgba(2,6,23,.36);
+}
+.flash-link-topology-metrics > div{
+  padding:12px 18px;
+  border-right:1px solid rgba(148,163,184,.12);
+}
+.flash-link-topology-metrics span{
+  color:#64748b;
+  font-size:8px;
+  font-weight:620;
+}
+.flash-link-topology-metrics strong{
+  color:#dbeafe;
+  font-size:12px;
+  font-weight:520;
+}
+.flash-link-topology-canvas{
+  height:clamp(420px,54dvh,520px);
+  min-height:420px;
+  background:
+    radial-gradient(circle at 62% 42%,rgba(14,165,233,.07),transparent 27%),
+    linear-gradient(rgba(148,163,184,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(148,163,184,.035) 1px,transparent 1px),
+    #030712;
+  background-size:auto,36px 36px,36px 36px,auto;
+}
+.flash-link-topology-canvas::after{
+  right:20px;
+  bottom:14px;
+  color:#334155;
+  font-weight:560;
+}
+.flash-link-topology-lines path{
+  stroke:rgba(100,116,139,.42);
+  stroke-width:1.5;
+}
+.flash-link-topology-lines path.is-wireless{stroke-dasharray:7 8}
+.flash-link-topology-lines path.is-wired{stroke-width:1.5}
+.flash-link-topology-lines path.is-online{
+  stroke:#38bdf8;
+  filter:drop-shadow(0 0 4px rgba(56,189,248,.28));
+}
+.flash-link-topology-lines path.is-backup{stroke:rgba(167,139,250,.3)}
+.flash-link-topology-lines path.is-backup.is-online{
+  stroke:#a78bfa;
+  filter:drop-shadow(0 0 4px rgba(167,139,250,.3));
+}
+.flash-link-topology-lines path.is-offline{stroke:#334155;opacity:.58}
+.flash-topology-node{
+  width:17%;
+  height:128px;
+  padding:18px 16px;
+  border:1px solid rgba(148,163,184,.18);
+  border-radius:14px;
+  background:linear-gradient(145deg,rgba(15,23,42,.93),rgba(2,6,23,.97));
+  color:#e5e7eb;
+  filter:none;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.025),0 16px 34px rgba(0,0,0,.2);
+}
+.flash-topology-node--stage{
+  width:17%;
+  height:128px;
+  padding:18px 16px;
+  clip-path:none;
+  background:linear-gradient(145deg,rgba(15,23,42,.93),rgba(2,6,23,.97));
+}
+.flash-topology-node--stage2{left:5%;top:22%}
+.flash-topology-node--stage1{left:29%;top:22%}
+.flash-topology-node--ground{
+  left:55%;
+  top:22%;
+  width:17%;
+  height:128px;
+  border:1px solid rgba(56,189,248,.34);
+  background:linear-gradient(145deg,rgba(8,47,73,.9),rgba(3,18,34,.97));
+}
+.flash-topology-node--client{
+  left:80%;
+  width:17%;
+  height:112px;
+  border:1px solid rgba(148,163,184,.16);
+  background:linear-gradient(145deg,rgba(17,24,39,.88),rgba(3,7,18,.96));
+}
+.flash-topology-node--mobile{top:9%}
+.flash-topology-node--pc{top:56%}
+.flash-topology-node-kicker{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  margin-bottom:8px;
+  color:#64748b;
+  font-size:7px;
+  font-weight:600;
+  letter-spacing:.16em;
+}
+.flash-topology-node-kicker::before{
+  content:"";
+  width:5px;
+  height:5px;
+  border-radius:50%;
+  background:#475569;
+  box-shadow:0 0 0 3px rgba(71,85,105,.12);
+}
+.flash-topology-node strong{
+  color:#f1f5f9;
+  font-size:clamp(14px,1.2vw,18px);
+  font-weight:520;
+  letter-spacing:.01em;
+}
+.flash-topology-node em{
+  min-height:18px;
+  margin-top:10px;
+  padding:0 7px;
+  border:1px solid rgba(148,163,184,.18);
+  border-radius:999px;
+  background:rgba(15,23,42,.66);
+  color:#64748b;
+  font-size:7px;
+  font-weight:560;
+}
+.flash-topology-node small{
+  margin-top:7px;
+  color:#475569;
+  font-size:7px;
+  font-weight:560;
+}
+.flash-topology-node.is-offline{opacity:.5;filter:none}
+.flash-topology-node.is-online{
+  opacity:1;
+  border-color:rgba(56,189,248,.34);
+  filter:none;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.035),0 0 24px rgba(14,165,233,.08);
+}
+.flash-topology-node.is-online .flash-topology-node-kicker::before{
+  background:#34d399;
+  box-shadow:0 0 0 3px rgba(52,211,153,.12),0 0 8px rgba(52,211,153,.45);
+}
+.flash-topology-node.is-online em{
+  border-color:rgba(52,211,153,.3);
+  background:rgba(6,78,59,.2);
+  color:#6ee7b7;
+}
+.flash-topology-node.is-current{
+  outline:1px solid rgba(125,211,252,.42);
+  outline-offset:3px;
+}
+.flash-topology-link-label{
+  padding:3px 7px;
+  border:1px solid rgba(100,116,139,.22);
+  border-radius:999px;
+  background:rgba(3,7,18,.92);
+  color:#64748b;
+  font-size:7px;
+  font-weight:560;
+}
+.flash-topology-link-label--relay{left:23.4%;top:27%;transform:none}
+.flash-topology-link-label--backup{left:35%;top:75%;transform:none;color:#8b7ab8}
+.flash-topology-link-label--uplink{left:46.2%;top:27%;transform:none}
+.flash-topology-link-label--wifi{left:74.7%;top:19%;transform:none}
+.flash-topology-link-label--wired{left:74.7%;top:65%;transform:none}
+.flash-link-topology-footer{
+  min-height:54px;
+  padding:10px 24px;
+  border-top:1px solid rgba(148,163,184,.12);
+  background:rgba(2,6,23,.7);
+}
+.flash-link-topology-legend span{
+  color:#64748b;
+  font-size:10px;
+  font-weight:520;
+}
+.flash-link-topology-legend i{
+  width:38px;
+  border-color:#38bdf8;
+  border-width:1px;
+}
+.flash-link-topology-footer p{
+  color:#64748b;
+  font-size:9px;
+}
+@media(max-width:700px){
+  .flash-link-topology-overlay{padding:0;background:#030712}
+  .flash-link-topology-dialog{background:#030712}
+  .flash-link-topology-header{
+    padding:17px 16px 14px;
+    background:rgba(2,6,23,.96);
+    border-bottom-color:rgba(148,163,184,.14);
+  }
+  .flash-link-topology-metrics > div{border-color:rgba(148,163,184,.12)}
+  .flash-link-topology-canvas{
+    height:700px;
+    min-height:700px;
+    background-size:auto,28px 28px,28px 28px,auto;
+  }
+  .flash-topology-node--stage,
+  .flash-topology-node--ground{
+    left:50%;
+    width:160px;
+    height:112px;
+    padding:15px 12px;
+    transform:translateX(-50%);
+  }
+  .flash-topology-node--stage2{top:20px}
+  .flash-topology-node--stage1{top:188px}
+  .flash-topology-node--ground{top:356px}
+  .flash-topology-node--client{top:560px;width:calc(50% - 20px);height:106px}
+  .flash-topology-node--mobile{left:10px}
+  .flash-topology-node--pc{left:auto;right:10px}
+  .flash-link-topology-footer{background:rgba(2,6,23,.96)}
+}
+
 /* Dual-vehicle ground-station telemetry */
 .stage-telemetry-deck{
   display:grid;
