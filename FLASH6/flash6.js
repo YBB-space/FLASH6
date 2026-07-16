@@ -5061,9 +5061,9 @@ function requestMobileMockup3dMesh(){
       }
       if(inCameraPreview){
         renderStyle.clear = [0.01,0.018,0.03,0.03];
-        renderStyle.ambient = 0.62;
+        renderStyle.ambient = 0.66;
         renderStyle.lightDir = [-0.32,0.88,0.36];
-        renderStyle.colorLift = 0.03;
+        renderStyle.colorLift = 0.045;
         renderStyle.sheen = 0.12;
       }
 
