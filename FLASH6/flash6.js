@@ -1116,9 +1116,9 @@ if (typeof window !== "undefined") {
       return true;
     }
     function quatFromVehicleUiEuler(rollDeg, pitchDeg, yawDeg){
-      const qRoll = quatFromAxisAngle([0,1,0], -(Number(rollDeg) || 0) * DEG_TO_RAD);
-      const qPitch = quatFromAxisAngle([1,0,0], (Number(pitchDeg) || 0) * DEG_TO_RAD);
-      const qYaw = quatFromAxisAngle([0,0,-1], (Number(yawDeg) || 0) * DEG_TO_RAD);
+      const qRoll = quatFromAxisAngle([1,0,0], (Number(rollDeg) || 0) * DEG_TO_RAD);
+      const qPitch = quatFromAxisAngle([0,0,-1], (Number(pitchDeg) || 0) * DEG_TO_RAD);
+      const qYaw = quatFromAxisAngle([0,1,0], (Number(yawDeg) || 0) * DEG_TO_RAD);
       return quatNormalize(quatMul(qYaw, quatMul(qPitch, qRoll)));
     }
     function updateGyroUiAttitudeFromEuler(rollDeg, pitchDeg, yawDeg, smooth){
