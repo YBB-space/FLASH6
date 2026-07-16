@@ -4533,7 +4533,8 @@ function requestMobileMockup3dMesh(){
       gxRaw,
       gyRaw,
       gzRaw,
-      attitudeQuatRaw
+      attitudeQuatRaw,
+      options
     ){
       const rollDeg = isFinite(rollRaw) ? Number(rollRaw) : NaN;
       const pitchDeg = isFinite(pitchRaw) ? Number(pitchRaw) : NaN;
@@ -4546,7 +4547,21 @@ function requestMobileMockup3dMesh(){
       const firmwareQuat = quatFromFirmwareAttitude(attitudeQuatRaw);
       const targetQuat = firmwareQuat ||
         quatFromRenderEuler(pitchDeg, yawDeg, rollDeg);
-      if(firmwareQuat){
+      const smoothRelayedQuat = !!(options && options.smoothRelayedQuat);
+      if(firmwareQuat && smoothRelayedQuat && gyroAttitudeReady){
+        // Radio snapshots arrive at a lower rate than the local IMU stream and
+        // are quantized to int16. Interpolate only this relayed display source;
+        // local attitude and trajectory physics retain the firmware quaternion.
+        const current = quatNormalize(gyroAttitudeQuat);
+        const target = quatNormalize(firmwareQuat);
+        const dot = Math.abs(
+          (current[0] * target[0]) + (current[1] * target[1]) +
+          (current[2] * target[2]) + (current[3] * target[3])
+        );
+        const angleDeg = 2 * Math.acos(clampLocal(dot, -1, 1)) * RAD_TO_DEG;
+        const response = angleDeg > 35 ? 0.58 : (angleDeg > 8 ? 0.38 : 0.24);
+        gyroAttitudeQuat = quatSlerpShortest(current, target, response);
+      }else if(firmwareQuat){
         // It has already passed the firmware's Mahony filter and gyro bias
         // correction. A second rate limiter here caused the physics attitude
         // to lag the IMU sample during the high-g launch transient.
@@ -6940,6 +6955,8 @@ function requestMobileMockup3dMesh(){
         valid:false,
         updatedAt:0,
         rxSeq:0,
+        attitudeRevision:0,
+        gyroAppliedRevision:0,
         data:null,
         altitudeM:NaN,
         speedMps:NaN,
@@ -7024,10 +7041,23 @@ function requestMobileMockup3dMesh(){
         updateStageTelemetryDashboard();
         return;
       }
+      const sequenceDelta = (nextRxSeq - previousRxSeq) >>> 0;
+      const sequenceReset = nextRxSeq > 0 && previousRxSeq > 0 && nextRxSeq < previousRxSeq &&
+        Number(sample.flight_phase_code) === 0 && Number(sample.st) === 0;
+      const isNewRadioSample = nextRxSeq === 0 || previousRxSeq === 0 ||
+        (sequenceDelta > 0 && sequenceDelta < 0x80000000) || sequenceReset;
+      if(!isNewRadioSample){
+        // The same relay snapshot can arrive again through a parallel/fallback
+        // transport. Never let an older HTTP response overwrite a newer WS
+        // attitude; that makes the gyro bounce backward and forward.
+        updateStageTelemetryDashboard();
+        return;
+      }
       state.data = Object.assign({}, state.data || {}, sample, {
         stage_node_id:stageId,
         data_origin:"avionics"
       });
+      state.attitudeRevision++;
       const ageMs = Math.max(0, Number(sample.stage_age_ms ?? sample.age_ms) || 0);
       state.updatedAt = Date.now() - Math.min(ageMs, 0x7fffffff);
       if(nextRxSeq > 0) state.rxSeq = nextRxSeq;
@@ -7039,15 +7069,12 @@ function requestMobileMockup3dMesh(){
       if(isFinite(gforceG)) state.gforceG = Math.max(0, gforceG);
       const alarmTitle = String(sample.mission_alarm_title || "").trim();
       if(alarmTitle) state.lastEvent = localizeFirmwareMissionAlarm(alarmTitle, sample.mission_alarm_message).title;
-      const isNewRadioSample = nextRxSeq === 0 || nextRxSeq !== previousRxSeq;
-      if(isNewRadioSample){
-        state.altitudeHistory.push(isFinite(state.altitudeM) ? state.altitudeM : 0);
-        state.speedHistory.push(isFinite(state.speedMps) ? state.speedMps : 0);
-        state.gforceHistory.push(isFinite(state.gforceG) ? state.gforceG : 1);
-        trimStageTelemetryHistory(state.altitudeHistory);
-        trimStageTelemetryHistory(state.speedHistory);
-        trimStageTelemetryHistory(state.gforceHistory);
-      }
+      state.altitudeHistory.push(isFinite(state.altitudeM) ? state.altitudeM : 0);
+      state.speedHistory.push(isFinite(state.speedMps) ? state.speedMps : 0);
+      state.gforceHistory.push(isFinite(state.gforceG) ? state.gforceG : 1);
+      trimStageTelemetryHistory(state.altitudeHistory);
+      trimStageTelemetryHistory(state.speedHistory);
+      trimStageTelemetryHistory(state.gforceHistory);
 
       if(stageId === 1){
         const deploymentState = Number(sample.deployment_state) || 0;
@@ -7147,8 +7174,10 @@ function requestMobileMockup3dMesh(){
         : null;
     }
     function applyActiveStageGyroAttitude(nowMs){
+      if(!stageTelemetryModeActive) return false;
+      const state = stageTelemetryStore[cameraHudActiveStageId];
       const data = getActiveGyroTelemetryData(null);
-      if(!data) return false;
+      if(!state || !data || state.attitudeRevision === state.gyroAppliedRevision) return false;
       const applied = applyFirmwareGyroAttitudeEstimate(
         Number(data.gr),
         Number(data.gp),
@@ -7157,9 +7186,13 @@ function requestMobileMockup3dMesh(){
         Number(data.gx),
         Number(data.gy),
         Number(data.gz),
-        data.attitude_q
+        data.attitude_q,
+        {smoothRelayedQuat:true}
       );
-      if(applied) scheduleLiveGyroRender(Number(data.gy) || 0);
+      if(applied){
+        state.gyroAppliedRevision = state.attitudeRevision;
+        scheduleLiveGyroRender(Number(data.gy) || 0);
+      }
       return applied;
     }
 
@@ -21738,37 +21771,18 @@ function requestMobileMockup3dMesh(){
       if(!isFastReplaySeek){
         updateStatusMapFromTelemetry(data);
       }
-      const gyroTelemetryData = getActiveGyroTelemetryData(data);
-      if(gyroTelemetryData){
-        const gyroGa = Number(gyroTelemetryData.ga ?? gyroTelemetryData.gyro_attitude_valid ?? 0);
-        const gyroAx = Number(gyroTelemetryData.ax);
-        const gyroAy = Number(gyroTelemetryData.ay);
-        const gyroAz = Number(gyroTelemetryData.az);
-        const gyroGx = Number(gyroTelemetryData.gx);
-        const gyroGy = Number(gyroTelemetryData.gy);
-        const gyroGz = Number(gyroTelemetryData.gz);
-        const gyroRoll = Number(gyroTelemetryData.gr);
-        const gyroPitch = Number(gyroTelemetryData.gp);
-        const gyroYaw = Number(gyroTelemetryData.gyw);
-        if(!(gyroGa !== 0 && applyFirmwareGyroAttitudeEstimate(
-          gyroRoll,
-          gyroPitch,
-          gyroYaw,
-          timeMs,
-          gyroGx,
-          gyroGy,
-          gyroGz,
-          gyroTelemetryData.attitude_q ?? gyroTelemetryData.attitudeQuat ?? null))){
-          updateGyroAttitudeEstimate(
-            gyroAx,
-            gyroAy,
-            gyroAz,
-            gyroGx,
-            gyroGy,
-            gyroGz,
-            timeMs
-          );
-        }
+      if(stageTelemetryModeActive){
+        applyActiveStageGyroAttitude(timeMs);
+      }else if(!(ga !== 0 && applyFirmwareGyroAttitudeEstimate(
+        gr,
+        gp,
+        gyw,
+        timeMs,
+        gx,
+        gy,
+        gz,
+        data.attitude_q ?? data.attitudeQuat ?? null))){
+        updateGyroAttitudeEstimate(ax, ay, az, gx, gy, gz, timeMs);
       }
       const quickFlight = getQuickFlightMetrics(data, timeMs);
       const quickAltitudeM = isFinite(quickFlight.altitudeM)
@@ -21795,9 +21809,8 @@ function requestMobileMockup3dMesh(){
           ? flightPhaseInfo.phase
           : null
       });
-      if(!isFastReplaySeek){
-        const activeGyroRateY = gyroTelemetryData ? Number(gyroTelemetryData.gy) : gy;
-        scheduleLiveGyroRender(activeGyroRateY);
+      if(!isFastReplaySeek && !stageTelemetryModeActive){
+        scheduleLiveGyroRender(gy);
       }
       // Only the 3D gyro rocket is pinned to the pad before launch. Charts and
       // telemetry HUDs must continue to show the actual barometric altitude.
