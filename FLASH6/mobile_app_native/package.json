@@ -1,0 +1,32 @@
+{
+  "name": "altis-mobile-native",
+  "version": "1.0.0",
+  "description": "ALTIS phone app wrapper (Capacitor iOS/Android)",
+  "main": "index.js",
+  "scripts": {
+    "sync:web": "rm -rf www && mkdir -p www && cp ../flash6.html www/index.html && cp ../flash6.html ../flash6.js ../overlay.html ../manifest.webmanifest www/ && cp -R ../scripts ../styles ../img ../vendor ../mp3 ../tiles ../3d www/ && find www \\( -name .DS_Store -o -name '*.textClipping' -o -name '* 2.*' \\) -delete && xattr -cr www",
+    "cap:sync": "npm run sync:web && npx cap sync",
+    "ios:add": "npx cap add ios",
+    "ios:sync": "npm run sync:web && npx cap sync ios",
+    "ios:open": "npx cap open ios",
+    "android:add": "npx cap add android",
+    "android:sync": "npm run sync:web && npx cap sync android",
+    "android:open": "npx cap open android",
+    "android:build": "npm run android:sync && cd android && JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home ANDROID_HOME=/opt/homebrew/share/android-commandlinetools ./gradlew assembleDebug"
+  },
+  "keywords": [],
+  "author": "ALTIS",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@capacitor/android": "8.3.4",
+    "@capacitor/cli": "8.3.4",
+    "@capacitor/core": "8.3.4",
+    "@capacitor/filesystem": "^8.1.2",
+    "@capacitor/ios": "8.3.4",
+    "@capacitor/share": "^8.0.1"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3"
+  }
+}

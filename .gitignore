@@ -1,0 +1,26 @@
+.pio/
+.vscode/.browse.c_cpp.db*
+.vscode/c_cpp_properties.json
+.vscode/launch.json
+.vscode/ipch
+
+# macOS and editor artifacts
+.DS_Store
+**/.DS_Store
+*.textClipping
+*.swp
+*.swo
+*~
+
+# Local compiler and slicer output
+main.d
+result.json
+*.o
+
+# JavaScript dependencies and generated native bundles
+node_modules/
+FLASH6/mobile_app_native/www/
+
+# Local IDE state
+**/xcuserdata/
+*.xcuserstate
