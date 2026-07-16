@@ -23,7 +23,20 @@ bool flashLinkSendPacket(
   const uint8_t* destination,
   const void* payload,
   uint16_t payloadBytes,
-  uint32_t ack = 0);
+  uint32_t ack = 0,
+  uint8_t targetNodeId = kFlashLinkNodeIdGround);
+
+uint8_t flashLinkPacketSourceNode(const FlashLinkHeaderV1& header) {
+  return header.flags & kFlashLinkNodeIdMask;
+}
+
+uint8_t flashLinkPacketTargetNode(const FlashLinkHeaderV1& header) {
+  return (header.flags & kFlashLinkTargetNodeMask) >> kFlashLinkTargetNodeShift;
+}
+
+bool flashLinkPacketRelayed(const FlashLinkHeaderV1& header) {
+  return (header.flags & kFlashLinkRelayedFlag) != 0U;
+}
 
 FlashLinkGroundPeer* flashLinkGroundPeerForNode(uint8_t nodeId) {
   if (nodeId < kFlashLinkNodeIdStage1 || nodeId > kFlashLinkNodeIdStage2) return nullptr;
@@ -298,7 +311,9 @@ bool flashLinkRequestStorageReadWindowed(
               FlashLinkPacketType::StorageReadRequest,
               targetPeer->mac,
               &request,
-              sizeof(request))) {
+              sizeof(request),
+              0,
+              targetNodeId)) {
           read.sent = true;
           read.lastSendMs = nowMs;
           read.attempts++;
@@ -370,7 +385,9 @@ bool flashLinkRequestStorageList(
             FlashLinkPacketType::StorageListRequest,
             targetPeer->mac,
             &request,
-            sizeof(request))) {
+            sizeof(request),
+            0,
+            targetNodeId)) {
         lastSendMs = nowMs;
         attempts++;
       }
@@ -825,7 +842,7 @@ void flashLinkOnReceive(const uint8_t* mac, const uint8_t* data, int dataLen) {
     incomingHeader.type == static_cast<uint8_t>(FlashLinkPacketType::Telemetry);
 
   portENTER_CRITICAL(&flashLinkRxMux);
-  if (flashLinkGroundRole() && incomingTelemetry) {
+  if ((flashLinkGroundRole() || flashLinkStage1RelayRole()) && incomingTelemetry) {
     while (flashLinkRxCount >= kFlashLinkTelemetryQueueSoftLimit) {
       const FlashLinkRxSlot& oldest = flashLinkRxQueue[flashLinkRxHead];
       const bool oldestIsTelemetry =
@@ -865,10 +882,21 @@ void flashLinkPromiscuousRx(void* buf, wifi_promiscuous_pkt_type_t type) {
   const uint8_t* frame = pkt->payload;
   const uint8_t* sourceMac = frame + 10;  // 802.11 address 2.
   if (flashLinkGroundRole()) {
-    FlashLinkGroundPeer* peer = flashLinkGroundPeerForMac(sourceMac);
-    if (!peer) return;
-    peer->rssiDbm = pkt->rx_ctrl.rssi;
-    peer->lastRssiMs = millis();
+    FlashLinkGroundPeer* stage1 = flashLinkGroundPeerForNode(kFlashLinkNodeIdStage1);
+    if (!stage1 || !stage1->peerReady ||
+        memcmp(sourceMac, stage1->mac, ESP_NOW_ETH_ALEN) != 0) return;
+    const uint32_t nowMs = millis();
+    stage1->rssiDbm = pkt->rx_ctrl.rssi;
+    stage1->lastRssiMs = nowMs;
+    FlashLinkGroundPeer* stage2 = flashLinkGroundPeerForNode(kFlashLinkNodeIdStage2);
+    if (stage2 && stage2->relayed && stage2->peerReady) {
+      stage2->rssiDbm = pkt->rx_ctrl.rssi;
+      stage2->lastRssiMs = nowMs;
+    }
+    return;
+  }
+  if (flashLinkStage1RelayRole() && flashLinkRelay.stage2PeerReady &&
+      memcmp(sourceMac, flashLinkRelay.stage2Mac, ESP_NOW_ETH_ALEN) == 0) {
     return;
   }
   if (!flashLink.peerReady) return;
@@ -939,6 +967,11 @@ void flashLinkResetPeer() {
   portEXIT_CRITICAL(&flashLinkRxMux);
   flashLinkStorageReadCancel(0);
   flashLinkStorageListCancel(0);
+  if (flashLinkStage1RelayRole()) {
+    flashLinkRelayTxHead = 0;
+    flashLinkRelayTxTail = 0;
+    flashLinkRelayTxCount = 0;
+  }
   if (flashLinkGroundRole()) {
     uint8_t cleared = 0;
     portENTER_CRITICAL(&flashLinkCommandMux);
@@ -953,7 +986,9 @@ void flashLinkResetPeer() {
 
 void flashLinkResetGroundPeer(FlashLinkGroundPeer& peer) {
   const uint8_t nodeId = peer.nodeId;
-  if (peer.peerReady && esp_now_is_peer_exist(peer.mac)) esp_now_del_peer(peer.mac);
+  if (!peer.relayed && peer.peerReady && esp_now_is_peer_exist(peer.mac)) {
+    esp_now_del_peer(peer.mac);
+  }
   uint8_t removedCommands = 0;
   portENTER_CRITICAL(&flashLinkCommandMux);
   FlashLinkCommandQueueEntry kept[kFlashLinkCommandQueueDepth]{};
@@ -987,6 +1022,67 @@ void flashLinkResetGroundPeer(FlashLinkGroundPeer& peer) {
   peer = {};
   peer.nodeId = nodeId;
   flashLinkGroundRefreshSelectedPeer();
+}
+
+bool flashLinkEnsureRelayedGroundPeer(const uint8_t* relayMac, uint8_t nodeId) {
+  if (!flashLinkGroundRole() || !relayMac || nodeId != kFlashLinkNodeIdStage2) return false;
+  FlashLinkGroundPeer* stage1 = flashLinkGroundPeerForNode(kFlashLinkNodeIdStage1);
+  FlashLinkGroundPeer* stage2 = flashLinkGroundPeerForNode(kFlashLinkNodeIdStage2);
+  if (!stage1 || !stage2 || !stage1->peerReady ||
+      memcmp(stage1->mac, relayMac, ESP_NOW_ETH_ALEN) != 0) {
+    return false;
+  }
+  if (stage2->peerReady && stage2->relayed &&
+      memcmp(stage2->mac, relayMac, ESP_NOW_ETH_ALEN) == 0) {
+    return true;
+  }
+  if (stage2->peerReady) flashLinkResetGroundPeer(*stage2);
+  stage2->occupied = true;
+  stage2->peerReady = true;
+  stage2->relayed = true;
+  stage2->nodeId = kFlashLinkNodeIdStage2;
+  stage2->rxRateWindowMs = millis();
+  stage2->rssiDbm = stage1->rssiDbm;
+  stage2->lastRssiMs = stage1->lastRssiMs;
+  memcpy(stage2->mac, relayMac, ESP_NOW_ETH_ALEN);
+  Serial.println("[FLASH_LINK] stage 2 virtual peer discovered through stage 1 relay");
+  return true;
+}
+
+bool flashLinkEnsureStage2RelayPeer(const uint8_t* mac) {
+  if (!flashLinkStage1RelayRole() || !mac ||
+      memcmp(mac, kFlashLinkBroadcastMac, ESP_NOW_ETH_ALEN) == 0) {
+    return false;
+  }
+  if (flashLinkRelay.stage2PeerReady &&
+      memcmp(mac, flashLinkRelay.stage2Mac, ESP_NOW_ETH_ALEN) == 0) {
+    return true;
+  }
+  if (flashLinkRelay.stage2PeerReady &&
+      esp_now_is_peer_exist(flashLinkRelay.stage2Mac)) {
+    esp_now_del_peer(flashLinkRelay.stage2Mac);
+  }
+  esp_now_peer_info_t peer{};
+  memcpy(peer.peer_addr, mac, ESP_NOW_ETH_ALEN);
+  memcpy(peer.lmk, kFlashLinkLmk, ESP_NOW_KEY_LEN);
+  peer.channel = kFlashLinkChannel;
+  peer.ifidx = flashLinkWifiInterface();
+  peer.encrypt = true;
+  const esp_err_t err = esp_now_add_peer(&peer);
+  if (err != ESP_OK && err != ESP_ERR_ESPNOW_EXIST) {
+    Serial.printf("[FLASH_LINK] stage 2 relay peer add failed err=%d\n", (int)err);
+    return false;
+  }
+  flashLinkRelay = {};
+  flashLinkRelayTxHead = 0;
+  flashLinkRelayTxTail = 0;
+  flashLinkRelayTxCount = 0;
+  flashLinkRelay.stage2PeerReady = true;
+  memcpy(flashLinkRelay.stage2Mac, mac, ESP_NOW_ETH_ALEN);
+  char peerText[20];
+  flashLinkFormatMac(mac, peerText, sizeof(peerText));
+  Serial.printf("[FLASH_LINK] stage 2 relay peer discovered mac=%s\n", peerText);
+  return true;
 }
 
 bool flashLinkEnsurePeer(const uint8_t* mac, uint8_t nodeId = kFlashLinkNodeIdStage1) {
@@ -1048,12 +1144,38 @@ bool flashLinkEnsurePeer(const uint8_t* mac, uint8_t nodeId = kFlashLinkNodeIdSt
   return true;
 }
 
-bool flashLinkSendPacket(
+bool flashLinkSendPreparedFrame(
+  const uint8_t* destination,
+  const uint8_t* frame,
+  uint16_t frameBytes
+) {
+  if (!flashLink.initialized || flashLink.txBusy || !destination || !frame ||
+      frameBytes < sizeof(FlashLinkHeaderV1) || frameBytes > kFlashLinkMaxPacketBytes) {
+    return false;
+  }
+  flashLink.txBusy = true;
+  flashLink.lastTxStartMs = millis();
+  flashLink.txFrames++;
+  const esp_err_t err = esp_now_send(destination, frame, frameBytes);
+  if (err != ESP_OK) {
+    flashLink.txBusy = false;
+    flashLink.txFail++;
+    return false;
+  }
+  return true;
+}
+
+bool flashLinkSendRoutedPacket(
   FlashLinkPacketType type,
   const uint8_t* destination,
   const void* payload,
   uint16_t payloadBytes,
-  uint32_t ack
+  uint32_t ack,
+  uint8_t sourceNodeId,
+  uint8_t targetNodeId,
+  uint8_t roleCode,
+  uint32_t session,
+  bool relayed
 ) {
   if (!flashLink.initialized || flashLink.txBusy || !destination) return false;
   const size_t totalBytes = sizeof(FlashLinkHeaderV1) + payloadBytes;
@@ -1064,9 +1186,11 @@ bool flashLinkSendPacket(
   header->magic = kFlashLinkMagic;
   header->version = kFlashLinkVersion;
   header->type = static_cast<uint8_t>(type);
-  header->role = flashLinkRoleCode();
-  header->flags = flashLinkLocalNodeId() & kFlashLinkNodeIdMask;
-  header->session = flashLink.session;
+  header->role = roleCode;
+  header->flags = (sourceNodeId & kFlashLinkNodeIdMask) |
+    ((targetNodeId << kFlashLinkTargetNodeShift) & kFlashLinkTargetNodeMask) |
+    (relayed ? kFlashLinkRelayedFlag : 0U);
+  header->session = session;
   header->seq = ++flashLink.txSeq;
   header->ack = ack;
   header->payloadBytes = payloadBytes;
@@ -1074,15 +1198,70 @@ bool flashLinkSendPacket(
   if (payloadBytes > 0 && payload) memcpy(frame + sizeof(*header), payload, payloadBytes);
   header->crc16 = crc16Ccitt(frame, totalBytes);
 
-  flashLink.txBusy = true;
-  flashLink.lastTxStartMs = millis();
-  flashLink.txFrames++;
-  const esp_err_t err = esp_now_send(destination, frame, totalBytes);
-  if (err != ESP_OK) {
-    flashLink.txBusy = false;
-    flashLink.txFail++;
+  return flashLinkSendPreparedFrame(destination, frame, (uint16_t)totalBytes);
+}
+
+bool flashLinkSendPacket(
+  FlashLinkPacketType type,
+  const uint8_t* destination,
+  const void* payload,
+  uint16_t payloadBytes,
+  uint32_t ack,
+  uint8_t targetNodeId
+) {
+  return flashLinkSendRoutedPacket(
+    type,
+    destination,
+    payload,
+    payloadBytes,
+    ack,
+    flashLinkLocalNodeId(),
+    targetNodeId,
+    flashLinkRoleCode(),
+    flashLink.session,
+    false);
+}
+
+bool flashLinkQueueRelayedFrame(
+  const uint8_t* destination,
+  const FlashLinkRxSlot& incoming,
+  bool downlink
+) {
+  if (!flashLinkStage1RelayRole() || !destination ||
+      incoming.len < sizeof(FlashLinkHeaderV1) ||
+      incoming.len > kFlashLinkMaxPacketBytes) {
     return false;
   }
+  if (flashLinkRelayTxCount >= kFlashLinkRelayTxQueueDepth) {
+    flashLinkRelay.queueDrops++;
+    return false;
+  }
+  FlashLinkRelayTxSlot& queued = flashLinkRelayTxQueue[flashLinkRelayTxTail];
+  memcpy(queued.destination, destination, ESP_NOW_ETH_ALEN);
+  queued.len = incoming.len;
+  memcpy(queued.data, incoming.data, incoming.len);
+  FlashLinkHeaderV1* header = reinterpret_cast<FlashLinkHeaderV1*>(queued.data);
+  header->flags |= kFlashLinkRelayedFlag;
+  if (downlink) header->session = flashLink.session;
+  header->crc16 = 0;
+  header->crc16 = crc16Ccitt(queued.data, queued.len);
+  flashLinkRelayTxTail =
+    (uint8_t)((flashLinkRelayTxTail + 1U) % kFlashLinkRelayTxQueueDepth);
+  flashLinkRelayTxCount++;
+  if (downlink) flashLinkRelay.forwardedDown++;
+  else flashLinkRelay.forwardedUp++;
+  return true;
+}
+
+bool flashLinkDrainRelayTxQueue() {
+  if (!flashLinkStage1RelayRole() || flashLink.txBusy || flashLinkRelayTxCount == 0U) {
+    return false;
+  }
+  FlashLinkRelayTxSlot& queued = flashLinkRelayTxQueue[flashLinkRelayTxHead];
+  if (!flashLinkSendPreparedFrame(queued.destination, queued.data, queued.len)) return false;
+  flashLinkRelayTxHead =
+    (uint8_t)((flashLinkRelayTxHead + 1U) % kFlashLinkRelayTxQueueDepth);
+  flashLinkRelayTxCount--;
   return true;
 }
 
@@ -1091,7 +1270,8 @@ bool flashLinkSendDiscovery(FlashLinkPacketType type) {
   discovery.deviceId = ESP.getEfuseMac();
   discovery.telemetryHz = kFlashLinkTelemetryHz;
   discovery.channel = kFlashLinkChannel;
-  discovery.capabilities = 0x0FU;  // encrypted unicast, ACK, auto-reconnect, commands
+  // bit 4 advertises the node-1 stage relay capability.
+  discovery.capabilities = 0x0FU | (flashLinkStage1RelayRole() ? 0x10U : 0U);
   return flashLinkSendPacket(type, kFlashLinkBroadcastMac, &discovery, sizeof(discovery));
 }
 
@@ -1347,13 +1527,84 @@ void flashLinkBeginPeerSession(uint32_t session, uint32_t nowMs) {
   flashLink.lastMissionAlarmTxMs = 0;
 }
 
+bool flashLinkHandleStage2RelayUplink(
+  FlashLinkRxSlot& slot,
+  const FlashLinkHeaderV1& header,
+  FlashLinkPacketType type,
+  uint32_t nowMs
+) {
+  if (!flashLinkStage1RelayRole() || header.role != static_cast<uint8_t>(FlashLinkRole::Avionics) ||
+      flashLinkPacketSourceNode(header) != kFlashLinkNodeIdStage2 ||
+      flashLinkPacketRelayed(header)) {
+    return false;
+  }
+  if (type == FlashLinkPacketType::Discover) {
+    if (header.payloadBytes != sizeof(FlashLinkDiscoveryV1) ||
+        !flashLinkEnsureStage2RelayPeer(slot.mac)) {
+      return true;
+    }
+    if (flashLinkRelay.stage2Session != 0U &&
+        flashLinkRelay.stage2Session != header.session) {
+      flashLinkRelay.stage2Linked = false;
+      flashLinkRelay.stage2RxTelemetrySeq = 0;
+    }
+    flashLinkRelay.stage2Session = header.session;
+    flashLinkRelay.stage2LastRxMs = nowMs;
+  } else {
+    if (!flashLinkRelay.stage2PeerReady ||
+        memcmp(slot.mac, flashLinkRelay.stage2Mac, ESP_NOW_ETH_ALEN) != 0) {
+      return true;
+    }
+    flashLinkRelay.stage2LastRxMs = nowMs;
+    if (flashLinkRelay.stage2Session != 0U &&
+        flashLinkRelay.stage2Session != header.session) {
+      flashLinkRelay.stage2Linked = false;
+      flashLinkRelay.stage2RxTelemetrySeq = 0;
+    }
+    flashLinkRelay.stage2Session = header.session;
+    if (type == FlashLinkPacketType::Ack ||
+        type == FlashLinkPacketType::Hello ||
+        type == FlashLinkPacketType::Heartbeat) {
+      flashLinkRelay.stage2Linked = true;
+    }
+    if (type == FlashLinkPacketType::Telemetry &&
+        (header.payloadBytes == sizeof(FlashLinkTelemetryV1) ||
+         header.payloadBytes == 105U || header.payloadBytes == 97U)) {
+      FlashLinkTelemetryV1 telemetry{};
+      memcpy(
+        &telemetry,
+        slot.data + sizeof(FlashLinkHeaderV1),
+        min<size_t>(header.payloadBytes, sizeof(telemetry)));
+      const uint32_t previousSeq = flashLinkRelay.stage2RxTelemetrySeq;
+      const bool duplicate = previousSeq != 0U && telemetry.telemetrySeq == previousSeq;
+      if (!duplicate) {
+        flashLinkRelay.stage2RxTelemetrySeq = telemetry.telemetrySeq;
+        flashLinkRelay.stage2RxTelemetryFrames++;
+        flashLinkRelay.stage2LastTelemetryRxMs = nowMs;
+        flashLinkRelay.stage2Linked = true;
+      }
+      if (duplicate ||
+          (flashLinkRelay.stage2RxTelemetryFrames % kFlashLinkAckEveryFrames) == 0U) {
+        flashLinkRelay.stage2AckPending = true;
+      }
+      if (duplicate) return true;
+    }
+  }
+
+  // The relay forwards the original source node, payload, packet type, and
+  // stage-2 session. Only the physical transmitter changes to stage 1.
+  if (flashLink.peerReady) {
+    flashLinkQueueRelayedFrame(flashLink.peerMac, slot, false);
+  }
+  return true;
+}
+
 void flashLinkHandlePacket(FlashLinkRxSlot& slot) {
   if (slot.len < sizeof(FlashLinkHeaderV1)) return;
   FlashLinkHeaderV1* header = reinterpret_cast<FlashLinkHeaderV1*>(slot.data);
   if (header->magic != kFlashLinkMagic ||
       header->version != kFlashLinkVersion ||
-      header->payloadBytes != slot.len - sizeof(FlashLinkHeaderV1) ||
-      header->role == flashLinkRoleCode()) {
+      header->payloadBytes != slot.len - sizeof(FlashLinkHeaderV1)) {
     return;
   }
 
@@ -1369,7 +1620,11 @@ void flashLinkHandlePacket(FlashLinkRxSlot& slot) {
   const FlashLinkPacketType type = static_cast<FlashLinkPacketType>(header->type);
   const uint32_t nowMs = millis();
   flashLink.rxFrames++;
-  uint8_t incomingNodeId = header->flags & kFlashLinkNodeIdMask;
+  uint8_t incomingNodeId = flashLinkPacketSourceNode(*header);
+  const uint8_t targetNodeId = flashLinkPacketTargetNode(*header);
+  const bool relayedPacket = flashLinkPacketRelayed(*header);
+
+  if (flashLinkHandleStage2RelayUplink(slot, *header, type, nowMs)) return;
   if (flashLinkGroundRole() && incomingNodeId == kFlashLinkNodeIdGround) {
     incomingNodeId = kFlashLinkNodeIdStage1;  // Protocol v2 single-node compatibility.
   }
@@ -1378,8 +1633,17 @@ void flashLinkHandlePacket(FlashLinkRxSlot& slot) {
   if (type == FlashLinkPacketType::Discover) {
     if (header->payloadBytes != sizeof(FlashLinkDiscoveryV1)) return;
     if (flashLinkGroundRole()) {
-      if (incomingNodeId > kFlashLinkNodeIdStage2 ||
-          !flashLinkEnsurePeer(slot.mac, incomingNodeId)) return;
+      const bool directStage1 = incomingNodeId == kFlashLinkNodeIdStage1 &&
+        !relayedPacket && header->role == static_cast<uint8_t>(FlashLinkRole::Avionics);
+      const bool relayedStage2 = incomingNodeId == kFlashLinkNodeIdStage2 &&
+        relayedPacket && header->role == static_cast<uint8_t>(FlashLinkRole::Avionics);
+      if (directStage1) {
+        if (!flashLinkEnsurePeer(slot.mac, incomingNodeId)) return;
+      } else if (relayedStage2) {
+        if (!flashLinkEnsureRelayedGroundPeer(slot.mac, incomingNodeId)) return;
+      } else {
+        return;
+      }
       groundPeer = flashLinkGroundPeerForNode(incomingNodeId);
       if (!groundPeer) return;
       if (groundPeer->session != 0U && groundPeer->session != header->session) {
@@ -1394,7 +1658,20 @@ void flashLinkHandlePacket(FlashLinkRxSlot& slot) {
       groundPeer->session = header->session;
       groundPeer->lastPeerRxMs = nowMs;
       flashLinkGroundRefreshSelectedPeer();
-    } else if (flashLinkEnsurePeer(slot.mac)) {
+    } else if (flashLinkStage2LeafRole()) {
+      const bool stage1Discovery =
+        header->role == static_cast<uint8_t>(FlashLinkRole::Avionics) &&
+        incomingNodeId == kFlashLinkNodeIdStage1 && !relayedPacket;
+      if (!stage1Discovery || !flashLinkEnsurePeer(slot.mac)) return;
+      const bool sessionChanged = flashLink.peerSession != 0U &&
+        flashLink.peerSession != header->session;
+      if (sessionChanged) flashLinkBeginPeerSession(header->session, nowMs);
+      else {
+        flashLink.peerSession = header->session;
+        flashLink.lastPeerRxMs = nowMs;
+      }
+    } else if (header->role == static_cast<uint8_t>(FlashLinkRole::Ground) &&
+               flashLinkEnsurePeer(slot.mac)) {
       const bool sessionChanged =
         flashLink.peerSession != 0 &&
         flashLink.peerSession != header->session;
@@ -1413,8 +1690,17 @@ void flashLinkHandlePacket(FlashLinkRxSlot& slot) {
   }
 
   if (flashLinkGroundRole()) {
-    groundPeer = flashLinkGroundPeerForMac(slot.mac);
-    if (!groundPeer || groundPeer->nodeId != incomingNodeId) return;
+    if (header->role != static_cast<uint8_t>(FlashLinkRole::Avionics)) return;
+    if (incomingNodeId == kFlashLinkNodeIdStage2 && relayedPacket) {
+      if (!flashLinkEnsureRelayedGroundPeer(slot.mac, incomingNodeId)) return;
+      groundPeer = flashLinkGroundPeerForNode(kFlashLinkNodeIdStage2);
+    } else if (incomingNodeId == kFlashLinkNodeIdStage1 && !relayedPacket) {
+      groundPeer = flashLinkGroundPeerForNode(kFlashLinkNodeIdStage1);
+      if (!groundPeer || !groundPeer->peerReady ||
+          memcmp(slot.mac, groundPeer->mac, ESP_NOW_ETH_ALEN) != 0) return;
+    } else {
+      return;
+    }
     groundPeer->lastPeerRxMs = nowMs;
     groundPeer->rxFrames++;
     if (groundPeer->session != 0U && groundPeer->session != header->session) {
@@ -1424,6 +1710,12 @@ void flashLinkHandlePacket(FlashLinkRxSlot& slot) {
     }
     groundPeer->session = header->session;
   } else {
+    if (flashLinkStage2LeafRole()) {
+      if (header->role != static_cast<uint8_t>(FlashLinkRole::Ground) ||
+          !relayedPacket || targetNodeId != kFlashLinkNodeIdStage2) return;
+    } else if (header->role != static_cast<uint8_t>(FlashLinkRole::Ground)) {
+      return;
+    }
     if (!flashLink.peerReady ||
         memcmp(slot.mac, flashLink.peerMac, ESP_NOW_ETH_ALEN) != 0) return;
     flashLink.lastPeerRxMs = nowMs;
@@ -1435,6 +1727,14 @@ void flashLinkHandlePacket(FlashLinkRxSlot& slot) {
       flashLinkBeginPeerSession(header->session, nowMs);
     }
     flashLink.peerSession = header->session;
+    if (flashLinkStage1RelayRole() && targetNodeId == kFlashLinkNodeIdStage2) {
+      if (flashLinkRelay.stage2PeerReady) {
+        flashLinkQueueRelayedFrame(flashLinkRelay.stage2Mac, slot, true);
+      }
+      return;
+    }
+    if (targetNodeId != kFlashLinkNodeIdGround &&
+        targetNodeId != flashLinkLocalNodeId()) return;
   }
 
   if (type == FlashLinkPacketType::Command &&
@@ -1917,7 +2217,8 @@ void flashLinkGroundTick(uint32_t nowMs) {
             peer.mac,
             nullptr,
             0,
-            peer.rxTelemetrySeq)) {
+            peer.rxTelemetrySeq,
+            peer.nodeId)) {
         peer.ackPending = false;
         return;
       }
@@ -1962,7 +2263,9 @@ void flashLinkGroundTick(uint32_t nowMs) {
             FlashLinkPacketType::Command,
             targetPeer->mac,
             &pending.command,
-            sizeof(pending.command))) {
+            sizeof(pending.command),
+            0,
+            pending.targetNodeId)) {
         portENTER_CRITICAL(&flashLinkCommandMux);
         if (flashLinkCommandCount > 0U &&
             flashLinkCommandQueue[flashLinkCommandHead].command.transaction ==
@@ -1985,7 +2288,13 @@ void flashLinkGroundTick(uint32_t nowMs) {
           (peer.lastHelloMs != 0U &&
            (uint32_t)(nowMs - peer.lastHelloMs) < kFlashLinkDiscoveryPeriodMs)) continue;
       peer.lastHelloMs = nowMs;
-      if (flashLinkSendPacket(FlashLinkPacketType::Hello, peer.mac, nullptr, 0)) return;
+      if (flashLinkSendPacket(
+            FlashLinkPacketType::Hello,
+            peer.mac,
+            nullptr,
+            0,
+            0,
+            peer.nodeId)) return;
     }
   }
 
@@ -1996,7 +2305,13 @@ void flashLinkGroundTick(uint32_t nowMs) {
           (peer.lastHeartbeatMs != 0U &&
            (uint32_t)(nowMs - peer.lastHeartbeatMs) < kFlashLinkHeartbeatPeriodMs)) continue;
       peer.lastHeartbeatMs = nowMs;
-      if (flashLinkSendPacket(FlashLinkPacketType::Heartbeat, peer.mac, nullptr, 0)) return;
+      if (flashLinkSendPacket(
+            FlashLinkPacketType::Heartbeat,
+            peer.mac,
+            nullptr,
+            0,
+            0,
+            peer.nodeId)) return;
     }
   }
 
@@ -2011,6 +2326,97 @@ void flashLinkGroundTick(uint32_t nowMs) {
     flashLink.lastDiscoveryMs = nowMs;
     flashLinkSendDiscovery(FlashLinkPacketType::Discover);
   }
+}
+
+bool flashLinkStage1RelayTick(uint32_t nowMs) {
+  if (!flashLinkStage1RelayRole()) return false;
+
+  if (flashLinkRelay.stage2PeerReady && flashLinkRelay.stage2LastRxMs != 0U &&
+      (uint32_t)(nowMs - flashLinkRelay.stage2LastRxMs) > kFlashLinkPeerTimeoutMs) {
+    if (esp_now_is_peer_exist(flashLinkRelay.stage2Mac)) {
+      esp_now_del_peer(flashLinkRelay.stage2Mac);
+    }
+    flashLinkRelay = {};
+    flashLinkRelayTxHead = 0;
+    flashLinkRelayTxTail = 0;
+    flashLinkRelayTxCount = 0;
+    Serial.println("[FLASH_LINK] stage 2 relay peer timeout; scanning again");
+  } else if (flashLinkRelay.stage2LastTelemetryRxMs != 0U &&
+             (uint32_t)(nowMs - flashLinkRelay.stage2LastTelemetryRxMs) >
+               kFlashLinkTelemetryStaleMs) {
+    flashLinkRelay.stage2Linked = false;
+  }
+
+  if (flashLinkDrainRelayTxQueue()) return true;
+
+  if (flashLinkRelay.stage2PeerReady && flashLinkRelay.stage2AckPending &&
+      !flashLink.txBusy) {
+    if (flashLinkSendRoutedPacket(
+          FlashLinkPacketType::Ack,
+          flashLinkRelay.stage2Mac,
+          nullptr,
+          0,
+          flashLinkRelay.stage2RxTelemetrySeq,
+          kFlashLinkNodeIdGround,
+          kFlashLinkNodeIdStage2,
+          static_cast<uint8_t>(FlashLinkRole::Ground),
+          flashLink.session,
+          true)) {
+      flashLinkRelay.stage2AckPending = false;
+      return true;
+    }
+  }
+
+  if (flashLinkRelay.stage2PeerReady && !flashLinkRelay.stage2Linked &&
+      !flashLink.txBusy &&
+      (flashLinkRelay.stage2LastHelloMs == 0U ||
+       (uint32_t)(nowMs - flashLinkRelay.stage2LastHelloMs) >=
+         kFlashLinkDiscoveryPeriodMs)) {
+    flashLinkRelay.stage2LastHelloMs = nowMs;
+    if (flashLinkSendRoutedPacket(
+          FlashLinkPacketType::Hello,
+          flashLinkRelay.stage2Mac,
+          nullptr,
+          0,
+          0,
+          kFlashLinkNodeIdGround,
+          kFlashLinkNodeIdStage2,
+          static_cast<uint8_t>(FlashLinkRole::Ground),
+          flashLink.session,
+          true)) {
+      return true;
+    }
+  }
+
+  if (flashLinkRelay.stage2PeerReady && flashLinkRelay.stage2Linked &&
+      !flashLink.txBusy &&
+      (flashLinkRelay.stage2LastHeartbeatMs == 0U ||
+       (uint32_t)(nowMs - flashLinkRelay.stage2LastHeartbeatMs) >=
+         kFlashLinkHeartbeatPeriodMs)) {
+    flashLinkRelay.stage2LastHeartbeatMs = nowMs;
+    if (flashLinkSendRoutedPacket(
+          FlashLinkPacketType::Heartbeat,
+          flashLinkRelay.stage2Mac,
+          nullptr,
+          0,
+          0,
+          kFlashLinkNodeIdGround,
+          kFlashLinkNodeIdStage2,
+          static_cast<uint8_t>(FlashLinkRole::Ground),
+          flashLink.session,
+          true)) {
+      return true;
+    }
+  }
+
+  if (!flashLinkRelay.stage2PeerReady && !flashLink.txBusy &&
+      (flashLinkRelay.stage2LastDiscoveryMs == 0U ||
+       (uint32_t)(nowMs - flashLinkRelay.stage2LastDiscoveryMs) >=
+         kFlashLinkDiscoveryPeriodMs)) {
+    flashLinkRelay.stage2LastDiscoveryMs = nowMs;
+    if (flashLinkSendDiscovery(FlashLinkPacketType::Discover)) return true;
+  }
+  return false;
 }
 
 void flashLinkTick() {
@@ -2031,6 +2437,7 @@ void flashLinkTick() {
     flashLink.txBusy = false;
     flashLink.txFail++;
   }
+  if (flashLinkStage1RelayTick(nowMs)) return;
   if (flashLinkGroundRole()) {
     flashLinkGroundTick(nowMs);
     return;

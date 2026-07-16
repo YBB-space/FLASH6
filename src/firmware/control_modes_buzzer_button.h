@@ -10,6 +10,14 @@ bool flashLinkAvionicsRole() {
   return flashLinkMode && flashLinkRole == FlashLinkRole::Avionics;
 }
 
+bool flashLinkStage1RelayRole() {
+  return flashLinkAvionicsRole() && flashLinkNodeId == kFlashLinkNodeIdStage1;
+}
+
+bool flashLinkStage2LeafRole() {
+  return flashLinkAvionicsRole() && flashLinkNodeId == kFlashLinkNodeIdStage2;
+}
+
 uint8_t clampFlashLinkVehicleNodeId(long value) {
   return value == kFlashLinkNodeIdStage2
     ? kFlashLinkNodeIdStage2

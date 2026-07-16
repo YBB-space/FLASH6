@@ -1392,6 +1392,7 @@ void setupRoutes() {
              "\"arm_lock\":10,\"inspection\":11,\"storage\":12,\"serial\":13,"
              "\"station\":14,\"chip_temp\":15},"
              "\"flash_link\":{\"name\":\"ALTIS INTELLIGENT LINK1\",\"transport\":\"ESP-NOW\","
+             "\"topology\":\"ground-stage1-stage2-relay\","
              "\"channel\":6,\"rate\":\"%s\",\"telemetry_hz\":%lu,"
              "\"pairing\":\"automatic\",\"unicast_encrypted\":1,\"ack_interval\":%u,"
              "\"command_ack\":1,\"command_retry_ms\":140,\"command_max_attempts\":12},"

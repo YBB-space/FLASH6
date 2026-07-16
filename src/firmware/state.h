@@ -109,6 +109,14 @@ constexpr uint8_t kFlashLinkNodeIdGround = 0;
 constexpr uint8_t kFlashLinkNodeIdStage1 = 1;
 constexpr uint8_t kFlashLinkNodeIdStage2 = 2;
 constexpr uint8_t kFlashLinkNodeIdMask = 0x03U;
+constexpr uint8_t kFlashLinkTargetNodeShift = 2U;
+constexpr uint8_t kFlashLinkTargetNodeMask = 0x0CU;
+constexpr uint8_t kFlashLinkRelayedFlag = 0x80U;
+static_assert((kFlashLinkNodeIdMask & kFlashLinkTargetNodeMask) == 0U,
+              "ALTIS INTELLIGENT LINK1 source/target flags overlap");
+static_assert((kFlashLinkRelayedFlag &
+              (kFlashLinkNodeIdMask | kFlashLinkTargetNodeMask)) == 0U,
+              "ALTIS INTELLIGENT LINK1 relay flag overlaps routing flags");
 constexpr uint32_t kFlashLinkTelemetryHz = 50;
 constexpr uint32_t kFlashLinkTelemetryPeriodUs = 1000000UL / kFlashLinkTelemetryHz;
 constexpr uint32_t kFlashLinkStorageStatusPeriodMs = 1000;
@@ -123,6 +131,7 @@ constexpr uint8_t kFlashLinkAckEveryFrames = 10;
 constexpr uint8_t kFlashLinkRxQueueDepth = 32;
 constexpr uint8_t kFlashLinkTelemetryQueueSoftLimit = 4;
 constexpr uint8_t kFlashLinkRxDrainLimit = 24;
+constexpr uint8_t kFlashLinkRelayTxQueueDepth = 24;
 constexpr uint8_t kFlashLinkCommandQueueDepth = 8;
 constexpr uint32_t kFlashLinkCommandRetryMs = 60;
 constexpr uint8_t kFlashLinkCommandMaxAttempts = 8;
@@ -1031,6 +1040,7 @@ struct FlashLinkGroundPeer {
   bool linked = false;
   bool remoteValid = false;
   bool ackPending = false;
+  bool relayed = false;
   uint8_t nodeId = 0;
   uint8_t mac[ESP_NOW_ETH_ALEN] = {};
   uint32_t session = 0;
@@ -1059,11 +1069,40 @@ struct FlashLinkGroundPeer {
   char alarmMessage[64] = {};
 };
 
+struct FlashLinkRelayRuntime {
+  bool stage2PeerReady = false;
+  bool stage2Linked = false;
+  bool stage2AckPending = false;
+  uint8_t stage2Mac[ESP_NOW_ETH_ALEN] = {};
+  uint32_t stage2Session = 0;
+  uint32_t stage2RxTelemetrySeq = 0;
+  uint32_t stage2RxTelemetryFrames = 0;
+  uint32_t stage2LastRxMs = 0;
+  uint32_t stage2LastTelemetryRxMs = 0;
+  uint32_t stage2LastDiscoveryMs = 0;
+  uint32_t stage2LastHelloMs = 0;
+  uint32_t stage2LastHeartbeatMs = 0;
+  uint32_t forwardedUp = 0;
+  uint32_t forwardedDown = 0;
+  uint32_t queueDrops = 0;
+};
+
+struct FlashLinkRelayTxSlot {
+  uint8_t destination[ESP_NOW_ETH_ALEN] = {};
+  uint16_t len = 0;
+  uint8_t data[kFlashLinkMaxPacketBytes] = {};
+};
+
 FlashLinkRuntime flashLink;
 FlashLinkStorageReadClient flashLinkStorageReadClients[kFlashLinkStorageWindowDepth];
 FlashLinkStorageListClient flashLinkStorageListClient;
 FlashLinkRemoteState flashLinkRemoteState;
 FlashLinkGroundPeer flashLinkGroundPeers[kFlashLinkVehicleNodeCount];
+FlashLinkRelayRuntime flashLinkRelay;
+FlashLinkRelayTxSlot flashLinkRelayTxQueue[kFlashLinkRelayTxQueueDepth];
+volatile uint8_t flashLinkRelayTxHead = 0;
+volatile uint8_t flashLinkRelayTxTail = 0;
+volatile uint8_t flashLinkRelayTxCount = 0;
 char flashLinkRateName[16] = "1M_L";
 int flashLinkRateError = 0;
 FlashLinkRxSlot flashLinkRxQueue[kFlashLinkRxQueueDepth];
