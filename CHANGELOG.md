@@ -3,6 +3,21 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.8.5 — v6 b11 — 2026-07-17
+
+Protocol: `Flash6-Intelligent-b3` (wire version `3`, unchanged)
+
+- Kept stage-1 radio and USB telemetry at 100 Hz while removing the duplicate
+  stage-1 tail snapshot; the top-level sample already carries the same data.
+- Reduced the active USB CDC transmit queue from 16 KiB to 4 KiB so temporary
+  host backpressure cannot turn into roughly one second of stale attitude.
+- Sized each USB telemetry write from its actual serialized length and reserved
+  512 bytes for control replies, allowing button ACK/ERR messages to bypass
+  telemetry pressure without blocking the control loop.
+- Coalesced USB telemetry in the browser to the newest sample per display frame,
+  keeping the gyro preview current while ACK parsing stays independent of heavy
+  map and chart rendering.
+
 ## 0.8.4 — v6 b10 — 2026-07-17
 
 Protocol: `Flash6-Intelligent-b3` (wire version `3`, unchanged)

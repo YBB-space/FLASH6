@@ -5794,6 +5794,8 @@ function requestMobileMockup3dMesh(){
     let serialConnected = false;
     let lastSerialSampleAt = 0;
     let lastSerialActivityAt = 0;
+    let pendingSerialTelemetrySample = null;
+    let serialTelemetryFrameHandle = 0;
     let serialRxDisabledWarned = false;
     let wifiConnectStage = "idle";
     let wifiConnectWaitTimer = null;
@@ -20436,7 +20438,7 @@ function requestMobileMockup3dMesh(){
         fw_program:"Altis_Intelligent3_firmware1",
         fw_board:"Altis_Intelligent3_b3",
         fw_protocol:"Flash6-Intelligent-b3",
-        fw_build:"v6 b10"
+        fw_build:"v6 b11"
       };
     }
 
@@ -20771,6 +20773,7 @@ function requestMobileMockup3dMesh(){
     async function closeSerialHandles(opts){
       const closePort = !opts || opts.closePort !== false;
       serialSessionId++;
+      cancelQueuedSerialTelemetry();
       const reader = serialReader;
       const writer = serialWriter;
       const port = serialPort;
@@ -21354,13 +21357,45 @@ function requestMobileMockup3dMesh(){
         lastSerialSampleAt = Date.now();
         serialParseErrorCount = 0;
         serialRxDisabledWarned = false;
-        onIncomingSample(obj, "SER");
+        queueSerialTelemetrySample(obj);
       }catch(e){
         serialParseErrorCount += 1;
         if(serialParseErrorCount <= SERIAL_PARSE_ERROR_LOG_LIMIT){
           addLogLine("SER JSON parse failed #" + serialParseErrorCount + " @" + serialCurrentBaud + "bps", "SER");
         }
         reportSilentException("serial-json", e);
+      }
+    }
+
+    function cancelQueuedSerialTelemetry(){
+      pendingSerialTelemetrySample = null;
+      if(!serialTelemetryFrameHandle) return;
+      try{ cancelAnimationFrame(serialTelemetryFrameHandle); }catch(_e){}
+      try{ clearTimeout(serialTelemetryFrameHandle); }catch(_e){}
+      serialTelemetryFrameHandle = 0;
+    }
+
+    function flushQueuedSerialTelemetry(){
+      serialTelemetryFrameHandle = 0;
+      const sample = pendingSerialTelemetrySample;
+      pendingSerialTelemetrySample = null;
+      if(!sample || !serialConnected) return;
+      onIncomingSample(sample, "SER");
+      if(pendingSerialTelemetrySample){
+        queueSerialTelemetrySample(pendingSerialTelemetrySample);
+      }
+    }
+
+    function queueSerialTelemetrySample(sample){
+      // The preview needs the newest pose, not every intermediate USB packet.
+      // Coalesce to one update per paint so ACK lines stay responsive while
+      // the dashboard is rendering charts and maps.
+      pendingSerialTelemetrySample = sample;
+      if(serialTelemetryFrameHandle) return;
+      if(typeof requestAnimationFrame === "function"){
+        serialTelemetryFrameHandle = requestAnimationFrame(flushQueuedSerialTelemetry);
+      }else{
+        serialTelemetryFrameHandle = setTimeout(flushQueuedSerialTelemetry, 0);
       }
     }
 

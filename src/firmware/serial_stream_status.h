@@ -1068,11 +1068,11 @@ void sendPeriodicTelemetry() {
     serialStream && (uint32_t)(nowUs - lastSerialUs) >= serialPeriodUs;
   const bool wsCanWrite =
     wsDue && ws.count() > 0 && ws.availableForWriteAll();
-  const bool serialCanWrite =
-    serialDue && Serial.availableForWrite() >= (int)kMinSerialWriteRoom;
   char json[kStreamJsonMaxBytes];
   size_t len = 0;
-  if (wsCanWrite || serialCanWrite) {
+  // Build a due serial frame before checking room. Checking the actual frame
+  // length lets us drop on pressure instead of accumulating stale frames.
+  if (wsCanWrite || serialDue) {
     len = buildStreamJsonV2(json, sizeof(json));
     if (len == 0) {
       if (wsDue) {
@@ -1112,6 +1112,9 @@ void sendPeriodicTelemetry() {
 
   if (serialDue) {
     lastSerialUs = nowUs;
+    const size_t requiredRoom = len + 1U + kSerialControlReserveBytes;
+    const bool serialCanWrite = len > 0U &&
+      Serial.availableForWrite() >= (int)requiredRoom;
     if (serialCanWrite && len > 0U) {
       const size_t written = Serial.write((const uint8_t*)json, len);
       const size_t newlineWritten = Serial.write('\n');

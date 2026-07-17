@@ -52,7 +52,7 @@ void setup() {
   buzzerPlayBootMelody();
 
   // Load the role before sizing USB serial. Avionics normally has periodic
-  // serial telemetry disabled, so reserving the ground station's 16 KiB TX
+  // serial telemetry disabled, so reserving the ground station's active TX
   // queue there only reduces runtime heap.
   loadSequenceSettings();
   Serial.begin(kSerialBaud);

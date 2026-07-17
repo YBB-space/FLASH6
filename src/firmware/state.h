@@ -1,12 +1,15 @@
 
 constexpr char kFirmwareProgram[] = "Altis_Intelligent3_firmware1";
-constexpr char kFirmwareVersion[] = "0.8.4";
-constexpr char kFirmwareBuildId[] = "v6 b10";
+constexpr char kFirmwareVersion[] = "0.8.5";
+constexpr char kFirmwareBuildId[] = "v6 b11";
 constexpr char kFirmwareBoard[] = "Altis_Intelligent3_b3";
 constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b3";
 
 constexpr uint32_t kSerialBaud = 921600;
-constexpr size_t kSerialTxBufferActiveBytes = 16384;
+// Keep only a few fresh telemetry frames in USB CDC. A large queue turns
+// transient host backpressure into stale attitude data and also puts control
+// replies behind many already queued JSON lines.
+constexpr size_t kSerialTxBufferActiveBytes = 4096;
 constexpr size_t kSerialTxBufferIdleBytes = 4096;
 constexpr uint32_t kImuSampleHz = 200;
 constexpr uint32_t kSerialStreamHz = 100;
@@ -22,11 +25,17 @@ constexpr uint32_t kSamplePeriodUs = 1000000UL / kImuSampleHz;
 constexpr uint32_t kSerialPeriodUs = 1000000UL / kSerialStreamHz;
 constexpr uint32_t kBaroPeriodUs = 1000000UL / kBaroSampleHz;
 constexpr uint16_t kSerialRxDrainMaxBytes = 256;
-// Ground stations publish the automatically active vehicle as the legacy top-level sample
-// and both vehicle snapshots at the tail of the v2 frame.  Keep enough room
-// for two alarm messages without dropping the complete telemetry frame.
+// Ground stations publish the automatically active vehicle as the legacy
+// top-level sample and, in dual-stage mode, both vehicle snapshots at the tail
+// of the v2 frame. Keep enough room for two alarm messages without dropping it.
 constexpr size_t kStreamJsonMaxBytes = 2048;
-constexpr size_t kMinSerialWriteRoom = kStreamJsonMaxBytes + 1U;
+// Telemetry never consumes this tail of the TX queue, so short ACK/ERR control
+// replies can be enqueued immediately while the 100 Hz stream is active.
+constexpr size_t kSerialControlReserveBytes = 512;
+static_assert(
+  kSerialTxBufferActiveBytes >=
+    kStreamJsonMaxBytes + kSerialControlReserveBytes + 1U,
+  "USB telemetry TX buffer cannot hold one maximum frame plus ACK reserve");
 // At 200 Hz, a 50 ms batch normally contains ten 84-byte records.  Larger
 // contiguous writes avoid repeatedly programming the same NOR page while the
 // queue still keeps several seconds of headroom.

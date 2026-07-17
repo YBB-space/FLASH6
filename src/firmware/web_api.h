@@ -474,9 +474,11 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
   formatJsonEscaped(outputAlarm.title, alarmTitle, sizeof(alarmTitle));
   formatJsonEscaped(outputAlarm.message, alarmMessage, sizeof(alarmMessage));
 
-  // A ground station receives both peers continuously.  The legacy fields
+  // A ground station receives both peers continuously. The legacy fields
   // above intentionally remain the automatically active target for backwards
   // compatibility; these compact tail arrays expose both peers to FLASH6.
+  // In single-stage mode the top-level sample already is stage 1, so repeating
+  // that same payload here wastes enough USB bandwidth to create stale queues.
   // Snapshot fields:
   // [node,connected,valid,age,alt,ax,ay,az,roll,pitch,yaw,
   //  qw,qx,qy,qz,flight_phase,vertical_speed,deployment_state,
@@ -484,7 +486,7 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
   //  ign_delay_ms,alarm_seq,alarm_block,alarm_title,alarm_message,rx_seq]
   char stageSnapshots[2][448];
   for (uint8_t i = 0; i < 2; ++i) {
-    if (!remoteOutput || (!flashLinkStage2Enabled && i == 1U)) {
+    if (!remoteOutput || !flashLinkStage2Enabled) {
       strlcpy(stageSnapshots[i], "null", sizeof(stageSnapshots[i]));
       continue;
     }
