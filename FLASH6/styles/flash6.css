@@ -23496,6 +23496,7 @@ body.camera-view-active .mobile-board-header{display:none !important}
   display:flex;
   flex:0 0 auto;
   align-items:center;
+  gap:5px;
   min-height:18px;
   padding:2px 7px;
   border:1px solid rgba(255,255,255,.22);
@@ -23509,6 +23510,18 @@ body.camera-view-active .mobile-board-header{display:none !important}
   text-transform:uppercase;
   backdrop-filter:blur(8px);
   -webkit-backdrop-filter:blur(8px);
+}
+.camera-hud-stage-source::before{
+  content:"";
+  flex:0 0 auto;
+  width:5px;
+  height:5px;
+  border-radius:50%;
+  background:#77808b;
+}
+.camera-hud-stage-source.is-linked::before{
+  background:#22c55e;
+  box-shadow:0 0 7px rgba(34,197,94,.72);
 }
 .camera-hud-stage-source.hidden{display:none !important}
 .camera-sequence-time{

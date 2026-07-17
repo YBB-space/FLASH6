@@ -7720,13 +7720,15 @@ function requestMobileMockup3dMesh(){
       setText(el.cameraSequenceMissionName, cameraMissionName);
       if(el.cameraHudStageSource){
         const stageId = Number(data.stageId);
+        const hasStage = stageId === 1 || stageId === 2;
         setText(
           el.cameraHudStageSource,
-          stageId === 1 || stageId === 2
+          hasStage
             ? ("STAGE " + stageId + " " + (linkOk ? "LINKED" : "OFFLINE"))
             : ""
         );
-        el.cameraHudStageSource.classList.toggle("hidden", stageId !== 1 && stageId !== 2);
+        el.cameraHudStageSource.classList.toggle("is-linked", hasStage && linkOk);
+        el.cameraHudStageSource.classList.toggle("hidden", !hasStage);
       }
       setText(el.cameraHudState, cleanStateText);
       setText(el.cameraHudStatePillText, cleanStateText);
