@@ -15136,27 +15136,8 @@ function requestMobileMockup3dMesh(){
       restoreGyroViewportFromCameraPreview();
     }
     function syncDesktopGyroPreviewMount(){
-      if(!el.gyro3dViewport || !el.mobilePreviewCarousel) return;
-      if(gyroViewportPortalState.mountedToBody || homeGyroDockState.mountedToHome || cameraGyroPreviewPortalState.mounted) return;
-      const shouldMount = isDesktopLayout() && document.body.classList.contains("dashboard-view-active");
-      if(shouldMount){
-        if(desktopGyroPreviewPortalState.mounted) return;
-        const target = el.mobilePreviewCarousel.parentElement;
-        const parent = el.gyro3dViewport.parentNode;
-        if(!target || !parent) return;
-        desktopGyroPreviewPortalState.homeParent = parent;
-        desktopGyroPreviewPortalState.homeNextSibling = el.gyro3dViewport.nextSibling;
-        target.appendChild(el.gyro3dViewport);
-        el.gyro3dViewport.classList.add("is-desktop-preview-mounted");
-        desktopGyroPreviewPortalState.mounted = true;
-        requestAnimationFrame(()=>{
-          resizeGyroGl();
-          renderGyroGl(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
-          scheduleStatusMapRefresh();
-          requestAnimationFrame(()=>scheduleStatusMapRefresh());
-        });
-        return;
-      }
+      // The dashboard now dedicates this space to vehicle status. The same
+      // renderer is still portaled into the camera view when that page opens.
       restoreGyroViewportFromDesktopPreview();
     }
     function isTouchCapableDevice(){
