@@ -17,6 +17,11 @@ Protocol: `Flash6-Intelligent-b4` (wire version `4`)
   reboots, and prevented duplicate serial-plus-HTTP reboot submissions.
 - Rebuilt the desktop reboot confirmation as a compact cockpit dialog while
   keeping the mobile modal styling independent.
+- Published the `FLASH6` web application at the `flash6.kro.kr` domain root
+  through a dedicated GitHub Pages workflow instead of the repository root.
+- Added commit-specific browser asset versions and moved interface preferences
+  to settings schema `v3`, preventing stale light-theme CSS and legacy
+  dashboard modes from overriding the current local UI after deployment.
 
 ## 0.8.11 — v6 b17 — 2026-07-17
 

@@ -3,6 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <meta name="theme-color" content="#0b1220">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -16,7 +19,7 @@
   <script>
     (function(){
       try{
-        var raw = localStorage.getItem("hanwool_tms_settings_v2");
+        var raw = localStorage.getItem("hanwool_tms_settings_v3");
         var saved = raw ? JSON.parse(raw) : null;
         var theme = saved && saved.theme ? saved.theme : "dark";
         if(theme === "dark"){
@@ -124,7 +127,7 @@
   <!-- Preload 축소: AP 모드/저메모리 환경에서 동시 요청 버스트를 줄임 -->
   <script>
     (function(){
-    var ASSET_VER = "20260718-thin-hud-countdown-b18-347";
+    var ASSET_VER = "20260718-domain-sync-b18-348-__FLASH6_DEPLOY_SHA__";
       window.__flashBoot = window.__flashBoot || {jsReady:false,lastError:"",phase:"static_loader",version:ASSET_VER};
       var isLocalPreview = !!window.__flashBoot.localPreview;
       var beaconEnabled = (window.__flashBoot.beaconEnabled !== false);
@@ -374,7 +377,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="styles/flash6.css?v=20260718-thin-hud-countdown-b18-347">
+  <link rel="stylesheet" href="styles/flash6.css?v=20260718-domain-sync-b18-348-__FLASH6_DEPLOY_SHA__">
 </head>
 <body>
   <!-- ✅ LOCKOUT 배경 오버레이 -->

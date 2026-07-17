@@ -6442,7 +6442,7 @@ function requestMobileMockup3dMesh(){
     // =====================
     // UI 설정 저장
     // =====================
-    const SETTINGS_KEY = "hanwool_tms_settings_v2";
+    const SETTINGS_KEY = "hanwool_tms_settings_v3";
     const OVERLAY_CHANNEL = "hanwool_overlay_sync";
     const OVERLAY_SYNC_KEY = "hanwool_overlay_latest";
     const OVERLAY_SYNC_MIN_MS = 150;

@@ -35,6 +35,8 @@ jobs:
         run: |
           mkdir -p _site
           cp -R FLASH6/. _site/
+          DEPLOY_SHA="${GITHUB_SHA:0:12}"
+          sed -i "s/__FLASH6_DEPLOY_SHA__/${DEPLOY_SHA}/g" _site/index.html _site/flash6.html
           printf '%s\n' 'flash6.kro.kr' > _site/CNAME
           touch _site/.nojekyll
 

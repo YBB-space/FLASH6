@@ -4,7 +4,7 @@
   "short_name": "FLASH6",
   "description": "FLASH6 control dashboard",
   "lang": "ko-KR",
-  "start_url": "flash6.html",
+  "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "display_override": [
