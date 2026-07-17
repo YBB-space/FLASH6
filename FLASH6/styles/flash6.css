@@ -20919,14 +20919,19 @@
         min-height:0 !important;
       }
       body.dashboard-view-active .charts-card{
-        padding:10px 12px !important;
+        padding:0 !important;
+        border:0 !important;
+        border-radius:0 !important;
+        background:transparent !important;
+        box-shadow:none !important;
       }
       body.dashboard-view-active .chart-header{
-        margin-bottom:5px !important;
+        display:none !important;
       }
       body.dashboard-view-active .chart-row{
         gap:10px !important;
-        height:calc(100% - 28px) !important;
+        height:100% !important;
+        margin:0 !important;
         min-height:0 !important;
       }
       body.dashboard-view-active .chart-box{
