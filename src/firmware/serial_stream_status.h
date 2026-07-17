@@ -88,7 +88,9 @@ void serialPrintStorageChunk(uint32_t offset, uint32_t len) {
     Serial.println("ERR SPI_FLASH_READ READ_FAILED");
     return;
   }
-  const int rc = mbedtls_base64_encode(b64, sizeof(b64) - 1U, &b64Len, data, len);
+  // mbedTLS requires room for both the encoded payload and its trailing NUL.
+  // Passing payload capacity only makes exact-size chunks fail at the boundary.
+  const int rc = mbedtls_base64_encode(b64, sizeof(b64), &b64Len, data, len);
   if (rc != 0) {
     Serial.println("ERR SPI_FLASH_READ B64_FAILED");
     return;
@@ -184,7 +186,7 @@ void serialPrintRemoteStorageChunk(uint32_t offset, uint32_t len) {
   size_t b64Len = 0;
   if (mbedtls_base64_encode(
         b64,
-        sizeof(b64) - 1U,
+        sizeof(b64),
         &b64Len,
         data,
         totalLen) != 0) {

@@ -3,6 +3,18 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.8.10 — v6 b16 — 2026-07-17
+
+Protocol: `Flash6-Intelligent-b3` (wire version `3`, unchanged)
+
+- Fixed the USB-serial SPI Flash download encoder capacity passed to mbedTLS,
+  which previously rejected exact-size 1,024-byte remote chunks with
+  `SPI_FLASH_REMOTE_CHUNK B64_FAILED`.
+- Applied the same boundary fix to direct-board serial Flash downloads so
+  full-size 1,536-byte chunks remain valid.
+- Kept the wire protocol, storage record layout, and download response format
+  unchanged.
+
 ## 0.8.9 — v6 b15 — 2026-07-17
 
 Protocol: `Flash6-Intelligent-b3` (wire version `3`, unchanged)

@@ -280,12 +280,11 @@ revisions should rotate keys per fleet or per paired board.
 
 ## Firmware Revision
 
-- Firmware version: `0.8.9`
-- Build ID: `v6 b15`
+- Firmware version: `0.8.10`
+- Build ID: `v6 b16`
 - Wire protocol: `Flash6-Intelligent-b3` / numeric version `3`
 - Storage record format: version `4` (unchanged and backward compatible)
 - Compatibility: the wire layout remains version `3` and is compatible with
-  `v6 b11` through `v6 b14`. Build `v6 b15` adds USB-serial ground proxy
-  commands for remote storage listing and reads; ESP-NOW packet fields and
-  routing semantics are unchanged. Update the ground firmware and FLASH6
-  assets together to use the serial proxy.
+  `v6 b11` through `v6 b15`. Build `v6 b16` fixes the Base64 output capacity
+  used by USB-serial local and remote storage reads. ESP-NOW packet fields,
+  serial response fields, and routing semantics are unchanged.
