@@ -11798,11 +11798,6 @@
       filter:drop-shadow(0 2px 6px rgba(15,23,42,0.16));
       opacity:.95;
     }
-    .fw-altis-logo{
-      width:min(190px,48vw);height:46px;object-fit:contain;object-position:left center;
-      filter:drop-shadow(0 2px 6px rgba(15,23,42,0.16));
-      opacity:.95;
-    }
     .fw-gnu-logo{
       width:132px;height:36px;object-fit:contain;
       filter:drop-shadow(0 2px 6px rgba(15,23,42,0.16));
@@ -11863,7 +11858,6 @@
       .fw-head{gap:12px}
       .fw-logo-block{gap:12px}
       .fw-f-logo{width:40px;height:40px}
-      .fw-altis-logo{height:40px;width:min(160px,58vw)}
       .fw-partner-logos{gap:10px;padding:11px 12px}
       .fw-partner-logo{height:30px}
       .fw-partner-logo.is-jlcpcb{width:88px}
@@ -28643,12 +28637,6 @@ html body #pyroControlOverlay > #pyroControlDialog > .settings-header > .setting
   opacity:.92;
   filter:none;
 }
-.fw-product-card .fw-altis-logo{
-  width:118px;
-  height:34px;
-  opacity:.92;
-  filter:none;
-}
 .fw-product-copy{
   min-width:0;
   padding-left:18px;
@@ -28804,43 +28792,22 @@ html body #pyroControlOverlay > #pyroControlDialog > .settings-header > .setting
   color:#d3d5d9;
   overflow:hidden;
 }
-.fw-legal summary{
-  position:relative;
+.fw-legal-heading{
   min-height:48px;
-  padding:0 42px 0 17px;
+  padding:0 17px;
   display:flex;
   align-items:center;
   justify-content:space-between;
   gap:16px;
   box-sizing:border-box;
-  cursor:pointer;
-  list-style:none;
-  user-select:none;
 }
-.fw-legal summary::-webkit-details-marker{
-  display:none;
-}
-.fw-legal summary::after{
-  content:"+";
-  position:absolute;
-  right:17px;
-  top:50%;
-  color:#858a92;
-  font-size:18px;
-  line-height:1;
-  font-weight:400;
-  transform:translateY(-50%);
-}
-.fw-legal[open] summary::after{
-  content:"−";
-}
-.fw-legal summary span{
+.fw-legal-heading span{
   color:#cfd2d7;
   font-size:11px;
   line-height:1.2;
   font-weight:600;
 }
-.fw-legal summary strong{
+.fw-legal-heading strong{
   margin-left:auto;
   color:#747a83;
   font-size:9px;
@@ -28926,7 +28893,7 @@ html body #pyroControlOverlay > #pyroControlDialog > .settings-header > .setting
   .fw-credit-block .fw-partner-logos{
     flex-wrap:wrap;
   }
-  .fw-legal summary strong{
+  .fw-legal-heading strong{
     display:none;
   }
 }
@@ -29035,12 +29002,9 @@ html body #pyroControlOverlay > #pyroControlDialog > .settings-header > .setting
     border-radius:0 !important;
     background:transparent !important;
   }
-  html:not(.phone-landscape-layout) body #settingsOverlay .fw-legal summary{
+  html:not(.phone-landscape-layout) body #settingsOverlay .fw-legal-heading{
     min-height:50px !important;
-    padding:0 32px 0 0 !important;
-  }
-  html:not(.phone-landscape-layout) body #settingsOverlay .fw-legal summary::after{
-    right:0 !important;
+    padding:0 !important;
   }
   html:not(.phone-landscape-layout) body #settingsOverlay .fw-legal-body{
     padding:14px 0 18px !important;
