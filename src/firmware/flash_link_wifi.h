@@ -173,7 +173,9 @@ bool flashLinkCommandIsLongRunning(uint8_t code) {
 bool flashLinkCommandIsUrgent(uint8_t code) {
   return code == static_cast<uint8_t>(FlashLinkCommandCode::Abort) ||
          code == static_cast<uint8_t>(FlashLinkCommandCode::SequenceEnd) ||
-         code == static_cast<uint8_t>(FlashLinkCommandCode::ForceIgnite);
+         code == static_cast<uint8_t>(FlashLinkCommandCode::ForceIgnite) ||
+         code == static_cast<uint8_t>(FlashLinkCommandCode::SetSafety) ||
+         code == static_cast<uint8_t>(FlashLinkCommandCode::SetArmLock);
 }
 
 bool flashLinkGroundControlActive() {
@@ -471,14 +473,18 @@ bool flashLinkQueueCommand(
 
   const uint8_t codeValue = static_cast<uint8_t>(code);
   const bool urgent = flashLinkCommandIsUrgent(codeValue);
-  const bool allowDuplicate =
+  const bool coalesceByArg0 =
     codeValue == static_cast<uint8_t>(FlashLinkCommandCode::SetServo);
+  const bool coalesceByCode =
+    codeValue == static_cast<uint8_t>(FlashLinkCommandCode::SetSafety) ||
+    codeValue == static_cast<uint8_t>(FlashLinkCommandCode::SetArmLock);
+  const bool coalescible = coalesceByArg0 || coalesceByCode;
   const uint32_t nowMs = millis();
   bool queued = false;
   bool duplicate = false;
   bool coalesced = false;
   portENTER_CRITICAL(&flashLinkCommandMux);
-  if (allowDuplicate && flashLinkCommandCount > 0) {
+  if (coalescible && flashLinkCommandCount > 0) {
     for (uint8_t offset = 0; offset < flashLinkCommandCount; ++offset) {
       const uint8_t reverseOffset =
         (uint8_t)(flashLinkCommandCount - 1U - offset);
@@ -488,8 +494,9 @@ bool flashLinkQueueCommand(
       FlashLinkCommandQueueEntry& pending = flashLinkCommandQueue[index];
       if (pending.command.code == codeValue &&
           pending.targetNodeId == flashLinkTargetNodeId &&
-          pending.command.arg0 == arg0 &&
+          (coalesceByCode || pending.command.arg0 == arg0) &&
           pending.attempts == 0U) {
+        pending.command.arg0 = arg0;
         pending.command.arg1 = arg1;
         pending.command.arg2 = arg2;
         coalesced = true;
@@ -497,7 +504,7 @@ bool flashLinkQueueCommand(
       }
     }
   }
-  if (!allowDuplicate &&
+  if (!coalescible &&
       flashLink.lastQueuedTargetNodeId == flashLinkTargetNodeId &&
       flashLink.lastQueuedCommandCode == codeValue &&
       flashLink.lastQueuedArg0 == arg0 &&
@@ -506,7 +513,7 @@ bool flashLinkQueueCommand(
       (uint32_t)(nowMs - flashLink.lastQueuedCommandMs) <= 500U) {
     duplicate = true;
   }
-  for (uint8_t i = 0; !allowDuplicate && !duplicate && i < flashLinkCommandCount; ++i) {
+  for (uint8_t i = 0; !coalescible && !duplicate && i < flashLinkCommandCount; ++i) {
     const uint8_t index =
       (uint8_t)((flashLinkCommandHead + i) % kFlashLinkCommandQueueDepth);
     const FlashLinkCommandV1& pending = flashLinkCommandQueue[index].command;
@@ -530,14 +537,26 @@ bool flashLinkQueueCommand(
       flashLinkCommandCount < kFlashLinkCommandQueueDepth) {
     uint8_t entryIndex = flashLinkCommandTail;
     if (urgent) {
-      entryIndex =
-        (uint8_t)((flashLinkCommandHead + kFlashLinkCommandQueueDepth - 1U) %
-                  kFlashLinkCommandQueueDepth);
-      flashLinkCommandHead = entryIndex;
-      if (flashLinkCommandCount == 0U) {
-        flashLinkCommandTail =
-          (uint8_t)((entryIndex + 1U) % kFlashLinkCommandQueueDepth);
+      // Never place a new urgent command in front of a transaction that has
+      // already gone over the air. Its ACK must still match the queue head.
+      // Insert immediately after that one transaction and before all unsent
+      // work; otherwise a late ACK can be discarded and the old command can
+      // execute after the newer operator state.
+      const bool headInFlight = flashLinkCommandCount > 0U &&
+        flashLinkCommandQueue[flashLinkCommandHead].attempts > 0U;
+      const uint8_t insertOffset = headInFlight ? 1U : 0U;
+      for (uint8_t offset = flashLinkCommandCount; offset > insertOffset; --offset) {
+        const uint8_t destination =
+          (uint8_t)((flashLinkCommandHead + offset) % kFlashLinkCommandQueueDepth);
+        const uint8_t source =
+          (uint8_t)((flashLinkCommandHead + offset - 1U) % kFlashLinkCommandQueueDepth);
+        flashLinkCommandQueue[destination] = flashLinkCommandQueue[source];
       }
+      entryIndex =
+        (uint8_t)((flashLinkCommandHead + insertOffset) % kFlashLinkCommandQueueDepth);
+      flashLinkCommandTail =
+        (uint8_t)((flashLinkCommandHead + flashLinkCommandCount + 1U) %
+                  kFlashLinkCommandQueueDepth);
     }
     FlashLinkCommandQueueEntry& entry = flashLinkCommandQueue[entryIndex];
     entry = {};
@@ -2758,6 +2777,13 @@ void flashLinkGroundTick(uint32_t nowMs) {
                       (unsigned)pending.targetNodeId,
                       (unsigned long)pending.command.transaction,
                       (unsigned)pending.command.code);
+        if (pending.command.code ==
+              static_cast<uint8_t>(FlashLinkCommandCode::SetSafety) ||
+            pending.command.code ==
+              static_cast<uint8_t>(FlashLinkCommandCode::SetArmLock)) {
+          Serial.printf("ERR FLASH_LINK_STATE code=%u result=timeout detail=-1\n",
+                        (unsigned)pending.command.code);
+        }
         return;
       }
       const uint8_t* destination =

@@ -9465,6 +9465,21 @@ function requestMobileMockup3dMesh(){
       });
     }
 
+    function confirmBoardControlPending(kind, token, value){
+      if(!token || pendingBoardControls[kind] !== token) return false;
+      const pending = clearBoardControlPending(kind, token);
+      if(!pending) return false;
+      const enabled = !!value;
+      pending.lastObserved = enabled;
+      applyBoardControlUiValue(kind, enabled);
+      const label = kind === "safety" ? "안전 모드" : "ARM ON LOCK";
+      showToast(label + (enabled ? " 켜짐" : " 꺼짐"), enabled ? "info" : "warn", {
+        key:"board-control-" + kind,
+        duration:2200
+      });
+      return true;
+    }
+
     function beginBoardControlPending(kind, expected, previous){
       clearBoardControlPending(kind);
       const token = {
@@ -9493,12 +9508,7 @@ function requestMobileMockup3dMesh(){
         // telemetry frame undo the operator's selection while it is in flight.
         return pending.expected ? 1 : 0;
       }
-      clearBoardControlPending(kind, pending);
-      const label = kind === "safety" ? "안전 모드" : "ARM ON LOCK";
-      showToast(label + (incoming ? " 켜짐" : " 꺼짐"), incoming ? "info" : "warn", {
-        key:"board-control-" + kind,
-        duration:2600
-      });
+      confirmBoardControlPending(kind, pending, incoming);
       return incoming ? 1 : 0;
     }
 
@@ -20445,7 +20455,7 @@ function requestMobileMockup3dMesh(){
         fw_program:"Altis_Intelligent3_firmware1",
         fw_board:"Altis_Intelligent3_b3",
         fw_protocol:"Flash6-Intelligent-b3",
-        fw_build:"v6 b8"
+        fw_build:"v6 b9"
       };
     }
 
@@ -31777,25 +31787,36 @@ function requestMobileMockup3dMesh(){
         if(!serialTxEnabled){
           return {ok:false, reason:"SERIAL_TX_DISABLED"};
         }
-        const result = await requestSerialCommandAck(
-          path,
-          (evt)=>{
-            const message = String(evt.message || "").toUpperCase();
-            if(message.indexOf("FLASH_LINK_COMMANDS_QUEUED") === 0) return true;
-            if(message.indexOf("FLASH_LINK_STATE") === 0){
-              return new RegExp("\\bCODE=" + commandCode + "(?:\\b|$)").test(message) &&
-                new RegExp("\\bVALUE=" + value + "(?:\\b|$)").test(message);
+        let result = null;
+        for(let attempt = 0; attempt < 2; attempt++){
+          result = await requestSerialCommandAck(
+            path,
+            (evt)=>{
+              const message = String(evt.message || "").toUpperCase();
+              // QUEUED only confirms reception by the ground node. Keep the
+              // waiter alive until the avionics node reports execution.
+              if(message.indexOf("FLASH_LINK_COMMANDS_QUEUED") === 0) return false;
+              if(message.indexOf("FLASH_LINK_STATE") === 0){
+                return new RegExp("\\bCODE=" + commandCode + "(?:\\b|$)").test(message) &&
+                  new RegExp("\\bVALUE=" + value + "(?:\\b|$)").test(message);
+              }
+              if(message.indexOf("STREAM=") === 0){
+                const field = isSafety ? "SAFE" : "ARM_LOCK";
+                return new RegExp("\\b" + field + "=" + value + "(?:\\b|$)").test(message);
+              }
+              return false;
+            },
+            {
+              timeoutMs:attempt === 0 ? 700 : 1200,
+              writeTimeoutMs:700
             }
-            if(message.indexOf("STREAM=") === 0){
-              const field = isSafety ? "SAFE" : "ARM_LOCK";
-              return new RegExp("\\b" + field + "=" + value + "(?:\\b|$)").test(message);
-            }
-            return false;
-          },
-          {timeoutMs:2200, writeTimeoutMs:1400}
-        );
+          );
+          if(result && result.ok) break;
+          if(result && result.kind === "err") break;
+        }
         return {
           ok:!!(result && result.ok),
+          confirmed:!!(result && result.ok),
           reason:(result && (result.message || result.kind)) || "SERIAL_NO_REPLY"
         };
       }
@@ -31811,8 +31832,11 @@ function requestMobileMockup3dMesh(){
           controller ? {signal:controller.signal} : {}
         ));
         const body = await res.text().catch(()=>"");
+        const field = isSafety ? "SAFE" : "ARM_LOCK";
+        const confirmed = res.ok && new RegExp("\\b" + field + "=" + value + "(?:\\b|$)", "i").test(body);
         return {
           ok:res.ok,
+          confirmed,
           reason:(body && body.trim()) || ("HTTP " + res.status)
         };
       }catch(err){
@@ -33192,6 +33216,9 @@ function requestMobileMockup3dMesh(){
             rejectBoardControlPending("safety", pending, result.reason);
             return;
           }
+          if(result.confirmed){
+            confirmBoardControlPending("safety", pending, requested);
+          }
           if(pendingBoardControls.safety && pendingBoardControls.safety !== pending) return;
           if(safetyModeEnabled !== requested) return;
           if(requested && currentSt !== 0){
@@ -33222,6 +33249,9 @@ function requestMobileMockup3dMesh(){
           if(!result.ok){
             rejectBoardControlPending("armLock", pending, result.reason);
             return;
+          }
+          if(result.confirmed){
+            confirmBoardControlPending("armLock", pending, armLockEnabled);
           }
         });
       }

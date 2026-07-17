@@ -3,6 +3,20 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.8.3 — v6 b9 — 2026-07-17
+
+Protocol: `Flash6-Intelligent-b3` (wire version `3`, unchanged)
+
+- Kept USB safety-mode and ARM-lock requests open until the avionics execution
+  acknowledgement arrives instead of treating the ground queue receipt as the
+  final result.
+- Added one bounded serial retry and applied a matching completion ACK directly
+  to the control UI, removing dependence on a later telemetry frame.
+- Promoted safety-mode and ARM-lock commands ahead of unsent background work in
+  the radio queue while preserving the queue head for any in-flight ACK.
+- Coalesced unsent state toggles to the newest operator value and now reports an
+  explicit serial error if a state command exhausts its radio retries.
+
 ## 0.8.2 — v6 b8 — 2026-07-17
 
 Protocol: `Flash6-Intelligent-b3` (wire version `3`, unchanged)
