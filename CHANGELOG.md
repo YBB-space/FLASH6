@@ -26,6 +26,8 @@ Protocol: `Flash6-Intelligent-b3` (wire version `3`, unchanged)
   removed the old click-to-open gyro-only transition from the preview surface.
 - Extended the gyro dashboard zoom-in range and temporarily holds manual wheel
   zoom before returning to automatic trajectory framing.
+- Kept the map and both telemetry charts fixed as one rail when the floating
+  navigation dock is hovered or focused.
 
 ## 0.8.1 — v6 b7 — 2026-07-17
 

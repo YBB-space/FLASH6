@@ -23975,12 +23975,12 @@ body.camera-view-active .camera-switch-btn:not(:disabled):hover{
     height:100% !important;
   }
   body.camera-view-active.camera-dashboard-default .camera-telemetry-chart{
-    left:calc(72px + var(--camera-chart-edge)) !important;
-    transition:left .2s ease;
+    left:0 !important;
+    transition:none !important;
   }
   body.camera-view-active.camera-dashboard-default:has(.side-nav-desktop:hover) .camera-telemetry-chart,
   body.camera-view-active.camera-dashboard-default:has(.side-nav-desktop.is-expanded) .camera-telemetry-chart{
-    left:calc(176px + var(--camera-chart-edge)) !important;
+    left:0 !important;
   }
 }
 
@@ -25869,11 +25869,11 @@ body.camera-view-active .camera-center-countdown .camera-count-time{
     filter:none !important;
   }
   body.camera-view-active.camera-dashboard-default .camera-telemetry-chart{
-    left:var(--camera-chart-edge) !important;
+    left:0 !important;
   }
   body.camera-view-active.camera-dashboard-default:has(.side-nav-desktop:hover) .camera-telemetry-chart,
   body.camera-view-active.camera-dashboard-default:has(.side-nav-desktop.is-expanded) .camera-telemetry-chart{
-    left:var(--camera-chart-edge) !important;
+    left:0 !important;
   }
   body.camera-view-active #dashboardView{
     left:clamp(18px,2vw,34px) !important;
