@@ -24349,6 +24349,149 @@ function requestMobileMockup3dMesh(){
       };
     }
 
+    const storageDownloadProgressState = {
+      active:false,
+      startedAt:0,
+      lastPercent:-1,
+      lastRenderAt:0
+    };
+
+    function blockStorageDownloadInteraction(ev){
+      if(!storageDownloadProgressState.active) return;
+      const overlay = document.getElementById("storageDownloadProgressOverlay");
+      if(ev.type === "focusin" && overlay && overlay.contains(ev.target)) return;
+      ev.preventDefault();
+      ev.stopImmediatePropagation();
+      if(ev.type === "focusin"){
+        const dialog = overlay && overlay.querySelector(".storage-download-progress-dialog");
+        if(dialog){
+          try{ dialog.focus({preventScroll:true}); }catch(_e){ dialog.focus(); }
+        }
+      }
+    }
+
+    function ensureStorageDownloadProgressOverlay(){
+      let overlay = document.getElementById("storageDownloadProgressOverlay");
+      if(overlay) return overlay;
+      overlay = document.createElement("div");
+      overlay.id = "storageDownloadProgressOverlay";
+      overlay.className = "storage-download-progress-overlay hidden";
+      overlay.setAttribute("aria-hidden", "true");
+      overlay.innerHTML =
+        '<section class="storage-download-progress-dialog" role="alertdialog" aria-modal="true" aria-labelledby="storageDownloadProgressTitle" aria-describedby="storageDownloadProgressStatus" tabindex="-1">' +
+          '<div class="storage-download-progress-kicker">STORAGE TRANSFER</div>' +
+          '<div class="storage-download-progress-heading">' +
+            '<h2 id="storageDownloadProgressTitle">저장 기록 다운로드</h2>' +
+            '<strong id="storageDownloadProgressPercent">0%</strong>' +
+          '</div>' +
+          '<div id="storageDownloadProgressFile" class="storage-download-progress-file">저장 기록</div>' +
+          '<div id="storageDownloadProgressBar" class="storage-download-progress-track" role="progressbar" aria-label="다운로드 진행률" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">' +
+            '<span id="storageDownloadProgressFill"></span>' +
+          '</div>' +
+          '<div class="storage-download-progress-meta">' +
+            '<span id="storageDownloadProgressStatus">다운로드 준비 중…</span>' +
+            '<span id="storageDownloadProgressBytes">0 B / 0 B</span>' +
+          '</div>' +
+          '<p class="storage-download-progress-note">완료될 때까지 보드 전원과 연결을 유지하세요.</p>' +
+        '</section>';
+      overlay.addEventListener("click", (ev)=>{
+        ev.preventDefault();
+        ev.stopPropagation();
+      });
+      document.body.appendChild(overlay);
+      document.addEventListener("keydown", blockStorageDownloadInteraction, true);
+      document.addEventListener("keyup", blockStorageDownloadInteraction, true);
+      document.addEventListener("focusin", blockStorageDownloadInteraction, true);
+      return overlay;
+    }
+
+    function updateStorageDownloadProgress(loadedBytes, totalBytes, statusText, force){
+      if(!storageDownloadProgressState.active) return;
+      const overlay = ensureStorageDownloadProgressOverlay();
+      const total = Math.max(0, Math.floor(Number(totalBytes) || 0));
+      const loaded = Math.max(0, Math.min(total || Number.MAX_SAFE_INTEGER, Math.floor(Number(loadedBytes) || 0)));
+      const percent = total > 0
+        ? Math.max(0, Math.min(100, Math.floor((loaded * 100) / total)))
+        : 0;
+      const now = typeof performance !== "undefined" && typeof performance.now === "function"
+        ? performance.now()
+        : Date.now();
+      const shouldRender =
+        !!force ||
+        percent !== storageDownloadProgressState.lastPercent ||
+        (now - storageDownloadProgressState.lastRenderAt) >= 180;
+      if(!shouldRender) return;
+      storageDownloadProgressState.lastPercent = percent;
+      storageDownloadProgressState.lastRenderAt = now;
+      const percentEl = overlay.querySelector("#storageDownloadProgressPercent");
+      const fill = overlay.querySelector("#storageDownloadProgressFill");
+      const bar = overlay.querySelector("#storageDownloadProgressBar");
+      const status = overlay.querySelector("#storageDownloadProgressStatus");
+      const bytes = overlay.querySelector("#storageDownloadProgressBytes");
+      if(percentEl) percentEl.textContent = percent + "%";
+      if(fill) fill.style.width = percent + "%";
+      if(bar) bar.setAttribute("aria-valuenow", String(percent));
+      if(status && statusText) status.textContent = String(statusText);
+      if(bytes) bytes.textContent =
+        formatBytesCompact(loaded) + " / " + (total > 0 ? formatBytesCompact(total) : "--");
+    }
+
+    function showStorageDownloadProgress(item, statusText){
+      const overlay = ensureStorageDownloadProgressOverlay();
+      const label = getDataListItemDownloadLabel(item);
+      const total = Math.max(0, Math.floor(Number(item && item.bytes) || 0));
+      storageDownloadProgressState.active = true;
+      storageDownloadProgressState.startedAt = Date.now();
+      storageDownloadProgressState.lastPercent = -1;
+      storageDownloadProgressState.lastRenderAt = 0;
+      const file = overlay.querySelector("#storageDownloadProgressFile");
+      const dialog = overlay.querySelector(".storage-download-progress-dialog");
+      if(file) file.textContent = label.title;
+      overlay.classList.remove("is-complete", "is-failed", "hidden");
+      overlay.setAttribute("aria-hidden", "false");
+      document.documentElement.classList.add("storage-download-active");
+      updateStorageDownloadProgress(0, total, statusText || "다운로드 준비 중…", true);
+      requestAnimationFrame(()=>{
+        overlay.classList.add("is-open");
+        if(dialog){
+          try{ dialog.focus({preventScroll:true}); }catch(_e){ dialog.focus(); }
+        }
+      });
+    }
+
+    async function finishStorageDownloadProgress(success, totalBytes){
+      if(!storageDownloadProgressState.active) return;
+      const overlay = ensureStorageDownloadProgressOverlay();
+      const total = Math.max(0, Math.floor(Number(totalBytes) || 0));
+      overlay.classList.toggle("is-complete", !!success);
+      overlay.classList.toggle("is-failed", !success);
+      updateStorageDownloadProgress(
+        success ? total : Math.max(0, Math.floor(total * Math.max(0, storageDownloadProgressState.lastPercent) / 100)),
+        total,
+        success ? "다운로드 완료" : "다운로드 실패",
+        true
+      );
+      if(success && total === 0){
+        const percentEl = overlay.querySelector("#storageDownloadProgressPercent");
+        const fill = overlay.querySelector("#storageDownloadProgressFill");
+        const bar = overlay.querySelector("#storageDownloadProgressBar");
+        if(percentEl) percentEl.textContent = "100%";
+        if(fill) fill.style.width = "100%";
+        if(bar) bar.setAttribute("aria-valuenow", "100");
+      }
+      const minVisibleMs = success ? 420 : 760;
+      const elapsed = Date.now() - storageDownloadProgressState.startedAt;
+      if(elapsed < minVisibleMs) await delay(minVisibleMs - elapsed);
+      overlay.classList.remove("is-open");
+      await delay(180);
+      storageDownloadProgressState.active = false;
+      storageDownloadProgressState.startedAt = 0;
+      overlay.classList.add("hidden");
+      overlay.classList.remove("is-complete", "is-failed");
+      overlay.setAttribute("aria-hidden", "true");
+      document.documentElement.classList.remove("storage-download-active");
+    }
+
     function ensureDataDownloadConfirmOverlay(){
       let overlay = document.getElementById("dataDownloadConfirmOverlay");
       if(overlay) return overlay;
@@ -24599,13 +24742,27 @@ function requestMobileMockup3dMesh(){
             downloadBtn.disabled = true;
             downloadBtn.textContent = "다운로드 준비 중…";
           }
+          const totalBytes = Math.max(0, Math.floor(Number(selected && selected.bytes) || 0));
+          let downloadSucceeded = false;
+          showStorageDownloadProgress(
+            selected,
+            selected.kind === "app" ? "APP 기록 구성 중…" : "보드 연결 확인 중…"
+          );
           try{
             if(selected.kind === "app"){
+              updateStorageDownloadProgress(0, totalBytes, "APP 기록 구성 중…", true);
               await downloadAppDataSession(selected);
+              updateStorageDownloadProgress(totalBytes, totalBytes, "파일 저장 준비 완료", true);
+              downloadSucceeded = true;
             }else{
-              await downloadSpiFlashDump(selected);
+              downloadSucceeded = await downloadSpiFlashDump(selected);
             }
+          }catch(err){
+            const reason = (err && err.message) ? err.message : String(err || "unknown");
+            const prefix = selected.kind === "app" ? "APP BIN" : "저장 기록";
+            showToast(prefix + " 다운로드 실패: " + reason, "error", {key:"data-download-unhandled-fail"});
           }finally{
+            await finishStorageDownloadProgress(downloadSucceeded, totalBytes);
             if(downloadBtn){
               downloadBtn.disabled = false;
               downloadBtn.textContent = "다운로드";
@@ -25081,6 +25238,7 @@ function requestMobileMockup3dMesh(){
       const chunks = [header];
       let off = 0;
       const dataDownloadBtn = document.getElementById("dataStorageDownloadBtn");
+      updateStorageDownloadProgress(0, dataBytes, "USB 시리얼 전송 중…", true);
       while(off < dataBytes){
         const len = Math.min(SPI_FLASH_SERIAL_CHUNK_BYTES, dataBytes - off);
         const bytes = await fetchSpiFlashChunkViaSerial(baseOffset + off, len);
@@ -25091,8 +25249,10 @@ function requestMobileMockup3dMesh(){
         if(el.spiFlashStatusLine){
           el.spiFlashStatusLine.textContent = "SPI Flash BIN 시리얼 다운로드 중... " + pct + "%";
         }
+        updateStorageDownloadProgress(off, dataBytes, "USB 시리얼 전송 중…");
       }
 
+      updateStorageDownloadProgress(dataBytes, dataBytes, "파일 생성 중…", true);
       const ts = new Date().toISOString().replace(/[:.]/g, "-");
       const blob = new Blob(chunks, {type:"application/octet-stream"});
       const safeName = String(selectedItem && selectedItem.name || "DATA").replace(/[^A-Za-z0-9_-]+/g, "_");
@@ -25170,6 +25330,7 @@ function requestMobileMockup3dMesh(){
       const chunks = [header];
       const dataDownloadBtn = document.getElementById("dataStorageDownloadBtn");
       let off = 0;
+      updateStorageDownloadProgress(0, dataBytes, "A.I LINK 데이터 수신 중…", true);
       while(off < dataBytes){
         const len = Math.min(SPI_FLASH_REMOTE_CHUNK_BYTES, dataBytes - off);
         const bytes = await fetchSpiFlashRemoteChunk(baseOffset + off, len);
@@ -25180,9 +25341,11 @@ function requestMobileMockup3dMesh(){
         if(el.spiFlashStatusLine){
           el.spiFlashStatusLine.textContent = "에비오닉스 BIN 무선 다운로드 중... " + pct + "%";
         }
+        updateStorageDownloadProgress(off, dataBytes, "A.I LINK 데이터 수신 중…");
         if((off % (SPI_FLASH_REMOTE_CHUNK_BYTES * 12)) === 0) await delay(0);
       }
 
+      updateStorageDownloadProgress(dataBytes, dataBytes, "파일 생성 중…", true);
       const ts = new Date().toISOString().replace(/[:.]/g, "-");
       const blob = new Blob(chunks, {type:"application/octet-stream"});
       const safeName = String(selectedItem && selectedItem.name || "FLASH6_AVIONICS").replace(/[^A-Za-z0-9_-]+/g, "_");
@@ -25346,10 +25509,45 @@ function requestMobileMockup3dMesh(){
       }
     }
 
+    async function readStorageDownloadResponseBlob(response, expectedBytes){
+      const expected = Math.max(
+        0,
+        Math.floor(
+          Number(response && response.headers && response.headers.get("Content-Length")) ||
+          Number(expectedBytes) ||
+          0
+        )
+      );
+      if(!response.body || typeof response.body.getReader !== "function"){
+        updateStorageDownloadProgress(0, expected, "파일 데이터 수신 중…", true);
+        const blob = await response.blob();
+        updateStorageDownloadProgress(blob.size, expected || blob.size, "파일 생성 중…", true);
+        return blob;
+      }
+      const reader = response.body.getReader();
+      const chunks = [];
+      let received = 0;
+      updateStorageDownloadProgress(0, expected, "파일 데이터 수신 중…", true);
+      while(true){
+        const result = await reader.read();
+        if(result.done) break;
+        if(result.value && result.value.byteLength){
+          chunks.push(result.value);
+          received += result.value.byteLength;
+          updateStorageDownloadProgress(received, expected || received, "파일 데이터 수신 중…");
+        }
+      }
+      const total = expected || received;
+      updateStorageDownloadProgress(total, total, "파일 생성 중…", true);
+      return new Blob(chunks, {
+        type:String(response.headers.get("Content-Type") || "application/octet-stream")
+      });
+    }
+
     async function downloadSpiFlashDump(selectedItem){
       if(!selectedItem || !(Number(selectedItem.bytes) > 0)){
         showToast("다운로드할 저장 기록을 선택하세요.", "notice", {key:"storage-download-select"});
-        return;
+        return false;
       }
       const remoteTarget =
         !!(selectedItem && selectedItem.remote) ||
@@ -25362,6 +25560,7 @@ function requestMobileMockup3dMesh(){
           if(el.spiFlashStatusLine) el.spiFlashStatusLine.textContent = "에비오닉스 BIN 무선 다운로드 준비 중...";
           if(el.spiFlashDumpBtn) el.spiFlashDumpBtn.disabled = true;
           await downloadSpiFlashDumpViaFlashLink(selectedItem);
+          return true;
         }catch(err){
           const reason = (err && err.name === "AbortError")
             ? "TIMEOUT - A.I LINK 연결 상태를 확인하세요"
@@ -25370,10 +25569,10 @@ function requestMobileMockup3dMesh(){
           if(el.spiFlashStatusLine){
             el.spiFlashStatusLine.textContent = "에비오닉스 BIN 무선 다운로드 실패: " + reason;
           }
+          return false;
         }finally{
           if(el.spiFlashDumpBtn) el.spiFlashDumpBtn.disabled = false;
         }
-        return;
       }
       if(canUseSerialForSpiFlash()){
         try{
@@ -25382,17 +25581,18 @@ function requestMobileMockup3dMesh(){
           await setSerialStreamState(false);
           await delay(80);
           await downloadSpiFlashDumpViaSerial(selectedItem);
+          return true;
         }catch(err){
           const reason = (err && err.message) ? err.message : String(err || "unknown");
           showToast("SPI Flash BIN(Serial) 다운로드 실패: " + reason, "error", {key:"spi-flash-dump-serial-fail"});
           if(el.spiFlashStatusLine){
             el.spiFlashStatusLine.textContent = "SPI Flash BIN(Serial) 다운로드 실패: " + reason;
           }
+          return false;
         }finally{
           await setSerialStreamState(true);
           if(el.spiFlashDumpBtn) el.spiFlashDumpBtn.disabled = false;
         }
-        return;
       }
 
       const API_BASE = getApiBaseForCommands();
@@ -25416,12 +25616,13 @@ function requestMobileMockup3dMesh(){
           throw new Error(text || ("HTTP " + res.status));
         }
         if(el.spiFlashStatusLine) el.spiFlashStatusLine.textContent = "SPI Flash BIN 다운로드 중...";
-        const blob = await res.blob();
+        const blob = await readStorageDownloadResponseBlob(res, selectedBytes);
         const ts = new Date().toISOString().replace(/[:.]/g, "-");
         const safeName = String(selectedItem.name || "DATA").replace(/[^A-Za-z0-9_-]+/g, "_");
         downloadBlobAsFile(blob, safeName + "_" + ts + ".bin");
         showToast("SPI Flash BIN 다운로드 완료", "success", {key:"spi-flash-dump"});
         await fetchSpiFlashStatus({force:true});
+        return true;
       }catch(err){
         const isAbort = !!(err && (err.name === "AbortError"));
         const reason = isAbort
@@ -25431,6 +25632,7 @@ function requestMobileMockup3dMesh(){
         if(el.spiFlashStatusLine){
           el.spiFlashStatusLine.textContent = "SPI Flash BIN 다운로드 실패: " + reason;
         }
+        return false;
       }finally{
         if(timer) clearTimeout(timer);
         if(el.spiFlashDumpBtn) el.spiFlashDumpBtn.disabled = false;
