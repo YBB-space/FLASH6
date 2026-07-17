@@ -25989,7 +25989,7 @@ function requestMobileMockup3dMesh(){
     }
     function openMobileSettingsSection(target, titleText){
       if(!el.settingsOverlay || !target) return;
-      setActiveSettingsPanel(target, titleText || (target === "communication" ? "ALTIS INTELLIGENT LINK" : "설정"));
+      setActiveSettingsPanel(target, titleText || (target === "communication" ? t("settingsNavCommunication") : "설정"));
       el.settingsOverlay.classList.add("mobile-settings-detail");
       const body = el.settingsOverlay.querySelector(".settings-body");
       if(body) body.scrollTop = 0;
