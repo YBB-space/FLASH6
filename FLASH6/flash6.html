@@ -124,7 +124,7 @@
   <!-- Preload 축소: AP 모드/저메모리 환경에서 동시 요청 버스트를 줄임 -->
   <script>
     (function(){
-    var ASSET_VER = "20260717-performance-hotpaths-b12-298";
+    var ASSET_VER = "20260717-flight-overview-b12-299";
       window.__flashBoot = window.__flashBoot || {jsReady:false,lastError:"",phase:"static_loader",version:ASSET_VER};
       var isLocalPreview = !!window.__flashBoot.localPreview;
       var beaconEnabled = (window.__flashBoot.beaconEnabled !== false);
@@ -374,7 +374,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="styles/flash6.css?v=20260717-gyro-dashboard-map-b8-291">
+  <link rel="stylesheet" href="styles/flash6.css?v=20260717-flight-overview-b12-299">
 </head>
 <body>
   <!-- ✅ LOCKOUT 배경 오버레이 -->
@@ -1162,7 +1162,7 @@
       <div class="row-top">
         <section class="card-base main-card status-card status-map-only">
         <div class="status-map-layout">
-          <div id="statusMapViewport" class="status-map-panel">
+          <div id="statusMapViewport" class="status-map-panel" data-panel-title="FLIGHT MAP">
             <div id="statusMap" class="status-map-canvas" aria-label="Status map"></div>
             <div class="status-map-tint" aria-hidden="true"></div>
             <div class="status-map-return-actions">
@@ -1237,7 +1237,7 @@
               </div>
             </div>
           </div>
-          <div class="status-gyro status-flight-preview">
+          <div class="status-gyro status-flight-preview" data-panel-title="ATTITUDE / 3D">
             <div id="mobilePreviewCarousel" class="mobile-preview-carousel" aria-label="Preview carousel">
               <section class="mobile-device-preview-slide" aria-label="Status preview">
                 <div class="mobile-device-preview-art" aria-hidden="true">
@@ -1387,7 +1387,10 @@
       </section>
         <section class="card-base motor-card status-frame">
           <div class="card-header quick-data-header">
-            <div class="card-title">QUICK DATA</div>
+            <div class="quick-data-heading">
+              <div class="card-title">QUICK DATA</div>
+              <div class="quick-data-subtitle">LIVE VEHICLE STATE</div>
+            </div>
             <div id="statusBar" class="status-bar is-offline" aria-label="Device status">
               <div id="connStatusLabel" class="status-conn-block">
                 <svg class="conn-icon" viewBox="0 0 24 24" aria-hidden="true">
