@@ -1,0 +1,51 @@
+name: Deploy FLASH6 Pages
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "FLASH6/**"
+      - ".github/workflows/deploy-flash6-pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: flash6-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    if: github.repository == 'YBB-space/FLASH6'
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Prepare FLASH6 site
+        shell: bash
+        run: |
+          mkdir -p _site
+          cp -R FLASH6/. _site/
+          printf '%s\n' 'flash6.kro.kr' > _site/CNAME
+          touch _site/.nojekyll
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
