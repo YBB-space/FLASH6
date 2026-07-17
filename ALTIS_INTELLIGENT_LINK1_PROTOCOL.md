@@ -277,12 +277,12 @@ revisions should rotate keys per fleet or per paired board.
 
 ## Firmware Revision
 
-- Firmware version: `0.8.5`
-- Build ID: `v6 b11`
+- Firmware version: `0.8.6`
+- Build ID: `v6 b12`
 - Wire protocol: `Flash6-Intelligent-b3` / numeric version `3`
 - Storage record format: version `4` (unchanged and backward compatible)
-- Compatibility: the wire layout remains version `3`. Ground and stage 1 must
-  both run `v6 b11` to coordinate stage-1-only 100 Hz mode, reliably apply
-  ground-to-avionics role changes, and report remote control completion over
-  USB serial. Update all three
-  nodes before enabling dual-stage operation.
+- Compatibility: the wire layout remains version `3` and is compatible with
+  `v6 b11`. Build `v6 b12` only refactors local sensor, storage, serialization,
+  and UI hot paths; packet fields, command strings, and routing semantics are
+  unchanged. Update the board firmware and FLASH6 assets together to receive
+  the full latency and CPU improvements.

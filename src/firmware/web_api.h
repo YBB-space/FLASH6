@@ -386,17 +386,76 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
   const bool remoteOutput = flashLinkGroundRole();
   const Telemetry& output = remoteOutput ? flashLinkRemoteSnap : snap;
   const uint16_t remoteFlags = remoteOutput ? flashLinkRemoteState.flags : 0;
-  char gpsLat[20];
-  char gpsLon[20];
-  char gpsAlt[16];
-  char chipTemp[16];
-  char peerMac[20];
-  formatGpsFieldsFor(output, gpsLat, sizeof(gpsLat), gpsLon, sizeof(gpsLon), gpsAlt, sizeof(gpsAlt));
-  flashLinkFormatMac(flashLink.peerReady ? flashLink.peerMac : nullptr, peerMac, sizeof(peerMac));
+  struct StreamTextCache {
+    bool gpsInitialized = false;
+    bool gpsValid = false;
+    float gpsLatValue = NAN;
+    float gpsLonValue = NAN;
+    float gpsAltValue = NAN;
+    char gpsLat[20] = {};
+    char gpsLon[20] = {};
+    char gpsAlt[16] = {};
+    bool chipInitialized = false;
+    bool chipValid = false;
+    float chipValue = NAN;
+    char chipTemp[16] = {};
+    bool peerInitialized = false;
+    bool peerReady = false;
+    uint8_t peerMacValue[ESP_NOW_ETH_ALEN] = {};
+    char peerMac[20] = {};
+  };
+  static StreamTextCache textCache;
+  const bool gpsValid = output.gpsFix && isfinite(output.gpsLat) && isfinite(output.gpsLon);
+  const float gpsAltValue = isfinite(output.gpsAlt) ? output.gpsAlt : 0.0f;
+  if (!textCache.gpsInitialized ||
+      textCache.gpsValid != gpsValid ||
+      (gpsValid &&
+       (textCache.gpsLatValue != output.gpsLat ||
+        textCache.gpsLonValue != output.gpsLon ||
+        textCache.gpsAltValue != gpsAltValue))) {
+    formatGpsFieldsFor(
+      output,
+      textCache.gpsLat,
+      sizeof(textCache.gpsLat),
+      textCache.gpsLon,
+      sizeof(textCache.gpsLon),
+      textCache.gpsAlt,
+      sizeof(textCache.gpsAlt));
+    textCache.gpsInitialized = true;
+    textCache.gpsValid = gpsValid;
+    textCache.gpsLatValue = output.gpsLat;
+    textCache.gpsLonValue = output.gpsLon;
+    textCache.gpsAltValue = gpsAltValue;
+  }
+  const bool peerChanged = !textCache.peerInitialized ||
+    textCache.peerReady != flashLink.peerReady ||
+    (flashLink.peerReady &&
+     memcmp(textCache.peerMacValue, flashLink.peerMac, ESP_NOW_ETH_ALEN) != 0);
+  if (peerChanged) {
+    flashLinkFormatMac(
+      flashLink.peerReady ? flashLink.peerMac : nullptr,
+      textCache.peerMac,
+      sizeof(textCache.peerMac));
+    textCache.peerInitialized = true;
+    textCache.peerReady = flashLink.peerReady;
+    if (flashLink.peerReady) {
+      memcpy(textCache.peerMacValue, flashLink.peerMac, ESP_NOW_ETH_ALEN);
+    }
+  }
   const uint32_t nowMs = millis();
   const bool chipTempValid = isfinite(output.chipTempC);
-  if (chipTempValid) snprintf(chipTemp, sizeof(chipTemp), "%.1f", output.chipTempC);
-  else snprintf(chipTemp, sizeof(chipTemp), "null");
+  if (!textCache.chipInitialized ||
+      textCache.chipValid != chipTempValid ||
+      (chipTempValid && textCache.chipValue != output.chipTempC)) {
+    if (chipTempValid) {
+      snprintf(textCache.chipTemp, sizeof(textCache.chipTemp), "%.1f", output.chipTempC);
+    } else {
+      strlcpy(textCache.chipTemp, "null", sizeof(textCache.chipTemp));
+    }
+    textCache.chipInitialized = true;
+    textCache.chipValid = chipTempValid;
+    textCache.chipValue = output.chipTempC;
+  }
 
   uint16_t flags = remoteOutput ? remoteFlags : 0;
   if (!remoteOutput) {
@@ -570,8 +629,8 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
            (long)tdMs,
            (unsigned)abortReason,
            (unsigned)reportedModeCode,
-           chipTemp,
-           gpsLat, gpsLon, gpsAlt,
+           textCache.chipTemp,
+           textCache.gpsLat, textCache.gpsLon, textCache.gpsAlt,
            (unsigned long)output.gpsAgeMs,
            (unsigned long)wsDroppedFrames,
            (unsigned long)serialDroppedFrames,
@@ -588,7 +647,7 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
            (unsigned long)flashLink.txFail,
            (unsigned long)flashLink.rxFrames,
            (unsigned long)flashLink.rxDropped,
-           peerMac,
+           textCache.peerMac,
            (unsigned long)flashLink.txSkipped,
            (unsigned long)flashLink.rxCrcErrors,
            (unsigned long)flashLink.rxQueueDrops,

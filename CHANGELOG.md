@@ -3,6 +3,24 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.8.6 — v6 b12 — 2026-07-17
+
+Protocol: `Flash6-Intelligent-b3` (wire version `3`, unchanged)
+
+- Reused the IMU acceleration magnitude already computed by the 200 Hz sampler
+  and restricted accelerometer roll/pitch trigonometry to attitude startup.
+- Removed the redundant sample-record zero-fill while preserving every field
+  assignment and CRC, eliminating 17.2 KiB/s of queue memory writes.
+- Cached slow-changing GPS, chip-temperature, and peer-MAC text used by the
+  100 Hz stream without changing its array layout or serialized values.
+- Separated 100 Hz telemetry ingestion from UI rendering, cached dual-stage DOM
+  nodes, and skipped unchanged text/class writes while retaining every raw
+  sample, event, chart history, and report row.
+- Removed one full top-level object copy from the single-stage fallback path and
+  changed Web Serial chunk parsing from repeated tail slicing to one final trim.
+- Added a deterministic hot-path benchmark and hardware A/B measurement guide
+  in `benchmarks/performance_hotpaths.mjs` and `PERFORMANCE.md`.
+
 ## 0.8.5 — v6 b11 — 2026-07-17
 
 Protocol: `Flash6-Intelligent-b3` (wire version `3`, unchanged)

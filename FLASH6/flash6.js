@@ -487,6 +487,7 @@ if (typeof window !== "undefined") {
 
     let lastChartRedraw = 0;
     let sampleCounter = 0;
+    let telemetryUiSampleCounter = 0;
     let isUpdating = false;
     let chartView = { startMs: null, windowMs: CHART_WINDOW_MS_DEFAULT, allowSmallWindow:false };
     let autoScrollChart = true;
@@ -7086,31 +7087,59 @@ function requestMobileMockup3dMesh(){
       }
     }
 
+    const stageTelemetryDashboardCache = {
+      root:null,
+      motorCard:null,
+      stages:Object.create(null)
+    };
+    function getStageTelemetryDashboardNodes(){
+      const root = el.stageTelemetryDeck;
+      if(!root) return null;
+      if(stageTelemetryDashboardCache.root === root) return stageTelemetryDashboardCache;
+      stageTelemetryDashboardCache.root = root;
+      stageTelemetryDashboardCache.motorCard = root.closest(".motor-card");
+      stageTelemetryDashboardCache.stages = Object.create(null);
+      [1, 2].forEach((stageId)=>{
+        const card = root.querySelector('[data-stage-card="' + stageId + '"]');
+        if(!card) return;
+        const values = Object.create(null);
+        ["link", "phase", "altitude", "speed", "gforce", "event"].forEach((key)=>{
+          values[key] = card.querySelector('[data-stage-value="' + key + '"]');
+        });
+        stageTelemetryDashboardCache.stages[stageId] = {card, values};
+      });
+      return stageTelemetryDashboardCache;
+    }
+    function setStageTelemetryClass(node, name, enabled){
+      if(node && node.classList.contains(name) !== !!enabled){
+        node.classList.toggle(name, !!enabled);
+      }
+    }
+    function setStageTelemetryText(node, value){
+      if(node && node.textContent !== value) node.textContent = value;
+    }
     function updateStageTelemetryDashboard(){
-      if(!el.stageTelemetryDeck) return;
-      el.stageTelemetryDeck.classList.toggle("hidden", !stageTelemetryModeActive);
-      const motorCard = el.stageTelemetryDeck.closest(".motor-card");
-      if(motorCard) motorCard.classList.toggle(
+      const dashboard = getStageTelemetryDashboardNodes();
+      if(!dashboard) return;
+      setStageTelemetryClass(dashboard.root, "hidden", !stageTelemetryModeActive);
+      setStageTelemetryClass(
+        dashboard.motorCard,
         "is-dual-stage",
         stageTelemetryModeActive && flashLinkUiStage2Mode
       );
       [1, 2].forEach((stageId)=>{
         const state = stageTelemetryStore[stageId];
-        const card = el.stageTelemetryDeck.querySelector('[data-stage-card="' + stageId + '"]');
-        if(!card) return;
-        card.classList.toggle("hidden", stageId === 2 && !flashLinkUiStage2Mode);
-        card.classList.toggle("is-linked", !!state.connected);
-        card.classList.toggle("is-active-hud", cameraHudActiveStageId === stageId);
-        const set = (key, value)=>{
-          const node = card.querySelector('[data-stage-value="' + key + '"]');
-          if(node) node.textContent = value;
-        };
-        set("link", state.connected ? "LINK" : (state.valid ? "STALE" : "OFFLINE"));
-        set("phase", state.valid ? stageTelemetryPhaseLabel(state.data) : "NO DATA");
-        set("altitude", isFinite(state.altitudeM) ? state.altitudeM.toFixed(1) : "--");
-        set("speed", isFinite(state.speedMps) ? Math.max(0, state.speedMps).toFixed(1) : "--");
-        set("gforce", isFinite(state.gforceG) ? Math.max(0, state.gforceG).toFixed(2) : "--");
-        set("event", state.lastEvent || "--");
+        const nodes = dashboard.stages[stageId];
+        if(!nodes) return;
+        setStageTelemetryClass(nodes.card, "hidden", stageId === 2 && !flashLinkUiStage2Mode);
+        setStageTelemetryClass(nodes.card, "is-linked", !!state.connected);
+        setStageTelemetryClass(nodes.card, "is-active-hud", cameraHudActiveStageId === stageId);
+        setStageTelemetryText(nodes.values.link, state.connected ? "LINK" : (state.valid ? "STALE" : "OFFLINE"));
+        setStageTelemetryText(nodes.values.phase, state.valid ? stageTelemetryPhaseLabel(state.data) : "NO DATA");
+        setStageTelemetryText(nodes.values.altitude, isFinite(state.altitudeM) ? state.altitudeM.toFixed(1) : "--");
+        setStageTelemetryText(nodes.values.speed, isFinite(state.speedMps) ? Math.max(0, state.speedMps).toFixed(1) : "--");
+        setStageTelemetryText(nodes.values.gforce, isFinite(state.gforceG) ? Math.max(0, state.gforceG).toFixed(2) : "--");
+        setStageTelemetryText(nodes.values.event, state.lastEvent || "--");
       });
     }
 
@@ -7165,21 +7194,19 @@ function requestMobileMockup3dMesh(){
       setAutomaticActiveStage(desired, reason);
     }
 
-    function recordStageTelemetrySample(stageId, sample){
+    function recordStageTelemetrySample(stageId, sample, options){
       const state = stageTelemetryStore[stageId];
       if(!state || !sample || typeof sample !== "object") return;
+      const recordOptions = options || {};
       const wasDeploymentState = Number(state.data && state.data.deployment_state) || 0;
       const previousRxSeq = Number(state.rxSeq) || 0;
       const nextRxSeq = Math.max(0, Number(sample.stage_rx_seq ?? sample.rx_seq) || 0);
-      const validRaw = sample.stage_valid ?? sample.valid;
-      const connectedRaw = sample.stage_connected ?? sample.connected;
+      const validRaw = recordOptions.valid ?? sample.stage_valid ?? sample.valid;
+      const connectedRaw = recordOptions.connected ?? sample.stage_connected ?? sample.connected;
       const valid = validRaw == null ? true : Number(validRaw) !== 0;
       state.connected = connectedRaw == null ? state.connected : Number(connectedRaw) !== 0;
       state.valid = valid;
-      if(!valid){
-        updateStageTelemetryDashboard();
-        return;
-      }
+      if(!valid) return;
       const sequenceDelta = (nextRxSeq - previousRxSeq) >>> 0;
       const sequenceReset = nextRxSeq > 0 && previousRxSeq > 0 && nextRxSeq < previousRxSeq &&
         Number(sample.flight_phase_code) === 0 && Number(sample.st) === 0;
@@ -7189,13 +7216,18 @@ function requestMobileMockup3dMesh(){
         // The same relay snapshot can arrive again through a parallel/fallback
         // transport. Never let an older HTTP response overwrite a newer WS
         // attitude; that makes the gyro bounce backward and forward.
-        updateStageTelemetryDashboard();
         return;
       }
-      state.data = Object.assign({}, state.data || {}, sample, {
-        stage_node_id:stageId,
-        data_origin:"avionics"
-      });
+      if(recordOptions.reuseSample){
+        sample.stage_node_id = stageId;
+        sample.data_origin = "avionics";
+        state.data = sample;
+      }else{
+        state.data = Object.assign({}, state.data || {}, sample, {
+          stage_node_id:stageId,
+          data_origin:"avionics"
+        });
+      }
       state.attitudeRevision++;
       const ageMs = Math.max(0, Number(sample.stage_age_ms ?? sample.age_ms) || 0);
       state.updatedAt = Date.now() - Math.min(ageMs, 0x7fffffff);
@@ -7235,10 +7267,9 @@ function requestMobileMockup3dMesh(){
       }else if(stageId === 1){
         cameraHudStageSwitchLatched = false;
       }
-      updateStageTelemetryDashboard();
     }
 
-    function ingestStageTelemetryBundle(data, src, isReplaySample){
+    function ingestStageTelemetryBundle(data, src, isReplaySample, renderUi){
       if(!data || typeof data !== "object") return;
       const stage2ModeRaw = data.fl_stage2_mode ?? data.flash_link_stage2_mode;
       if(stage2ModeRaw != null) flashLinkUiStage2Mode = Number(stage2ModeRaw) !== 0;
@@ -7282,14 +7313,15 @@ function requestMobileMockup3dMesh(){
       if(!bundle.length){
         const stageId = resolveTelemetryStageId(data);
         if(stageId === 1 || stageId === 2){
-          recordStageTelemetrySample(stageId, Object.assign({}, data, {
+          const stageSample = Object.assign({}, data, {
             stage_connected:stageTelemetryStore[stageId].connected ? 1 : 0,
             stage_valid:Number(data.fl_remote_valid ?? data.flash_link_remote_valid ?? 1) ? 1 : 0
-          }));
+          });
+          recordStageTelemetrySample(stageId, stageSample, {reuseSample:true});
         }
         updateAutomaticActiveStage(data);
       }
-      updateStageTelemetryDashboard();
+      if(renderUi !== false) updateStageTelemetryDashboard();
     }
 
     function buildCameraHudStageValues(fallback){
@@ -11814,8 +11846,9 @@ function requestMobileMockup3dMesh(){
     function hideFlashLinkTopologyOverlay(){
       setOverlayVisible(el.flashLinkTopologyOverlay, false);
     }
-    function updateFlashLinkStatusUi(data){
+    function updateFlashLinkStatusUi(data, renderUi){
       const src = data || {};
+      const shouldRender = renderUi !== false;
       const flashLinkEnabled = getSettingsOperationModeValue() === "flash_link";
       const linked = Number(src.fl_link ?? src.flash_link_connected ?? 0) !== 0;
       const remoteValid = Number(src.fl_remote_valid ?? src.flash_link_remote_valid ?? 0) !== 0;
@@ -11873,49 +11906,51 @@ function requestMobileMockup3dMesh(){
           uiSettings.flashLinkStage2Mode = stage2ModeEnabled;
         }
       }
-      if(el.flashLinkNodeSelect && document.activeElement !== el.flashLinkNodeSelect){
-        el.flashLinkNodeSelect.value = String(nodeId);
-      }
-      if(el.flashLinkStageStatus){
-        const stage1 = el.flashLinkStageStatus.querySelector('[data-stage-link="1"]');
-        const stage2 = el.flashLinkStageStatus.querySelector('[data-stage-link="2"]');
-        if(stage1){
-          stage1.classList.toggle("is-linked", stage1Linked);
-          stage1.textContent = (currentLang === "ko" ? "1단 " : "S1 ") + (stage1Linked ? "LINK" : "--");
-        }
-        if(stage2){
-          stage2.classList.toggle("is-linked", stage2ModeEnabled && stage2Linked);
-          stage2.textContent = !stage2ModeEnabled
-            ? (currentLang === "ko" ? "2단 사용 안 함" : "S2 DISABLED")
-            : (currentLang === "ko" ? "2단 " : "S2 ") + (stage2Linked ? "LINK" : "--");
-        }
-      }
       const avionicsRole = flashLinkUiRole === "avionics";
       const operational = linked && (remoteValid || avionicsRole);
-      if(el.flashLinkStatus){
-        el.flashLinkStatus.classList.toggle("is-linked", operational);
-      }
-      if(el.flashLinkStatusText){
-        el.flashLinkStatusText.textContent = !flashLinkEnabled
-          ? "OFF"
-          : operational
-          ? "LINKED"
-          : "OFFLINE";
-      }
-      if(el.flashLinkRate){
-        el.flashLinkRate.textContent = isFinite(rxHz) ? (Math.max(0, Math.round(rxHz)) + " Hz") : "-- Hz";
-      }
-      if(el.flashLinkLoss){
-        el.flashLinkLoss.textContent = isFinite(lossPermille)
-          ? ((currentLang === "ko" ? "손실 " : "loss ") + (Math.max(0, lossPermille) / 10).toFixed(1) + "%")
-          : (currentLang === "ko" ? "손실 --" : "loss --");
+      if(shouldRender){
+        if(el.flashLinkNodeSelect && document.activeElement !== el.flashLinkNodeSelect){
+          el.flashLinkNodeSelect.value = String(nodeId);
+        }
+        if(el.flashLinkStageStatus){
+          const stage1 = el.flashLinkStageStatus.querySelector('[data-stage-link="1"]');
+          const stage2 = el.flashLinkStageStatus.querySelector('[data-stage-link="2"]');
+          if(stage1){
+            stage1.classList.toggle("is-linked", stage1Linked);
+            stage1.textContent = (currentLang === "ko" ? "1단 " : "S1 ") + (stage1Linked ? "LINK" : "--");
+          }
+          if(stage2){
+            stage2.classList.toggle("is-linked", stage2ModeEnabled && stage2Linked);
+            stage2.textContent = !stage2ModeEnabled
+              ? (currentLang === "ko" ? "2단 사용 안 함" : "S2 DISABLED")
+              : (currentLang === "ko" ? "2단 " : "S2 ") + (stage2Linked ? "LINK" : "--");
+          }
+        }
+        if(el.flashLinkStatus){
+          el.flashLinkStatus.classList.toggle("is-linked", operational);
+        }
+        if(el.flashLinkStatusText){
+          el.flashLinkStatusText.textContent = !flashLinkEnabled
+            ? "OFF"
+            : operational
+            ? "LINKED"
+            : "OFFLINE";
+        }
+        if(el.flashLinkRate){
+          el.flashLinkRate.textContent = isFinite(rxHz) ? (Math.max(0, Math.round(rxHz)) + " Hz") : "-- Hz";
+        }
+        if(el.flashLinkLoss){
+          el.flashLinkLoss.textContent = isFinite(lossPermille)
+            ? ((currentLang === "ko" ? "손실 " : "loss ") + (Math.max(0, lossPermille) / 10).toFixed(1) + "%")
+            : (currentLang === "ko" ? "손실 --" : "loss --");
+        }
       }
       const rssiValid = isFinite(rssiDbm) && rssiDbm > -126 &&
         (!isFinite(rssiAgeMs) || rssiAgeMs <= 6000);
       flashLinkUiRssiDbm = rssiDbm;
       flashLinkUiRssiValid = rssiValid;
       flashLinkUiPeer = peer && peer !== "--" ? peer : "--";
-      if(el.flashLinkRssi){
+      if(shouldRender && el.flashLinkRssi){
         el.flashLinkRssi.textContent = rssiValid
           ? ("RSSI " + Math.round(rssiDbm) + " dBm")
           : "RSSI --";
@@ -11942,6 +11977,7 @@ function requestMobileMockup3dMesh(){
         appRxHz:isFinite(Number(rxHzWindow)) ? Math.max(0, Number(rxHzWindow)) : null,
         transportOnline:!!(connOk || linked)
       });
+      if(!shouldRender) return;
       if(el.flashLinkPeer){
         el.flashLinkPeer.textContent = peer && peer !== "--" ? peer : "--";
       }
@@ -11968,7 +12004,6 @@ function requestMobileMockup3dMesh(){
         }
       }
       if(wasOperational !== operational){
-        syncMobileBoardHeader();
         updateMotorInfoPanel();
       }
       syncMobileBoardHeader();
@@ -20438,7 +20473,7 @@ function requestMobileMockup3dMesh(){
         fw_program:"Altis_Intelligent3_firmware1",
         fw_board:"Altis_Intelligent3_b3",
         fw_protocol:"Flash6-Intelligent-b3",
-        fw_build:"v6 b11"
+        fw_build:"v6 b12"
       };
     }
 
@@ -21411,10 +21446,11 @@ function requestMobileMockup3dMesh(){
           serialLineBuf += chunk;
 
           let idx;
+          let consumed = 0;
           let pendingJsonLine = null;
-          while((idx = serialLineBuf.indexOf("\n")) >= 0){
-            const line = serialLineBuf.slice(0, idx).trim();
-            serialLineBuf = serialLineBuf.slice(idx+1);
+          while((idx = serialLineBuf.indexOf("\n", consumed)) >= 0){
+            const line = serialLineBuf.slice(consumed, idx).trim();
+            consumed = idx + 1;
             if(!line) continue;
             const jsonLine =
               (line[0] === "{" && line[line.length-1] === "}") ||
@@ -21429,6 +21465,7 @@ function requestMobileMockup3dMesh(){
             }
             handleSerialTextLine(line);
           }
+          if(consumed > 0) serialLineBuf = serialLineBuf.slice(consumed);
           if(pendingJsonLine){
             handleSerialJsonLine(pendingJsonLine);
           }
@@ -21549,9 +21586,17 @@ function requestMobileMockup3dMesh(){
       }else if(isReplaySample){
         return;
       }
+      if(!isFastReplaySeek) telemetryUiSampleCounter++;
+      const shouldRefreshUi = !isFastReplaySeek && (
+        forceReplayUi ||
+        telemetryUiSampleCounter === 1 ||
+        (simEnabled
+          ? (telemetryUiSampleCounter % 2 === 0)
+          : (telemetryUiSampleCounter % UI_SAMPLE_SKIP === 0))
+      );
       if(!isFastReplaySeek){
         handleMissionAlarmTelemetry(data, src, isReplaySample, resolveTelemetryStageId(data));
-        ingestStageTelemetryBundle(data, src, isReplaySample);
+        ingestStageTelemetryBundle(data, src, isReplaySample, shouldRefreshUi);
       }
       if(!isFastReplaySeek && typeof window !== "undefined"){
         window.__flashLastSample = data;
@@ -21632,19 +21677,21 @@ function requestMobileMockup3dMesh(){
         }
       }
       if(flashLinkWaitingForRemote){
-        updateFlashLinkStatusUi(data);
-        const offlineText = getFlashLinkGroundStatusText() || "ALTIS INTELLIGENT LINK1";
-        if(el.connStatusText) el.connStatusText.textContent = offlineText;
-        if(el.snapHz) el.snapHz.textContent = Math.round(flashLinkUiRxHz) + " Hz";
-        if(el.statusBar){
-          el.statusBar.classList.remove("is-online");
-          el.statusBar.classList.add("is-offline");
+        updateFlashLinkStatusUi(data, shouldRefreshUi);
+        if(shouldRefreshUi){
+          const offlineText = getFlashLinkGroundStatusText() || "ALTIS INTELLIGENT LINK1";
+          if(el.connStatusText) el.connStatusText.textContent = offlineText;
+          if(el.snapHz) el.snapHz.textContent = Math.round(flashLinkUiRxHz) + " Hz";
+          if(el.statusBar){
+            el.statusBar.classList.remove("is-online");
+            el.statusBar.classList.add("is-offline");
+          }
+          applyFlashLinkGroundWaitingUi(false);
+          syncMobileBoardHeader();
         }
-        applyFlashLinkGroundWaitingUi(false);
-        syncMobileBoardHeader();
         if(stageTelemetryModeActive){
           applyActiveStageGyroAttitude(nowOk);
-          syncCameraHud(buildCameraHudStageValues({}));
+          if(shouldRefreshUi) syncCameraHud(buildCameraHudStageValues({}));
         }
         return;
       }
@@ -21704,8 +21751,8 @@ function requestMobileMockup3dMesh(){
             data.remote_storage_records
           ) || storageChanged;
         }
-        if(storageChanged){
-          if(!isFastReplaySeek) syncStoragePreview();
+        if(storageChanged && shouldRefreshUi){
+          syncStoragePreview();
         }
       }
       if(!isFastReplaySeek){
@@ -21822,7 +21869,7 @@ function requestMobileMockup3dMesh(){
       }
       const thrustMissing = loadcellErrorActive;
       if(!isFastReplaySeek){
-        updateLoadcellLiveValue(loadcellErrorActive ? null : thrustVal);
+        updateLoadcellLiveValue(loadcellErrorActive ? null : thrustVal, shouldRefreshUi);
       }
       const p   = parsePressureMpa(data);
       const ax  = Number(data.ax != null ? data.ax : (data.accel_x ?? data.ax_g ?? 0));
@@ -22030,14 +22077,14 @@ function requestMobileMockup3dMesh(){
           applySettingsToUI();
         }
       }
-      if(!isReplaySample) updateFlashLinkStatusUi(data);
+      if(!isReplaySample) updateFlashLinkStatusUi(data, shouldRefreshUi);
 
       if(!isFastReplaySeek && isFirmwareSequenceRunningState(st) &&
          confirmOverlayEl &&
          !confirmOverlayEl.classList.contains("hidden")){
         closeSequenceStartOverlay(false);
       }
-      if(!isFastReplaySeek){
+      if(shouldRefreshUi){
         syncSequenceInteractionState(st);
       }
       currentSt=st;
@@ -22122,7 +22169,7 @@ function requestMobileMockup3dMesh(){
           latestTelemetry.gps_lon = geoLon;
           latestTelemetry.gps_alt = isFinite(geoAlt) ? geoAlt : null;
         }
-        if(!isFastReplaySeek){
+        if(shouldRefreshUi){
           updateIntelligentCalibrationMap();
         }
       }
@@ -22195,13 +22242,32 @@ function requestMobileMockup3dMesh(){
       const fwBoard = data.fw_board ?? data.fwBoard ?? null;
       const fwProgram = data.fw_program ?? data.fwProgram ?? null;
       const fwProtocol = data.fw_protocol ?? data.fwProtocol ?? null;
-        if(fwBoard && el.hwBoardName){
-          el.hwBoardName.textContent = String(fwBoard);
+      let firmwareIdentityChanged = false;
+      if(fwBoard && el.hwBoardName){
+        const value = String(fwBoard);
+        if(el.hwBoardName.textContent !== value){
+          el.hwBoardName.textContent = value;
+          firmwareIdentityChanged = true;
+        }
+      }
+      if(fwProgram && el.hwFirmwareName){
+        const value = String(fwProgram);
+        if(el.hwFirmwareName.textContent !== value){
+          el.hwFirmwareName.textContent = value;
+          firmwareIdentityChanged = true;
+        }
+      }
+      if(fwProtocol && el.hwProtocolName){
+        const value = String(fwProtocol);
+        if(el.hwProtocolName.textContent !== value){
+          el.hwProtocolName.textContent = value;
+          firmwareIdentityChanged = true;
+        }
+      }
+      if(firmwareIdentityChanged && shouldRefreshUi){
           syncMobileSequenceStatus();
           syncMobileBoardHeader();
-        }
-      if(fwProgram && el.hwFirmwareName) el.hwFirmwareName.textContent = String(fwProgram);
-      if(fwProtocol && el.hwProtocolName) el.hwProtocolName.textContent = String(fwProtocol);
+      }
 
       if(st===0){
         igniterAbortSent = false;
@@ -22311,7 +22377,7 @@ function requestMobileMockup3dMesh(){
       });
       logDataRevision += 1;
       trimArrayToMax(logData, RAW_LOG_MAX, HISTORY_TRIM_CHUNK);
-      if(!isFastReplaySeek){
+      if(shouldRefreshUi){
         updateExportGuardUi();
       }
 
@@ -22441,19 +22507,14 @@ function requestMobileMockup3dMesh(){
         }
       }
       prevStForIgn=st;
-      if(!isFastReplaySeek){
+      if(shouldRefreshUi){
         updateMotorInfoPanel();
         renderChipTempModal();
         renderPerfModal();
       }
 
-      // UI 업데이트(시뮬레이션 모드에서는 더 부드럽게 갱신)
-      const shouldRefreshUi = !isFastReplaySeek && (
-        forceReplayUi ||
-        (simEnabled
-          ? (sampleCounter % 2 === 0)
-          : (sampleCounter % UI_SAMPLE_SKIP === 0))
-      );
+      // UI 업데이트는 데이터 수집과 분리한다. 라이브 데이터는 모두 보존하고
+      // DOM/Canvas 렌더링만 제한해 입력 및 3D 자세 반응 시간을 안정화한다.
       if(shouldRefreshUi){
         updateConnectionUI(true);
         disconnectedLogged=false;
@@ -29522,11 +29583,11 @@ function requestMobileMockup3dMesh(){
       }
       setLoadcellActionState(el.loadcellZero, true, false);
     }
-    function updateLoadcellLiveValue(val){
+    function updateLoadcellLiveValue(val, renderUi){
       lastThrustKgf = val;
       const modalDisplayZero = isLoadcellModalVisible() && lastLoadcellOffsetValid === 0;
       const displayValue = modalDisplayZero ? 0 : val;
-      if(el.loadcellLiveValue){
+      if(renderUi !== false && el.loadcellLiveValue){
         if(displayValue == null || !isFinite(displayValue)){
           el.loadcellLiveValue.textContent = "--";
         }else{

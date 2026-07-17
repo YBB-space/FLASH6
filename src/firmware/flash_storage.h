@@ -896,7 +896,6 @@ void storageEnqueueSample(uint32_t timestampMs) {
 
   const uint32_t nowMs = millis();
   StorageQueueEntry& entry = storageQueue[storageQueueTail];
-  memset(entry.bytes, 0, sizeof(entry.bytes));
   entry.size = sizeof(StorageRecordV4);
   StorageRecordV4& rec = *reinterpret_cast<StorageRecordV4*>(entry.bytes);
   rec.header.marker = kStorageRecordMarker;

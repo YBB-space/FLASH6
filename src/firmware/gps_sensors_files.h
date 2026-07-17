@@ -543,9 +543,9 @@ void formatGpsFieldsFor(
   size_t altLen
 ) {
   if (!lat || !lon || !alt || latLen == 0 || lonLen == 0 || altLen == 0) return;
-  snprintf(lat, latLen, "null");
-  snprintf(lon, lonLen, "null");
-  snprintf(alt, altLen, "null");
+  strlcpy(lat, "null", latLen);
+  strlcpy(lon, "null", lonLen);
+  strlcpy(alt, "null", altLen);
   if (source.gpsFix && isfinite(source.gpsLat) && isfinite(source.gpsLon)) {
     snprintf(lat, latLen, "%.7f", source.gpsLat);
     snprintf(lon, lonLen, "%.7f", source.gpsLon);
@@ -832,7 +832,15 @@ void initBarometer() {
   Serial.printf("[BARO] BMP280 ready addr=0x%02X sea=%.2fhPa\n", baroAddr, seaLevelHpa);
 }
 
-void updateAttitude(float ax, float ay, float az, float gx, float gy, float gz) {
+void updateAttitude(
+  float ax,
+  float ay,
+  float az,
+  float gx,
+  float gy,
+  float gz,
+  float accMag
+) {
   const uint32_t nowUs = micros();
   float dt = 0.0f;
   if (attitudeLastUs != 0 && nowUs >= attitudeLastUs) {
@@ -841,17 +849,16 @@ void updateAttitude(float ax, float ay, float az, float gx, float gy, float gz) 
   if (!isfinite(dt) || dt < 0.0f || dt > 0.35f) dt = 0.0f;
   attitudeLastUs = nowUs;
 
-  const float accMag = sqrtf(ax * ax + ay * ay + az * az);
   const bool accOk = isfinite(accMag) &&
                      accMag >= kAttitudeInitAccMinG &&
                      accMag <= kAttitudeInitAccMaxG;
-  const float accelRoll = atan2f(ay, az) * kRadToDeg;
-  const float accelPitch = atan2f(-ax, sqrtf(ay * ay + az * az)) * kRadToDeg;
   const float gravityErr = fabsf(accMag - 1.0f);
   const float rateMag = sqrtf(gx * gx + gy * gy + gz * gz);
   const bool stationaryHold = gyroStillFrames >= kStationaryFramesHardLock;
   if (!snap.attitudeValid) {
     if (!accOk) return;
+    const float accelRoll = atan2f(ay, az) * kRadToDeg;
+    const float accelPitch = atan2f(-ax, sqrtf(ay * ay + az * az)) * kRadToDeg;
     rawRoll = wrap180(accelRoll);
     rawPitch = clampFloat(accelPitch, -89.5f, 89.5f);
     rawYaw = 0.0f;
@@ -1065,7 +1072,7 @@ void sampleImu() {
   }
   snap.imuTempC = temp.temperature;
   snap.sampleValid = true;
-  updateAttitude(snap.ax, snap.ay, snap.az, snap.gx, snap.gy, snap.gz);
+  updateAttitude(snap.ax, snap.ay, snap.az, snap.gx, snap.gy, snap.gz, accMag);
   snap.ct = (uint16_t)min<uint32_t>(65535U, micros() - startUs);
   storageEnqueueSample(snap.ut);
 }
