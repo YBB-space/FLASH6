@@ -16,6 +16,11 @@ Protocol: `Flash6-Intelligent-b3` (wire version `3`, unchanged)
   the radio queue while preserving the queue head for any in-flight ACK.
 - Coalesced unsent state toggles to the newest operator value and now reports an
   explicit serial error if a state command exhausts its radio retries.
+- Stabilized map wheel zoom and fullscreen expansion by preserving the map
+  center, batching tile updates, and removing repeated forced redraw/recenter
+  passes that discarded already loaded tiles.
+- Delayed map-offline fallback until a complete slow tile cycle has had time to
+  settle, preventing normal zoom transitions from flashing the fallback map.
 
 ## 0.8.2 — v6 b8 — 2026-07-17
 

@@ -614,7 +614,6 @@ if (typeof window !== "undefined") {
     let statusMapResizeObserver = null;
     let statusMapRefreshRaf = null;
     let statusMapRefreshTimers = [];
-    let statusMapExpandedWatchdogStarted = false;
     const gyroCameraState = {
       yawDeg: GYRO_CAMERA_DEFAULT.yawDeg,
       pitchDeg: GYRO_CAMERA_DEFAULT.pitchDeg,
@@ -10286,7 +10285,10 @@ function requestMobileMockup3dMesh(){
           return;
         }
         setStatusMapTileOffline(true);
-      }, 2600);
+      // A fullscreen resize or wheel-zoom can legitimately leave the current
+      // tile cycle empty for a few seconds on a slow link. Do not replace the
+      // map with the offline canvas while that normal cycle is still settling.
+      }, 4200);
     }
     function getStatusMapTileSource(index){
       const idx = Number(index);
@@ -10321,6 +10323,10 @@ function requestMobileMockup3dMesh(){
         noWrap: true,
         minZoom: 6,
         maxZoom: 19,
+        keepBuffer: 3,
+        updateWhenIdle: true,
+        updateWhenZooming: false,
+        updateInterval: 160,
         attribution: ""
       };
       if(source.subdomains) layerOptions.subdomains = source.subdomains;
@@ -10348,12 +10354,8 @@ function requestMobileMockup3dMesh(){
       tileLayer.on("tileerror", ()=>{
         statusMapState.tileErrorCount += 1;
         statusMapState.tileCycleErrorCount += 1;
-        if(statusMapState.tileCycleLoadCount > 0) return;
-        if(statusMapState.tileCycleErrorCount >= 2){
-          if(!tryFallback()){
-            setStatusMapTileOffline(true);
-          }
-        }
+        // A few tiles can fail while the rest of the zoom level is still
+        // loading. Defer fallback until Leaflet completes the whole cycle.
       });
       tileLayer.on("load", ()=>{
         if(statusMapState.tileCycleLoadCount > 0){
@@ -10647,16 +10649,6 @@ function requestMobileMockup3dMesh(){
       scheduleStatusMapRefresh();
       if(next){
         scheduleStatusMapExpandedReflow();
-        [240, 700, 1500].forEach(delay=>{
-          setTimeout(()=>{
-            const viewportEl = document.getElementById("statusMapViewport");
-            const mapEl = document.getElementById("statusMap");
-            if(!viewportEl || !viewportEl.classList.contains("is-expanded") || !mapEl) return;
-            if(mapEl.querySelectorAll(".leaflet-tile-loaded").length === 0){
-              setStatusMapTileOffline(true);
-            }
-          }, delay);
-        });
       }
       if(isPhoneLandscapeLayout()){
         requestAnimationFrame(()=>{
@@ -10665,21 +10657,8 @@ function requestMobileMockup3dMesh(){
         });
       }
     }
-    function startStatusMapExpandedWatchdog(){
-      if(statusMapExpandedWatchdogStarted) return;
-      statusMapExpandedWatchdogStarted = true;
-      setInterval(()=>{
-        const viewportEl = document.getElementById("statusMapViewport");
-        const mapEl = document.getElementById("statusMap");
-        if(!viewportEl || !mapEl || !viewportEl.classList.contains("is-expanded")) return;
-        if(mapEl.querySelectorAll(".leaflet-tile-loaded").length === 0){
-          try{ setStatusMapTileOffline(true); }catch(e){}
-        }
-      }, 500);
-    }
     function bindStatusMapViewportInteractions(){
       if(statusMapViewportBindingsReady || !el.statusMapViewport) return;
-      startStatusMapExpandedWatchdog();
       el.statusMapViewport.addEventListener("click", (ev)=>{
         if(isStatusMapViewportExpanded()) return;
         if(document.documentElement.classList.contains("mobile-preview-offline") && isMobileLayout()){
@@ -12035,7 +12014,7 @@ function requestMobileMockup3dMesh(){
       updateStatusMapOfflineMarker();
       if(opt && opt.recenter && statusMapState.map){
         const zoomVal = isFinite(Number(opt.zoom)) ? Number(opt.zoom) : statusMapState.map.getZoom();
-        statusMapState.map.setView([clamped.lat, clamped.lon], zoomVal);
+        statusMapState.map.setView([clamped.lat, clamped.lon], zoomVal, {animate:false});
       }
       updateStatusMapHud();
     }
@@ -12684,15 +12663,16 @@ function requestMobileMockup3dMesh(){
       }
       if(!statusMapState.map) return;
       try{
-        const map = statusMapState.map;
-        const center = map.getCenter();
-        const zoom = map.getZoom();
-        if(typeof map.stop === "function") map.stop();
-        map.invalidateSize({animate:false, pan:false, debounceMoveend:true});
-        map.setView(center, zoom, {animate:false});
-        if(statusMapState.tileLayer && typeof statusMapState.tileLayer.redraw === "function"){
-          statusMapState.tileLayer.redraw();
-        }
+        // invalidateSize is sufficient after a portal/layout move. Calling
+        // setView + redraw here tears down valid tiles and creates a visible
+        // blank frame every time the map card changes size.
+        statusMapState.map.invalidateSize({
+          animate:false,
+          // Preserve the geographic center while the card is moved into or
+          // out of the fullscreen portal.
+          pan:true,
+          debounceMoveend:true
+        });
       }catch(e){}
     }
     function ensureStatusMapTileLayerVisible(){
@@ -12721,13 +12701,7 @@ function requestMobileMockup3dMesh(){
           statusMapSetMarker(STATUS_MAP_DEFAULT.lat, STATUS_MAP_DEFAULT.lon, {recenter:true, zoom:STATUS_MAP_DEFAULT.zoom});
         }
         requestAnimationFrame(()=>{
-          const viewportEl = document.getElementById("statusMapViewport");
-          const mapEl = document.getElementById("statusMap");
-          if(!viewportEl || !viewportEl.classList.contains("is-expanded") || !mapEl) return;
-          const loadedTileCount = mapEl.querySelectorAll(".leaflet-tile-loaded").length;
-          if(loadedTileCount === 0){
-            setStatusMapTileOffline(true);
-          }
+          refreshStatusMapSize();
         });
       }catch(e){}
     }
@@ -12740,24 +12714,8 @@ function requestMobileMockup3dMesh(){
         return;
       }
       try{
-        const map = statusMapState.map;
-        const center = map.getCenter();
-        const zoom = map.getZoom();
-        if(typeof map.stop === "function") map.stop();
-        if(typeof map._onResize === "function") map._onResize();
-        map.invalidateSize({animate:false, pan:false, debounceMoveend:false});
-        map.setView(center, zoom, {animate:false, reset:true});
-        if(statusMapState.tileLayer && typeof statusMapState.tileLayer.redraw === "function"){
-          statusMapState.tileLayer.redraw();
-        }
-        if(typeof map.fire === "function"){
-          map.fire("resize");
-          map.fire("moveend");
-        }
+        refreshStatusMapSize();
         ensureStatusMapTileLayerVisible();
-        if(isStatusMapViewportExpanded() && el.statusMap && el.statusMap.querySelectorAll(".leaflet-tile-loaded").length === 0){
-          setStatusMapTileOffline(true);
-        }
       }catch(e){}
     }
     function scheduleStatusMapRefresh(){
@@ -12765,19 +12723,17 @@ function requestMobileMockup3dMesh(){
       statusMapRefreshRaf = requestAnimationFrame(()=>{
         statusMapRefreshRaf = null;
         refreshStatusMapSize();
-        requestAnimationFrame(refreshStatusMapSize);
       });
       if(statusMapRefreshTimers.length){
         statusMapRefreshTimers.forEach(timer=>clearTimeout(timer));
       }
-      statusMapRefreshTimers = [40, 120, 320, 720, 1200].map(delay=>setTimeout(refreshStatusMapSize, delay));
+      // One post-layout pass and one transition-settle pass are enough. The
+      // previous five redraw passes repeatedly discarded loaded map tiles.
+      statusMapRefreshTimers = [90, 280].map(delay=>setTimeout(refreshStatusMapSize, delay));
     }
     function scheduleStatusMapExpandedReflow(){
-      requestAnimationFrame(()=>{
-        forceStatusMapExpandedReflow();
-        requestAnimationFrame(forceStatusMapExpandedReflow);
-      });
-      [60, 160, 360, 800, 1400].forEach(delay=>{
+      requestAnimationFrame(forceStatusMapExpandedReflow);
+      [120, 360].forEach(delay=>{
         setTimeout(forceStatusMapExpandedReflow, delay);
       });
     }
@@ -12811,6 +12767,8 @@ function requestMobileMockup3dMesh(){
         maxBoundsViscosity:1.0,
         minZoom:6,
         maxZoom:19,
+        wheelDebounceTime:80,
+        wheelPxPerZoomLevel:90,
         fadeAnimation:false,
         zoomAnimation:false,
         markerZoomAnimation:false
