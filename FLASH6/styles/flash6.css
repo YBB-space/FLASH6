@@ -28681,26 +28681,26 @@ html body #pyroControlOverlay > #pyroControlDialog > .settings-header > .setting
   white-space:nowrap;
 }
 .fw-build-grid{
-  display:grid;
-  grid-template-columns:minmax(0,1.65fr) minmax(120px,.65fr) minmax(0,1fr);
+  display:flex;
+  align-items:baseline;
+  flex-wrap:wrap;
+  gap:10px 28px;
   width:100%;
-  margin:12px 0 0;
+  margin:0;
   padding:0;
-  border:1px solid #303339;
-  border-radius:8px;
-  background:#17191c;
-  overflow:hidden;
+  border:0;
+  background:transparent;
 }
 .fw-build-grid > div{
+  display:flex;
+  align-items:baseline;
+  gap:8px;
   min-width:0;
-  padding:15px 17px;
-  border-right:1px solid #303339;
-}
-.fw-build-grid > div:last-child{
-  border-right:0;
+  padding:0;
+  border:0;
 }
 .fw-build-grid dt{
-  margin:0 0 8px;
+  margin:0;
   color:#747a83;
   font-size:9px;
   line-height:1;
@@ -28868,25 +28868,23 @@ html body #pyroControlOverlay > #pyroControlDialog > .settings-header > .setting
     display:none;
   }
   .fw-build-grid{
-    grid-template-columns:1fr;
+    display:flex;
+    align-items:baseline;
+    flex-wrap:wrap;
+    gap:9px 18px;
   }
   .fw-build-grid > div{
-    display:grid;
-    grid-template-columns:92px minmax(0,1fr);
-    align-items:center;
-    gap:10px;
-    padding:13px 15px;
-    border-right:0;
-    border-bottom:1px solid #303339;
-  }
-  .fw-build-grid > div:last-child{
-    border-bottom:0;
+    display:flex;
+    align-items:baseline;
+    gap:6px;
+    padding:0;
+    border:0;
   }
   .fw-build-grid dt{
     margin:0;
   }
   .fw-build-grid dd{
-    text-align:right;
+    text-align:left;
   }
   .fw-credits-grid{
     grid-template-columns:1fr;
@@ -28905,28 +28903,30 @@ html body #pyroControlOverlay > #pyroControlDialog > .settings-header > .setting
 /* Desktop info details stay flat beneath the single product hero. */
 @media (min-width:901px){
   html:not(.phone-landscape-layout) body #settingsOverlay .fw-build-grid{
+    display:flex !important;
+    align-items:baseline !important;
+    flex-wrap:wrap !important;
+    gap:10px 30px !important;
     margin-top:0 !important;
     border:0 !important;
-    border-top:1px solid #303339 !important;
-    border-bottom:0 !important;
     border-radius:0 !important;
     background:transparent !important;
     overflow:visible !important;
   }
+  html:not(.phone-landscape-layout) body #settingsOverlay .fw-product-card > .fw-build-grid{
+    grid-column:2 / -1 !important;
+    padding-left:18px !important;
+  }
   html:not(.phone-landscape-layout) body #settingsOverlay .fw-build-grid > div{
-    padding:17px 18px !important;
-    border-right:1px solid #303339 !important;
+    display:flex !important;
+    align-items:baseline !important;
+    gap:8px !important;
+    padding:0 !important;
+    border:0 !important;
     background:transparent !important;
   }
-  html:not(.phone-landscape-layout) body #settingsOverlay .fw-build-grid > div:first-child{
-    padding-left:0 !important;
-  }
-  html:not(.phone-landscape-layout) body #settingsOverlay .fw-build-grid > div:last-child{
-    padding-right:0 !important;
-    border-right:0 !important;
-  }
   html:not(.phone-landscape-layout) body #settingsOverlay .fw-build-grid dt{
-    margin-bottom:7px !important;
+    margin:0 !important;
   }
   html:not(.phone-landscape-layout) body #settingsOverlay .fw-build-grid dd{
     font-size:10.5px !important;
