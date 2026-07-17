@@ -99,6 +99,107 @@ void serialPrintStorageChunk(uint32_t offset, uint32_t len) {
   Serial.write('\n');
 }
 
+void serialPrintRemoteStorageItem(uint32_t idx) {
+  if (!flashLinkCanProxyStorage()) {
+    Serial.println("ERR SPI_FLASH_REMOTE_ITEM LINK_UNAVAILABLE");
+    return;
+  }
+
+  FlashLinkStorageListResponseV1 response{};
+  if (!flashLinkRequestStorageList(
+        (uint16_t)min<uint32_t>(UINT16_MAX, idx),
+        response,
+        2800U)) {
+    Serial.println("ERR SPI_FLASH_REMOTE_ITEM TIMEOUT");
+    return;
+  }
+
+  const uint32_t capacity = flashLinkRemoteState.storageCapacityBytes;
+  const uint32_t used = flashLinkRemoteState.storageUsedBytes;
+  const uint32_t records = flashLinkRemoteState.storageRecordCount;
+  if (response.totalSessions == 0U || response.status == 2U) {
+    Serial.printf(
+      "ACK SPI_FLASH_REMOTE_ITEM count=0 idx=0 ready=%u capacity=%lu used=%lu records=%lu record_hz=%lu\n",
+      capacity > 0U ? 1U : 0U,
+      (unsigned long)capacity,
+      (unsigned long)used,
+      (unsigned long)records,
+      (unsigned long)kStorageRecordHz);
+    return;
+  }
+  if (response.status != 0U || response.count == 0U ||
+      response.startOrdinal != idx) {
+    Serial.printf(
+      "ERR SPI_FLASH_REMOTE_ITEM BAD_RESPONSE status=%u start=%u count=%u\n",
+      (unsigned)response.status,
+      (unsigned)response.startOrdinal,
+      (unsigned)response.count);
+    return;
+  }
+
+  const FlashLinkStorageListItemV1& item = response.items[0];
+  char name[32];
+  storageSessionName(item.sessionId, name, sizeof(name));
+  Serial.printf(
+    "ACK SPI_FLASH_REMOTE_ITEM count=%u idx=%lu name=%s session=%lu off=%lu bytes=%lu records=%lu current=%u started=0 "
+    "ready=%u capacity=%lu used=%lu total_records=%lu record_hz=%lu\n",
+    (unsigned)response.totalSessions,
+    (unsigned long)idx,
+    name,
+    (unsigned long)item.sessionId,
+    (unsigned long)item.offsetBytes,
+    (unsigned long)item.bytes,
+    (unsigned long)item.records,
+    item.current ? 1U : 0U,
+    capacity > 0U ? 1U : 0U,
+    (unsigned long)capacity,
+    (unsigned long)used,
+    (unsigned long)records,
+    (unsigned long)kStorageRecordHz);
+}
+
+void serialPrintRemoteStorageChunk(uint32_t offset, uint32_t len) {
+  if (!flashLinkCanProxyStorage()) {
+    Serial.println("ERR SPI_FLASH_REMOTE_CHUNK LINK_UNAVAILABLE");
+    return;
+  }
+  if (len == 0U || len > kFlashLinkStorageHttpChunkBytes) {
+    len = kFlashLinkStorageHttpChunkBytes;
+  }
+
+  static uint8_t data[kFlashLinkStorageHttpChunkBytes];
+  static unsigned char b64[((kFlashLinkStorageHttpChunkBytes + 2U) / 3U) * 4U + 1U];
+  uint16_t totalLen = 0;
+  if (!flashLinkRequestStorageReadWindowed(
+        offset,
+        (uint16_t)len,
+        data,
+        totalLen,
+        3200U) ||
+      totalLen != len) {
+    Serial.println("ERR SPI_FLASH_REMOTE_CHUNK TIMEOUT");
+    return;
+  }
+
+  size_t b64Len = 0;
+  if (mbedtls_base64_encode(
+        b64,
+        sizeof(b64) - 1U,
+        &b64Len,
+        data,
+        totalLen) != 0) {
+    Serial.println("ERR SPI_FLASH_REMOTE_CHUNK B64_FAILED");
+    return;
+  }
+  b64[b64Len] = '\0';
+  Serial.printf(
+    "ACK SPI_FLASH_REMOTE_CHUNK off=%lu len=%u b64=",
+    (unsigned long)offset,
+    (unsigned)totalLen);
+  Serial.write(b64, b64Len);
+  Serial.write('\n');
+}
+
 void serialMissionBegin(size_t len) {
   if (len == 0 || len > kMissionProfileMaxBytes) {
     Serial.println("ERR MISSION_PROFILE_BEGIN BAD_LEN");
@@ -188,7 +289,7 @@ void handleSerialLine(const char* line) {
   cmd.trim();
 
   if (cmd == "help" || cmd == "/help") {
-    Serial.println("ACK GYRO_BARO_GPS_FLASH commands: /set?stream=0|1&ign_ms=1000&cd_ms=10000&daq_seq_pyro=1, /settings, /rates, /gps, /baro, /loadcell|zero|cal|reset, /servo?ch=1&deg=90 or SERVO 1 90, /storage/spi_flash/status|list|read|init, /mission_profile_begin|chunk|end|cancel, /countdown_start, /abort, /reset");
+    Serial.println("ACK GYRO_BARO_GPS_FLASH commands: /set?stream=0|1&ign_ms=1000&cd_ms=10000&daq_seq_pyro=1, /settings, /rates, /gps, /baro, /loadcell|zero|cal|reset, /servo?ch=1&deg=90 or SERVO 1 90, /storage/spi_flash/status|list|read|init, /storage/spi_flash/remote/list|read, /mission_profile_begin|chunk|end|cancel, /countdown_start, /abort, /reset");
     return;
   }
 
@@ -236,6 +337,34 @@ void handleSerialLine(const char* line) {
     wifiApRestarts++;
     startWifiAp(true);
     Serial.println(wifiInfoJson());
+    return;
+  }
+
+  if (cmd.startsWith("/storage/spi_flash/remote/list")) {
+    String idxRaw;
+    uint32_t idx = 0;
+    if (getQueryValue(cmd, "idx", idxRaw)) {
+      const long v = idxRaw.toInt();
+      idx = v > 0 ? (uint32_t)v : 0U;
+    }
+    serialPrintRemoteStorageItem(idx);
+    return;
+  }
+
+  if (cmd.startsWith("/storage/spi_flash/remote/read")) {
+    String offRaw;
+    String lenRaw;
+    uint32_t off = 0;
+    uint32_t len = 0;
+    if (getQueryValue(cmd, "off", offRaw)) {
+      const long v = offRaw.toInt();
+      off = v > 0 ? (uint32_t)v : 0U;
+    }
+    if (getQueryValue(cmd, "len", lenRaw)) {
+      const long v = lenRaw.toInt();
+      len = v > 0 ? (uint32_t)v : 0U;
+    }
+    serialPrintRemoteStorageChunk(off, len);
     return;
   }
 

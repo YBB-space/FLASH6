@@ -214,6 +214,9 @@ Supported controls:
 - Requests storage sessions in batches of up to eight entries. Each entry carries
   its session ID, logical offset, byte length, record count, and current-session flag,
   allowing the UI to download only the selected session range.
+- Proxies remote session-list and binary-read operations over either HTTP or
+  USB serial. A USB-connected UI therefore does not need to join the ground
+  station Wi-Fi AP to browse or download avionics storage.
 
 ## Data Origin
 
@@ -277,12 +280,12 @@ revisions should rotate keys per fleet or per paired board.
 
 ## Firmware Revision
 
-- Firmware version: `0.8.6`
-- Build ID: `v6 b12`
+- Firmware version: `0.8.9`
+- Build ID: `v6 b15`
 - Wire protocol: `Flash6-Intelligent-b3` / numeric version `3`
 - Storage record format: version `4` (unchanged and backward compatible)
 - Compatibility: the wire layout remains version `3` and is compatible with
-  `v6 b11`. Build `v6 b12` only refactors local sensor, storage, serialization,
-  and UI hot paths; packet fields, command strings, and routing semantics are
-  unchanged. Update the board firmware and FLASH6 assets together to receive
-  the full latency and CPU improvements.
+  `v6 b11` through `v6 b14`. Build `v6 b15` adds USB-serial ground proxy
+  commands for remote storage listing and reads; ESP-NOW packet fields and
+  routing semantics are unchanged. Update the ground firmware and FLASH6
+  assets together to use the serial proxy.

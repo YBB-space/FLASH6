@@ -25,6 +25,7 @@ bool flashLinkSendPacket(
   uint16_t payloadBytes,
   uint32_t ack = 0,
   uint8_t targetNodeId = kFlashLinkNodeIdGround);
+void flashLinkTick();
 
 uint8_t flashLinkPacketSourceNode(const FlashLinkHeaderV1& header) {
   return header.flags & kFlashLinkNodeIdMask;
@@ -404,6 +405,10 @@ bool flashLinkRequestStorageReadWindowed(
         break;
       }
     }
+    // HTTP requests run on the AsyncTCP task, but serial proxy commands run
+    // on loopTask. Keep servicing the radio while a loopTask caller waits so
+    // the response queued by the ESP-NOW callback can actually be consumed.
+    if (xTaskGetCurrentTaskHandle() == loopTaskHandle) flashLinkTick();
     delay(2);
   }
 
@@ -477,6 +482,7 @@ bool flashLinkRequestStorageList(
         attempts++;
       }
     }
+    if (xTaskGetCurrentTaskHandle() == loopTaskHandle) flashLinkTick();
     delay(2);
   }
   flashLinkStorageListCancel(transaction);

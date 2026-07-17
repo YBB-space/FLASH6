@@ -3,6 +3,18 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.8.9 — v6 b15 — 2026-07-17
+
+Protocol: `Flash6-Intelligent-b3` (wire version `3`, unchanged)
+
+- Added a USB-serial proxy for A.I LINK storage session listing and binary
+  reads, removing the hidden dependency on the PC being connected to the
+  ground station Wi-Fi AP.
+- Kept ESP-NOW RX/TX service running while a loop-task serial storage request
+  waits, so its wireless response can be consumed without a self-deadlock.
+- Made the storage UI prefer the active Web Serial transport for remote lists
+  and downloads, matching the rest of the ground-station control path.
+
 ## 0.8.8 — v6 b14 — 2026-07-17
 
 Protocol: `Flash6-Intelligent-b3` (wire version `3`, unchanged)

@@ -20492,7 +20492,7 @@ function requestMobileMockup3dMesh(){
         fw_program:"Altis_Intelligent3_firmware1",
         fw_board:"Altis_Intelligent3_b3",
         fw_protocol:"Flash6-Intelligent-b3",
-        fw_build:"v6 b14"
+        fw_build:"v6 b15"
       };
     }
 
@@ -23902,6 +23902,17 @@ function requestMobileMockup3dMesh(){
       if(!isFlashLinkGroundStorageUi()){
         throw new Error("FLASH_LINK_REMOTE_NOT_ACTIVE");
       }
+      if(canUseSerialForSpiFlash()){
+        try{
+          return await fetchSpiFlashRemoteDataListViaSerial();
+        }catch(serialErr){
+          if(serialEnabled) throw serialErr;
+        }
+      }else if(serialEnabled){
+        if(!serialConnected) throw new Error("SERIAL_DISCONNECTED");
+        if(!serialTxEnabled) throw new Error("SERIAL_TX_DISABLED");
+        throw new Error("SERIAL_NOT_READY");
+      }
       const API_BASE = getApiBaseForCommands();
       const url = (API_BASE ? API_BASE : "") + "/storage/spi_flash/remote/list";
       const ctrl = createAbortControllerSafe();
@@ -24767,6 +24778,48 @@ function requestMobileMockup3dMesh(){
       };
     }
 
+    function parseSpiFlashRemoteItemAckMessage(message){
+      const raw = String(message || "").trim();
+      const prefix = "SPI_FLASH_REMOTE_ITEM";
+      if(raw.indexOf(prefix) !== 0) return null;
+      const fields = {};
+      const kvRegex = /([A-Za-z0-9_]+)=([^\s]+)/g;
+      let match;
+      while((match = kvRegex.exec(raw.slice(prefix.length)))){
+        fields[String(match[1] || "").toLowerCase()] = String(match[2] || "");
+      }
+      const num = (key, fallback)=>{
+        const value = Number(fields[key]);
+        return isFinite(value) ? value : fallback;
+      };
+      const count = Math.max(0, Math.floor(num("count", 0)));
+      const idx = Math.max(0, Math.floor(num("idx", 0)));
+      const status = {
+        ready:num("ready", 0) ? 1 : 0,
+        capacity_bytes:Math.max(0, Math.floor(num("capacity", 0))),
+        chip_capacity_bytes:Math.max(0, Math.floor(num("capacity", 0))),
+        used_bytes:Math.max(0, Math.floor(num("used", 0))),
+        record_count:Math.max(0, Math.floor(num("total_records", num("records", 0)))),
+        record_hz:Math.max(1, Math.floor(num("record_hz", 200)))
+      };
+      if(count === 0) return {count, idx:0, item:null, status};
+      return {
+        count,
+        idx,
+        status,
+        item:{
+          name:String(fields.name || ("FLASH6_REMOTE_" + String(idx + 1).padStart(4, "0"))),
+          offset:Math.max(0, Math.floor(num("off", 0))),
+          bytes:Math.max(0, Math.floor(num("bytes", 0))),
+          records:Math.max(0, Math.floor(num("records", 0))),
+          session_id:Math.max(0, Math.floor(num("session", 0))),
+          current:num("current", 0) ? 1 : 0,
+          started_at_ms:Math.max(0, Math.floor(num("started", 0))),
+          remote:true
+        }
+      };
+    }
+
     async function fetchSpiFlashItemViaSerial(idx){
       const wantedIdx = Math.max(0, Math.floor(Number(idx) || 0));
       const waiter = createSerialAckWaiter((evt)=>{
@@ -24801,6 +24854,48 @@ function requestMobileMockup3dMesh(){
       return Object.assign({}, info, {items, session_count:totalCount, listed_from:firstIdx});
     }
 
+    async function fetchSpiFlashRemoteItemViaSerial(idx){
+      const wantedIdx = Math.max(0, Math.floor(Number(idx) || 0));
+      const waiter = createSerialAckWaiter((evt)=>{
+        if(evt.kind === "err") return true;
+        if(evt.kind !== "ack") return false;
+        const parsed = parseSpiFlashRemoteItemAckMessage(evt.message);
+        return !!parsed && (parsed.count === 0 || parsed.idx === wantedIdx);
+      }, 4200);
+      const wrote = await serialWriteLine("/storage/spi_flash/remote/list?idx=" + wantedIdx);
+      if(!wrote){
+        cancelSerialAckWaiter(waiter, "SERIAL_WRITE_FAIL");
+        throw new Error("SERIAL_WRITE_FAIL");
+      }
+      const reply = await waiter.promise;
+      if(!reply.ok) throw new Error(reply.message || "SERIAL_REMOTE_LIST_FAIL");
+      const parsed = parseSpiFlashRemoteItemAckMessage(reply.message);
+      if(!parsed) throw new Error("SERIAL_REMOTE_LIST_PARSE_FAIL");
+      return parsed;
+    }
+
+    async function fetchSpiFlashRemoteDataListViaSerial(){
+      const first = await fetchSpiFlashRemoteItemViaSerial(0);
+      const items = [];
+      const totalCount = Math.max(0, first.count);
+      const firstIdx = Math.max(0, totalCount - 32);
+      if(first.item && firstIdx === 0) items.push(first.item);
+      for(let idx = Math.max(1, firstIdx); idx < totalCount; idx++){
+        const next = await fetchSpiFlashRemoteItemViaSerial(idx);
+        if(next.item) items.push(next.item);
+      }
+      const rawInfo = Object.assign({}, first.status || {}, {
+        ok:1,
+        remote:1,
+        list_available:1,
+        list_complete:1,
+        session_count:totalCount,
+        listed_from:firstIdx
+      });
+      const info = updateRemoteSpiFlashInfo(rawInfo) || rawInfo;
+      return Object.assign({}, info, {items});
+    }
+
     function parseSpiFlashChunkAckMessage(message){
       const raw = String(message || "").trim();
       const prefix = "SPI_FLASH_CHUNK";
@@ -24823,6 +24918,23 @@ function requestMobileMockup3dMesh(){
       if(!isFinite(off) || off < 0) return null;
       if(!isFinite(len) || len <= 0) return null;
       if(!b64) return null;
+      return {off:Math.floor(off), len:Math.floor(len), b64};
+    }
+
+    function parseSpiFlashRemoteChunkAckMessage(message){
+      const raw = String(message || "").trim();
+      const prefix = "SPI_FLASH_REMOTE_CHUNK";
+      if(raw.indexOf(prefix) !== 0) return null;
+      const fields = {};
+      const kvRegex = /([A-Za-z0-9_]+)=([^\s]+)/g;
+      let match;
+      while((match = kvRegex.exec(raw.slice(prefix.length)))){
+        fields[String(match[1] || "").toLowerCase()] = String(match[2] || "");
+      }
+      const off = Number(fields.off);
+      const len = Number(fields.len);
+      const b64 = String(fields.b64 || "");
+      if(!isFinite(off) || off < 0 || !isFinite(len) || len <= 0 || !b64) return null;
       return {off:Math.floor(off), len:Math.floor(len), b64};
     }
 
@@ -24927,6 +25039,35 @@ function requestMobileMockup3dMesh(){
       return bytes;
     }
 
+    async function fetchSpiFlashRemoteChunkViaSerial(off, len){
+      if(!canUseSerialForSpiFlash()){
+        throw new Error("SERIAL_NOT_READY");
+      }
+      const offInt = Math.max(0, Math.floor(Number(off) || 0));
+      const lenInt = Math.max(1, Math.min(SPI_FLASH_REMOTE_CHUNK_BYTES, Math.floor(Number(len) || 0)));
+      const cmd = "/storage/spi_flash/remote/read?off=" + offInt + "&len=" + lenInt;
+      const waiter = createSerialAckWaiter((evt)=>{
+        if(evt.kind === "err") return true;
+        return evt.kind === "ack" &&
+          String(evt.message || "").indexOf("SPI_FLASH_REMOTE_CHUNK") === 0;
+      }, 4800);
+      const wrote = await serialWriteLine(cmd);
+      if(!wrote){
+        cancelSerialAckWaiter(waiter, "SERIAL_WRITE_FAIL");
+        throw new Error("SERIAL_WRITE_FAIL");
+      }
+      const reply = await waiter.promise;
+      if(!reply.ok) throw new Error(reply.message || reply.kind || "SERIAL_REMOTE_CHUNK_FAIL");
+      const chunk = parseSpiFlashRemoteChunkAckMessage(reply.message);
+      if(!chunk) throw new Error("SERIAL_REMOTE_CHUNK_PARSE_FAIL");
+      if(chunk.off !== offInt || chunk.len !== lenInt){
+        throw new Error("SERIAL_REMOTE_CHUNK_MISMATCH");
+      }
+      const bytes = decodeBase64ToBytes(chunk.b64);
+      if(bytes.length !== lenInt) throw new Error("SERIAL_REMOTE_CHUNK_SIZE_FAIL");
+      return bytes;
+    }
+
     async function downloadSpiFlashDumpViaSerial(selectedItem){
       const info = await fetchSpiFlashStatusViaSerial();
       const dataBytes = Math.max(0, Number(selectedItem && selectedItem.bytes || 0));
@@ -24958,6 +25099,17 @@ function requestMobileMockup3dMesh(){
     }
 
     async function fetchSpiFlashRemoteChunk(off, len){
+      if(canUseSerialForSpiFlash()){
+        try{
+          return await fetchSpiFlashRemoteChunkViaSerial(off, len);
+        }catch(serialErr){
+          if(serialEnabled) throw serialErr;
+        }
+      }else if(serialEnabled){
+        if(!serialConnected) throw new Error("SERIAL_DISCONNECTED");
+        if(!serialTxEnabled) throw new Error("SERIAL_TX_DISABLED");
+        throw new Error("SERIAL_NOT_READY");
+      }
       const API_BASE = getApiBaseForCommands();
       const offInt = Math.max(0, Math.floor(Number(off) || 0));
       const lenInt = Math.max(1, Math.min(SPI_FLASH_REMOTE_CHUNK_BYTES, Math.floor(Number(len) || 0)));
