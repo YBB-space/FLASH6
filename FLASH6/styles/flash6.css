@@ -27304,8 +27304,8 @@ html body #pyroControlOverlay > #pyroControlDialog > .settings-header > .setting
   html:not(.phone-landscape-layout) body #rebootConfirmOverlay > .reboot-dialog{
     position:relative !important;
     display:grid !important;
-    grid-template-columns:48px minmax(0,1fr) !important;
-    column-gap:16px !important;
+    grid-template-columns:minmax(0,1fr) !important;
+    column-gap:0 !important;
     row-gap:5px !important;
     width:min(520px, calc(100vw - 48px)) !important;
     max-width:520px !important;
@@ -27324,28 +27324,12 @@ html body #pyroControlOverlay > #pyroControlDialog > .settings-header > .setting
     text-align:left !important;
   }
   html:not(.phone-landscape-layout) body #rebootConfirmOverlay .confirm-icon{
-    grid-column:1 !important;
-    grid-row:1 / span 2 !important;
-    align-self:start !important;
-    width:48px !important;
-    height:48px !important;
-    margin:0 !important;
-    display:grid !important;
-    place-items:center !important;
-    border:1px solid #3b3e44 !important;
-    border-radius:7px !important;
-    background:#202226 !important;
-    color:#e8e9eb !important;
-  }
-  html:not(.phone-landscape-layout) body #rebootConfirmOverlay .confirm-icon svg{
-    width:23px !important;
-    height:23px !important;
-    stroke-width:1.7 !important;
+    display:none !important;
   }
   html:not(.phone-landscape-layout) body #rebootConfirmOverlay #rebootConfirmTitle{
-    grid-column:2 !important;
+    grid-column:1 !important;
     grid-row:1 !important;
-    align-self:end !important;
+    align-self:auto !important;
     margin:0 !important;
     color:#f3f4f6 !important;
     font-size:18px !important;
@@ -27355,7 +27339,7 @@ html body #pyroControlOverlay > #pyroControlDialog > .settings-header > .setting
     text-align:left !important;
   }
   html:not(.phone-landscape-layout) body #rebootConfirmOverlay #rebootConfirmText{
-    grid-column:2 !important;
+    grid-column:1 !important;
     grid-row:2 !important;
     margin:0 !important;
     color:#9da2ab !important;
