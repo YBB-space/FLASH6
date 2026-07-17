@@ -22,8 +22,14 @@ Protocol: `Flash6-Intelligent-b4` (wire version `4`)
 - Added commit-specific browser asset versions and moved interface preferences
   to settings schema `v3`, preventing stale light-theme CSS and legacy
   dashboard modes from overriding the current local UI after deployment.
-- Refined the desktop entry screen with a quieter live-status label and
-  simplified operating-mode metadata while preserving the original layout.
+- Refined the desktop entry screen with a quieter live-status label.
+- Removed the entry-screen brand hero and centered the avionics connection
+  card as the only primary surface.
+- Replaced the entry action with an icon-free `보드 연결` button that changes
+  to `시작하기` after a verified link, keeping the entry screen visible until
+  the operator explicitly opens the dashboard.
+- Reduced entry-screen Wi-Fi discovery to a 650 ms concurrent board ping
+  instead of waiting through multiple sequential endpoint fallbacks.
 
 ## 0.8.11 — v6 b17 — 2026-07-17
 

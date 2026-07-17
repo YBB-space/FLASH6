@@ -29036,7 +29036,17 @@ body:has(
   pointer-events:none !important;
 }
 
-/* Welcome screen: keep the original composition, only refine its status detail. */
+/* Welcome screen: a single, quiet connection surface. */
+body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-panel{
+  width:min(100%,520px) !important;
+  min-height:min(560px,calc(100dvh - 120px)) !important;
+  grid-template-columns:minmax(0,1fr) !important;
+  gap:0 !important;
+  place-items:center !important;
+}
+body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-card{
+  width:100% !important;
+}
 body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-status-indicator{
   display:flex;
   align-items:center;
@@ -29076,21 +29086,8 @@ body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-steps b{
   background:#202020 !important;
   color:#d2d2d2 !important;
 }
-body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-hero-meta{
-  gap:0 !important;
-}
-body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-hero-meta span{
-  min-height:0 !important;
-  padding:0 !important;
-  border:0 !important;
-  border-radius:0 !important;
-  background:transparent !important;
-  color:#707070 !important;
-  font-size:9px !important;
-  letter-spacing:.08em !important;
-}
-body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-hero-meta span + span::before{
-  content:"·";
-  margin:0 12px;
-  color:#404040;
+@media (max-width:860px) and (min-height:660px){
+  body:has(#welcomeConnectScreen:not(.hidden)) #welcomeConnectScreen.welcome-connect-screen{
+    align-items:center !important;
+  }
 }

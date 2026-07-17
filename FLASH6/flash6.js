@@ -5805,7 +5805,9 @@ function requestMobileMockup3dMesh(){
     let autoWifiConnectTimer = null;
     let serialConnectStage = "idle";
     let welcomeConnectCompleted = false;
+    let welcomeConnectionVerifiedAtMs = 0;
     let welcomeConnectAttempted = false;
+    let welcomeDashboardEntered = false;
     let welcomeBoardSearchBusy = false;
     let groundStationConnectionEstablished = false;
     let groundStationWaitStartedAt = 0;
@@ -8337,19 +8339,36 @@ function requestMobileMockup3dMesh(){
     function isGroundStationTransportConnected(){
       return !!(connOk || wsConnected || serialConnected);
     }
+    function markWelcomeConnectionReady(){
+      welcomeConnectCompleted = true;
+      welcomeConnectionVerifiedAtMs = Date.now();
+    }
+    function clearWelcomeConnectionReady(){
+      welcomeConnectCompleted = false;
+      welcomeConnectionVerifiedAtMs = 0;
+    }
+    function isWelcomeConnectionReady(){
+      const probeFresh = welcomeConnectCompleted &&
+        welcomeConnectionVerifiedAtMs > 0 &&
+        (Date.now() - welcomeConnectionVerifiedAtMs) < 8000;
+      return !!(isGroundStationTransportConnected() || probeFresh);
+    }
+    function syncWelcomePrimaryAction(busyLabel){
+      if(!el.welcomeBoardSearchBtn || !el.welcomeBoardSearchLabel) return;
+      const ready = isWelcomeConnectionReady();
+      el.welcomeBoardSearchBtn.classList.toggle("is-ready", ready);
+      el.welcomeBoardSearchBtn.setAttribute("data-welcome-action", ready ? "enter" : "connect");
+      if(welcomeBoardSearchBusy){
+        el.welcomeBoardSearchLabel.textContent = busyLabel || "연결 확인중";
+      }else{
+        el.welcomeBoardSearchLabel.textContent = ready ? "시작하기" : "보드 연결";
+      }
+    }
     function syncWelcomeConnectCopy(){
-      if(el.welcomeConnectTitle){
-        el.welcomeConnectTitle.innerHTML = "<span>ALTIS</span><span>INTELLIGENT</span>";
-      }
-      if(el.welcomeConnectDesc){
-        el.welcomeConnectDesc.textContent = "FLASH6 BOARD CONSOLE";
-      }
       if(el.welcomeConnectHelp){
         el.welcomeConnectHelp.textContent = "탐색 순서: Wi-Fi 자동 확인 → 허용된 USB 포트 → USB 목록 표시 · SSID: ALTIS_FLASH6_XXXXXX · PW: 12345678";
       }
-      if(el.welcomeBoardSearchLabel && !welcomeBoardSearchBusy){
-        el.welcomeBoardSearchLabel.textContent = "보드 찾기";
-      }
+      syncWelcomePrimaryAction();
       if(el.welcomeReplayBtn){
         const label = "리플레이";
         const textNodes = Array.from(el.welcomeReplayBtn.childNodes).filter(node=>node.nodeType === 3);
@@ -8373,6 +8392,7 @@ function requestMobileMockup3dMesh(){
           "연결 대기중"
         );
       }
+      syncWelcomePrimaryAction();
     }
     function setWelcomeConnectVisible(visible){
       if(!el.welcomeConnectScreen) return;
@@ -8400,20 +8420,20 @@ function requestMobileMockup3dMesh(){
         syncMobileGroundStationWaitOverlay();
         return;
       }
-      const groundConnected = isGroundStationTransportConnected();
-      syncWelcomeConnectCopy();
-      if(groundConnected){
-        if(welcomeConnectAttempted){
-          welcomeConnectCompleted = true;
-          setWelcomeConnectStatus("connected", "지상국 연결 완료");
-        }
+      if(welcomeDashboardEntered){
         setWelcomeConnectVisible(false);
         return;
       }
-      if(connected && welcomeConnectAttempted){
-        welcomeConnectCompleted = true;
+      const groundConnected = isGroundStationTransportConnected();
+      syncWelcomeConnectCopy();
+      setWelcomeConnectVisible(true);
+      if(groundConnected || connected){
+        markWelcomeConnectionReady();
+        setWelcomeConnectStatus("connected", groundConnected ? "지상국 연결 완료" : "연결 완료");
+        return;
+      }
+      if(isWelcomeConnectionReady()){
         setWelcomeConnectStatus("connected", "연결 완료");
-        setWelcomeConnectVisible(false);
         return;
       }
       if(!isDesktopWelcomeLayout()){
@@ -8424,6 +8444,7 @@ function requestMobileMockup3dMesh(){
       if(wifiConnectStage === "waiting" || serialConnectStage === "waiting" || serialConnectBusy){
         setWelcomeConnectStatus("connecting", "연결 확인중");
       }else{
+        clearWelcomeConnectionReady();
         setWelcomeConnectStatus("idle", "연결 대기중");
       }
     }
@@ -8435,7 +8456,7 @@ function requestMobileMockup3dMesh(){
       updateSerialControlTile();
       updateSerialPill();
       if(serialConnected){
-        welcomeConnectCompleted = true;
+        markWelcomeConnectionReady();
         setWelcomeConnectStatus("connected", "USB 연결 완료");
         syncWelcomeConnectScreen(true);
       }else{
@@ -8454,22 +8475,37 @@ function requestMobileMockup3dMesh(){
         el.welcomeBoardSearchBtn.disabled = welcomeBoardSearchBusy;
         el.welcomeBoardSearchBtn.setAttribute("aria-busy", welcomeBoardSearchBusy ? "true" : "false");
       }
-      if(el.welcomeBoardSearchLabel){
-        el.welcomeBoardSearchLabel.textContent = welcomeBoardSearchBusy
-          ? (label || "찾는 중")
-          : "보드 찾기";
+      syncWelcomePrimaryAction(label);
+    }
+    function enterWelcomeDashboard(){
+      if(!isWelcomeConnectionReady()) return false;
+      welcomeConnectAttempted = true;
+      welcomeDashboardEntered = true;
+      setWelcomeConnectStatus("connected", "연결 완료");
+      setWelcomeConnectVisible(false);
+      requestAnimationFrame(()=>{
+        try{ window.dispatchEvent(new Event("resize")); }catch(_e){}
+      });
+      showToast("FLASH6 시작", "success", {key:"welcome-enter"});
+      return true;
+    }
+    async function handleWelcomePrimaryAction(){
+      if(isWelcomeConnectionReady()){
+        enterWelcomeDashboard();
+        return;
       }
+      await startWelcomeBoardSearch();
     }
     async function startWelcomeBoardSearch(){
       if(welcomeBoardSearchBusy) return;
       welcomeConnectAttempted = true;
-      setWelcomeBoardSearchBusy(true, "Wi-Fi 확인중");
+      setWelcomeBoardSearchBusy(true, "연결 확인중");
       setWelcomeConnectStatus("connecting", "Wi-Fi 보드 확인중");
       try{
         if(connOk || wsConnected){
           await setConnectTransportMode("wifi", {toast:false});
           if(!wsConnected && !wsRetryTimer) scheduleWsReconnect("welcome board search wifi");
-          welcomeConnectCompleted = true;
+          markWelcomeConnectionReady();
           setWelcomeConnectStatus("connected", "Wi-Fi 연결 완료");
           syncWelcomeConnectScreen(true);
           showToast("Wi-Fi 연결 감지됨", "success", {key:"welcome-board-search"});
@@ -8477,10 +8513,10 @@ function requestMobileMockup3dMesh(){
         }
         await setConnectTransportMode("wifi", {toast:false});
         try{
-          const ok = await probeWifiBoardReachable();
+          const ok = await probeWelcomeWifiBoardReachable();
           if(ok){
             if(!wsConnected && !wsRetryTimer) scheduleWsReconnect("welcome board search wifi");
-            welcomeConnectCompleted = true;
+            markWelcomeConnectionReady();
             setWelcomeConnectStatus("connected", "Wi-Fi 연결 완료");
             syncWelcomeConnectScreen(true);
             showToast("Wi-Fi 연결 감지됨", "success", {key:"welcome-board-search"});
@@ -8497,7 +8533,7 @@ function requestMobileMockup3dMesh(){
         updateSerialControlTile();
         updateSerialPill();
         if(serialConnected){
-          welcomeConnectCompleted = true;
+          markWelcomeConnectionReady();
           setWelcomeConnectStatus("connected", "USB 연결 완료");
           syncWelcomeConnectScreen(true);
           showToast("USB 시리얼 연결 완료", "success", {key:"welcome-board-search"});
@@ -8511,7 +8547,7 @@ function requestMobileMockup3dMesh(){
     }
     function startWelcomeSimulation(){
       welcomeConnectAttempted = true;
-      welcomeConnectCompleted = true;
+      markWelcomeConnectionReady();
       setWelcomeConnectStatus("connected", "시뮬레이션 시작");
       setSimEnabled(true);
       setWelcomeConnectVisible(false);
@@ -9174,6 +9210,47 @@ function requestMobileMockup3dMesh(){
       }
       throw (lastErr || new Error("ping failed"));
     }
+    async function probeWelcomeWifiBoardReachable(){
+      wifiConnectLastProbeError = "";
+      if(connOk || wsConnected) return true;
+      const timeoutMs = 650;
+      const bases = getApiBaseCandidates();
+      const attempts = bases.map(async (base)=>{
+        const url = (base ? base : "") + "/ping?_ts=" + Date.now();
+        const ctrl = createAbortControllerSafe();
+        const timer = ctrl ? setTimeout(()=>{
+          try{ ctrl.abort(); }catch(_e){}
+        }, timeoutMs) : null;
+        try{
+          if(shouldUseNativeBoardHttp(url)){
+            await nativeBoardHttpGet(url, timeoutMs, "text");
+            return {ok:true, base, url};
+          }
+          const res = await fetch(url, ctrl ? {signal:ctrl.signal, cache:"no-store"} : {cache:"no-store"});
+          return {ok:!!(res && res.ok), base, url};
+        }catch(error){
+          return {ok:false, base, url, error};
+        }finally{
+          if(timer) clearTimeout(timer);
+        }
+      });
+      const results = await Promise.all(attempts);
+      const match = results.find(result=>result && result.ok);
+      if(!match){
+        const failed = results.find(result=>result && result.error);
+        wifiConnectLastProbeError = "ping: " + normalizeNetError(failed && failed.error, "failed");
+        return false;
+      }
+      if(match.base){
+        setApiBaseOverride(match.base, isLocalPreviewHost());
+      }
+      if(typeof window !== "undefined"){
+        window.__flashLastProbe = {ok:true, kind:"welcome_ping", url:match.url, at:Date.now()};
+      }
+      if(!wsConnected && !wsRetryTimer) scheduleWsReconnect("welcome ping alive");
+      updateData().catch(()=>{});
+      return true;
+    }
     async function probeWifiBoardReachable(){
       wifiConnectLastProbeError = "";
       if(connOk || wsConnected) return true;
@@ -9211,7 +9288,7 @@ function requestMobileMockup3dMesh(){
         setWifiConnectWizardStage("success");
         showToast(t("connectWifiSuccessText"), "success", {key:"wifi-connect-success"});
         if(welcomeConnectAttempted){
-          welcomeConnectCompleted = true;
+          markWelcomeConnectionReady();
           syncWelcomeConnectScreen(true);
         }
         return;
@@ -9298,7 +9375,7 @@ function requestMobileMockup3dMesh(){
       if(serialConnected){
         setSerialConnectWizardStage("success");
         if(welcomeConnectAttempted){
-          welcomeConnectCompleted = true;
+          markWelcomeConnectionReady();
           syncWelcomeConnectScreen(true);
         }
       }else{
@@ -18663,7 +18740,7 @@ function requestMobileMockup3dMesh(){
       if(replayUiActive) return;
       if(el.welcomeConnectScreen && !el.welcomeConnectScreen.classList.contains("hidden")){
         welcomeConnectAttempted = true;
-        welcomeConnectCompleted = true;
+        markWelcomeConnectionReady();
         setWelcomeConnectStatus("connected", "리플레이");
         setWelcomeConnectVisible(false);
       }
@@ -33281,8 +33358,6 @@ function requestMobileMockup3dMesh(){
       el.connectionGuideTabs = document.querySelectorAll("[data-connection-guide-tab]");
       el.connectionGuidePanels = document.querySelectorAll("[data-connection-guide-panel]");
       el.welcomeConnectScreen = document.getElementById("welcomeConnectScreen");
-      el.welcomeConnectTitle = document.getElementById("welcomeConnectTitle");
-      el.welcomeConnectDesc = document.getElementById("welcomeConnectDesc");
       el.welcomeConnectStatus = document.getElementById("welcomeConnectStatus");
       el.welcomeConnectHelp = document.getElementById("welcomeConnectHelp");
       el.welcomeBoardSearchBtn = document.getElementById("welcomeBoardSearchBtn");
@@ -34075,10 +34150,10 @@ function requestMobileMockup3dMesh(){
       }
       if(el.welcomeBoardSearchBtn){
         el.welcomeBoardSearchBtn.addEventListener("click", ()=>{
-          startWelcomeBoardSearch().catch(err=>{
+          handleWelcomePrimaryAction().catch(err=>{
             setWelcomeBoardSearchBusy(false);
             setWelcomeConnectStatus("idle", "보드를 찾지 못했습니다");
-            reportSilentException("welcome-board-search", err);
+            reportSilentException("welcome-primary-action", err);
           });
         });
       }

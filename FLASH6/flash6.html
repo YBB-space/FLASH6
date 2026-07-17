@@ -127,7 +127,7 @@
   <!-- Preload 축소: AP 모드/저메모리 환경에서 동시 요청 버스트를 줄임 -->
   <script>
     (function(){
-    var ASSET_VER = "20260718-welcome-refine-b18-349-__FLASH6_DEPLOY_SHA__";
+    var ASSET_VER = "20260718-welcome-entry-b18-350-__FLASH6_DEPLOY_SHA__";
       window.__flashBoot = window.__flashBoot || {jsReady:false,lastError:"",phase:"static_loader",version:ASSET_VER};
       var isLocalPreview = !!window.__flashBoot.localPreview;
       var beaconEnabled = (window.__flashBoot.beaconEnabled !== false);
@@ -377,7 +377,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="styles/flash6.css?v=20260718-welcome-refine-b18-349-__FLASH6_DEPLOY_SHA__">
+  <link rel="stylesheet" href="styles/flash6.css?v=20260718-welcome-entry-b18-350-__FLASH6_DEPLOY_SHA__">
 </head>
 <body>
   <!-- ✅ LOCKOUT 배경 오버레이 -->
@@ -413,22 +413,8 @@
 
     <div id="toastContainer" class="toast-container"></div>
 
-    <section id="welcomeConnectScreen" class="welcome-connect-screen hidden" style="display:none;" aria-labelledby="welcomeConnectTitle" aria-describedby="welcomeConnectDesc" aria-hidden="true">
+    <section id="welcomeConnectScreen" class="welcome-connect-screen hidden" style="display:none;" aria-label="FLASH6 연결" aria-hidden="true">
       <div class="welcome-connect-panel">
-        <div class="welcome-connect-hero">
-          <div class="welcome-connect-brand">
-            <img src="img/Flash_logo.svg" alt="FLASH">
-            <span>FLASH6</span>
-          </div>
-          <h1 id="welcomeConnectTitle" class="welcome-connect-title"><span>ALTIS</span><span>INTELLIGENT</span></h1>
-          <p id="welcomeConnectDesc" class="welcome-connect-copy">FLASH6 BOARD CONSOLE</p>
-          <div class="welcome-connect-hero-meta" aria-hidden="true">
-            <span>A.I LINK</span>
-            <span>BOARD LINK</span>
-            <span>REPLAY</span>
-          </div>
-        </div>
-
         <div class="welcome-connect-card">
           <div class="welcome-connect-status">
             <div>
@@ -447,12 +433,9 @@
           </ol>
           <div class="welcome-connect-actions">
             <button id="welcomeBoardSearchBtn" class="welcome-connect-btn welcome-connect-btn--find" type="button">
-              <svg class="welcome-action-icon-guide" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9.5a10 10 0 0 1 14 0"></path><path d="M8.5 13a5 5 0 0 1 7 0"></path><circle cx="12" cy="17" r="1" style="fill:currentColor;stroke:none"></circle></svg>
-              <svg class="welcome-action-icon-start" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"></path><path d="m13 6 6 6-6 6"></path></svg>
-              <span id="welcomeBoardSearchLabel">보드 찾기</span>
+              <span id="welcomeBoardSearchLabel">보드 연결</span>
             </button>
             <button id="welcomeReplayBtn" class="welcome-connect-btn welcome-connect-btn--replay" type="button">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66"></path><path d="M20 4v5h-5"></path><path d="M9 8.7 15.8 12 9 15.3Z" style="fill:currentColor;stroke:none"></path></svg>
               리플레이
             </button>
           </div>
