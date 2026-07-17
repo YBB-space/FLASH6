@@ -28205,3 +28205,405 @@ html body #pyroControlOverlay > #pyroControlDialog > .settings-header > .setting
     color:#c8cbd0 !important;
   }
 }
+
+/*
+ * Desktop modal button palette.
+ * Solid colors only: neutral, primary, danger, and disabled.
+ */
+@media (min-width:901px){
+  html:not(.phone-landscape-layout) body{
+    --pc-btn-neutral:#24262a;
+    --pc-btn-neutral-hover:#2d3035;
+    --pc-btn-neutral-active:#1d1f22;
+    --pc-btn-neutral-border:#3b3e44;
+    --pc-btn-neutral-text:#d4d6da;
+    --pc-btn-primary:#e4e5e7;
+    --pc-btn-primary-hover:#f3f4f5;
+    --pc-btn-primary-active:#cfd1d4;
+    --pc-btn-primary-border:#b9bdc3;
+    --pc-btn-primary-text:#17181a;
+    --pc-btn-danger:#9f3037;
+    --pc-btn-danger-hover:#b83a41;
+    --pc-btn-danger-active:#84272d;
+    --pc-btn-danger-border:#b84349;
+    --pc-btn-disabled:#1c1e21;
+    --pc-btn-disabled-border:#2b2e32;
+    --pc-btn-disabled-text:#656a72;
+  }
+
+  /* Default every actionable modal control to the same solid neutral color. */
+  html:not(.phone-landscape-layout) body :is(
+    .settings-dialog,
+    .mission-dialog,
+    .loadcell-dialog,
+    .inspection-dialog,
+    .launcher-dialog,
+    .connection-guide-dialog,
+    .flash-link-topology-dialog,
+    .mobile-chart-picker-dialog,
+    .confirm-dialog,
+    .reboot-dialog,
+    .disconnect-dialog
+  ) button:not(:is(
+    .settings-close-btn,
+    .mobile-chart-picker-close,
+    .connection-guide-close,
+    .flash-link-topology-close,
+    .launcher-close-btn,
+    .mission-preset-btn,
+    .mission-tool-btn,
+    .data-list-item
+  )){
+    border-color:var(--pc-btn-neutral-border) !important;
+    background:var(--pc-btn-neutral) !important;
+    color:var(--pc-btn-neutral-text) !important;
+    box-shadow:none !important;
+    opacity:1 !important;
+  }
+  html:not(.phone-landscape-layout) body :is(
+    .settings-dialog,
+    .mission-dialog,
+    .loadcell-dialog,
+    .inspection-dialog,
+    .launcher-dialog,
+    .connection-guide-dialog,
+    .flash-link-topology-dialog,
+    .mobile-chart-picker-dialog,
+    .confirm-dialog,
+    .reboot-dialog,
+    .disconnect-dialog
+  ) button:not(:is(
+    .settings-close-btn,
+    .mobile-chart-picker-close,
+    .connection-guide-close,
+    .flash-link-topology-close,
+    .launcher-close-btn,
+    .mission-preset-btn,
+    .mission-tool-btn,
+    .data-list-item
+  )):hover{
+    border-color:#50545b !important;
+    background:var(--pc-btn-neutral-hover) !important;
+    color:#f1f2f3 !important;
+  }
+  html:not(.phone-landscape-layout) body :is(
+    .settings-dialog,
+    .mission-dialog,
+    .loadcell-dialog,
+    .inspection-dialog,
+    .launcher-dialog,
+    .connection-guide-dialog,
+    .flash-link-topology-dialog,
+    .mobile-chart-picker-dialog,
+    .confirm-dialog,
+    .reboot-dialog,
+    .disconnect-dialog
+  ) button:not(:is(
+    .settings-close-btn,
+    .mobile-chart-picker-close,
+    .connection-guide-close,
+    .flash-link-topology-close,
+    .launcher-close-btn,
+    .mission-preset-btn,
+    .mission-tool-btn,
+    .data-list-item
+  )):active{
+    border-color:#34373c !important;
+    background:var(--pc-btn-neutral-active) !important;
+    color:#e3e5e8 !important;
+  }
+
+  /* Primary: one pale, opaque action color throughout the modal system. */
+  html:not(.phone-landscape-layout) body :is(
+    .settings-dialog,
+    .mission-dialog,
+    .loadcell-dialog,
+    .inspection-dialog,
+    .launcher-dialog,
+    .connection-guide-dialog,
+    .mobile-chart-picker-dialog,
+    .confirm-dialog,
+    .reboot-dialog,
+    .disconnect-dialog
+  ) :is(
+    .loadcell-primary,
+    .connection-sheet-primary,
+    .connection-guide-action,
+    .mobile-chart-apply,
+    .data-storage-download,
+    #dataDownloadConfirmOk,
+    #flashLinkReportStart,
+    #intelligentCalibrationRunBtn,
+    #missionSaveBoardBtn,
+    #inspectionRetry,
+    #disconnectOk,
+    #gpsHelpOkBtn
+  ){
+    border-color:var(--pc-btn-primary-border) !important;
+    background:var(--pc-btn-primary) !important;
+    color:var(--pc-btn-primary-text) !important;
+  }
+  html:not(.phone-landscape-layout) body :is(
+    .settings-dialog,
+    .mission-dialog,
+    .loadcell-dialog,
+    .inspection-dialog,
+    .launcher-dialog,
+    .connection-guide-dialog,
+    .mobile-chart-picker-dialog,
+    .confirm-dialog,
+    .reboot-dialog,
+    .disconnect-dialog
+  ) :is(
+    .loadcell-primary,
+    .connection-sheet-primary,
+    .connection-guide-action,
+    .mobile-chart-apply,
+    .data-storage-download,
+    #dataDownloadConfirmOk,
+    #flashLinkReportStart,
+    #intelligentCalibrationRunBtn,
+    #missionSaveBoardBtn,
+    #inspectionRetry,
+    #disconnectOk,
+    #gpsHelpOkBtn
+  ):hover{
+    border-color:#d3d5d9 !important;
+    background:var(--pc-btn-primary-hover) !important;
+    color:#111214 !important;
+  }
+  html:not(.phone-landscape-layout) body :is(
+    .settings-dialog,
+    .mission-dialog,
+    .loadcell-dialog,
+    .inspection-dialog,
+    .launcher-dialog,
+    .connection-guide-dialog,
+    .mobile-chart-picker-dialog,
+    .confirm-dialog,
+    .reboot-dialog,
+    .disconnect-dialog
+  ) :is(
+    .loadcell-primary,
+    .connection-sheet-primary,
+    .connection-guide-action,
+    .mobile-chart-apply,
+    .data-storage-download,
+    #dataDownloadConfirmOk,
+    #flashLinkReportStart,
+    #intelligentCalibrationRunBtn,
+    #missionSaveBoardBtn,
+    #inspectionRetry,
+    #disconnectOk,
+    #gpsHelpOkBtn
+  ):active{
+    border-color:#aeb2b8 !important;
+    background:var(--pc-btn-primary-active) !important;
+    color:#17181a !important;
+  }
+
+  /* Danger is reserved for destructive or hardware-actuating commands. */
+  html:not(.phone-landscape-layout) body :is(
+    .settings-dialog,
+    .mission-dialog,
+    .loadcell-dialog,
+    .launcher-dialog,
+    .confirm-dialog,
+    .reboot-dialog,
+    .mobile-chart-picker-dialog
+  ) :is(
+    .settings-btn-danger,
+    .pyro-control-run,
+    .pyro-control-confirm-btn--danger,
+    .force-danger-small,
+    #loadcellResetBtn,
+    #missionBlockClearBtn,
+    #longPressBtn,
+    #launcherAutoBtn,
+    #launcherAutoConfirm,
+    #rebootConfirmBtn,
+    #pyroConfirmOkBtn,
+    #pyroControlRunBtn,
+    #pyroControlConfirmOk,
+    #dataResetHoldBtn,
+    #dataStorageResetBtn,
+    #exportLeaveConfirm
+  ){
+    border-color:var(--pc-btn-danger-border) !important;
+    background:var(--pc-btn-danger) !important;
+    color:#fff !important;
+  }
+  html:not(.phone-landscape-layout) body :is(
+    .settings-dialog,
+    .mission-dialog,
+    .loadcell-dialog,
+    .launcher-dialog,
+    .confirm-dialog,
+    .reboot-dialog,
+    .mobile-chart-picker-dialog
+  ) :is(
+    .settings-btn-danger,
+    .pyro-control-run,
+    .pyro-control-confirm-btn--danger,
+    .force-danger-small,
+    #loadcellResetBtn,
+    #missionBlockClearBtn,
+    #longPressBtn,
+    #launcherAutoBtn,
+    #launcherAutoConfirm,
+    #rebootConfirmBtn,
+    #pyroConfirmOkBtn,
+    #pyroControlRunBtn,
+    #pyroControlConfirmOk,
+    #dataResetHoldBtn,
+    #dataStorageResetBtn,
+    #exportLeaveConfirm
+  ):hover{
+    border-color:#d45a60 !important;
+    background:var(--pc-btn-danger-hover) !important;
+    color:#fff !important;
+  }
+  html:not(.phone-landscape-layout) body :is(
+    .settings-dialog,
+    .mission-dialog,
+    .loadcell-dialog,
+    .launcher-dialog,
+    .confirm-dialog,
+    .reboot-dialog,
+    .mobile-chart-picker-dialog
+  ) :is(
+    .settings-btn-danger,
+    .pyro-control-run,
+    .pyro-control-confirm-btn--danger,
+    .force-danger-small,
+    #loadcellResetBtn,
+    #missionBlockClearBtn,
+    #longPressBtn,
+    #launcherAutoBtn,
+    #launcherAutoConfirm,
+    #rebootConfirmBtn,
+    #pyroConfirmOkBtn,
+    #pyroControlRunBtn,
+    #pyroControlConfirmOk,
+    #dataResetHoldBtn,
+    #dataStorageResetBtn,
+    #exportLeaveConfirm
+  ):active{
+    border-color:#9b343a !important;
+    background:var(--pc-btn-danger-active) !important;
+    color:#fff !important;
+  }
+
+  /* Selected controls are solid graphite, never translucent accent pills. */
+  html:not(.phone-landscape-layout) body :is(
+    .settings-dialog,
+    .mission-dialog,
+    .loadcell-dialog,
+    .inspection-dialog,
+    .launcher-dialog,
+    .connection-guide-dialog,
+    .mobile-chart-picker-dialog
+  ) button:is(.is-active,[aria-selected="true"],[aria-pressed="true"]):not(:is(
+    .loadcell-primary,
+    .connection-sheet-primary,
+    .settings-btn-danger,
+    .pyro-control-confirm-btn--danger
+  )){
+    border-color:#5a5f67 !important;
+    background:#32353a !important;
+    color:#fff !important;
+    box-shadow:none !important;
+  }
+
+  /* Close controls are also opaque, but visually quieter than actions. */
+  html:not(.phone-landscape-layout) body :is(
+    .settings-close-btn,
+    .mobile-chart-picker-close,
+    .connection-guide-close,
+    .flash-link-topology-close,
+    .launcher-close-btn
+  ){
+    border-color:#35383d !important;
+    background:#202226 !important;
+    color:#b8bcc3 !important;
+    opacity:1 !important;
+  }
+  html:not(.phone-landscape-layout) body :is(
+    .settings-close-btn,
+    .mobile-chart-picker-close,
+    .connection-guide-close,
+    .flash-link-topology-close,
+    .launcher-close-btn
+  ):hover{
+    border-color:#4b4f57 !important;
+    background:#2a2d31 !important;
+    color:#fff !important;
+  }
+
+  /* Text-close and selection controls follow the same opaque neutral surface. */
+  html:not(.phone-landscape-layout) body :is(
+    #confirmOverlay,
+    #pyroConfirmOverlay
+  ) > :is(.confirm-dialog,.reboot-dialog) > .confirm-cancel,
+  html:not(.phone-landscape-layout) body #forceOverlay .force-cancel-link{
+    border:1px solid var(--pc-btn-neutral-border) !important;
+    background:var(--pc-btn-neutral) !important;
+    color:var(--pc-btn-neutral-text) !important;
+    text-decoration:none !important;
+    box-shadow:none !important;
+    opacity:1 !important;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .settings-nav-btn{
+    border-color:#303339 !important;
+    background:#1c1e21 !important;
+    color:#aeb2b9 !important;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .settings-nav-btn:hover{
+    border-color:var(--pc-btn-neutral-border) !important;
+    background:var(--pc-btn-neutral) !important;
+    color:#e7e8ea !important;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .settings-nav-btn.active{
+    border-color:#5a5f67 !important;
+    background:#32353a !important;
+    color:#fff !important;
+  }
+  html:not(.phone-landscape-layout) body :is(
+    .mission-preset-btn,
+    .mission-tool-btn,
+    .data-list-item
+  ){
+    background:#1e2023 !important;
+    box-shadow:none !important;
+    opacity:1 !important;
+  }
+  html:not(.phone-landscape-layout) body :is(
+    .mission-preset-btn,
+    .mission-tool-btn,
+    .data-list-item
+  ):hover{
+    background:#282b30 !important;
+  }
+
+  /* Disabled state keeps an opaque surface instead of fading the whole button. */
+  html:not(.phone-landscape-layout) body :is(
+    .settings-dialog,
+    .mission-dialog,
+    .loadcell-dialog,
+    .inspection-dialog,
+    .launcher-dialog,
+    .connection-guide-dialog,
+    .flash-link-topology-dialog,
+    .mobile-chart-picker-dialog,
+    .confirm-dialog,
+    .reboot-dialog,
+    .disconnect-dialog
+  ) button:disabled{
+    border-color:var(--pc-btn-disabled-border) !important;
+    background:var(--pc-btn-disabled) !important;
+    color:var(--pc-btn-disabled-text) !important;
+    box-shadow:none !important;
+    opacity:1 !important;
+    cursor:not-allowed !important;
+  }
+}
