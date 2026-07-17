@@ -21779,8 +21779,21 @@ body.dashboard-view-active .stage-overview-panel:has(> .stage-telemetry-deck.hid
     width:100%;
     height:100%;
     min-height:0;
+    padding:16px 18px 14px !important;
+    border-color:rgba(148,163,184,.18) !important;
+    border-radius:7px !important;
+    background:#101318 !important;
+    box-shadow:none !important;
     visibility:visible !important;
     opacity:1 !important;
+  }
+  body.dashboard-view-active .stage-overview-panel .stage-telemetry-card.is-active-hud{
+    border-color:rgba(148,163,184,.28) !important;
+  }
+  body.dashboard-view-active .stage-overview-panel .stage-telemetry-card header strong{
+    font-size:15px !important;
+    font-weight:560 !important;
+    letter-spacing:.07em !important;
   }
   body.dashboard-view-active #stageTelemetryDeck > [data-stage-card="2"]{
     display:flex !important;
@@ -21793,46 +21806,46 @@ body.dashboard-view-active .stage-overview-panel:has(> .stage-telemetry-deck.hid
   body.dashboard-view-active .stage-telemetry-health{
     display:grid;
     grid-template-columns:repeat(4,minmax(0,1fr));
-    gap:6px;
-    margin-top:10px;
+    gap:0;
+    margin-top:12px;
+    padding-top:10px;
+    border-top:1px solid rgba(148,163,184,.14);
   }
   body.dashboard-view-active .stage-health-chip{
     display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:5px;
+    flex-direction:column;
+    align-items:flex-start;
+    justify-content:center;
+    gap:4px;
     min-width:0;
-    min-height:30px;
-    padding:0 8px;
-    border:1px solid rgba(148,163,184,.17);
-    border-radius:7px;
-    background:rgba(12,16,21,.86);
+    min-height:34px;
+    padding:0 12px;
+    border:0;
+    border-left:1px solid rgba(148,163,184,.12);
+    border-radius:0;
+    background:transparent;
+  }
+  body.dashboard-view-active .stage-health-chip:first-child{
+    padding-left:0;
+    border-left:0;
   }
   body.dashboard-view-active .stage-health-chip small{
-    overflow:hidden;
     color:#6f7d8d;
     font-size:7px;
     font-weight:650;
-    letter-spacing:.09em;
-    text-overflow:ellipsis;
+    line-height:1;
+    letter-spacing:.12em;
   }
   body.dashboard-view-active .stage-health-chip b{
-    color:#dbe2ea;
-    font-size:8px;
-    font-weight:570;
+    color:#d7dce3;
+    font-size:10px;
+    font-weight:500;
+    line-height:1;
     white-space:nowrap;
   }
   body.dashboard-view-active .stage-health-chip--link::before{
-    content:"";
-    width:5px;
-    height:5px;
-    flex:0 0 auto;
-    border-radius:50%;
-    background:#64748b;
-  }
-  body.dashboard-view-active .stage-telemetry-card.is-linked .stage-health-chip--link::before{
-    background:#22c55e;
-    box-shadow:0 0 7px rgba(34,197,94,.58);
+    content:none;
+    display:none;
   }
   body.dashboard-view-active .motor-card .quick-data-header .status-bar{
     gap:7px !important;
@@ -21858,11 +21871,6 @@ body.dashboard-view-active .stage-overview-panel:has(> .stage-telemetry-deck.hid
     border-color:rgba(148,163,184,.3) !important;
     background:rgba(18,23,29,.96) !important;
     box-shadow:inset 0 1px 0 rgba(255,255,255,.035) !important;
-  }
-}
-@media (min-width:1181px) and (max-width:1600px) and (pointer:fine){
-  body.dashboard-view-active .stage-telemetry-health{
-    grid-template-columns:repeat(2,minmax(0,1fr));
   }
 }
 @media (max-width:1180px), (pointer:coarse){
