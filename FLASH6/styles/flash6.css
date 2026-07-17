@@ -26222,223 +26222,586 @@ body.camera-view-active .camera-center-countdown .camera-count-time{
     right:calc(14px + 72px + clamp(18px,2vw,34px)) !important;
   }
 }
-/* Final control-surface precedence: keep Pyro and Storage consistent with Servo. */
+
+/* Servo-derived Pyro and Storage dialogs. */
+.pyro-control-head > div,
+.data-storage-surface-head > div{
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+.pyro-control-head small,
+.data-storage-surface-head span,
+.data-storage-list-head span{
+  color:#777c85;
+  font-size:9px;
+  line-height:1.2;
+  font-weight:600;
+  letter-spacing:.08em;
+}
+.data-storage-summary-heading,
+.data-storage-list-head,
+.data-storage-surface-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+}
+.data-storage-metrics{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+}
+.data-storage-metrics > div{
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+.data-storage-metrics > div + div{
+  border-left:1px solid #303238;
+}
+.data-storage-metrics span{
+  color:#7f848d;
+  font-size:9px;
+  line-height:1;
+  font-weight:600;
+  letter-spacing:.04em;
+}
+.data-storage-metrics strong{
+  color:#f0f1f2;
+  font-size:18px;
+  line-height:1;
+  font-weight:560;
+}
+
 @media (min-width:901px){
-  html:not(.phone-landscape-layout) body #pyroControlOverlay #pyroControlDialog{
-    width:min(680px, calc(100vw - 64px)) !important;
-    max-width:680px !important;
-  }
-  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-panel{
-    padding:0 20px 20px !important;
+  html:not(.phone-landscape-layout) body #pyroControlOverlay #pyroControlDialog,
+  html:not(.phone-landscape-layout) body #dataListOverlay > .data-storage-dialog{
+    width:min(720px, calc(100vw - 64px)) !important;
+    max-width:720px !important;
+    min-height:0 !important;
+    max-height:calc(100dvh - 64px) !important;
     overflow:hidden !important;
-  }
-  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-head{
-    min-height:54px !important;
-    margin:0 -20px 18px !important;
-    padding:0 20px !important;
-    display:flex !important;
-    align-items:center !important;
-    border-bottom:1px solid #2f3136 !important;
-  }
-  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-row{
-    grid-template-columns:minmax(0,1fr) 230px !important;
-    align-items:end !important;
-    gap:18px !important;
-  }
-  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-value{
-    min-height:46px !important;
-    overflow:hidden !important;
-    border:1px solid #35383e !important;
-    border-radius:7px !important;
-    background:#0f1012 !important;
-  }
-  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-value input{
-    min-height:44px !important;
-    border:0 !important;
-    border-radius:0 !important;
-    background:transparent !important;
-    box-shadow:none !important;
-  }
-  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-value span{
-    padding-right:14px !important;
-    color:#858a94 !important;
-  }
-  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-presets button{
-    min-height:46px !important;
-  }
-  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-note{
-    margin:12px 0 0 !important;
-    padding:0 2px !important;
-    border:0 !important;
-    border-radius:0 !important;
-    background:transparent !important;
-    color:#858a94 !important;
-  }
-  html:not(.phone-landscape-layout) body #pyroControlDialog.is-confirming{
-    width:min(540px, calc(100vw - 64px)) !important;
-    max-width:540px !important;
-  }
-  html:not(.phone-landscape-layout) body #pyroControlDialog.is-confirming .pyro-control-confirm{
-    grid-template-columns:minmax(0,1fr) !important;
-    grid-template-areas:"title" "desc" "warning" "actions" !important;
-    gap:12px !important;
-  }
-  html:not(.phone-landscape-layout) body #pyroControlDialog.is-confirming .pyro-control-confirm-illustration{
-    display:none !important;
-  }
-  html:not(.phone-landscape-layout) body #pyroControlDialog.is-confirming .pyro-control-confirm-actions{
-    grid-template-columns:110px minmax(0,1fr) !important;
-    margin-top:0 !important;
+    border:1px solid #34363b !important;
+    border-radius:8px !important;
+    background:#151618 !important;
+    box-shadow:0 24px 70px rgba(0,0,0,.46) !important;
   }
 
-  html:not(.phone-landscape-layout) body #pyroConfirmOverlay .wifi-connect-dialog{
-    width:min(540px, calc(100vw - 64px)) !important;
-    max-width:540px !important;
-    grid-template-columns:minmax(0,1fr) !important;
-    grid-template-areas:"title" "desc" "note" "actions" !important;
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-body,
+  html:not(.phone-landscape-layout) body #dataListOverlay .data-storage-dialog-body{
+    display:block !important;
+    padding:20px 22px 22px !important;
+    overflow:auto !important;
   }
-  html:not(.phone-landscape-layout) body #pyroConfirmOverlay .pyro-control-confirm-illustration{
-    display:none !important;
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-selector,
+  html:not(.phone-landscape-layout) body #dataListOverlay .data-storage-selector{
+    display:block !important;
+    margin:0 0 16px !important;
   }
-
-  html:not(.phone-landscape-layout) body #dataListOverlay .mobile-chart-picker-body{
-    grid-template-columns:260px minmax(0,1fr) !important;
-    grid-template-rows:46px minmax(300px,1fr) auto !important;
-    gap:14px 16px !important;
-    min-height:480px !important;
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-channel-label,
+  html:not(.phone-landscape-layout) body #dataListOverlay .data-storage-selector > .settings-label{
+    display:block !important;
+    margin:0 0 9px !important;
+    color:#92969e !important;
+    font-size:11px !important;
+    font-weight:600 !important;
   }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-channel-grid,
   html:not(.phone-landscape-layout) body #dataListOverlay .data-origin-filter{
-    grid-column:1 / -1 !important;
-    grid-row:1 !important;
+    display:grid !important;
+    gap:6px !important;
+    margin:0 !important;
     padding:4px !important;
     border:1px solid #303238 !important;
     border-radius:8px !important;
     background:#101113 !important;
   }
-  html:not(.phone-landscape-layout) body #dataListOverlay .data-origin-filter button{
-    min-height:36px !important;
-    border-radius:6px !important;
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-channel-grid,
+  html:not(.phone-landscape-layout) body #dataListOverlay .data-origin-filter{
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
   }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-channel-btn,
+  html:not(.phone-landscape-layout) body #dataListOverlay .data-origin-filter button{
+    min-height:38px !important;
+    padding:0 10px !important;
+    border:0 !important;
+    border-radius:6px !important;
+    background:transparent !important;
+    color:#868a92 !important;
+    font-size:12px !important;
+    font-weight:650 !important;
+    box-shadow:none !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-channel-btn.is-active,
   html:not(.phone-landscape-layout) body #dataListOverlay .data-origin-filter button.is-active{
     background:#e8e9eb !important;
     color:#121315 !important;
   }
-  html:not(.phone-landscape-layout) body #dataListOverlay #dataListSummary{
-    grid-column:1 !important;
-    grid-row:2 !important;
-    overflow:auto !important;
-  }
-  html:not(.phone-landscape-layout) body #dataListOverlay #dataListBody{
-    grid-column:2 !important;
-    grid-row:2 !important;
-    position:relative !important;
-    min-height:0 !important;
-    max-height:none !important;
-    padding:42px 6px 4px !important;
-    overflow-y:auto !important;
+
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-panel,
+  html:not(.phone-landscape-layout) body #dataListOverlay .data-storage-surface{
+    display:block !important;
+    margin:0 !important;
+    padding:0 !important;
+    overflow:hidden !important;
     border:1px solid #303238 !important;
     border-radius:8px !important;
     background:#1b1c1f !important;
+    box-shadow:none !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-head,
+  html:not(.phone-landscape-layout) body #dataListOverlay .data-storage-surface-head{
+    min-height:60px !important;
+    margin:0 !important;
+    padding:0 20px !important;
+    display:flex !important;
+    align-items:center !important;
+    justify-content:space-between !important;
+    border-bottom:1px solid #2f3136 !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-head span,
+  html:not(.phone-landscape-layout) body #dataListOverlay .data-storage-surface-head strong{
+    color:#f2f3f5 !important;
+    font-size:15px !important;
+    line-height:1 !important;
+    font-weight:650 !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-head strong,
+  html:not(.phone-landscape-layout) body #dataListOverlay .data-storage-live{
+    color:#858a94 !important;
+    font-size:10px !important;
+    line-height:1 !important;
+    font-weight:700 !important;
+    letter-spacing:.08em !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-row{
+    display:grid !important;
+    grid-template-columns:minmax(0,1fr) 230px !important;
+    align-items:end !important;
+    gap:18px !important;
+    padding:20px 20px 0 !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-kicker{
+    margin:0 0 8px !important;
+    color:#8d929a !important;
+    font-size:10px !important;
+    font-weight:600 !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-value{
+    min-height:46px !important;
+    display:flex !important;
+    align-items:center !important;
+    overflow:hidden !important;
+    border:1px solid #35383e !important;
+    border-radius:6px !important;
+    background:#111214 !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-value input{
+    width:100% !important;
+    min-width:0 !important;
+    min-height:44px !important;
+    padding:0 14px !important;
+    border:0 !important;
+    border-radius:0 !important;
+    outline:0 !important;
+    background:transparent !important;
+    color:#f5f5f5 !important;
+    font-size:20px !important;
+    font-weight:560 !important;
+    box-shadow:none !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-value span{
+    padding-right:14px !important;
+    color:#858a94 !important;
+    font-size:11px !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-presets{
+    display:grid !important;
+    grid-template-columns:repeat(3,minmax(0,1fr)) !important;
+    gap:6px !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-presets button{
+    min-height:46px !important;
+    border:1px solid #35383e !important;
+    border-radius:6px !important;
+    background:#111214 !important;
+    color:#d5d7db !important;
+    font-size:11px !important;
+    font-weight:650 !important;
+    box-shadow:none !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-presets button:hover{
+    transform:none !important;
+    background:#292b30 !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-run{
+    width:calc(100% - 40px) !important;
+    min-height:46px !important;
+    margin:18px 20px 0 !important;
+    border:1px solid #63373b !important;
+    border-radius:6px !important;
+    background:#332023 !important;
+    color:#ff9da4 !important;
+    font-size:12px !important;
+    font-weight:680 !important;
+    box-shadow:none !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-note{
+    margin:14px 20px 18px !important;
+    padding:13px 0 0 !important;
+    border:0 !important;
+    border-top:1px solid #2f3136 !important;
+    border-radius:0 !important;
+    background:transparent !important;
+    color:#777c85 !important;
+    font-size:9px !important;
+    text-align:left !important;
+  }
+
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-confirm{
+    display:none !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog.is-confirming{
+    width:min(520px, calc(100vw - 64px)) !important;
+    max-width:520px !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog.is-confirming .pyro-control-selector,
+  html:not(.phone-landscape-layout) body #pyroControlDialog.is-confirming .pyro-control-panel{
+    display:none !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog.is-confirming .pyro-control-body{
+    padding:22px !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog.is-confirming .pyro-control-confirm{
+    display:grid !important;
+    grid-template-columns:minmax(0,1fr) !important;
+    grid-template-areas:"title" "desc" "warning" "actions" !important;
+    gap:12px !important;
+    padding:0 !important;
+    border:0 !important;
+    background:transparent !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-confirm-title{
+    grid-area:title !important;
+    margin:0 !important;
+    color:#f4f5f6 !important;
+    font-size:20px !important;
+    font-weight:650 !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-confirm-desc{
+    grid-area:desc !important;
+    margin:0 !important;
+    color:#b4b7bd !important;
+    font-size:13px !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-confirm-warning{
+    grid-area:warning !important;
+    margin:2px 0 4px !important;
+    padding:14px 15px !important;
+    border:1px solid #4b3033 !important;
+    border-radius:7px !important;
+    background:#251a1b !important;
+    color:#e6b9bd !important;
+    font-size:11px !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-confirm-actions{
+    grid-area:actions !important;
+    display:grid !important;
+    grid-template-columns:110px minmax(0,1fr) !important;
+    gap:8px !important;
+    margin:0 !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-confirm-btn{
+    min-height:48px !important;
+    border-radius:6px !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-confirm-btn--ghost{
+    border:1px solid #393c42 !important;
+    background:#24262a !important;
+    color:#d8dade !important;
+  }
+
+  html:not(.phone-landscape-layout) body #dataListOverlay > .data-storage-dialog{
+    transform:translateY(8px) scale(.985) !important;
+    opacity:0 !important;
+  }
+  html:not(.phone-landscape-layout) body #dataListOverlay.is-open > .data-storage-dialog{
+    transform:none !important;
+    opacity:1 !important;
+  }
+  html:not(.phone-landscape-layout) body #dataListOverlay .data-storage-surface-head{
+    padding:0 20px !important;
+  }
+  html:not(.phone-landscape-layout) body #dataListOverlay #dataListSummary{
+    min-height:0 !important;
+    margin:0 !important;
+    padding:18px 20px 20px !important;
+    border:0 !important;
+    border-radius:0 !important;
+    background:transparent !important;
+    color:#cfd1d5 !important;
+    box-shadow:none !important;
+  }
+  html:not(.phone-landscape-layout) body #dataListOverlay .data-storage-summary-heading{
+    margin-bottom:16px !important;
+  }
+  html:not(.phone-landscape-layout) body #dataListOverlay .data-storage-title{
+    color:#f0f1f2 !important;
+    font-size:13px !important;
+    font-weight:650 !important;
+  }
+  html:not(.phone-landscape-layout) body #dataListOverlay .data-storage-total{
+    color:#777c85 !important;
+    font-size:9px !important;
+    font-weight:650 !important;
+    letter-spacing:.06em !important;
+  }
+  html:not(.phone-landscape-layout) body #dataListOverlay .data-storage-track{
+    height:5px !important;
+    margin:0 0 16px !important;
+    overflow:hidden !important;
+    border:0 !important;
+    border-radius:999px !important;
+    background:#0d0e10 !important;
+  }
+  html:not(.phone-landscape-layout) body #dataListOverlay .data-storage-fill{
+    display:block !important;
+    width:var(--storage-used, 0%) !important;
+    height:100% !important;
+    border-radius:inherit !important;
+    background:#dfe1e4 !important;
+  }
+  html:not(.phone-landscape-layout) body #dataListOverlay .data-storage-metrics{
+    padding:15px 0 !important;
+    border-top:1px solid #2f3136 !important;
+    border-bottom:1px solid #2f3136 !important;
+  }
+  html:not(.phone-landscape-layout) body #dataListOverlay .data-storage-metrics > div{
+    padding:0 16px !important;
+  }
+  html:not(.phone-landscape-layout) body #dataListOverlay .data-storage-metrics > div:first-child{
+    padding-left:0 !important;
+  }
+  html:not(.phone-landscape-layout) body #dataListOverlay .data-storage-spec{
+    margin-top:14px !important;
+    color:#777c85 !important;
+    font-size:9px !important;
+    font-weight:550 !important;
+  }
+  html:not(.phone-landscape-layout) body #dataListOverlay .data-storage-list-head{
+    min-height:52px !important;
+    padding:0 20px !important;
+    border-top:1px solid #2f3136 !important;
+    border-bottom:1px solid #2f3136 !important;
+  }
+  html:not(.phone-landscape-layout) body #dataListOverlay .data-storage-list-head strong{
+    color:#e9eaec !important;
+    font-size:12px !important;
+    font-weight:650 !important;
+  }
+  html:not(.phone-landscape-layout) body #dataListOverlay #dataListBody{
+    min-height:170px !important;
+    max-height:250px !important;
+    margin:0 !important;
+    padding:0 !important;
+    overflow-y:auto !important;
+    border:0 !important;
+    border-radius:0 !important;
+    background:transparent !important;
   }
   html:not(.phone-landscape-layout) body #dataListOverlay #dataListBody::before{
-    content:"저장 기록";
-    position:absolute;
-    top:0;
-    right:0;
-    left:0;
-    min-height:38px;
-    padding:0 13px;
-    display:flex;
-    align-items:center;
-    border-bottom:1px solid #2f3136;
-    color:#92969e;
-    font-size:10px;
-    font-weight:650;
-    letter-spacing:.08em;
+    content:none !important;
+    display:none !important;
   }
   html:not(.phone-landscape-layout) body #dataListOverlay .agent-help-issue,
   html:not(.phone-landscape-layout) body #dataListOverlay .data-list-more{
+    min-height:54px !important;
     margin:0 !important;
-    padding:12px 10px !important;
+    padding:10px 20px !important;
     border:0 !important;
     border-bottom:1px solid #2d2f34 !important;
     border-radius:0 !important;
     background:transparent !important;
     box-shadow:none !important;
   }
+  html:not(.phone-landscape-layout) body #dataListOverlay .agent-help-issue:hover,
+  html:not(.phone-landscape-layout) body #dataListOverlay .data-list-more:hover{
+    transform:none !important;
+    background:#222327 !important;
+  }
+  html:not(.phone-landscape-layout) body #dataListOverlay .data-list-item .agent-help-dot{
+    width:6px !important;
+    height:6px !important;
+    background:#79c796 !important;
+    box-shadow:none !important;
+  }
+  html:not(.phone-landscape-layout) body #dataListOverlay .agent-help-issue-title{
+    color:#eceef0 !important;
+    font-size:12px !important;
+    font-weight:620 !important;
+  }
+  html:not(.phone-landscape-layout) body #dataListOverlay .agent-help-issue-sub{
+    color:#777c85 !important;
+    font-size:9px !important;
+  }
+  html:not(.phone-landscape-layout) body #dataListOverlay .data-storage-empty{
+    min-height:170px !important;
+    margin:0 !important;
+    padding:24px !important;
+    display:grid !important;
+    place-items:center !important;
+    color:#777c85 !important;
+    font-size:11px !important;
+    text-align:center !important;
+  }
   html:not(.phone-landscape-layout) body #dataListOverlay .data-storage-actions{
-    grid-column:1 / -1 !important;
-    grid-row:3 !important;
-    grid-template-columns:minmax(0,1fr) 180px !important;
+    display:grid !important;
+    grid-template-columns:minmax(0,1fr) 176px !important;
+    gap:8px !important;
+    margin:0 !important;
+    padding:16px 20px 20px !important;
+    border-top:1px solid #2f3136 !important;
+  }
+  html:not(.phone-landscape-layout) body #dataListOverlay .data-storage-actions.is-app-only{
+    grid-template-columns:minmax(0,1fr) !important;
+  }
+  html:not(.phone-landscape-layout) body #dataListOverlay .data-storage-download,
+  html:not(.phone-landscape-layout) body #dataListOverlay .data-storage-reset{
+    min-height:44px !important;
+    border-radius:6px !important;
+    font-size:11px !important;
+    font-weight:650 !important;
+    box-shadow:none !important;
+  }
+  html:not(.phone-landscape-layout) body #dataListOverlay .data-storage-download{
+    border:1px solid #dedfe1 !important;
+    background:#dedfe1 !important;
+    color:#151618 !important;
+  }
+  html:not(.phone-landscape-layout) body #dataListOverlay .data-storage-reset{
+    border:1px solid #563234 !important;
+    background:#2b1c1d !important;
+    color:#ff9696 !important;
+  }
+
+  html:not(.phone-landscape-layout) body #pyroConfirmOverlay .wifi-connect-dialog{
+    width:min(520px, calc(100vw - 64px)) !important;
+    max-width:520px !important;
+    display:grid !important;
+    grid-template-columns:minmax(0,1fr) !important;
+    grid-template-areas:"title" "desc" "note" "actions" !important;
+    gap:12px !important;
+    padding:0 22px 22px !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroConfirmOverlay .disconnect-title{
+    grid-area:title !important;
+    min-height:62px !important;
+    margin:0 -22px 8px !important;
+    padding:0 64px 0 22px !important;
+    display:flex !important;
+    align-items:center !important;
+    border-bottom:1px solid #2c2e32 !important;
+    background:#191a1d !important;
+    text-align:left !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroConfirmOverlay .disconnect-text{
+    grid-area:desc !important;
+    margin:0 !important;
+    text-align:left !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroConfirmOverlay .confirm-note{
+    grid-area:note !important;
+    margin:0 !important;
+    text-align:left !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroConfirmOverlay .wifi-connect-actions{
+    grid-area:actions !important;
+    margin:0 !important;
   }
 }
 
-/* Quiet modal pass: one task per surface, with no nested dashboard-card treatment. */
-@media (min-width:901px){
-  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-head{
-    display:none !important;
+@media (max-width:900px){
+  body #pyroControlDialog .pyro-control-selector,
+  body #dataListOverlay .data-storage-selector{
+    margin-bottom:14px !important;
   }
-  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-panel{
-    padding:20px !important;
+  body #pyroControlDialog .pyro-control-channel-label,
+  body #dataListOverlay .data-storage-selector > .settings-label{
+    margin-bottom:8px !important;
   }
-  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-run{
-    margin-top:14px !important;
+  body #pyroControlDialog .pyro-channel-grid,
+  body #dataListOverlay .data-origin-filter{
+    display:grid !important;
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+    gap:6px !important;
   }
-  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-note{
-    margin-top:10px !important;
-    padding:0 !important;
-    font-size:9px !important;
+  body #pyroControlDialog .pyro-control-panel,
+  body #dataListOverlay .data-storage-surface{
+    overflow:hidden !important;
+    border:1px solid #303238 !important;
+    border-radius:8px !important;
+    background:#1b1c1f !important;
   }
-
-  html:not(.phone-landscape-layout) body #dataListOverlay > .agent-help-dialog{
-    width:min(720px, calc(100vw - 64px)) !important;
-    max-width:720px !important;
-  }
-  html:not(.phone-landscape-layout) body #dataListOverlay .mobile-chart-picker-body{
-    grid-template-columns:minmax(0,1fr) !important;
-    grid-template-rows:46px auto minmax(260px,1fr) auto !important;
-    gap:0 !important;
-    min-height:500px !important;
-  }
-  html:not(.phone-landscape-layout) body #dataListOverlay .data-origin-filter{
-    grid-column:1 !important;
-    grid-row:1 !important;
-    margin:0 0 14px !important;
-  }
-  html:not(.phone-landscape-layout) body #dataListOverlay #dataListSummary{
-    grid-column:1 !important;
-    grid-row:2 !important;
+  body #pyroControlDialog .pyro-control-head,
+  body #dataListOverlay .data-storage-surface-head{
+    min-height:56px !important;
     margin:0 !important;
-    padding:14px 2px 16px !important;
-    overflow:visible !important;
+    padding:0 16px !important;
+    border-bottom:1px solid #2f3136 !important;
+  }
+  body #pyroControlDialog .pyro-control-row{
+    display:grid !important;
+    grid-template-columns:minmax(0,1fr) !important;
+    gap:14px !important;
+    padding:16px 16px 0 !important;
+  }
+  body #pyroControlDialog .pyro-control-run{
+    width:calc(100% - 32px) !important;
+    margin:16px !important;
+  }
+  body #pyroControlDialog .pyro-control-note{
+    margin:0 16px 16px !important;
+  }
+  body #dataListOverlay .data-storage-dialog-body{
+    display:block !important;
+  }
+  body #dataListOverlay #dataListSummary{
+    margin:0 !important;
+    padding:16px !important;
     border:0 !important;
-    border-bottom:1px solid #303238 !important;
     border-radius:0 !important;
     background:transparent !important;
   }
-  html:not(.phone-landscape-layout) body #dataListOverlay #dataListBody{
-    grid-column:1 !important;
-    grid-row:3 !important;
-    min-height:260px !important;
-    padding:40px 0 0 !important;
-    border:0 !important;
-    border-radius:0 !important;
-    background:transparent !important;
-  }
-  html:not(.phone-landscape-layout) body #dataListOverlay #dataListBody::before{
-    min-height:38px !important;
-    padding:0 2px !important;
-  }
-  html:not(.phone-landscape-layout) body #dataListOverlay .agent-help-issue,
-  html:not(.phone-landscape-layout) body #dataListOverlay .data-list-more{
-    padding-right:2px !important;
-    padding-left:2px !important;
-  }
-  html:not(.phone-landscape-layout) body #dataListOverlay .data-storage-actions{
-    grid-column:1 !important;
-    grid-row:4 !important;
-    grid-template-columns:minmax(0,1fr) 170px !important;
-    gap:8px !important;
+  body #dataListOverlay .data-storage-metrics{
     margin-top:14px !important;
+    padding:14px 0 !important;
+    border-top:1px solid #2f3136 !important;
+    border-bottom:1px solid #2f3136 !important;
+  }
+  body #dataListOverlay .data-storage-metrics > div{
+    padding:0 10px !important;
+  }
+  body #dataListOverlay .data-storage-list-head{
+    min-height:48px !important;
+    padding:0 16px !important;
+    border-top:1px solid #2f3136 !important;
+    border-bottom:1px solid #2f3136 !important;
+  }
+  body #dataListOverlay #dataListBody{
+    min-height:160px !important;
+    max-height:34dvh !important;
+    padding:0 !important;
+    overflow-y:auto !important;
+  }
+  body #dataListOverlay .agent-help-issue{
+    border-radius:0 !important;
+    background:transparent !important;
+  }
+  body #dataListOverlay .data-storage-actions{
+    margin:0 !important;
+    padding:14px 16px 16px !important;
+    border-top:1px solid #2f3136 !important;
   }
 }

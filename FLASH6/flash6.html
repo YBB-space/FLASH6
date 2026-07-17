@@ -124,7 +124,7 @@
   <!-- Preload 축소: AP 모드/저메모리 환경에서 동시 요청 버스트를 줄임 -->
   <script>
     (function(){
-    var ASSET_VER = "20260717-control-surfaces-b13-318";
+    var ASSET_VER = "20260717-servo-derived-modals-b13-319";
       window.__flashBoot = window.__flashBoot || {jsReady:false,lastError:"",phase:"static_loader",version:ASSET_VER};
       var isLocalPreview = !!window.__flashBoot.localPreview;
       var beaconEnabled = (window.__flashBoot.beaconEnabled !== false);
@@ -374,7 +374,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="styles/flash6.css?v=20260717-control-surfaces-b13-318">
+  <link rel="stylesheet" href="styles/flash6.css?v=20260717-servo-derived-modals-b13-319">
 </head>
 <body>
   <!-- ✅ LOCKOUT 배경 오버레이 -->
@@ -3856,30 +3856,38 @@
           <button id="pyroControlClose" class="settings-close-btn" type="button" aria-label="close">×</button>
         </div>
         <div class="pyro-control-body">
-          <div class="pyro-control-channel-label">채널 선택</div>
-          <section class="pyro-channel-grid" aria-label="파이로 채널">
-            <button class="pyro-channel-btn is-active" type="button" data-pyro-modal-channel="1" aria-pressed="true"><span>CH1</span></button>
-            <button class="pyro-channel-btn" type="button" data-pyro-modal-channel="2" aria-pressed="false"><span>CH2</span></button>
-          </section>
+          <div class="pyro-control-selector">
+            <div class="settings-label pyro-control-channel-label">채널 선택</div>
+            <section class="pyro-channel-grid" aria-label="파이로 채널">
+              <button class="pyro-channel-btn is-active" type="button" data-pyro-modal-channel="1" aria-pressed="true"><span>CH1</span></button>
+              <button class="pyro-channel-btn" type="button" data-pyro-modal-channel="2" aria-pressed="false"><span>CH2</span></button>
+            </section>
+          </div>
           <section class="pyro-control-panel" aria-label="파이로 지속시간">
             <div class="pyro-control-head">
-              <span id="pyroControlChannelName">CH1</span>
-              <strong>대기</strong>
+              <div>
+                <span id="pyroControlChannelName">CH1</span>
+                <small>PYROTECHNIC OUTPUT</small>
+              </div>
+              <strong>STANDBY</strong>
             </div>
             <div class="pyro-control-row">
-              <div>
+              <div class="pyro-control-duration-block">
                 <div class="pyro-control-kicker">지속시간</div>
                 <div class="pyro-control-value"><input id="pyroControlDurationInput" type="number" min="10" max="30000" step="10" value="5000" inputmode="numeric"><span>ms</span></div>
               </div>
-              <div class="pyro-control-presets" aria-label="지속시간 프리셋">
-                <button type="button" data-pyro-modal-ms="500">500</button>
-                <button type="button" data-pyro-modal-ms="1000">1000</button>
-                <button type="button" data-pyro-modal-ms="2000">2000</button>
+              <div class="pyro-control-preset-block">
+                <div class="pyro-control-kicker">빠른 설정</div>
+                <div class="pyro-control-presets" aria-label="지속시간 프리셋">
+                  <button type="button" data-pyro-modal-ms="500">500</button>
+                  <button type="button" data-pyro-modal-ms="1000">1000</button>
+                  <button type="button" data-pyro-modal-ms="2000">2000</button>
+                </div>
               </div>
             </div>
             <button id="pyroControlRunBtn" class="pyro-control-run" type="button"><span>CH1 동작</span></button>
+            <div class="pyro-control-note">실행 전 주변 안전과 결선 상태를 확인하세요.</div>
           </section>
-          <div class="pyro-control-note">실행 전 주변 안전과 결선 상태를 확인하세요.</div>
           <section id="pyroControlConfirm" class="pyro-control-confirm" aria-label="파이로 동작 확인">
             <div id="pyroControlConfirmTitle" class="pyro-control-confirm-title">CH1 동작 확인</div>
             <div id="pyroControlConfirmDesc" class="pyro-control-confirm-desc">지속시간 500 ms로 실행할까요?</div>

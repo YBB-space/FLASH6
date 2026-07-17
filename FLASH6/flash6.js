@@ -23988,12 +23988,16 @@ function requestMobileMockup3dMesh(){
         0
       );
       const appSummary =
-        '<div class="data-storage-head">' +
+        '<div class="data-storage-summary-heading">' +
           '<span class="data-storage-title">APP</span>' +
-          '<span class="data-storage-total">' + filteredAppSessions.length.toLocaleString("ko-KR") + ' 세션 · ' + formatBytesCompact(appBytes) + '</span>' +
+          '<span class="data-storage-total">LOCAL CAPTURE</span>' +
         '</div>' +
-        '<div class="data-storage-meta"><span class="data-storage-used">사용 ' + formatBytesCompact(appBytes) + '</span><span>샘플 ' + appSamples.toLocaleString("ko-KR") + '개</span></div>' +
-        '<div class="data-storage-spec">HWLOGV2 BIN · 수신 그대로 저장 · 샘플 ' + appSamples.toLocaleString("ko-KR") + '개</div>';
+        '<div class="data-storage-metrics">' +
+          '<div><span>세션</span><strong>' + filteredAppSessions.length.toLocaleString("ko-KR") + '</strong></div>' +
+          '<div><span>사용량</span><strong>' + formatBytesCompact(appBytes) + '</strong></div>' +
+          '<div><span>샘플</span><strong>' + appSamples.toLocaleString("ko-KR") + '</strong></div>' +
+        '</div>' +
+        '<div class="data-storage-spec">HWLOGV2 BIN · 수신 데이터를 원본 형식으로 저장</div>';
       if(selectedView === "app"){
         summary.innerHTML = appSummary;
         return;
@@ -24013,22 +24017,19 @@ function requestMobileMockup3dMesh(){
           ? Math.max(0, Math.min(100, (remoteUsed / remoteCapacity) * 100))
           : 0;
       summary.innerHTML =
-        '<div class="data-storage-head">' +
+        '<div class="data-storage-summary-heading">' +
           '<span class="data-storage-title">에비오닉스 저장공간</span>' +
-          '<span class="data-storage-total">' +
-            (remoteCapacity > 0
-              ? (model + ' ' + formatBytesCompact(remoteCapacity) + ' · 기록영역 ' + formatBytesCompact(remoteCapacity))
-              : '동기화 대기') +
-          '</span>' +
+          '<span class="data-storage-total">' + (remoteCapacity > 0 ? model : 'SYNC WAIT') + '</span>' +
         '</div>' +
         '<div class="data-storage-track" role="progressbar" aria-label="에비오닉스 저장공간 사용량" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + remotePct.toFixed(1) + '">' +
           '<span class="data-storage-fill' + (remotePct > 0 ? ' has-usage' : '') + '" style="--storage-used:' + remotePct.toFixed(2) + '%" aria-hidden="true"></span>' +
         '</div>' +
-        '<div class="data-storage-meta">' +
-          '<span class="data-storage-used">사용 ' + formatBytesCompact(remoteUsed) + ' (' + remotePct.toFixed(1) + '%)</span>' +
-          '<span>기록 ' + remoteRecords.toLocaleString("ko-KR") + '개</span>' +
+        '<div class="data-storage-metrics">' +
+          '<div><span>전체 용량</span><strong>' + (remoteCapacity > 0 ? formatBytesCompact(remoteCapacity) : '--') + '</strong></div>' +
+          '<div><span>사용량</span><strong>' + formatBytesCompact(remoteUsed) + '</strong></div>' +
+          '<div><span>저장 기록</span><strong>' + remoteRecords.toLocaleString("ko-KR") + '</strong></div>' +
         '</div>' +
-        '<div class="data-storage-spec">에비오닉스 외장 SPI NOR · ' + liveText + '</div>';
+        '<div class="data-storage-spec">SPI NOR · ' + remotePct.toFixed(1) + '% 사용 · ' + liveText + '</div>';
     }
 
     function stopDataListLiveStatus(){
@@ -24373,7 +24374,6 @@ function requestMobileMockup3dMesh(){
           '자세히 보기 · ' + hiddenCount.toLocaleString("ko-KR") + '개 더 보기' +
         '</button>';
       };
-      const boardLabel = "에비오닉스 저장공간";
       const boardEmptyText =
         overlay._remoteBoardError
             ? '저장 기록 목록을 받지 못했습니다. 양쪽 보드의 펌웨어와 A.I LINK 연결을 확인하세요.'
@@ -24381,8 +24381,7 @@ function requestMobileMockup3dMesh(){
             ? '에비오닉스 보드 저장공간은 연결 후 확인할 수 있습니다.'
             : '에비오닉스 저장공간에 저장된 기록이 없습니다.';
       const boardHtml = boardItems.length
-        ? '<p class="agent-help-intro">' + boardLabel + '</p>' +
-                boardItems.slice().reverse().slice(0, detailsOpen ? boardItems.length : previewLimit).map((item)=>{
+        ? boardItems.slice().reverse().slice(0, detailsOpen ? boardItems.length : previewLimit).map((item)=>{
                   const name = String(item.name || "DATA");
                   const records = Math.max(0, Number(item.records || 0));
                   const bytes = formatBytesCompact(item.bytes || 0);
@@ -24394,10 +24393,9 @@ function requestMobileMockup3dMesh(){
                     '</span><span class="agent-help-chevron" aria-hidden="true">›</span></button>';
                 }).join("") +
                 renderMoreButton(Math.max(0, boardItems.length - previewLimit), "board")
-        : '<p class="agent-help-intro">' + boardEmptyText + '</p>';
+        : '<p class="data-storage-empty">' + boardEmptyText + '</p>';
       const appHtml = appItems.length
-        ? '<p class="agent-help-intro">앱 저장 BIN</p>' +
-          appItems.slice(0, detailsOpen ? appItems.length : previewLimit).map((item)=>{
+        ? appItems.slice(0, detailsOpen ? appItems.length : previewLimit).map((item)=>{
             const started = new Date(Number(item.startedAt || 0));
             const title = isNaN(started.getTime())
               ? String(item.id)
@@ -24412,8 +24410,7 @@ function requestMobileMockup3dMesh(){
               '</span><span class="agent-help-chevron" aria-hidden="true">›</span></button>';
           }).join("") +
           renderMoreButton(Math.max(0, appItems.length - previewLimit), "app")
-        : '<p class="agent-help-intro">' +
-          'APP BIN이 없습니다.</p>';
+        : '<p class="data-storage-empty">APP BIN이 없습니다.</p>';
       body.innerHTML = selectedView === "app" ? appHtml : boardHtml;
 
       overlay.querySelectorAll("[data-data-origin-filter]").forEach((button)=>{
@@ -24433,22 +24430,32 @@ function requestMobileMockup3dMesh(){
       overlay.className = "mobile-chart-picker-overlay hidden";
       overlay.style.display = "none";
       overlay.innerHTML =
-        '<div class="mobile-chart-picker-dialog agent-help-dialog" role="dialog" aria-modal="true" aria-label="저장공간">' +
+        '<div class="mobile-chart-picker-dialog agent-help-dialog data-storage-dialog" role="dialog" aria-modal="true" aria-label="저장공간">' +
           '<div class="mobile-chart-picker-head">' +
             '<div class="mobile-chart-picker-title">저장공간</div>' +
             '<button id="dataListCloseBtn" class="mobile-chart-picker-close" type="button" aria-label="닫기">×</button>' +
           '</div>' +
-          '<div class="mobile-chart-picker-body">' +
-            '<div class="data-origin-filter" role="tablist" aria-label="저장공간 출처">' +
-              '<button type="button" role="tab" aria-selected="false" data-data-origin-filter="app">APP</button>' +
-              '<button class="is-active" type="button" role="tab" aria-selected="true" data-data-origin-filter="avionics">에비오닉스</button>' +
+          '<div class="mobile-chart-picker-body data-storage-dialog-body">' +
+            '<div class="data-storage-selector">' +
+              '<div class="settings-label">저장 위치</div>' +
+              '<div class="data-origin-filter" role="tablist" aria-label="저장공간 출처">' +
+                '<button type="button" role="tab" aria-selected="false" data-data-origin-filter="app">APP</button>' +
+                '<button class="is-active" type="button" role="tab" aria-selected="true" data-data-origin-filter="avionics">에비오닉스</button>' +
+              '</div>' +
             '</div>' +
-            '<div id="dataListSummary" class="agent-help-summary">저장공간 목록을 불러오는 중…</div>' +
-            '<div id="dataListBody" class="agent-help-list" aria-live="polite"></div>' +
-            '<div class="data-storage-actions">' +
-              '<button id="dataStorageDownloadBtn" class="data-storage-download" type="button">다운로드</button>' +
-              '<button id="dataStorageResetBtn" class="data-storage-reset" type="button">보드 초기화</button>' +
-            '</div>' +
+            '<section class="data-storage-surface">' +
+              '<div class="data-storage-surface-head">' +
+                '<div><strong>저장공간 상태</strong><span>STORAGE STATUS</span></div>' +
+                '<span class="data-storage-live">OVERVIEW</span>' +
+              '</div>' +
+              '<div id="dataListSummary" class="agent-help-summary">저장공간 목록을 불러오는 중…</div>' +
+              '<div class="data-storage-list-head"><strong>저장 기록</strong><span>항목을 선택하면 다운로드합니다.</span></div>' +
+              '<div id="dataListBody" class="agent-help-list" aria-live="polite"></div>' +
+              '<div class="data-storage-actions">' +
+                '<button id="dataStorageDownloadBtn" class="data-storage-download" type="button">다운로드</button>' +
+                '<button id="dataStorageResetBtn" class="data-storage-reset" type="button">보드 초기화</button>' +
+              '</div>' +
+            '</section>' +
           '</div>' +
         '</div>';
       document.body.appendChild(overlay);
