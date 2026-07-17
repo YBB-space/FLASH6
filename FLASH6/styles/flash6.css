@@ -26813,3 +26813,106 @@ body.camera-view-active .camera-center-countdown .camera-count-time{
     border-top:1px solid #2f3136 !important;
   }
 }
+
+/* Pyro dialog header: keep the title and close action visually unboxed. */
+html body #pyroControlOverlay > #pyroControlDialog > .settings-header{
+  position:relative !important;
+  min-height:60px !important;
+  margin:0 !important;
+  padding:0 58px 0 22px !important;
+  display:flex !important;
+  flex:0 0 auto !important;
+  align-items:center !important;
+  justify-content:flex-start !important;
+  border:0 !important;
+  border-bottom:1px solid #2c2e32 !important;
+  border-radius:0 !important;
+  background:transparent !important;
+  box-shadow:none !important;
+  text-align:left !important;
+}
+html body #pyroControlOverlay > #pyroControlDialog > .settings-header > .settings-title{
+  display:inline-block !important;
+  width:auto !important;
+  min-width:0 !important;
+  margin:0 !important;
+  padding:0 !important;
+  border:0 !important;
+  border-radius:0 !important;
+  background:transparent !important;
+  box-shadow:none !important;
+  color:#f2f3f5 !important;
+  font-size:16px !important;
+  line-height:1.2 !important;
+  font-weight:620 !important;
+  letter-spacing:0 !important;
+  text-transform:none !important;
+  text-align:left !important;
+}
+html body #pyroControlOverlay > #pyroControlDialog > .settings-header > .settings-close-btn{
+  position:absolute !important;
+  top:50% !important;
+  right:16px !important;
+  left:auto !important;
+  width:32px !important;
+  min-width:32px !important;
+  height:32px !important;
+  min-height:32px !important;
+  margin:0 !important;
+  padding:0 !important;
+  display:grid !important;
+  place-items:center !important;
+  appearance:none !important;
+  -webkit-appearance:none !important;
+  border:0 !important;
+  border-radius:50% !important;
+  outline:0 !important;
+  background:transparent !important;
+  box-shadow:none !important;
+  color:#9da2ab !important;
+  font-size:23px !important;
+  line-height:1 !important;
+  font-weight:300 !important;
+  transform:translateY(-50%) !important;
+}
+html body #pyroControlOverlay > #pyroControlDialog > .settings-header > .settings-close-btn::before,
+html body #pyroControlOverlay > #pyroControlDialog > .settings-header > .settings-close-btn::after{
+  content:none !important;
+  display:none !important;
+}
+html body #pyroControlOverlay > #pyroControlDialog > .settings-header > .settings-close-btn:hover{
+  border:0 !important;
+  background:rgba(255,255,255,.055) !important;
+  color:#f3f4f6 !important;
+  box-shadow:none !important;
+}
+html body #pyroControlOverlay > #pyroControlDialog > .settings-header > .settings-close-btn:focus,
+html body #pyroControlOverlay > #pyroControlDialog > .settings-header > .settings-close-btn:focus-visible,
+html body #pyroControlOverlay > #pyroControlDialog > .settings-header > .settings-close-btn:active{
+  outline:0 !important;
+  background:transparent !important;
+  box-shadow:none !important;
+  transform:translateY(-50%) !important;
+}
+
+@media (min-width:901px){
+  body #pyroControlOverlay{
+    align-items:center !important;
+    justify-content:center !important;
+    padding:32px !important;
+  }
+  body #pyroControlOverlay > #pyroControlDialog{
+    width:min(720px, calc(100vw - 64px)) !important;
+    max-width:720px !important;
+    min-height:0 !important;
+    height:auto !important;
+    max-height:calc(100dvh - 64px) !important;
+    margin:auto !important;
+    padding:0 !important;
+    border:1px solid #34363b !important;
+    border-radius:8px !important;
+    background:#151618 !important;
+    box-shadow:0 24px 70px rgba(0,0,0,.46) !important;
+    overflow:hidden !important;
+  }
+}
