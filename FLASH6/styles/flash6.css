@@ -11848,11 +11848,11 @@
       width:auto;max-width:none;height:auto;
       transform:translate(-50%,-50%);
     }
-    .fw-partner-logo.is-jlcpcb{width:100px}
+    .fw-partner-logo.is-jlcpcb{width:115px}
     .fw-partner-logo.is-jlcpcb img{width:115px}
     .fw-partner-logo.is-easyeda{width:135px}
     .fw-partner-logo.is-easyeda img{width:135px}
-    .fw-partner-logo.is-innospace{width:225px}
+    .fw-partner-logo.is-innospace{width:230px}
     .fw-partner-logo.is-innospace img{width:230px}
     @media(max-width:560px){
       .fw-head{gap:12px}
@@ -11860,11 +11860,11 @@
       .fw-f-logo{width:40px;height:40px}
       .fw-partner-logos{gap:10px;padding:11px 12px}
       .fw-partner-logo{height:30px}
-      .fw-partner-logo.is-jlcpcb{width:88px}
+      .fw-partner-logo.is-jlcpcb{width:102px}
       .fw-partner-logo.is-jlcpcb img{width:102px}
       .fw-partner-logo.is-easyeda{width:122px}
       .fw-partner-logo.is-easyeda img{width:122px}
-      .fw-partner-logo.is-innospace{width:200px}
+      .fw-partner-logo.is-innospace{width:205px}
       .fw-partner-logo.is-innospace img{width:205px}
     }
 
@@ -28781,11 +28781,11 @@ html body #pyroControlOverlay > #pyroControlDialog > .settings-header > .setting
   opacity:.78;
   filter:grayscale(1) brightness(1.25);
 }
-.fw-credit-block .fw-partner-logo.is-jlcpcb{width:70px}
+.fw-credit-block .fw-partner-logo.is-jlcpcb{width:82px}
 .fw-credit-block .fw-partner-logo.is-jlcpcb img{width:82px}
 .fw-credit-block .fw-partner-logo.is-easyeda{width:98px}
 .fw-credit-block .fw-partner-logo.is-easyeda img{width:98px}
-.fw-credit-block .fw-partner-logo.is-innospace{width:145px}
+.fw-credit-block .fw-partner-logo.is-innospace{width:150px}
 .fw-credit-block .fw-partner-logo.is-innospace img{width:150px}
 .fw-legal{
   width:100%;
@@ -28981,7 +28981,7 @@ html body #pyroControlOverlay > #pyroControlDialog > .settings-header > .setting
     opacity:.7 !important;
   }
   html:not(.phone-landscape-layout) body #settingsOverlay .fw-credit-block .fw-partner-logo.is-jlcpcb{
-    width:60px !important;
+    width:70px !important;
   }
   html:not(.phone-landscape-layout) body #settingsOverlay .fw-credit-block .fw-partner-logo.is-jlcpcb img{
     width:70px !important;
@@ -28993,7 +28993,7 @@ html body #pyroControlOverlay > #pyroControlDialog > .settings-header > .setting
     width:82px !important;
   }
   html:not(.phone-landscape-layout) body #settingsOverlay .fw-credit-block .fw-partner-logo.is-innospace{
-    width:118px !important;
+    width:122px !important;
   }
   html:not(.phone-landscape-layout) body #settingsOverlay .fw-credit-block .fw-partner-logo.is-innospace img{
     width:122px !important;
