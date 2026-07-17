@@ -23531,13 +23531,13 @@ body.camera-view-active .mobile-board-header{display:none !important}
 }
 body.camera-view-active .camera-sequence-time .camera-tmark{
   color:rgba(190,196,204,.68) !important;
-  font-size:15px !important;
+  font-size:clamp(17px,1.2vw,19px) !important;
   font-weight:400 !important;
 }
 body.camera-view-active .camera-sequence-time .camera-count-time{
   min-width:0;
   color:#fff;
-  font-size:36px !important;
+  font-size:clamp(42px,3.2vw,48px) !important;
   font-weight:320;
   letter-spacing:.025em;
   font-variant-numeric:tabular-nums lining-nums;
