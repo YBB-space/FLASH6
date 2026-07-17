@@ -2171,6 +2171,9 @@ void setupRoutes() {
   }
 
   server.on("/reset", HTTP_GET, [](AsyncWebServerRequest* request) {
+    if (forwardFlashLinkHttpCommand(request, FlashLinkCommandCode::Reboot)) {
+      return;
+    }
     pendingRestart = true;
     restartAtMs = millis() + 150;
     sendText(request, 200, "text/plain", "RESETTING");

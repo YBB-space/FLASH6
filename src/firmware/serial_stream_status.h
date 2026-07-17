@@ -1177,6 +1177,9 @@ void handleSerialLine(const char* line) {
   }
 
   if (cmd == "/reset") {
+    if (forwardFlashLinkSerialCommand(FlashLinkCommandCode::Reboot)) {
+      return;
+    }
     Serial.println("ACK RESETTING");
     pendingRestart = true;
     restartAtMs = millis() + 150;

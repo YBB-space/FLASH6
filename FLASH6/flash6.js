@@ -11635,7 +11635,7 @@ function requestMobileMockup3dMesh(){
       const infoRows = [
         {cells:["ALTIS INTELLIGENT LINK1 COMMUNICATION REPORT"], style:2},
         {cells:["Generated at", now.toISOString()], style:3},
-        {cells:["Protocol", "Flash6-Intelligent-b3 / ALTIS INTELLIGENT LINK1 ESP-NOW LR"], style:3},
+        {cells:["Protocol", "Flash6-Intelligent-b4 / ALTIS INTELLIGENT LINK1 ESP-NOW LR"], style:3},
         {cells:["Board role", roleLabel], style:3},
         {cells:["Peer", peer || "--"], style:3},
         {cells:["Target rate", stats.targetHz + " Hz"], style:3},
@@ -20491,8 +20491,8 @@ function requestMobileMockup3dMesh(){
         fl_rssi_age_ms:(frame[56] != null && isFinite(Number(frame[56]))) ? Number(frame[56]) : 4294967295,
         fw_program:"Altis_Intelligent3_firmware1",
         fw_board:"Altis_Intelligent3_b3",
-        fw_protocol:"Flash6-Intelligent-b3",
-        fw_build:"v6 b17"
+        fw_protocol:"Flash6-Intelligent-b4",
+        fw_build:"v6 b18"
       };
     }
 
@@ -21686,10 +21686,17 @@ function requestMobileMockup3dMesh(){
       }
       lastOkMs = nowOk;
       failStreak = 0;
+      const rebootRemoteValid = Number(
+        data && (data.fl_remote_valid ?? data.flash_link_remote_valid ?? 0)
+      ) !== 0;
+      if(rebootConfirmWaiting && rebootWaitForRemoteLink && !rebootRemoteValid){
+        rebootRemoteLinkDropped = true;
+      }
       if(
         rebootConfirmWaiting &&
         !isReplaySample &&
         rebootConfirmStartedMs > 0 &&
+        (!rebootWaitForRemoteLink || (rebootRemoteLinkDropped && rebootRemoteValid)) &&
         (nowOk - rebootConfirmStartedMs) >= REBOOT_WAIT_MIN_VISIBLE_MS
       ){
         hideRebootConfirm();
@@ -25782,6 +25789,8 @@ function requestMobileMockup3dMesh(){
     let pyroConfirmCancelBtnEl=null;
     let rebootConfirmWaiting=false;
     let rebootConfirmStartedMs=0;
+    let rebootWaitForRemoteLink=false;
+    let rebootRemoteLinkDropped=false;
     let rebootRecoveryTimer=null;
     let rebootRecoveryInFlight=false;
     let rebootRecoveryReloaded=false;
@@ -30788,6 +30797,8 @@ function requestMobileMockup3dMesh(){
       stopRebootRecoveryLoop();
       rebootConfirmWaiting = false;
       rebootConfirmStartedMs = 0;
+      rebootWaitForRemoteLink = false;
+      rebootRemoteLinkDropped = false;
       updateRebootConfirmUi();
       setOverlayVisible(rebootConfirmOverlayEl, true);
     }
@@ -30795,6 +30806,8 @@ function requestMobileMockup3dMesh(){
       stopRebootRecoveryLoop();
       rebootConfirmWaiting = false;
       rebootConfirmStartedMs = 0;
+      rebootWaitForRemoteLink = false;
+      rebootRemoteLinkDropped = false;
       updateRebootConfirmUi();
       setOverlayVisible(rebootConfirmOverlayEl, false);
     }
@@ -30802,10 +30815,17 @@ function requestMobileMockup3dMesh(){
       stopRebootRecoveryLoop();
       rebootConfirmWaiting = true;
       rebootConfirmStartedMs = Date.now();
-      wsConnected = false;
-      closeWsSocketSafe(4003, "board reboot");
-      if(!wsRetryTimer) scheduleWsReconnect("board reboot");
-      updateWsUI();
+      rebootWaitForRemoteLink =
+        isFlashLinkGroundUi() || isFlashLinkGroundStorageUi();
+      rebootRemoteLinkDropped = false;
+      // In A.I LINK ground mode only the selected avionics node reboots.
+      // Keep the ground WebSocket alive so the UI can observe link recovery.
+      if(!rebootWaitForRemoteLink){
+        wsConnected = false;
+        closeWsSocketSafe(4003, "avionics reboot");
+        if(!wsRetryTimer) scheduleWsReconnect("avionics reboot");
+        updateWsUI();
+      }
       updateRebootConfirmUi();
       setOverlayVisible(rebootConfirmOverlayEl, true);
       scheduleRebootRecoveryLoop(260);
@@ -32255,7 +32275,17 @@ function requestMobileMockup3dMesh(){
       let httpResult = null;
       let serialOk = false;
 
-      if(isCriticalDualPathCmd && canSerialTx){
+      if(isResetCmd){
+        // Reboot is a single-target command. Prefer the active USB control
+        // path and use HTTP only as fallback so the ground node cannot enqueue
+        // the same avionics reboot twice.
+        if(canSerialTx){
+          serialOk = await serialWriteLine(serLine);
+        }
+        if(!serialOk && httpPath){
+          httpResult = await sendHttpCommand(!!logIt, CMD_HTTP_TIMEOUT_DEFAULT_MS);
+        }
+      }else if(isCriticalDualPathCmd && canSerialTx){
         serialOk = await serialWriteLine(serLine);
         if(httpPath){
           if(serialOk){

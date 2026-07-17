@@ -176,7 +176,8 @@ bool flashLinkCommandIsUrgent(uint8_t code) {
          code == static_cast<uint8_t>(FlashLinkCommandCode::SequenceEnd) ||
          code == static_cast<uint8_t>(FlashLinkCommandCode::ForceIgnite) ||
          code == static_cast<uint8_t>(FlashLinkCommandCode::SetSafety) ||
-         code == static_cast<uint8_t>(FlashLinkCommandCode::SetArmLock);
+         code == static_cast<uint8_t>(FlashLinkCommandCode::SetArmLock) ||
+         code == static_cast<uint8_t>(FlashLinkCommandCode::Reboot);
 }
 
 bool flashLinkGroundControlActive() {
@@ -791,6 +792,14 @@ FlashLinkCommandResult flashLinkExecuteCommand(
         return FlashLinkCommandResult::Busy;
       }
       detail = (int32_t)storageState.generation;
+      return FlashLinkCommandResult::Ok;
+
+    case FlashLinkCommandCode::Reboot:
+      // Leave enough time for the completion ACK to reach the ground node
+      // before the avionics radio and CPU are restarted.
+      pendingRestart = true;
+      restartAtMs = nowMs + 450U;
+      detail = flashLinkLocalNodeId();
       return FlashLinkCommandResult::Ok;
 
   }

@@ -1,9 +1,9 @@
 
 constexpr char kFirmwareProgram[] = "Altis_Intelligent3_firmware1";
-constexpr char kFirmwareVersion[] = "0.8.11";
-constexpr char kFirmwareBuildId[] = "v6 b17";
+constexpr char kFirmwareVersion[] = "0.8.12";
+constexpr char kFirmwareBuildId[] = "v6 b18";
 constexpr char kFirmwareBoard[] = "Altis_Intelligent3_b3";
-constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b3";
+constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b4";
 
 constexpr uint32_t kSerialBaud = 921600;
 // Keep only a few fresh telemetry frames in USB CDC. A large queue turns
@@ -128,7 +128,7 @@ constexpr uint8_t kWifiChannel = 6;
 constexpr uint8_t kWifiMaxClients = 2;
 constexpr char kWifiPass[] = "12345678";
 constexpr uint32_t kFlashLinkMagic = 0x314B4C46UL;  // FLK1
-constexpr uint8_t kFlashLinkVersion = 3;
+constexpr uint8_t kFlashLinkVersion = 4;
 constexpr uint8_t kFlashLinkChannel = 6;
 constexpr uint8_t kFlashLinkVehicleNodeCount = 2;
 constexpr uint8_t kFlashLinkNodeIdGround = 0;
@@ -549,6 +549,7 @@ enum class FlashLinkCommandCode : uint8_t {
   SetDataMode = 22,
   SetServo = 23,
   StorageReset = 24,
+  Reboot = 25,
 };
 
 enum class FlashLinkCommandResult : uint8_t {

@@ -3,6 +3,21 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.8.12 — v6 b18 — 2026-07-17
+
+Protocol: `Flash6-Intelligent-b4` (wire version `4`)
+
+- Added A.I LINK command `25` for a targeted avionics reboot.
+- Changed HTTP and USB serial `/reset` handling on a ground-role board to
+  forward the reboot to the selected avionics node instead of restarting the
+  ground station.
+- Made the reboot command urgent and delayed the avionics restart by 450 ms so
+  its completion ACK can leave the radio before shutdown.
+- Prevented the UI from closing the ground WebSocket while remote avionics
+  reboots, and prevented duplicate serial-plus-HTTP reboot submissions.
+- Rebuilt the desktop reboot confirmation as a compact cockpit dialog while
+  keeping the mobile modal styling independent.
+
 ## 0.8.11 — v6 b17 — 2026-07-17
 
 Protocol: `Flash6-Intelligent-b3` (wire version `3`, unchanged)

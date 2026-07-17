@@ -124,7 +124,7 @@
   <!-- Preload 축소: AP 모드/저메모리 환경에서 동시 요청 버스트를 줄임 -->
   <script>
     (function(){
-    var ASSET_VER = "20260717-storage-modal-layer-b17-328";
+    var ASSET_VER = "20260717-avionics-reboot-b18-329";
       window.__flashBoot = window.__flashBoot || {jsReady:false,lastError:"",phase:"static_loader",version:ASSET_VER};
       var isLocalPreview = !!window.__flashBoot.localPreview;
       var beaconEnabled = (window.__flashBoot.beaconEnabled !== false);
@@ -374,7 +374,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="styles/flash6.css?v=20260717-storage-modal-layer-b17-328">
+  <link rel="stylesheet" href="styles/flash6.css?v=20260717-avionics-reboot-b18-329">
 </head>
 <body>
   <!-- ✅ LOCKOUT 배경 오버레이 -->
@@ -2532,8 +2532,8 @@
                 <div class="settings-group-title" style="margin:0;">ALTIS INTELLIGENT 3</div>
 
                 <div class="settings-row"><div class="settings-label"><br>Program</div><div class="settings-desc"><br>Altis_Intelligent3_firmware1</div></div>
-                <div class="settings-row"><div class="settings-label">Build ID</div><div class="settings-desc">v6 b17</div></div>
-                <div class="settings-row"><div class="settings-label">Protocol</div><div class="settings-desc">Flash6-Intelligent-b3</div></div>
+                <div class="settings-row"><div class="settings-label">Build ID</div><div class="settings-desc">v6 b18</div></div>
+                <div class="settings-row"><div class="settings-label">Protocol</div><div class="settings-desc">Flash6-Intelligent-b4</div></div>
                 <div class="settings-row">
                   <div class="settings-desc" style="text-align:left;">
                     <div class="fw-team-inline" aria-hidden="true">
@@ -3367,13 +3367,13 @@
             <path d="M7.1 5.9A8 8 0 1 0 16.9 5.9"></path>
           </svg>
         </div>
-        <div id="rebootConfirmTitle" class="disconnect-title" data-i18n="rebootConfirmTitle">보드를 재부팅할까요?</div>
+        <div id="rebootConfirmTitle" class="disconnect-title" data-i18n="rebootConfirmTitle">에비오닉스를 재부팅할까요?</div>
         <div id="rebootConfirmText" class="disconnect-text" data-i18n-html="rebootConfirmText">
-          재부팅 중에는 실시간 데이터 수신이 잠시 중단됩니다.<br>
-          계속할까요?
+          에비오닉스의 센서와 무선 링크가 잠시 중단됩니다.<br>
+          지상국은 재부팅되지 않습니다.
         </div>
         <div id="rebootConfirmActions" class="reboot-actions">
-          <button id="rebootConfirmBtn" class="disconnect-ok reboot-confirm" data-i18n="rebootConfirmBtn">재부팅</button>
+          <button id="rebootConfirmBtn" class="disconnect-ok reboot-confirm" data-i18n="rebootConfirmBtn">에비오닉스 재부팅</button>
           <button id="rebootConfirmCancel" class="confirm-cancel" data-i18n="confirmCancel">취소</button>
         </div>
       </div>

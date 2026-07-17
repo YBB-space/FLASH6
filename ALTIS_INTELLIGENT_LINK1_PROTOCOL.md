@@ -56,7 +56,7 @@ All multibyte values use the ESP32 little-endian representation.
 | Payload size | 2 |
 | CRC16-CCITT | 2 |
 
-The packed header is 24 bytes. The current wire protocol value is `3`; the
+The packed header is 24 bytes. The current wire protocol value is `4`; the
 version field itself occupies one byte. The current telemetry frame is 133 bytes total, below the
 ESP-NOW v1 payload limit of 250 bytes.
 
@@ -145,9 +145,10 @@ cancelled instead of blocking control traffic for the newly active stage.
   retransmission returns the previous ACK without executing the action twice.
 - Identical commands arriving from the UI's serial and HTTP paths are
   coalesced while pending and for 500 ms after enqueue.
-- Safety-critical commands (`abort`, `sequence_end`, and `force_ignite`) are
-  inserted at the head of the command queue. If the queue is full, a lower
-  priority pending command may be dropped so the urgent command can be sent.
+- Safety-critical commands (`abort`, `sequence_end`, and `force_ignite`) and
+  the operator-requested avionics reboot are inserted at the head of the
+  command queue. If the queue is full, a lower priority pending command may be
+  dropped so the urgent command can be sent.
 - Pending commands are discarded if the peer times out. A stale ignition or
   pyro command is never retained for a later reconnection.
 - Telemetry continues while commands are retried. Command ACKs have priority
@@ -173,6 +174,7 @@ Supported controls:
 - Pyro test
 - Gyro zero/reset and barometer zero/reference pressure
 - Buzzer tone, finder pattern, and stop
+- Storage reset and targeted avionics reboot
 
 ## Role Behavior
 
@@ -281,12 +283,13 @@ revisions should rotate keys per fleet or per paired board.
 
 ## Firmware Revision
 
-- Firmware version: `0.8.11`
-- Build ID: `v6 b17`
-- Wire protocol: `Flash6-Intelligent-b3` / numeric version `3`
+- Firmware version: `0.8.12`
+- Build ID: `v6 b18`
+- Wire protocol: `Flash6-Intelligent-b4` / numeric version `4`
 - Storage record format: version `4` (unchanged and backward compatible)
-- Compatibility: the wire layout remains version `3` and is compatible with
-  `v6 b11` through `v6 b16`. Build `v6 b17` aggregates more unchanged storage
-  read frames per USB request, gives bulk reads temporary radio priority, and
-  remains able to consume smaller responses from older firmware. ESP-NOW packet
-  fields, serial response fields, and routing semantics are unchanged.
+- Compatibility: both ground and avionics nodes must run wire version `4`.
+  Version `4` keeps the packet structures from version `3` and adds command
+  code `25` (`Reboot`). A `/reset` received by a ground-role node now queues
+  that command for the selected avionics node; a directly connected avionics
+  node still performs the restart locally. Storage records and download
+  responses remain compatible with earlier builds.
