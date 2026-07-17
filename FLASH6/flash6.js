@@ -82,6 +82,7 @@ if (typeof window !== "undefined") {
     let quickAltitudeRateHistory = [];
     let quickVelocityHistory = [];
     let quickSpeedHistory = [];
+    const CAMERA_CHART_VISIBLE_POINTS = 240;
     let cameraChartLastDrawAt = 0;
     let cameraStageSeparationProgress = 0;
     let cameraStageSeparationFallbackAt = 0;
@@ -6971,7 +6972,9 @@ function requestMobileMockup3dMesh(){
       }
 
       const buildSeries = (source)=>{
-        const raw = Array.isArray(source) ? source.slice(-120).map(Number) : [];
+        const raw = Array.isArray(source)
+          ? source.slice(-CAMERA_CHART_VISIBLE_POINTS).map(Number)
+          : [];
         const finite = raw.filter(Number.isFinite);
         if(finite.length < 2) return null;
         let min = Math.min.apply(null, finite);
