@@ -17,6 +17,12 @@ Protocol: `Flash6-Intelligent-b3` (wire version `3`, unchanged)
   transport and report disconnected/TX-disabled states instead of silently
   falling through to HTTP.
 - Extended gyro-zero acknowledgement time for the ground-to-avionics relay path.
+- Made the desktop dashboard open directly into the full gyro 3D preview and
+  reserved `Shift+C` for toggling the camera canvas on demand.
+- Stopped hidden camera capture while the gyro dashboard is active and placed
+  the live flight map above the altitude and dynamics charts in one data rail.
+- Enabled direct click-drag camera movement in the default gyro scene and
+  removed the old click-to-open gyro-only transition from the preview surface.
 
 ## 0.8.1 — v6 b7 — 2026-07-17
 

@@ -668,6 +668,11 @@ if (typeof window !== "undefined") {
       homeNextSibling: null,
       mounted: false
     };
+    const cameraMapPreviewPortalState = {
+      homeParent: null,
+      homeNextSibling: null,
+      mounted: false
+    };
     const mobileAbortPanelPortalState = {
       homeParent: null,
       homeNextSibling: null,
@@ -2792,7 +2797,10 @@ function requestMobileMockup3dMesh(){
         });
       }
       const canControl = ()=>{
-        return shouldUseGyro3dPreview() && (isGyroViewportExpanded() || isPhoneLandscapeLayout());
+        const isGyroDashboard = document.body.classList.contains("camera-gyro-plus-layout") &&
+          view.classList.contains("is-camera-gyro-plus-mounted");
+        return shouldUseGyro3dPreview() &&
+          (isGyroViewportExpanded() || isPhoneLandscapeLayout() || isGyroDashboard);
       };
       view.addEventListener("click", (ev)=>{
         if(isInteractiveViewportTarget(ev.target)) return;
@@ -2891,12 +2899,6 @@ function requestMobileMockup3dMesh(){
       view.addEventListener("pointerdown", (ev)=>{
         if(isInteractiveViewportTarget(ev.target)) return;
         if(!shouldUseGyro3dPreview()) return;
-        if(!isPhoneLandscapeLayout() && !isGyroViewportExpanded()){
-          ev.preventDefault();
-          setGyroViewportExpanded(true);
-          redraw();
-          return;
-        }
         if(!canControl()) return;
         if(ev.button !== 0 && ev.button !== 1 && ev.button !== 2) return;
         ev.preventDefault();
@@ -2949,7 +2951,7 @@ function requestMobileMockup3dMesh(){
       }, {passive:false});
       view.addEventListener("dblclick", (ev)=>{
         if(isInteractiveViewportTarget(ev.target)) return;
-        if(!canControl()) return;
+        if(!canControl() || !isGyroViewportExpanded()) return;
         ev.preventDefault();
         if(Date.now() - gyroViewportExpandedAt < 420) return;
         gyroViewportLastTapAt = 0;
@@ -9540,7 +9542,9 @@ function requestMobileMockup3dMesh(){
       }else{
         if(cameraSimSourceActive){
           setCameraSimSource(false);
-          if(isCameraUseEnabled() && document.body.classList.contains("camera-view-active")) startWebcam();
+          if(isCameraUseEnabled() &&
+             document.body.classList.contains("camera-view-active") &&
+             !document.body.classList.contains("camera-gyro-plus-layout")) startWebcam();
         }
         resetSimState();
         devParachuteDrop = false;
@@ -10449,6 +10453,51 @@ function requestMobileMockup3dMesh(){
       mobileMapPreviewPortalState.homeNextSibling = null;
       mobileMapPreviewPortalState.mounted = false;
     }
+    function restoreStatusMapViewportFromCameraPreview(){
+      if(!el.statusMapViewport || !cameraMapPreviewPortalState.mounted) return;
+      const parent = cameraMapPreviewPortalState.homeParent;
+      const nextSibling = cameraMapPreviewPortalState.homeNextSibling;
+      if(parent){
+        if(nextSibling && nextSibling.parentNode === parent){
+          parent.insertBefore(el.statusMapViewport, nextSibling);
+        }else{
+          parent.appendChild(el.statusMapViewport);
+        }
+      }
+      el.statusMapViewport.classList.remove("is-camera-map-mounted");
+      cameraMapPreviewPortalState.homeParent = null;
+      cameraMapPreviewPortalState.homeNextSibling = null;
+      cameraMapPreviewPortalState.mounted = false;
+    }
+    function syncCameraMapPreviewMount(){
+      if(!el.statusMapViewport || !el.cameraMapMount) return;
+      const shouldMount = isDesktopLayout() &&
+        document.body.classList.contains("camera-view-active") &&
+        document.body.classList.contains("camera-dashboard-default");
+      if(shouldMount){
+        if(statusMapViewportPortalState.mountedToBody) return;
+        restoreStatusMapViewportFromMobilePreview();
+        if(cameraMapPreviewPortalState.mounted){
+          if(el.statusMapViewport.parentNode !== el.cameraMapMount){
+            el.cameraMapMount.appendChild(el.statusMapViewport);
+          }
+          scheduleStatusMapRefresh();
+          return;
+        }
+        const parent = el.statusMapViewport.parentNode;
+        if(!parent) return;
+        cameraMapPreviewPortalState.homeParent = parent;
+        cameraMapPreviewPortalState.homeNextSibling = el.statusMapViewport.nextSibling;
+        el.cameraMapMount.appendChild(el.statusMapViewport);
+        el.statusMapViewport.classList.add("is-camera-map-mounted");
+        cameraMapPreviewPortalState.mounted = true;
+        scheduleStatusMapRefresh();
+        requestAnimationFrame(()=>scheduleStatusMapRefresh());
+        return;
+      }
+      restoreStatusMapViewportFromCameraPreview();
+      scheduleStatusMapRefresh();
+    }
     function syncMobileMapPreviewMount(){
       if(!el.statusMapViewport || !el.mobileMapPreviewMount) return;
       if(isDesktopLayout()){
@@ -10456,6 +10505,7 @@ function requestMobileMockup3dMesh(){
         return;
       }
       if(statusMapViewportPortalState.mountedToBody) return;
+      if(cameraMapPreviewPortalState.mounted) return;
       const shouldMount = isMobileLayout() && document.body.classList.contains("dashboard-view-active");
       if(shouldMount){
         if(mobileMapPreviewPortalState.mounted) return;
@@ -10537,6 +10587,7 @@ function requestMobileMockup3dMesh(){
       syncStatusMapInteractionMode();
       syncStatusMapExpandButton();
       syncGyroExpandButton();
+      syncCameraMapPreviewMount();
       syncMobileMapPreviewMount();
       refreshStatusMapSize();
       scheduleStatusMapRefresh();
@@ -31891,6 +31942,7 @@ function requestMobileMockup3dMesh(){
       el.statusMotorTest = document.getElementById("statusMotorTest");
       el.statusMap = document.getElementById("statusMap");
       el.statusMapViewport = document.getElementById("statusMapViewport");
+      el.cameraMapMount = document.getElementById("cameraMapMount");
       el.mobilePreviewCarousel = document.getElementById("mobilePreviewCarousel");
       el.mobileMapPreviewMount = document.getElementById("mobileMapPreviewMount");
       el.mobileMockupCanvas = document.getElementById("mobileMockupCanvas");
@@ -33058,7 +33110,8 @@ function requestMobileMockup3dMesh(){
             "info",
             {key:"camera-enabled-toggle"}
           );
-          if(document.body.classList.contains("camera-view-active")) await startWebcam();
+          if(document.body.classList.contains("camera-view-active") &&
+             !document.body.classList.contains("camera-gyro-plus-layout")) await startWebcam();
         });
       }
 
@@ -35001,8 +35054,8 @@ function requestMobileMockup3dMesh(){
         document.body.classList.toggle("mission-view-active", isMission);
         document.body.classList.toggle("camera-view-active", isCamera);
         document.body.classList.toggle("camera-dashboard-default", dashboardUsesCamera);
-        if(dashboardUsesCamera && !options.preserveCameraGyroPlus){
-          document.body.classList.remove("camera-gyro-plus-layout");
+        if(dashboardUsesCamera && !options.preserveCameraVideo){
+          document.body.classList.add("camera-gyro-plus-layout");
         }
         if(!isCamera) document.body.classList.remove("camera-gyro-plus-layout");
         if(!isCamera) setCameraControlMenuOpen(false);
@@ -35010,16 +35063,23 @@ function requestMobileMockup3dMesh(){
         syncMobileBoardHeaderScrollState();
         syncCameraGyroPreviewMount();
         syncDesktopGyroPreviewMount();
+        syncCameraMapPreviewMount();
         syncMobileMapPreviewMount();
         if(isCamera){
           syncCameraHud();
-          if(isCameraUseEnabled()) startWebcam();
-          else syncCameraEnabledState();
+          if(document.body.classList.contains("camera-gyro-plus-layout")){
+            if(webcamStream) stopWebcam({preserveSim:true});
+            else syncCameraEnabledState();
+          }else if(isCameraUseEnabled() || cameraSimSourceActive){
+            startWebcam();
+          }else{
+            syncCameraEnabledState();
+          }
         }else if(webcamStream){
           stopWebcam();
         }
         if(isHome) updateHomeUI();
-        if(isDashboard){
+        if(isDashboard || isCamera){
           syncChartHeightToControls(0);
           scheduleStatusMapRefresh();
         }
@@ -35083,10 +35143,10 @@ function requestMobileMockup3dMesh(){
         ev.stopImmediatePropagation();
         if(isCKey){
           if(!isDesktopLayout()) return;
-          const returningToCamera = document.body.classList.contains("camera-gyro-plus-layout");
-          if(returningToCamera){
+          const openingCamera = document.body.classList.contains("camera-gyro-plus-layout");
+          if(openingCamera){
             document.body.classList.remove("camera-gyro-plus-layout");
-            activateNavItem("Dashboard");
+            activateNavItem("Dashboard", {preserveCameraVideo:true});
             syncCameraGyroPreviewMount();
             return;
           }
@@ -35096,9 +35156,8 @@ function requestMobileMockup3dMesh(){
             saveSettings();
             applySettingsToUI();
           }
-          // Keep the 3D+ camera canvas inside the desktop dashboard shell so
-          // the navigation rail remains available while the shortcut is active.
-          activateNavItem("Dashboard", {preserveCameraGyroPlus:true});
+          // Dashboard is gyro-first; Shift+C only opens the camera temporarily.
+          activateNavItem("Dashboard");
           ensureGyroTerrainForGeo(getGyroTerrainReferenceGeo());
           syncCameraGyroPreviewMount();
           return;
@@ -35151,6 +35210,7 @@ function requestMobileMockup3dMesh(){
         window.addEventListener("resize", ()=>{
           applyPhoneLandscapeLayout();
           syncDesktopGyroPreviewMount();
+          syncCameraMapPreviewMount();
           syncMobileMapPreviewMount();
           resizeMobileMockup3d();
           resizeGyroGl();
@@ -36915,6 +36975,7 @@ function requestMobileMockup3dMesh(){
       window.addEventListener("resize",()=>{
         applyPhoneLandscapeLayout();
         syncDesktopGyroPreviewMount();
+        syncCameraMapPreviewMount();
         syncMobileMapPreviewMount();
         resizeMobileMockup3d();
         if(gyroGl){
@@ -36929,6 +36990,7 @@ function requestMobileMockup3dMesh(){
       window.addEventListener("orientationchange",()=>{
         applyPhoneLandscapeLayout();
         syncDesktopGyroPreviewMount();
+        syncCameraMapPreviewMount();
         syncMobileMapPreviewMount();
         resizeMobileMockup3d();
         scheduleStatusMapRefresh();
@@ -36937,6 +36999,7 @@ function requestMobileMockup3dMesh(){
         applyTabletControlsLayout();
         applyPhoneLandscapeLayout();
         syncDesktopGyroPreviewMount();
+        syncCameraMapPreviewMount();
         syncMobileMapPreviewMount();
         resizeMobileMockup3d();
         if(isMobileLayout()){

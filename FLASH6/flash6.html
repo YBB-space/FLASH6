@@ -124,7 +124,7 @@
   <!-- Preload 축소: AP 모드/저메모리 환경에서 동시 요청 버스트를 줄임 -->
   <script>
     (function(){
-    var ASSET_VER = "20260717-control-ack-fix-b8-288";
+    var ASSET_VER = "20260717-gyro-dashboard-map-b8-289";
       window.__flashBoot = window.__flashBoot || {jsReady:false,lastError:"",phase:"static_loader",version:ASSET_VER};
       var isLocalPreview = !!window.__flashBoot.localPreview;
       var beaconEnabled = (window.__flashBoot.beaconEnabled !== false);
@@ -374,7 +374,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="styles/flash6.css?v=20260717-control-ack-fix-b8-288">
+  <link rel="stylesheet" href="styles/flash6.css?v=20260717-gyro-dashboard-map-b8-289">
 </head>
 <body>
   <!-- ✅ LOCKOUT 배경 오버레이 -->
@@ -940,7 +940,7 @@
           </aside>
         </div>
 
-        <div class="camera-hud" aria-hidden="true">
+        <div class="camera-hud">
           <div class="camera-hud-inner">
             <section id="cameraHudFlightGauges" class="camera-hud-left">
               <div class="camera-gauge camera-gauge--speed">
@@ -971,25 +971,34 @@
               </div>
             </section>
 
-            <section class="camera-telemetry-chart camera-telemetry-chart--altitude" aria-label="고도 텔레메트리 차트">
-              <div class="camera-chart-header">
-                <strong class="camera-chart-heading">ALTITUDE</strong>
-                <div class="camera-chart-legend">
-                  <span class="camera-chart-legend-item camera-chart-legend-item--alt"><i></i>ALT <b id="cameraChartAltitude">--</b></span>
+            <aside class="camera-data-stack" aria-label="위치 및 비행 데이터">
+              <section class="camera-map-panel" aria-label="비행 위치 지도">
+                <div class="camera-map-heading" aria-hidden="true">
+                  <strong>FLIGHT MAP</strong>
+                  <span>LIVE POSITION</span>
                 </div>
-              </div>
-              <canvas id="cameraAltitudeChart"></canvas>
-            </section>
-            <section class="camera-telemetry-chart camera-telemetry-chart--dynamics" aria-label="속도 및 가속도 텔레메트리 차트">
-              <div class="camera-chart-header">
-                <strong class="camera-chart-heading">TELEMETRY</strong>
-                <div class="camera-chart-legend">
-                  <span class="camera-chart-legend-item camera-chart-legend-item--speed"><i></i>SPEED <b id="cameraChartSpeed">--</b></span>
-                  <span class="camera-chart-legend-item camera-chart-legend-item--g"><i></i>G <b id="cameraChartGforce">--</b></span>
+                <div id="cameraMapMount" class="camera-map-mount"></div>
+              </section>
+              <section class="camera-telemetry-chart camera-telemetry-chart--altitude" aria-label="고도 텔레메트리 차트">
+                <div class="camera-chart-header">
+                  <strong class="camera-chart-heading">ALTITUDE</strong>
+                  <div class="camera-chart-legend">
+                    <span class="camera-chart-legend-item camera-chart-legend-item--alt"><i></i>ALT <b id="cameraChartAltitude">--</b></span>
+                  </div>
                 </div>
-              </div>
-              <canvas id="cameraDynamicsChart"></canvas>
-            </section>
+                <canvas id="cameraAltitudeChart"></canvas>
+              </section>
+              <section class="camera-telemetry-chart camera-telemetry-chart--dynamics" aria-label="속도 및 가속도 텔레메트리 차트">
+                <div class="camera-chart-header">
+                  <strong class="camera-chart-heading">TELEMETRY</strong>
+                  <div class="camera-chart-legend">
+                    <span class="camera-chart-legend-item camera-chart-legend-item--speed"><i></i>SPEED <b id="cameraChartSpeed">--</b></span>
+                    <span class="camera-chart-legend-item camera-chart-legend-item--g"><i></i>G <b id="cameraChartGforce">--</b></span>
+                  </div>
+                </div>
+                <canvas id="cameraDynamicsChart"></canvas>
+              </section>
+            </aside>
             <section class="camera-hud-center">
               <div class="camera-primary-display">
                 <div id="cameraHudState" class="camera-hud-state ok">STANDBY</div>
@@ -1238,7 +1247,7 @@
               </section>
               <section class="mobile-gyro-preview-slide" aria-label="3D attitude preview">
             <img class="mobile-stb-preview-image" src="img/stb_img.png" alt="">
-            <div id="gyro3dViewport" class="status-gyro-canvas status-gyro-canvas--3d" role="button" tabindex="0" aria-label="Open 3D attitude view">
+            <div id="gyro3dViewport" class="status-gyro-canvas status-gyro-canvas--3d" role="img" tabindex="0" aria-label="3D attitude preview">
               <canvas id="gyroGlPreview" class="gyro3d-canvas" width="180" height="180" aria-label="gyro preview"></canvas>
               <div class="gyro-terrain-attribution" aria-hidden="true">© OpenStreetMap contributors · © CARTO · Terrain Mapzen/AWS</div>
               <div class="status-gyro-actions">

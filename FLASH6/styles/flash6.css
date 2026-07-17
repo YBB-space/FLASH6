@@ -21737,6 +21737,160 @@ body.camera-view-active .page-wrap{
   background:#020617 !important;
 }
 
+/* Gyro-first dashboard data rail: map above the two telemetry charts. */
+.camera-map-panel{display:none}
+@media (min-width:768px) and (pointer:fine){
+  .camera-data-stack{
+    --camera-data-edge:clamp(24px,2.2vw,36px);
+    --camera-data-width:clamp(270px,22vw,320px);
+    --camera-data-panel-height:clamp(150px,18vh,180px);
+    position:fixed;
+    top:calc(var(--camera-data-edge) + env(safe-area-inset-top, 0px));
+    left:var(--camera-data-edge);
+    z-index:7;
+    display:grid;
+    width:var(--camera-data-width);
+    grid-template-rows:repeat(3,var(--camera-data-panel-height));
+    gap:8px;
+    pointer-events:none;
+  }
+  .camera-map-panel{
+    position:relative;
+    display:block;
+    min-width:0;
+    min-height:0;
+    overflow:hidden;
+    border:1px solid rgba(255,255,255,.20);
+    border-radius:5px;
+    background:rgba(4,5,8,.52);
+    box-shadow:0 14px 32px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.03);
+    backdrop-filter:blur(10px) saturate(88%);
+    -webkit-backdrop-filter:blur(10px) saturate(88%);
+    pointer-events:auto;
+  }
+  .camera-map-heading{
+    position:absolute;
+    top:10px;
+    left:11px;
+    z-index:1002;
+    display:flex;
+    align-items:baseline;
+    gap:8px;
+    color:rgba(255,255,255,.78);
+    text-shadow:0 1px 8px rgba(0,0,0,.9);
+    pointer-events:none;
+  }
+  .camera-map-heading strong{
+    font:600 10px/1 "SF Pro Text","Helvetica Neue","Inter","Segoe UI",Arial,sans-serif;
+    letter-spacing:.08em;
+  }
+  .camera-map-heading span{
+    color:rgba(226,232,240,.56);
+    font:500 8px/1 ui-monospace,SFMono-Regular,Menlo,monospace;
+    letter-spacing:.08em;
+  }
+  .camera-map-mount{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+  }
+  .camera-map-mount .status-map-panel.is-camera-map-mounted:not(.is-expanded){
+    position:relative !important;
+    inset:auto !important;
+    display:block !important;
+    width:100% !important;
+    height:100% !important;
+    min-height:0 !important;
+    margin:0 !important;
+    border:0 !important;
+    border-radius:0 !important;
+    background:#111923 !important;
+    box-shadow:none !important;
+  }
+  .camera-map-mount .status-map-panel:not(.is-expanded) .status-map-return-actions,
+  .camera-map-mount .status-map-panel:not(.is-expanded) .status-map-expanded-hud{
+    display:none !important;
+  }
+  .camera-map-mount .status-map-panel:not(.is-expanded) .status-map-tint{
+    background:linear-gradient(180deg,rgba(3,7,12,.34),rgba(3,7,12,.08) 48%,rgba(3,7,12,.22)) !important;
+  }
+  .camera-map-mount .status-map-panel:not(.is-expanded) .status-map-hud{
+    inset:auto 7px 7px 7px !important;
+    align-items:flex-end !important;
+  }
+  .camera-map-mount .status-map-panel:not(.is-expanded) .status-map-card{
+    min-width:0 !important;
+    padding:5px 7px !important;
+    border-radius:3px !important;
+    background:rgba(3,7,12,.68) !important;
+    color:rgba(248,250,252,.88) !important;
+    backdrop-filter:blur(8px) !important;
+    -webkit-backdrop-filter:blur(8px) !important;
+  }
+  .camera-map-mount .status-map-panel:not(.is-expanded) .status-map-coords{
+    color:rgba(248,250,252,.86) !important;
+    font-size:8px !important;
+  }
+  .camera-map-mount .status-map-panel:not(.is-expanded) .status-map-zoom{
+    color:rgba(203,213,225,.58) !important;
+    font-size:7px !important;
+  }
+  .camera-map-mount .status-map-panel:not(.is-expanded) .status-map-btn{
+    width:25px !important;
+    height:25px !important;
+    border-radius:3px !important;
+    background:rgba(3,7,12,.70) !important;
+    color:rgba(248,250,252,.84) !important;
+  }
+  .camera-map-mount .status-map-panel:not(.is-expanded) .status-map-actions{
+    right:0 !important;
+    left:auto !important;
+  }
+  .camera-data-stack .camera-telemetry-chart,
+  body.camera-view-active.camera-dashboard-default .camera-data-stack .camera-telemetry-chart,
+  body.camera-view-active.camera-gyro-plus-layout .camera-data-stack .camera-telemetry-chart{
+    position:relative !important;
+    inset:auto !important;
+    left:auto !important;
+    top:auto !important;
+    bottom:auto !important;
+    display:grid !important;
+    width:100% !important;
+    height:var(--camera-data-panel-height) !important;
+    min-width:0 !important;
+    min-height:0 !important;
+    pointer-events:none;
+  }
+  body.camera-view-active.camera-gyro-plus-layout .camera-view .webcam-panel{
+    display:none !important;
+  }
+  body.camera-view-active.camera-gyro-plus-layout .camera-gyro-plus-stage::after{
+    display:none !important;
+  }
+  body.camera-view-active.camera-gyro-plus-layout #gyro3dViewport.is-camera-gyro-plus-mounted{
+    cursor:default !important;
+  }
+  body.camera-view-active.camera-gyro-plus-layout #gyro3dViewport.is-camera-gyro-plus-mounted > .status-gyro-actions{
+    display:none !important;
+  }
+}
+
+@media (min-width:768px) and (pointer:fine) and (max-width:1100px){
+  .camera-data-stack{
+    --camera-data-edge:24px;
+    --camera-data-width:min(300px,36vw);
+  }
+}
+
+@media (min-width:768px) and (pointer:fine) and (max-height:700px){
+  .camera-data-stack{
+    --camera-data-edge:20px;
+    --camera-data-panel-height:120px;
+    gap:7px;
+  }
+}
+
 /* ALTIS INTELLIGENT LINK · communication topology */
 .flash-link-topology-btn{
   min-width:118px;
