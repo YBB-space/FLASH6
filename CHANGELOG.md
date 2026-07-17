@@ -20,6 +20,8 @@ Protocol: `Flash6-Intelligent-b3` (wire version `3`, unchanged)
 - Treat matching remote safety/ARM telemetry as authoritative completion when
   the dedicated radio ACK is lost, eliminating an error after the requested
   state has already been applied.
+- Removed the obsolete desktop navigation expansion timer and chart reflow
+  hooks that shifted the page for 900 ms after every dock-button click.
 
 ## 0.8.3 — v6 b9 — 2026-07-17
 

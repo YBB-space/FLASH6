@@ -35016,39 +35016,10 @@ function requestMobileMockup3dMesh(){
         });
       }
       const sideNavDesktop = document.querySelector(".side-nav-desktop");
-      if(sideNavDesktop){
-        let navResizeTimer = null;
-        let navExpandTimer = null;
-        let navClickExpandTimer = null;
-        const expandTemporarily = ()=>{
-          sideNavDesktop.classList.add("is-expanded");
-          clearTimeout(navExpandTimer);
-          navExpandTimer = setTimeout(()=>{
-            sideNavDesktop.classList.remove("is-expanded");
-          }, 1000);
-        };
-        const expandOnClick = ()=>{
-          sideNavDesktop.classList.add("is-expanded");
-          clearTimeout(navClickExpandTimer);
-          navClickExpandTimer = setTimeout(()=>{
-            sideNavDesktop.classList.remove("is-expanded");
-          }, 900);
-        };
-        const scheduleNavRefresh = ()=>{
-          requestAnimationFrame(refreshChartLayout);
-          clearTimeout(navResizeTimer);
-          navResizeTimer = setTimeout(refreshChartLayout, 220);
-        };
-        sideNavDesktop.addEventListener("mouseenter", scheduleNavRefresh);
-        sideNavDesktop.addEventListener("mouseleave", scheduleNavRefresh);
-        sideNavDesktop.addEventListener("touchstart", expandTemporarily, {passive:true});
-        sideNavDesktop.addEventListener("click", expandOnClick);
-        sideNavDesktop.addEventListener("transitionend",(ev)=>{
-          if(ev.propertyName === "width" || ev.propertyName === "padding-left" || ev.propertyName === "padding-right"){
-            scheduleNavRefresh();
-          }
-        });
-      }
+      // The current desktop navigation is a fixed icon dock. The legacy
+      // click-to-expand timer changed the layout for 900 ms and forced chart
+      // reflow even though the dock itself no longer expands.
+      if(sideNavDesktop) sideNavDesktop.classList.remove("is-expanded");
       const sideNavItems = document.querySelectorAll(".side-nav-item");
       const setActiveView = (title, options = {})=>{
         closeIgnitionModals();
@@ -35270,14 +35241,6 @@ function requestMobileMockup3dMesh(){
             sideNavItems.forEach(btn=>btn.classList.remove("active"));
             item.classList.add("active");
             setActiveView(title);
-            const nav = document.querySelector(".side-nav-desktop");
-            if(nav){
-              nav.classList.add("is-expanded");
-              clearTimeout(nav._collapseTimer);
-              nav._collapseTimer = setTimeout(()=>{
-                nav.classList.remove("is-expanded");
-              }, 900);
-            }
           });
         });
         window.addEventListener("resize", ()=>{
