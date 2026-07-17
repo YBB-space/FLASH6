@@ -28,6 +28,9 @@ Protocol: `Flash6-Intelligent-b3` (wire version `3`, unchanged)
   zoom before returning to automatic trajectory framing.
 - Kept the map and both telemetry charts fixed as one rail when the floating
   navigation dock is hovered or focused.
+- Preserved the rocket 3MF's four source material tones in the gyro renderer
+  and added restrained CFRP satin and edge response so fins, rings, fasteners,
+  and stage joints remain visible without washing the vehicle into flat gray.
 
 ## 0.8.1 — v6 b7 — 2026-07-17
 

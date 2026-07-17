@@ -3025,6 +3025,8 @@ function requestMobileMockup3dMesh(){
         varying float vShade;
         varying float vLight;
         varying float vDepth;
+        varying vec3 vModelPos;
+        varying vec3 vViewNormal;
         void main(){
           vec4 worldPos = uModel * vec4(aPos, 1.0);
           vec3 worldN = normalize((uModel * vec4(aNorm, 0.0)).xyz);
@@ -3034,6 +3036,8 @@ function requestMobileMockup3dMesh(){
           vCol = aCol;
           vec4 viewPos = uView * worldPos;
           vDepth = -viewPos.z;
+          vModelPos = aPos;
+          vViewNormal = normalize((uView * vec4(worldN, 0.0)).xyz);
           gl_Position = uProj * viewPos;
         }`;
       const solidFs = `
@@ -3042,16 +3046,28 @@ function requestMobileMockup3dMesh(){
         varying float vShade;
         varying float vLight;
         varying float vDepth;
+        varying vec3 vModelPos;
+        varying vec3 vViewNormal;
         uniform vec3 uFogColor;
         uniform float uFogNear;
         uniform float uFogFar;
         uniform float uColorLift;
         uniform float uSheen;
+        uniform float uMaterialDetail;
         uniform float uOpacity;
         void main(){
           float fogT = clamp((uFogFar - vDepth) / max(0.0001, (uFogFar - uFogNear)), 0.0, 1.0);
+          float sourceLuma = dot(vCol.rgb, vec3(0.2126, 0.7152, 0.0722));
+          float cfrpMask = (1.0 - smoothstep(0.18, 0.48, sourceLuma)) * uMaterialDetail;
           vec3 liftedColor = mix(vCol.rgb, vec3(1.0), uColorLift);
-          vec3 lit = (liftedColor * vShade) + vec3(pow(vLight, 5.0) * uSheen);
+          // Keep the composite body black while giving its satin surface enough
+          // variation to reveal rings, fasteners, and fin junctions.
+          float axialSatin = 1.0 + (sin(vModelPos.y * 92.0) * 0.012 * cfrpMask);
+          liftedColor *= axialSatin;
+          float rim = pow(1.0 - clamp(abs(normalize(vViewNormal).z), 0.0, 1.0), 2.4);
+          vec3 materialRim = vec3(0.13, 0.16, 0.18) * rim * cfrpMask * 0.52;
+          vec3 lit = (liftedColor * vShade) +
+            vec3(pow(vLight, 6.0) * uSheen) + materialRim;
           vec3 outCol = mix(uFogColor, lit, fogT);
           gl_FragColor = vec4(outCol, vCol.a * uOpacity);
         }`;
@@ -3193,6 +3209,7 @@ function requestMobileMockup3dMesh(){
           uFogFar: gl.getUniformLocation(solidProg, "uFogFar"),
           uColorLift: gl.getUniformLocation(solidProg, "uColorLift"),
           uSheen: gl.getUniformLocation(solidProg, "uSheen"),
+          uMaterialDetail: gl.getUniformLocation(solidProg, "uMaterialDetail"),
           uOpacity: gl.getUniformLocation(solidProg, "uOpacity"),
           floorPosBuf: createGyroArrayBuffer(gl, solidGeom.floor.pos, gl.STATIC_DRAW),
           floorNormBuf: createGyroArrayBuffer(gl, solidGeom.floor.norm, gl.STATIC_DRAW),
@@ -4884,6 +4901,9 @@ function requestMobileMockup3dMesh(){
       const ambient = (style && isFinite(style.ambient)) ? style.ambient : 0.34;
       const colorLift = (style && isFinite(style.colorLift)) ? Math.max(0, Math.min(1, style.colorLift)) : 0;
       const sheen = (style && isFinite(style.sheen)) ? Math.max(0, Math.min(1, style.sheen)) : 0;
+      const materialDetail = (style && isFinite(style.materialDetail))
+        ? Math.max(0, Math.min(1, style.materialDetail))
+        : 0;
       const opacity = (style && isFinite(style.opacity)) ? Math.max(0, Math.min(1, style.opacity)) : 1;
       const lightDir = (style && style.lightDir) ? style.lightDir : [0.34, 0.88, 0.29];
       gl.uniformMatrix4fv(solid.uModel, false, new Float32Array(model));
@@ -4896,6 +4916,7 @@ function requestMobileMockup3dMesh(){
       gl.uniform1f(solid.uFogFar, fogFar);
       gl.uniform1f(solid.uColorLift, colorLift);
       gl.uniform1f(solid.uSheen, sheen);
+      gl.uniform1f(solid.uMaterialDetail, materialDetail);
       gl.uniform1f(solid.uOpacity, opacity);
       gl.drawArrays(gl.TRIANGLES, 0, count);
     }
@@ -5105,9 +5126,11 @@ function requestMobileMockup3dMesh(){
         clear:[0.84,0.89,0.95,0.98]
       };
       if(showWorldDecor){
-        renderStyle.ambient = darkTheme ? 0.56 : 0.48;
+        renderStyle.ambient = darkTheme ? 0.61 : 0.54;
         renderStyle.lightDir = [-0.58,0.66,0.48];
-        renderStyle.colorLift = darkTheme ? 0.24 : 0.08;
+        renderStyle.colorLift = darkTheme ? 0.055 : 0.035;
+        renderStyle.sheen = darkTheme ? 0.19 : 0.14;
+        renderStyle.materialDetail = 1;
         // Terrain uses a daylight atmosphere regardless of the surrounding UI
         // theme. The short attitude-view fog made the map edge look black.
         renderStyle.fogColor = darkTheme
@@ -5125,6 +5148,7 @@ function requestMobileMockup3dMesh(){
         renderStyle.lightDir = [-0.32,0.88,0.36];
         renderStyle.colorLift = 0.065;
         renderStyle.sheen = 0.12;
+        renderStyle.materialDetail = 1;
       }
 
       const manualZoomActive = Date.now() < Number(gyroCameraState.manualZoomUntilMs || 0);
@@ -5262,6 +5286,7 @@ function requestMobileMockup3dMesh(){
             const buildingStyle = Object.assign({}, renderStyle, {
               ambient:0.34,
               colorLift:0,
+              materialDetail:0,
               lightDir:[-0.58,0.66,0.48],
               fogNear:320,
               fogFar:1400
@@ -5281,6 +5306,7 @@ function requestMobileMockup3dMesh(){
             mat4Translate(pathRender.gridCenter.x, 0, pathRender.gridCenter.z),
             mat4Scale(pathRender.gridSpan, 1, pathRender.gridSpan)
           );
+          const floorStyle = Object.assign({}, renderStyle, {materialDetail:0});
           drawSolidBatch(
             gyroGl.solid.floorPosBuf,
             gyroGl.solid.floorNormBuf,
@@ -5288,7 +5314,7 @@ function requestMobileMockup3dMesh(){
             gyroGl.solid.floorCount,
             floorModel,
             view,
-            renderStyle
+            floorStyle
           );
 
           const mvpGrid = mat4Mul(viewProj, floorModel);
