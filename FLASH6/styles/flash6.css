@@ -25445,6 +25445,124 @@ html body #dataDownloadConfirmOverlay.is-desktop-download-dialog .mobile-chart-p
   overscroll-behavior:contain;
 }
 
+/*
+ * Desktop storage reset confirmation. Its own class keeps the compact PC
+ * surface independent from the mobile bottom-sheet and full-width buttons.
+ */
+html body #dataResetConfirmOverlay.is-desktop-reset-dialog{
+  align-items:center !important;
+  justify-content:center !important;
+  padding:24px !important;
+  box-sizing:border-box !important;
+  overflow:auto !important;
+}
+html body #dataResetConfirmOverlay.is-desktop-reset-dialog > .agent-help-dialog{
+  display:flex !important;
+  flex-direction:column !important;
+  width:min(520px, calc(100vw - 48px)) !important;
+  max-width:520px !important;
+  min-width:0 !important;
+  min-height:0 !important;
+  height:auto !important;
+  max-height:calc(100vh - 48px) !important;
+  max-height:calc(100dvh - 48px) !important;
+  margin:auto !important;
+  padding:0 !important;
+  box-sizing:border-box !important;
+  border:1px solid #35383d !important;
+  border-radius:8px !important;
+  background:#151618 !important;
+  box-shadow:0 24px 70px rgba(0,0,0,.48) !important;
+  overflow:hidden !important;
+  transform:translateY(8px) scale(.985) !important;
+  opacity:0 !important;
+}
+html body #dataResetConfirmOverlay.is-desktop-reset-dialog.is-open > .agent-help-dialog{
+  transform:translateY(0) scale(1) !important;
+  opacity:1 !important;
+}
+html body #dataResetConfirmOverlay.is-desktop-reset-dialog .mobile-chart-picker-head{
+  flex:0 0 58px !important;
+  min-height:58px !important;
+  padding:0 58px 0 20px !important;
+  box-sizing:border-box !important;
+  border-bottom:1px solid #2c2e32 !important;
+  background:#191a1d !important;
+}
+html body #dataResetConfirmOverlay.is-desktop-reset-dialog .mobile-chart-picker-title{
+  font-size:16px !important;
+  line-height:1.2 !important;
+  font-weight:640 !important;
+  letter-spacing:0 !important;
+}
+html body #dataResetConfirmOverlay.is-desktop-reset-dialog .mobile-chart-picker-close{
+  top:13px !important;
+  right:14px !important;
+  width:32px !important;
+  height:32px !important;
+  min-width:32px !important;
+  min-height:32px !important;
+  border-radius:50% !important;
+  font-size:22px !important;
+  font-weight:300 !important;
+}
+html body #dataResetConfirmOverlay.is-desktop-reset-dialog .mobile-chart-picker-body{
+  flex:0 1 auto !important;
+  min-height:0 !important;
+  max-height:calc(100vh - 106px) !important;
+  max-height:calc(100dvh - 106px) !important;
+  padding:20px !important;
+  padding-bottom:20px !important;
+  box-sizing:border-box !important;
+  overflow-y:auto !important;
+  overscroll-behavior:contain;
+}
+html body #dataResetConfirmOverlay.is-desktop-reset-dialog .data-reset-warning{
+  margin:0 0 8px !important;
+  color:#f1f2f3 !important;
+  font-size:15px !important;
+  line-height:1.45 !important;
+  font-weight:640 !important;
+}
+html body #dataResetConfirmOverlay.is-desktop-reset-dialog .data-reset-note{
+  margin:0 !important;
+  color:#969ba4 !important;
+  font-size:12px !important;
+  line-height:1.55 !important;
+  font-weight:500 !important;
+}
+html body #dataResetConfirmOverlay.is-desktop-reset-dialog .data-reset-actions{
+  display:grid !important;
+  grid-template-columns:minmax(0,1fr) 116px !important;
+  gap:8px !important;
+  width:100% !important;
+  margin:18px 0 0 !important;
+}
+html body #dataResetConfirmOverlay.is-desktop-reset-dialog .data-reset-hold,
+html body #dataResetConfirmOverlay.is-desktop-reset-dialog .data-reset-cancel{
+  width:100% !important;
+  min-width:0 !important;
+  min-height:44px !important;
+  height:44px !important;
+  margin:0 !important;
+  padding:0 14px !important;
+  border-radius:6px !important;
+  box-shadow:none !important;
+  font-size:13px !important;
+  line-height:1 !important;
+  font-weight:650 !important;
+}
+html body #dataResetConfirmOverlay.is-desktop-reset-dialog .data-reset-hold{
+  border:1px solid #b84349 !important;
+  background:#9f3037 !important;
+  color:#fff !important;
+}
+html body #dataResetConfirmOverlay.is-desktop-reset-dialog .data-reset-cancel{
+  border:1px solid #373a40 !important;
+  background:#202226 !important;
+  color:#c5c8ce !important;
+}
+
 /* Storage download transfer lock: independent from desktop/mobile sheet dialogs. */
 html.storage-download-active,
 html.storage-download-active body{

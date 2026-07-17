@@ -24326,6 +24326,9 @@ function requestMobileMockup3dMesh(){
 
     function showDataResetConfirmOverlay(opts){
       const overlay = ensureDataResetConfirmOverlay();
+      const desktopDialog = isDesktopLayout() && !isMobileLayout();
+      overlay.classList.toggle("is-desktop-reset-dialog", desktopDialog);
+      overlay.classList.toggle("is-mobile-reset-dialog", !desktopDialog);
       const target = getSpiFlashResetTarget(opts);
       const state = overlay._resetDialog || {};
       overlay._resetTarget = target;
