@@ -7131,7 +7131,9 @@ function requestMobileMockup3dMesh(){
         const state = stageTelemetryStore[stageId];
         const nodes = dashboard.stages[stageId];
         if(!nodes) return;
-        setStageTelemetryClass(nodes.card, "hidden", stageId === 2 && !flashLinkUiStage2Mode);
+        // Keep both vehicle cards visible in the dashboard. Stage 2 remains an
+        // explicit OFFLINE / NO DATA card while second-stage operation is off.
+        setStageTelemetryClass(nodes.card, "hidden", false);
         setStageTelemetryClass(nodes.card, "is-linked", !!state.connected);
         setStageTelemetryClass(nodes.card, "is-active-hud", cameraHudActiveStageId === stageId);
         setStageTelemetryText(nodes.values.link, state.connected ? "LINK" : (state.valid ? "STALE" : "OFFLINE"));

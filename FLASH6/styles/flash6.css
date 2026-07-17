@@ -21746,12 +21746,15 @@ body.dashboard-view-active .stage-overview-panel:has(> .stage-telemetry-deck.hid
 }
 @media (min-width:1181px) and (pointer:fine){
   body.dashboard-view-active .main-card.status-card.status-map-only .status-map-layout{
-    grid-template-areas:"vehicle map" !important;
-    grid-template-columns:minmax(180px,.48fr) minmax(0,1fr) !important;
+    grid-template-areas:"vehicle" !important;
+    grid-template-columns:minmax(0,1fr) !important;
   }
   body.dashboard-view-active .main-card.status-card.status-map-only .status-map-layout:has(> .stage-overview-panel > .stage-telemetry-deck.hidden){
     grid-template-areas:"map" !important;
     grid-template-columns:minmax(0,1fr) !important;
+  }
+  body.dashboard-view-active .main-card.status-card.status-map-only .status-map-layout:has(> .stage-overview-panel > .stage-telemetry-deck:not(.hidden)) > .status-map-panel{
+    display:none !important;
   }
   body.dashboard-view-active .stage-overview-panel{
     grid-area:vehicle;
@@ -21769,10 +21772,6 @@ body.dashboard-view-active .stage-overview-panel:has(> .stage-telemetry-deck.hid
     width:100%;
     height:100%;
     margin:0 !important;
-  }
-  body.dashboard-view-active .stage-overview-panel .stage-telemetry-deck:has([data-stage-card="2"].hidden){
-    grid-template-columns:minmax(0,1fr) !important;
-    grid-template-rows:minmax(0,1fr);
   }
   body.dashboard-view-active .stage-overview-panel .stage-telemetry-card{
     height:100%;
