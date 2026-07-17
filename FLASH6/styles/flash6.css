@@ -29035,3 +29035,62 @@ body:has(
   visibility:hidden !important;
   pointer-events:none !important;
 }
+
+/* Welcome screen: keep the original composition, only refine its status detail. */
+body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-status-indicator{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:11px;
+  color:#858585;
+  font-size:9px;
+  font-weight:800;
+  letter-spacing:.1em;
+}
+body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-status-indicator > span{
+  font-size:0;
+}
+body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-status-indicator > span::after{
+  content:"STANDBY";
+  font-size:9px;
+}
+body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-status-indicator .welcome-connect-dot{
+  width:9px !important;
+  height:9px !important;
+  box-shadow:0 0 0 4px rgba(239,68,68,.07) !important;
+}
+body:has(#welcomeConnectScreen:not(.hidden)) #welcomeConnectScreen.is-connecting .welcome-connect-status-indicator{
+  color:#c79345;
+}
+body:has(#welcomeConnectScreen:not(.hidden)) #welcomeConnectScreen.is-connecting .welcome-connect-status-indicator > span::after{
+  content:"SEARCHING";
+}
+body:has(#welcomeConnectScreen:not(.hidden)) #welcomeConnectScreen.is-connected .welcome-connect-status-indicator{
+  color:#4fc981;
+}
+body:has(#welcomeConnectScreen:not(.hidden)) #welcomeConnectScreen.is-connected .welcome-connect-status-indicator > span::after{
+  content:"ONLINE";
+}
+body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-steps b{
+  border:1px solid #303030 !important;
+  background:#202020 !important;
+  color:#d2d2d2 !important;
+}
+body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-hero-meta{
+  gap:0 !important;
+}
+body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-hero-meta span{
+  min-height:0 !important;
+  padding:0 !important;
+  border:0 !important;
+  border-radius:0 !important;
+  background:transparent !important;
+  color:#707070 !important;
+  font-size:9px !important;
+  letter-spacing:.08em !important;
+}
+body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-hero-meta span + span::before{
+  content:"·";
+  margin:0 12px;
+  color:#404040;
+}

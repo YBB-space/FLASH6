@@ -22,6 +22,8 @@ Protocol: `Flash6-Intelligent-b4` (wire version `4`)
 - Added commit-specific browser asset versions and moved interface preferences
   to settings schema `v3`, preventing stale light-theme CSS and legacy
   dashboard modes from overriding the current local UI after deployment.
+- Refined the desktop entry screen with a quieter live-status label and
+  simplified operating-mode metadata while preserving the original layout.
 
 ## 0.8.11 — v6 b17 — 2026-07-17
 
