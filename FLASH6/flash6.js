@@ -82,7 +82,7 @@ if (typeof window !== "undefined") {
     let quickAltitudeRateHistory = [];
     let quickVelocityHistory = [];
     let quickSpeedHistory = [];
-    const CAMERA_CHART_VISIBLE_POINTS = 360;
+    const CAMERA_CHART_VISIBLE_POINTS = 1000;
     let cameraChartLastDrawAt = 0;
     let cameraStageSeparationProgress = 0;
     let cameraStageSeparationFallbackAt = 0;
@@ -5827,7 +5827,7 @@ function requestMobileMockup3dMesh(){
     let inspectionSyncPendingUntilMs = 0;
     let latestTelemetry = {sw:null, ic:null, rly:null, mode:null, uw:null, al:null, gs:0};
     let latestTelemetryGeo = null;
-    const STAGE_TELEMETRY_HISTORY_MAX = 420;
+    const STAGE_TELEMETRY_HISTORY_MAX = 1100;
     const stageTelemetryStore = {
       1:createStageTelemetryState(1),
       2:createStageTelemetryState(2)
