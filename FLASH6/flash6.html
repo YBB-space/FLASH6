@@ -124,7 +124,7 @@
   <!-- Preload 축소: AP 모드/저메모리 환경에서 동시 요청 버스트를 줄임 -->
   <script>
     (function(){
-    var ASSET_VER = "20260717-hud-stage-link-b13-315";
+    var ASSET_VER = "20260717-control-surfaces-b13-318";
       window.__flashBoot = window.__flashBoot || {jsReady:false,lastError:"",phase:"static_loader",version:ASSET_VER};
       var isLocalPreview = !!window.__flashBoot.localPreview;
       var beaconEnabled = (window.__flashBoot.beaconEnabled !== false);
@@ -374,7 +374,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="styles/flash6.css?v=20260717-hud-stage-link-b13-315">
+  <link rel="stylesheet" href="styles/flash6.css?v=20260717-control-surfaces-b13-318">
 </head>
 <body>
   <!-- ✅ LOCKOUT 배경 오버레이 -->
@@ -3642,9 +3642,6 @@
         <div id="pyroConfirmTitle" class="disconnect-title">파이로 동작 확인</div>
         <button id="pyroConfirmCancelBtn" class="confirm-cancel" type="button" aria-label="닫기">취소</button>
         <div id="pyroConfirmDesc" class="disconnect-text">CH1 동작을 실행할까요?</div>
-        <div class="ignition-warning-illustration pyro-control-confirm-illustration" aria-hidden="true">
-          <img src="img/pyro-lipo-safety.png" alt="">
-        </div>
         <div id="pyroConfirmHint" class="confirm-note">지속시간: 500 ms\n긴 인가는 에비오닉스에 손상을 줄 수 있습니다.</div>
         <div class="reboot-actions wifi-connect-actions">
           <button id="pyroConfirmOkBtn" class="disconnect-ok reboot-confirm pyro-hold-button" type="button"><span>3초간 길게 누르기</span></button>
@@ -3886,9 +3883,6 @@
           <section id="pyroControlConfirm" class="pyro-control-confirm" aria-label="파이로 동작 확인">
             <div id="pyroControlConfirmTitle" class="pyro-control-confirm-title">CH1 동작 확인</div>
             <div id="pyroControlConfirmDesc" class="pyro-control-confirm-desc">지속시간 500 ms로 실행할까요?</div>
-            <div class="ignition-warning-illustration pyro-control-confirm-illustration" aria-hidden="true">
-              <img src="img/pyro-lipo-safety.png" alt="">
-            </div>
             <div class="pyro-control-confirm-warning">주변 안전과 결선 상태를 확인한 뒤 실행하세요.</div>
             <div class="pyro-control-confirm-actions">
               <button id="pyroControlConfirmCancel" class="pyro-control-confirm-btn pyro-control-confirm-btn--ghost" type="button">취소</button>

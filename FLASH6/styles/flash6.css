@@ -21744,6 +21744,191 @@ body.camera-view-active .page-wrap{
   background:#020617 !important;
 }
 
+
+/* Dashboard control panel · use the same restrained hardware-control language. */
+@media (min-width:901px){
+  body.dashboard-view-active #controlsCard.controls-card{
+    display:flex !important;
+    flex-direction:column !important;
+    padding:0 !important;
+    overflow:hidden !important;
+    border:1px solid #34363b !important;
+    border-radius:8px !important;
+    background:#151618 !important;
+    box-shadow:none !important;
+  }
+  body.dashboard-view-active #controlsCard #controlsHeader{
+    flex:0 0 62px !important;
+    min-height:62px !important;
+    margin:0 !important;
+    padding:0 14px 0 18px !important;
+    align-items:center !important;
+    border:0 !important;
+    border-bottom:1px solid #2c2e32 !important;
+    background:#191a1d !important;
+  }
+  body.dashboard-view-active #controlsCardTitle{
+    color:#f4f5f6 !important;
+    font-size:15px !important;
+    font-weight:650 !important;
+    line-height:1.1 !important;
+    letter-spacing:.16em !important;
+  }
+  body.dashboard-view-active #controlsCard .controls-subtitle{
+    margin-top:4px !important;
+    color:#858a94 !important;
+    font-size:9px !important;
+    font-weight:550 !important;
+    letter-spacing:.12em !important;
+  }
+  body.dashboard-view-active #controlsCard .controls-toolbar{
+    gap:5px !important;
+  }
+  body.dashboard-view-active #controlsCard .controls-toolbar .controls-toolbar-action{
+    width:34px !important;
+    min-width:34px !important;
+    height:34px !important;
+    min-height:34px !important;
+    border:1px solid #303238 !important;
+    border-radius:7px !important;
+    background:#1d1e21 !important;
+    color:#b7bbc2 !important;
+    box-shadow:none !important;
+  }
+  body.dashboard-view-active #controlsCard .controls-toolbar .controls-toolbar-action:hover{
+    transform:none !important;
+    border-color:#44474e !important;
+    background:#27292d !important;
+    color:#f4f5f6 !important;
+  }
+  body.dashboard-view-active #controlsCard .controls-grid{
+    flex:1 1 auto !important;
+    height:auto !important;
+    min-height:0 !important;
+    gap:8px !important;
+    margin:0 !important;
+    padding:14px 16px 16px !important;
+  }
+  body.dashboard-view-active #controlsCard .controls-main-row{
+    grid-template-columns:minmax(0,1fr) minmax(96px,.42fr) !important;
+    min-height:58px !important;
+    gap:7px !important;
+  }
+  body.dashboard-view-active #controlsCard .primary-btn.sequence-btn,
+  body.dashboard-view-active #controlsCard .controls-main-row .secondary-btn{
+    height:58px !important;
+    min-height:58px !important;
+    border-radius:7px !important;
+    box-shadow:none !important;
+  }
+  body.dashboard-view-active #controlsCard .primary-btn.sequence-btn{
+    padding:0 14px !important;
+    border:1px solid #393c42 !important;
+    background:#1b1c1f !important;
+    color:#f2f3f5 !important;
+  }
+  body.dashboard-view-active #controlsCard .primary-btn.sequence-btn:hover:not(:disabled){
+    transform:none !important;
+    border-color:#51545c !important;
+    background:#222327 !important;
+  }
+  body.dashboard-view-active #controlsCard .sequence-btn-title{
+    color:#f2f3f5 !important;
+    font-size:11px !important;
+    font-weight:650 !important;
+    letter-spacing:.1em !important;
+  }
+  body.dashboard-view-active #controlsCard .sequence-status-pill{
+    min-width:52px !important;
+    padding:5px 8px !important;
+    border:1px solid #393c42 !important;
+    border-radius:5px !important;
+    background:#24262a !important;
+    color:#aeb2ba !important;
+    font-size:9px !important;
+  }
+  body.dashboard-view-active #controlsCard .controls-main-row .secondary-btn{
+    border:1px solid #553033 !important;
+    background:#26191b !important;
+    color:#e08d93 !important;
+    font-size:11px !important;
+    font-weight:650 !important;
+    letter-spacing:.12em !important;
+  }
+  body.dashboard-view-active #controlsCard .controls-main-row .secondary-btn:not(:disabled):hover{
+    transform:none !important;
+    border-color:#744047 !important;
+    background:#321d20 !important;
+    color:#ffb0b5 !important;
+  }
+  body.dashboard-view-active #controlsCard .controls-main-row .secondary-btn:disabled{
+    opacity:.5 !important;
+    border-color:#303238 !important;
+    background:#1a1b1e !important;
+    color:#737780 !important;
+  }
+  body.dashboard-view-active #controlsCard .control-row{
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+    gap:7px !important;
+    overflow:visible !important;
+  }
+  body.dashboard-view-active #controlsCard .control-tile,
+  body.dashboard-view-active #controlsCard .control-tile.span-2,
+  body.dashboard-view-active #controlsCard .control-tile-mode{
+    height:52px !important;
+    min-height:52px !important;
+    padding:0 11px !important;
+    border:1px solid #303238 !important;
+    border-radius:7px !important;
+    background:#1b1c1f !important;
+    box-shadow:none !important;
+  }
+  body.dashboard-view-active #controlsCard .control-tile.is-btn:hover{
+    transform:none !important;
+    border-color:#44474e !important;
+    background:#202125 !important;
+    box-shadow:none !important;
+  }
+  body.dashboard-view-active #controlsCard .control-tile-label{
+    color:#e9eaec !important;
+    font-size:11px !important;
+    font-weight:620 !important;
+  }
+  body.dashboard-view-active #controlsCard .control-tile-sub{
+    margin-top:3px !important;
+    color:#7f848e !important;
+    font-size:8px !important;
+    font-weight:520 !important;
+    letter-spacing:.04em !important;
+  }
+  body.dashboard-view-active #controlsCard .control-tile-actions .pill,
+  body.dashboard-view-active #controlsCard .control-tile-actions button,
+  body.dashboard-view-active #controlsCard .control-tile-actions .control-tile-select{
+    min-width:60px !important;
+    max-width:108px !important;
+    height:27px !important;
+    padding:0 9px !important;
+    border:1px solid #393c42 !important;
+    border-radius:6px !important;
+    background:#24262a !important;
+    color:#c9ccd1 !important;
+    font-size:9px !important;
+    font-weight:620 !important;
+    box-shadow:none !important;
+  }
+  body.dashboard-view-active #controlsCard .control-tile-actions .pill-toggle.is-on{
+    border-color:#315a45 !important;
+    background:#1b3026 !important;
+    color:#83d5a6 !important;
+  }
+  body.dashboard-view-active #controlsCard .control-tile-actions .pill-toggle.is-off{
+    border-color:#3b3d43 !important;
+    background:#232428 !important;
+    color:#9a9ea6 !important;
+  }
+
+}
+
 /* Desktop dashboard vehicle rail: keep the mobile dashboard untouched. */
 body.dashboard-view-active .stage-overview-panel:has(> .stage-telemetry-deck.hidden){
   display:none !important;
@@ -26035,5 +26220,225 @@ body.camera-view-active .camera-center-countdown .camera-count-time{
   body.camera-view-active.camera-dashboard-default:has(.side-nav-desktop.is-expanded) #dashboardView{
     left:clamp(18px,2vw,34px) !important;
     right:calc(14px + 72px + clamp(18px,2vw,34px)) !important;
+  }
+}
+/* Final control-surface precedence: keep Pyro and Storage consistent with Servo. */
+@media (min-width:901px){
+  html:not(.phone-landscape-layout) body #pyroControlOverlay #pyroControlDialog{
+    width:min(680px, calc(100vw - 64px)) !important;
+    max-width:680px !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-panel{
+    padding:0 20px 20px !important;
+    overflow:hidden !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-head{
+    min-height:54px !important;
+    margin:0 -20px 18px !important;
+    padding:0 20px !important;
+    display:flex !important;
+    align-items:center !important;
+    border-bottom:1px solid #2f3136 !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-row{
+    grid-template-columns:minmax(0,1fr) 230px !important;
+    align-items:end !important;
+    gap:18px !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-value{
+    min-height:46px !important;
+    overflow:hidden !important;
+    border:1px solid #35383e !important;
+    border-radius:7px !important;
+    background:#0f1012 !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-value input{
+    min-height:44px !important;
+    border:0 !important;
+    border-radius:0 !important;
+    background:transparent !important;
+    box-shadow:none !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-value span{
+    padding-right:14px !important;
+    color:#858a94 !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-presets button{
+    min-height:46px !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-note{
+    margin:12px 0 0 !important;
+    padding:0 2px !important;
+    border:0 !important;
+    border-radius:0 !important;
+    background:transparent !important;
+    color:#858a94 !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog.is-confirming{
+    width:min(540px, calc(100vw - 64px)) !important;
+    max-width:540px !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog.is-confirming .pyro-control-confirm{
+    grid-template-columns:minmax(0,1fr) !important;
+    grid-template-areas:"title" "desc" "warning" "actions" !important;
+    gap:12px !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog.is-confirming .pyro-control-confirm-illustration{
+    display:none !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog.is-confirming .pyro-control-confirm-actions{
+    grid-template-columns:110px minmax(0,1fr) !important;
+    margin-top:0 !important;
+  }
+
+  html:not(.phone-landscape-layout) body #pyroConfirmOverlay .wifi-connect-dialog{
+    width:min(540px, calc(100vw - 64px)) !important;
+    max-width:540px !important;
+    grid-template-columns:minmax(0,1fr) !important;
+    grid-template-areas:"title" "desc" "note" "actions" !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroConfirmOverlay .pyro-control-confirm-illustration{
+    display:none !important;
+  }
+
+  html:not(.phone-landscape-layout) body #dataListOverlay .mobile-chart-picker-body{
+    grid-template-columns:260px minmax(0,1fr) !important;
+    grid-template-rows:46px minmax(300px,1fr) auto !important;
+    gap:14px 16px !important;
+    min-height:480px !important;
+  }
+  html:not(.phone-landscape-layout) body #dataListOverlay .data-origin-filter{
+    grid-column:1 / -1 !important;
+    grid-row:1 !important;
+    padding:4px !important;
+    border:1px solid #303238 !important;
+    border-radius:8px !important;
+    background:#101113 !important;
+  }
+  html:not(.phone-landscape-layout) body #dataListOverlay .data-origin-filter button{
+    min-height:36px !important;
+    border-radius:6px !important;
+  }
+  html:not(.phone-landscape-layout) body #dataListOverlay .data-origin-filter button.is-active{
+    background:#e8e9eb !important;
+    color:#121315 !important;
+  }
+  html:not(.phone-landscape-layout) body #dataListOverlay #dataListSummary{
+    grid-column:1 !important;
+    grid-row:2 !important;
+    overflow:auto !important;
+  }
+  html:not(.phone-landscape-layout) body #dataListOverlay #dataListBody{
+    grid-column:2 !important;
+    grid-row:2 !important;
+    position:relative !important;
+    min-height:0 !important;
+    max-height:none !important;
+    padding:42px 6px 4px !important;
+    overflow-y:auto !important;
+    border:1px solid #303238 !important;
+    border-radius:8px !important;
+    background:#1b1c1f !important;
+  }
+  html:not(.phone-landscape-layout) body #dataListOverlay #dataListBody::before{
+    content:"저장 기록";
+    position:absolute;
+    top:0;
+    right:0;
+    left:0;
+    min-height:38px;
+    padding:0 13px;
+    display:flex;
+    align-items:center;
+    border-bottom:1px solid #2f3136;
+    color:#92969e;
+    font-size:10px;
+    font-weight:650;
+    letter-spacing:.08em;
+  }
+  html:not(.phone-landscape-layout) body #dataListOverlay .agent-help-issue,
+  html:not(.phone-landscape-layout) body #dataListOverlay .data-list-more{
+    margin:0 !important;
+    padding:12px 10px !important;
+    border:0 !important;
+    border-bottom:1px solid #2d2f34 !important;
+    border-radius:0 !important;
+    background:transparent !important;
+    box-shadow:none !important;
+  }
+  html:not(.phone-landscape-layout) body #dataListOverlay .data-storage-actions{
+    grid-column:1 / -1 !important;
+    grid-row:3 !important;
+    grid-template-columns:minmax(0,1fr) 180px !important;
+  }
+}
+
+/* Quiet modal pass: one task per surface, with no nested dashboard-card treatment. */
+@media (min-width:901px){
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-head{
+    display:none !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-panel{
+    padding:20px !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-run{
+    margin-top:14px !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-note{
+    margin-top:10px !important;
+    padding:0 !important;
+    font-size:9px !important;
+  }
+
+  html:not(.phone-landscape-layout) body #dataListOverlay > .agent-help-dialog{
+    width:min(720px, calc(100vw - 64px)) !important;
+    max-width:720px !important;
+  }
+  html:not(.phone-landscape-layout) body #dataListOverlay .mobile-chart-picker-body{
+    grid-template-columns:minmax(0,1fr) !important;
+    grid-template-rows:46px auto minmax(260px,1fr) auto !important;
+    gap:0 !important;
+    min-height:500px !important;
+  }
+  html:not(.phone-landscape-layout) body #dataListOverlay .data-origin-filter{
+    grid-column:1 !important;
+    grid-row:1 !important;
+    margin:0 0 14px !important;
+  }
+  html:not(.phone-landscape-layout) body #dataListOverlay #dataListSummary{
+    grid-column:1 !important;
+    grid-row:2 !important;
+    margin:0 !important;
+    padding:14px 2px 16px !important;
+    overflow:visible !important;
+    border:0 !important;
+    border-bottom:1px solid #303238 !important;
+    border-radius:0 !important;
+    background:transparent !important;
+  }
+  html:not(.phone-landscape-layout) body #dataListOverlay #dataListBody{
+    grid-column:1 !important;
+    grid-row:3 !important;
+    min-height:260px !important;
+    padding:40px 0 0 !important;
+    border:0 !important;
+    border-radius:0 !important;
+    background:transparent !important;
+  }
+  html:not(.phone-landscape-layout) body #dataListOverlay #dataListBody::before{
+    min-height:38px !important;
+    padding:0 2px !important;
+  }
+  html:not(.phone-landscape-layout) body #dataListOverlay .agent-help-issue,
+  html:not(.phone-landscape-layout) body #dataListOverlay .data-list-more{
+    padding-right:2px !important;
+    padding-left:2px !important;
+  }
+  html:not(.phone-landscape-layout) body #dataListOverlay .data-storage-actions{
+    grid-column:1 !important;
+    grid-row:4 !important;
+    grid-template-columns:minmax(0,1fr) 170px !important;
+    gap:8px !important;
+    margin-top:14px !important;
   }
 }
