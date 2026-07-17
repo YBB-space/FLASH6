@@ -1718,8 +1718,6 @@ if (typeof window !== "undefined") {
         terrain.buildingColBuf = createGyroArrayBuffer(gl, buildings.col, gl.STATIC_DRAW);
         terrain.buildingCount = buildings.count;
       }
-      const attribution = document.querySelector(".gyro-terrain-attribution");
-      if(attribution) attribution.dataset.buildingTriangles = String(Math.floor(terrain.buildingCount / 3));
       return terrain.buildingCount > 0;
     }
 

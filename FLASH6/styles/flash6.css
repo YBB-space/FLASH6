@@ -24558,12 +24558,6 @@ body.camera-view-active .camera-switch-btn:not(:disabled):hover{
     border-radius:0 !important;
     transform:none !important;
   }
-  body.camera-view-active.camera-gyro-plus-layout #gyro3dViewport.is-camera-gyro-plus-mounted .gyro-terrain-attribution{
-    display:block !important;
-    left:10px !important;
-    right:auto !important;
-    bottom:12px !important;
-  }
 }
 
 .pyro-control-channel-label{
@@ -26093,22 +26087,6 @@ body.camera-view-active #gyro3dViewport.is-camera-preview-mounted .gyro3d-canvas
   filter:brightness(1.05) contrast(1.06) saturate(.46) drop-shadow(0 3px 7px rgba(0,0,0,.50)) !important;
   transform:translate3d(2%,3%,0) !important;
   transition:transform .38s cubic-bezier(.2,.8,.2,1) !important;
-}
-.gyro-terrain-attribution{
-  display:none;
-  position:absolute;
-  left:10px;
-  bottom:8px;
-  z-index:4;
-  max-width:calc(100% - 20px);
-  color:rgba(226,232,240,.68);
-  font:500 8px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;
-  letter-spacing:0;
-  pointer-events:none;
-  text-shadow:0 1px 3px rgba(0,0,0,.9);
-}
-html.preview-3d-plus.gyro-terrain-ready #gyro3dViewport:not(.is-camera-preview-mounted) .gyro-terrain-attribution{
-  display:block;
 }
 body.camera-view-active .camera-hud-attitude-group.is-stage-separating #gyro3dViewport.is-camera-preview-mounted .gyro3d-canvas{
   transform:translate3d(0,0,0) !important;

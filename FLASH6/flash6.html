@@ -124,7 +124,7 @@
   <!-- Preload 축소: AP 모드/저메모리 환경에서 동시 요청 버스트를 줄임 -->
   <script>
     (function(){
-    var ASSET_VER = "20260718-hud-countdown-scale-b18-345";
+    var ASSET_VER = "20260718-hide-gyro-map-credit-b18-346";
       window.__flashBoot = window.__flashBoot || {jsReady:false,lastError:"",phase:"static_loader",version:ASSET_VER};
       var isLocalPreview = !!window.__flashBoot.localPreview;
       var beaconEnabled = (window.__flashBoot.beaconEnabled !== false);
@@ -374,7 +374,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="styles/flash6.css?v=20260718-hud-countdown-scale-b18-345">
+  <link rel="stylesheet" href="styles/flash6.css?v=20260718-hide-gyro-map-credit-b18-346">
 </head>
 <body>
   <!-- ✅ LOCKOUT 배경 오버레이 -->
@@ -1293,7 +1293,6 @@
             <img class="mobile-stb-preview-image" src="img/stb_img.png" alt="">
             <div id="gyro3dViewport" class="status-gyro-canvas status-gyro-canvas--3d" role="img" tabindex="0" aria-label="3D attitude preview">
               <canvas id="gyroGlPreview" class="gyro3d-canvas" width="180" height="180" aria-label="gyro preview"></canvas>
-              <div class="gyro-terrain-attribution" aria-hidden="true">© OpenStreetMap contributors · © CARTO · Terrain Mapzen/AWS</div>
               <div class="status-gyro-actions">
                 <button class="status-gyro-btn status-gyro-btn--map-close" id="gyro3dMapCloseBtn" type="button" aria-label="Close map">⛶</button>
                 <button class="status-gyro-btn status-gyro-btn--expand" id="gyro3dExpandBtn" type="button" aria-expanded="false">⛶</button>
