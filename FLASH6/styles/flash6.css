@@ -28930,3 +28930,121 @@ html body #pyroControlOverlay > #pyroControlDialog > .settings-header > .setting
     display:none;
   }
 }
+
+/* Desktop info details stay flat beneath the single product hero. */
+@media (min-width:901px){
+  html:not(.phone-landscape-layout) body #settingsOverlay .fw-build-grid{
+    margin-top:22px !important;
+    border:0 !important;
+    border-top:1px solid #303339 !important;
+    border-bottom:1px solid #303339 !important;
+    border-radius:0 !important;
+    background:transparent !important;
+    overflow:visible !important;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .fw-build-grid > div{
+    padding:17px 18px !important;
+    border-right:1px solid #303339 !important;
+    background:transparent !important;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .fw-build-grid > div:first-child{
+    padding-left:0 !important;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .fw-build-grid > div:last-child{
+    padding-right:0 !important;
+    border-right:0 !important;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .fw-build-grid dt{
+    margin-bottom:7px !important;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .fw-build-grid dd{
+    font-size:10.5px !important;
+    font-weight:540 !important;
+  }
+
+  html:not(.phone-landscape-layout) body #settingsOverlay .fw-credits-grid{
+    display:block !important;
+    margin-top:0 !important;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .fw-credit-block{
+    display:block !important;
+    min-height:0 !important;
+    padding:17px 0 !important;
+    border:0 !important;
+    border-bottom:1px solid #303339 !important;
+    border-radius:0 !important;
+    background:transparent !important;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .fw-credit-block :is(
+    .fw-team-inline,
+    .fw-partner-inline
+  ){
+    display:grid !important;
+    grid-template-columns:150px minmax(0,1fr) !important;
+    align-items:center !important;
+    gap:18px !important;
+    min-height:28px !important;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .fw-credit-block .fw-team-inline-label{
+    margin:0 !important;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .fw-credit-block :is(
+    .fw-team-inline-logos,
+    .fw-partner-logos
+  ){
+    min-height:28px !important;
+    justify-content:flex-start !important;
+    align-items:center !important;
+    gap:20px !important;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .fw-credit-block .fw-team-inline img{
+    height:19px !important;
+    max-width:90px !important;
+    opacity:.72 !important;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .fw-credit-block .fw-team-inline img.is-small{
+    height:14px !important;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .fw-credit-block .fw-partner-logo{
+    height:22px !important;
+    opacity:.7 !important;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .fw-credit-block .fw-partner-logo.is-jlcpcb{
+    width:60px !important;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .fw-credit-block .fw-partner-logo.is-jlcpcb img{
+    width:70px !important;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .fw-credit-block .fw-partner-logo.is-easyeda{
+    width:82px !important;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .fw-credit-block .fw-partner-logo.is-easyeda img{
+    width:82px !important;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .fw-credit-block .fw-partner-logo.is-innospace{
+    width:118px !important;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .fw-credit-block .fw-partner-logo.is-innospace img{
+    width:122px !important;
+  }
+
+  html:not(.phone-landscape-layout) body #settingsOverlay .fw-legal{
+    margin-top:0 !important;
+    border:0 !important;
+    border-bottom:1px solid #303339 !important;
+    border-radius:0 !important;
+    background:transparent !important;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .fw-legal summary{
+    min-height:50px !important;
+    padding:0 32px 0 0 !important;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .fw-legal summary::after{
+    right:0 !important;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .fw-legal-body{
+    padding:14px 0 18px !important;
+    border-top:1px solid #26292e !important;
+    background:transparent !important;
+  }
+}
