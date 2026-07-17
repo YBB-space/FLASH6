@@ -29029,3 +29029,31 @@ html body #pyroControlOverlay > #pyroControlDialog > .settings-header > .setting
     background:transparent !important;
   }
 }
+
+/* Keep the portaled WebGL preview out of the top layer during modal transitions. */
+body > #gyro3dViewport:not(.is-expanded){
+  visibility:hidden !important;
+  pointer-events:none !important;
+}
+html.phone-landscape-layout.status-map-expanded body.dashboard-view-active > #gyro3dViewport:not(.is-expanded){
+  visibility:visible !important;
+  pointer-events:auto !important;
+}
+body:has(
+  > .settings-overlay:not(.hidden),
+  > .confirm-overlay:not(.hidden),
+  > .reboot-overlay:not(.hidden),
+  > .mobile-chart-picker-overlay:not(.hidden),
+  > .controls-overlay:not(.hidden),
+  > .flash-link-topology-overlay:not(.hidden),
+  > .ws-alert-overlay:not(.hidden),
+  > .replay-seek-overlay:not(.hidden),
+  > .storage-download-progress-overlay:not(.hidden),
+  > .disconnect-overlay:not(.hidden),
+  > .connection-guide-overlay:not(.hidden),
+  .tetris-overlay:not(.hidden)
+) #gyro3dViewport{
+  opacity:0 !important;
+  visibility:hidden !important;
+  pointer-events:none !important;
+}

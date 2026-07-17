@@ -25998,6 +25998,9 @@ function requestMobileMockup3dMesh(){
       if(isStatusMapViewportExpanded()){
         setStatusMapViewportExpanded(false);
       }
+      if(isGyroViewportExpanded()){
+        setGyroViewportExpanded(false);
+      }
       closeIgnitionModals();
       hideMobileControlsPanel();
       document.documentElement.classList.add("settings-open");
