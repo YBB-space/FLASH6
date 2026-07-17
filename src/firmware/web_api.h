@@ -542,8 +542,9 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
   // [node,connected,valid,age,alt,ax,ay,az,roll,pitch,yaw,
   //  qw,qx,qy,qz,flight_phase,vertical_speed,deployment_state,
   //  deployment_flags,relay,state,td,arm,arm_physical,ign_delay_valid,
-  //  ign_delay_ms,alarm_seq,alarm_block,alarm_title,alarm_message,rx_seq]
-  char stageSnapshots[2][448];
+  //  ign_delay_ms,alarm_seq,alarm_block,alarm_title,alarm_message,rx_seq,
+  //  rx_hz,chip_temp,chip_temp_valid,loop_ms,cpu_us]
+  char stageSnapshots[2][512];
   for (uint8_t i = 0; i < 2; ++i) {
     if (!remoteOutput || !flashLinkStage2Enabled) {
       strlcpy(stageSnapshots[i], "null", sizeof(stageSnapshots[i]));
@@ -567,7 +568,7 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
       sizeof(stageSnapshots[i]),
       "[%u,%u,%u,%lu,%.2f,%.3f,%.3f,%.3f,%.2f,%.2f,%.2f,"
       "%.6f,%.6f,%.6f,%.6f,%u,%.2f,%u,%u,%u,%u,%ld,%u,%u,"
-      "%u,%lu,%lu,%u,\"%s\",\"%s\",%lu]",
+      "%u,%lu,%lu,%u,\"%s\",\"%s\",%lu,%u,%.1f,%u,%.3f,%u]",
       (unsigned)(i + kFlashLinkNodeIdStage1),
       connected ? 1U : 0U,
       valid ? 1U : 0U,
@@ -598,7 +599,12 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
       (unsigned)peer.alarmBlockIndex,
       stageAlarmTitle,
       stageAlarmMessage,
-      (unsigned long)peer.rxTelemetrySeq);
+      (unsigned long)peer.rxTelemetrySeq,
+      (unsigned)peer.rxHz,
+      isfinite(peer.snap.chipTempC) ? peer.snap.chipTempC : 0.0f,
+      isfinite(peer.snap.chipTempC) ? 1U : 0U,
+      peer.snap.lt,
+      (unsigned)peer.snap.ct);
     if (stageLen <= 0 || (size_t)stageLen >= sizeof(stageSnapshots[i])) {
       strlcpy(stageSnapshots[i], "null", sizeof(stageSnapshots[i]));
     }

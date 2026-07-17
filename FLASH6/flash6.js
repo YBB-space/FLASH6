@@ -7103,7 +7103,7 @@ function requestMobileMockup3dMesh(){
         const card = root.querySelector('[data-stage-card="' + stageId + '"]');
         if(!card) return;
         const values = Object.create(null);
-        ["link", "phase", "altitude", "speed", "gforce", "event"].forEach((key)=>{
+        ["link", "phase", "altitude", "speed", "gforce", "rate", "chip", "perf", "power", "event"].forEach((key)=>{
           values[key] = card.querySelector('[data-stage-value="' + key + '"]');
         });
         stageTelemetryDashboardCache.stages[stageId] = {card, values};
@@ -7117,6 +7117,20 @@ function requestMobileMockup3dMesh(){
     }
     function setStageTelemetryText(node, value){
       if(node && node.textContent !== value) node.textContent = value;
+    }
+    function stageTelemetryPerfText(data){
+      if(!data) return "--%";
+      const loopMs = Number(data.lt ?? data.loop ?? data.loopTime);
+      const cpuUs = Number(data.ct ?? data.cpu_us ?? data.cpu);
+      const loopUs = isFinite(loopMs) && loopMs > 0 ? loopMs * 1000 : NaN;
+      if(!isFinite(cpuUs) || cpuUs < 0 || !isFinite(loopUs) || loopUs <= 0) return "--%";
+      return Math.round(Math.max(0, Math.min(100, (cpuUs / loopUs) * 100))) + "%";
+    }
+    function stageTelemetryPowerText(data){
+      if(!data) return "N";
+      const raw = data.bp ?? data.batt_pct ?? data.battery_pct;
+      const value = Number(raw);
+      return isFinite(value) ? (Math.round(Math.max(0, Math.min(100, value))) + "%") : "N";
     }
     function updateStageTelemetryDashboard(){
       const dashboard = getStageTelemetryDashboardNodes();
@@ -7136,11 +7150,20 @@ function requestMobileMockup3dMesh(){
         setStageTelemetryClass(nodes.card, "hidden", false);
         setStageTelemetryClass(nodes.card, "is-linked", !!state.connected);
         setStageTelemetryClass(nodes.card, "is-active-hud", cameraHudActiveStageId === stageId);
-        setStageTelemetryText(nodes.values.link, state.connected ? "LINK" : (state.valid ? "STALE" : "OFFLINE"));
+        const stageData = state.data || null;
+        const stageRate = Number(stageData && (stageData.stage_rx_hz ?? stageData.rx_hz ?? stageData.fl_rx_hz));
+        const stageChip = Number(stageData && (stageData.chip_temp_c ?? stageData.ctemp ?? stageData.chip_temp));
+        const stageChipOkRaw = stageData && (stageData.chip_temp_ok ?? stageData.ctemp_ok);
+        const stageChipOk = stageChipOkRaw == null || Number(stageChipOkRaw) !== 0;
+        setStageTelemetryText(nodes.values.link, state.connected ? "ONLINE" : (state.valid ? "STALE" : "OFFLINE"));
         setStageTelemetryText(nodes.values.phase, state.valid ? stageTelemetryPhaseLabel(state.data) : "NO DATA");
         setStageTelemetryText(nodes.values.altitude, isFinite(state.altitudeM) ? state.altitudeM.toFixed(1) : "--");
         setStageTelemetryText(nodes.values.speed, isFinite(state.speedMps) ? Math.max(0, state.speedMps).toFixed(1) : "--");
         setStageTelemetryText(nodes.values.gforce, isFinite(state.gforceG) ? Math.max(0, state.gforceG).toFixed(2) : "--");
+        setStageTelemetryText(nodes.values.rate, state.connected && isFinite(stageRate) ? (Math.round(stageRate) + " Hz") : "-- Hz");
+        setStageTelemetryText(nodes.values.chip, state.valid && stageChipOk && isFinite(stageChip) ? (stageChip.toFixed(1) + "°C") : "--°C");
+        setStageTelemetryText(nodes.values.perf, state.valid ? stageTelemetryPerfText(stageData) : "--%");
+        setStageTelemetryText(nodes.values.power, state.valid ? stageTelemetryPowerText(stageData) : "N");
         setStageTelemetryText(nodes.values.event, state.lastEvent || "--");
       });
     }
@@ -20311,6 +20334,11 @@ function requestMobileMockup3dMesh(){
         data_mode:"flight",
         ar:0,
         stage_rx_seq:finiteOrNull(30) ?? 0,
+        stage_rx_hz:finiteOrNull(31),
+        chip_temp_c:finiteOrNull(32),
+        chip_temp_ok:Number(snapshot[33]) ? 1 : 0,
+        lt:finiteOrNull(34),
+        ct:finiteOrNull(35),
         data_origin:"avionics"
       };
     }
@@ -20456,7 +20484,7 @@ function requestMobileMockup3dMesh(){
         fw_program:"Altis_Intelligent3_firmware1",
         fw_board:"Altis_Intelligent3_b3",
         fw_protocol:"Flash6-Intelligent-b3",
-        fw_build:"v6 b12"
+        fw_build:"v6 b13"
       };
     }
 

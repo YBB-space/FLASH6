@@ -3,6 +3,16 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.8.7 — v6 b13 — 2026-07-17
+
+Protocol: `Flash6-Intelligent-b3` (wire version `3`, unchanged)
+
+- Appended per-stage receive rate, chip temperature, loop time, and CPU time to
+  the browser stream's stage snapshots without changing the ESP-NOW packet.
+- Moved LINK, CHIP, PERF, and power availability into the corresponding STAGE
+  1/STAGE 2 dashboard cards and removed the ambiguous shared status strip while
+  dual-stage telemetry is displayed.
+
 ## 0.8.6 — v6 b12 — 2026-07-17
 
 Protocol: `Flash6-Intelligent-b3` (wire version `3`, unchanged)
