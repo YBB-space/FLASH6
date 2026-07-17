@@ -1,7 +1,7 @@
 
 constexpr char kFirmwareProgram[] = "Altis_Intelligent3_firmware1";
-constexpr char kFirmwareVersion[] = "0.8.7";
-constexpr char kFirmwareBuildId[] = "v6 b13";
+constexpr char kFirmwareVersion[] = "0.8.8";
+constexpr char kFirmwareBuildId[] = "v6 b14";
 constexpr char kFirmwareBoard[] = "Altis_Intelligent3_b3";
 constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b3";
 
@@ -1049,6 +1049,14 @@ struct FlashLinkStorageListClient {
   FlashLinkStorageListResponseV1 response{};
 };
 
+struct FlashLinkStorageListTx {
+  bool pending = false;
+  uint8_t attempts = 0;
+  uint32_t queuedMs = 0;
+  uint8_t destination[ESP_NOW_ETH_ALEN] = {};
+  FlashLinkStorageListResponseV1 response{};
+};
+
 struct FlashLinkRemoteState {
   uint16_t flags = 0;
   uint8_t relayMask = 0;
@@ -1158,6 +1166,7 @@ struct FlashLinkRelayTxSlot {
 FlashLinkRuntime flashLink;
 FlashLinkStorageReadClient flashLinkStorageReadClients[kFlashLinkStorageWindowDepth];
 FlashLinkStorageListClient flashLinkStorageListClient;
+FlashLinkStorageListTx flashLinkStorageListTx;
 FlashLinkRemoteState flashLinkRemoteState;
 FlashLinkGroundPeer flashLinkGroundPeers[kFlashLinkVehicleNodeCount];
 FlashLinkRelayRuntime flashLinkRelay;

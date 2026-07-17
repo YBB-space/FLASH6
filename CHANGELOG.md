@@ -3,6 +3,17 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.8.8 — v6 b14 — 2026-07-17
+
+Protocol: `Flash6-Intelligent-b3` (wire version `3`, unchanged)
+
+- Queued A.I LINK storage-list responses ahead of 100 Hz telemetry so a busy
+  ESP-NOW transmitter no longer drops the response that backs the storage UI.
+- Added bounded automatic list retries in the UI and cleared transient error
+  state as soon as a later response succeeds.
+- Replaced the stale dual-board firmware warning with retry progress and a
+  single A.I LINK diagnostic that also matches one-stage operation.
+
 ## 0.8.7 — v6 b13 — 2026-07-17
 
 Protocol: `Flash6-Intelligent-b3` (wire version `3`, unchanged)

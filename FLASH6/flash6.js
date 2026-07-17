@@ -20492,7 +20492,7 @@ function requestMobileMockup3dMesh(){
         fw_program:"Altis_Intelligent3_firmware1",
         fw_board:"Altis_Intelligent3_b3",
         fw_protocol:"Flash6-Intelligent-b3",
-        fw_build:"v6 b13"
+        fw_build:"v6 b14"
       };
     }
 
@@ -23973,6 +23973,34 @@ function requestMobileMockup3dMesh(){
     let dataListLiveTimer = null;
     let dataListLivePending = false;
 
+    function normalizeRemoteDataListItems(info){
+      const items = info && Array.isArray(info.items) ? info.items : [];
+      return items.map((item)=>Object.assign({}, item, {
+        kind:"board",
+        origin:"avionics",
+        remote:true,
+        dataKey:"board-remote:" + String(item.offset || 0)
+      }));
+    }
+
+    function applyRemoteDataListResult(overlay, summary, info){
+      if(!overlay || !info) return;
+      overlay._remoteBoardInfo = info;
+      overlay._remoteBoardError = null;
+      overlay._remoteListFailureCount = 0;
+      overlay._remoteListRetryAt = 0;
+      overlay._boardItems = normalizeRemoteDataListItems(info).concat(
+        Array.isArray(overlay._localBoardItems) ? overlay._localBoardItems : []
+      );
+      renderDataListSummary(
+        summary,
+        info,
+        Array.isArray(overlay._appSessions) ? overlay._appSessions : [],
+        overlay._originFilter
+      );
+      renderDataListItems(overlay);
+    }
+
     function renderDataListSummary(summary, info, appSessions, originFilter){
       if(!summary) return;
       info = info || {};
@@ -24062,6 +24090,28 @@ function requestMobileMockup3dMesh(){
             Array.isArray(overlay._appSessions) ? overlay._appSessions : [],
             overlay._originFilter
           );
+          const nowMs = Date.now();
+          const retryDue = !!overlay._remoteBoardError &&
+            !overlay._remoteListPending &&
+            nowMs >= Number(overlay._remoteListRetryAt || 0);
+          if(retryDue){
+            overlay._remoteListPending = true;
+            renderDataListItems(overlay);
+            try{
+              const refreshed = await fetchSpiFlashRemoteDataList();
+              if(overlay.classList.contains("is-open")){
+                applyRemoteDataListResult(overlay, summary, refreshed);
+              }
+            }catch(error){
+              overlay._remoteBoardError = error;
+              const failures = Math.min(8, Math.max(0, Number(overlay._remoteListFailureCount || 0)) + 1);
+              overlay._remoteListFailureCount = failures;
+              overlay._remoteListRetryAt = Date.now() + Math.min(6000, 800 * Math.pow(2, Math.min(3, failures - 1)));
+              if(overlay.classList.contains("is-open")) renderDataListItems(overlay);
+            }finally{
+              overlay._remoteListPending = false;
+            }
+          }
           syncDataStorageActionButtons();
           if(overlay.classList.contains("is-open")) dataListLiveTimer = setTimeout(refresh, 1000);
           return;
@@ -24376,7 +24426,9 @@ function requestMobileMockup3dMesh(){
       };
       const boardEmptyText =
         overlay._remoteBoardError
-            ? '저장 기록 목록을 받지 못했습니다. 양쪽 보드의 펌웨어와 A.I LINK 연결을 확인하세요.'
+            ? (Number(overlay._remoteListFailureCount || 0) >= 3
+                ? '저장 기록 목록 동기화가 지연되고 있습니다. A.I LINK 연결을 확인하는 동안 자동으로 다시 시도합니다.'
+                : '저장 기록 목록을 다시 동기화하는 중입니다…')
             : overlay._boardError
             ? '에비오닉스 보드 저장공간은 연결 후 확인할 수 있습니다.'
             : '에비오닉스 저장공간에 저장된 기록이 없습니다.';
@@ -24602,12 +24654,7 @@ function requestMobileMockup3dMesh(){
         dataKey:"board-avionics:" + String(item.offset || 0)
       })) : [];
       const remoteInfo = remoteBoardResult.info || {};
-      const remoteBoardItems = (Array.isArray(remoteInfo.items) ? remoteInfo.items : []).map((item)=>Object.assign({}, item, {
-        kind:"board",
-        origin:"avionics",
-        remote:true,
-        dataKey:"board-remote:" + String(item.offset || 0)
-      }));
+      const remoteBoardItems = normalizeRemoteDataListItems(remoteInfo);
       const appItems = appSessions.map((item)=>Object.assign({}, item, {
         kind:"app",
         dataKey:"app:" + String(item.id)
@@ -24616,13 +24663,19 @@ function requestMobileMockup3dMesh(){
       overlay._boardError = boardResult.error;
       overlay._remoteBoardInfo = remoteInfo;
       overlay._remoteBoardError = remoteBoardResult.error;
+      overlay._remoteListPending = false;
+      overlay._remoteListFailureCount = remoteBoardResult.error ? 1 : 0;
+      overlay._remoteListRetryAt = remoteBoardResult.error ? Date.now() + 800 : 0;
+      overlay._localBoardItems = localBoardItems;
       overlay._boardItems = remoteBoardItems.concat(localBoardItems);
       overlay._appItems = appItems;
       overlay._appSessions = appSessions;
       overlay._downloadSelectMode = false;
       overlay._dataListDetailsOpen = false;
       renderDataListSummary(summary, info, appSessions, overlay._originFilter);
-      if(boardResult.info || remoteBoardResult.info) startDataListLiveStatus(overlay, summary);
+      if(shouldLoadRemoteBoard || boardResult.info || remoteBoardResult.info){
+        startDataListLiveStatus(overlay, summary);
+      }
       renderDataListItems(overlay);
     }
 

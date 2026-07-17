@@ -211,6 +211,26 @@ void flashLinkStorageListCancel(uint32_t transaction) {
   portEXIT_CRITICAL(&flashLinkStorageReadMux);
 }
 
+void flashLinkQueueStorageListResponse(
+  const uint8_t* destination,
+  const FlashLinkStorageListResponseV1& response
+) {
+  if (!destination) return;
+  const bool sameTransaction =
+    flashLinkStorageListTx.pending &&
+    flashLinkStorageListTx.response.transaction == response.transaction;
+  memcpy(
+    flashLinkStorageListTx.destination,
+    destination,
+    sizeof(flashLinkStorageListTx.destination));
+  flashLinkStorageListTx.response = response;
+  flashLinkStorageListTx.pending = true;
+  if (!sameTransaction) {
+    flashLinkStorageListTx.attempts = 0;
+    flashLinkStorageListTx.queuedMs = millis();
+  }
+}
+
 uint32_t flashLinkNextStorageReadTransaction() {
   uint32_t transaction = ++flashLink.nextStorageReadTransaction;
   if (transaction == 0) transaction = ++flashLink.nextStorageReadTransaction;
@@ -1136,6 +1156,7 @@ void flashLinkResetPeer() {
   portEXIT_CRITICAL(&flashLinkRxMux);
   flashLinkStorageReadCancel(0);
   flashLinkStorageListCancel(0);
+  flashLinkStorageListTx = {};
   if (flashLinkStage1RelayRole()) {
     flashLinkRelayTxHead = 0;
     flashLinkRelayTxTail = 0;
@@ -1862,6 +1883,7 @@ void flashLinkBeginPeerSession(uint32_t session, uint32_t nowMs) {
   flashLink.lastAckRxMs = 0;
   flashLink.ackPending = false;
   flashLink.commandAckPending = false;
+  flashLinkStorageListTx = {};
   flashLink.commandAckCacheCount = 0;
   flashLink.commandAckCacheNext = 0;
   flashLink.rxRateWindowFrames = 0;
@@ -2308,11 +2330,10 @@ void flashLinkHandlePacket(FlashLinkRxSlot& slot) {
         }
       }
     }
-    flashLinkSendPacket(
-      FlashLinkPacketType::StorageListResponse,
-      slot.mac,
-      &response,
-      sizeof(response));
+    // Storage list responses are larger than telemetry frames.  Queue them
+    // so a concurrent 100 Hz telemetry transmission cannot drop the only
+    // response and leave the HTTP/UI request permanently waiting.
+    flashLinkQueueStorageListResponse(slot.mac, response);
     return;
   }
 
@@ -3117,6 +3138,27 @@ bool flashLinkFlushPendingCommandAck() {
   return true;
 }
 
+bool flashLinkFlushPendingStorageListResponse() {
+  if (!flashLinkStorageListTx.pending) return false;
+  const uint32_t nowMs = millis();
+  if ((uint32_t)(nowMs - flashLinkStorageListTx.queuedMs) > 1800U ||
+      flashLinkStorageListTx.attempts >= kFlashLinkStorageRequestMaxAttempts) {
+    flashLinkStorageListTx = {};
+    return false;
+  }
+  if (flashLink.txBusy) return false;
+  if (flashLinkSendPacket(
+        FlashLinkPacketType::StorageListResponse,
+        flashLinkStorageListTx.destination,
+        &flashLinkStorageListTx.response,
+        sizeof(flashLinkStorageListTx.response))) {
+    flashLinkStorageListTx = {};
+    return true;
+  }
+  flashLinkStorageListTx.attempts++;
+  return false;
+}
+
 void flashLinkTick() {
   if (!flashLinkMode || !flashLink.initialized) return;
 
@@ -3146,6 +3188,7 @@ void flashLinkTick() {
     flashLink.txFail++;
   }
   if (flashLinkFlushPendingCommandAck()) return;
+  if (flashLinkFlushPendingStorageListResponse()) return;
   if (flashLinkStage1RelayTick(nowMs)) return;
   if (flashLinkGroundRole()) {
     flashLinkGroundTick(nowMs);
