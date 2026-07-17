@@ -21737,14 +21737,14 @@ body.camera-view-active .page-wrap{
   background:#020617 !important;
 }
 
-/* Dashboard vehicle rail: keep the legacy Quick Data layout intact. */
-body.dashboard-view-active .main-card.status-card.status-map-only .status-flight-preview{
-  display:none !important;
-}
+/* Desktop dashboard vehicle rail: keep the mobile dashboard untouched. */
 body.dashboard-view-active .stage-overview-panel:has(> .stage-telemetry-deck.hidden){
   display:none !important;
 }
 @media (min-width:1181px) and (pointer:fine){
+  body.dashboard-view-active .main-card.status-card.status-map-only .status-flight-preview{
+    display:none !important;
+  }
   body.dashboard-view-active .main-card.status-card.status-map-only .status-map-layout{
     grid-template-areas:"vehicle" !important;
     grid-template-columns:minmax(0,1fr) !important;
@@ -21805,14 +21805,7 @@ body.dashboard-view-active .stage-overview-panel:has(> .stage-telemetry-deck.hid
 }
 @media (max-width:1180px), (pointer:coarse){
   body.dashboard-view-active .stage-overview-panel{
-    display:block;
-    width:100%;
-    min-width:0;
-    margin-bottom:10px;
-  }
-  body.dashboard-view-active .stage-overview-panel .stage-telemetry-deck{
-    grid-template-columns:1fr !important;
-    margin:0 !important;
+    display:none !important;
   }
 }
 /* Gyro-first dashboard data rail: map above the two telemetry charts. */
