@@ -24357,7 +24357,7 @@ function requestMobileMockup3dMesh(){
       overlay.className = "mobile-chart-picker-overlay hidden";
       overlay.style.display = "none";
       overlay.innerHTML =
-        '<div class="mobile-chart-picker-dialog agent-help-dialog" role="dialog" aria-modal="true" aria-labelledby="dataDownloadConfirmTitle" aria-describedby="dataDownloadConfirmText">' +
+        '<div class="mobile-chart-picker-dialog agent-help-dialog data-download-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="dataDownloadConfirmTitle" aria-describedby="dataDownloadConfirmText">' +
           '<div class="mobile-chart-picker-head">' +
             '<div id="dataDownloadConfirmTitle" class="mobile-chart-picker-title">저장 기록 다운로드</div>' +
             '<button id="dataDownloadConfirmClose" class="mobile-chart-picker-close" type="button" aria-label="닫기">×</button>' +
@@ -24377,6 +24377,9 @@ function requestMobileMockup3dMesh(){
 
     function confirmDataListDownload(item){
       const overlay = ensureDataDownloadConfirmOverlay();
+      const desktopDialog = isDesktopLayout() && !isMobileLayout();
+      overlay.classList.toggle("is-desktop-download-dialog", desktopDialog);
+      overlay.classList.toggle("is-mobile-download-dialog", !desktopDialog);
       const label = getDataListItemDownloadLabel(item);
       const text = overlay.querySelector("#dataDownloadConfirmText");
       const note = overlay.querySelector("#dataDownloadConfirmNote");

@@ -25369,6 +25369,59 @@ body.camera-view-active .camera-gauge{
   --gColor:rgba(255,255,255,.96) !important;
   filter:drop-shadow(0 14px 34px rgba(0,0,0,.56)) !important;
 }
+
+/*
+ * Desktop download confirmation is deliberately isolated from the mobile
+ * bottom-sheet rules. Mobile keeps the existing mobile-chart-picker layout.
+ */
+html body #dataDownloadConfirmOverlay.is-desktop-download-dialog{
+  align-items:center !important;
+  justify-content:center !important;
+  padding:24px !important;
+  box-sizing:border-box !important;
+  overflow:auto !important;
+}
+html body #dataDownloadConfirmOverlay.is-desktop-download-dialog > .agent-help-dialog{
+  display:flex !important;
+  flex-direction:column !important;
+  width:min(520px, calc(100vw - 48px)) !important;
+  max-width:520px !important;
+  min-height:0 !important;
+  height:auto !important;
+  max-height:calc(100vh - 48px) !important;
+  max-height:calc(100dvh - 48px) !important;
+  margin:auto !important;
+  box-sizing:border-box !important;
+  border:1px solid #35383d !important;
+  border-radius:8px !important;
+  background:#151618 !important;
+  overflow:hidden !important;
+  transform:translateY(8px) scale(.985) !important;
+  opacity:0 !important;
+}
+html body #dataDownloadConfirmOverlay.is-desktop-download-dialog.is-open > .agent-help-dialog{
+  transform:translateY(0) scale(1) !important;
+  opacity:1 !important;
+}
+html body #dataDownloadConfirmOverlay.is-desktop-download-dialog .mobile-chart-picker-head{
+  flex:0 0 60px !important;
+  min-height:60px !important;
+  padding:0 60px 0 22px !important;
+  box-sizing:border-box !important;
+  border-bottom:1px solid #2c2e32 !important;
+  background:#191a1d !important;
+}
+html body #dataDownloadConfirmOverlay.is-desktop-download-dialog .mobile-chart-picker-body{
+  flex:0 1 auto !important;
+  min-height:0 !important;
+  max-height:calc(100vh - 110px) !important;
+  max-height:calc(100dvh - 110px) !important;
+  padding:22px !important;
+  padding-bottom:22px !important;
+  box-sizing:border-box !important;
+  overflow-y:auto !important;
+  overscroll-behavior:contain;
+}
 body.camera-view-active .camera-gauge::before{
   background:rgba(0,0,0,.18) !important;
   border-color:rgba(255,255,255,.22) !important;
