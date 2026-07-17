@@ -33016,7 +33016,6 @@ function requestMobileMockup3dMesh(){
       el.flashLinkChartValue = document.getElementById("flashLinkChartValue");
       el.flashLinkPeer = document.getElementById("flashLinkPeer");
       el.flashLinkCommandStatus = document.getElementById("flashLinkCommandStatus");
-      el.flashLinkTopologyBtn = document.getElementById("flashLinkTopologyBtn");
       el.flashLinkTopologyOverlay = document.getElementById("flashLinkTopologyOverlay");
       el.flashTopologyModeDescription = document.getElementById("flashTopologyModeDescription");
       el.flashTopologyStage1Role = document.getElementById("flashTopologyStage1Role");
@@ -35499,34 +35498,6 @@ function requestMobileMockup3dMesh(){
         });
       }
 
-      if(el.flashLinkTopologyBtn){
-        el.flashLinkTopologyBtn.addEventListener("click", showFlashLinkTopologyOverlay);
-      }
-      if(el.flashLinkTopologyClose){
-        el.flashLinkTopologyClose.addEventListener("click", hideFlashLinkTopologyOverlay);
-      }
-      if(el.flashLinkTopologyOverlay){
-        el.flashLinkTopologyOverlay.addEventListener("click",(ev)=>{
-          if(ev.target === el.flashLinkTopologyOverlay) hideFlashLinkTopologyOverlay();
-        });
-      }
-      [el.flashLinkStatus, el.connStatusLabel].forEach((target)=>{
-        if(!target) return;
-        target.setAttribute("role", "button");
-        target.setAttribute("tabindex", "0");
-        target.setAttribute("title", currentLang === "ko" ? "통신 상세 보기" : "View communication details");
-        target.addEventListener("click", showFlashLinkTopologyOverlay);
-        target.addEventListener("keydown",(ev)=>{
-          if(ev.key !== "Enter" && ev.key !== " ") return;
-          ev.preventDefault();
-          showFlashLinkTopologyOverlay();
-        });
-      });
-      document.addEventListener("keydown",(ev)=>{
-        if(ev.key !== "Escape" || !el.flashLinkTopologyOverlay) return;
-        if(el.flashLinkTopologyOverlay.classList.contains("hidden")) return;
-        hideFlashLinkTopologyOverlay();
-      });
       window.addEventListener("resize",()=>{
         if(!el.flashLinkTopologyOverlay || el.flashLinkTopologyOverlay.classList.contains("hidden")) return;
         syncFlashLinkTopologyUi();
