@@ -620,6 +620,7 @@ if (typeof window !== "undefined") {
       pitchDeg: GYRO_CAMERA_DEFAULT.pitchDeg,
       distance: GYRO_CAMERA_DEFAULT.distance,
       desiredDistance: GYRO_CAMERA_DEFAULT.distance,
+      manualZoomUntilMs: 0,
       panX: 0,
       panY: 0,
       panZ: 0,
@@ -2615,6 +2616,7 @@ function requestMobileMockup3dMesh(){
       gyroCameraState.pitchDeg = GYRO_CAMERA_DEFAULT.pitchDeg;
       gyroCameraState.distance = GYRO_CAMERA_DEFAULT.distance;
       gyroCameraState.desiredDistance = GYRO_CAMERA_DEFAULT.distance;
+      gyroCameraState.manualZoomUntilMs = 0;
       gyroCameraState.previewRocketX = 0.5;
       gyroCameraState.previewRocketY = 0.5;
       gyroCameraState.previewRocketValid = false;
@@ -2718,6 +2720,18 @@ function requestMobileMockup3dMesh(){
       return getGyroPreviewMode() === "3d"
         ? GYRO_CAMERA_MAX_DISTANCE_3D_PLUS
         : GYRO_CAMERA_MAX_DISTANCE;
+    }
+    function getGyroCameraMinDistance(){
+      if(el.gyro3dViewport && el.gyro3dViewport.classList.contains("is-camera-gyro-plus-mounted")){
+        return 0.78;
+      }
+      if(el.gyro3dViewport && el.gyro3dViewport.classList.contains("is-camera-preview-mounted")){
+        return 0.68;
+      }
+      return GYRO_CAMERA_MIN_DISTANCE;
+    }
+    function holdGyroManualZoom(){
+      gyroCameraState.manualZoomUntilMs = Date.now() + 6000;
     }
     function isInteractiveViewportTarget(node){
       if(!(node instanceof Element)) return false;
@@ -2878,10 +2892,12 @@ function requestMobileMockup3dMesh(){
           panGyroCameraByWorldDelta(0, -step, 0);
           handled = true;
         }else if(key === "+" || key === "="){
-          gyroCameraState.desiredDistance = clampLocal(gyroCameraState.desiredDistance * 0.9, GYRO_CAMERA_MIN_DISTANCE, getGyroCameraMaxDistance());
+          holdGyroManualZoom();
+          gyroCameraState.desiredDistance = clampLocal(gyroCameraState.desiredDistance * 0.9, getGyroCameraMinDistance(), getGyroCameraMaxDistance());
           handled = true;
         }else if(key === "-" || key === "_"){
-          gyroCameraState.desiredDistance = clampLocal(gyroCameraState.desiredDistance * 1.1, GYRO_CAMERA_MIN_DISTANCE, getGyroCameraMaxDistance());
+          holdGyroManualZoom();
+          gyroCameraState.desiredDistance = clampLocal(gyroCameraState.desiredDistance * 1.1, getGyroCameraMinDistance(), getGyroCameraMaxDistance());
           handled = true;
         }else if(key === "0"){
           resetGyroCameraPose(true);
@@ -2945,8 +2961,9 @@ function requestMobileMockup3dMesh(){
         if(isSequenceMobileWheelMode()) return;
         if(!canControl()) return;
         ev.preventDefault();
+        holdGyroManualZoom();
         const factor = Math.exp(ev.deltaY * 0.00125);
-        gyroCameraState.desiredDistance = clampLocal(gyroCameraState.desiredDistance * factor, GYRO_CAMERA_MIN_DISTANCE, getGyroCameraMaxDistance());
+        gyroCameraState.desiredDistance = clampLocal(gyroCameraState.desiredDistance * factor, getGyroCameraMinDistance(), getGyroCameraMaxDistance());
         redraw();
       }, {passive:false});
       view.addEventListener("dblclick", (ev)=>{
@@ -5110,7 +5127,8 @@ function requestMobileMockup3dMesh(){
         renderStyle.sheen = 0.12;
       }
 
-      if(!inExpanded){
+      const manualZoomActive = Date.now() < Number(gyroCameraState.manualZoomUntilMs || 0);
+      if(!inExpanded && !manualZoomActive){
         const panDamp = showWorldDecor ? 0.88 : 0.82;
         const terrainOverviewActive = showWorldDecor &&
           gyroTerrainState.status === "ready" &&
@@ -5126,7 +5144,7 @@ function requestMobileMockup3dMesh(){
         gyroCameraState.panZ *= panDamp;
         gyroCameraState.desiredDistance += (autoDistance - gyroCameraState.desiredDistance) * distanceEase;
       }
-      const cameraMinDistance = inCameraPreview ? 0.68 : GYRO_CAMERA_MIN_DISTANCE;
+      const cameraMinDistance = getGyroCameraMinDistance();
       gyroCameraState.desiredDistance = clampLocal(gyroCameraState.desiredDistance, cameraMinDistance, getGyroCameraMaxDistance());
       const cameraDistanceSmooth = (inCameraPreview && separation > 0) ? 0.24 : GYRO_CAMERA_DISTANCE_SMOOTH;
       gyroCameraState.distance += (gyroCameraState.desiredDistance - gyroCameraState.distance) * cameraDistanceSmooth;
@@ -14994,6 +15012,7 @@ function requestMobileMockup3dMesh(){
       gyroCameraState.targetZ = 0;
       gyroCameraState.distance = GYRO_TERRAIN_DEFAULT_CAMERA_DISTANCE;
       gyroCameraState.desiredDistance = GYRO_TERRAIN_DEFAULT_CAMERA_DISTANCE;
+      gyroCameraState.manualZoomUntilMs = 0;
       gyroCameraState.yawDeg = GYRO_CAMERA_DEFAULT.yawDeg;
       gyroCameraState.pitchDeg = 20;
 

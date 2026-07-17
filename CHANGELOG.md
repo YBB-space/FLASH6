@@ -20,9 +20,12 @@ Protocol: `Flash6-Intelligent-b3` (wire version `3`, unchanged)
 - Made the desktop dashboard open directly into the full gyro 3D preview and
   reserved `Shift+C` for toggling the camera canvas on demand.
 - Stopped hidden camera capture while the gyro dashboard is active and placed
-  the live flight map above the altitude and dynamics charts in one data rail.
+  the live flight map above the altitude and dynamics charts in one taller,
+  equal-height data rail.
 - Enabled direct click-drag camera movement in the default gyro scene and
   removed the old click-to-open gyro-only transition from the preview surface.
+- Extended the gyro dashboard zoom-in range and temporarily holds manual wheel
+  zoom before returning to automatic trajectory framing.
 
 ## 0.8.1 — v6 b7 — 2026-07-17
 

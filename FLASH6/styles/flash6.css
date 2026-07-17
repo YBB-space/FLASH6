@@ -21743,7 +21743,7 @@ body.camera-view-active .page-wrap{
   .camera-data-stack{
     --camera-data-edge:clamp(24px,2.2vw,36px);
     --camera-data-width:clamp(270px,22vw,320px);
-    --camera-data-panel-height:clamp(150px,18vh,180px);
+    --camera-data-panel-height:clamp(185px,21vh,220px);
     position:fixed;
     top:calc(var(--camera-data-edge) + env(safe-area-inset-top, 0px));
     left:var(--camera-data-edge);
@@ -21886,7 +21886,7 @@ body.camera-view-active .page-wrap{
 @media (min-width:768px) and (pointer:fine) and (max-height:700px){
   .camera-data-stack{
     --camera-data-edge:20px;
-    --camera-data-panel-height:120px;
+    --camera-data-panel-height:140px;
     gap:7px;
   }
 }
