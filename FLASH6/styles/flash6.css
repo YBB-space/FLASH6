@@ -27411,3 +27411,797 @@ html body #pyroControlOverlay > #pyroControlDialog > .settings-header > .setting
   0%{transform:translateX(-105%)}
   100%{transform:translateX(400%)}
 }
+
+/*
+ * Desktop modal system.
+ * Keep phone and phone-landscape dialogs independent from this layer.
+ */
+@media (min-width:901px){
+  html:not(.phone-landscape-layout) body{
+    --pc-modal-backdrop:rgba(3,5,8,.76);
+    --pc-modal-surface:#151618;
+    --pc-modal-header:#191a1d;
+    --pc-modal-raised:#202226;
+    --pc-modal-border:#35383d;
+    --pc-modal-divider:#2c2e32;
+    --pc-modal-text:#f3f4f6;
+    --pc-modal-muted:#9da2ab;
+    --pc-modal-danger:#9f3037;
+    --pc-modal-danger-border:#b84349;
+  }
+
+  /* One backdrop treatment across desktop dialogs. */
+  html:not(.phone-landscape-layout) body :is(
+    .confirm-overlay:not(.warning-fullscreen),
+    .settings-overlay,
+    .reboot-overlay,
+    .disconnect-overlay,
+    .connection-guide-overlay,
+    .flash-link-topology-overlay,
+    .mobile-chart-picker-overlay
+  ){
+    background:var(--pc-modal-backdrop) !important;
+    -webkit-backdrop-filter:blur(7px) !important;
+    backdrop-filter:blur(7px) !important;
+  }
+
+  /* Shared shell. Width and internal layout remain owned by each feature. */
+  html:not(.phone-landscape-layout) body :is(
+    .settings-dialog,
+    .mission-dialog,
+    .loadcell-dialog,
+    .inspection-dialog,
+    .launcher-dialog,
+    .connection-guide-dialog,
+    .flash-link-topology-dialog,
+    .mobile-chart-picker-dialog
+  ){
+    border:1px solid var(--pc-modal-border) !important;
+    border-radius:8px !important;
+    background:var(--pc-modal-surface) !important;
+    color:var(--pc-modal-text) !important;
+    box-shadow:0 24px 70px rgba(0,0,0,.48) !important;
+    -webkit-backdrop-filter:none !important;
+    backdrop-filter:none !important;
+  }
+  html:not(.phone-landscape-layout) body :is(
+    .settings-dialog,
+    .mission-dialog,
+    .loadcell-dialog,
+    .inspection-dialog,
+    .launcher-dialog,
+    .connection-guide-dialog,
+    .flash-link-topology-dialog,
+    .mobile-chart-picker-dialog
+  )::before,
+  html:not(.phone-landscape-layout) body :is(
+    .settings-dialog,
+    .mission-dialog,
+    .loadcell-dialog,
+    .inspection-dialog,
+    .launcher-dialog,
+    .connection-guide-dialog,
+    .flash-link-topology-dialog,
+    .mobile-chart-picker-dialog
+  )::after{
+    content:none !important;
+    display:none !important;
+  }
+
+  /* Flat title bars replace the mixed glass and boxed title treatments. */
+  html:not(.phone-landscape-layout) body :is(
+    .settings-header,
+    .mobile-chart-picker-head,
+    .connection-guide-header,
+    .launcher-header
+  ){
+    position:relative !important;
+    display:flex !important;
+    align-items:center !important;
+    justify-content:flex-start !important;
+    min-height:60px !important;
+    margin:0 !important;
+    padding:0 60px 0 22px !important;
+    box-sizing:border-box !important;
+    border:0 !important;
+    border-bottom:1px solid var(--pc-modal-divider) !important;
+    background:var(--pc-modal-header) !important;
+  }
+  html:not(.phone-landscape-layout) body :is(
+    .settings-title,
+    .mobile-chart-picker-title,
+    .connection-guide-header h2,
+    .launcher-title
+  ){
+    margin:0 !important;
+    color:var(--pc-modal-text) !important;
+    font-size:16px !important;
+    line-height:1.2 !important;
+    font-weight:650 !important;
+    letter-spacing:0 !important;
+    text-transform:none !important;
+    text-align:left !important;
+  }
+
+  /* One unobtrusive close control. */
+  html:not(.phone-landscape-layout) body :is(
+    .settings-close-btn,
+    .mobile-chart-picker-close,
+    .connection-guide-close,
+    .launcher-close-btn
+  ){
+    position:absolute !important;
+    top:13px !important;
+    right:16px !important;
+    left:auto !important;
+    display:grid !important;
+    place-items:center !important;
+    width:34px !important;
+    min-width:34px !important;
+    height:34px !important;
+    min-height:34px !important;
+    margin:0 !important;
+    padding:0 !important;
+    border:1px solid transparent !important;
+    border-radius:6px !important;
+    background:transparent !important;
+    color:#a9adb5 !important;
+    box-shadow:none !important;
+    font-size:22px !important;
+    line-height:1 !important;
+    font-weight:300 !important;
+    transform:none !important;
+  }
+  html:not(.phone-landscape-layout) body :is(
+    .settings-close-btn,
+    .mobile-chart-picker-close,
+    .connection-guide-close,
+    .launcher-close-btn
+  ):hover{
+    border-color:#393c42 !important;
+    background:#24262a !important;
+    color:#f4f4f5 !important;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .settings-header #settingsClose{
+    font-size:0 !important;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .settings-header #settingsClose::before{
+    content:none !important;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .settings-header #settingsClose::after{
+    content:"×" !important;
+    position:static !important;
+    display:block !important;
+    width:auto !important;
+    height:auto !important;
+    background:none !important;
+    color:inherit !important;
+    font-size:22px !important;
+    line-height:1 !important;
+    transform:none !important;
+  }
+
+  /* Compact confirmation family, matching the avionics reboot dialog. */
+  html:not(.phone-landscape-layout) body :is(
+    #confirmOverlay,
+    #missionRequiredOverlay,
+    #inspectionWarnOverlay,
+    #exportLeaveOverlay,
+    #noMotorOverlay,
+    #forceOverlay
+  ) > .confirm-dialog,
+  html:not(.phone-landscape-layout) body #disconnectOverlay > .disconnect-dialog,
+  html:not(.phone-landscape-layout) body :is(
+    #connectMethodOverlay,
+    #gpsHelpOverlay,
+    #pyroConfirmOverlay
+  ) > .reboot-dialog{
+    position:relative !important;
+    width:min(520px, calc(100vw - 48px)) !important;
+    max-width:520px !important;
+    min-width:0 !important;
+    min-height:0 !important;
+    height:auto !important;
+    max-height:calc(100dvh - 48px) !important;
+    margin:auto !important;
+    padding:24px !important;
+    box-sizing:border-box !important;
+    border:1px solid var(--pc-modal-border) !important;
+    border-radius:8px !important;
+    background:var(--pc-modal-surface) !important;
+    color:var(--pc-modal-text) !important;
+    box-shadow:0 24px 70px rgba(0,0,0,.48) !important;
+    -webkit-backdrop-filter:none !important;
+    backdrop-filter:none !important;
+    overflow:auto !important;
+    text-align:left !important;
+  }
+  html:not(.phone-landscape-layout) body :is(
+    #confirmOverlay,
+    #missionRequiredOverlay,
+    #inspectionWarnOverlay,
+    #exportLeaveOverlay,
+    #noMotorOverlay,
+    #forceOverlay
+  ) > .confirm-dialog::before,
+  html:not(.phone-landscape-layout) body :is(
+    #confirmOverlay,
+    #missionRequiredOverlay,
+    #inspectionWarnOverlay,
+    #exportLeaveOverlay,
+    #noMotorOverlay,
+    #forceOverlay
+  ) > .confirm-dialog::after,
+  html:not(.phone-landscape-layout) body :is(
+    #connectMethodOverlay,
+    #gpsHelpOverlay,
+    #pyroConfirmOverlay
+  ) > .reboot-dialog::before,
+  html:not(.phone-landscape-layout) body :is(
+    #connectMethodOverlay,
+    #gpsHelpOverlay,
+    #pyroConfirmOverlay
+  ) > .reboot-dialog::after{
+    content:none !important;
+    display:none !important;
+  }
+  html:not(.phone-landscape-layout) body :is(
+    #confirmOverlay,
+    #missionRequiredOverlay,
+    #inspectionWarnOverlay,
+    #exportLeaveOverlay,
+    #noMotorOverlay,
+    #forceOverlay,
+    #disconnectOverlay,
+    #connectMethodOverlay,
+    #gpsHelpOverlay,
+    #pyroConfirmOverlay
+  ) .confirm-icon{
+    display:none !important;
+  }
+  html:not(.phone-landscape-layout) body #gpsHelpOverlay > .gps-help-dialog{
+    width:min(620px, calc(100vw - 48px)) !important;
+    max-width:620px !important;
+  }
+  html:not(.phone-landscape-layout) body :is(
+    #confirmOverlay,
+    #missionRequiredOverlay,
+    #inspectionWarnOverlay,
+    #exportLeaveOverlay,
+    #noMotorOverlay,
+    #forceOverlay
+  ) .confirm-title,
+  html:not(.phone-landscape-layout) body :is(
+    #disconnectOverlay,
+    #connectMethodOverlay,
+    #gpsHelpOverlay,
+    #pyroConfirmOverlay
+  ) .disconnect-title{
+    margin:0 0 7px !important;
+    color:var(--pc-modal-text) !important;
+    font-size:18px !important;
+    line-height:1.3 !important;
+    font-weight:650 !important;
+    letter-spacing:-.01em !important;
+    text-align:left !important;
+  }
+  html:not(.phone-landscape-layout) body :is(
+    #confirmOverlay,
+    #missionRequiredOverlay,
+    #inspectionWarnOverlay,
+    #exportLeaveOverlay,
+    #noMotorOverlay,
+    #forceOverlay
+  ) :is(.confirm-text,.confirm-note),
+  html:not(.phone-landscape-layout) body :is(
+    #disconnectOverlay,
+    #connectMethodOverlay,
+    #gpsHelpOverlay,
+    #pyroConfirmOverlay
+  ) :is(.disconnect-text,.confirm-note){
+    margin:0 0 10px !important;
+    color:var(--pc-modal-muted) !important;
+    font-size:13px !important;
+    line-height:1.5 !important;
+    font-weight:500 !important;
+    letter-spacing:0 !important;
+    text-align:left !important;
+  }
+
+  /* Confirmation actions use a calm neutral action and red only for danger. */
+  html:not(.phone-landscape-layout) body :is(
+    #missionRequiredOverlay,
+    #inspectionWarnOverlay,
+    #exportLeaveOverlay,
+    #noMotorOverlay
+  ) .confirm-actions,
+  html:not(.phone-landscape-layout) body :is(
+    #disconnectOverlay,
+    #gpsHelpOverlay,
+    #pyroConfirmOverlay
+  ) :is(.disconnect-actions,.ground-waiting-actions,.reboot-actions){
+    display:grid !important;
+    grid-template-columns:minmax(0,1fr) 116px !important;
+    gap:8px !important;
+    align-items:center !important;
+    width:100% !important;
+    margin:20px 0 0 !important;
+  }
+  html:not(.phone-landscape-layout) body :is(
+    #missionRequiredOverlay,
+    #inspectionWarnOverlay,
+    #exportLeaveOverlay,
+    #noMotorOverlay,
+    #disconnectOverlay,
+    #gpsHelpOverlay,
+    #pyroConfirmOverlay
+  ) :is(
+    .loadcell-primary,
+    .disconnect-ok,
+    .reboot-confirm,
+    .confirm-cancel
+  ){
+    width:100% !important;
+    min-width:0 !important;
+    min-height:44px !important;
+    margin:0 !important;
+    padding:0 16px !important;
+    border-radius:6px !important;
+    box-shadow:none !important;
+    font-size:13px !important;
+    line-height:1 !important;
+    font-weight:650 !important;
+    text-decoration:none !important;
+  }
+  html:not(.phone-landscape-layout) body :is(
+    #missionRequiredOverlay,
+    #inspectionWarnOverlay,
+    #exportLeaveOverlay,
+    #noMotorOverlay,
+    #disconnectOverlay,
+    #gpsHelpOverlay,
+    #pyroConfirmOverlay
+  ) :is(
+    .confirm-actions,
+    .disconnect-actions,
+    .ground-waiting-actions,
+    .reboot-actions
+  ) > :only-child{
+    grid-column:1 / -1 !important;
+  }
+  html:not(.phone-landscape-layout) body :is(
+    #missionRequiredOverlay,
+    #inspectionWarnOverlay,
+    #noMotorOverlay,
+    #disconnectOverlay,
+    #gpsHelpOverlay
+  ) :is(.loadcell-primary,.disconnect-ok,.reboot-confirm){
+    border:1px solid #d0d2d6 !important;
+    background:#e7e8ea !important;
+    color:#17181a !important;
+  }
+  html:not(.phone-landscape-layout) body :is(
+    #exportLeaveOverlay,
+    #pyroConfirmOverlay
+  ) :is(.loadcell-primary,.disconnect-ok,.reboot-confirm){
+    border:1px solid var(--pc-modal-danger-border) !important;
+    background:var(--pc-modal-danger) !important;
+    color:#fff !important;
+  }
+  html:not(.phone-landscape-layout) body :is(
+    #exportLeaveOverlay,
+    #pyroConfirmOverlay
+  ) .confirm-cancel{
+    border:1px solid #373a40 !important;
+    background:var(--pc-modal-raised) !important;
+    color:#c5c8ce !important;
+  }
+
+  /* Direct close/cancel controls in the ignition and pyro confirmations. */
+  html:not(.phone-landscape-layout) body :is(#confirmOverlay,#pyroConfirmOverlay) > :is(.confirm-dialog,.reboot-dialog) > .confirm-cancel{
+    position:absolute !important;
+    top:14px !important;
+    right:14px !important;
+    z-index:3 !important;
+    display:grid !important;
+    place-items:center !important;
+    width:34px !important;
+    min-width:34px !important;
+    height:34px !important;
+    min-height:34px !important;
+    margin:0 !important;
+    padding:0 !important;
+    border:1px solid transparent !important;
+    border-radius:6px !important;
+    background:transparent !important;
+    color:transparent !important;
+    font-size:0 !important;
+    text-decoration:none !important;
+    box-shadow:none !important;
+  }
+  html:not(.phone-landscape-layout) body :is(#confirmOverlay,#pyroConfirmOverlay) > :is(.confirm-dialog,.reboot-dialog) > .confirm-cancel::after{
+    content:"×" !important;
+    color:#a9adb5 !important;
+    font-size:22px !important;
+    line-height:1 !important;
+    font-weight:300 !important;
+  }
+  html:not(.phone-landscape-layout) body #confirmOverlay > .confirm-dialog{
+    width:min(560px, calc(100vw - 48px)) !important;
+    max-width:560px !important;
+  }
+  html:not(.phone-landscape-layout) body #confirmOverlay .ignition-warning-illustration{
+    width:100% !important;
+    max-width:none !important;
+    height:230px !important;
+    aspect-ratio:auto !important;
+    margin:16px 0 12px !important;
+    border-radius:6px !important;
+  }
+  html:not(.phone-landscape-layout) body #confirmOverlay .ignition-warning-illustration img{
+    height:100% !important;
+    object-fit:cover !important;
+  }
+  html:not(.phone-landscape-layout) body #confirmOverlay .confirm-actions{
+    display:block !important;
+    width:100% !important;
+    margin:18px 0 0 !important;
+  }
+  html:not(.phone-landscape-layout) body #confirmOverlay :is(.longpress-wrap,.longpress-btn){
+    width:100% !important;
+  }
+  html:not(.phone-landscape-layout) body #confirmOverlay .longpress-btn{
+    min-height:46px !important;
+    border-radius:6px !important;
+    box-shadow:none !important;
+  }
+
+  /* Connection choice keeps its two options but loses the oversized cards. */
+  html:not(.phone-landscape-layout) body #connectMethodOverlay .connect-method-actions{
+    gap:8px !important;
+    margin:18px 0 0 !important;
+  }
+  html:not(.phone-landscape-layout) body #connectMethodOverlay .connect-method-btn{
+    min-height:78px !important;
+    padding:12px !important;
+    border:1px solid #373a40 !important;
+    border-radius:6px !important;
+    background:var(--pc-modal-raised) !important;
+    color:var(--pc-modal-text) !important;
+    box-shadow:none !important;
+  }
+  html:not(.phone-landscape-layout) body #connectMethodOverlay .connect-method-btn:hover{
+    border-color:#555960 !important;
+    background:#282a2f !important;
+  }
+  html:not(.phone-landscape-layout) body #connectMethodOverlay .connect-method-btn svg{
+    width:22px !important;
+    height:22px !important;
+  }
+  html:not(.phone-landscape-layout) body #connectMethodOverlay .connect-method-btn strong{
+    font-size:13px !important;
+    font-weight:650 !important;
+  }
+  html:not(.phone-landscape-layout) body #connectMethodOverlay .connect-method-btn span{
+    color:var(--pc-modal-muted) !important;
+    font-size:11px !important;
+  }
+  html:not(.phone-landscape-layout) body #connectMethodOverlay .reboot-actions{
+    display:block !important;
+    margin:10px 0 0 !important;
+  }
+  html:not(.phone-landscape-layout) body #connectMethodOverlay .confirm-cancel{
+    width:100% !important;
+    min-height:42px !important;
+    margin:0 !important;
+    border:1px solid #373a40 !important;
+    border-radius:6px !important;
+    background:var(--pc-modal-raised) !important;
+    color:#c5c8ce !important;
+    font-size:13px !important;
+    font-weight:650 !important;
+    text-decoration:none !important;
+  }
+
+  /* Rare utility confirmations use the same shell without losing their content. */
+  html:not(.phone-landscape-layout) body :is(
+    #easterOverlay,
+    #tetrisWinOverlay,
+    #tetrisPrizeOverlay
+  ) > .confirm-dialog{
+    position:relative !important;
+    width:min(520px, calc(100vw - 48px)) !important;
+    max-width:520px !important;
+    min-width:0 !important;
+    min-height:0 !important;
+    height:auto !important;
+    max-height:calc(100dvh - 48px) !important;
+    margin:auto !important;
+    padding:24px !important;
+    box-sizing:border-box !important;
+    border:1px solid var(--pc-modal-border) !important;
+    border-radius:8px !important;
+    background:var(--pc-modal-surface) !important;
+    color:var(--pc-modal-text) !important;
+    box-shadow:0 24px 70px rgba(0,0,0,.48) !important;
+    overflow:auto !important;
+    text-align:left !important;
+  }
+  html:not(.phone-landscape-layout) body :is(
+    #easterOverlay,
+    #tetrisWinOverlay,
+    #tetrisPrizeOverlay
+  ) > .confirm-dialog::before,
+  html:not(.phone-landscape-layout) body :is(
+    #easterOverlay,
+    #tetrisWinOverlay,
+    #tetrisPrizeOverlay
+  ) > .confirm-dialog::after{
+    content:none !important;
+    display:none !important;
+  }
+  html:not(.phone-landscape-layout) body :is(
+    #easterOverlay,
+    #tetrisWinOverlay,
+    #tetrisPrizeOverlay
+  ) :is(.confirm-icon,.tetris-win-icon){
+    display:none !important;
+  }
+  html:not(.phone-landscape-layout) body :is(
+    #easterOverlay,
+    #tetrisWinOverlay,
+    #tetrisPrizeOverlay
+  ) .confirm-title{
+    margin:0 0 7px !important;
+    color:var(--pc-modal-text) !important;
+    font-size:18px !important;
+    line-height:1.3 !important;
+    font-weight:650 !important;
+    text-align:left !important;
+  }
+  html:not(.phone-landscape-layout) body :is(
+    #easterOverlay,
+    #tetrisWinOverlay,
+    #tetrisPrizeOverlay
+  ) .confirm-text{
+    margin:0 0 10px !important;
+    color:var(--pc-modal-muted) !important;
+    font-size:13px !important;
+    line-height:1.5 !important;
+    text-align:left !important;
+  }
+  html:not(.phone-landscape-layout) body :is(
+    #easterOverlay,
+    #tetrisWinOverlay,
+    #tetrisPrizeOverlay
+  ) :is(.confirm-actions,.prize-actions){
+    display:grid !important;
+    grid-template-columns:minmax(0,1fr) 116px !important;
+    gap:8px !important;
+    width:100% !important;
+    margin:18px 0 0 !important;
+  }
+  html:not(.phone-landscape-layout) body :is(
+    #easterOverlay,
+    #tetrisWinOverlay,
+    #tetrisPrizeOverlay
+  ) :is(.confirm-actions,.prize-actions) > :only-child{
+    grid-column:1 / -1 !important;
+  }
+  html:not(.phone-landscape-layout) body :is(
+    #easterOverlay,
+    #tetrisWinOverlay,
+    #tetrisPrizeOverlay
+  ) :is(.loadcell-primary,.loadcell-cancel){
+    width:100% !important;
+    min-height:44px !important;
+    margin:0 !important;
+    border-radius:6px !important;
+    box-shadow:none !important;
+    font-size:13px !important;
+    font-weight:650 !important;
+  }
+  html:not(.phone-landscape-layout) body :is(
+    #easterOverlay,
+    #tetrisWinOverlay,
+    #tetrisPrizeOverlay
+  ) .loadcell-primary{
+    border:1px solid #d0d2d6 !important;
+    background:#e7e8ea !important;
+    color:#17181a !important;
+  }
+  html:not(.phone-landscape-layout) body #tetrisPrizeOverlay .loadcell-cancel{
+    border:1px solid #373a40 !important;
+    background:var(--pc-modal-raised) !important;
+    color:#c5c8ce !important;
+  }
+  html:not(.phone-landscape-layout) body #tetrisPrizeOverlay .prize-card{
+    border:1px solid #34373c !important;
+    border-radius:6px !important;
+    background:#1b1d20 !important;
+    box-shadow:none !important;
+  }
+  html:not(.phone-landscape-layout) body #tetrisPrizeOverlay .prize-code{
+    color:#e6e7e9 !important;
+  }
+
+  /* Main settings stays spacious, but now belongs to the same modal family. */
+  html:not(.phone-landscape-layout) body #settingsOverlay > .settings-dialog{
+    width:min(980px, calc(100vw - 64px)) !important;
+    max-width:980px !important;
+    height:min(680px, calc(100dvh - 64px)) !important;
+    max-height:calc(100dvh - 64px) !important;
+    padding:0 !important;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .settings-header{
+    flex:0 0 60px !important;
+    justify-content:flex-start !important;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .settings-body{
+    margin:0 !important;
+    padding:18px 20px 20px !important;
+    gap:18px !important;
+    background:var(--pc-modal-surface) !important;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .settings-nav{
+    width:180px !important;
+    padding:0 16px 0 0 !important;
+    border-right:1px solid var(--pc-modal-divider) !important;
+    gap:4px !important;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .settings-nav-btn{
+    min-height:38px !important;
+    padding:0 10px !important;
+    border:1px solid transparent !important;
+    border-radius:6px !important;
+    background:transparent !important;
+    color:#9da2ab !important;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .settings-nav-btn:hover{
+    background:#1c1e21 !important;
+    color:#e3e4e6 !important;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .settings-nav-btn.active{
+    border-color:#373a40 !important;
+    background:#24262a !important;
+    color:#f3f4f6 !important;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .settings-nav-badge{
+    color:#747982 !important;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .settings-panels{
+    padding:0 8px 0 0 !important;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .settings-group{
+    border-top-color:var(--pc-modal-divider) !important;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay :is(.settings-label,.settings-group-title){
+    color:#e3e4e6 !important;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay :is(.settings-desc,.hint-mini){
+    color:var(--pc-modal-muted) !important;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay :is(
+    .settings-select,
+    .settings-number,
+    .settings-inline-btn,
+    .settings-btn
+  ){
+    border:1px solid #373a40 !important;
+    border-radius:6px !important;
+    background:#101113 !important;
+    color:#e7e8ea !important;
+    box-shadow:none !important;
+  }
+
+  /* Report and connection sheets are compact variations of the same shell. */
+  html:not(.phone-landscape-layout) body #flashLinkReportOverlay > .flash-link-report-dialog{
+    width:min(620px, calc(100vw - 48px)) !important;
+    max-width:620px !important;
+    height:auto !important;
+    min-height:0 !important;
+    max-height:calc(100dvh - 48px) !important;
+    padding:0 !important;
+  }
+  html:not(.phone-landscape-layout) body #flashLinkReportOverlay .flash-link-report-body,
+  html:not(.phone-landscape-layout) body :is(#wifiConnectOverlay,#serialConnectOverlay) .connection-sheet-body{
+    padding:22px !important;
+  }
+  html:not(.phone-landscape-layout) body #flashLinkReportOverlay .confirm-actions{
+    display:grid !important;
+    grid-template-columns:minmax(0,1fr) 116px !important;
+    gap:8px !important;
+    width:100% !important;
+    margin:18px 0 0 !important;
+  }
+  html:not(.phone-landscape-layout) body #flashLinkReportOverlay :is(
+    .loadcell-primary,
+    .confirm-cancel
+  ){
+    width:100% !important;
+    min-height:44px !important;
+    margin:0 !important;
+    border-radius:6px !important;
+    box-shadow:none !important;
+    font-size:13px !important;
+    font-weight:650 !important;
+    text-decoration:none !important;
+  }
+  html:not(.phone-landscape-layout) body #flashLinkReportOverlay .loadcell-primary{
+    border:1px solid #d0d2d6 !important;
+    background:#e7e8ea !important;
+    color:#17181a !important;
+  }
+  html:not(.phone-landscape-layout) body #flashLinkReportOverlay .confirm-cancel{
+    border:1px solid #373a40 !important;
+    background:var(--pc-modal-raised) !important;
+    color:#c5c8ce !important;
+  }
+  html:not(.phone-landscape-layout) body :is(#wifiConnectOverlay,#serialConnectOverlay) > .connection-sheet-dialog{
+    width:min(520px, calc(100vw - 48px)) !important;
+    max-width:520px !important;
+    height:auto !important;
+    min-height:0 !important;
+    max-height:calc(100dvh - 48px) !important;
+    padding:0 !important;
+  }
+  html:not(.phone-landscape-layout) body :is(#wifiConnectOverlay,#serialConnectOverlay) :is(
+    .connection-sheet-desc,
+    .connection-sheet-note
+  ){
+    color:var(--pc-modal-muted) !important;
+    text-align:left !important;
+  }
+  html:not(.phone-landscape-layout) body :is(#wifiConnectOverlay,#serialConnectOverlay) .connection-sheet-primary,
+  html:not(.phone-landscape-layout) body #connectionGuideOverlay .connection-guide-action{
+    width:100% !important;
+    min-height:44px !important;
+    border:1px solid #d0d2d6 !important;
+    border-radius:6px !important;
+    background:#e7e8ea !important;
+    color:#17181a !important;
+    box-shadow:none !important;
+    font-size:13px !important;
+    font-weight:650 !important;
+  }
+
+  /* Large information dialogs retain their content density with the new shell. */
+  html:not(.phone-landscape-layout) body #connectionGuideOverlay > .connection-guide-dialog{
+    width:min(680px, calc(100vw - 64px)) !important;
+    max-width:680px !important;
+    max-height:calc(100dvh - 64px) !important;
+    overflow:hidden !important;
+  }
+  html:not(.phone-landscape-layout) body #connectionGuideOverlay :is(
+    .connection-guide-summary,
+    .connection-guide-steps li,
+    .connection-guide-note
+  ){
+    border-color:#34373c !important;
+    border-radius:6px !important;
+    background:#1b1d20 !important;
+    color:#e6e7e9 !important;
+    box-shadow:none !important;
+  }
+  html:not(.phone-landscape-layout) body #connectionGuideOverlay :is(
+    .connection-guide-summary span,
+    .connection-guide-steps li span,
+    .connection-guide-note span
+  ){
+    color:var(--pc-modal-muted) !important;
+  }
+  html:not(.phone-landscape-layout) body #flashLinkTopologyOverlay > .flash-link-topology-dialog{
+    overflow:hidden !important;
+  }
+  html:not(.phone-landscape-layout) body #flashLinkTopologyOverlay .flash-link-topology-header{
+    color:var(--pc-modal-text) !important;
+  }
+  html:not(.phone-landscape-layout) body #flashLinkTopologyOverlay :is(
+    .flash-link-topology-metrics,
+    .flash-link-topology-footer
+  ){
+    border-color:var(--pc-modal-divider) !important;
+    background:#191a1d !important;
+    color:#c8cbd0 !important;
+  }
+}
