@@ -5757,7 +5757,7 @@ function requestMobileMockup3dMesh(){
     // ✅ RelaySafe/LOCKOUT
     let relaySafeEnabled = true;
     let safetyModeEnabled = false;
-    const BOARD_CONTROL_CONFIRM_TIMEOUT_MS = 3600;
+    const BOARD_CONTROL_CONFIRM_TIMEOUT_MS = 5000;
     const pendingBoardControls = {
       safety:null,
       armLock:null
@@ -9476,6 +9476,29 @@ function requestMobileMockup3dMesh(){
         key:"board-control-" + kind,
         duration:2200
       });
+      return true;
+    }
+
+    function reconcileBoardControlSerialCompletion(replyKind, message){
+      if(replyKind !== "ack") return false;
+      const upper = String(message || "").trim().toUpperCase();
+      if(upper.indexOf("FLASH_LINK_STATE") !== 0) return false;
+      const codeMatch = upper.match(/\bCODE=(\d+)/);
+      const valueMatch = upper.match(/\bVALUE=(-?\d+)/);
+      if(!codeMatch || !valueMatch) return false;
+      const commandCode = Number(codeMatch[1]);
+      const kind = commandCode === 1 ? "safety" : (commandCode === 2 ? "armLock" : null);
+      if(!kind) return false;
+      const pending = pendingBoardControls[kind];
+      if(!pending) return true;
+      const applied = Number(valueMatch[1]) !== 0;
+      pending.lastObserved = applied;
+      // A completion from an older request can arrive after the operator has
+      // already selected the opposite state. Only settle the current request
+      // when the applied value matches that request.
+      if(applied === pending.expected){
+        confirmBoardControlPending(kind, pending, applied);
+      }
       return true;
     }
 
@@ -20413,7 +20436,7 @@ function requestMobileMockup3dMesh(){
         fw_program:"Altis_Intelligent3_firmware1",
         fw_board:"Altis_Intelligent3_b3",
         fw_protocol:"Flash6-Intelligent-b3",
-        fw_build:"v6 b9"
+        fw_build:"v6 b10"
       };
     }
 
@@ -20869,6 +20892,7 @@ function requestMobileMockup3dMesh(){
         if(spiStatusInfo){
           updateSpiFlashStatusUi(spiStatusInfo, null);
         }
+        reconcileBoardControlSerialCompletion("ack", msg);
         addLogLine("ACK " + msg, "SER");
         dispatchSerialAck("ack", msg, raw);
         return;
@@ -31745,36 +31769,52 @@ function requestMobileMockup3dMesh(){
         if(!serialTxEnabled){
           return {ok:false, reason:"SERIAL_TX_DISABLED"};
         }
-        let result = null;
-        for(let attempt = 0; attempt < 2; attempt++){
-          result = await requestSerialCommandAck(
-            path,
-            (evt)=>{
-              const message = String(evt.message || "").toUpperCase();
-              // QUEUED only confirms reception by the ground node. Keep the
-              // waiter alive until the avionics node reports execution.
-              if(message.indexOf("FLASH_LINK_COMMANDS_QUEUED") === 0) return false;
-              if(message.indexOf("FLASH_LINK_STATE") === 0){
-                return new RegExp("\\bCODE=" + commandCode + "(?:\\b|$)").test(message) &&
-                  new RegExp("\\bVALUE=" + value + "(?:\\b|$)").test(message);
-              }
-              if(message.indexOf("STREAM=") === 0){
-                const field = isSafety ? "SAFE" : "ARM_LOCK";
-                return new RegExp("\\b" + field + "=" + value + "(?:\\b|$)").test(message);
-              }
-              return false;
-            },
-            {
-              timeoutMs:attempt === 0 ? 700 : 1200,
-              writeTimeoutMs:700
-            }
-          );
-          if(result && result.ok) break;
-          if(result && result.kind === "err") break;
+        const waiter = createSerialAckWaiter((evt)=>{
+          const message = String(evt.message || "").toUpperCase();
+          if(message.indexOf("FLASH_LINK_COMMANDS_QUEUED") === 0 ||
+             message.indexOf("FLASH_LINK_COMMAND_QUEUED") === 0){
+            const queuedCode = message.match(/\bCODE=(\d+)/);
+            const queuedValue = message.match(/\bVALUE=(-?\d+)/);
+            if(queuedCode && Number(queuedCode[1]) !== commandCode) return false;
+            if(queuedValue && Number(queuedValue[1]) !== value) return false;
+            return evt.kind === "ack";
+          }
+          if(message.indexOf("FLASH_LINK_STATE") === 0){
+            return new RegExp("\\bCODE=" + commandCode + "(?:\\b|$)").test(message) &&
+              (evt.kind === "err" ||
+                new RegExp("\\bVALUE=" + value + "(?:\\b|$)").test(message));
+          }
+          if(evt.kind === "ack" && message.indexOf("STREAM=") === 0){
+            const field = isSafety ? "SAFE" : "ARM_LOCK";
+            return new RegExp("\\b" + field + "=" + value + "(?:\\b|$)").test(message);
+          }
+          return false;
+        }, 1400);
+        const wrote = await serialWriteLine(path, {timeoutMs:700});
+        if(!wrote){
+          cancelSerialAckWaiter(waiter, "SERIAL_WRITE_FAIL");
+        }
+        const result = await waiter.promise;
+        const message = String((result && result.message) || "").toUpperCase();
+        const queued = !!(result && result.ok &&
+          (message.indexOf("FLASH_LINK_COMMANDS_QUEUED") === 0 ||
+           message.indexOf("FLASH_LINK_COMMAND_QUEUED") === 0));
+        const confirmed = !!(result && result.ok && !queued);
+        // A successful USB write can outlive a congested textual ACK. Keep the
+        // board-state request pending for telemetry/completion confirmation
+        // instead of reporting a false SERIAL_TIMEOUT and sending a duplicate.
+        if(result && result.kind === "timeout" && serialConnected){
+          return {
+            ok:true,
+            queued:true,
+            confirmed:false,
+            reason:"SERIAL_ACK_PENDING"
+          };
         }
         return {
           ok:!!(result && result.ok),
-          confirmed:!!(result && result.ok),
+          queued,
+          confirmed,
           reason:(result && (result.message || result.kind)) || "SERIAL_NO_REPLY"
         };
       }

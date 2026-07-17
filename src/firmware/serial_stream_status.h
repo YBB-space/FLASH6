@@ -443,6 +443,9 @@ void handleSerialLine(const char* line) {
     const bool forwardRemote = flashLinkGroundRole() && !localCommunicationRequest;
     bool remoteRequested = false;
     bool remoteQueued = true;
+    uint8_t remoteRequestCount = 0;
+    uint8_t remoteRequestCode = 0;
+    int32_t remoteRequestValue = 0;
     String requestedMode;
     String requestedRole;
     String requestedDataMode;
@@ -450,6 +453,11 @@ void handleSerialLine(const char* line) {
     String requestedStage2Mode;
     auto queueRemote = [&](FlashLinkCommandCode code, int32_t value) {
       remoteRequested = true;
+      remoteRequestCount++;
+      if (remoteRequestCount == 1U) {
+        remoteRequestCode = static_cast<uint8_t>(code);
+        remoteRequestValue = value;
+      }
       if (!flashLinkQueueCommand(code, value)) remoteQueued = false;
     };
     int q = cmd.indexOf('?');
@@ -565,10 +573,16 @@ void handleSerialLine(const char* line) {
       restartAtMs = millis() + 900U;
     }
     if (remoteRequested) {
-      Serial.println(
-        remoteQueued
-          ? "ACK FLASH_LINK_COMMANDS_QUEUED target=avionics"
-          : "ERR FLASH_LINK_COMMAND_QUEUE_FULL");
+      if (!remoteQueued) {
+        Serial.println("ERR FLASH_LINK_COMMAND_QUEUE_FULL");
+      } else if (remoteRequestCount == 1U) {
+        Serial.printf(
+          "ACK FLASH_LINK_COMMANDS_QUEUED target=avionics code=%u value=%ld\n",
+          (unsigned)remoteRequestCode,
+          (long)remoteRequestValue);
+      } else {
+        Serial.println("ACK FLASH_LINK_COMMANDS_QUEUED target=avionics");
+      }
       return;
     }
     Serial.printf("ACK STREAM=%u SAFE=%u ARM_LOCK=%u INSPECTION=%u DEV_MODE=%u OP_MODE=%s FLASH_LINK_ROLE=%s FLASH_LINK_NODE=%u FLASH_LINK_TARGET=%u FLASH_LINK_STAGE2_MODE=%u FLASH_LINK_HZ=%lu FLASH_LINK_DATA_MODE=%s RESTART=%u MUTE=%u IGN_MS=%lu CD_MS=%lu DAQ_SEQ_PYRO=%u\n",

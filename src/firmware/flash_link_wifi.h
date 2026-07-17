@@ -494,13 +494,23 @@ bool flashLinkQueueCommand(
       FlashLinkCommandQueueEntry& pending = flashLinkCommandQueue[index];
       if (pending.command.code == codeValue &&
           pending.targetNodeId == flashLinkTargetNodeId &&
-          (coalesceByCode || pending.command.arg0 == arg0) &&
-          pending.attempts == 0U) {
-        pending.command.arg0 = arg0;
-        pending.command.arg1 = arg1;
-        pending.command.arg2 = arg2;
-        coalesced = true;
-        break;
+          (coalesceByCode || pending.command.arg0 == arg0)) {
+        if (pending.attempts == 0U) {
+          pending.command.arg0 = arg0;
+          pending.command.arg1 = arg1;
+          pending.command.arg2 = arg2;
+          coalesced = true;
+          break;
+        }
+        if (pending.command.arg0 == arg0 &&
+            pending.command.arg1 == arg1 &&
+            pending.command.arg2 == arg2) {
+          // The same control request is already on the air. Treat another USB
+          // or HTTP submission as the same request instead of allocating a new
+          // transaction that can execute after the UI waiter has timed out.
+          duplicate = true;
+          break;
+        }
       }
     }
   }
@@ -1777,6 +1787,54 @@ void flashLinkApplyTelemetryForGroundPeer(
   peer.remoteValid = true;
 }
 
+bool flashLinkGroundConfirmStateCommandFromTelemetry(
+  const FlashLinkGroundPeer& peer
+) {
+  bool confirmed = false;
+  uint32_t transaction = 0;
+  uint8_t code = 0;
+  int32_t appliedValue = 0;
+  portENTER_CRITICAL(&flashLinkCommandMux);
+  if (flashLinkCommandCount > 0U) {
+    const FlashLinkCommandQueueEntry& pending =
+      flashLinkCommandQueue[flashLinkCommandHead];
+    code = pending.command.code;
+    const bool stateCommand =
+      code == static_cast<uint8_t>(FlashLinkCommandCode::SetSafety) ||
+      code == static_cast<uint8_t>(FlashLinkCommandCode::SetArmLock);
+    if (stateCommand && pending.targetNodeId == peer.nodeId) {
+      const uint16_t stateMask =
+        code == static_cast<uint8_t>(FlashLinkCommandCode::SetSafety)
+          ? (1U << 9)
+          : (1U << 10);
+      appliedValue = (peer.state.flags & stateMask) != 0U ? 1 : 0;
+      if (appliedValue == (pending.command.arg0 != 0 ? 1 : 0)) {
+        transaction = pending.command.transaction;
+        flashLinkCommandHead =
+          (uint8_t)((flashLinkCommandHead + 1U) % kFlashLinkCommandQueueDepth);
+        flashLinkCommandCount--;
+        confirmed = true;
+      }
+    }
+  }
+  portEXIT_CRITICAL(&flashLinkCommandMux);
+  if (!confirmed) return false;
+
+  flashLink.commandAcked++;
+  flashLink.lastCommandCode = code;
+  flashLink.lastCommandResult =
+    static_cast<uint8_t>(FlashLinkCommandResult::Ok);
+  Serial.printf("ACK FLASH_LINK_STATE code=%u value=%ld\n",
+                (unsigned)code,
+                (long)appliedValue);
+  Serial.printf(
+    "[FLASH_LINK] command confirmed by telemetry txn=%lu code=%u value=%ld\n",
+    (unsigned long)transaction,
+    (unsigned)code,
+    (long)appliedValue);
+  return true;
+}
+
 void flashLinkApplyMissionAlarmForGroundPeer(
   FlashLinkGroundPeer& peer,
   const FlashLinkMissionAlarmV1& in
@@ -2473,6 +2531,7 @@ void flashLinkHandlePacket(FlashLinkRxSlot& slot) {
     }
     groundPeer->linked = groundPeer->directLinked || groundPeer->relayLinked;
     flashLinkApplyTelemetryForGroundPeer(*groundPeer, telemetry);
+    flashLinkGroundConfirmStateCommandFromTelemetry(*groundPeer);
     flashLinkGroundAutoSelectTarget(nowMs);
     if (groundPeer->nodeId == flashLinkTargetNodeId) {
       flashLinkGroundRefreshSelectedPeer();
@@ -3039,6 +3098,25 @@ bool flashLinkStage2DirectGroundTick(uint32_t nowMs) {
   return false;
 }
 
+bool flashLinkFlushPendingCommandAck() {
+  if (!flashLink.commandAckPending || flashLink.txBusy) return false;
+  if (flashLinkSendPacket(
+        FlashLinkPacketType::CommandAck,
+        flashLink.commandAckDestination,
+        &flashLink.commandAck,
+        sizeof(flashLink.commandAck))) {
+    flashLink.commandAckPending = false;
+    memset(
+      flashLink.commandAckDestination,
+      0,
+      sizeof(flashLink.commandAckDestination));
+  }
+  // Reserve this service turn for the completion ACK even when esp_now_send
+  // rejects the first attempt. Background relay/telemetry work must not jump
+  // ahead of an operator control acknowledgement.
+  return true;
+}
+
 void flashLinkTick() {
   if (!flashLinkMode || !flashLink.initialized) return;
 
@@ -3067,6 +3145,7 @@ void flashLinkTick() {
     flashLink.txBusy = false;
     flashLink.txFail++;
   }
+  if (flashLinkFlushPendingCommandAck()) return;
   if (flashLinkStage1RelayTick(nowMs)) return;
   if (flashLinkGroundRole()) {
     flashLinkGroundTick(nowMs);
@@ -3144,21 +3223,6 @@ void flashLinkTick() {
       return;
     }
     if (!flashLinkStage2DirectGroundActive(nowMs)) return;
-  }
-
-  if (flashLink.commandAckPending && !flashLink.txBusy) {
-    if (flashLinkSendPacket(
-          FlashLinkPacketType::CommandAck,
-          flashLink.commandAckDestination,
-          &flashLink.commandAck,
-          sizeof(flashLink.commandAck))) {
-      flashLink.commandAckPending = false;
-      memset(
-        flashLink.commandAckDestination,
-        0,
-        sizeof(flashLink.commandAckDestination));
-    }
-    return;
   }
 
   if (flashLink.ackPending && flashLink.peerReady && !flashLink.txBusy) {

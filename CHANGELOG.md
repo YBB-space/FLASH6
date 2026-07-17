@@ -3,6 +3,24 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.8.4 — v6 b10 — 2026-07-17
+
+Protocol: `Flash6-Intelligent-b3` (wire version `3`, unchanged)
+
+- Split USB control handling into immediate ground-node queue receipt and later
+  avionics execution confirmation, so a valid in-flight command no longer
+  reports a false serial timeout.
+- Removed the 700 ms duplicate safety/ARM retransmission from the UI and keep a
+  successfully written request pending for telemetry or completion-ACK
+  confirmation.
+- Suppressed identical safety/ARM transactions that are already on the radio
+  queue while still allowing a newer opposite-state request to follow them.
+- Prioritized command completion ACKs ahead of relay telemetry and enriched the
+  USB queue receipt with command code and requested value for precise matching.
+- Treat matching remote safety/ARM telemetry as authoritative completion when
+  the dedicated radio ACK is lost, eliminating an error after the requested
+  state has already been applied.
+
 ## 0.8.3 — v6 b9 — 2026-07-17
 
 Protocol: `Flash6-Intelligent-b3` (wire version `3`, unchanged)
