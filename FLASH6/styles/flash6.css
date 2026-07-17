@@ -25365,6 +25365,28 @@ html body #replayDataPickerOverlay.replay-data-picker-overlay{
   inset:0 !important;
   z-index:2147483646 !important;
 }
+
+/*
+ * Storage overlays are direct body children and must not inherit the
+ * dashboard preview rule that hides generic mobile picker overlays.
+ * Keep the list below its confirmation dialogs and the transfer lock.
+ */
+html body #dataListOverlay.mobile-chart-picker-overlay{
+  position:fixed !important;
+  inset:0 !important;
+  z-index:2147483642 !important;
+}
+html body #dataDownloadConfirmOverlay.mobile-chart-picker-overlay,
+html body #dataResetConfirmOverlay.mobile-chart-picker-overlay{
+  position:fixed !important;
+  inset:0 !important;
+  z-index:2147483645 !important;
+}
+html body #dataListOverlay.mobile-chart-picker-overlay:not(.hidden),
+html body #dataDownloadConfirmOverlay.mobile-chart-picker-overlay:not(.hidden),
+html body #dataResetConfirmOverlay.mobile-chart-picker-overlay:not(.hidden){
+  display:flex !important;
+}
 body.camera-view-active .camera-gauge{
   --gColor:rgba(255,255,255,.96) !important;
   filter:drop-shadow(0 14px 34px rgba(0,0,0,.56)) !important;
