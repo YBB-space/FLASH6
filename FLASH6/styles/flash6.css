@@ -28607,3 +28607,326 @@ html body #pyroControlOverlay > #pyroControlDialog > .settings-header > .setting
     cursor:not-allowed !important;
   }
 }
+
+/* Refined product information panel. */
+.fw-info-group{
+  width:100%;
+  box-sizing:border-box;
+}
+.fw-product-card{
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  align-items:center;
+  gap:18px;
+  width:100%;
+  min-height:104px;
+  padding:18px 20px;
+  box-sizing:border-box;
+  border:1px solid #303339;
+  border-radius:8px;
+  background:#111315;
+}
+.fw-product-card .fw-head{
+  display:block;
+  margin:0;
+  padding:0;
+}
+.fw-product-card .fw-logo-block{
+  display:flex;
+  align-items:center;
+  flex-wrap:nowrap;
+  gap:11px;
+}
+.fw-product-card .fw-f-logo{
+  width:34px;
+  height:34px;
+  opacity:.92;
+  filter:none;
+}
+.fw-product-card .fw-altis-logo{
+  width:118px;
+  height:34px;
+  opacity:.92;
+  filter:none;
+}
+.fw-product-copy{
+  min-width:0;
+  padding-left:18px;
+  border-left:1px solid #303339;
+}
+.fw-product-eyebrow{
+  margin:0 0 7px;
+  color:#777d86;
+  font-size:9px;
+  line-height:1;
+  font-weight:700;
+  letter-spacing:.16em;
+}
+.fw-product-copy h2{
+  margin:0;
+  color:#f0f1f3;
+  font-size:18px;
+  line-height:1.2;
+  font-weight:630;
+  letter-spacing:.01em;
+}
+.fw-product-copy p{
+  margin:7px 0 0;
+  color:#8f949d;
+  font-size:11px;
+  line-height:1.4;
+}
+.fw-release-state{
+  align-self:start;
+  min-height:26px;
+  padding:0 10px;
+  display:inline-flex;
+  align-items:center;
+  border:1px solid #3b3e44;
+  border-radius:5px;
+  background:#202226;
+  color:#b9bdc4;
+  font-size:9px;
+  line-height:1;
+  font-weight:700;
+  letter-spacing:.1em;
+  white-space:nowrap;
+}
+.fw-build-grid{
+  display:grid;
+  grid-template-columns:minmax(0,1.65fr) minmax(120px,.65fr) minmax(0,1fr);
+  width:100%;
+  margin:12px 0 0;
+  padding:0;
+  border:1px solid #303339;
+  border-radius:8px;
+  background:#17191c;
+  overflow:hidden;
+}
+.fw-build-grid > div{
+  min-width:0;
+  padding:15px 17px;
+  border-right:1px solid #303339;
+}
+.fw-build-grid > div:last-child{
+  border-right:0;
+}
+.fw-build-grid dt{
+  margin:0 0 8px;
+  color:#747a83;
+  font-size:9px;
+  line-height:1;
+  font-weight:700;
+  letter-spacing:.15em;
+}
+.fw-build-grid dd{
+  min-width:0;
+  margin:0;
+  overflow:hidden;
+  color:#d9dce1;
+  font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace;
+  font-size:11px;
+  line-height:1.35;
+  font-weight:560;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.fw-credits-grid{
+  display:grid;
+  grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);
+  gap:12px;
+  width:100%;
+  margin:12px 0 0;
+}
+.fw-credit-block{
+  min-width:0;
+  min-height:86px;
+  padding:15px 17px;
+  box-sizing:border-box;
+  border:1px solid #303339;
+  border-radius:8px;
+  background:#17191c;
+}
+.fw-credit-block .fw-team-inline,
+.fw-credit-block .fw-partner-inline{
+  height:100%;
+  margin:0;
+  gap:12px;
+}
+.fw-credit-block .fw-team-inline-label{
+  color:#747a83;
+  font-size:9px;
+  font-weight:700;
+  letter-spacing:.15em;
+}
+.fw-credit-block .fw-team-inline-logos{
+  min-height:34px;
+  gap:14px;
+}
+.fw-credit-block .fw-team-inline img{
+  width:auto;
+  height:24px;
+  max-width:112px;
+  opacity:.78;
+  filter:grayscale(1) brightness(1.45);
+}
+.fw-credit-block .fw-team-inline img.is-small{
+  height:17px;
+  filter:grayscale(1) brightness(1.65);
+}
+.fw-credit-block .fw-partner-logos{
+  width:100%;
+  min-height:34px;
+  margin:0;
+  padding:0;
+  gap:14px;
+  border:0;
+  border-radius:0;
+  background:transparent;
+}
+.fw-credit-block .fw-partner-logo{
+  height:27px;
+  opacity:.78;
+  filter:grayscale(1) brightness(1.25);
+}
+.fw-credit-block .fw-partner-logo.is-jlcpcb{width:70px}
+.fw-credit-block .fw-partner-logo.is-jlcpcb img{width:82px}
+.fw-credit-block .fw-partner-logo.is-easyeda{width:98px}
+.fw-credit-block .fw-partner-logo.is-easyeda img{width:98px}
+.fw-credit-block .fw-partner-logo.is-innospace{width:145px}
+.fw-credit-block .fw-partner-logo.is-innospace img{width:150px}
+.fw-legal{
+  width:100%;
+  margin:12px 0 0;
+  border:1px solid #303339;
+  border-radius:8px;
+  background:#17191c;
+  color:#d3d5d9;
+  overflow:hidden;
+}
+.fw-legal summary{
+  position:relative;
+  min-height:48px;
+  padding:0 42px 0 17px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  box-sizing:border-box;
+  cursor:pointer;
+  list-style:none;
+  user-select:none;
+}
+.fw-legal summary::-webkit-details-marker{
+  display:none;
+}
+.fw-legal summary::after{
+  content:"+";
+  position:absolute;
+  right:17px;
+  top:50%;
+  color:#858a92;
+  font-size:18px;
+  line-height:1;
+  font-weight:400;
+  transform:translateY(-50%);
+}
+.fw-legal[open] summary::after{
+  content:"−";
+}
+.fw-legal summary span{
+  color:#cfd2d7;
+  font-size:11px;
+  line-height:1.2;
+  font-weight:600;
+}
+.fw-legal summary strong{
+  margin-left:auto;
+  color:#747a83;
+  font-size:9px;
+  line-height:1;
+  font-weight:700;
+  letter-spacing:.13em;
+}
+.fw-legal-body{
+  padding:14px 17px 16px;
+  border-top:1px solid #303339;
+  color:#858b94;
+  font-size:10px;
+  line-height:1.55;
+}
+.fw-legal-body p{
+  margin:0 0 8px;
+}
+.fw-legal-body p:last-child{
+  margin-bottom:0;
+}
+
+@media (min-width:901px){
+  html:not(.phone-landscape-layout) body #settingsOverlay .settings-panel[data-panel="fw"]{
+    width:100%;
+    max-width:820px;
+    margin:0 auto;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .settings-panel[data-panel="fw"] .fw-info-group{
+    margin:0 !important;
+    padding:0 !important;
+    border:0 !important;
+    background:transparent !important;
+  }
+}
+
+@media (max-width:900px){
+  .fw-product-card{
+    grid-template-columns:minmax(0,1fr) auto;
+    gap:14px;
+    min-height:0;
+    padding:16px;
+  }
+  .fw-product-card .fw-head{
+    grid-column:1 / -1;
+  }
+  .fw-product-copy{
+    padding-left:0;
+    border-left:0;
+  }
+  .fw-product-copy h2{
+    font-size:16px;
+  }
+  .fw-product-copy p{
+    display:none;
+  }
+  .fw-build-grid{
+    grid-template-columns:1fr;
+  }
+  .fw-build-grid > div{
+    display:grid;
+    grid-template-columns:92px minmax(0,1fr);
+    align-items:center;
+    gap:10px;
+    padding:13px 15px;
+    border-right:0;
+    border-bottom:1px solid #303339;
+  }
+  .fw-build-grid > div:last-child{
+    border-bottom:0;
+  }
+  .fw-build-grid dt{
+    margin:0;
+  }
+  .fw-build-grid dd{
+    text-align:right;
+  }
+  .fw-credits-grid{
+    grid-template-columns:1fr;
+  }
+  .fw-credit-block{
+    min-height:78px;
+  }
+  .fw-credit-block .fw-partner-logos{
+    flex-wrap:wrap;
+  }
+  .fw-legal summary strong{
+    display:none;
+  }
+}

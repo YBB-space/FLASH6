@@ -124,7 +124,7 @@
   <!-- Preload 축소: AP 모드/저메모리 환경에서 동시 요청 버스트를 줄임 -->
   <script>
     (function(){
-    var ASSET_VER = "20260717-solid-modal-buttons-b18-333";
+    var ASSET_VER = "20260717-refined-info-panel-b18-334";
       window.__flashBoot = window.__flashBoot || {jsReady:false,lastError:"",phase:"static_loader",version:ASSET_VER};
       var isLocalPreview = !!window.__flashBoot.localPreview;
       var beaconEnabled = (window.__flashBoot.beaconEnabled !== false);
@@ -374,7 +374,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="styles/flash6.css?v=20260717-solid-modal-buttons-b18-333">
+  <link rel="stylesheet" href="styles/flash6.css?v=20260717-refined-info-panel-b18-334">
 </head>
 <body>
   <!-- ✅ LOCKOUT 배경 오버레이 -->
@@ -2521,48 +2521,75 @@
 
             <!-- FW -->
             <div class="settings-panel" data-panel="fw">
-              <div class="settings-group">
-                <!-- ✅ 여기: "소프트웨어" 설정 안에 작은 F 로고 -->
-                <div class="fw-head">
-                  <div class="fw-logo-block">
-                    <img id="fwLogoEaster" class="fw-f-logo" src="img/Flash_logo.svg" alt="FLASH">
-                    <img class="fw-altis-logo" src="img/altis_logo_txt.svg" alt="ALTIS">
+              <div class="settings-group fw-info-group">
+                <section class="fw-product-card" aria-labelledby="fwProductTitle">
+                  <div class="fw-head">
+                    <div class="fw-logo-block">
+                      <img id="fwLogoEaster" class="fw-f-logo" src="img/Flash_logo.svg" alt="FLASH">
+                      <img class="fw-altis-logo" src="img/altis_logo_txt.svg" alt="ALTIS">
+                    </div>
                   </div>
-                </div>
-                <div class="settings-group-title" style="margin:0;">ALTIS INTELLIGENT 3</div>
+                  <div class="fw-product-copy">
+                    <div class="fw-product-eyebrow">AVIONICS CONTROL SOFTWARE</div>
+                    <h2 id="fwProductTitle">ALTIS INTELLIGENT 3</h2>
+                    <p>Flight telemetry, mission control and data acquisition.</p>
+                  </div>
+                  <span class="fw-release-state">STABLE · B18</span>
+                </section>
 
-                <div class="settings-row"><div class="settings-label"><br>Program</div><div class="settings-desc"><br>Altis_Intelligent3_firmware1</div></div>
-                <div class="settings-row"><div class="settings-label">Build ID</div><div class="settings-desc">v6 b18</div></div>
-                <div class="settings-row"><div class="settings-label">Protocol</div><div class="settings-desc">Flash6-Intelligent-b4</div></div>
-                <div class="settings-row">
-                  <div class="settings-desc" style="text-align:left;">
+                <dl class="fw-build-grid" aria-label="software build information">
+                  <div>
+                    <dt>PROGRAM</dt>
+                    <dd>Altis_Intelligent3_firmware1</dd>
+                  </div>
+                  <div>
+                    <dt>BUILD ID</dt>
+                    <dd>v6 b18</dd>
+                  </div>
+                  <div>
+                    <dt>PROTOCOL</dt>
+                    <dd>Flash6-Intelligent-b4</dd>
+                  </div>
+                </dl>
+
+                <div class="fw-credits-grid">
+                  <section class="fw-credit-block" aria-label="development team">
                     <div class="fw-team-inline" aria-hidden="true">
-                      <div class="fw-team-inline-label">TEAM</div>
+                      <div class="fw-team-inline-label">DEVELOPED BY</div>
                       <div class="fw-team-inline-logos">
                         <img src="img/altis_logo_txt.svg" alt="">
                         <img loading="lazy" decoding="async" src="img/gnu_logo.png" alt="">
                         <img loading="lazy" decoding="async" class="is-invert is-small" src="img/hanwool_logo.png" alt="">
                       </div>
                     </div>
+                  </section>
+                  <section class="fw-credit-block" aria-label="technology partners">
                     <div class="fw-partner-inline">
-                      <div class="fw-team-inline-label">TECHNOLOGY &amp; PARTNERS</div>
+                      <div class="fw-team-inline-label">TECHNOLOGY PARTNERS</div>
                       <div class="fw-partner-logos">
                         <span class="fw-partner-logo is-jlcpcb"><img loading="lazy" decoding="async" src="img/JLCPCB_logo.png" alt="JLCPCB"></span>
                         <span class="fw-partner-logo is-easyeda"><img loading="lazy" decoding="async" src="img/Easy_eda_logo.png" alt="EasyEDA"></span>
                         <span class="fw-partner-logo is-innospace"><img loading="lazy" decoding="async" src="img/innospace_logo.png" alt="Innospace"></span>
                       </div>
                     </div>
-                    뒤로가는 얘들 챙겨야 속도만 느려진다 새겨 들어라- PHC<br>
-                    Copyright (c) 2026 ALTIS - YBB<br>
-                    Permission is hereby granted, free of charge, to any person obtaining a copy
-                    of this software and associated documentation files (the “Software”), to deal
-                    in the Software without restriction, including without limitation the rights
-                    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-                    copies of the Software, and to permit persons to whom the Software is furnished
-                    to do so, subject to the following conditions:<br>
-                    • THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED.
-                  </div>
+                  </section>
                 </div>
+
+                <details class="fw-legal">
+                  <summary><span>오픈소스 및 법적 고지</span><strong>MIT LICENSE</strong></summary>
+                  <div class="fw-legal-body">
+                    <p>Copyright (c) 2026 ALTIS - YBB</p>
+                    <p>
+                      Permission is hereby granted, free of charge, to any person obtaining a copy
+                      of this software and associated documentation files (the “Software”), to deal
+                      in the Software without restriction, including without limitation the rights
+                      to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+                      copies of the Software, and to permit persons to whom the Software is furnished
+                      to do so, subject to the following conditions:
+                    </p>
+                    <p>THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED.</p>
+                  </div>
+                </details>
               </div>
             </div>
 
