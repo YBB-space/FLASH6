@@ -266,7 +266,6 @@ bool flashLinkRequestStorageReadWindowed(
   uint8_t activeCount = 0;
 
   const uint32_t startMs = millis();
-  uint32_t lastSendMs = 0;
   while ((uint32_t)(millis() - startMs) < max<uint32_t>(400U, timeoutMs)) {
     if (!flashLinkGroundPeerActive(targetNodeId)) {
       flashLinkStorageReadCancel(0);
@@ -370,9 +369,7 @@ bool flashLinkRequestStorageReadWindowed(
       return true;
     }
 
-    if (!flashLink.txBusy &&
-        (lastSendMs == 0 ||
-         (uint32_t)(nowMs - lastSendMs) >= kFlashLinkStorageRequestRetryMs)) {
+    if (!flashLink.txBusy) {
       for (uint8_t i = 0; i < kFlashLinkStorageWindowDepth; ++i) {
         PendingRead& read = reads[i];
         if (!read.active || read.attempts >= kFlashLinkStorageRequestMaxAttempts) {
@@ -400,7 +397,6 @@ bool flashLinkRequestStorageReadWindowed(
           read.sent = true;
           read.lastSendMs = nowMs;
           read.attempts++;
-          lastSendMs = nowMs;
         }
         break;
       }
@@ -409,7 +405,7 @@ bool flashLinkRequestStorageReadWindowed(
     // on loopTask. Keep servicing the radio while a loopTask caller waits so
     // the response queued by the ESP-NOW callback can actually be consumed.
     if (xTaskGetCurrentTaskHandle() == loopTaskHandle) flashLinkTick();
-    delay(2);
+    delay(1);
   }
 
   flashLinkStorageReadCancel(0);
@@ -2367,6 +2363,9 @@ void flashLinkHandlePacket(FlashLinkRxSlot& slot) {
       *reinterpret_cast<const FlashLinkStorageReadRequestV1*>(
         slot.data + sizeof(FlashLinkHeaderV1));
     FlashLinkStorageReadResponseV1 response{};
+    // Keep the link alive at a reduced telemetry rate while giving bulk
+    // storage responses most of the shared ESP-NOW airtime.
+    flashLink.storageTransferPriorityUntilMs = nowMs + 250U;
     response.transaction = request.transaction;
     response.offset = request.offset;
     response.len = 0;
@@ -3332,9 +3331,15 @@ void flashLinkTick() {
     }
   }
 
+  const bool storageTransferPriority =
+    flashLinkAvionicsRole() &&
+    (int32_t)(flashLink.storageTransferPriorityUntilMs - nowMs) > 0;
+  const uint32_t telemetryPeriodUs = storageTransferPriority
+    ? (1000000UL / kFlashLinkStorageTransferTelemetryHz)
+    : flashLinkTelemetryPeriodUs();
   if (flashLinkAvionicsRole() &&
       (uint32_t)(nowUs - flashLink.lastTelemetryTxUs) >=
-        flashLinkTelemetryPeriodUs()) {
+        telemetryPeriodUs) {
     flashLink.lastTelemetryTxUs = nowUs;
     if (flashLink.txBusy) {
       flashLink.txSkipped++;

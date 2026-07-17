@@ -31,6 +31,19 @@ BENCH_ITERATIONS=2000000 node --expose-gc benchmarks/performance_hotpaths.mjs
 
 스크립트는 기존/개선 알고리즘을 같은 입력으로 실행하고 다단 병합과 시리얼 파싱 결과 체크섬이 다르면 실패합니다. JavaScript JIT과 호스트 상태에 따라 절대 시간은 달라지므로 `speedup`과 반복 실행 중앙값을 비교하십시오.
 
+저장 기록 다운로드의 청크 왕복 횟수와 Base64 ACK 파서 비용은 다음
+벤치마크로 따로 확인합니다.
+
+```bash
+node benchmarks/storage_download_hotpaths.mjs
+```
+
+기본 31.25 MiB 파일에서 A.I LINK USB 프록시 요청은 32,000회에서
+4,000회로 87.5%, 직접 USB 요청은 21,334회에서 4,000회로 81.3%
+감소해야 합니다. 이 수치는 무선 환경과 무관한 정확한 청크 수이며,
+실제 전송 시간은 RSSI, ESP-NOW 재시도, USB 호스트 스케줄링을 포함해
+같은 파일을 두 빌드에서 내려받아 비교합니다.
+
 ## 펌웨어 빌드 자원 비교
 
 ```bash

@@ -143,9 +143,10 @@ void saveDeveloperMode() {
 }
 
 void setSerialStreamRequested(bool enabled) {
-  if (flashLinkGroundRole()) {
-    enabled = true;
-  } else if (flashLinkAvionicsRole() && !developerMode) {
+  // Ground defaults to streaming through applyDeveloperModeSerialPolicy(),
+  // but an explicit stream=0 must be honored during bulk storage transfer.
+  // The UI restores stream=1 as soon as the transfer finishes.
+  if (flashLinkAvionicsRole() && !developerMode) {
     enabled = false;
   }
   serialStream = enabled;

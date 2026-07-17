@@ -209,8 +209,9 @@ Supported controls:
   counters to the UI.
 - Sends telemetry ACKs at a constant 5 Hz to reduce reverse-link airtime while
   still detecting sequence gaps.
-- Reads remote W25Q storage through up to three pipelined 192-byte ESP-NOW read
-  requests per HTTP chunk. Busy responses are retried within the request window.
+- Reads remote W25Q storage through up to four pipelined 192-byte ESP-NOW read
+  requests per host aggregate. Busy responses are retried within the request
+  window.
 - Requests storage sessions in batches of up to eight entries. Each entry carries
   its session ID, logical offset, byte length, record count, and current-session flag,
   allowing the UI to download only the selected session range.
@@ -280,11 +281,12 @@ revisions should rotate keys per fleet or per paired board.
 
 ## Firmware Revision
 
-- Firmware version: `0.8.10`
-- Build ID: `v6 b16`
+- Firmware version: `0.8.11`
+- Build ID: `v6 b17`
 - Wire protocol: `Flash6-Intelligent-b3` / numeric version `3`
 - Storage record format: version `4` (unchanged and backward compatible)
 - Compatibility: the wire layout remains version `3` and is compatible with
-  `v6 b11` through `v6 b15`. Build `v6 b16` fixes the Base64 output capacity
-  used by USB-serial local and remote storage reads. ESP-NOW packet fields,
-  serial response fields, and routing semantics are unchanged.
+  `v6 b11` through `v6 b16`. Build `v6 b17` aggregates more unchanged storage
+  read frames per USB request, gives bulk reads temporary radio priority, and
+  remains able to consume smaller responses from older firmware. ESP-NOW packet
+  fields, serial response fields, and routing semantics are unchanged.

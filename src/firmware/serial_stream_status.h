@@ -1,3 +1,7 @@
+static uint8_t serialStorageBulkData[kSerialStorageChunkBytes];
+static unsigned char serialStorageBulkB64[
+  ((kSerialStorageChunkBytes + 2U) / 3U) * 4U + 1U];
+
 void serialPrintStorageStatus() {
   StorageLock lock;
   if (!lock) {
@@ -70,8 +74,19 @@ void serialPrintStorageItem(uint32_t idx) {
 }
 
 void serialPrintStorageChunk(uint32_t offset, uint32_t len) {
-  if (len == 0 || len > 1536U) len = 1536U;
-  if (!storageFlush(true)) {
+  static uint32_t previousReadEnd = UINT32_MAX;
+  static uint32_t previousReadAtMs = 0;
+  if (len == 0 || len > kSerialStorageChunkBytes) {
+    len = kSerialStorageChunkBytes;
+  }
+  const uint32_t nowMs = millis();
+  const bool continuingRead =
+    offset == previousReadEnd &&
+    (uint32_t)(nowMs - previousReadAtMs) <= 2000U;
+  // Flush once at the start of a contiguous export. Re-flushing on every
+  // chunk writes samples recorded during the export even though they are
+  // outside the already selected byte range.
+  if (!continuingRead && !storageFlush(true)) {
     Serial.println("ERR SPI_FLASH_READ FLUSH_FAILED");
     return;
   }
@@ -81,23 +96,29 @@ void serialPrintStorageChunk(uint32_t offset, uint32_t len) {
     return;
   }
 
-  static uint8_t data[1536];
-  static unsigned char b64[2052];
   size_t b64Len = 0;
-  if (!storageRead(offset, data, len)) {
+  if (!storageRead(offset, serialStorageBulkData, len)) {
+    previousReadEnd = UINT32_MAX;
     Serial.println("ERR SPI_FLASH_READ READ_FAILED");
     return;
   }
+  previousReadEnd = offset + len;
+  previousReadAtMs = millis();
   // mbedTLS requires room for both the encoded payload and its trailing NUL.
   // Passing payload capacity only makes exact-size chunks fail at the boundary.
-  const int rc = mbedtls_base64_encode(b64, sizeof(b64), &b64Len, data, len);
+  const int rc = mbedtls_base64_encode(
+    serialStorageBulkB64,
+    sizeof(serialStorageBulkB64),
+    &b64Len,
+    serialStorageBulkData,
+    len);
   if (rc != 0) {
     Serial.println("ERR SPI_FLASH_READ B64_FAILED");
     return;
   }
-  b64[b64Len] = '\0';
+  serialStorageBulkB64[b64Len] = '\0';
   Serial.printf("ACK SPI_FLASH_CHUNK off=%lu len=%lu b64=", (unsigned long)offset, (unsigned long)len);
-  Serial.write(b64, b64Len);
+  Serial.write(serialStorageBulkB64, b64Len);
   Serial.write('\n');
 }
 
@@ -165,17 +186,15 @@ void serialPrintRemoteStorageChunk(uint32_t offset, uint32_t len) {
     Serial.println("ERR SPI_FLASH_REMOTE_CHUNK LINK_UNAVAILABLE");
     return;
   }
-  if (len == 0U || len > kFlashLinkStorageHttpChunkBytes) {
-    len = kFlashLinkStorageHttpChunkBytes;
+  if (len == 0U || len > kFlashLinkStorageSerialChunkBytes) {
+    len = kFlashLinkStorageSerialChunkBytes;
   }
 
-  static uint8_t data[kFlashLinkStorageHttpChunkBytes];
-  static unsigned char b64[((kFlashLinkStorageHttpChunkBytes + 2U) / 3U) * 4U + 1U];
   uint16_t totalLen = 0;
   if (!flashLinkRequestStorageReadWindowed(
         offset,
         (uint16_t)len,
-        data,
+        serialStorageBulkData,
         totalLen,
         3200U) ||
       totalLen != len) {
@@ -185,20 +204,20 @@ void serialPrintRemoteStorageChunk(uint32_t offset, uint32_t len) {
 
   size_t b64Len = 0;
   if (mbedtls_base64_encode(
-        b64,
-        sizeof(b64),
+        serialStorageBulkB64,
+        sizeof(serialStorageBulkB64),
         &b64Len,
-        data,
+        serialStorageBulkData,
         totalLen) != 0) {
     Serial.println("ERR SPI_FLASH_REMOTE_CHUNK B64_FAILED");
     return;
   }
-  b64[b64Len] = '\0';
+  serialStorageBulkB64[b64Len] = '\0';
   Serial.printf(
     "ACK SPI_FLASH_REMOTE_CHUNK off=%lu len=%u b64=",
     (unsigned long)offset,
     (unsigned)totalLen);
-  Serial.write(b64, b64Len);
+  Serial.write(serialStorageBulkB64, b64Len);
   Serial.write('\n');
 }
 

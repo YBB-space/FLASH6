@@ -1,7 +1,7 @@
 
 constexpr char kFirmwareProgram[] = "Altis_Intelligent3_firmware1";
-constexpr char kFirmwareVersion[] = "0.8.10";
-constexpr char kFirmwareBuildId[] = "v6 b16";
+constexpr char kFirmwareVersion[] = "0.8.11";
+constexpr char kFirmwareBuildId[] = "v6 b17";
 constexpr char kFirmwareBoard[] = "Altis_Intelligent3_b3";
 constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b3";
 
@@ -11,6 +11,10 @@ constexpr uint32_t kSerialBaud = 921600;
 // replies behind many already queued JSON lines.
 constexpr size_t kSerialTxBufferActiveBytes = 4096;
 constexpr size_t kSerialTxBufferIdleBytes = 4096;
+// Bulk reads are emitted as one Base64 ACK line. Native USB CDC drains writes
+// incrementally, so a larger logical chunk removes host round trips without
+// requiring an equally large TinyUSB queue.
+constexpr uint16_t kSerialStorageChunkBytes = 8192;
 constexpr uint32_t kImuSampleHz = 200;
 constexpr uint32_t kSerialStreamHz = 100;
 constexpr uint32_t kWifiStreamHz = 50;
@@ -168,7 +172,15 @@ constexpr uint8_t kFlashLinkLongCommandMaxAttempts = 60;
 constexpr uint16_t kFlashLinkMaxPacketBytes = ESP_NOW_MAX_DATA_LEN;
 constexpr uint16_t kFlashLinkStorageChunkBytes = 192;
 constexpr uint16_t kFlashLinkStorageHttpChunkBytes = 1024;
-constexpr uint8_t kFlashLinkStorageWindowDepth = 3;
+// One host request is assembled from multiple unchanged 192-byte radio frames.
+// The larger aggregate cuts browser/USB request round trips while preserving
+// the ESP-NOW wire packet and the HTTP fallback response size.
+constexpr uint16_t kFlashLinkStorageSerialChunkBytes = 8192;
+constexpr uint8_t kFlashLinkStorageWindowDepth = 4;
+constexpr uint16_t kFlashLinkStorageTransferTelemetryHz = 20;
+static_assert(
+  kFlashLinkStorageSerialChunkBytes <= kSerialStorageChunkBytes,
+  "Shared serial storage buffer is smaller than the A.I LINK aggregate");
 constexpr uint8_t kFlashLinkStorageListBatchItems = 8;
 constexpr uint32_t kFlashLinkStorageRequestRetryMs = 70;
 constexpr uint8_t kFlashLinkStorageRequestMaxAttempts = 12;
@@ -980,6 +992,7 @@ struct FlashLinkRuntime {
   uint32_t lastTelemetryRxMs = 0;
   uint32_t lastTelemetryTxUs = 0;
   uint32_t lastStorageStatusTxMs = 0;
+  uint32_t storageTransferPriorityUntilMs = 0;
   uint32_t lastTxStartMs = 0;
   volatile uint32_t lastMacAckMs = 0;
   uint32_t txFrames = 0;

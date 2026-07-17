@@ -20492,7 +20492,7 @@ function requestMobileMockup3dMesh(){
         fw_program:"Altis_Intelligent3_firmware1",
         fw_board:"Altis_Intelligent3_b3",
         fw_protocol:"Flash6-Intelligent-b3",
-        fw_build:"v6 b16"
+        fw_build:"v6 b17"
       };
     }
 
@@ -20932,6 +20932,16 @@ function requestMobileMockup3dMesh(){
       const raw = String(line || "").trim();
       if(!raw) return;
       lastSerialActivityAt = Date.now();
+      // Bulk ACKs contain up to ~11 KiB of Base64. Consume them directly;
+      // uppercasing and logging every payload makes large downloads CPU- and
+      // memory-bound in the browser.
+      if(
+        raw.indexOf("ACK SPI_FLASH_CHUNK ") === 0 ||
+        raw.indexOf("ACK SPI_FLASH_REMOTE_CHUNK ") === 0
+      ){
+        dispatchSerialAck("ack", raw.slice(4).trim(), raw);
+        return;
+      }
       const upper = raw.toUpperCase();
       if(upper.startsWith("ACK ")){
         const msg = raw.slice(4).trim();
@@ -21336,7 +21346,7 @@ function requestMobileMockup3dMesh(){
           timeoutMs,
           "SERIAL_WRITE_TIMEOUT"
         );
-        if(outLine) addLogLine("TX " + outLine, "SER");
+        if(outLine && (!opts || opts.log !== false)) addLogLine("TX " + outLine, "SER");
         return true;
       }catch(e){
         addLogLine(t("serialWriteFailed", {err:(e?.message||e)}), "SER");
@@ -23863,7 +23873,7 @@ function requestMobileMockup3dMesh(){
       }
     }
 
-    const SPI_FLASH_REMOTE_CHUNK_BYTES = 1024;
+    const SPI_FLASH_REMOTE_CHUNK_BYTES = 8192;
 
     function normalizeRemoteSpiFlashInfo(info){
       if(!info || typeof info !== "object") return null;
@@ -24854,7 +24864,7 @@ function requestMobileMockup3dMesh(){
       return !!(serialConnected && serialTxEnabled);
     }
 
-    const SPI_FLASH_SERIAL_CHUNK_BYTES = 1536;
+    const SPI_FLASH_SERIAL_CHUNK_BYTES = 8192;
 
     function parseSpiFlashStatusAckMessage(message){
       const raw = String(message || "").trim();
@@ -25056,46 +25066,29 @@ function requestMobileMockup3dMesh(){
       return Object.assign({}, info, {items});
     }
 
-    function parseSpiFlashChunkAckMessage(message){
+    function parseSpiFlashBulkChunkAckMessage(message, prefix){
       const raw = String(message || "").trim();
-      const prefix = "SPI_FLASH_CHUNK";
       if(raw.indexOf(prefix) !== 0) return null;
       const tail = raw.slice(prefix.length).trim();
-
-      let off = NaN;
-      let len = NaN;
-      let b64 = "";
-      const kvRegex = /([A-Za-z0-9_]+)=([^\s]+)/g;
-      let match;
-      while((match = kvRegex.exec(tail))){
-        const key = String(match[1] || "").toLowerCase();
-        const value = String(match[2] || "");
-        if(key === "off") off = Number(value);
-        else if(key === "len") len = Number(value);
-        else if(key === "b64") b64 = value;
-      }
-
-      if(!isFinite(off) || off < 0) return null;
-      if(!isFinite(len) || len <= 0) return null;
-      if(!b64) return null;
+      const b64Marker = " b64=";
+      const b64At = tail.indexOf(b64Marker);
+      if(b64At < 0) return null;
+      const meta = tail.slice(0, b64At);
+      const b64 = tail.slice(b64At + b64Marker.length).trim();
+      const offMatch = meta.match(/(?:^|\s)off=(\d+)/);
+      const lenMatch = meta.match(/(?:^|\s)len=(\d+)/);
+      const off = offMatch ? Number(offMatch[1]) : NaN;
+      const len = lenMatch ? Number(lenMatch[1]) : NaN;
+      if(!isFinite(off) || off < 0 || !isFinite(len) || len <= 0 || !b64) return null;
       return {off:Math.floor(off), len:Math.floor(len), b64};
     }
 
+    function parseSpiFlashChunkAckMessage(message){
+      return parseSpiFlashBulkChunkAckMessage(message, "SPI_FLASH_CHUNK");
+    }
+
     function parseSpiFlashRemoteChunkAckMessage(message){
-      const raw = String(message || "").trim();
-      const prefix = "SPI_FLASH_REMOTE_CHUNK";
-      if(raw.indexOf(prefix) !== 0) return null;
-      const fields = {};
-      const kvRegex = /([A-Za-z0-9_]+)=([^\s]+)/g;
-      let match;
-      while((match = kvRegex.exec(raw.slice(prefix.length)))){
-        fields[String(match[1] || "").toLowerCase()] = String(match[2] || "");
-      }
-      const off = Number(fields.off);
-      const len = Number(fields.len);
-      const b64 = String(fields.b64 || "");
-      if(!isFinite(off) || off < 0 || !isFinite(len) || len <= 0 || !b64) return null;
-      return {off:Math.floor(off), len:Math.floor(len), b64};
+      return parseSpiFlashBulkChunkAckMessage(message, "SPI_FLASH_REMOTE_CHUNK");
     }
 
     function decodeBase64ToBytes(b64){
@@ -25176,7 +25169,7 @@ function requestMobileMockup3dMesh(){
         if(evt.kind === "err") return true;
         return evt.kind === "ack" && String(evt.message || "").indexOf("SPI_FLASH_CHUNK") === 0;
       }, 2400);
-      const wrote = await serialWriteLine(cmd);
+      const wrote = await serialWriteLine(cmd, {log:false, timeoutMs:2400});
       if(!wrote){
         cancelSerialAckWaiter(waiter, "SERIAL_WRITE_FAIL");
         throw new Error("SERIAL_WRITE_FAIL");
@@ -25189,11 +25182,11 @@ function requestMobileMockup3dMesh(){
       if(!chunk){
         throw new Error("SERIAL_CHUNK_PARSE_FAIL");
       }
-      if(chunk.off !== offInt || chunk.len !== lenInt){
+      if(chunk.off !== offInt || chunk.len <= 0 || chunk.len > lenInt){
         throw new Error("SERIAL_CHUNK_MISMATCH");
       }
       const bytes = decodeBase64ToBytes(chunk.b64);
-      if(bytes.length !== lenInt){
+      if(bytes.length !== chunk.len){
         throw new Error("SERIAL_CHUNK_SIZE_FAIL");
       }
       return bytes;
@@ -25210,8 +25203,8 @@ function requestMobileMockup3dMesh(){
         if(evt.kind === "err") return true;
         return evt.kind === "ack" &&
           String(evt.message || "").indexOf("SPI_FLASH_REMOTE_CHUNK") === 0;
-      }, 4800);
-      const wrote = await serialWriteLine(cmd);
+      }, 12000);
+      const wrote = await serialWriteLine(cmd, {log:false, timeoutMs:2400});
       if(!wrote){
         cancelSerialAckWaiter(waiter, "SERIAL_WRITE_FAIL");
         throw new Error("SERIAL_WRITE_FAIL");
@@ -25220,11 +25213,11 @@ function requestMobileMockup3dMesh(){
       if(!reply.ok) throw new Error(reply.message || reply.kind || "SERIAL_REMOTE_CHUNK_FAIL");
       const chunk = parseSpiFlashRemoteChunkAckMessage(reply.message);
       if(!chunk) throw new Error("SERIAL_REMOTE_CHUNK_PARSE_FAIL");
-      if(chunk.off !== offInt || chunk.len !== lenInt){
+      if(chunk.off !== offInt || chunk.len <= 0 || chunk.len > lenInt){
         throw new Error("SERIAL_REMOTE_CHUNK_MISMATCH");
       }
       const bytes = decodeBase64ToBytes(chunk.b64);
-      if(bytes.length !== lenInt) throw new Error("SERIAL_REMOTE_CHUNK_SIZE_FAIL");
+      if(bytes.length !== chunk.len) throw new Error("SERIAL_REMOTE_CHUNK_SIZE_FAIL");
       return bytes;
     }
 
@@ -25235,15 +25228,17 @@ function requestMobileMockup3dMesh(){
       const recordCount = Math.max(0, Number(selectedItem && selectedItem.records || 0));
       if(!dataBytes) throw new Error("EMPTY_DATA");
       const header = buildSpiFlashBinHeader(Object.assign({}, info, {used_bytes:dataBytes, record_count:recordCount}));
-      const chunks = [header];
+      const fileBytes = new Uint8Array(header.byteLength + dataBytes);
+      fileBytes.set(header, 0);
       let off = 0;
       const dataDownloadBtn = document.getElementById("dataStorageDownloadBtn");
       updateStorageDownloadProgress(0, dataBytes, "USB 시리얼 전송 중…", true);
       while(off < dataBytes){
         const len = Math.min(SPI_FLASH_SERIAL_CHUNK_BYTES, dataBytes - off);
         const bytes = await fetchSpiFlashChunkViaSerial(baseOffset + off, len);
-        chunks.push(bytes);
-        off += len;
+        if(!bytes.byteLength) throw new Error("SERIAL_EMPTY_CHUNK");
+        fileBytes.set(bytes, header.byteLength + off);
+        off += bytes.byteLength;
         const pct = dataBytes > 0 ? Math.floor((off * 100) / dataBytes) : 100;
         if(dataDownloadBtn) dataDownloadBtn.textContent = "다운로드 " + pct + "%";
         if(el.spiFlashStatusLine){
@@ -25254,11 +25249,10 @@ function requestMobileMockup3dMesh(){
 
       updateStorageDownloadProgress(dataBytes, dataBytes, "파일 생성 중…", true);
       const ts = new Date().toISOString().replace(/[:.]/g, "-");
-      const blob = new Blob(chunks, {type:"application/octet-stream"});
+      const blob = new Blob([fileBytes], {type:"application/octet-stream"});
       const safeName = String(selectedItem && selectedItem.name || "DATA").replace(/[^A-Za-z0-9_-]+/g, "_");
       downloadBlobAsFile(blob, safeName + "_" + ts + ".bin");
       showToast("SPI Flash BIN(Serial) 다운로드 완료", "success", {key:"spi-flash-dump-serial"});
-      await fetchSpiFlashStatus({force:true});
     }
 
     async function fetchSpiFlashRemoteChunk(off, len){
@@ -25293,11 +25287,11 @@ function requestMobileMockup3dMesh(){
           const json = await res.json();
           const gotOff = Math.max(0, Number(json && json.off || 0));
           const gotLen = Math.max(0, Number(json && json.len || 0));
-          if(gotOff !== offInt || gotLen !== lenInt || !json.b64){
+          if(gotOff !== offInt || gotLen <= 0 || gotLen > lenInt || !json.b64){
             throw new Error("REMOTE_CHUNK_MISMATCH");
           }
           const bytes = decodeBase64ToBytes(json.b64);
-          if(bytes.length !== lenInt){
+          if(bytes.length !== gotLen){
             throw new Error("REMOTE_CHUNK_SIZE_FAIL");
           }
           return bytes;
@@ -25327,15 +25321,17 @@ function requestMobileMockup3dMesh(){
           data_origin_code:1
         }
       ));
-      const chunks = [header];
+      const fileBytes = new Uint8Array(header.byteLength + dataBytes);
+      fileBytes.set(header, 0);
       const dataDownloadBtn = document.getElementById("dataStorageDownloadBtn");
       let off = 0;
       updateStorageDownloadProgress(0, dataBytes, "A.I LINK 데이터 수신 중…", true);
       while(off < dataBytes){
         const len = Math.min(SPI_FLASH_REMOTE_CHUNK_BYTES, dataBytes - off);
         const bytes = await fetchSpiFlashRemoteChunk(baseOffset + off, len);
-        chunks.push(bytes);
-        off += len;
+        if(!bytes.byteLength) throw new Error("REMOTE_EMPTY_CHUNK");
+        fileBytes.set(bytes, header.byteLength + off);
+        off += bytes.byteLength;
         const pct = dataBytes > 0 ? Math.floor((off * 100) / dataBytes) : 100;
         if(dataDownloadBtn) dataDownloadBtn.textContent = "무선 다운로드 " + pct + "%";
         if(el.spiFlashStatusLine){
@@ -25347,11 +25343,10 @@ function requestMobileMockup3dMesh(){
 
       updateStorageDownloadProgress(dataBytes, dataBytes, "파일 생성 중…", true);
       const ts = new Date().toISOString().replace(/[:.]/g, "-");
-      const blob = new Blob(chunks, {type:"application/octet-stream"});
+      const blob = new Blob([fileBytes], {type:"application/octet-stream"});
       const safeName = String(selectedItem && selectedItem.name || "FLASH6_AVIONICS").replace(/[^A-Za-z0-9_-]+/g, "_");
       downloadBlobAsFile(blob, safeName + "_" + ts + ".bin");
       showToast("에비오닉스 BIN 무선 다운로드 완료", "success", {key:"spi-flash-dump-remote"});
-      await fetchSpiFlashRemoteDataList().catch(()=>null);
     }
 
     async function fetchSpiFlashStatus(opts){
@@ -25556,9 +25551,17 @@ function requestMobileMockup3dMesh(){
           String(selectedItem && selectedItem.origin || "").toLowerCase() === "avionics"
         );
       if(remoteTarget){
+        let streamPaused = false;
         try{
           if(el.spiFlashStatusLine) el.spiFlashStatusLine.textContent = "에비오닉스 BIN 무선 다운로드 준비 중...";
           if(el.spiFlashDumpBtn) el.spiFlashDumpBtn.disabled = true;
+          if(canUseSerialForSpiFlash()){
+            streamPaused = await setSerialStreamState(false, {
+              timeoutMs:1600,
+              writeTimeoutMs:1200
+            });
+            if(streamPaused) await delay(25);
+          }
           await downloadSpiFlashDumpViaFlashLink(selectedItem);
           return true;
         }catch(err){
@@ -25571,6 +25574,12 @@ function requestMobileMockup3dMesh(){
           }
           return false;
         }finally{
+          if(streamPaused){
+            await setSerialStreamState(true, {
+              timeoutMs:1600,
+              writeTimeoutMs:1200
+            });
+          }
           if(el.spiFlashDumpBtn) el.spiFlashDumpBtn.disabled = false;
         }
       }

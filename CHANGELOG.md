@@ -3,6 +3,28 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.8.11 — v6 b17 — 2026-07-17
+
+Protocol: `Flash6-Intelligent-b3` (wire version `3`, unchanged)
+
+- Increased local and A.I LINK USB-serial storage aggregates to 8 KiB while
+  continuing to accept the smaller chunks returned by older firmware and the
+  HTTP fallback.
+- Increased the A.I LINK storage request window from three to four packets and
+  removed the unnecessary global retry gap between independent in-flight
+  reads.
+- Temporarily reduced avionics telemetry from 100 Hz to 20 Hz only while a
+  storage read is active, preserving link freshness while prioritizing binary
+  transfer airtime.
+- Paused ground USB telemetry during A.I LINK downloads and restored it after
+  completion, so Base64 data no longer competes with 100 Hz JSON frames.
+- Removed Base64 payloads and per-chunk commands from the browser log hot path,
+  replaced regex-wide chunk parsing with fixed-field parsing, and assembled the
+  output in one preallocated buffer.
+- Flushes local W25Q queued records once per contiguous export instead of once
+  per chunk. ESP-NOW packet fields, serial command/response fields, and storage
+  record layout remain unchanged.
+
 ## 0.8.10 — v6 b16 — 2026-07-17
 
 Protocol: `Flash6-Intelligent-b3` (wire version `3`, unchanged)
