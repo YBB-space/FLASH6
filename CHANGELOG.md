@@ -28,8 +28,17 @@ Protocol: `Flash6-Intelligent-b4` (wire version `4`)
 - Replaced the entry action with an icon-free `보드 연결` button that changes
   to `시작하기` after a verified link, keeping the entry screen visible until
   the operator explicitly opens the dashboard.
-- Reduced entry-screen Wi-Fi discovery to a 650 ms concurrent board ping
-  instead of waiting through multiple sequential endpoint fallbacks.
+- Kept entry-screen Wi-Fi discovery concurrent while allowing 1.2 seconds for
+  the first board ping, preventing false failures while the AP route and ARP
+  cache are still settling.
+- Preserved the browser's required user gesture for first-time Web Serial
+  permission by opening the explicit USB connection step when no previously
+  authorized board is available.
+- Prefer Espressif ESP32-S3 native USB/JTAG serial devices when multiple
+  previously authorized serial ports exist, instead of selecting an unrelated
+  port by browser enumeration order.
+- Extended the verified-link handoff window to 30 seconds so the `시작하기`
+  action remains available while WebSocket telemetry finishes connecting.
 
 ## 0.8.11 — v6 b17 — 2026-07-17
 

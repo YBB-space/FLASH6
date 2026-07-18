@@ -8350,7 +8350,7 @@ function requestMobileMockup3dMesh(){
     function isWelcomeConnectionReady(){
       const probeFresh = welcomeConnectCompleted &&
         welcomeConnectionVerifiedAtMs > 0 &&
-        (Date.now() - welcomeConnectionVerifiedAtMs) < 8000;
+        (Date.now() - welcomeConnectionVerifiedAtMs) < 30000;
       return !!(isGroundStationTransportConnected() || probeFresh);
     }
     function syncWelcomePrimaryAction(busyLabel){
@@ -8528,8 +8528,15 @@ function requestMobileMockup3dMesh(){
 
         setWelcomeBoardSearchBusy(true, "USB 확인중");
         setWelcomeConnectStatus("connecting", "USB 시리얼 확인중");
+        const grantedPort = await getPreviouslyGrantedSerialPort();
         await setConnectTransportMode("serial", {toast:false});
-        await serialConnect({preferGranted:true});
+        if(!grantedPort){
+          openSerialConnectWizard();
+          setWelcomeConnectStatus("idle", "USB 보드를 선택하세요");
+          showToast("USB 보드를 선택한 뒤 연결을 눌러주세요.", "notice", {key:"welcome-usb-permission"});
+          return;
+        }
+        await serialConnect({preferGranted:true, grantedOnly:true, port:grantedPort});
         updateSerialControlTile();
         updateSerialPill();
         if(serialConnected){
@@ -9213,7 +9220,9 @@ function requestMobileMockup3dMesh(){
     async function probeWelcomeWifiBoardReachable(){
       wifiConnectLastProbeError = "";
       if(connOk || wsConnected) return true;
-      const timeoutMs = 650;
+      // 650 ms was too short for the first request after joining the board AP:
+      // ARP/DHCP settling alone can consume most of that window.
+      const timeoutMs = 1200;
       const bases = getApiBaseCandidates();
       const attempts = bases.map(async (base)=>{
         const url = (base ? base : "") + "/ping?_ts=" + Date.now();
@@ -21224,7 +21233,19 @@ function requestMobileMockup3dMesh(){
           return false;
         }
       });
-      return usbPorts[0] || ports[0] || null;
+      const candidates = usbPorts.length ? usbPorts : ports;
+      const ranked = candidates.map((port, index)=>{
+        let score = 0;
+        try{
+          const info = port && typeof port.getInfo === "function" ? port.getInfo() : null;
+          // Espressif native USB/JTAG serial (ESP32-S3).
+          if(info && Number(info.usbVendorId) === 0x303A) score += 100;
+          if(info && Number(info.usbProductId) === 0x1001) score += 20;
+        }catch(_e){}
+        return {port, score, index};
+      });
+      ranked.sort((a, b)=>(b.score - a.score) || (a.index - b.index));
+      return ranked.length ? ranked[0].port : null;
     }
 
     function cancelSerialAutoReconnect(){
@@ -21279,14 +21300,14 @@ function requestMobileMockup3dMesh(){
       try{
         setSerialConnectWizardStage("waiting", "기존 연결 정리 중");
         await closeSerialHandles({ closePort:true });
-        let selectedPort = null;
-        if(options.preferGranted !== false){
+        let selectedPort = options.port || null;
+        if(!selectedPort && options.preferGranted !== false){
           setSerialConnectWizardStage("waiting", "허용된 USB 포트 찾는 중");
           selectedPort = await getPreviouslyGrantedSerialPort();
         }
         if(selectedPort){
           addLogLine("WebSerial using previously granted port.", "SER");
-        }else if(autoReconnect){
+        }else if(autoReconnect || options.grantedOnly){
           throw new Error("SERIAL_PORT_UNAVAILABLE");
         }else{
           setSerialConnectWizardStage("waiting", "브라우저 포트 권한 필요");
