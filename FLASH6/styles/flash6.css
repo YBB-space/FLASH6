@@ -29277,31 +29277,34 @@ body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-steps b{
   border-top:0;
 }
 .flash-link-settings-group .flash-link-chart-tabs{
-  display:flex;
-  width:auto;
-  padding:0;
-  gap:18px;
-  border:0;
-  border-radius:0;
-  background:transparent;
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  width:100%;
+  padding:4px;
+  gap:6px;
+  border:1px solid #303238;
+  border-radius:8px;
+  background:#101113;
 }
 .flash-link-settings-group .flash-link-chart-tab{
-  min-height:28px;
-  padding:0 0 7px;
-  border-bottom:1px solid transparent;
-  border-radius:0;
+  min-width:0;
+  min-height:38px;
+  padding:0 10px;
+  border:0;
+  border-radius:6px;
   background:transparent !important;
-  color:#777e89;
+  color:#868a92;
   box-shadow:none !important;
-  font-size:9px;
+  font-size:12px;
   font-weight:650;
 }
 .flash-link-settings-group .flash-link-chart-tab:hover{
-  color:#c9cdd3;
+  background:#1b1d21 !important;
+  color:#d8dadd;
 }
 .flash-link-settings-group .flash-link-chart-tab.is-active{
-  border-bottom-color:#e2e4e7;
-  color:#e2e4e7;
+  background:#e8e9eb !important;
+  color:#121315;
 }
 .flash-link-settings-group .flash-link-chart-stage{
   height:150px;
