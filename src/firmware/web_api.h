@@ -382,7 +382,7 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
   //  apogee,flight_phase_elapsed,attitude_qw,qx,qy,qz,
   //  ignition_delay_ms,ignition_delay_valid,deployment_state,deployment_flags,
   //  arm_physical,flash_node,flash_target,stage1_connected,stage2_connected,
-  //  stage1_snapshot,stage2_snapshot,stage2_mode]
+  //  stage1_snapshot,stage2_snapshot,stage2_mode,operation_mode,data_mode]
   const bool remoteOutput = flashLinkGroundRole();
   const Telemetry& output = remoteOutput ? flashLinkRemoteSnap : snap;
   const uint16_t remoteFlags = remoteOutput ? flashLinkRemoteState.flags : 0;
@@ -620,7 +620,7 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
            "%u,%lu,%lu,%u,%u,%lu,%u,%u,%ld,%d,%lu,"
            "%.3f,%u,%ld,%u,%u,%u,%u,%.3f,%.6f,%lu,%lu,%lu,"
            "%lu,%lu,%u,\"%s\",\"%s\",%u,%.2f,%.2f,%lu,%.6f,%.6f,%.6f,%.6f,"
-           "%lu,%u,%u,%u,%u,%u,%u,%u,%u,%s,%s,%u]",
+           "%lu,%u,%u,%u,%u,%u,%u,%u,%u,%s,%s,%u,%u,%u]",
            (unsigned long)frameSequence,
            (unsigned long)output.ut,
            output.baroValid ? output.p : 0.0f,
@@ -710,7 +710,9 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
                streamStage2Connected ? 1U : 0U,
                stageSnapshots[0],
                stageSnapshots[1],
-               flashLinkStage2Enabled ? 1U : 0U);
+               flashLinkStage2Enabled ? 1U : 0U,
+               (unsigned)operationModeCode(),
+               (unsigned)outputDataModeCode);
   if (n <= 0) {
     if (jsonLen) json[0] = '\0';
     return 0;
@@ -1513,7 +1515,7 @@ void setupRoutes() {
              "\"ignition_delay_ms\",\"ignition_delay_valid\",\"deployment_state\","
              "\"deployment_flags\",\"arm_physical\",\"flash_node\",\"flash_target\","
              "\"stage1_connected\",\"stage2_connected\",\"stage1_snapshot\","
-             "\"stage2_snapshot\",\"stage2_mode\"],"
+             "\"stage2_snapshot\",\"stage2_mode\",\"operation_mode\",\"data_mode\"],"
              "\"flags\":{\"sample\":0,\"baro\":1,\"attitude\":2,\"gps_fix\":3,\"gps_seen\":4,"
              "\"arm\":5,\"igniter\":6,\"user_wait\":7,\"abort\":8,\"safety\":9,"
              "\"arm_lock\":10,\"inspection\":11,\"storage\":12,\"serial\":13,"

@@ -3,6 +3,18 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.8.13 — v6 b19 — 2026-07-20
+
+Protocol: `Flash6-Intelligent-b4` (ESP-NOW wire version `4`, unchanged)
+
+- Appended authoritative board operation-mode and displayed data-mode fields
+  to the backward-compatible compact USB/WebSocket telemetry tail.
+- Fixed disconnected avionics A.I LINK boards being decoded as FLIGHT or DAQ
+  after a browser refresh even though their persisted operation mode remained
+  `flash_link`.
+- Updated desktop and native-mobile decoders to use the explicit b19 fields
+  while retaining the legacy b18 frame layout as a compatibility fallback.
+
 ## 0.8.12 — v6 b18 — 2026-07-17
 
 Protocol: `Flash6-Intelligent-b4` (wire version `4`)

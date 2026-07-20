@@ -20567,13 +20567,22 @@ function requestMobileMockup3dMesh(){
       if(Number(frame[0]) !== 2 || frame.length < 32) return null;
       const flags = (Number(frame[16]) || 0) & 0xFFFF;
       const bit = (index)=>((flags >>> index) & 1);
-      const mode = Number(frame[21]) || 0;
+      // Builds through b18 used frame[21] for the displayed data mode. In
+      // disconnected avionics A.I LINK mode that value is still FLIGHT/DAQ,
+      // so treating it as the board operation mode incorrectly turns AIL OFF
+      // after a reload. b19 appends the authoritative operation/data modes.
+      const legacyMode = Number(frame[21]) || 0;
+      const hasExplicitModes = frame.length > 95 &&
+        isFinite(Number(frame[94])) &&
+        isFinite(Number(frame[95]));
+      const mode = hasExplicitModes ? Number(frame[94]) : legacyMode;
+      const dataModeCode = hasExplicitModes ? Number(frame[95]) : legacyMode;
       const opMode = mode === 2 ? "flash_link" : (mode === 1 ? "flight" : "daq");
       const flashRoleCode = Number(frame[32]) || 0;
       const flashLinked = Number(frame[33]) || 0;
       const flashRemoteValid = Number(frame[37]) || 0;
       const linkMode = (mode === 2 || flashLinked || flashRemoteValid) ? "flash_link" : opMode;
-      const dataMode = mode === 1 ? "flight" : (mode === 0 ? "daq" : null);
+      const dataMode = dataModeCode === 1 ? "flight" : (dataModeCode === 0 ? "daq" : null);
       const streamThrust = (frame[57] != null && isFinite(Number(frame[57]))) ? Number(frame[57]) : 0;
       const streamHxHz = (frame[58] != null && isFinite(Number(frame[58]))) ? Number(frame[58]) : 0;
       const streamLoadcellRaw = (frame[59] != null && isFinite(Number(frame[59]))) ? Number(frame[59]) : null;
@@ -20703,7 +20712,7 @@ function requestMobileMockup3dMesh(){
         fw_program:"Altis_Intelligent3_firmware1",
         fw_board:"Altis_Intelligent3_b3",
         fw_protocol:"Flash6-Intelligent-b4",
-        fw_build:"v6 b18"
+        fw_build:"v6 b19"
       };
     }
 

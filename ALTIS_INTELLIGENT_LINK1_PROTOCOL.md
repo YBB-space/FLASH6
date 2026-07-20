@@ -283,8 +283,8 @@ revisions should rotate keys per fleet or per paired board.
 
 ## Firmware Revision
 
-- Firmware version: `0.8.12`
-- Build ID: `v6 b18`
+- Firmware version: `0.8.13`
+- Build ID: `v6 b19`
 - Wire protocol: `Flash6-Intelligent-b4` / numeric version `4`
 - Storage record format: version `4` (unchanged and backward compatible)
 - Compatibility: both ground and avionics nodes must run wire version `4`.
