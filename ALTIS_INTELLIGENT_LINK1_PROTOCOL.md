@@ -56,8 +56,8 @@ All multibyte values use the ESP32 little-endian representation.
 | Payload size | 2 |
 | CRC16-CCITT | 2 |
 
-The packed header is 24 bytes. The current wire protocol value is `4`; the
-version field itself occupies one byte. The current telemetry frame is 133 bytes total, below the
+The packed header is 24 bytes. The current wire protocol value is `5`; the
+version field itself occupies one byte. The current telemetry frame is 134 bytes total, below the
 ESP-NOW v1 payload limit of 250 bytes.
 
 Header `flags & 0x03` carries the sender node ID: `0` for ground, `1` for stage 1,
@@ -90,7 +90,11 @@ from this sequence.
 The UI stream appends GPS clock metadata after the stable 53-field compact frame:
 `gps_time_valid` and `gps_utc_ms`. Older decoders can ignore these trailing
 fields. Build `v6 b6` and later append `stage2_mode` after the two optional stage
-snapshots; the stage-2 snapshot is `null` in stage-1-only mode.
+snapshots; the stage-2 snapshot is `null` in stage-1-only mode. Wire version
+`5` appends the ESP32 reset-reason code to the vehicle telemetry payload. The
+UI stream also appends `reset_code` and the header-derived `boot_session`, so a
+ground client can identify one brownout reboot without guessing from a link
+drop.
 
 The ground board sends five telemetry ACKs per second: every 20 frames in
 stage-1-only 100 Hz mode and every 10 frames per stage in dual-stage 50 Hz mode.
@@ -288,13 +292,11 @@ revisions should rotate keys per fleet or per paired board.
 
 ## Firmware Revision
 
-- Firmware version: `0.8.14`
-- Build ID: `v6 b20`
-- Wire protocol: `Flash6-Intelligent-b4` / numeric version `4`
-- Storage record format: version `4` (unchanged and backward compatible)
-- Compatibility: both ground and avionics nodes must run wire version `4`.
-  Version `4` keeps the packet structures from version `3` and adds command
-  code `25` (`Reboot`). Build b20 changes only scheduling, transfer-window,
-  timeout, and route-selection behavior; ESP-NOW packet layouts, storage
-  records, serial commands, HTTP responses, and download data remain
-  compatible with earlier wire-version-4 builds.
+- Firmware version: `0.8.20`
+- Build ID: `v6 b26`
+- Wire protocol: `Flash6-Intelligent-b5` / numeric version `5`
+- Storage record format: version `5` (unchanged by this revision)
+- Compatibility: both ground and avionics nodes must run wire version `5`.
+  Version `5` adds the reset-reason byte to vehicle telemetry. HTTP, serial,
+  and WebSocket telemetry append the reset reason and boot session while
+  retaining the existing fields and command interfaces.

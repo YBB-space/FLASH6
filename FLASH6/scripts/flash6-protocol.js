@@ -66,6 +66,9 @@
         chip_temp_ok:Number(snapshot[33]) ? 1 : 0,
         lt:finiteOrNull(34),
         ct:finiteOrNull(35),
+        reset_code:finiteOrNull(36),
+        reset_reason:finiteOrNull(36) === 9 ? "BROWNOUT" : null,
+        boot_session:finiteOrNull(37),
         data_origin:"avionics"
       };
     }
@@ -90,6 +93,9 @@
       const flashRemoteValid = Number(frame[37]) || 0;
       const linkMode = (mode === 2 || flashLinked || flashRemoteValid) ? "flash_link" : opMode;
       const dataMode = dataModeCode === 1 ? "flight" : (dataModeCode === 0 ? "daq" : null);
+      const resetCode = (frame[96] != null && isFinite(Number(frame[96])))
+        ? Number(frame[96])
+        : null;
       const streamThrust = (frame[57] != null && isFinite(Number(frame[57]))) ? Number(frame[57]) : 0;
       const streamHxHz = (frame[58] != null && isFinite(Number(frame[58]))) ? Number(frame[58]) : 0;
       const streamLoadcellRaw = (frame[59] != null && isFinite(Number(frame[59]))) ? Number(frame[59]) : null;
@@ -140,6 +146,11 @@
         fl_stage1:(frame[89] != null) ? (Number(frame[89]) ? 1 : 0) : 0,
         fl_stage2:(frame[90] != null) ? (Number(frame[90]) ? 1 : 0) : 0,
         fl_stage2_mode:(frame[93] != null) ? (Number(frame[93]) ? 1 : 0) : null,
+        reset_code:resetCode,
+        reset_reason:resetCode === 9 ? "BROWNOUT" : null,
+        boot_session:(frame[97] != null && isFinite(Number(frame[97])))
+          ? Number(frame[97])
+          : null,
         stage_telemetry:stageTelemetry,
         p:Number(frame[3]) || 0,
         alt_m:Number(frame[4]) || 0,
@@ -218,7 +229,7 @@
         fl_rssi_age_ms:(frame[56] != null && isFinite(Number(frame[56]))) ? Number(frame[56]) : 4294967295,
         fw_program:"Altis_Intelligent3_firmware1",
         fw_board:"Altis_Intelligent3_b3",
-        fw_protocol:"Flash6-Intelligent-b4",
-        fw_build:"v6 b25"
+        fw_protocol:"Flash6-Intelligent-b5",
+        fw_build:"v6 b26"
       };
     }

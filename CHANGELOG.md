@@ -3,6 +3,21 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.8.20 — v6 b26 — 2026-07-21
+
+Protocol: `Flash6-Intelligent-b5` (ESP-NOW wire version `5`)
+
+- Added the ESP32 hardware reset reason and a per-boot session identifier to
+  direct, serial, WebSocket, and A.I LINK telemetry.
+- Propagated the avionics reset reason through the A.I LINK telemetry payload,
+  allowing a ground station to distinguish a real brownout from a manual or
+  normal restart after the vehicle reconnects.
+- Added a one-time FLASH6 brownout warning modal that asks the operator to
+  inspect battery voltage, connectors, wiring, and the regulator before
+  resuming operation.
+- Suppressed duplicate warnings for the same board boot session and excluded
+  simulation, replay, software resets, and normal power-on resets.
+
 ## FLASH6 live storage critical alarm b36 — 2026-07-21
 
 Firmware build: `v6 b25` (unchanged)

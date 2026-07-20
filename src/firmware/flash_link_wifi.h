@@ -1762,6 +1762,7 @@ void flashLinkFillTelemetry(FlashLinkTelemetryV1& out) {
     : UINT16_MAX;
   out.deploymentState = snap.deploymentState;
   out.deploymentFlags = snap.deploymentFlags;
+  out.resetReason = static_cast<uint8_t>(bootResetReason);
 }
 
 void flashLinkFillMissionAlarm(FlashLinkMissionAlarmV1& out) {
@@ -1845,6 +1846,7 @@ void flashLinkDecodeTelemetry(
   state.countdownMs = in.countdownMs;
   state.mode = in.mode == 1U ? 1U : 0U;
   state.pyroChannel = clampPyroChannel(in.pyroChannel);
+  state.resetReason = in.resetReason;
   if (alarmSeq != in.missionAlarmSeq) {
     alarmSeq = in.missionAlarmSeq;
     alarmTimestampMs = in.missionAlarmTimestampMs;
@@ -2029,7 +2031,7 @@ bool flashLinkHandleStage2RelayUplink(
     }
     if (type == FlashLinkPacketType::Telemetry &&
         (header.payloadBytes == sizeof(FlashLinkTelemetryV1) ||
-         header.payloadBytes == 105U || header.payloadBytes == 97U)) {
+         header.payloadBytes == 109U || header.payloadBytes == 105U)) {
       FlashLinkTelemetryV1 telemetry{};
       memcpy(
         &telemetry,
@@ -2584,8 +2586,8 @@ void flashLinkHandlePacket(FlashLinkRxSlot& slot) {
     return;
   }
 
-  constexpr uint16_t kPreviousFlashLinkTelemetryBytes = 105U;
-  constexpr uint16_t kLegacyFlashLinkTelemetryBytes = 97U;
+  constexpr uint16_t kPreviousFlashLinkTelemetryBytes = 109U;
+  constexpr uint16_t kLegacyFlashLinkTelemetryBytes = 105U;
   if (type != FlashLinkPacketType::Telemetry ||
       !flashLinkGroundRole() ||
       (header->payloadBytes != sizeof(FlashLinkTelemetryV1) &&
@@ -2681,8 +2683,7 @@ void flashLinkHandlePacket(FlashLinkRxSlot& slot) {
 }
 
 void setupFlashLink() {
-  flashLink.session = esp_random();
-  if (flashLink.session == 0) flashLink.session = 1;
+  flashLink.session = bootSessionId;
   flashLink.rxRateWindowMs = millis();
   for (uint8_t i = 0; i < kFlashLinkVehicleNodeCount; ++i) {
     flashLinkGroundPeers[i].nodeId = i + kFlashLinkNodeIdStage1;

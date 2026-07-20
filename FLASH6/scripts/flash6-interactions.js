@@ -99,6 +99,10 @@
     let rebootConfirmTitleEl=null;
     let rebootConfirmTextEl=null;
     let rebootConfirmActionsEl=null;
+    let brownoutWarningOverlayEl=null;
+    let brownoutWarningConfirmEl=null;
+    let brownoutWarningActiveKey="";
+    const BROWNOUT_ACK_STORAGE_KEY="flash6_brownout_ack";
     let pyroConfirmOverlayEl=null;
     let pyroConfirmTitleEl=null;
     let pyroConfirmDescEl=null;
@@ -115,6 +119,70 @@
     let easterOverlayEl=null;
     let easterEggOkEl=null;
     let easterEggPending=false;
+
+    function brownoutWarningKeyFor(data){
+      if(!data || simEnabled || replaySourceActive) return "";
+      const resetCode = Number(data.reset_code);
+      const resetReason = String(data.reset_reason || "").trim().toUpperCase();
+      if(resetCode !== 9 && resetReason !== "BROWNOUT") return "";
+      const bootSession = Number(data.boot_session);
+      if(!isFinite(bootSession) || bootSession <= 0) return "";
+      const nodeId = Number(
+        data.stage_node_id ?? data.fl_target ?? data.flash_link_target_node_id ??
+        data.fl_node ?? data.flash_link_node_id ?? 1
+      );
+      return String(isFinite(nodeId) ? nodeId : 1) + ":" + String(Math.trunc(bootSession));
+    }
+
+    function readBrownoutAcknowledgements(){
+      try{
+        const raw = sessionStorage.getItem(BROWNOUT_ACK_STORAGE_KEY);
+        if(!raw) return [];
+        if(raw.charAt(0) !== "[") return [raw];
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed.map(String) : [];
+      }catch(_e){
+        return [];
+      }
+    }
+
+    function maybeShowBrownoutWarning(data){
+      const key = brownoutWarningKeyFor(data);
+      if(!key || brownoutWarningActiveKey) return;
+      if(readBrownoutAcknowledgements().includes(key)) return;
+      brownoutWarningActiveKey = key;
+      if(!brownoutWarningOverlayEl){
+        brownoutWarningOverlayEl = document.getElementById("brownoutWarningOverlay");
+      }
+      if(!brownoutWarningOverlayEl) return;
+      brownoutWarningOverlayEl.setAttribute("aria-hidden", "false");
+      setOverlayVisible(brownoutWarningOverlayEl, true);
+      requestAnimationFrame(()=>{
+        const button = brownoutWarningConfirmEl ||
+          document.getElementById("brownoutWarningConfirm");
+        if(button) button.focus({preventScroll:true});
+      });
+    }
+
+    function acknowledgeBrownoutWarning(){
+      if(brownoutWarningActiveKey){
+        try{
+          const acknowledged = readBrownoutAcknowledgements();
+          if(!acknowledged.includes(brownoutWarningActiveKey)){
+            acknowledged.push(brownoutWarningActiveKey);
+          }
+          sessionStorage.setItem(
+            BROWNOUT_ACK_STORAGE_KEY,
+            JSON.stringify(acknowledged.slice(-12))
+          );
+        }catch(_e){}
+      }
+      if(brownoutWarningOverlayEl){
+        brownoutWarningOverlayEl.setAttribute("aria-hidden", "true");
+        setOverlayVisible(brownoutWarningOverlayEl, false);
+      }
+      brownoutWarningActiveKey = "";
+    }
 
     function resetLongPressVisual(){
       if(longPressSpinnerEl){

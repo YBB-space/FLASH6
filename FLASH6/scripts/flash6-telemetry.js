@@ -106,6 +106,9 @@
       if(!isFastReplaySeek){
         handleMissionAlarmTelemetry(data, src, isReplaySample, resolveTelemetryStageId(data));
         ingestStageTelemetryBundle(data, src, isReplaySample, shouldRefreshUi);
+        if(!isReplaySample && data && Array.isArray(data.stage_telemetry)){
+          data.stage_telemetry.forEach((stageSample)=>maybeShowBrownoutWarning(stageSample));
+        }
       }
       if(!isFastReplaySeek && typeof window !== "undefined"){
         window.__flashLastSample = data;
@@ -191,6 +194,9 @@
           addLogLine(t("linkEstablished", {src:srcTag}), "NET");
           showToast(t("linkEstablishedToast", {src:srcTag}), "success", {duration:2600});
         }
+      }
+      if(!isReplaySample){
+        maybeShowBrownoutWarning(data);
       }
       if(flashLinkWaitingForRemote){
         updateFlashLinkStatusUi(data, shouldRefreshUi);

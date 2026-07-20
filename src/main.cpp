@@ -39,6 +39,8 @@ namespace {
 
 void setup() {
   bootResetReason = esp_reset_reason();
+  bootSessionId = esp_random();
+  if (bootSessionId == 0U) bootSessionId = 1U;
   loopTaskHandle = xTaskGetCurrentTaskHandle();
   storageMutex = xSemaphoreCreateRecursiveMutex();
   fileSystemMutex = xSemaphoreCreateRecursiveMutex();
@@ -72,6 +74,7 @@ void setup() {
   Serial.printf("[BOOT] reset_reason=%s code=%u\n",
                 resetReasonName(bootResetReason),
                 (unsigned)bootResetReason);
+  Serial.printf("[BOOT] session=%lu\n", (unsigned long)bootSessionId);
   if (!storageMutex) {
     Serial.println("[W25Q] recursive mutex allocation failed; storage disabled");
   }

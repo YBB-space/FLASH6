@@ -127,7 +127,7 @@
   <!-- Preload 축소: AP 모드/저메모리 환경에서 동시 요청 버스트를 줄임 -->
   <script>
     (function(){
-    var ASSET_VER = "20260721-storage-critical-live-b36-__FLASH6_DEPLOY_SHA__";
+    var ASSET_VER = "20260721-brownout-recovery-b37-__FLASH6_DEPLOY_SHA__";
       window.__flashBoot = window.__flashBoot || {jsReady:false,lastError:"",phase:"static_loader",version:ASSET_VER};
       var isLocalPreview = !!window.__flashBoot.localPreview;
       var beaconEnabled = (window.__flashBoot.beaconEnabled !== false);
@@ -365,7 +365,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="styles/flash6.css?v=20260721-storage-critical-live-b36-__FLASH6_DEPLOY_SHA__">
+  <link rel="stylesheet" href="styles/flash6.css?v=20260721-brownout-recovery-b37-__FLASH6_DEPLOY_SHA__">
 </head>
 <body>
   <!-- ✅ LOCKOUT 배경 오버레이 -->
@@ -2533,7 +2533,7 @@
                     <h2 id="fwProductTitle">FLASH6</h2>
                     <p>Flight telemetry, mission control and data acquisition.</p>
                   </div>
-                  <span class="fw-release-state">STABLE · B18</span>
+                  <span class="fw-release-state">STABLE · B26</span>
 
                   <dl class="fw-build-grid" aria-label="software build information">
                     <div>
@@ -2542,11 +2542,11 @@
                     </div>
                     <div>
                       <dt>BUILD ID</dt>
-                      <dd>v6 b25</dd>
+                      <dd>v6 b26</dd>
                     </div>
                     <div>
                       <dt>PROTOCOL</dt>
-                      <dd>Flash6-Intelligent-b4</dd>
+                      <dd>Flash6-Intelligent-b5</dd>
                     </div>
                   </dl>
                 </section>
@@ -3385,6 +3385,21 @@
       </div>
     </div>
 
+    <!-- 전압강하 재부팅 경고 -->
+    <div id="brownoutWarningOverlay" class="brownout-warning-overlay hidden" style="display:none;" aria-hidden="true">
+      <div class="brownout-warning-dialog" role="alertdialog" aria-modal="true" aria-labelledby="brownoutWarningTitle" aria-describedby="brownoutWarningText">
+        <div class="brownout-warning-kicker" data-i18n="brownoutWarningKicker">POWER EVENT</div>
+        <div id="brownoutWarningTitle" class="brownout-warning-title" data-i18n="brownoutWarningTitle">전압강하 재부팅 감지</div>
+        <div id="brownoutWarningText" class="brownout-warning-text" data-i18n="brownoutWarningText">
+          에비오닉스가 전압강하로 재부팅되었습니다. 다시 운용하기 전에 보드와 전원 계통을 점검하세요.
+        </div>
+        <div class="brownout-warning-check" data-i18n="brownoutWarningCheck">
+          배터리 전압 · 전원 커넥터 · 배선 · 레귤레이터
+        </div>
+        <button id="brownoutWarningConfirm" class="brownout-warning-confirm" type="button" data-i18n="brownoutWarningConfirm">확인</button>
+      </div>
+    </div>
+
     <!-- WebSocket 경고 오버레이 -->
     <div id="wsAlertOverlay" class="ws-alert-overlay warning-fullscreen hidden" style="display:none;">
       <div class="ws-alert-dialog" role="alertdialog" aria-modal="true" aria-labelledby="wsAlertTitle" aria-describedby="wsAlertText">
@@ -3974,6 +3989,6 @@
     <button id="controlsOverlayClose" class="controls-overlay-close" type="button" aria-label="close">×</button>
     </div>
 
-  <script src="scripts/flash6-watchdog.js?v=20260721-storage-critical-live-b36-__FLASH6_DEPLOY_SHA__"></script>
+  <script src="scripts/flash6-watchdog.js?v=20260721-brownout-recovery-b37-__FLASH6_DEPLOY_SHA__"></script>
 </body>
 </html> 

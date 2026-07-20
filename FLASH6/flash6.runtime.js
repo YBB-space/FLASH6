@@ -11901,7 +11901,7 @@ function requestMobileMockup3dMesh(){
       const infoRows = [
         {cells:["ALTIS INTELLIGENT LINK1 COMMUNICATION REPORT"], style:2},
         {cells:["Generated at", now.toISOString()], style:3},
-        {cells:["Protocol", "Flash6-Intelligent-b4 / ALTIS INTELLIGENT LINK1 ESP-NOW LR"], style:3},
+        {cells:["Protocol", "Flash6-Intelligent-b5 / ALTIS INTELLIGENT LINK1 ESP-NOW LR"], style:3},
         {cells:["Board role", roleLabel], style:3},
         {cells:["Peer", peer || "--"], style:3},
         {cells:["Target rate", stats.targetHz + " Hz"], style:3},
@@ -21062,6 +21062,9 @@ function requestMobileMockup3dMesh(){
         chip_temp_ok:Number(snapshot[33]) ? 1 : 0,
         lt:finiteOrNull(34),
         ct:finiteOrNull(35),
+        reset_code:finiteOrNull(36),
+        reset_reason:finiteOrNull(36) === 9 ? "BROWNOUT" : null,
+        boot_session:finiteOrNull(37),
         data_origin:"avionics"
       };
     }
@@ -21086,6 +21089,9 @@ function requestMobileMockup3dMesh(){
       const flashRemoteValid = Number(frame[37]) || 0;
       const linkMode = (mode === 2 || flashLinked || flashRemoteValid) ? "flash_link" : opMode;
       const dataMode = dataModeCode === 1 ? "flight" : (dataModeCode === 0 ? "daq" : null);
+      const resetCode = (frame[96] != null && isFinite(Number(frame[96])))
+        ? Number(frame[96])
+        : null;
       const streamThrust = (frame[57] != null && isFinite(Number(frame[57]))) ? Number(frame[57]) : 0;
       const streamHxHz = (frame[58] != null && isFinite(Number(frame[58]))) ? Number(frame[58]) : 0;
       const streamLoadcellRaw = (frame[59] != null && isFinite(Number(frame[59]))) ? Number(frame[59]) : null;
@@ -21136,6 +21142,11 @@ function requestMobileMockup3dMesh(){
         fl_stage1:(frame[89] != null) ? (Number(frame[89]) ? 1 : 0) : 0,
         fl_stage2:(frame[90] != null) ? (Number(frame[90]) ? 1 : 0) : 0,
         fl_stage2_mode:(frame[93] != null) ? (Number(frame[93]) ? 1 : 0) : null,
+        reset_code:resetCode,
+        reset_reason:resetCode === 9 ? "BROWNOUT" : null,
+        boot_session:(frame[97] != null && isFinite(Number(frame[97])))
+          ? Number(frame[97])
+          : null,
         stage_telemetry:stageTelemetry,
         p:Number(frame[3]) || 0,
         alt_m:Number(frame[4]) || 0,
@@ -21214,8 +21225,8 @@ function requestMobileMockup3dMesh(){
         fl_rssi_age_ms:(frame[56] != null && isFinite(Number(frame[56]))) ? Number(frame[56]) : 4294967295,
         fw_program:"Altis_Intelligent3_firmware1",
         fw_board:"Altis_Intelligent3_b3",
-        fw_protocol:"Flash6-Intelligent-b4",
-        fw_build:"v6 b25"
+        fw_protocol:"Flash6-Intelligent-b5",
+        fw_build:"v6 b26"
       };
     }
 
@@ -22385,6 +22396,9 @@ function requestMobileMockup3dMesh(){
       if(!isFastReplaySeek){
         handleMissionAlarmTelemetry(data, src, isReplaySample, resolveTelemetryStageId(data));
         ingestStageTelemetryBundle(data, src, isReplaySample, shouldRefreshUi);
+        if(!isReplaySample && data && Array.isArray(data.stage_telemetry)){
+          data.stage_telemetry.forEach((stageSample)=>maybeShowBrownoutWarning(stageSample));
+        }
       }
       if(!isFastReplaySeek && typeof window !== "undefined"){
         window.__flashLastSample = data;
@@ -22470,6 +22484,9 @@ function requestMobileMockup3dMesh(){
           addLogLine(t("linkEstablished", {src:srcTag}), "NET");
           showToast(t("linkEstablishedToast", {src:srcTag}), "success", {duration:2600});
         }
+      }
+      if(!isReplaySample){
+        maybeShowBrownoutWarning(data);
       }
       if(flashLinkWaitingForRemote){
         updateFlashLinkStatusUi(data, shouldRefreshUi);
@@ -26709,6 +26726,10 @@ function requestMobileMockup3dMesh(){
     let rebootConfirmTitleEl=null;
     let rebootConfirmTextEl=null;
     let rebootConfirmActionsEl=null;
+    let brownoutWarningOverlayEl=null;
+    let brownoutWarningConfirmEl=null;
+    let brownoutWarningActiveKey="";
+    const BROWNOUT_ACK_STORAGE_KEY="flash6_brownout_ack";
     let pyroConfirmOverlayEl=null;
     let pyroConfirmTitleEl=null;
     let pyroConfirmDescEl=null;
@@ -26725,6 +26746,70 @@ function requestMobileMockup3dMesh(){
     let easterOverlayEl=null;
     let easterEggOkEl=null;
     let easterEggPending=false;
+
+    function brownoutWarningKeyFor(data){
+      if(!data || simEnabled || replaySourceActive) return "";
+      const resetCode = Number(data.reset_code);
+      const resetReason = String(data.reset_reason || "").trim().toUpperCase();
+      if(resetCode !== 9 && resetReason !== "BROWNOUT") return "";
+      const bootSession = Number(data.boot_session);
+      if(!isFinite(bootSession) || bootSession <= 0) return "";
+      const nodeId = Number(
+        data.stage_node_id ?? data.fl_target ?? data.flash_link_target_node_id ??
+        data.fl_node ?? data.flash_link_node_id ?? 1
+      );
+      return String(isFinite(nodeId) ? nodeId : 1) + ":" + String(Math.trunc(bootSession));
+    }
+
+    function readBrownoutAcknowledgements(){
+      try{
+        const raw = sessionStorage.getItem(BROWNOUT_ACK_STORAGE_KEY);
+        if(!raw) return [];
+        if(raw.charAt(0) !== "[") return [raw];
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed.map(String) : [];
+      }catch(_e){
+        return [];
+      }
+    }
+
+    function maybeShowBrownoutWarning(data){
+      const key = brownoutWarningKeyFor(data);
+      if(!key || brownoutWarningActiveKey) return;
+      if(readBrownoutAcknowledgements().includes(key)) return;
+      brownoutWarningActiveKey = key;
+      if(!brownoutWarningOverlayEl){
+        brownoutWarningOverlayEl = document.getElementById("brownoutWarningOverlay");
+      }
+      if(!brownoutWarningOverlayEl) return;
+      brownoutWarningOverlayEl.setAttribute("aria-hidden", "false");
+      setOverlayVisible(brownoutWarningOverlayEl, true);
+      requestAnimationFrame(()=>{
+        const button = brownoutWarningConfirmEl ||
+          document.getElementById("brownoutWarningConfirm");
+        if(button) button.focus({preventScroll:true});
+      });
+    }
+
+    function acknowledgeBrownoutWarning(){
+      if(brownoutWarningActiveKey){
+        try{
+          const acknowledged = readBrownoutAcknowledgements();
+          if(!acknowledged.includes(brownoutWarningActiveKey)){
+            acknowledged.push(brownoutWarningActiveKey);
+          }
+          sessionStorage.setItem(
+            BROWNOUT_ACK_STORAGE_KEY,
+            JSON.stringify(acknowledged.slice(-12))
+          );
+        }catch(_e){}
+      }
+      if(brownoutWarningOverlayEl){
+        brownoutWarningOverlayEl.setAttribute("aria-hidden", "true");
+        setOverlayVisible(brownoutWarningOverlayEl, false);
+      }
+      brownoutWarningActiveKey = "";
+    }
 
     function resetLongPressVisual(){
       if(longPressSpinnerEl){
@@ -33983,6 +34068,11 @@ function requestMobileMockup3dMesh(){
       el.rebootConfirmTitle = document.getElementById("rebootConfirmTitle");
       el.rebootConfirmText = document.getElementById("rebootConfirmText");
       el.rebootConfirmActions = document.getElementById("rebootConfirmActions");
+      el.brownoutWarningOverlay = document.getElementById("brownoutWarningOverlay");
+      el.brownoutWarningConfirm = document.getElementById("brownoutWarningConfirm");
+      if(el.brownoutWarningOverlay && el.brownoutWarningOverlay.parentElement !== document.body){
+        document.body.appendChild(el.brownoutWarningOverlay);
+      }
       el.hardwareServoOverlay = document.getElementById("hardwareServoOverlay");
       el.hardwareServoClose = document.getElementById("hardwareServoClose");
       el.missionOverlay = document.getElementById("missionOverlay");
@@ -34760,6 +34850,8 @@ function requestMobileMockup3dMesh(){
       rebootConfirmTitleEl = el.rebootConfirmTitle || document.getElementById("rebootConfirmTitle");
       rebootConfirmTextEl = el.rebootConfirmText || document.getElementById("rebootConfirmText");
       rebootConfirmActionsEl = el.rebootConfirmActions || document.getElementById("rebootConfirmActions");
+      brownoutWarningOverlayEl = el.brownoutWarningOverlay || document.getElementById("brownoutWarningOverlay");
+      brownoutWarningConfirmEl = el.brownoutWarningConfirm || document.getElementById("brownoutWarningConfirm");
       pyroConfirmOverlayEl = document.getElementById("pyroConfirmOverlay");
       pyroConfirmTitleEl = document.getElementById("pyroConfirmTitle");
       pyroConfirmDescEl = document.getElementById("pyroConfirmDesc");
@@ -38573,6 +38665,9 @@ function requestMobileMockup3dMesh(){
         rebootConfirmOverlayEl.addEventListener("click",(ev)=>{
           if(ev.target===rebootConfirmOverlayEl && !rebootConfirmWaiting) hideRebootConfirm();
         });
+      }
+      if(brownoutWarningConfirmEl){
+        brownoutWarningConfirmEl.addEventListener("click",()=>acknowledgeBrownoutWarning());
       }
       if(launcherManualBtn && launcherManualControls){
         launcherManualBtn.addEventListener("click",()=>{

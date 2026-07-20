@@ -409,6 +409,11 @@
       el.rebootConfirmTitle = document.getElementById("rebootConfirmTitle");
       el.rebootConfirmText = document.getElementById("rebootConfirmText");
       el.rebootConfirmActions = document.getElementById("rebootConfirmActions");
+      el.brownoutWarningOverlay = document.getElementById("brownoutWarningOverlay");
+      el.brownoutWarningConfirm = document.getElementById("brownoutWarningConfirm");
+      if(el.brownoutWarningOverlay && el.brownoutWarningOverlay.parentElement !== document.body){
+        document.body.appendChild(el.brownoutWarningOverlay);
+      }
       el.hardwareServoOverlay = document.getElementById("hardwareServoOverlay");
       el.hardwareServoClose = document.getElementById("hardwareServoClose");
       el.missionOverlay = document.getElementById("missionOverlay");
@@ -1186,6 +1191,8 @@
       rebootConfirmTitleEl = el.rebootConfirmTitle || document.getElementById("rebootConfirmTitle");
       rebootConfirmTextEl = el.rebootConfirmText || document.getElementById("rebootConfirmText");
       rebootConfirmActionsEl = el.rebootConfirmActions || document.getElementById("rebootConfirmActions");
+      brownoutWarningOverlayEl = el.brownoutWarningOverlay || document.getElementById("brownoutWarningOverlay");
+      brownoutWarningConfirmEl = el.brownoutWarningConfirm || document.getElementById("brownoutWarningConfirm");
       pyroConfirmOverlayEl = document.getElementById("pyroConfirmOverlay");
       pyroConfirmTitleEl = document.getElementById("pyroConfirmTitle");
       pyroConfirmDescEl = document.getElementById("pyroConfirmDesc");
@@ -4999,6 +5006,9 @@
         rebootConfirmOverlayEl.addEventListener("click",(ev)=>{
           if(ev.target===rebootConfirmOverlayEl && !rebootConfirmWaiting) hideRebootConfirm();
         });
+      }
+      if(brownoutWarningConfirmEl){
+        brownoutWarningConfirmEl.addEventListener("click",()=>acknowledgeBrownoutWarning());
       }
       if(launcherManualBtn && launcherManualControls){
         launcherManualBtn.addEventListener("click",()=>{

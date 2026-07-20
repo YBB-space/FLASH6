@@ -112,6 +112,12 @@ size_t buildTelemetryJson(char* json, size_t jsonLen, bool full) {
     ? flashLinkRemoteState.pyroChannel
     : daqSequencePyroChannel;
   const bool remoteActive = remoteOutput && flashLinkRemoteActive();
+  const esp_reset_reason_t outputResetReason = remoteOutput
+    ? static_cast<esp_reset_reason_t>(flashLinkRemoteState.resetReason)
+    : bootResetReason;
+  const uint32_t outputBootSession = remoteOutput
+    ? (remoteActive ? flashLink.peerSession : 0U)
+    : bootSessionId;
   const uint8_t outputDataModeCode = remoteOutput
     ? (flashLinkRemoteState.mode == 1U ? 1U : 0U)
     : dataOperationModeCode();
@@ -234,6 +240,7 @@ size_t buildTelemetryJson(char* json, size_t jsonLen, bool full) {
            "\"fl_cmd_pending\":%u,\"fl_cmd_acked\":%lu,\"fl_cmd_failed\":%lu,"
            "\"fl_cmd_last_code\":%u,\"fl_cmd_last_result\":%u,"
            "\"fl_cmd_retries\":%lu,\"data_origin\":\"%s\","
+           "\"reset_reason\":\"%s\",\"reset_code\":%u,\"boot_session\":%lu,"
            "\"mission_alarm_seq\":%lu,\"mission_alarm_ts\":%lu,"
            "\"mission_alarm_block\":%u,\"mission_alarm_title\":\"%s\","
            "\"mission_alarm_message\":\"%s\","
@@ -329,6 +336,9 @@ size_t buildTelemetryJson(char* json, size_t jsonLen, bool full) {
            (unsigned)flashLink.lastCommandResult,
            (unsigned long)flashLink.commandRetries,
            remoteOutput ? "avionics" : "local",
+           resetReasonName(outputResetReason),
+           (unsigned)outputResetReason,
+           (unsigned long)outputBootSession,
            (unsigned long)outputAlarm.seq,
            (unsigned long)outputAlarm.timestampMs,
            (unsigned)outputAlarm.blockIndex,
@@ -360,7 +370,7 @@ size_t buildTelemetryJson(char* json, size_t jsonLen, bool full) {
 }
 
 String telemetryJson(bool full) {
-  char json[2800];
+  char json[3072];
   if (buildTelemetryJson(json, sizeof(json), full) == 0) {
     return "{\"ok\":0,\"err\":\"TELEMETRY_OVERFLOW\"}";
   }
@@ -385,7 +395,8 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
   //  apogee,flight_phase_elapsed,attitude_qw,qx,qy,qz,
   //  ignition_delay_ms,ignition_delay_valid,deployment_state,deployment_flags,
   //  arm_physical,flash_node,flash_target,stage1_connected,stage2_connected,
-  //  stage1_snapshot,stage2_snapshot,stage2_mode,operation_mode,data_mode]
+  //  stage1_snapshot,stage2_snapshot,stage2_mode,operation_mode,data_mode,
+  //  reset_code,boot_session]
   const bool remoteOutput = flashLinkGroundRole();
   const Telemetry& output = remoteOutput ? flashLinkRemoteSnap : snap;
   const uint16_t remoteFlags = remoteOutput ? flashLinkRemoteState.flags : 0;
@@ -499,6 +510,12 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
     ? flashLinkRemoteState.pyroChannel
 	    : daqSequencePyroChannel;
   const bool remoteActive = remoteOutput && flashLinkRemoteActive();
+  const uint8_t outputResetCode = remoteOutput
+    ? flashLinkRemoteState.resetReason
+    : static_cast<uint8_t>(bootResetReason);
+  const uint32_t outputBootSession = remoteOutput
+    ? (remoteActive ? flashLink.peerSession : 0U)
+    : bootSessionId;
   const uint8_t outputDataModeCode = remoteOutput
     ? (flashLinkRemoteState.mode == 1U ? 1U : 0U)
     : dataOperationModeCode();
@@ -546,7 +563,7 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
   //  qw,qx,qy,qz,flight_phase,vertical_speed,deployment_state,
   //  deployment_flags,relay,state,td,arm,arm_physical,ign_delay_valid,
   //  ign_delay_ms,alarm_seq,alarm_block,alarm_title,alarm_message,rx_seq,
-  //  rx_hz,chip_temp,chip_temp_valid,loop_ms,cpu_us]
+  //  rx_hz,chip_temp,chip_temp_valid,loop_ms,cpu_us,reset_code,boot_session]
   char stageSnapshots[2][512];
   for (uint8_t i = 0; i < 2; ++i) {
     if (!remoteOutput || !flashLinkStage2Enabled) {
@@ -571,7 +588,7 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
       sizeof(stageSnapshots[i]),
       "[%u,%u,%u,%lu,%.2f,%.3f,%.3f,%.3f,%.2f,%.2f,%.2f,"
       "%.6f,%.6f,%.6f,%.6f,%u,%.2f,%u,%u,%u,%u,%ld,%u,%u,"
-      "%u,%lu,%lu,%u,\"%s\",\"%s\",%lu,%u,%.1f,%u,%.3f,%u]",
+      "%u,%lu,%lu,%u,\"%s\",\"%s\",%lu,%u,%.1f,%u,%.3f,%u,%u,%lu]",
       (unsigned)(i + kFlashLinkNodeIdStage1),
       connected ? 1U : 0U,
       valid ? 1U : 0U,
@@ -607,7 +624,9 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
       isfinite(peer.snap.chipTempC) ? peer.snap.chipTempC : 0.0f,
       isfinite(peer.snap.chipTempC) ? 1U : 0U,
       peer.snap.lt,
-      (unsigned)peer.snap.ct);
+      (unsigned)peer.snap.ct,
+      (unsigned)peer.state.resetReason,
+      (unsigned long)peer.session);
     if (stageLen <= 0 || (size_t)stageLen >= sizeof(stageSnapshots[i])) {
       strlcpy(stageSnapshots[i], "null", sizeof(stageSnapshots[i]));
     }
@@ -623,7 +642,7 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
            "%u,%lu,%lu,%u,%u,%lu,%u,%u,%ld,%d,%lu,"
            "%.3f,%u,%ld,%u,%u,%u,%u,%.3f,%.6f,%lu,%lu,%lu,"
            "%lu,%lu,%u,\"%s\",\"%s\",%u,%.2f,%.2f,%lu,%.6f,%.6f,%.6f,%.6f,"
-           "%lu,%u,%u,%u,%u,%u,%u,%u,%u,%s,%s,%u,%u,%u]",
+           "%lu,%u,%u,%u,%u,%u,%u,%u,%u,%s,%s,%u,%u,%u,%u,%lu]",
            (unsigned long)frameSequence,
            (unsigned long)output.ut,
            output.baroValid ? output.p : 0.0f,
@@ -715,7 +734,9 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
                stageSnapshots[1],
                flashLinkStage2Enabled ? 1U : 0U,
                (unsigned)operationModeCode(),
-               (unsigned)outputDataModeCode);
+               (unsigned)outputDataModeCode,
+               (unsigned)outputResetCode,
+               (unsigned long)outputBootSession);
   if (n <= 0) {
     if (jsonLen) json[0] = '\0';
     return 0;
@@ -1528,7 +1549,8 @@ void setupRoutes() {
              "\"ignition_delay_ms\",\"ignition_delay_valid\",\"deployment_state\","
              "\"deployment_flags\",\"arm_physical\",\"flash_node\",\"flash_target\","
              "\"stage1_connected\",\"stage2_connected\",\"stage1_snapshot\","
-             "\"stage2_snapshot\",\"stage2_mode\",\"operation_mode\",\"data_mode\"],"
+             "\"stage2_snapshot\",\"stage2_mode\",\"operation_mode\",\"data_mode\","
+             "\"reset_code\",\"boot_session\"],"
              "\"flags\":{\"sample\":0,\"baro\":1,\"attitude\":2,\"gps_fix\":3,\"gps_seen\":4,"
              "\"arm\":5,\"igniter\":6,\"user_wait\":7,\"abort\":8,\"safety\":9,"
              "\"arm_lock\":10,\"inspection\":11,\"storage\":12,\"serial\":13,"

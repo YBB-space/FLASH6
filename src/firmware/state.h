@@ -1,9 +1,9 @@
 
 constexpr char kFirmwareProgram[] = "Altis_Intelligent3_firmware1";
-constexpr char kFirmwareVersion[] = "0.8.19";
-constexpr char kFirmwareBuildId[] = "v6 b25";
+constexpr char kFirmwareVersion[] = "0.8.20";
+constexpr char kFirmwareBuildId[] = "v6 b26";
 constexpr char kFirmwareBoard[] = "Altis_Intelligent3_b3";
-constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b4";
+constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b5";
 constexpr bool kFirmwareMissionLocked = true;
 constexpr char kFirmwareMissionSource[] = "builtin_launch_sequence";
 constexpr char kFirmwareMissionLockReason[] = "BUILTIN_MISSION";
@@ -132,7 +132,7 @@ constexpr uint8_t kWifiChannel = 6;
 constexpr uint8_t kWifiMaxClients = 2;
 constexpr char kWifiPass[] = "12345678";
 constexpr uint32_t kFlashLinkMagic = 0x314B4C46UL;  // FLK1
-constexpr uint8_t kFlashLinkVersion = 4;
+constexpr uint8_t kFlashLinkVersion = 5;
 constexpr uint8_t kFlashLinkChannel = 6;
 constexpr uint8_t kFlashLinkVehicleNodeCount = 2;
 constexpr uint8_t kFlashLinkNodeIdGround = 0;
@@ -361,6 +361,7 @@ String missionUploadSerial;
 size_t missionUploadExpectedBytes = 0;
 bool missionUploadActive = false;
 esp_reset_reason_t bootResetReason = ESP_RST_UNKNOWN;
+uint32_t bootSessionId = 0;
 bool servoReady = false;
 bool servoAttached[kServoChannelCount] = {
   false,
@@ -670,6 +671,7 @@ struct FlashLinkTelemetryV1 {
   uint16_t ignitionDelayMs;
   uint8_t deploymentState;
   uint8_t deploymentFlags;
+  uint8_t resetReason;
 };
 
 struct FlashLinkStorageStatusV1 {
@@ -1037,7 +1039,7 @@ struct NorSectorFooterV1 {
 #pragma pack(pop)
 
 static_assert(sizeof(FlashLinkHeaderV1) == 24, "ALTIS INTELLIGENT LINK1 header size changed");
-static_assert(sizeof(FlashLinkTelemetryV1) == 109, "ALTIS INTELLIGENT LINK1 telemetry payload size changed");
+static_assert(sizeof(FlashLinkTelemetryV1) == 110, "ALTIS INTELLIGENT LINK1 telemetry payload size changed");
 static_assert(sizeof(FlashLinkMissionAlarmV1) == 100, "ALTIS INTELLIGENT LINK1 mission alarm payload size changed");
 static_assert(sizeof(FlashLinkStorageListResponseV1) == 172, "ALTIS INTELLIGENT LINK1 storage list payload size changed");
 static_assert(
@@ -1183,6 +1185,7 @@ struct FlashLinkRemoteState {
   uint16_t ignitionMs = kDefaultIgnitionMs;
   uint16_t countdownMs = kDefaultCountdownMs;
   uint8_t pyroChannel = 1;
+  uint8_t resetReason = static_cast<uint8_t>(ESP_RST_UNKNOWN);
   uint32_t storageUsedBytes = 0;
   uint32_t storageCapacityBytes = 0;
   uint32_t storageRecordCount = 0;
