@@ -3,6 +3,13 @@ import { performance } from "node:perf_hooks";
 const totalBytes = Number(process.env.STORAGE_BENCH_BYTES) ||
   Math.round(31.25 * 1024 * 1024);
 const iterations = Number(process.env.STORAGE_PARSE_ITERATIONS) || 10000;
+const radioChunkBytes = 192;
+const oldWindowDepth = 4;
+const newWindowDepth = 8;
+const oldRetryMs = 70;
+const newRetryMs = 45;
+const telemetryFrameBytes = 133;
+const oldTransferTelemetryHz = 20;
 
 function requestCount(bytes, chunkBytes) {
   return Math.ceil(bytes / chunkBytes);
@@ -73,6 +80,20 @@ console.log(
 );
 printRequestReduction("A.I LINK serial", 1024, 8192);
 printRequestReduction("Direct USB serial", 1536, 8192);
+console.log(
+  `A.I LINK radio window: ${oldWindowDepth * radioChunkBytes} -> ` +
+  `${newWindowDepth * radioChunkBytes} bytes in flight ` +
+  `(${(newWindowDepth / oldWindowDepth).toFixed(1)}x)`
+);
+console.log(
+  `A.I LINK retry latency: ${oldRetryMs} -> ${newRetryMs} ms ` +
+  `(${((1 - newRetryMs / oldRetryMs) * 100).toFixed(1)}% shorter)`
+);
+console.log(
+  `Competing transfer telemetry: ` +
+  `${(telemetryFrameBytes * oldTransferTelemetryHz).toLocaleString()} -> 0 ` +
+  `payload bytes/s (100.0% removed)`
+);
 
 const regexMs = measure("regex-wide", parseRegexWide);
 const fixedMs = measure("fixed-field", parseFixedFields);

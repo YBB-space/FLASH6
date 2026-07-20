@@ -211,9 +211,14 @@ Supported controls:
   counters to the UI.
 - Sends telemetry ACKs at a constant 5 Hz to reduce reverse-link airtime while
   still detecting sequence gaps.
-- Reads remote W25Q storage through up to four pipelined 192-byte ESP-NOW read
+- Reads remote W25Q storage through up to eight pipelined 192-byte ESP-NOW read
   requests per host aggregate. Busy responses are retried within the request
   window.
+- Enters an exclusive bulk-transfer interval while those reads are active.
+  Telemetry, heartbeat, discovery, USB JSON, and WebSocket JSON output pause;
+  storage request/response packets and stage relay forwarding continue.
+- Keeps transport liveness independent from telemetry freshness during the
+  interval, using the existing six-second peer timeout for hard removal.
 - Requests storage sessions in batches of up to eight entries. Each entry carries
   its session ID, logical offset, byte length, record count, and current-session flag,
   allowing the UI to download only the selected session range.
@@ -283,13 +288,13 @@ revisions should rotate keys per fleet or per paired board.
 
 ## Firmware Revision
 
-- Firmware version: `0.8.13`
-- Build ID: `v6 b19`
+- Firmware version: `0.8.14`
+- Build ID: `v6 b20`
 - Wire protocol: `Flash6-Intelligent-b4` / numeric version `4`
 - Storage record format: version `4` (unchanged and backward compatible)
 - Compatibility: both ground and avionics nodes must run wire version `4`.
   Version `4` keeps the packet structures from version `3` and adds command
-  code `25` (`Reboot`). A `/reset` received by a ground-role node now queues
-  that command for the selected avionics node; a directly connected avionics
-  node still performs the restart locally. Storage records and download
-  responses remain compatible with earlier builds.
+  code `25` (`Reboot`). Build b20 changes only scheduling, transfer-window,
+  timeout, and route-selection behavior; ESP-NOW packet layouts, storage
+  records, serial commands, HTTP responses, and download data remain
+  compatible with earlier wire-version-4 builds.

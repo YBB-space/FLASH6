@@ -63,24 +63,59 @@ bool flashLinkRouteFresh(uint32_t lastRxMs, uint32_t maxAgeMs) {
   return lastRxMs != 0U && (uint32_t)(millis() - lastRxMs) <= maxAgeMs;
 }
 
+bool flashLinkStorageTransferActive(uint32_t nowMs) {
+  return flashLink.storageTransferExclusiveUntilMs != 0U &&
+    (int32_t)(flashLink.storageTransferExclusiveUntilMs - nowMs) > 0;
+}
+
+void flashLinkHoldStorageTransfer(uint32_t nowMs) {
+  flashLink.storageTransferExclusiveUntilMs =
+    nowMs + kFlashLinkStorageExclusiveHoldMs;
+}
+
 void flashLinkGroundChooseRoute(FlashLinkGroundPeer& peer) {
+  const uint32_t nowMs = millis();
   const bool directUsable = peer.directReady &&
     (peer.lastDirectRxMs == 0U ||
      flashLinkRouteFresh(peer.lastDirectRxMs, kFlashLinkPeerTimeoutMs));
   const bool relayUsable = peer.relayReady &&
     (peer.lastRelayRxMs == 0U ||
      flashLinkRouteFresh(peer.lastRelayRxMs, kFlashLinkPeerTimeoutMs));
-  const uint32_t lastPrimaryRxMs = peer.lastRelayTelemetryRxMs != 0U
-    ? peer.lastRelayTelemetryRxMs
-    : peer.lastRelayRxMs;
   const bool relayActive = relayUsable && peer.relayLinked &&
-    flashLinkRouteFresh(lastPrimaryRxMs, kFlashLinkPrimaryRouteFreshMs);
+    flashLinkRouteFresh(peer.lastRelayRxMs, kFlashLinkPrimaryRouteFreshMs);
   const bool directActive = directUsable && peer.directLinked &&
     flashLinkRouteFresh(peer.lastDirectRxMs, kFlashLinkPeerTimeoutMs);
-  const bool preferRelay = relayActive || (!directActive && relayUsable);
+
+  if (relayActive) {
+    if (peer.relayHealthySinceMs == 0U) peer.relayHealthySinceMs = nowMs;
+  } else {
+    peer.relayHealthySinceMs = 0U;
+  }
+
+  bool preferRelay = peer.relayed;
+  if (peer.relayed) {
+    // Fail over immediately when the relay path is no longer live.
+    preferRelay = relayActive || !directActive;
+  } else if (!directActive) {
+    preferRelay = relayUsable;
+  } else {
+    // A recovered relay must remain continuously healthy before it retakes
+    // the primary route. This prevents route flapping on intermittent frames.
+    const bool recoveryHeld =
+      peer.relayHealthySinceMs != 0U &&
+      (uint32_t)(nowMs - peer.relayHealthySinceMs) >=
+        kFlashLinkRouteRecoveryHoldMs;
+    const bool dwellComplete =
+      peer.routeChangedMs == 0U ||
+      (uint32_t)(nowMs - peer.routeChangedMs) >= kFlashLinkRouteMinDwellMs;
+    preferRelay = relayActive && recoveryHeld && dwellComplete;
+  }
+
   peer.peerReady = relayUsable || directUsable;
-  peer.relayed = peer.peerReady && preferRelay;
-  if (preferRelay) {
+  const bool nextRelayed = peer.peerReady && preferRelay;
+  if (nextRelayed != peer.relayed) peer.routeChangedMs = nowMs;
+  peer.relayed = nextRelayed;
+  if (peer.relayed) {
     memcpy(peer.mac, peer.relayMac, ESP_NOW_ETH_ALEN);
     peer.rssiDbm = peer.relayRssiDbm;
     peer.lastRssiMs = peer.lastRelayRssiMs;
@@ -105,15 +140,34 @@ const uint8_t* flashLinkGroundCommandDestination(
     (peer.lastDirectRxMs == 0U ||
      flashLinkRouteFresh(peer.lastDirectRxMs, kFlashLinkPeerTimeoutMs));
   const bool relayUsable = peer.relayReady && peer.relayLinked &&
-    flashLinkRouteFresh(
-      peer.lastRelayTelemetryRxMs != 0U
-        ? peer.lastRelayTelemetryRxMs
-        : peer.lastRelayRxMs,
-      kFlashLinkPrimaryRouteFreshMs);
-  if (relayUsable &&
-      (!directUsable || attempts < kFlashLinkRelayCommandAttempts)) {
-    return peer.relayMac;
+    flashLinkRouteFresh(peer.lastRelayRxMs, kFlashLinkPrimaryRouteFreshMs);
+  const bool tryPrimary = attempts < kFlashLinkRelayCommandAttempts;
+  if (tryPrimary) {
+    if (peer.relayed && relayUsable) return peer.relayMac;
+    if (!peer.relayed && directUsable) return peer.directMac;
   }
+  if (peer.relayed && directUsable) return peer.directMac;
+  if (!peer.relayed && relayUsable) return peer.relayMac;
+  if (directUsable) return peer.directMac;
+  return relayUsable ? peer.relayMac : nullptr;
+}
+
+const uint8_t* flashLinkGroundStorageDestination(
+  FlashLinkGroundPeer& peer,
+  uint8_t attempts
+) {
+  flashLinkGroundChooseRoute(peer);
+  const bool directUsable = peer.directReady && peer.directLinked &&
+    flashLinkRouteFresh(peer.lastDirectRxMs, kFlashLinkPeerTimeoutMs);
+  const bool relayUsable = peer.relayReady && peer.relayLinked &&
+    flashLinkRouteFresh(peer.lastRelayRxMs, kFlashLinkPeerTimeoutMs);
+  const bool tryPrimary = attempts < kFlashLinkRelayCommandAttempts;
+  if (tryPrimary) {
+    if (peer.relayed && relayUsable) return peer.relayMac;
+    if (!peer.relayed && directUsable) return peer.directMac;
+  }
+  if (peer.relayed && directUsable) return peer.directMac;
+  if (!peer.relayed && relayUsable) return peer.relayMac;
   if (directUsable) return peer.directMac;
   return relayUsable ? peer.relayMac : nullptr;
 }
@@ -124,6 +178,14 @@ bool flashLinkGroundPeerActive(uint8_t nodeId) {
   return peer && peer->peerReady && peer->linked && peer->remoteValid &&
          peer->lastTelemetryRxMs != 0U &&
          (uint32_t)(millis() - peer->lastTelemetryRxMs) <= kFlashLinkTelemetryStaleMs;
+}
+
+bool flashLinkGroundPeerTransportActive(uint8_t nodeId) {
+  FlashLinkGroundPeer* peer = flashLinkGroundPeerForNode(nodeId);
+  if (peer) flashLinkGroundChooseRoute(*peer);
+  return peer && peer->occupied && peer->peerReady && peer->linked &&
+         peer->remoteValid && peer->lastPeerRxMs != 0U &&
+         (uint32_t)(millis() - peer->lastPeerRxMs) <= kFlashLinkPeerTimeoutMs;
 }
 
 void flashLinkGroundRefreshSelectedPeer() {
@@ -189,7 +251,9 @@ bool flashLinkGroundControlActive() {
 }
 
 bool flashLinkCanProxyStorage() {
-  return flashLinkGroundControlActive() && flashLinkRemoteActive();
+  return flashLinkGroundRole() &&
+         flashLink.initialized &&
+         flashLinkGroundPeerTransportActive(flashLinkTargetNodeId);
 }
 
 void flashLinkStorageReadCancel(uint32_t transaction) {
@@ -249,6 +313,7 @@ bool flashLinkRequestStorageReadWindowed(
   outLen = 0;
   if (!out || len == 0 || !flashLinkCanProxyStorage()) return false;
   const uint8_t targetNodeId = flashLinkTargetNodeId;
+  flashLinkHoldStorageTransfer(millis());
 
   struct PendingRead {
     bool active = false;
@@ -268,7 +333,8 @@ bool flashLinkRequestStorageReadWindowed(
 
   const uint32_t startMs = millis();
   while ((uint32_t)(millis() - startMs) < max<uint32_t>(400U, timeoutMs)) {
-    if (!flashLinkGroundPeerActive(targetNodeId)) {
+    flashLinkHoldStorageTransfer(millis());
+    if (!flashLinkGroundPeerTransportActive(targetNodeId)) {
       flashLinkStorageReadCancel(0);
       return false;
     }
@@ -386,7 +452,7 @@ bool flashLinkRequestStorageReadWindowed(
         request.len = read.len;
         FlashLinkGroundPeer* targetPeer = flashLinkGroundPeerForNode(targetNodeId);
         const uint8_t* destination = targetPeer
-          ? flashLinkGroundCommandDestination(*targetPeer, read.attempts)
+          ? flashLinkGroundStorageDestination(*targetPeer, read.attempts)
           : nullptr;
         if (destination && flashLinkSendPacket(
               FlashLinkPacketType::StorageReadRequest,
@@ -466,7 +532,7 @@ bool flashLinkRequestStorageList(
          (uint32_t)(nowMs - lastSendMs) >= kFlashLinkStorageRequestRetryMs)) {
       FlashLinkGroundPeer* targetPeer = flashLinkGroundPeerForNode(targetNodeId);
       const uint8_t* destination = targetPeer
-        ? flashLinkGroundCommandDestination(*targetPeer, attempts)
+        ? flashLinkGroundStorageDestination(*targetPeer, attempts)
         : nullptr;
       if (destination && flashLinkSendPacket(
             FlashLinkPacketType::StorageListRequest,
@@ -1521,6 +1587,12 @@ bool flashLinkQueueRelayedFrame(
   }
   FlashLinkHeaderV1 incomingHeader{};
   memcpy(&incomingHeader, incoming.data, sizeof(incomingHeader));
+  if (incomingHeader.type ==
+        static_cast<uint8_t>(FlashLinkPacketType::StorageReadRequest) ||
+      incomingHeader.type ==
+        static_cast<uint8_t>(FlashLinkPacketType::StorageReadResponse)) {
+    flashLinkHoldStorageTransfer(millis());
+  }
   if (!downlink &&
       incomingHeader.type == static_cast<uint8_t>(FlashLinkPacketType::Telemetry)) {
     for (uint8_t offset = 0; offset < flashLinkRelayTxCount; ++offset) {
@@ -2372,9 +2444,9 @@ void flashLinkHandlePacket(FlashLinkRxSlot& slot) {
       *reinterpret_cast<const FlashLinkStorageReadRequestV1*>(
         slot.data + sizeof(FlashLinkHeaderV1));
     FlashLinkStorageReadResponseV1 response{};
-    // Keep the link alive at a reduced telemetry rate while giving bulk
-    // storage responses most of the shared ESP-NOW airtime.
-    flashLink.storageTransferPriorityUntilMs = nowMs + 250U;
+    // Bulk download is an exclusive radio mode: each request extends the
+    // quiet window so no periodic packet competes with storage responses.
+    flashLinkHoldStorageTransfer(nowMs);
     response.transaction = request.transaction;
     response.offset = request.offset;
     response.len = 0;
@@ -2557,6 +2629,7 @@ void flashLinkHandlePacket(FlashLinkRxSlot& slot) {
     groundPeer->rxTelemetryFrames++;
     groundPeer->rxRateWindowFrames++;
     groundPeer->lastTelemetryRxMs = nowMs;
+    groundPeer->telemetryDegraded = false;
     if (relayedPacket) {
       groundPeer->lastRelayTelemetryRxMs = nowMs;
       groundPeer->relayLinked = true;
@@ -2806,12 +2879,13 @@ void flashLinkGroundTick(uint32_t nowMs) {
       peer.rxRateWindowMs = nowMs;
       if (peer.nodeId == flashLinkTargetNodeId) selectedStatsChanged = true;
     }
-    if (peer.lastTelemetryRxMs != 0U &&
-        (uint32_t)(nowMs - peer.lastTelemetryRxMs) > kFlashLinkTelemetryStaleMs) {
-      Serial.printf("[FLASH_LINK] stage %u telemetry stale; clearing pending work\n",
+    if (!flashLinkStorageTransferActive(nowMs) &&
+        peer.lastTelemetryRxMs != 0U &&
+        (uint32_t)(nowMs - peer.lastTelemetryRxMs) > kFlashLinkTelemetryStaleMs &&
+        !peer.telemetryDegraded) {
+      peer.telemetryDegraded = true;
+      Serial.printf("[FLASH_LINK] stage %u telemetry stale; transport retained\n",
                     (unsigned)peer.nodeId);
-      flashLinkResetGroundPeer(peer);
-      continue;
     }
     if (peer.lastPeerRxMs != 0U &&
         (uint32_t)(nowMs - peer.lastPeerRxMs) > kFlashLinkPeerTimeoutMs) {
@@ -2975,13 +3049,15 @@ bool flashLinkStage1RelayTick(uint32_t nowMs) {
     flashLinkRelayTxTail = 0;
     flashLinkRelayTxCount = 0;
     Serial.println("[FLASH_LINK] stage 2 relay peer timeout; scanning again");
-  } else if (flashLinkRelay.stage2LastTelemetryRxMs != 0U &&
+  } else if (!flashLinkStorageTransferActive(nowMs) &&
+             flashLinkRelay.stage2LastTelemetryRxMs != 0U &&
              (uint32_t)(nowMs - flashLinkRelay.stage2LastTelemetryRxMs) >
                kFlashLinkTelemetryStaleMs) {
     flashLinkRelay.stage2Linked = false;
   }
 
   if (flashLinkDrainRelayTxQueue()) return true;
+  if (flashLinkStorageTransferActive(nowMs)) return false;
 
   if (flashLinkRelay.stage2PeerReady && flashLinkRelay.stage2AckPending &&
       !flashLink.txBusy) {
@@ -3204,6 +3280,10 @@ void flashLinkTick() {
   if (flashLinkFlushPendingCommandAck()) return;
   if (flashLinkFlushPendingStorageListResponse()) return;
   if (flashLinkStage1RelayTick(nowMs)) return;
+  // ESP-NOW RX draining, storage replies, command acknowledgements, and stage
+  // relay forwarding above remain live. Everything periodic below is silenced
+  // until the current wireless storage burst has finished.
+  if (flashLinkStorageTransferActive(nowMs)) return;
   if (flashLinkGroundRole()) {
     flashLinkGroundTick(nowMs);
     return;
@@ -3340,15 +3420,9 @@ void flashLinkTick() {
     }
   }
 
-  const bool storageTransferPriority =
-    flashLinkAvionicsRole() &&
-    (int32_t)(flashLink.storageTransferPriorityUntilMs - nowMs) > 0;
-  const uint32_t telemetryPeriodUs = storageTransferPriority
-    ? (1000000UL / kFlashLinkStorageTransferTelemetryHz)
-    : flashLinkTelemetryPeriodUs();
   if (flashLinkAvionicsRole() &&
       (uint32_t)(nowUs - flashLink.lastTelemetryTxUs) >=
-        telemetryPeriodUs) {
+        flashLinkTelemetryPeriodUs()) {
     flashLink.lastTelemetryTxUs = nowUs;
     if (flashLink.txBusy) {
       flashLink.txSkipped++;

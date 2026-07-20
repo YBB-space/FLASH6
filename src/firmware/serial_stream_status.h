@@ -1210,6 +1210,7 @@ void pollSerial() {
 
 void sendPeriodicTelemetry() {
   if (flashLinkAvionicsRole() && !serialStream) return;
+  if (flashLinkStorageTransferActive(millis())) return;
   const uint32_t nowUs = micros();
   const uint32_t serialPeriodUs = flashLinkGroundRole()
     ? flashLinkTelemetryPeriodUs()

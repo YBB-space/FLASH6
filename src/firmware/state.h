@@ -1,7 +1,7 @@
 
 constexpr char kFirmwareProgram[] = "Altis_Intelligent3_firmware1";
-constexpr char kFirmwareVersion[] = "0.8.13";
-constexpr char kFirmwareBuildId[] = "v6 b19";
+constexpr char kFirmwareVersion[] = "0.8.14";
+constexpr char kFirmwareBuildId[] = "v6 b20";
 constexpr char kFirmwareBoard[] = "Altis_Intelligent3_b3";
 constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b4";
 
@@ -154,6 +154,8 @@ constexpr uint32_t kFlashLinkTelemetryStaleMs = 1500;
 constexpr uint32_t kFlashLinkRecoveryPeerResetMs = 3000;
 constexpr uint32_t kFlashLinkPeerTimeoutMs = 6000;
 constexpr uint32_t kFlashLinkPrimaryRouteFreshMs = 650;
+constexpr uint32_t kFlashLinkRouteRecoveryHoldMs = 1200;
+constexpr uint32_t kFlashLinkRouteMinDwellMs = 800;
 constexpr uint8_t kFlashLinkRelayCommandAttempts = 2;
 constexpr uint32_t kFlashLinkTxBusyTimeoutMs = 250;
 constexpr uint8_t kFlashLinkAckHz = 5;
@@ -176,13 +178,16 @@ constexpr uint16_t kFlashLinkStorageHttpChunkBytes = 1024;
 // The larger aggregate cuts browser/USB request round trips while preserving
 // the ESP-NOW wire packet and the HTTP fallback response size.
 constexpr uint16_t kFlashLinkStorageSerialChunkBytes = 8192;
-constexpr uint8_t kFlashLinkStorageWindowDepth = 4;
-constexpr uint16_t kFlashLinkStorageTransferTelemetryHz = 20;
+constexpr uint8_t kFlashLinkStorageWindowDepth = 8;
+// Every bulk-read packet extends this quiet period. While it is active, A.I
+// LINK services only storage traffic and relay forwarding; periodic telemetry,
+// heartbeats, discovery, USB JSON, and WebSocket JSON remain silent.
+constexpr uint32_t kFlashLinkStorageExclusiveHoldMs = 750;
 static_assert(
   kFlashLinkStorageSerialChunkBytes <= kSerialStorageChunkBytes,
   "Shared serial storage buffer is smaller than the A.I LINK aggregate");
 constexpr uint8_t kFlashLinkStorageListBatchItems = 8;
-constexpr uint32_t kFlashLinkStorageRequestRetryMs = 70;
+constexpr uint32_t kFlashLinkStorageRequestRetryMs = 45;
 constexpr uint8_t kFlashLinkStorageRequestMaxAttempts = 12;
 constexpr wifi_phy_rate_t kFlashLinkEspNowRate = WIFI_PHY_RATE_1M_L;
 constexpr const char* kFlashLinkEspNowRateName = "1M_L";
@@ -993,7 +998,7 @@ struct FlashLinkRuntime {
   uint32_t lastTelemetryRxMs = 0;
   uint32_t lastTelemetryTxUs = 0;
   uint32_t lastStorageStatusTxMs = 0;
-  uint32_t storageTransferPriorityUntilMs = 0;
+  uint32_t storageTransferExclusiveUntilMs = 0;
   uint32_t lastTxStartMs = 0;
   volatile uint32_t lastMacAckMs = 0;
   uint32_t txFrames = 0;
@@ -1097,6 +1102,7 @@ struct FlashLinkGroundPeer {
   bool relayReady = false;
   bool directLinked = false;
   bool relayLinked = false;
+  bool telemetryDegraded = false;
   uint8_t nodeId = 0;
   uint8_t mac[ESP_NOW_ETH_ALEN] = {};
   uint8_t directMac[ESP_NOW_ETH_ALEN] = {};
@@ -1110,6 +1116,8 @@ struct FlashLinkGroundPeer {
   uint32_t lastRelayRxMs = 0;
   uint32_t lastDirectTelemetryRxMs = 0;
   uint32_t lastRelayTelemetryRxMs = 0;
+  uint32_t relayHealthySinceMs = 0;
+  uint32_t routeChangedMs = 0;
   uint32_t lastHelloMs = 0;
   uint32_t lastHeartbeatMs = 0;
   uint32_t rxFrames = 0;
@@ -1504,6 +1512,8 @@ bool flashLinkRemoteActive();
 bool flashLinkOperational();
 void flashLinkGroundRefreshSelectedPeer();
 bool flashLinkRouteFresh(uint32_t lastRxMs, uint32_t maxAgeMs);
+bool flashLinkStorageTransferActive(uint32_t nowMs);
+void flashLinkHoldStorageTransfer(uint32_t nowMs);
 void flashLinkGroundChooseRoute(FlashLinkGroundPeer& peer);
 void flashLinkGroundAutoSelectTarget(uint32_t nowMs);
 void flashLinkSetStage2Mode(bool enabled, bool persist = true);

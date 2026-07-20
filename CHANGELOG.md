@@ -3,6 +3,27 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.8.14 — v6 b20 — 2026-07-20
+
+Protocol: `Flash6-Intelligent-b4` (ESP-NOW wire version `4`, unchanged)
+
+- Added an exclusive A.I LINK storage-transfer mode. While a wireless BIN read
+  is active, avionics, relay, and ground nodes stop periodic telemetry,
+  heartbeat, discovery, USB JSON, and WebSocket JSON output so ESP-NOW airtime
+  and CPU time are reserved for storage requests, responses, and relay frames.
+- Increased the remote storage pipeline from four to eight simultaneous
+  192-byte radio reads and reduced the per-frame retry interval from 70 ms to
+  45 ms. Host-side 8 KiB aggregates and all wire packet layouts remain
+  unchanged.
+- Separated transport liveness from telemetry freshness so intentionally
+  paused telemetry no longer clears an active storage transfer after 1.5
+  seconds. A transport is now removed only after its existing six-second peer
+  timeout.
+- Added route hysteresis: failed relay paths fall back immediately, while a
+  recovered relay must remain healthy for 1.2 seconds before becoming primary
+  again. Storage responses refresh route health even while telemetry is
+  intentionally silent.
+
 ## 0.8.13 — v6 b19 — 2026-07-20
 
 Protocol: `Flash6-Intelligent-b4` (ESP-NOW wire version `4`, unchanged)
