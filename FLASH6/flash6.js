@@ -6133,6 +6133,8 @@ function requestMobileMockup3dMesh(){
     let flashLinkChartRaf = 0;
     let flashLinkChartResizeObserver = null;
     let pendingOperationModeConfirm = null;
+    let operationModeChangeBusy = false;
+    let lastConfirmedOperationMode = null;
     const FLASH_LINK_REPORT_DURATION_MS = 60000;
     const FLASH_LINK_REPORT_COUNTDOWN_SEC = 3;
     const FLASH_LINK_REPORT_SAMPLE_MS = 200;
@@ -8146,20 +8148,22 @@ function requestMobileMockup3dMesh(){
       if(el.opModeSelect) el.opModeSelect.value = uiSettings.opMode || "daq";
       const flashLinkEnabled = getSettingsOperationModeValue() === "flash_link";
       if(el.opModeSelect){
-        el.opModeSelect.disabled = false;
-        el.opModeSelect.title = "";
+        el.opModeSelect.disabled = operationModeChangeBusy;
+        el.opModeSelect.title = operationModeChangeBusy ? "보드 모드 적용 중" : "";
       }
       if(el.flashLinkEnabledPill){
         el.flashLinkEnabledPill.textContent = flashLinkEnabled ? "ON" : "OFF";
         el.flashLinkEnabledPill.classList.toggle("is-on", flashLinkEnabled);
         el.flashLinkEnabledPill.classList.toggle("is-off", !flashLinkEnabled);
+        el.flashLinkEnabledPill.disabled = operationModeChangeBusy;
+        el.flashLinkEnabledPill.setAttribute("aria-busy", operationModeChangeBusy ? "true" : "false");
       }
       const stage2ModeEnabled = uiSettings.flashLinkStage2Mode === true;
       if(el.flashLinkStage2ModePill){
         el.flashLinkStage2ModePill.textContent = stage2ModeEnabled ? "ON" : "OFF";
         el.flashLinkStage2ModePill.classList.toggle("is-on", stage2ModeEnabled);
         el.flashLinkStage2ModePill.classList.toggle("is-off", !stage2ModeEnabled);
-        el.flashLinkStage2ModePill.disabled = !flashLinkEnabled;
+        el.flashLinkStage2ModePill.disabled = operationModeChangeBusy || !flashLinkEnabled;
       }
       if(el.flashLinkStatusHint){
         el.flashLinkStatusHint.textContent = currentLang === "ko"
@@ -8187,15 +8191,15 @@ function requestMobileMockup3dMesh(){
       {
         const role = normalizeFlashLinkRole(uiSettings.flashLinkRole);
         const dataModeDisabled = !flashLinkEnabled || role !== "avionics";
-        if(el.flashLinkRoleSelect) el.flashLinkRoleSelect.disabled = !flashLinkEnabled;
+        if(el.flashLinkRoleSelect) el.flashLinkRoleSelect.disabled = operationModeChangeBusy || !flashLinkEnabled;
         if(el.flashLinkNodeRow) el.flashLinkNodeRow.hidden = role !== "avionics";
         if(el.flashLinkTargetRow) el.flashLinkTargetRow.hidden = role !== "ground";
-        if(el.flashLinkNodeSelect) el.flashLinkNodeSelect.disabled = !flashLinkEnabled || role !== "avionics";
+        if(el.flashLinkNodeSelect) el.flashLinkNodeSelect.disabled = operationModeChangeBusy || !flashLinkEnabled || role !== "avionics";
         if(el.flashLinkNodeSelect){
           const stage2Option = el.flashLinkNodeSelect.querySelector('option[value="2"]');
           if(stage2Option) stage2Option.disabled = !stage2ModeEnabled;
         }
-        if(el.flashLinkDataModeSelect) el.flashLinkDataModeSelect.disabled = dataModeDisabled;
+        if(el.flashLinkDataModeSelect) el.flashLinkDataModeSelect.disabled = operationModeChangeBusy || dataModeDisabled;
         if(el.flashLinkDataModeRow) el.flashLinkDataModeRow.classList.toggle("is-disabled", !flashLinkEnabled || dataModeDisabled);
         if(el.flashLinkStatus) el.flashLinkStatus.classList.toggle("is-disabled", !flashLinkEnabled);
         const group = el.flashLinkEnabledPill ? el.flashLinkEnabledPill.closest(".flash-link-settings-group") : null;
@@ -11070,52 +11074,173 @@ function requestMobileMockup3dMesh(){
       return true;
     }
     function confirmOperationModeFromBoard(mode){
-      if(!isOperationModeConfirmPending()) return;
-      const now = Date.now();
-      const target = normalizeOperationModeValue(pendingOperationModeConfirm.mode);
       const actual = normalizeOperationModeValue(mode);
-      if(actual !== target) return;
+      lastConfirmedOperationMode = actual;
+      if(!isOperationModeConfirmPending()) return false;
+      const target = normalizeOperationModeValue(pendingOperationModeConfirm.mode);
+      if(actual !== target) return false;
       pendingOperationModeConfirm = null;
-      showToast("보드 모드 적용 확인: " + getOperationModeToastLabel(actual), "success", {
-        key:"operation-mode-confirm",
-        duration:3200
-      });
+      return true;
     }
-    function syncOperationModeToBoard(logIt){
-      const mode = getSettingsOperationModeValue();
+    function buildOperationModeCommandPath(mode){
+      const nextMode = normalizeOperationModeValue(mode);
       const role = normalizeFlashLinkRole(uiSettings && uiSettings.flashLinkRole);
       const dataMode = normalizeDataModeValue(uiSettings && uiSettings.flashLinkDataMode, "flight");
       const dataModePart = role === "avionics" ? ("&flash_link_data_mode=" + dataMode) : "";
       const nodePart = "&flash_link_node_id=" + normalizeFlashLinkNodeId(uiSettings && uiSettings.flashLinkNodeId);
       const stage2Part = "&flash_link_stage2_mode=" + ((uiSettings && uiSettings.flashLinkStage2Mode) ? 1 : 0);
-      const path = "/set?op_mode=" + mode + "&flash_link_role=" + role + nodePart + stage2Part + dataModePart;
-      sendCommand({http:path, ser:path}, !!logIt);
+      return "/set?op_mode=" + nextMode + "&flash_link_role=" + role + nodePart + stage2Part + dataModePart;
+    }
+    async function requestOperationModeChange(mode){
+      const target = normalizeOperationModeValue(mode);
+      const path = buildOperationModeCommandPath(target);
+      const targetPattern = new RegExp("\\bOP_MODE=" + target.toUpperCase() + "(?:\\b|$)");
+      if(simEnabled){
+        return {ok:true, confirmed:true, reason:"SIM"};
+      }
+
+      if(serialConnected && serialWriter){
+        const reply = await requestSerialCommandAck(
+          path,
+          (evt)=>{
+            const message = String(evt.message || "").toUpperCase();
+            return evt.kind === "ack" &&
+              message.indexOf("STREAM=") === 0 &&
+              targetPattern.test(message);
+          },
+          {timeoutMs:2400, writeTimeoutMs:900}
+        );
+        if(reply && reply.ok){
+          return {ok:true, confirmed:true, reason:reply.message || "SERIAL_ACK"};
+        }
+        // The board can restart immediately after persisting a mode change.
+        // In that narrow window the ACK may be lost even though the command
+        // succeeded, so telemetry confirmation gets a short grace period.
+        if(reply && reply.kind === "timeout"){
+          return {ok:true, confirmed:false, reason:"SERIAL_ACK_PENDING"};
+        }
+        return {
+          ok:false,
+          confirmed:false,
+          reason:(reply && (reply.message || reply.kind)) || "SERIAL_NO_REPLY"
+        };
+      }
+
+      const API_BASE = getApiBaseForCommands();
+      const controller = createAbortControllerSafe();
+      const timer = controller ? setTimeout(()=>{
+        try{ controller.abort(); }catch(_e){}
+      }, 2800) : null;
+      try{
+        const response = await fetch((API_BASE || "") + path, Object.assign(
+          {cache:"no-cache"},
+          controller ? {signal:controller.signal} : {}
+        ));
+        const body = await response.text().catch(()=>"");
+        const confirmed = response.ok && targetPattern.test(String(body || "").toUpperCase());
+        return {
+          ok:response.ok,
+          confirmed,
+          reason:(body && body.trim()) || ("HTTP " + response.status)
+        };
+      }catch(err){
+        return {
+          ok:false,
+          confirmed:false,
+          reason:(err && err.name === "AbortError")
+            ? "HTTP_TIMEOUT"
+            : ((err && err.message) || "NETWORK_ERROR")
+        };
+      }finally{
+        if(timer) clearTimeout(timer);
+      }
+    }
+    function waitForOperationModeConfirmation(mode, timeoutMs){
+      const target = normalizeOperationModeValue(mode);
+      const timeout = Math.max(500, Number(timeoutMs) || 8000);
+      return new Promise((resolve)=>{
+        const startedAt = Date.now();
+        const poll = ()=>{
+          if(lastConfirmedOperationMode === target){
+            resolve(true);
+            return;
+          }
+          if((Date.now() - startedAt) >= timeout){
+            resolve(false);
+            return;
+          }
+          setTimeout(poll, 100);
+        };
+        poll();
+      });
+    }
+    async function applyOperationModeChange(mode){
+      if(!uiSettings || operationModeChangeBusy) return false;
+      const before = getSettingsOperationModeValue();
+      const next = normalizeOperationModeValue(mode);
+      if(before === next){
+        applySettingsToUI();
+        return true;
+      }
+
+      operationModeChangeBusy = true;
+      lastConfirmedOperationMode = null;
+      markOperationModeConfirmPending(next);
+      applySettingsToUI();
+      showToast("보드 모드 적용 중: " + getOperationModeToastLabel(next), "info", {
+        key:"operation-mode-change",
+        duration:3000
+      });
+
+      let result = null;
+      let confirmed = false;
+      try{
+        result = await requestOperationModeChange(next);
+        confirmed = !!(result && result.ok && result.confirmed);
+        if(result && result.ok && !confirmed){
+          confirmed = await waitForOperationModeConfirmation(next, 8000);
+        }
+        if(!confirmed){
+          pendingOperationModeConfirm = null;
+          uiSettings.opMode = before;
+          if(el.opModeSelect) el.opModeSelect.value = before;
+          saveSettings();
+          showToast("보드 모드 변경 실패 · 기존 모드를 유지합니다. (" +
+            String((result && result.reason) || "NO_CONFIRM") + ")", "error", {
+            key:"operation-mode-change",
+            duration:5200
+          });
+          return false;
+        }
+
+        // Keep the target guard active across the restart boundary. A few old
+        // telemetry frames can still be queued after the ACK; they must not
+        // roll the UI back before the first frame from the new mode arrives.
+        markOperationModeConfirmPending(next);
+        lastConfirmedOperationMode = next;
+        uiSettings.opMode = next;
+        if(el.opModeSelect) el.opModeSelect.value = next;
+        resetQuickFlightMetricsState();
+        saveSettings();
+        showToast("보드 모드 적용 완료: " + getOperationModeToastLabel(next), "success", {
+          key:"operation-mode-change",
+          duration:3600
+        });
+        return true;
+      }finally{
+        operationModeChangeBusy = false;
+        applySettingsToUI();
+      }
     }
     function setFlashLinkEnabled(enabled){
-      if(!uiSettings) return;
-      const before = getSettingsOperationModeValue();
+      if(!uiSettings || operationModeChangeBusy) return;
       let next = enabled ? "flash_link" : null;
       if(!enabled){
         next = (flashLinkDisplayDataMode === "flight" || flashLinkDisplayDataMode === "daq")
           ? flashLinkDisplayDataMode
           : normalizeDataModeValue(uiSettings.flashLinkDataMode, "daq");
       }
-      if(next !== "flight" && next !== "daq" && next !== "flash_link"){
-        next = enabled ? "flash_link" : "daq";
-      }
-      uiSettings.opMode = next;
-      if(el.opModeSelect) el.opModeSelect.value = next;
-      if(before !== next){
-        resetQuickFlightMetricsState();
-        markOperationModeConfirmPending(next);
-      }
-      saveSettings();
-      applySettingsToUI();
-      syncOperationModeToBoard(false);
-      syncDaqSequencePyroChannelToBoard(false);
-      if(before !== next){
-        showToast(enabled ? "AIL ON" : "AIL OFF", enabled ? "success" : "info", {key:"ail-toggle"});
-      }
+      void applyOperationModeChange(next);
     }
     function syncFlashLinkRoleToBoard(logIt){
       const role = normalizeFlashLinkRole(uiSettings && uiSettings.flashLinkRole);
@@ -32313,7 +32438,7 @@ function requestMobileMockup3dMesh(){
         normalizedPath.startsWith("/set?safe=") ||
         normalizedPath.startsWith("/set?arm_lock=") ||
         normalizedPath.startsWith("/reset");
-      if(lockoutLatched && !isLockoutBypassCmd){
+      if(lockoutLatched && !isLockoutBypassCmd && !isCoreConfigCmd){
         const name = relayMaskName(lockoutRelayMask);
         showToast(t("lockoutCmdDenied", {name}), "error");
         return;
@@ -37339,23 +37464,13 @@ function requestMobileMockup3dMesh(){
       }
       if(el.opModeSelect){
         el.opModeSelect.addEventListener("change",()=>{
-          if(!uiSettings) return;
-          const before = uiSettings.opMode;
-          uiSettings.opMode = el.opModeSelect.value || "daq";
-          if(before !== uiSettings.opMode){
-            resetQuickFlightMetricsState();
+          if(!uiSettings || operationModeChangeBusy){
+            applySettingsToUI();
+            return;
           }
-          saveSettings();
-          applySettingsToUI();
-          if(before !== uiSettings.opMode){
-            markOperationModeConfirmPending(uiSettings.opMode);
-          }
-          syncOperationModeToBoard(false);
-          syncDaqSequencePyroChannelToBoard(false);
-          if(before !== uiSettings.opMode){
-            const modeLabel = getOperationModeToastLabel(uiSettings.opMode);
-            showToast(t("opModeChangedToast", {mode:modeLabel}), "info");
-          }
+          const next = el.opModeSelect.value || "daq";
+          el.opModeSelect.value = getSettingsOperationModeValue();
+          void applyOperationModeChange(next);
         });
       }
       if(el.flashLinkEnabledPill){

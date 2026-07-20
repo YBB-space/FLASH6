@@ -39,6 +39,14 @@ Protocol: `Flash6-Intelligent-b4` (wire version `4`)
   port by browser enumeration order.
 - Extended the verified-link handoff window to 30 seconds so the `시작하기`
   action remains available while WebSocket telemetry finishes connecting.
+- Made board-mode switching transactional: the UI now commits DAQ, FLIGHT, or
+  A.I LINK state only after the board ACK or post-restart telemetry confirms
+  the requested `OP_MODE`.
+- Prevented repeated mode-toggle submissions while a change is in flight,
+  preserved the last confirmed UI mode when a command fails, and added an
+  eight-second telemetry grace period for the board restart window.
+- Allowed communication-mode configuration during a latched relay lockout
+  while keeping all hazardous control commands blocked.
 
 ## 0.8.11 — v6 b17 — 2026-07-17
 
