@@ -24605,8 +24605,64 @@ function requestMobileMockup3dMesh(){
       active:false,
       startedAt:0,
       lastPercent:-1,
-      lastRenderAt:0
+      lastRenderAt:0,
+      lastLoadedBytes:0,
+      lastSampleAt:0,
+      smoothedBytesPerSec:0,
+      speedSampleCount:0
     };
+
+    function formatStorageDownloadEta(seconds){
+      const value = Math.max(0, Math.ceil(Number(seconds) || 0));
+      if(value <= 1) return "곧 완료";
+      if(value < 60) return "약 " + value + "초";
+      if(value < 3600){
+        const minutes = Math.floor(value / 60);
+        const remainSeconds = value % 60;
+        return remainSeconds > 0
+          ? "약 " + minutes + "분 " + remainSeconds + "초"
+          : "약 " + minutes + "분";
+      }
+      const hours = Math.floor(value / 3600);
+      const remainMinutes = Math.ceil((value % 3600) / 60);
+      return remainMinutes > 0
+        ? "약 " + hours + "시간 " + remainMinutes + "분"
+        : "약 " + hours + "시간";
+    }
+
+    function updateStorageDownloadSpeedEstimate(loaded, now){
+      const state = storageDownloadProgressState;
+      if(loaded < state.lastLoadedBytes){
+        state.lastLoadedBytes = loaded;
+        state.lastSampleAt = now;
+        state.smoothedBytesPerSec = 0;
+        state.speedSampleCount = 0;
+        return;
+      }
+      if(state.lastSampleAt <= 0){
+        state.lastLoadedBytes = loaded;
+        state.lastSampleAt = now;
+        return;
+      }
+      const elapsedMs = now - state.lastSampleAt;
+      const deltaBytes = loaded - state.lastLoadedBytes;
+      if(deltaBytes <= 0 || elapsedMs < 40) return;
+      const instantBytesPerSec = (deltaBytes * 1000) / elapsedMs;
+      if(isFinite(instantBytesPerSec) && instantBytesPerSec > 0){
+        if(state.smoothedBytesPerSec <= 0){
+          state.smoothedBytesPerSec = instantBytesPerSec;
+        }else{
+          const lower = state.smoothedBytesPerSec * 0.25;
+          const upper = state.smoothedBytesPerSec * 4;
+          const bounded = Math.max(lower, Math.min(upper, instantBytesPerSec));
+          state.smoothedBytesPerSec =
+            state.smoothedBytesPerSec * 0.76 + bounded * 0.24;
+        }
+        state.speedSampleCount += 1;
+      }
+      state.lastLoadedBytes = loaded;
+      state.lastSampleAt = now;
+    }
 
     function blockStorageDownloadInteraction(ev){
       if(!storageDownloadProgressState.active) return;
@@ -24644,6 +24700,10 @@ function requestMobileMockup3dMesh(){
             '<span id="storageDownloadProgressStatus">다운로드 준비 중…</span>' +
             '<span id="storageDownloadProgressBytes">0 B / 0 B</span>' +
           '</div>' +
+          '<div class="storage-download-progress-estimate">' +
+            '<span>예상 남은 시간</span>' +
+            '<strong id="storageDownloadProgressEta" aria-live="polite">계산 중…</strong>' +
+          '</div>' +
           '<p class="storage-download-progress-note">완료될 때까지 보드 전원과 연결을 유지하세요.</p>' +
         '</section>';
       overlay.addEventListener("click", (ev)=>{
@@ -24668,6 +24728,7 @@ function requestMobileMockup3dMesh(){
       const now = typeof performance !== "undefined" && typeof performance.now === "function"
         ? performance.now()
         : Date.now();
+      updateStorageDownloadSpeedEstimate(loaded, now);
       const shouldRender =
         !!force ||
         percent !== storageDownloadProgressState.lastPercent ||
@@ -24680,12 +24741,31 @@ function requestMobileMockup3dMesh(){
       const bar = overlay.querySelector("#storageDownloadProgressBar");
       const status = overlay.querySelector("#storageDownloadProgressStatus");
       const bytes = overlay.querySelector("#storageDownloadProgressBytes");
+      const eta = overlay.querySelector("#storageDownloadProgressEta");
       if(percentEl) percentEl.textContent = percent + "%";
       if(fill) fill.style.width = percent + "%";
       if(bar) bar.setAttribute("aria-valuenow", String(percent));
       if(status && statusText) status.textContent = String(statusText);
       if(bytes) bytes.textContent =
         formatBytesCompact(loaded) + " / " + (total > 0 ? formatBytesCompact(total) : "--");
+      if(eta){
+        if(overlay.classList.contains("is-failed")){
+          eta.textContent = "중단됨";
+        }else if(total > 0 && loaded >= total){
+          eta.textContent = "전송 완료";
+        }else{
+          const remaining = Math.max(0, total - loaded);
+          const speed = storageDownloadProgressState.smoothedBytesPerSec;
+          const estimateReady =
+            total > 0 &&
+            loaded > 0 &&
+            speed > 0 &&
+            storageDownloadProgressState.speedSampleCount >= 2;
+          eta.textContent = estimateReady
+            ? formatStorageDownloadEta(remaining / speed)
+            : "계산 중…";
+        }
+      }
     }
 
     function showStorageDownloadProgress(item, statusText){
@@ -24696,6 +24776,10 @@ function requestMobileMockup3dMesh(){
       storageDownloadProgressState.startedAt = Date.now();
       storageDownloadProgressState.lastPercent = -1;
       storageDownloadProgressState.lastRenderAt = 0;
+      storageDownloadProgressState.lastLoadedBytes = 0;
+      storageDownloadProgressState.lastSampleAt = 0;
+      storageDownloadProgressState.smoothedBytesPerSec = 0;
+      storageDownloadProgressState.speedSampleCount = 0;
       const file = overlay.querySelector("#storageDownloadProgressFile");
       const dialog = overlay.querySelector(".storage-download-progress-dialog");
       if(file) file.textContent = label.title;
@@ -24738,6 +24822,10 @@ function requestMobileMockup3dMesh(){
       await delay(180);
       storageDownloadProgressState.active = false;
       storageDownloadProgressState.startedAt = 0;
+      storageDownloadProgressState.lastLoadedBytes = 0;
+      storageDownloadProgressState.lastSampleAt = 0;
+      storageDownloadProgressState.smoothedBytesPerSec = 0;
+      storageDownloadProgressState.speedSampleCount = 0;
       overlay.classList.add("hidden");
       overlay.classList.remove("is-complete", "is-failed");
       overlay.setAttribute("aria-hidden", "true");

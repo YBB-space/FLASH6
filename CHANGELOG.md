@@ -23,6 +23,8 @@ Protocol: `Flash6-Intelligent-b4` (ESP-NOW wire version `4`, unchanged)
   recovered relay must remain healthy for 1.2 seconds before becoming primary
   again. Storage responses refresh route health even while telemetry is
   intentionally silent.
+- Added a smoothed-throughput ETA to the locked storage-download progress
+  dialog, with calculating, transfer-complete, and interrupted states.
 
 ## 0.8.13 — v6 b19 — 2026-07-20
 
