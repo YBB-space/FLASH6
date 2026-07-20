@@ -127,7 +127,7 @@
   <!-- Preload 축소: AP 모드/저메모리 환경에서 동시 요청 버스트를 줄임 -->
   <script>
     (function(){
-    var ASSET_VER = "20260720-mode-persistence-b19-353-__FLASH6_DEPLOY_SHA__";
+    var ASSET_VER = "20260720-ail-layout-b19-354-__FLASH6_DEPLOY_SHA__";
       window.__flashBoot = window.__flashBoot || {jsReady:false,lastError:"",phase:"static_loader",version:ASSET_VER};
       var isLocalPreview = !!window.__flashBoot.localPreview;
       var beaconEnabled = (window.__flashBoot.beaconEnabled !== false);
@@ -377,7 +377,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="styles/flash6.css?v=20260720-mode-persistence-b19-353-__FLASH6_DEPLOY_SHA__">
+  <link rel="stylesheet" href="styles/flash6.css?v=20260720-ail-layout-b19-354-__FLASH6_DEPLOY_SHA__">
 </head>
 <body>
   <!-- ✅ LOCKOUT 배경 오버레이 -->
@@ -2060,109 +2060,118 @@
             <!-- COMMUNICATION -->
             <div class="settings-panel" data-panel="communication">
               <div class="settings-group flash-link-settings-group">
-                <div class="settings-group-title" data-i18n="settingsFlashLinkTitle">ALTIS INTELLIGENT LINK1</div>
-                <div class="settings-row">
-                  <div>
-                    <div class="settings-label" data-i18n="settingsFlashLinkEnabledLabel">AIL 사용</div>
-                    <div class="hint-mini" data-i18n="settingsFlashLinkEnabledHint">ALTIS INTELLIGENT LINK 통신을 사용합니다.</div>
+                <div class="flash-link-overview">
+                  <div class="flash-link-overview-copy">
+                    <div class="settings-group-title" data-i18n="settingsFlashLinkTitle">ALTIS INTELLIGENT LINK1</div>
+                    <div class="flash-link-overview-title">A.I LINK</div>
+                    <div id="flashLinkStatusHint" class="hint-mini">채널 6 · 1M_L · 1단 전용 100Hz</div>
                   </div>
-                  <button id="flashLinkEnabledPill" class="pill pill-toggle is-off" type="button">OFF</button>
+                  <div class="flash-link-overview-actions">
+                    <div id="flashLinkStatus" class="flash-link-status">
+                      <span class="flash-link-status-dot"></span>
+                      <span id="flashLinkStatusText">SEARCHING</span>
+                    </div>
+                    <button id="flashLinkEnabledPill" class="pill pill-toggle is-off" type="button" aria-label="A.I LINK 사용">OFF</button>
+                  </div>
                 </div>
-                <div class="settings-row" id="flashLinkStage2ModeRow">
-                  <div>
-                    <div class="settings-label" data-i18n="settingsFlashLinkStage2ModeLabel">2단 운용</div>
-                    <div class="hint-mini" data-i18n="settingsFlashLinkStage2ModeHint">OFF는 1단 전용 100Hz, ON은 2단 중계·백업을 포함한 50Hz 운용입니다.</div>
-                  </div>
-                  <button id="flashLinkStage2ModePill" class="pill pill-toggle is-off" type="button">OFF</button>
-                </div>
-                <div class="settings-row">
-                  <div>
-                    <div class="settings-label" data-i18n="settingsFlashLinkRoleLabel">보드 역할</div>
-                    <div class="hint-mini" data-i18n="settingsFlashLinkRoleHint">두 보드에서 지상국과 에비오닉스를 각각 선택하면 자동으로 연결됩니다.</div>
-                  </div>
-                  <select id="flashLinkRoleSelect" class="settings-select" aria-label="ALTIS INTELLIGENT LINK1 role">
-                    <option value="ground" data-i18n="flashLinkRoleGround">지상국</option>
-                    <option value="avionics" data-i18n="flashLinkRoleAvionics">에비오닉스</option>
-                  </select>
-                </div>
-                <div class="settings-row" id="flashLinkNodeRow">
-                  <div>
-                    <div class="settings-label" data-i18n="settingsFlashLinkNodeLabel">에비오닉스 위치</div>
-                    <div class="hint-mini" data-i18n="settingsFlashLinkNodeHint">이 보드가 장착된 단을 선택합니다.</div>
-                  </div>
-                  <select id="flashLinkNodeSelect" class="settings-select" aria-label="Avionics vehicle stage">
-                    <option value="1" data-i18n="flashLinkStage1">1단</option>
-                    <option value="2" data-i18n="flashLinkStage2">2단</option>
-                  </select>
-                </div>
-                <div class="settings-row" id="flashLinkTargetRow">
-                  <div>
-                    <div class="settings-label">자동 활성 단</div>
-                    <div class="hint-mini">단분리 및 링크 상태에 따라 HUD와 제어 대상이 자동 전환됩니다.</div>
-                  </div>
-                  <div>
-                    <div id="flashLinkStageStatus" class="flash-link-node-status mono">
-                      <span data-stage-link="1">1단 --</span><span data-stage-link="2">2단 --</span>
+
+                <section class="flash-link-section flash-link-config-section" aria-labelledby="flashLinkConfigTitle">
+                  <div id="flashLinkConfigTitle" class="flash-link-section-title" data-i18n="settingsFlashLinkConfigTitle">운용 설정</div>
+                  <div class="flash-link-config-list">
+                    <div class="settings-row">
+                      <div>
+                        <div class="settings-label" data-i18n="settingsFlashLinkRoleLabel">보드 역할</div>
+                        <div class="hint-mini" data-i18n="settingsFlashLinkRoleHint">지상국 또는 에비오닉스 역할을 지정합니다.</div>
+                      </div>
+                      <select id="flashLinkRoleSelect" class="settings-select" aria-label="ALTIS INTELLIGENT LINK1 role">
+                        <option value="ground" data-i18n="flashLinkRoleGround">지상국</option>
+                        <option value="avionics" data-i18n="flashLinkRoleAvionics">에비오닉스</option>
+                      </select>
+                    </div>
+                    <div class="settings-row" id="flashLinkStage2ModeRow">
+                      <div>
+                        <div class="settings-label" data-i18n="settingsFlashLinkStage2ModeLabel">2단 운용</div>
+                        <div class="hint-mini" data-i18n="settingsFlashLinkStage2ModeHint">OFF 100Hz · ON 50Hz 중계 및 백업</div>
+                      </div>
+                      <button id="flashLinkStage2ModePill" class="pill pill-toggle is-off" type="button">OFF</button>
+                    </div>
+                    <div class="settings-row" id="flashLinkNodeRow">
+                      <div>
+                        <div class="settings-label" data-i18n="settingsFlashLinkNodeLabel">에비오닉스 위치</div>
+                        <div class="hint-mini" data-i18n="settingsFlashLinkNodeHint">이 보드가 장착된 단을 선택합니다.</div>
+                      </div>
+                      <select id="flashLinkNodeSelect" class="settings-select" aria-label="Avionics vehicle stage">
+                        <option value="1" data-i18n="flashLinkStage1">1단</option>
+                        <option value="2" data-i18n="flashLinkStage2">2단</option>
+                      </select>
+                    </div>
+                    <div class="settings-row" id="flashLinkTargetRow">
+                      <div>
+                        <div class="settings-label">활성 단</div>
+                        <div class="hint-mini">링크 상태에 따라 HUD와 제어 대상을 자동 전환합니다.</div>
+                      </div>
+                      <div id="flashLinkStageStatus" class="flash-link-node-status mono">
+                        <span data-stage-link="1">1단 --</span><span data-stage-link="2">2단 --</span>
+                      </div>
+                    </div>
+                    <div class="settings-row" id="flashLinkDataModeRow">
+                      <div>
+                        <div class="settings-label" data-i18n="settingsFlashLinkDataModeLabel">데이터 모드</div>
+                        <div class="hint-mini" data-i18n="settingsFlashLinkDataModeHint">에비오닉스에서 전송할 화면 데이터를 선택합니다.</div>
+                      </div>
+                      <select id="flashLinkDataModeSelect" class="settings-select" aria-label="ALTIS INTELLIGENT LINK1 avionics data mode">
+                        <option value="flight" data-i18n="flashLinkDataModeFlight">Flight</option>
+                        <option value="daq" data-i18n="flashLinkDataModeDaq">DAQ</option>
+                      </select>
                     </div>
                   </div>
-                </div>
-                <div class="settings-row" id="flashLinkDataModeRow">
-                  <div>
-                    <div class="settings-label" data-i18n="settingsFlashLinkDataModeLabel">에비오닉스 데이터 모드</div>
-                    <div class="hint-mini" data-i18n="settingsFlashLinkDataModeHint">에비오닉스가 보내는 화면 모드입니다. 지상국은 자동으로 인식합니다.</div>
-                  </div>
-                  <select id="flashLinkDataModeSelect" class="settings-select" aria-label="ALTIS INTELLIGENT LINK1 avionics data mode">
-                    <option value="flight" data-i18n="flashLinkDataModeFlight">Flight</option>
-                    <option value="daq" data-i18n="flashLinkDataModeDaq">DAQ</option>
-                  </select>
-                </div>
-                <div class="settings-row">
-                  <div>
-                    <div class="settings-label" data-i18n="settingsFlashLinkStatusLabel">링크 상태</div>
-                    <div id="flashLinkStatusHint" class="hint-mini">ALTIS INTELLIGENT LINK1 · 채널 6 · 1M_L · 1단 전용 100Hz</div>
-                  </div>
-                  <div id="flashLinkStatus" class="flash-link-status">
-                    <span class="flash-link-status-dot"></span>
-                    <span id="flashLinkStatusText">SEARCHING</span>
-                  </div>
-                </div>
-                <div class="settings-row">
-                  <div>
-                    <div class="settings-label" data-i18n="settingsFlashLinkQualityLabel">수신 품질</div>
-                  </div>
+                </section>
+
+                <section class="flash-link-section flash-link-quality-section" aria-labelledby="flashLinkQualityTitle">
+                  <div id="flashLinkQualityTitle" class="flash-link-section-title" data-i18n="settingsFlashLinkQualityLabel">수신 품질</div>
                   <div class="flash-link-metrics">
-                    <span id="flashLinkRate" class="settings-desc mono">-- Hz</span>
-                    <span id="flashLinkLoss" class="settings-desc mono">loss --</span>
-                    <span id="flashLinkRssi" class="settings-desc mono">RSSI --</span>
+                    <div class="flash-link-metric">
+                      <span class="flash-link-metric-label">RX RATE</span>
+                      <span id="flashLinkRate" class="settings-desc mono">-- Hz</span>
+                    </div>
+                    <div class="flash-link-metric">
+                      <span class="flash-link-metric-label">PACKET LOSS</span>
+                      <span id="flashLinkLoss" class="settings-desc mono">--</span>
+                    </div>
+                    <div class="flash-link-metric">
+                      <span class="flash-link-metric-label">RSSI</span>
+                      <span id="flashLinkRssi" class="settings-desc mono">-- dBm</span>
+                    </div>
                   </div>
-                </div>
-                <div class="flash-link-chart-panel">
-                  <div class="flash-link-chart-tabs" role="tablist" aria-label="ALTIS INTELLIGENT LINK1 quality chart">
-                    <button class="flash-link-chart-tab is-active" type="button" role="tab" aria-selected="true" data-fl-chart-metric="rssi" data-i18n="flashLinkChartRssi">RSSI (dBm)</button>
-                    <button class="flash-link-chart-tab" type="button" role="tab" aria-selected="false" data-fl-chart-metric="loss" data-i18n="flashLinkChartLoss">손실률</button>
-                    <button class="flash-link-chart-tab" type="button" role="tab" aria-selected="false" data-fl-chart-metric="hz" data-i18n="flashLinkChartHz">수신 Hz</button>
+
+                  <div class="flash-link-chart-panel">
+                    <div class="flash-link-chart-tabs" role="tablist" aria-label="ALTIS INTELLIGENT LINK1 quality chart">
+                      <button class="flash-link-chart-tab is-active" type="button" role="tab" aria-selected="true" data-fl-chart-metric="rssi" data-i18n="flashLinkChartRssi">RSSI</button>
+                      <button class="flash-link-chart-tab" type="button" role="tab" aria-selected="false" data-fl-chart-metric="loss" data-i18n="flashLinkChartLoss">손실률</button>
+                      <button class="flash-link-chart-tab" type="button" role="tab" aria-selected="false" data-fl-chart-metric="hz" data-i18n="flashLinkChartHz">수신 Hz</button>
+                    </div>
+                    <div class="flash-link-chart-stage">
+                      <span id="flashLinkChartValue" class="flash-link-chart-value mono">-- dBm</span>
+                      <canvas id="flashLinkQualityChart" aria-label="ALTIS INTELLIGENT LINK1 quality history"></canvas>
+                    </div>
                   </div>
-                  <div class="flash-link-chart-stage">
-                    <span id="flashLinkChartValue" class="flash-link-chart-value mono">-- dBm</span>
-                    <canvas id="flashLinkQualityChart" aria-label="ALTIS INTELLIGENT LINK1 quality history"></canvas>
+
+                  <div class="flash-link-detail-list">
+                    <div class="settings-row">
+                      <div class="settings-label" data-i18n="settingsFlashLinkPeerLabel">상대 보드</div>
+                      <span id="flashLinkPeer" class="settings-desc mono">--</span>
+                    </div>
+                    <div class="settings-row">
+                      <div class="settings-label" data-i18n="settingsFlashLinkCommandLabel">최근 명령</div>
+                      <span id="flashLinkCommandStatus" class="settings-desc mono">--</span>
+                    </div>
                   </div>
-                </div>
-                <div class="settings-row">
-                  <div>
-                    <div class="settings-label" data-i18n="settingsFlashLinkPeerLabel">상대 보드</div>
-                  </div>
-                  <span id="flashLinkPeer" class="settings-desc mono">--</span>
-                </div>
-                <div class="settings-row">
-                  <div>
-                    <div class="settings-label" data-i18n="settingsFlashLinkCommandLabel">제어 명령</div>
-                  </div>
-                  <span id="flashLinkCommandStatus" class="settings-desc mono">--</span>
-                </div>
-                <div class="settings-row">
+                </section>
+
+                <div class="settings-row flash-link-report-row">
                   <div>
                     <div class="settings-label" data-i18n="settingsFlashLinkReportLabel">통신 보고서</div>
-                    <div class="hint-mini" data-i18n="settingsFlashLinkReportHint">두 기기를 1분 동안 움직이지 않고 ALTIS INTELLIGENT LINK1 품질을 기록합니다.</div>
+                    <div class="hint-mini" data-i18n="settingsFlashLinkReportHint">60초 동안 링크 품질을 측정해 보고서로 저장합니다.</div>
                   </div>
                   <div class="settings-number-wrap">
                     <button id="flashLinkReportBtn" class="settings-btn" type="button" data-i18n="flashLinkReportBtn">통신 보고서 내보내기</button>

@@ -8168,11 +8168,11 @@ function requestMobileMockup3dMesh(){
       if(el.flashLinkStatusHint){
         el.flashLinkStatusHint.textContent = currentLang === "ko"
           ? (stage2ModeEnabled
-              ? "ALTIS INTELLIGENT LINK1 · 채널 6 · 1M_L · 2단 운용 50Hz"
-              : "ALTIS INTELLIGENT LINK1 · 채널 6 · 1M_L · 1단 전용 100Hz")
+              ? "채널 6 · 1M_L · 2단 운용 50Hz"
+              : "채널 6 · 1M_L · 1단 전용 100Hz")
           : (stage2ModeEnabled
-              ? "ALTIS INTELLIGENT LINK1 · channel 6 · 1M_L · dual-stage 50Hz"
-              : "ALTIS INTELLIGENT LINK1 · channel 6 · 1M_L · stage-1-only 100Hz");
+              ? "Channel 6 · 1M_L · dual-stage 50Hz"
+              : "Channel 6 · 1M_L · stage-1-only 100Hz");
       }
       if(el.flashLinkStageStatus){
         const stage2Status = el.flashLinkStageStatus.querySelector('[data-stage-link="2"]');
@@ -12185,8 +12185,8 @@ function requestMobileMockup3dMesh(){
         }
         if(el.flashLinkLoss){
           el.flashLinkLoss.textContent = isFinite(lossPermille)
-            ? ((currentLang === "ko" ? "손실 " : "loss ") + (Math.max(0, lossPermille) / 10).toFixed(1) + "%")
-            : (currentLang === "ko" ? "손실 --" : "loss --");
+            ? ((Math.max(0, lossPermille) / 10).toFixed(1) + "%")
+            : "--";
         }
       }
       const rssiValid = isFinite(rssiDbm) && rssiDbm > -126 &&
@@ -12196,8 +12196,8 @@ function requestMobileMockup3dMesh(){
       flashLinkUiPeer = peer && peer !== "--" ? peer : "--";
       if(shouldRender && el.flashLinkRssi){
         el.flashLinkRssi.textContent = rssiValid
-          ? ("RSSI " + Math.round(rssiDbm) + " dBm")
-          : "RSSI --";
+          ? (Math.round(rssiDbm) + " dBm")
+          : "-- dBm";
       }
       if(flashLinkEnabled){
         recordFlashLinkChartSample({

@@ -29091,3 +29091,294 @@ body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-steps b{
     align-items:center !important;
   }
 }
+
+/* A.I LINK settings — status first, configuration second, diagnostics last. */
+.flash-link-settings-group{
+  padding-top:0;
+}
+.flash-link-overview{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:24px;
+  min-height:92px;
+  padding:14px 2px 18px;
+  border-bottom:1px solid rgba(148,163,184,.2);
+}
+.flash-link-overview-copy{
+  min-width:0;
+}
+.flash-link-overview .settings-group-title{
+  margin:0 0 8px;
+  color:#777d87;
+  font-size:9px;
+  font-weight:700;
+  letter-spacing:.16em;
+}
+.flash-link-overview-title{
+  color:#f0f1f3;
+  font-size:25px;
+  line-height:1;
+  font-weight:620;
+  letter-spacing:.035em;
+}
+.flash-link-overview .hint-mini{
+  margin-top:9px;
+  color:#858b95;
+  font-size:10px;
+}
+.flash-link-overview-actions{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:16px;
+  flex:0 0 auto;
+}
+.flash-link-overview .flash-link-status{
+  min-width:0;
+  justify-content:flex-end;
+  color:#8b919b;
+  font-size:10px;
+  font-weight:700;
+  letter-spacing:.08em;
+}
+.flash-link-overview .flash-link-status.is-linked{
+  color:#55d68b;
+}
+.flash-link-section{
+  margin-top:20px;
+}
+.flash-link-section-title{
+  margin-bottom:8px;
+  color:#7e848e;
+  font-size:10px;
+  line-height:1;
+  font-weight:700;
+  letter-spacing:.13em;
+  text-transform:uppercase;
+}
+.flash-link-config-list{
+  border-top:1px solid rgba(148,163,184,.18);
+  border-bottom:1px solid rgba(148,163,184,.18);
+}
+.flash-link-config-list > .settings-row{
+  min-height:58px;
+  padding:10px 2px;
+  align-items:center;
+  border-bottom:1px solid rgba(148,163,184,.13);
+}
+.flash-link-config-list > .settings-row:last-child{
+  border-bottom:0;
+}
+.flash-link-config-list .settings-label{
+  font-size:12px;
+  font-weight:580;
+}
+.flash-link-config-list .hint-mini{
+  margin-top:3px;
+  font-size:9px;
+}
+.flash-link-settings-group .settings-select{
+  min-width:124px;
+  min-height:34px;
+  padding:0 30px 0 11px;
+}
+.flash-link-settings-group .pill-toggle{
+  min-width:58px;
+}
+.flash-link-metrics{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  align-items:stretch;
+  gap:0;
+  border-top:1px solid rgba(148,163,184,.18);
+  border-bottom:1px solid rgba(148,163,184,.18);
+}
+.flash-link-metric{
+  min-width:0;
+  padding:12px 14px 11px;
+  border-left:1px solid rgba(148,163,184,.15);
+}
+.flash-link-metric:first-child{
+  padding-left:2px;
+  border-left:0;
+}
+.flash-link-metric-label{
+  display:block;
+  margin-bottom:5px;
+  color:#747b86;
+  font-size:8px;
+  line-height:1;
+  font-weight:750;
+  letter-spacing:.12em;
+  white-space:nowrap;
+}
+.flash-link-metric .settings-desc{
+  display:block;
+  color:#e2e4e7 !important;
+  font-size:14px;
+  line-height:1.1;
+  font-weight:580;
+  text-align:left;
+}
+.flash-link-settings-group .flash-link-chart-panel{
+  margin:12px 0 0;
+  padding:0 0 8px;
+  border-top:0;
+}
+.flash-link-settings-group .flash-link-chart-tabs{
+  display:flex;
+  width:auto;
+  padding:0;
+  gap:18px;
+  border:0;
+  border-radius:0;
+  background:transparent;
+}
+.flash-link-settings-group .flash-link-chart-tab{
+  min-height:28px;
+  padding:0 0 7px;
+  border-bottom:1px solid transparent;
+  border-radius:0;
+  background:transparent !important;
+  color:#777e89;
+  box-shadow:none !important;
+  font-size:9px;
+  font-weight:650;
+}
+.flash-link-settings-group .flash-link-chart-tab:hover{
+  color:#c9cdd3;
+}
+.flash-link-settings-group .flash-link-chart-tab.is-active{
+  border-bottom-color:#e2e4e7;
+  color:#e2e4e7;
+}
+.flash-link-settings-group .flash-link-chart-stage{
+  height:150px;
+  margin-top:4px;
+}
+.flash-link-settings-group .flash-link-chart-value{
+  top:9px;
+  right:2px;
+  color:#d8dadd;
+  font-size:11px;
+  font-weight:600;
+}
+.flash-link-detail-list{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  border-top:1px solid rgba(148,163,184,.16);
+  border-bottom:1px solid rgba(148,163,184,.16);
+}
+.flash-link-detail-list .settings-row{
+  min-width:0;
+  min-height:40px;
+  padding:8px 12px;
+  align-items:center;
+}
+.flash-link-detail-list .settings-row:first-child{
+  padding-left:2px;
+  border-right:1px solid rgba(148,163,184,.15);
+}
+.flash-link-detail-list .settings-label{
+  color:#818792 !important;
+  font-size:9px;
+  font-weight:650;
+  letter-spacing:.04em;
+}
+.flash-link-detail-list .settings-desc{
+  overflow:hidden;
+  color:#c9ccd1 !important;
+  font-size:9px;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.flash-link-report-row{
+  min-height:64px;
+  margin-top:16px;
+  padding:12px 2px !important;
+  align-items:center !important;
+  border-top:1px solid rgba(148,163,184,.18);
+}
+.flash-link-report-row .settings-number-wrap{
+  align-items:flex-end;
+}
+.flash-link-settings-group.is-ail-off .flash-link-section,
+.flash-link-settings-group.is-ail-off .flash-link-report-row{
+  opacity:.42;
+}
+
+@media (max-width:860px){
+  html:not(.phone-landscape-layout) body #settingsOverlay .flash-link-settings-group{
+    padding:0 16px 8px !important;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .flash-link-overview{
+    min-height:86px;
+    padding:12px 0 16px;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .flash-link-overview-title{
+    font-size:22px;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .flash-link-overview-actions{
+    gap:10px;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .flash-link-section{
+    margin-top:18px;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .flash-link-config-list > .settings-row{
+    min-height:58px;
+    padding:10px 0 !important;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .flash-link-metric{
+    padding:11px 9px 10px;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .flash-link-metric:first-child{
+    padding-left:0;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .flash-link-metric-label{
+    font-size:7px;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .flash-link-metric .settings-desc{
+    font-size:12px !important;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .flash-link-chart-stage{
+    height:165px;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .flash-link-detail-list{
+    grid-template-columns:minmax(0,1fr);
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .flash-link-detail-list .settings-row{
+    padding:9px 0 !important;
+    border-right:0;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .flash-link-detail-list .settings-row + .settings-row{
+    border-top:1px solid rgba(148,163,184,.13);
+  }
+}
+
+html.phone-landscape-layout body #settingsOverlay .flash-link-settings-group{
+  padding:0 4px 8px !important;
+}
+html.phone-landscape-layout body #settingsOverlay .flash-link-overview{
+  min-height:70px;
+  padding:6px 0 10px;
+}
+html.phone-landscape-layout body #settingsOverlay .flash-link-overview-title{
+  font-size:18px;
+}
+html.phone-landscape-layout body #settingsOverlay .flash-link-overview .hint-mini{
+  margin-top:5px;
+}
+html.phone-landscape-layout body #settingsOverlay .flash-link-section{
+  margin-top:12px;
+}
+html.phone-landscape-layout body #settingsOverlay .flash-link-config-list > .settings-row{
+  min-height:48px;
+  padding:7px 0 !important;
+}
+html.phone-landscape-layout body #settingsOverlay .flash-link-metric{
+  padding:8px 10px;
+}
+html.phone-landscape-layout body #settingsOverlay .flash-link-chart-stage{
+  height:120px;
+}
