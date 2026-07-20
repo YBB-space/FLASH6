@@ -222,6 +222,13 @@ void serialPrintRemoteStorageChunk(uint32_t offset, uint32_t len) {
 }
 
 void serialMissionBegin(size_t len) {
+  if (kFirmwareMissionLocked) {
+    missionUploadActive = false;
+    missionUploadSerial = "";
+    missionUploadExpectedBytes = 0;
+    Serial.println("ERR MISSION_PROFILE_BEGIN FIRMWARE_LOCKED");
+    return;
+  }
   if (len == 0 || len > kMissionProfileMaxBytes) {
     Serial.println("ERR MISSION_PROFILE_BEGIN BAD_LEN");
     return;
@@ -328,7 +335,7 @@ void handleSerialLine(const char* line) {
   }
 
   if (cmd == "/settings") {
-    Serial.printf("ACK SETTINGS ign_ms=%lu cd_ms=%lu daq_seq_pyro=%u safe=%u arm_lock=%u inspection=%u mute=%u flash_link_role=%s flash_link_node_id=%u flash_link_target_node_id=%u flash_link_stage2_mode=%u flash_link_hz=%lu\n",
+    Serial.printf("ACK SETTINGS ign_ms=%lu cd_ms=%lu daq_seq_pyro=%u safe=%u arm_lock=%u inspection=%u mute=%u flash_link_role=%s flash_link_node_id=%u flash_link_target_node_id=%u flash_link_stage2_mode=%u flash_link_hz=%lu mission_locked=%u mission_source=%s\n",
                   (unsigned long)ignitionDurationMs,
                   (unsigned long)countdownDurationMs,
                   (unsigned)daqSequencePyroChannel,
@@ -340,7 +347,9 @@ void handleSerialLine(const char* line) {
                   (unsigned)flashLinkNodeId,
                   (unsigned)flashLinkTargetNodeId,
                   flashLinkStage2Enabled ? 1U : 0U,
-                  (unsigned long)flashLinkTelemetryHz());
+                  (unsigned long)flashLinkTelemetryHz(),
+                  kFirmwareMissionLocked ? 1U : 0U,
+                  kFirmwareMissionSource);
     return;
   }
 

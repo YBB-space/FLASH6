@@ -147,6 +147,9 @@ if (typeof window !== "undefined") {
     let missionProfileDoc = null;
     let missionBlocksState = [];
     let missionBoardSavePending = false;
+    let missionFirmwareLocked = false;
+    let missionFirmwareSource = "";
+    let missionFirmwareLockReason = "";
     let replayMissionRuntime = null;
     let replayHasStoredMissionAlarms = false;
     const missionAlarmEventKeys = new Set();
@@ -20815,7 +20818,7 @@ function requestMobileMockup3dMesh(){
         fw_program:"Altis_Intelligent3_firmware1",
         fw_board:"Altis_Intelligent3_b3",
         fw_protocol:"Flash6-Intelligent-b4",
-        fw_build:"v6 b21"
+        fw_build:"v6 b22"
       };
     }
 
@@ -21352,11 +21355,24 @@ function requestMobileMockup3dMesh(){
     }
 
     async function requestSerialSettingsAck(timeoutMs){
-      return await requestSerialCommandAck(
+      const reply = await requestSerialCommandAck(
         "/settings",
         (evt)=>String(evt.message || "").toUpperCase().indexOf("SETTINGS") === 0,
         {timeoutMs:timeoutMs || 1000, writeTimeoutMs:1000}
       );
+      if(reply && reply.ok){
+        const message = String(reply.message || "");
+        const lockMatch = message.match(/\bmission_locked=(\d+)/i);
+        const sourceMatch = message.match(/\bmission_source=([^\s]+)/i);
+        if(lockMatch){
+          setMissionFirmwareCapability(
+            Number(lockMatch[1]) !== 0,
+            sourceMatch ? sourceMatch[1] : "",
+            Number(lockMatch[1]) !== 0 ? "BUILTIN_MISSION" : ""
+          );
+        }
+      }
+      return reply;
     }
 
     async function requestSerialStreamState(enabled, opts){
@@ -22609,6 +22625,15 @@ function requestMobileMockup3dMesh(){
           gyroYDeg: gyroPitchDeg,
           gyroZDeg: gyroYawDeg
         }, isReplaySample);
+      }
+      const firmwareMissionLocked =
+        data.mission_locked ?? data.missionLocked ?? null;
+      if(firmwareMissionLocked != null){
+        setMissionFirmwareCapability(
+          Number(firmwareMissionLocked) !== 0,
+          data.mission_source ?? data.missionSource ?? "",
+          Number(firmwareMissionLocked) !== 0 ? "BUILTIN_MISSION" : ""
+        );
       }
       const fwBoard = data.fw_board ?? data.fwBoard ?? null;
       const fwProgram = data.fw_program ?? data.fwProgram ?? null;
@@ -26490,9 +26515,31 @@ function requestMobileMockup3dMesh(){
       );
     }
     function isMissionEditableNow(){
+      if(missionFirmwareLocked) return false;
       if(replaySourceActive) return false;
       if(currentSt !== 0) return false;
       return !(latestTelemetry && latestTelemetry.uw === 1);
+    }
+    function missionEditUnavailableMessage(){
+      if(missionFirmwareLocked){
+        return "이 보드에는 미션 코드가 내장되어 있어 미션을 수정할 수 없습니다.";
+      }
+      return "미션 수정은 IDLE(시퀀스 전)에서만 가능합니다.";
+    }
+    function setMissionFirmwareCapability(locked, source, reason){
+      const nextLocked = !!locked;
+      const nextSource = String(source || "");
+      const nextReason = String(reason || "");
+      const changed =
+        missionFirmwareLocked !== nextLocked ||
+        missionFirmwareSource !== nextSource ||
+        missionFirmwareLockReason !== nextReason;
+      missionFirmwareLocked = nextLocked;
+      missionFirmwareSource = nextSource;
+      missionFirmwareLockReason = nextReason;
+      if(changed && el && typeof updateMissionEditLockUI === "function"){
+        updateMissionEditLockUI();
+      }
     }
     function parseMissionNumber(raw){
       const n = Number(raw);
@@ -29171,6 +29218,16 @@ function requestMobileMockup3dMesh(){
     }
     function applyMissionProfileDoc(doc){
       if(!doc || typeof doc !== "object") return false;
+      const capabilities = (doc.capabilities && typeof doc.capabilities === "object")
+        ? doc.capabilities
+        : null;
+      if(capabilities && capabilities.missionEditable != null){
+        setMissionFirmwareCapability(
+          !capabilities.missionEditable,
+          capabilities.missionSource,
+          capabilities.missionLockReason
+        );
+      }
       const profile = (doc.profile && typeof doc.profile === "object") ? doc.profile : doc;
       const motor = (profile.motor && typeof profile.motor === "object") ? profile.motor : {};
 
@@ -29324,6 +29381,13 @@ function requestMobileMockup3dMesh(){
       }
     }
     async function saveMissionProfileToBoard(){
+      if(missionFirmwareLocked){
+        showToast(missionEditUnavailableMessage(), "notice", {
+          key:"mission-firmware-lock",
+          forceToast:true
+        });
+        return false;
+      }
       if(missionBoardSavePending){
         showToast("보드 저장 중입니다. 완료될 때까지 기다리세요.", "notice", {
           key:"mission-board-save-pending",
@@ -29386,6 +29450,15 @@ function requestMobileMockup3dMesh(){
           missionBoardSavePending = false;
           return true;
         }
+        if(String(serialRes.reason || "").toUpperCase().indexOf("FIRMWARE_LOCKED") >= 0){
+          setMissionFirmwareCapability(true, "builtin_launch_sequence", "BUILTIN_MISSION");
+          showToast(missionEditUnavailableMessage(), "notice", {
+            key:"mission-firmware-lock",
+            forceToast:true
+          });
+          missionBoardSavePending = false;
+          return false;
+        }
         addLogLine("Mission save via SERIAL failed: " + serialRes.reason, "ERR");
         showToast("시리얼 저장 실패 → HTTP 저장 재시도: " + (serialRes.reason || "SERIAL_FAIL"), "notice", {
           key:"mission-board-save-serial-fallback",
@@ -29412,6 +29485,14 @@ function requestMobileMockup3dMesh(){
       try{
         const res = await fetch(url, opt);
         if(abortTimer){ clearTimeout(abortTimer); abortTimer = null; }
+        if(res.status === 423){
+          setMissionFirmwareCapability(true, "builtin_launch_sequence", "BUILTIN_MISSION");
+          showToast(missionEditUnavailableMessage(), "notice", {
+            key:"mission-firmware-lock",
+            forceToast:true
+          });
+          return false;
+        }
         if(res.status === 409){
           showToast("시퀀스 진행 중에는 저장할 수 없습니다.", "notice", {key:"mission-edit-lock"});
           return false;
@@ -29483,6 +29564,11 @@ function requestMobileMockup3dMesh(){
     }
     function importMissionProfileFromFile(file){
       if(!file) return;
+      if(missionFirmwareLocked){
+        showToast(missionEditUnavailableMessage(), "notice", {key:"mission-firmware-lock"});
+        if(el.missionImportInput) el.missionImportInput.value = "";
+        return;
+      }
       if(!isMissionEditableNow()){
         showToast("미션 수정은 IDLE(시퀀스 전)에서만 가능합니다.", "notice", {key:"mission-edit-lock"});
         return;
@@ -29514,6 +29600,11 @@ function requestMobileMockup3dMesh(){
     function updateMissionEditLockUI(){
       const editable = isMissionEditableNow();
       const missionProfileAvailable = !isFlightModeUi();
+      const lockMessage = missionEditUnavailableMessage();
+      if(el.missionFirmwareLockNotice){
+        el.missionFirmwareLockNotice.classList.toggle("hidden", !missionFirmwareLocked);
+        el.missionFirmwareLockNotice.setAttribute("aria-hidden", missionFirmwareLocked ? "false" : "true");
+      }
       if(!missionProfileAvailable){
         if(isMobileMissionPanelVisible()) setMobileMissionPanelVisible(false);
         if(missionPanelActive) setMissionPanelVisible(false);
@@ -29526,7 +29617,7 @@ function requestMobileMockup3dMesh(){
         el.missionOpenBtn.setAttribute("aria-disabled", (missionProfileAvailable && editable) ? "false" : "true");
         el.missionOpenBtn.title = !missionProfileAvailable
           ? "Flight 모드에서는 미션 프로필을 사용할 수 없습니다."
-          : (editable ? "" : "IDLE(시퀀스 전)에서만 미션 편집 가능");
+          : (editable ? "" : lockMessage);
       }
       if(el.missionViewOpenBtn){
         el.missionViewOpenBtn.classList.toggle("hidden", !missionProfileAvailable);
@@ -29535,7 +29626,7 @@ function requestMobileMockup3dMesh(){
         el.missionViewOpenBtn.setAttribute("aria-disabled", (missionProfileAvailable && editable) ? "false" : "true");
         el.missionViewOpenBtn.title = !missionProfileAvailable
           ? "Flight 모드에서는 미션 프로필을 사용할 수 없습니다."
-          : (editable ? "" : "IDLE(시퀀스 전)에서만 미션 편집 가능");
+          : (editable ? "" : lockMessage);
       }
       if(el.missionPanel){
         el.missionPanel.classList.toggle("hidden", !missionProfileAvailable);
@@ -29561,11 +29652,12 @@ function requestMobileMockup3dMesh(){
       }
       updateMobileArmLockWideButton();
       if(el.missionSaveBoardBtn){
-        // Always clickable so the user can see lock/fail reason toast.
-        el.missionSaveBoardBtn.disabled = false;
-        el.missionSaveBoardBtn.classList.remove("disabled");
-        el.missionSaveBoardBtn.setAttribute("aria-disabled", "false");
-        el.missionSaveBoardBtn.title = editable ? "" : "IDLE(시퀀스 전)에서만 저장 가능";
+        // Sequence locks remain clickable for feedback. A firmware mission is
+        // authoritative and cannot accept a profile at all.
+        el.missionSaveBoardBtn.disabled = missionFirmwareLocked;
+        el.missionSaveBoardBtn.classList.toggle("disabled", missionFirmwareLocked);
+        el.missionSaveBoardBtn.setAttribute("aria-disabled", missionFirmwareLocked ? "true" : "false");
+        el.missionSaveBoardBtn.title = editable ? "" : lockMessage;
       }
       if(el.missionImportInput){
         el.missionImportInput.disabled = !editable;
@@ -29573,6 +29665,14 @@ function requestMobileMockup3dMesh(){
       if(el.missionBlockAddServoBtn) el.missionBlockAddServoBtn.disabled = !editable;
       if(el.missionBlockAddPyroBtn) el.missionBlockAddPyroBtn.disabled = !editable;
       if(el.missionBlockClearBtn) el.missionBlockClearBtn.disabled = !editable;
+      if(el.missionFields){
+        const metadataInputs = el.missionFields.querySelectorAll(".mission-meta-panel input");
+        metadataInputs.forEach((node)=>{ node.disabled = !editable; });
+      }
+      if(el.missionPresetGrid){
+        const presetButtons = el.missionPresetGrid.querySelectorAll("button");
+        presetButtons.forEach((button)=>{ button.disabled = !editable; });
+      }
       if(el.missionBlockPalette){
         const paletteBtns = el.missionBlockPalette.querySelectorAll("button");
         paletteBtns.forEach((btn)=>{
@@ -30253,8 +30353,16 @@ function requestMobileMockup3dMesh(){
         showToast("Flight 모드에서는 미션 프로필을 사용할 수 없습니다.", "notice", {key:"mission-profile-flight-disabled"});
         return;
       }
+      if(missionFirmwareLocked){
+        showToast(missionEditUnavailableMessage(), "notice", {
+          key:"mission-firmware-lock",
+          forceToast:true
+        });
+      }
       if(!isMissionEditableNow()){
-        showToast("시퀀스 중에는 미션 편집만 잠깁니다.", "notice", {key:"mission-edit-lock"});
+        if(!missionFirmwareLocked){
+          showToast("시퀀스 중에는 미션 편집만 잠깁니다.", "notice", {key:"mission-edit-lock"});
+        }
       }
       const missionViewActive = !!(el.missionView && !el.missionView.classList.contains("hidden"));
       if(missionViewActive){
@@ -33339,6 +33447,7 @@ function requestMobileMockup3dMesh(){
       el.controlsSettingsBtns = document.querySelectorAll(".js-controls-settings");
       el.sidebarSettingsBtns = document.querySelectorAll(".js-sidebar-settings");
       el.sidebarTerminalBtn = document.getElementById("sidebarTerminalBtn");
+      el.sidebarStorageBtn = document.getElementById("sidebarStorageBtn");
       el.settingsOverlay = document.getElementById("settingsOverlay");
       el.settingsClose = el.settingsOverlay ? el.settingsOverlay.querySelector("#settingsClose") : null;
       el.settingsSave = el.settingsOverlay ? el.settingsOverlay.querySelector("#settingsSave") : null;
@@ -33355,6 +33464,7 @@ function requestMobileMockup3dMesh(){
       el.hardwareServoClose = document.getElementById("hardwareServoClose");
       el.missionOverlay = document.getElementById("missionOverlay");
       el.missionDialog = document.getElementById("missionDialog");
+      el.missionFirmwareLockNotice = document.getElementById("missionFirmwareLockNotice");
       el.inspectionDialog = document.getElementById("inspectionDialog");
       el.missionClose = document.getElementById("missionClose");
       el.missionCloseBtn = document.getElementById("missionCloseBtn");
@@ -34695,6 +34805,12 @@ function requestMobileMockup3dMesh(){
             e.preventDefault();
             showDataListOverlay();
           }
+        });
+      }
+      if(el.sidebarStorageBtn){
+        el.sidebarStorageBtn.addEventListener("click", (e)=>{
+          e.preventDefault();
+          showDataListOverlay();
         });
       }
       if(el.inspectionRetry){

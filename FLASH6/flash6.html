@@ -465,13 +465,6 @@
             <path d="M9 15.5h4"></path>
           </svg>
         </button>
-        <button class="side-nav-item" data-page-title="Countdown" data-nav-label="카운트" aria-label="Countdown">
-          <svg viewBox="0 0 24 24">
-            <path d="M10 2h4"/>
-            <circle cx="12" cy="13" r="7"/>
-            <path d="M12 10v4l3 2"/>
-          </svg>
-        </button>
         <button class="side-nav-item" data-page-title="Hardware" data-nav-label="하드웨어" aria-label="Hardware">
           <svg viewBox="0 0 24 24"><path d="M7 3v6"/><path d="M17 3v6"/><path d="M3 11h18"/><path d="M5 11v7h14v-7"/><path d="M8 21h8"/></svg>
         </button>
@@ -493,6 +486,13 @@
           <svg viewBox="0 0 24 24">
             <path d="M12 5 18 11H6z" style="fill:currentColor;stroke:none"></path>
             <path d="M12 19 6 13h12z" style="fill:currentColor;stroke:none"></path>
+          </svg>
+        </button>
+        <button id="sidebarStorageBtn" class="side-nav-action" data-nav-label="저장공간" aria-label="저장공간" title="저장공간">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <ellipse cx="12" cy="5.5" rx="7" ry="3"></ellipse>
+            <path d="M5 5.5v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"></path>
+            <path d="M5 11.5v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"></path>
           </svg>
         </button>
         <button id="sidebarSettingsBtn" class="side-nav-btn js-sidebar-settings" data-nav-label="설정" aria-label="Settings">
@@ -2533,7 +2533,7 @@
                     </div>
                     <div>
                       <dt>BUILD ID</dt>
-                      <dd>v6 b21</dd>
+                      <dd>v6 b22</dd>
                     </div>
                     <div>
                       <dt>PROTOCOL</dt>
@@ -2598,6 +2598,10 @@
             <div class="mission-sub">블록 시퀀스를 바로 설계합니다.</div>
             <div class="mission-sub-note">미션은 실제 제어에 반영됩니다. 실행 전 내용을 확인하세요.</div>
           </div>
+        </div>
+        <div id="missionFirmwareLockNotice" class="mission-firmware-lock-notice hidden" role="status">
+          <span class="mission-firmware-lock-kicker">FIRMWARE MISSION</span>
+          <span>이 보드에는 미션 코드가 내장되어 있어 미션을 수정할 수 없습니다.</span>
         </div>
         <div class="mission-designer-layout">
           <div id="missionPresetBlock" class="mission-preset-block">

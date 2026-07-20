@@ -3,6 +3,23 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.8.16 — v6 b22 — 2026-07-20
+
+Protocol: `Flash6-Intelligent-b4` (ESP-NOW wire version `4`, unchanged)
+
+- Declared the onboard launch/deployment sequence as the authoritative built-in
+  mission and disabled loading or executing user-authored runtime blocks, so a
+  stored block profile cannot overlap CH1/CH2 deployment commands.
+- Rejected mission-profile writes over both HTTP and USB serial with an
+  explicit firmware-lock result. Existing profile data remains untouched but
+  is never armed by this firmware build.
+- Added mission capability metadata to HTTP profile/telemetry responses and
+  the serial settings handshake. Desktop and native-mobile UIs now show the
+  built-in-mission notice and disable block, metadata, import, and save edits.
+- Replaced the desktop dock's countdown shortcut with a storage shortcut,
+  grouped beside the launcher controls and wired directly to the storage
+  record browser.
+
 ## 0.8.15 — v6 b21 — 2026-07-20
 
 Protocol: `Flash6-Intelligent-b4` (ESP-NOW wire version `4`, unchanged)

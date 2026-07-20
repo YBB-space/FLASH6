@@ -62,7 +62,36 @@ String missionProfileJson() {
   return body;
 }
 
+String missionProfileClientJson() {
+  String body = missionProfileJson();
+  DynamicJsonDocument doc(kMissionProfileMaxBytes + 1536U);
+  if (deserializeJson(doc, body)) {
+    body = defaultMissionProfileJson();
+    if (deserializeJson(doc, body)) return body;
+  }
+  JsonObject capabilities = doc["capabilities"].as<JsonObject>();
+  if (capabilities.isNull()) {
+    capabilities = doc.createNestedObject("capabilities");
+  }
+  capabilities["missionEditable"] = !kFirmwareMissionLocked;
+  capabilities["missionSource"] = kFirmwareMissionSource;
+  capabilities["missionLockReason"] =
+    kFirmwareMissionLocked ? kFirmwareMissionLockReason : "";
+  if (kFirmwareMissionLocked) {
+    doc["blocks"].to<JsonArray>().clear();
+    doc["editorBlocks"].to<JsonArray>().clear();
+  }
+  body = "";
+  body.reserve(measureJson(doc) + 1U);
+  serializeJson(doc, body);
+  return body;
+}
+
 bool saveMissionProfileJson(const String& body) {
+  if (kFirmwareMissionLocked) {
+    Serial.println("[MISSION] profile save blocked: built-in mission is authoritative");
+    return false;
+  }
   if (!isLikelyJsonObject(body)) return false;
   {
     DynamicJsonDocument validation(kMissionProfileMaxBytes + 1024U);

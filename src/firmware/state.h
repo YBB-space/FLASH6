@@ -1,9 +1,12 @@
 
 constexpr char kFirmwareProgram[] = "Altis_Intelligent3_firmware1";
-constexpr char kFirmwareVersion[] = "0.8.15";
-constexpr char kFirmwareBuildId[] = "v6 b21";
+constexpr char kFirmwareVersion[] = "0.8.16";
+constexpr char kFirmwareBuildId[] = "v6 b22";
 constexpr char kFirmwareBoard[] = "Altis_Intelligent3_b3";
 constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b4";
+constexpr bool kFirmwareMissionLocked = true;
+constexpr char kFirmwareMissionSource[] = "builtin_launch_sequence";
+constexpr char kFirmwareMissionLockReason[] = "BUILTIN_MISSION";
 
 constexpr uint32_t kSerialBaud = 921600;
 // Keep only a few fresh telemetry frames in USB CDC. A large queue turns

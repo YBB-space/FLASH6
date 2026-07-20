@@ -262,6 +262,11 @@ bool loadMissionRuntimeFromFlash() {
   missionLastSequenceState = sequenceState;
   missionResetLaunchRuntime(millis());
 
+  if (kFirmwareMissionLocked) {
+    Serial.println("[MISSION] built-in launch mission active; user runtime blocks disabled");
+    return true;
+  }
+
   const String body = missionProfileJson();
   DynamicJsonDocument doc(kMissionProfileMaxBytes + 4096U);
   const DeserializationError error = deserializeJson(doc, body);

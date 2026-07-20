@@ -164,6 +164,7 @@ size_t buildTelemetryJson(char* json, size_t jsonLen, bool full) {
       "\"fw_ver_build\":\"%s+%s\","
       "\"fw_board\":\"%s\","
       "\"fw_protocol\":\"%s\","
+      "\"mission_locked\":%u,\"mission_source\":\"%s\","
       "\"sample_hz\":%lu,\"serial_hz\":%lu,\"wifi_hz\":%lu,"
       "\"flash_link_hz\":%lu,"
       "\"record_hz\":%lu,\"baro_hz\":%lu,\"gps_hz\":%lu,\"loadcell_hz\":%u,"
@@ -176,6 +177,8 @@ size_t buildTelemetryJson(char* json, size_t jsonLen, bool full) {
       kFirmwareBuildId,
       kFirmwareBoard,
       kFirmwareProtocol,
+      kFirmwareMissionLocked ? 1U : 0U,
+      kFirmwareMissionSource,
       (unsigned long)kImuSampleHz,
       (unsigned long)kSerialStreamHz,
       (unsigned long)activeWifiStreamHz(),
@@ -1152,6 +1155,16 @@ void clearMissionUploadBuffer(AsyncWebServerRequest* request) {
 }
 
 void handleMissionProfilePostBody(AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
+  if (kFirmwareMissionLocked) {
+    if (index == 0) {
+      sendText(
+        request,
+        423,
+        "application/json",
+        "{\"ok\":0,\"err\":\"MISSION_FIRMWARE_LOCKED\",\"source\":\"builtin_launch_sequence\"}");
+    }
+    return;
+  }
   char* buffer = missionUploadBuffer(request);
 
   if (index == 0) {
@@ -2152,7 +2165,7 @@ void setupRoutes() {
   });
 
   server.on("/mission_profile", HTTP_GET, [](AsyncWebServerRequest* request) {
-    sendText(request, 200, "application/json; charset=utf-8", missionProfileJson());
+    sendText(request, 200, "application/json; charset=utf-8", missionProfileClientJson());
   });
   server.on(
     "/mission_profile",

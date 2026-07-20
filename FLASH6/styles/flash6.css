@@ -7352,6 +7352,18 @@
     .mission-title{font-size:14px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#0f172a}
     .mission-sub{font-size:11px;color:#6b7280;margin-top:6px;max-width:320px}
     .mission-sub-note{font-size:11px;color:#b45309;margin-top:6px;max-width:420px;font-weight:700}
+    .mission-firmware-lock-notice{
+      display:flex;align-items:center;gap:12px;flex:0 0 auto;
+      min-height:42px;padding:10px 14px;
+      border:1px solid rgba(245,158,11,.32);
+      background:rgba(245,158,11,.08);
+      color:#92400e;font-size:13px;font-weight:600;line-height:1.45;
+    }
+    .mission-firmware-lock-kicker{
+      flex:0 0 auto;color:#fbbf24;font-size:10px;font-weight:800;
+      letter-spacing:.16em;
+    }
+    html[data-theme="dark"] .mission-firmware-lock-notice{color:#f3f4f6}
     .mission-close-btn{
       border:none;background:rgba(255,255,255,0.7);font-size:18px;line-height:1;
       padding:4px 6px;border-radius:999px;box-shadow:0 4px 10px rgba(15,23,42,0.12);color:#64748b
