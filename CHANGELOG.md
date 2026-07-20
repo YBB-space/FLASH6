@@ -3,6 +3,14 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 pyro modal note alignment b29 — 2026-07-20
+
+Firmware build: `v6 b25` (unchanged)
+Protocol: `Flash6-Intelligent-b4` (unchanged)
+
+- Centered the pyro safety note below the action button without changing the
+  modal control layout.
+
 ## FLASH6 pyro modal density pass b28 — 2026-07-20
 
 Firmware build: `v6 b25` (unchanged)
