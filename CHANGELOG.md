@@ -3,6 +3,20 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 live storage critical alarm b36 — 2026-07-21
+
+Firmware build: `v6 b25` (unchanged)
+Protocol: `Flash6-Intelligent-b4` (unchanged)
+
+- Evaluated the sequence storage guard whenever local or relayed avionics
+  storage telemetry changes, rather than only after an explicit status refresh
+  or sequence-start attempt.
+- Raised the persistent storage critical alarm once on transition into the
+  70% lockout range and automatically cleared it when storage returns to a
+  non-critical state.
+- Added a dedicated `저장공간 상태` alarm title and suppressed live critical
+  notifications during replay.
+
 ## FLASH6 top critical alert refinement b35 — 2026-07-20
 
 Firmware build: `v6 b25` (unchanged)

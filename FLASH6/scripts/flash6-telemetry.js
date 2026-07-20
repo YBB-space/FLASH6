@@ -267,8 +267,9 @@
             data.remote_storage_records
           ) || storageChanged;
         }
-        if(storageChanged && shouldRefreshUi){
-          syncStoragePreview();
+        if(storageChanged){
+          if(shouldRefreshUi) syncStoragePreview();
+          processSequenceStorageGuardUpdate({notifyCritical:!isReplaySample});
         }
       }
       if(!isFastReplaySeek){

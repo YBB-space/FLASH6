@@ -632,13 +632,23 @@
     function showSequenceStorageGuardToast(force){
       const guard = getSequenceStorageGuard();
       if(guard.level === "unknown" && guard.blocked){
-        showToast("에비오닉스 저장공간 상태를 확인할 수 없어 시퀀스를 시작할 수 없습니다. A.I LINK 연결과 양쪽 펌웨어를 확인하세요.", "critical", {key:"sequence-storage-unknown", keep:true, duration:7000});
+        showToast("에비오닉스 저장공간 상태를 확인할 수 없어 시퀀스를 시작할 수 없습니다. A.I LINK 연결과 양쪽 펌웨어를 확인하세요.", "critical", {
+          key:"sequence-storage-unknown",
+          keep:true,
+          duration:7000,
+          title:"저장공간 상태"
+        });
         return true;
       }
       if(!isFinite(guard.pct) || guard.level === "ok") return false;
       const pctText = guard.pct.toFixed(1) + "%";
       if(guard.level === "red"){
-        showToast("저장공간 " + pctText + " 사용 중입니다. 데이터 유실 방지를 위해 시퀀스 권한을 해제했습니다. 저장공간을 초기화하세요.", "critical", {key:"sequence-storage-red", keep:true, duration:7000});
+        showToast("저장공간 " + pctText + " 사용 중입니다. 데이터 유실 방지를 위해 시퀀스 권한을 해제했습니다. 저장공간을 초기화하세요.", "critical", {
+          key:"sequence-storage-red",
+          keep:true,
+          duration:7000,
+          title:"저장공간 상태"
+        });
         return true;
       }
       if(guard.level === "orange"){
@@ -674,6 +684,30 @@
       });
     }
 
+    function processSequenceStorageGuardUpdate(options){
+      const opts = options || {};
+      const guard = getSequenceStorageGuard();
+      const previousLevel = lastSequenceStorageGuardLevel;
+      const levelChanged = guard.level !== previousLevel;
+
+      if(!levelChanged) return guard;
+
+      lastSequenceStorageGuardLevel = guard.level;
+      syncSequenceStorageGuardUi();
+      setButtonsFromState(currentSt, lockoutLatched, sequenceActive);
+
+      if(guard.level !== "red"){
+        dismissToastByKey("sequence-storage-red");
+      }
+      if(!(guard.level === "unknown" && guard.blocked)){
+        dismissToastByKey("sequence-storage-unknown");
+      }
+      if(opts.notifyCritical !== false && guard.level === "red"){
+        showSequenceStorageGuardToast(true);
+      }
+      return guard;
+    }
+
     function updateSpiFlashStatusUi(info, errMsg){
       if(errMsg){
         const cachedInfo = getActiveStoragePreviewInfo();
@@ -695,19 +729,17 @@
           return;
         }
         latestSpiFlashStorageInfo = null;
-        lastSequenceStorageGuardLevel = "unknown";
         if(el.spiFlashStatusLine) el.spiFlashStatusLine.textContent = "FLASH 상태 확인 실패: " + String(errMsg);
         syncStoragePreview("--", true);
-        syncSequenceStorageGuardUi();
+        processSequenceStorageGuardUpdate({notifyCritical:false});
         return;
       }
       if(!info || !info.ready){
         latestSpiFlashStorageInfo = null;
-        lastSequenceStorageGuardLevel = "unknown";
         spiFlashReadyState = false;
         if(el.spiFlashStatusLine) el.spiFlashStatusLine.textContent = "FLASH NOT READY";
         syncStoragePreview("--", !isFlashLinkGroundStorageUi());
-        syncSequenceStorageGuardUi();
+        processSequenceStorageGuardUpdate({notifyCritical:false});
         return;
       }
       latestSpiFlashStorageInfo = Object.assign({}, info, {updated_at:Date.now()});
@@ -732,13 +764,7 @@
         (isFinite(usedPercent) ? " (" + usedPercent.toFixed(1) + "%)" : "") + " · records " + recordCount +
         " · queue " + queuedBytes + "B · 남은 약 " + remainSec + "초 (" + remainHms + ")" +
         " · JEDEC " + mfrHex + ".." + capCodeHex;
-      syncSequenceStorageGuardUi();
-      setButtonsFromState(currentSt, lockoutLatched, sequenceActive);
-      const guard = getSequenceStorageGuard();
-      if(guard.level !== lastSequenceStorageGuardLevel){
-        if(guard.level === "red") showSequenceStorageGuardToast(true);
-        lastSequenceStorageGuardLevel = guard.level;
-      }
+      processSequenceStorageGuardUpdate({notifyCritical:true});
     }
 
     const SPI_FLASH_REMOTE_CHUNK_BYTES = 8192;
@@ -772,7 +798,7 @@
       latestAvionicsStorageInfo = normalized;
       latestAvionicsStorageOkMs = Date.now();
       syncStoragePreview();
-      syncSequenceStorageGuardUi();
+      processSequenceStorageGuardUpdate({notifyCritical:true});
       return normalized;
     }
 
