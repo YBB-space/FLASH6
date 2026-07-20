@@ -523,7 +523,7 @@ void missionLaunchSequenceTick(uint32_t nowMs, bool armFalling, uint32_t armFall
       missionEmitAlarm(0, "Servo 2 failed", "CH2 command failed. Check deployment system.");
     }
     buzzerPlayRecoveryFindMelody();
-    Serial.println("[MISSION] recovery find buzzer started peak=4000Hz loop=1");
+    Serial.println("[MISSION] recovery find buzzer started tones=1800,2300,2800Hz loop=1");
   }
   missionSyncLaunchTelemetry();
 }

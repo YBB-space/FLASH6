@@ -3,6 +3,16 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.8.19 — v6 b25 — 2026-07-20
+
+Protocol: `Flash6-Intelligent-b4` (ESP-NOW wire version `4`, unchanged)
+
+- Replaced the recovery beacon's single 4 kHz cadence with a repeating
+  three-tone 1.8/2.3/2.8 kHz pattern that is easier to hear and identify.
+- Kept long tone-on periods, short inter-tone gaps, and the PWM driver's
+  existing maximum 50% square-wave duty so the average acoustic output remains
+  high without blocking telemetry, storage, or mission processing.
+
 ## 0.8.18 — v6 b24 — 2026-07-20
 
 Protocol: `Flash6-Intelligent-b4` (ESP-NOW wire version `4`, unchanged)
