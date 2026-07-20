@@ -4085,14 +4085,128 @@
       setTimeout(()=>{ if(toast && toast.parentNode) toast.parentNode.removeChild(toast); }, 220);
     }
 
+    function dismissCriticalAlert(alert){
+      if(!alert || alert._dismissed) return;
+      alert._dismissed = true;
+      if(alert._dismissTimer){
+        clearTimeout(alert._dismissTimer);
+        alert._dismissTimer = null;
+      }
+      alert.classList.remove("is-visible");
+      alert.classList.add("is-leaving");
+      alert._dismissTimer = setTimeout(()=>{
+        if(alert && alert.parentNode) alert.parentNode.removeChild(alert);
+        if(alert) alert._dismissTimer = null;
+      }, 220);
+    }
+
     function dismissToastByKey(key){
-      if(!el.toastContainer || !key) return;
+      if(!key) return;
       const token = String(key);
-      for(const node of Array.from(el.toastContainer.children)){
-        if(node && node.dataset && node.dataset.key === token){
-          dismissToast(node);
+      if(el.toastContainer){
+        for(const node of Array.from(el.toastContainer.children)){
+          if(node && node.dataset && node.dataset.key === token){
+            dismissToast(node);
+          }
         }
       }
+      if(el.criticalAlertStack){
+        for(const node of Array.from(el.criticalAlertStack.children)){
+          if(node && node.dataset && node.dataset.key === token){
+            dismissCriticalAlert(node);
+          }
+        }
+      }
+    }
+
+    function showCriticalAlert(message, opts, titleText){
+      if(!el.criticalAlertStack) return false;
+      const text = String(message || "");
+      const key = (opts && opts.key) ? String(opts.key) : ("critical:" + text);
+      let alert = null;
+      for(const node of el.criticalAlertStack.children){
+        if(node && node.dataset && node.dataset.key === key){
+          alert = node;
+          break;
+        }
+      }
+
+      if(alert){
+        const title = alert.querySelector(".critical-alert-title");
+        const body = alert.querySelector(".critical-alert-text");
+        const repeat = alert.querySelector(".critical-alert-repeat");
+        const nextCount = Math.max(1, Number(alert.dataset.count) || 1) + 1;
+        alert.dataset.count = String(nextCount);
+        if(alert._dismissTimer){
+          clearTimeout(alert._dismissTimer);
+          alert._dismissTimer = null;
+        }
+        if(title) title.textContent = String(titleText || t("toastTitleCritical"));
+        if(body) body.textContent = text;
+        if(repeat){
+          repeat.textContent = "×" + nextCount;
+          repeat.hidden = false;
+        }
+        alert.classList.remove("is-leaving");
+        alert._dismissed = false;
+        void alert.offsetWidth;
+        alert.classList.add("is-visible", "is-updated");
+        setTimeout(()=>{ if(alert) alert.classList.remove("is-updated"); }, 360);
+        return true;
+      }
+
+      alert = document.createElement("article");
+      alert.className = "critical-alert";
+      alert.dataset.key = key;
+      alert.dataset.count = "1";
+      alert.setAttribute("role", "alert");
+
+      const signal = document.createElement("span");
+      signal.className = "critical-alert-signal";
+      signal.setAttribute("aria-hidden", "true");
+
+      const body = document.createElement("div");
+      body.className = "critical-alert-body";
+
+      const meta = document.createElement("div");
+      meta.className = "critical-alert-meta";
+      const label = document.createElement("span");
+      label.className = "critical-alert-label";
+      label.textContent = "CRITICAL ALERT";
+      const repeat = document.createElement("span");
+      repeat.className = "critical-alert-repeat";
+      repeat.hidden = true;
+      meta.appendChild(label);
+      meta.appendChild(repeat);
+
+      const title = document.createElement("div");
+      title.className = "critical-alert-title";
+      title.textContent = String(titleText || t("toastTitleCritical"));
+
+      const textNode = document.createElement("div");
+      textNode.className = "critical-alert-text";
+      textNode.textContent = text;
+
+      body.appendChild(meta);
+      body.appendChild(title);
+      body.appendChild(textNode);
+
+      const close = document.createElement("button");
+      close.type = "button";
+      close.className = "critical-alert-close";
+      close.setAttribute("aria-label", "Dismiss critical alert");
+      close.textContent = "×";
+      close.addEventListener("click", (ev)=>{
+        ev.stopPropagation();
+        dismissCriticalAlert(alert);
+      });
+
+      alert.appendChild(signal);
+      alert.appendChild(body);
+      alert.appendChild(close);
+      el.criticalAlertStack.appendChild(alert);
+      requestAnimationFrame(()=>alert.classList.add("is-visible"));
+      return true;
     }
 
     function getToastTitle(type, message){
@@ -4218,8 +4332,9 @@
     }
 
     function showToast(message, type, opts){
-      if(!el.toastContainer) return;
+      if(!el.toastContainer && !el.criticalAlertStack) return;
       const rawType = type || "info";
+      const isCritical = String(rawType).toLowerCase() === "critical" || !!(opts && opts.critical);
       const toastType = normalizeToastType(rawType);
       const titleType = normalizeToastTitleType(rawType);
       const duration = (opts && opts.duration) ? opts.duration : 3000;
@@ -4227,6 +4342,9 @@
       const titleText = (opts && opts.title) ? String(opts.title) : getToastTitle(titleType, message);
       const sticky = !!(opts && opts.sticky);
       const forceToast = !!(opts && opts.forceToast);
+
+      if(isCritical && showCriticalAlert(message, opts, titleText)) return;
+      if(!el.toastContainer) return;
 
       if(!forceToast && showCameraBroadcastAlert(message, toastType, titleText, duration)) return;
 

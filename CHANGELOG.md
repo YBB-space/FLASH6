@@ -3,6 +3,18 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 persistent critical alert rail b31 — 2026-07-20
+
+Firmware build: `v6 b25` (unchanged)
+Protocol: `Flash6-Intelligent-b4` (unchanged)
+
+- Routed critical alarms out of the transient toast queue into a persistent,
+  top-right warning rail with a dedicated high-visibility design.
+- Kept critical alerts visible until the alarm clears or the operator closes
+  them, including while dialogs and alternate views are open.
+- Deduplicated repeated critical alarms by key and updated the existing alert
+  with an occurrence count.
+
 ## FLASH6 servo modal density pass b30 — 2026-07-20
 
 Firmware build: `v6 b25` (unchanged)

@@ -24,6 +24,7 @@
         setTimeout(removeLegacyLuceText, 1200);
 
       el.toastContainer = document.getElementById("toastContainer");
+      el.criticalAlertStack = document.getElementById("criticalAlertStack");
       el.desktopCameraBtn = document.getElementById("desktopCameraBtn");
       el.webcamPanel = document.getElementById("webcamPanel");
       el.webcamVideo = document.getElementById("webcamVideo");
