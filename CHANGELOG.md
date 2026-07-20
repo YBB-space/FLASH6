@@ -3,6 +3,18 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 servo modal density pass b30 — 2026-07-20
+
+Firmware build: `v6 b25` (unchanged)
+Protocol: `Flash6-Intelligent-b4` (unchanged)
+
+- Matched the servo modal to the compact pyro modal frame on desktop, narrow
+  desktop windows, and touch devices.
+- Replaced the mobile channel drop-down with the same clear PWM tab selector
+  used on desktop.
+- Removed the oversized active-servo card in favor of one divider and bounded
+  internal scrolling without changing servo commands.
+
 ## FLASH6 pyro modal note alignment b29 — 2026-07-20
 
 Firmware build: `v6 b25` (unchanged)
