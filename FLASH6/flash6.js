@@ -16444,25 +16444,25 @@ function requestMobileMockup3dMesh(){
         replaySourceActive
       );
       if(el.virtualMissionBtn){
-        el.virtualMissionBtn.disabled = !virtualMissionActive && realSequenceBusy;
+        el.virtualMissionBtn.disabled = virtualMissionActive || realSequenceBusy;
         el.virtualMissionBtn.classList.toggle("is-running", virtualMissionActive);
         el.virtualMissionBtn.setAttribute(
           "aria-label",
-          virtualMissionActive ? "가상 미션 중단" : "시간 기반 가상 미션 시작"
+          virtualMissionActive ? "시간 기반 강제 미션 진행 중" : "시간 기반 강제 미션 시작"
         );
       }
       if(el.virtualMissionBtnLabel){
-        el.virtualMissionBtnLabel.textContent = virtualMissionActive ? "가상 미션 중단" : "미션 강제 구동";
+        el.virtualMissionBtnLabel.textContent = virtualMissionActive ? "강제 미션 진행 중" : "미션 강제 구동";
       }
       if(el.virtualMissionBtnStatus){
-        el.virtualMissionBtnStatus.textContent = virtualMissionActive ? "TIME DRIVEN" : "VIRTUAL";
+        el.virtualMissionBtnStatus.textContent = virtualMissionActive ? "T+ ACTIVE" : "TIME BASED";
       }
       if(el.mobileVirtualMissionBtn){
-        el.mobileVirtualMissionBtn.disabled = !virtualMissionActive && realSequenceBusy;
+        el.mobileVirtualMissionBtn.disabled = virtualMissionActive || realSequenceBusy;
         el.mobileVirtualMissionBtn.classList.toggle("is-active", virtualMissionActive);
         el.mobileVirtualMissionBtn.setAttribute(
           "aria-label",
-          virtualMissionActive ? "가상 미션 중단" : "시간 기반 가상 미션 시작"
+          virtualMissionActive ? "시간 기반 강제 미션 진행 중" : "시간 기반 강제 미션 시작"
         );
       }
       if(el.mobileVirtualMissionStatus){
@@ -16483,23 +16483,23 @@ function requestMobileMockup3dMesh(){
       setMobileSequenceProgress(Math.min(1, elapsedMs / VIRTUAL_MISSION_CH2_MS));
       syncMobileSequenceTime();
 
-      let statusText = "시간 기반 가상 미션 실행 중";
-      let statusPillText = "VIRTUAL";
+      let statusText = "시간 기반 강제 미션 실행 중";
+      let statusPillText = "FORCED";
       if(elapsedMs >= VIRTUAL_MISSION_CH2_MS){
-        statusText = "가상 CH2 · 회수 시퀀스";
+        statusText = "강제 CH2 · 회수 시퀀스";
         statusPillText = "CH2";
         if(!virtualMissionCh2Logged){
           virtualMissionCh2Logged = true;
-          addLogLine("가상 미션 CH2 실행 · T+3.000 s · 실제 출력 없음", "VIRTUAL");
-          showToast("가상 CH2 실행 · 실제 출력 없음", "info", {key:"virtual-mission-ch2"});
+          addLogLine("강제 미션 CH2 시점 도달 · T+3.000 s", "MISSION");
+          showToast("T+3.0초 · 펌웨어 CH2 서보 구동 시점", "info", {key:"virtual-mission-ch2"});
         }
       }else if(elapsedMs >= VIRTUAL_MISSION_CH1_MS){
-        statusText = "가상 CH1 · 단분리 시퀀스";
+        statusText = "강제 CH1 · 단분리 시퀀스";
         statusPillText = "CH1";
         if(!virtualMissionCh1Logged){
           virtualMissionCh1Logged = true;
-          addLogLine("가상 미션 CH1 실행 · T+2.000 s · 실제 출력 없음", "VIRTUAL");
-          showToast("가상 CH1 실행 · 실제 출력 없음", "info", {key:"virtual-mission-ch1"});
+          addLogLine("강제 미션 CH1 시점 도달 · T+2.000 s", "MISSION");
+          showToast("T+2.0초 · 펌웨어 CH1 서보 구동 시점", "info", {key:"virtual-mission-ch1"});
         }
       }
 
@@ -16513,15 +16513,15 @@ function requestMobileMockup3dMesh(){
       }
       if(el.statusText) el.statusText.textContent = statusText;
       if(el.countdownStatus) el.countdownStatus.textContent = statusText;
-      if(el.sequenceStatusDesktop) el.sequenceStatusDesktop.textContent = "가상";
-      if(el.mobileSequenceWideStatus) el.mobileSequenceWideStatus.textContent = "가상";
+      if(el.sequenceStatusDesktop) el.sequenceStatusDesktop.textContent = "강제";
+      if(el.mobileSequenceWideStatus) el.mobileSequenceWideStatus.textContent = "강제";
       if(el.mobileSequenceStatusText) el.mobileSequenceStatusText.textContent = statusText;
       if(el.mobileSequenceStatusPill){
         el.mobileSequenceStatusPill.textContent = statusPillText;
         el.mobileSequenceStatusPill.className = "mobile-sequence-status-pill status-seq";
       }
       if(el.quickState){
-        el.quickState.innerHTML = '<span class="num">VIRTUAL</span>';
+        el.quickState.innerHTML = '<span class="num">FORCED</span>';
         setQuickItemStatus(el.quickState, "warn");
       }
 
@@ -16563,40 +16563,91 @@ function requestMobileMockup3dMesh(){
         syncMobileSequenceTime();
       }
       if(completed){
-        addLogLine("가상 미션 완료 · 실제 보드 출력 없음", "VIRTUAL");
-        showToast("가상 미션이 완료되었습니다. 실제 출력은 발생하지 않았습니다.", "success", {key:"virtual-mission-complete"});
+        addLogLine("시간 기반 강제 미션 타임라인 완료", "MISSION");
+        showToast("강제 미션 타임라인이 완료되었습니다.", "success", {key:"virtual-mission-complete"});
+      }else if(reason === "failed"){
+        addLogLine("강제 미션 명령 전송 실패", "ERR");
+        showToast("강제 미션 명령을 전달하지 못했습니다.", "error", {key:"forced-mission-failed"});
       }else if(reason === "board"){
         addLogLine("실제 보드 시퀀스 감지 · 가상 미션 자동 종료", "VIRTUAL");
         showToast("실제 보드 시퀀스를 감지해 가상 미션을 종료했습니다.", "notice", {key:"virtual-mission-board"});
       }else{
-        addLogLine("가상 미션 사용자 중단 · 실제 보드 출력 없음", "VIRTUAL");
-        showToast("가상 미션을 중단했습니다.", "notice", {key:"virtual-mission-stop"});
+        addLogLine("강제 미션 사용자 중단 · 대기 중인 서보 동작 취소", "MISSION");
+        showToast("강제 미션을 중단했습니다.", "notice", {key:"virtual-mission-stop"});
       }
     }
 
-    function toggleVirtualMission(){
-      if(virtualMissionActive){
-        stopVirtualMission("user");
-        return;
-      }
-      if(
+    function canStartForcedTimedMission(){
+      return !(
+        virtualMissionActive ||
         sequenceActive ||
         isFirmwareSequenceRunningState(currentSt) ||
         localTplusActive ||
-        replaySourceActive
+        replaySourceActive ||
+        safetyModeEnabled ||
+        lockoutLatched
+      );
+    }
+
+    function hideMissionForceConfirm(){
+      setOverlayVisible(el.missionForceOverlay, false);
+    }
+
+    function showMissionForceConfirm(){
+      hideMobileControlsPanel();
+      if(!canStartForcedTimedMission()){
+        const message = safetyModeEnabled
+          ? "안전 모드에서는 강제 미션을 실행할 수 없습니다."
+          : "다른 시퀀스가 진행 중이거나 현재 제어가 잠겨 있습니다.";
+        showToast(message, lockoutLatched ? "error" : "notice", {key:"forced-mission-blocked"});
+        return;
+      }
+      if(!isControlUnlocked()){
+        showToast(t("inspectionRequiredToast"), "notice", {key:"forced-mission-inspection"});
+        return;
+      }
+      if(!(connOk || serialConnected || simEnabled)){
+        showToast("에비오닉스 연결 후 강제 미션을 실행하세요.", "notice", {key:"forced-mission-link"});
+        return;
+      }
+      setOverlayVisible(el.missionForceOverlay, true);
+    }
+
+    async function confirmForcedTimedMission(){
+      if(!canStartForcedTimedMission()){
+        hideMissionForceConfirm();
+        showToast("현재 상태가 변경되어 강제 미션을 시작하지 않았습니다.", "notice", {key:"forced-mission-state-changed"});
+        return;
+      }
+      hideMissionForceConfirm();
+      if(
+        !isControlUnlocked() ||
+        !(connOk || serialConnected || simEnabled)
       ){
-        showToast("실제 시퀀스 또는 리플레이 진행 중에는 가상 미션을 시작할 수 없습니다.", "notice", {key:"virtual-mission-blocked"});
+        showToast("설비 점검과 에비오닉스 연결 상태를 다시 확인하세요.", "notice", {key:"forced-mission-preflight"});
         return;
       }
       virtualMissionActive = true;
       virtualMissionStartMs = Date.now();
       virtualMissionCh1Logged = false;
       virtualMissionCh2Logged = false;
-      addLogLine("시간 기반 가상 미션 시작 · 실제 보드 출력 없음", "VIRTUAL");
-      showToast("가상 미션 시작 · 하드웨어 출력 없음", "info", {key:"virtual-mission-start"});
+      addLogLine("펌웨어 시간 기반 강제 미션 요청 · 파이로 출력 없음", "MISSION");
+      showToast("강제 미션 요청 · T+2초/3초에 실제 서보가 동작합니다.", "warn", {key:"forced-mission-start"});
       setButtonsFromState(currentSt, lockoutLatched, sequenceActive);
       renderVirtualMissionUi(virtualMissionStartMs);
       virtualMissionTimer = setInterval(()=>renderVirtualMissionUi(Date.now()), 40);
+      const commandResult = await sendCommand({
+        http:"/mission_force_timed",
+        ser:"/mission_force_timed"
+      }, true);
+      if(!commandResult || !commandResult.ok){
+        stopVirtualMission("failed");
+      }
+    }
+
+    function toggleVirtualMission(){
+      if(virtualMissionActive) return;
+      showMissionForceConfirm();
     }
 
     function updateKstClock(){
@@ -17761,8 +17812,9 @@ function requestMobileMockup3dMesh(){
       const readyEligible = !replaySourceActive && isControlUnlocked() && (connOk || simEnabled) && !safetyModeEnabled && !storageGuard.blocked && st === 0 && !running;
       if(virtualMissionActive){
         el.igniteBtn.disabled = true;
-        el.abortBtn.disabled = true;
+        el.abortBtn.disabled = false;
         setIgniteButtonLabel("sequenceStartBtn");
+        updateAbortButtonLabel(true);
         updateControlAccessUI(st);
         updateMobileAbortButton();
         updateMobileSequenceStatusLabel(true, st, lockout);
@@ -21010,7 +21062,7 @@ function requestMobileMockup3dMesh(){
         fw_program:"Altis_Intelligent3_firmware1",
         fw_board:"Altis_Intelligent3_b3",
         fw_protocol:"Flash6-Intelligent-b4",
-        fw_build:"v6 b23"
+        fw_build:"v6 b24"
       };
     }
 
@@ -22674,12 +22726,6 @@ function requestMobileMockup3dMesh(){
           (td != null && isFinite(td) && Number(td) !== 0)
         )
       );
-      if(
-        virtualMissionActive &&
-        (sequenceActive || isFirmwareSequenceRunningState(st))
-      ){
-        stopVirtualMission("board");
-      }
       if(ar != null){
         const mapped = mapAbortReasonCode(ar);
         if(mapped){
@@ -32834,6 +32880,15 @@ function requestMobileMockup3dMesh(){
         simState.countdownStartMs = null;
         simState.cdMs = 0;
         simState.countdownTotalMs = null;
+      }else if(path.startsWith("/mission_force_timed")){
+        resetSimState();
+        simState.st = 3;
+        simState.flightStartMs = Date.now();
+        simState.physicsLastMs = 0;
+        simState.countdownStartMs = null;
+        simState.cdMs = 0;
+        simState.countdownTotalMs = null;
+        resetGyroPathTracking();
       }else if(path.startsWith("/sequence_end")){
         resetSimState();
         resetGyroPathTracking();
@@ -32856,7 +32911,7 @@ function requestMobileMockup3dMesh(){
 	        if(logIt){
 	          addLogLine(t("cmdSentLog", {cmd:(cmd.http || cmd.ser || "?")}), "CMD");
 	        }
-	        return;
+	        return {ok:true, reason:"SIM"};
 	      }
 
 	      let serLine = cmd.ser ? String(cmd.ser).trim() : "";
@@ -32874,6 +32929,8 @@ function requestMobileMockup3dMesh(){
           serLine = "/sequence_end";
         }else if(head === "IGNITE"){
           serLine = "/ignite";
+        }else if(head === "MISSION_FORCE_TIMED"){
+          serLine = "/mission_force_timed";
         }else if(head === "PRECOUNT"){
           const uw = (parts[1] != null) ? Number(parts[1]) : 0;
           const cd = (parts[2] != null) ? Number(parts[2]) : 0;
@@ -32950,7 +33007,7 @@ function requestMobileMockup3dMesh(){
       if(lockoutLatched && !isLockoutBypassCmd && !isCoreConfigCmd){
         const name = relayMaskName(lockoutRelayMask);
         showToast(t("lockoutCmdDenied", {name}), "error");
-        return;
+        return {ok:false, reason:"LOCKOUT"};
       }
 
       const canSerialTx = !!(serialEnabled && serialConnected && serLine && (serialTxEnabled || isCoreConfigCmd));
@@ -32961,6 +33018,7 @@ function requestMobileMockup3dMesh(){
         normalizedPath.startsWith("/countdown_start") ||
         normalizedPath.startsWith("/ignite") ||
         normalizedPath.startsWith("/force_ignite") ||
+        normalizedPath.startsWith("/mission_force_timed") ||
         normalizedPath.startsWith("/pyro_test") ||
         normalizedPath.startsWith("/abort") ||
         normalizedPath.startsWith("/sequence_end");
@@ -33060,6 +33118,11 @@ function requestMobileMockup3dMesh(){
           addLogLine("CMD HTTP RESULT :: " + httpResult.reason, "ERR");
         }
       }
+      return {
+        ok: !!(serialOk || (httpResult && httpResult.ok)),
+        serialOk,
+        httpResult
+      };
     }
 
     async function sendBoardToggleCommand(kind, enabled){
@@ -33638,6 +33701,9 @@ function requestMobileMockup3dMesh(){
       el.virtualMissionBtnStatus = document.getElementById("virtualMissionBtnStatus");
       el.mobileVirtualMissionBtn = document.getElementById("mobileVirtualMissionBtn");
       el.mobileVirtualMissionStatus = document.getElementById("mobileVirtualMissionStatus");
+      el.missionForceOverlay = document.getElementById("missionForceOverlay");
+      el.missionForceConfirm = document.getElementById("missionForceConfirm");
+      el.missionForceCancel = document.getElementById("missionForceCancel");
       updateVirtualMissionButtonUi();
       el.forceBtn = document.getElementById("forceIgniteBtn");
       el.copyLogBtn = document.getElementById("copyLogBtn");
@@ -34716,6 +34782,17 @@ function requestMobileMockup3dMesh(){
       if(el.virtualMissionBtn){
         el.virtualMissionBtn.addEventListener("click", toggleVirtualMission);
       }
+      if(el.missionForceConfirm){
+        el.missionForceConfirm.addEventListener("click", confirmForcedTimedMission);
+      }
+      if(el.missionForceCancel){
+        el.missionForceCancel.addEventListener("click", hideMissionForceConfirm);
+      }
+      if(el.missionForceOverlay){
+        el.missionForceOverlay.addEventListener("click",(ev)=>{
+          if(ev.target === el.missionForceOverlay) hideMissionForceConfirm();
+        });
+      }
 
       if(el.abortBtn){
         el.abortBtn.addEventListener("click",()=>{
@@ -34726,6 +34803,7 @@ function requestMobileMockup3dMesh(){
           }
           if(isFirmwareTplusState(currentSt) || tplusUiActive){
             sendCommand({http:"/sequence_end", ser:"SEQUENCE_END"}, true);
+            if(virtualMissionActive) stopVirtualMission("user");
             addLogLine(t("sequenceEndLog"),"SEQ");
             showToast(t("sequenceEndToast"), "info");
             hideConfirm();

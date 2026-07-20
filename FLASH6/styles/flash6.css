@@ -3774,50 +3774,7 @@
       background:transparent;
     }
     .primary-btn-wrap{flex:3;display:flex}
-    .virtual-mission-btn-wrap{flex:1.7;display:flex}
     .abort-btn-wrap{flex:1.4;display:flex}
-    .virtual-mission-btn{
-      width:100%;
-      min-width:0;
-      min-height:58px;
-      padding:0 12px;
-      border:1px solid rgba(96,165,250,.36);
-      border-radius:10px;
-      background:rgba(15,23,42,.06);
-      color:#334155;
-      display:flex;
-      flex-direction:column;
-      align-items:flex-start;
-      justify-content:center;
-      gap:4px;
-      cursor:pointer;
-      transition:border-color .16s ease, background .16s ease, color .16s ease;
-    }
-    .virtual-mission-btn:hover:not(:disabled){
-      border-color:rgba(59,130,246,.65);
-      background:rgba(59,130,246,.08);
-    }
-    .virtual-mission-btn:disabled{
-      opacity:.45;
-      cursor:not-allowed;
-    }
-    .virtual-mission-btn.is-running{
-      border-color:rgba(96,165,250,.72);
-      background:rgba(37,99,235,.12);
-    }
-    .virtual-mission-btn-title{
-      font-size:11px;
-      font-weight:700;
-      line-height:1.1;
-      white-space:nowrap;
-    }
-    .virtual-mission-btn-status{
-      color:#64748b;
-      font-size:8px;
-      font-weight:700;
-      letter-spacing:.14em;
-      line-height:1;
-    }
     .control-row{
       display:grid;
       grid-template-columns:repeat(2,minmax(0,1fr));
@@ -21046,7 +21003,6 @@
         min-height:58px !important;
       }
       body.dashboard-view-active .primary-btn-wrap,
-      body.dashboard-view-active .virtual-mission-btn-wrap,
       body.dashboard-view-active .abort-btn-wrap{
         min-width:0 !important;
       }
@@ -21866,12 +21822,11 @@ body.camera-view-active .page-wrap{
     padding:14px 16px 16px !important;
   }
   body.dashboard-view-active #controlsCard .controls-main-row{
-    grid-template-columns:minmax(0,1fr) minmax(116px,.52fr) minmax(86px,.36fr) !important;
+    grid-template-columns:minmax(0,1fr) minmax(96px,.42fr) !important;
     min-height:58px !important;
     gap:7px !important;
   }
   body.dashboard-view-active #controlsCard .primary-btn.sequence-btn,
-  body.dashboard-view-active #controlsCard .virtual-mission-btn,
   body.dashboard-view-active #controlsCard .controls-main-row .secondary-btn{
     height:58px !important;
     min-height:58px !important;
@@ -21888,33 +21843,6 @@ body.camera-view-active .page-wrap{
     transform:none !important;
     border-color:#51545c !important;
     background:#222327 !important;
-  }
-  body.dashboard-view-active #controlsCard .virtual-mission-btn{
-    padding:0 11px !important;
-    border:1px solid #334155 !important;
-    background:#171c24 !important;
-    color:#d8e7ff !important;
-    box-shadow:none !important;
-  }
-  body.dashboard-view-active #controlsCard .virtual-mission-btn:hover:not(:disabled){
-    transform:none !important;
-    border-color:#49627f !important;
-    background:#1b2430 !important;
-  }
-  body.dashboard-view-active #controlsCard .virtual-mission-btn.is-running{
-    border-color:#4d79aa !important;
-    background:#1b2b3e !important;
-  }
-  body.dashboard-view-active #controlsCard .virtual-mission-btn-title{
-    font-size:10px !important;
-    font-weight:650 !important;
-    letter-spacing:.03em !important;
-  }
-  body.dashboard-view-active #controlsCard .virtual-mission-btn-status{
-    color:#7895b8 !important;
-    font-size:8px !important;
-    font-weight:650 !important;
-    letter-spacing:.12em !important;
   }
   body.dashboard-view-active #controlsCard .sequence-btn-title{
     color:#f2f3f5 !important;
@@ -29500,4 +29428,97 @@ html.phone-landscape-layout body #settingsOverlay .flash-link-metric{
 }
 html.phone-landscape-layout body #settingsOverlay .flash-link-chart-stage{
   height:120px;
+}
+
+/* Time-driven mission command · secondary placement below normal controls. */
+body.dashboard-view-active #controlsCard .force-mission-tile{
+  width:100%;
+  text-align:left;
+  cursor:pointer;
+  border-color:#334155 !important;
+  background:#171c24 !important;
+}
+body.dashboard-view-active #controlsCard .force-mission-tile:hover:not(:disabled){
+  border-color:#49627f !important;
+  background:#1b2430 !important;
+}
+body.dashboard-view-active #controlsCard .force-mission-tile:disabled{
+  opacity:.42 !important;
+  cursor:not-allowed;
+}
+body.dashboard-view-active #controlsCard .force-mission-tile.is-running{
+  border-color:#4d79aa !important;
+  background:#1b2b3e !important;
+}
+body.dashboard-view-active #controlsCard .force-mission-copy{
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+}
+body.dashboard-view-active #controlsCard .force-mission-tile > .pill{
+  flex:0 0 auto;
+  min-width:82px;
+  margin-left:auto;
+  border-color:#3b4a5d !important;
+  background:#202a37 !important;
+  color:#94b6db !important;
+}
+
+.mission-force-dialog{
+  width:min(92vw,640px) !important;
+}
+.mission-force-timeline{
+  margin:18px 0 4px;
+  border-top:1px solid rgba(148,163,184,.2);
+  border-bottom:1px solid rgba(148,163,184,.2);
+}
+.mission-force-timeline > div{
+  min-height:52px;
+  display:grid;
+  grid-template-columns:84px minmax(0,1fr);
+  align-items:center;
+  gap:12px;
+  border-top:1px solid rgba(148,163,184,.12);
+}
+.mission-force-timeline > div:first-child{
+  border-top:0;
+}
+.mission-force-timeline span{
+  color:#8ba8c9;
+  font:650 11px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  letter-spacing:.08em;
+}
+.mission-force-timeline strong{
+  color:#e5e7eb;
+  font-size:13px;
+  font-weight:600;
+}
+.mission-force-actions{
+  display:grid !important;
+  grid-template-columns:minmax(0,.72fr) minmax(0,1.28fr);
+  width:100%;
+}
+.mission-force-actions > button{
+  width:100% !important;
+  min-width:0 !important;
+}
+.mission-force-confirm{
+  background:#304968 !important;
+  border-color:#496b93 !important;
+  color:#f8fafc !important;
+}
+
+html.phone-landscape-layout .mission-force-dialog{
+  width:min(86vw,560px) !important;
+}
+html.phone-landscape-layout .mission-force-timeline{
+  margin:10px 0 2px;
+}
+html.phone-landscape-layout .mission-force-timeline > div{
+  min-height:34px;
+  grid-template-columns:66px minmax(0,1fr);
+}
+html.phone-landscape-layout .mission-force-timeline strong{
+  font-size:11px;
 }

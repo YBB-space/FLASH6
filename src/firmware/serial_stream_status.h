@@ -317,7 +317,7 @@ void handleSerialLine(const char* line) {
   cmd.trim();
 
   if (cmd == "help" || cmd == "/help") {
-    Serial.println("ACK GYRO_BARO_GPS_FLASH commands: /set?stream=0|1&ign_ms=1000&cd_ms=10000&daq_seq_pyro=1, /settings, /rates, /gps, /baro, /loadcell|zero|cal|reset, /servo?ch=1&deg=90 or SERVO 1 90, /storage/spi_flash/status|list|read|init, /storage/spi_flash/remote/list|read, /mission_profile_begin|chunk|end|cancel, /countdown_start, /abort, /reset");
+    Serial.println("ACK GYRO_BARO_GPS_FLASH commands: /set?stream=0|1&ign_ms=1000&cd_ms=10000&daq_seq_pyro=1, /settings, /rates, /gps, /baro, /loadcell|zero|cal|reset, /servo?ch=1&deg=90 or SERVO 1 90, /storage/spi_flash/status|list|read|init, /storage/spi_flash/remote/list|read, /mission_profile_begin|chunk|end|cancel, /countdown_start, /mission_force_timed, /abort, /reset");
     return;
   }
 
@@ -895,6 +895,21 @@ void handleSerialLine(const char* line) {
       return;
     }
     Serial.println("ACK IGNITION_IMMEDIATE");
+    return;
+  }
+
+  if (cmd == "/mission_force_timed" || cmd == "MISSION_FORCE_TIMED") {
+    if (forwardFlashLinkSerialCommand(
+          FlashLinkCommandCode::ForceTimedMission)) {
+      return;
+    }
+    if (!startForcedTimedMissionRuntime(millis())) {
+      Serial.println(safetyMode
+        ? "ERR MISSION_FORCE_TIMED SAFETY_MODE"
+        : "ERR MISSION_FORCE_TIMED BUSY");
+      return;
+    }
+    Serial.println("ACK FORCED_TIMED_MISSION_STARTED");
     return;
   }
 

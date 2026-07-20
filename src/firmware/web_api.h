@@ -2052,6 +2052,23 @@ void setupRoutes() {
     sendText(request, 200, "text/plain", "FORCE_IGNITION_OK");
   });
 
+  server.on("/mission_force_timed", HTTP_GET, [](AsyncWebServerRequest* request) {
+    if (forwardFlashLinkHttpCommand(
+          request,
+          FlashLinkCommandCode::ForceTimedMission)) {
+      return;
+    }
+    if (!startForcedTimedMissionRuntime(millis())) {
+      sendText(
+        request,
+        safetyMode ? 403 : 409,
+        "text/plain",
+        safetyMode ? "SAFETY_MODE" : "BUSY");
+      return;
+    }
+    sendText(request, 200, "text/plain", "FORCED_TIMED_MISSION_STARTED");
+  });
+
   server.on("/abort", HTTP_GET, [](AsyncWebServerRequest* request) {
     if (forwardFlashLinkHttpCommand(
           request,
@@ -2230,6 +2247,7 @@ void setupRoutes() {
   server.on("/countdown_start", HTTP_OPTIONS, options);
   server.on("/ignite", HTTP_OPTIONS, options);
   server.on("/force_ignite", HTTP_OPTIONS, options);
+  server.on("/mission_force_timed", HTTP_OPTIONS, options);
   server.on("/pyro_test", HTTP_OPTIONS, options);
   server.on("/abort", HTTP_OPTIONS, options);
   server.on("/sequence_end", HTTP_OPTIONS, options);

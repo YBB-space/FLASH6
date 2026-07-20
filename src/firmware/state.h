@@ -1,7 +1,7 @@
 
 constexpr char kFirmwareProgram[] = "Altis_Intelligent3_firmware1";
-constexpr char kFirmwareVersion[] = "0.8.17";
-constexpr char kFirmwareBuildId[] = "v6 b23";
+constexpr char kFirmwareVersion[] = "0.8.18";
+constexpr char kFirmwareBuildId[] = "v6 b24";
 constexpr char kFirmwareBoard[] = "Altis_Intelligent3_b3";
 constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b4";
 constexpr bool kFirmwareMissionLocked = true;
@@ -591,6 +591,7 @@ enum class FlashLinkCommandCode : uint8_t {
   SetServo = 23,
   StorageReset = 24,
   Reboot = 25,
+  ForceTimedMission = 26,
 };
 
 enum class FlashLinkCommandResult : uint8_t {
@@ -1662,3 +1663,5 @@ const char* flashLinkCommandResultName(uint8_t result);
 bool startCountdownRuntimeFor(uint32_t nowMs, uint32_t durationMs, bool playStartTone);
 bool loadMissionRuntimeFromFlash();
 void missionRuntimeTick();
+void missionResetLaunchRuntime(uint32_t nowMs);
+bool startForcedTimedMissionRuntime(uint32_t nowMs);

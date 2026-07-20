@@ -3,6 +3,20 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.8.18 — v6 b24 — 2026-07-20
+
+Protocol: `Flash6-Intelligent-b4` (ESP-NOW wire version `4`, unchanged)
+
+- Added a firmware-owned forced timed mission command over HTTP, USB serial,
+  and A.I LINK. It creates a virtual T+ clock without energizing either pyro
+  output, then drives the built-in deployment servos at CH1 T+2.0 seconds and
+  CH2 T+3.0 seconds.
+- The command is rejected while Safety Mode or another sequence is active.
+  ABORT/STOP now also clears the pending built-in deployment runtime so a
+  cancelled timed test cannot actuate a servo later.
+- Added deployment telemetry flag bit 7 and mission alarms to identify a
+  forced timed run in live telemetry and stored flight records.
+
 ## 0.8.17 — v6 b23 — 2026-07-20
 
 Protocol: `Flash6-Intelligent-b4` (ESP-NOW wire version `4`, unchanged)

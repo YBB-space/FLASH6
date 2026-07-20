@@ -302,6 +302,7 @@ void clearSequenceRuntime() {
   sequenceRelayHoldUntilMs = 0;
   sequenceRelayMask = 0;
   applyPyroOutputs(nowMs);
+  missionResetLaunchRuntime(nowMs);
 }
 
 bool startFiringRuntime(uint32_t nowMs, uint8_t channel) {

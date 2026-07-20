@@ -101,6 +101,7 @@ enum class LaunchMissionState : uint8_t {
 
 struct LaunchMissionRuntime {
   LaunchMissionState state = LaunchMissionState::Idle;
+  bool forceTimed = false;
   bool armRawOn = true;
   bool armStableOn = true;
   bool launchLatched = false;
@@ -135,6 +136,7 @@ void missionSyncLaunchTelemetry() {
   if (launchMission.state == LaunchMissionState::Fault) snap.deploymentFlags |= 1U << 4;
   if (launchMission.secondaryCommanded) snap.deploymentFlags |= 1U << 5;
   if (launchMission.secondaryFailed) snap.deploymentFlags |= 1U << 6;
+  if (launchMission.forceTimed) snap.deploymentFlags |= 1U << 7;
 }
 
 void missionResetLaunchRuntime(uint32_t nowMs) {
@@ -418,6 +420,8 @@ void missionCommandPrimaryDeployment(uint32_t nowMs) {
   launchMission.state = LaunchMissionState::WaitingSecondary;
   if (!ok) {
     missionEmitAlarm(0, "Servo 1 failed", "CH1 command failed. CH2 remains scheduled.");
+  } else if (launchMission.forceTimed) {
+    missionEmitAlarm(0, "Forced timed deployment", "T+2.0s reached. CH1 set to 85 deg.");
   } else if (launchMission.coastTimeout) {
     missionEmitAlarm(0, "Coasting detect fail", "No coasting by T+2.0s. Backup deploy started.");
   } else if (launchMission.earlyCoast) {
@@ -425,6 +429,43 @@ void missionCommandPrimaryDeployment(uint32_t nowMs) {
   } else {
     missionEmitAlarm(0, "Coasting confirmed", "Coasting confirmed. CH1 set to 85 deg.");
   }
+}
+
+bool startForcedTimedMissionRuntime(uint32_t nowMs) {
+  if (safetyMode ||
+      sequenceState != kSequenceStateIdle ||
+      sequenceUserWaiting) {
+    return false;
+  }
+
+  flightPhaseResetRuntime();
+  missionResetLaunchRuntime(nowMs);
+  sequenceAborted = false;
+  sequenceAbortReason = 0;
+  sequenceState = kSequenceStateTplus;
+  sequenceUserWaiting = false;
+  sequenceCountdownEndMs = 0;
+  sequenceCountdownTotalMs = 0;
+  sequenceFiringStartMs = nowMs;
+  sequenceFiringEndMs = 0;
+  sequenceRelayHoldUntilMs = 0;
+  sequenceRelayMask = 0;
+  applyPyroOutputs(nowMs);
+
+  launchMission.forceTimed = true;
+  launchMission.launchLatched = true;
+  launchMission.state = LaunchMissionState::WaitingCoast;
+  launchMission.launchMs = nowMs;
+  launchMission.ignitionStartMs = nowMs;
+  launchMission.ignitionDelayMs = 0;
+  missionLastSequenceState = sequenceState;
+  missionEmitAlarm(
+    0,
+    "Forced timed mission",
+    "Virtual T+ started. No pyro output; CH1/CH2 servo schedule is active.");
+  missionSyncLaunchTelemetry();
+  Serial.println("[MISSION] forced timed start T+0 pyro=off CH1=2000ms CH2=3000ms");
+  return true;
 }
 
 void missionLaunchSequenceTick(uint32_t nowMs, bool armFalling, uint32_t armFallingMs) {
@@ -446,6 +487,13 @@ void missionLaunchSequenceTick(uint32_t nowMs, bool armFalling, uint32_t armFall
 
   if (launchMission.state == LaunchMissionState::WaitingCoast) {
     const uint32_t elapsedMs = nowMs - launchMission.launchMs;
+    if (launchMission.forceTimed) {
+      if (elapsedMs >= kLaunchCoastDeadlineMs) {
+        missionCommandPrimaryDeployment(nowMs);
+      }
+      missionSyncLaunchTelemetry();
+      return;
+    }
     const bool coasting =
       snap.flightPhase == static_cast<uint8_t>(FlightPhase::Coasting);
     if (elapsedMs >= kLaunchCoastDeadlineMs) {

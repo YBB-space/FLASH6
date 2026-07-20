@@ -237,6 +237,7 @@ bool flashLinkCommandIsUrgent(uint8_t code) {
   return code == static_cast<uint8_t>(FlashLinkCommandCode::Abort) ||
          code == static_cast<uint8_t>(FlashLinkCommandCode::SequenceEnd) ||
          code == static_cast<uint8_t>(FlashLinkCommandCode::ForceIgnite) ||
+         code == static_cast<uint8_t>(FlashLinkCommandCode::ForceTimedMission) ||
          code == static_cast<uint8_t>(FlashLinkCommandCode::SetSafety) ||
          code == static_cast<uint8_t>(FlashLinkCommandCode::SetArmLock) ||
          code == static_cast<uint8_t>(FlashLinkCommandCode::Reboot);
@@ -779,6 +780,14 @@ FlashLinkCommandResult flashLinkExecuteCommand(
         return FlashLinkCommandResult::Busy;
       }
       detail = sequenceRelayMaskNow(nowMs);
+      return FlashLinkCommandResult::Ok;
+
+    case FlashLinkCommandCode::ForceTimedMission:
+      if (safetyMode) return FlashLinkCommandResult::SafetyMode;
+      if (!startForcedTimedMissionRuntime(nowMs)) {
+        return FlashLinkCommandResult::Busy;
+      }
+      detail = sequenceTdMs(nowMs);
       return FlashLinkCommandResult::Ok;
 
     case FlashLinkCommandCode::Abort:

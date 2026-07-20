@@ -613,7 +613,7 @@
                 <path d="M15 18h5"></path>
               </svg>
             </span>
-            <span class="mobile-quick-label">가상 미션</span>
+            <span class="mobile-quick-label">강제 미션</span>
             <span id="mobileVirtualMissionStatus" class="mobile-quick-state pill pill-gray">대기</span>
           </button>
           <button type="button" class="control-tile mobile-control mobile-quick-btn" data-mobile-control="export">
@@ -1767,12 +1767,6 @@
                   <span id="sequenceStatusDesktop" class="sequence-status-pill">준비</span>
                 </button>
               </div>
-              <div class="virtual-mission-btn-wrap">
-                <button id="virtualMissionBtn" class="virtual-mission-btn" type="button" aria-label="시간 기반 가상 미션 시작">
-                  <span id="virtualMissionBtnLabel" class="virtual-mission-btn-title">미션 강제 구동</span>
-                  <span id="virtualMissionBtnStatus" class="virtual-mission-btn-status">VIRTUAL</span>
-                </button>
-              </div>
               <div class="abort-btn-wrap">
                 <button id="abortBtn" class="secondary-btn" disabled>ABORT</button>
               </div>
@@ -1829,6 +1823,14 @@
                   <button id="armLockPill" class="pill pill-toggle is-off" type="button">OFF</button>
                 </div>
               </div>
+
+              <button id="virtualMissionBtn" class="control-tile is-btn span-2 force-mission-tile" type="button" aria-label="시간 기반 강제 미션 시작">
+                <span class="force-mission-copy">
+                  <span id="virtualMissionBtnLabel" class="control-tile-label">미션 강제 구동</span>
+                  <span class="control-tile-sub">파이로 출력 없이 시간 기준 CH1 · CH2 실행</span>
+                </span>
+                <span id="virtualMissionBtnStatus" class="pill pill-gray">TIME BASED</span>
+              </button>
 
             </div>
           </div>
@@ -2551,7 +2553,7 @@
                     </div>
                     <div>
                       <dt>BUILD ID</dt>
-                      <dd>v6 b23</dd>
+                      <dd>v6 b24</dd>
                     </div>
                     <div>
                       <dt>PROTOCOL</dt>
@@ -3195,6 +3197,28 @@
               <div class="longpress-ring"><div class="longpress-spinner"></div></div>
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 시간 기반 강제 미션 확인 모달 -->
+    <div id="missionForceOverlay" class="confirm-overlay mission-force-overlay hidden" style="display:none;">
+      <div class="confirm-dialog mission-force-dialog" role="dialog" aria-modal="true" aria-labelledby="missionForceTitle">
+        <div class="confirm-icon" aria-hidden="true"><span>!</span></div>
+        <div id="missionForceTitle" class="confirm-title">시간 기반 강제 미션을 실행할까요?</div>
+        <div class="confirm-text">
+          센서 판정과 ARM 하강을 건너뛰고 펌웨어 T+를 즉시 시작합니다.
+          파이로 출력은 발생하지 않지만 실제 서보가 작동합니다.
+        </div>
+        <div class="mission-force-timeline" aria-label="강제 미션 실행 순서">
+          <div><span>T+0.0</span><strong>가상 비행 시간 시작</strong></div>
+          <div><span>T+2.0</span><strong>CH1 서보 85°</strong></div>
+          <div><span>T+3.0</span><strong>CH2 서보 85° · 파인딩 버저</strong></div>
+        </div>
+        <div class="confirm-note">기체 주변과 서보 가동부를 비운 뒤 실행하세요.</div>
+        <div class="confirm-actions mission-force-actions">
+          <button id="missionForceCancel" class="confirm-cancel" type="button">취소</button>
+          <button id="missionForceConfirm" class="loadcell-primary mission-force-confirm" type="button">실제 서보 동작 실행</button>
         </div>
       </div>
     </div>
