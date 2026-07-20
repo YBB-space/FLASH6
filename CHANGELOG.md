@@ -3,6 +3,17 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 top critical alert refinement b35 — 2026-07-20
+
+Firmware build: `v6 b25` (unchanged)
+Protocol: `Flash6-Intelligent-b4` (unchanged)
+
+- Moved persistent critical alarms from the viewport center to the upper center.
+- Removed the red edge rail and manual close control for a quieter warning
+  surface that remains governed by alarm state.
+- Placed the alarm title directly beside the `CRITICAL` label and simplified
+  the remaining content hierarchy.
+
 ## FLASH6 critical alert routing correction b34 — 2026-07-20
 
 Firmware build: `v6 b25` (unchanged)

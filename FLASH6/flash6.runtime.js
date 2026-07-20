@@ -14547,10 +14547,6 @@ function requestMobileMockup3dMesh(){
       alert.dataset.count = "1";
       alert.setAttribute("role", "alert");
 
-      const signal = document.createElement("span");
-      signal.className = "critical-alert-signal";
-      signal.setAttribute("aria-hidden", "true");
-
       const body = document.createElement("div");
       body.className = "critical-alert-body";
 
@@ -14559,37 +14555,24 @@ function requestMobileMockup3dMesh(){
       const label = document.createElement("span");
       label.className = "critical-alert-label";
       label.textContent = "CRITICAL";
+      const title = document.createElement("div");
+      title.className = "critical-alert-title";
+      title.textContent = String(titleText || t("toastTitleCritical"));
       const repeat = document.createElement("span");
       repeat.className = "critical-alert-repeat";
       repeat.hidden = true;
       meta.appendChild(label);
+      meta.appendChild(title);
       meta.appendChild(repeat);
-
-      const title = document.createElement("div");
-      title.className = "critical-alert-title";
-      title.textContent = String(titleText || t("toastTitleCritical"));
 
       const textNode = document.createElement("div");
       textNode.className = "critical-alert-text";
       textNode.textContent = text;
 
       body.appendChild(meta);
-      body.appendChild(title);
       body.appendChild(textNode);
 
-      const close = document.createElement("button");
-      close.type = "button";
-      close.className = "critical-alert-close";
-      close.setAttribute("aria-label", "Dismiss critical alert");
-      close.textContent = "×";
-      close.addEventListener("click", (ev)=>{
-        ev.stopPropagation();
-        dismissCriticalAlert(alert);
-      });
-
-      alert.appendChild(signal);
       alert.appendChild(body);
-      alert.appendChild(close);
       alertStack.appendChild(alert);
       requestAnimationFrame(()=>alert.classList.add("is-visible"));
       return true;

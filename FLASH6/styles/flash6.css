@@ -30656,42 +30656,37 @@ html:not(.phone-landscape-layout) body #hardwareServoDialog .hardware-servo-pres
 /* Critical alarms live outside the transient toast queue. */
 .critical-alert-stack{
   position:fixed;
-  top:50%;
+  top:clamp(18px,4vh,48px);
   left:50%;
   right:auto;
   z-index:91000;
-  width:min(420px,calc(100vw - 32px));
-  max-height:min(50dvh,320px);
+  width:min(440px,calc(100vw - 32px));
+  max-height:min(42dvh,300px);
   display:flex;
   flex-direction:column;
   align-items:stretch;
   gap:8px;
   overflow-y:auto;
   overscroll-behavior:contain;
-  transform:translate(-50%,-50%);
+  transform:translateX(-50%);
   pointer-events:none;
 }
 .critical-alert{
   position:relative;
   width:100%;
-  min-height:82px;
-  padding:12px 38px 12px 14px;
+  min-height:0;
+  padding:13px 16px 14px;
   display:block;
   border:1px solid rgba(148,163,184,.22);
-  border-left:3px solid #ef4444;
-  border-radius:10px;
-  background:rgba(17,24,39,.97);
+  border-radius:8px;
+  background:rgba(15,20,28,.97);
   color:#f8fafc;
-  box-shadow:0 8px 22px rgba(2,6,23,.34);
+  box-shadow:0 8px 20px rgba(2,6,23,.28);
   opacity:0;
-  transform:translateY(6px);
+  transform:translateY(-6px);
   transition:opacity .18s ease,transform .18s ease,border-color .18s ease;
   pointer-events:auto;
   overflow:hidden;
-}
-.critical-alert::after{
-  content:none;
-  display:none;
 }
 .critical-alert.is-visible{
   opacity:1;
@@ -30699,25 +30694,22 @@ html:not(.phone-landscape-layout) body #hardwareServoDialog .hardware-servo-pres
 }
 .critical-alert.is-leaving{
   opacity:0;
-  transform:translateY(6px);
+  transform:translateY(-6px);
 }
 .critical-alert.is-updated{
-  border-left-color:#ff6671;
-}
-.critical-alert-signal{
-  display:none;
+  border-color:rgba(248,113,113,.38);
 }
 .critical-alert-body{
   min-width:0;
   display:flex;
   flex-direction:column;
-  gap:3px;
+  gap:8px;
 }
 .critical-alert-meta{
-  min-height:11px;
+  min-height:14px;
   display:flex;
   align-items:center;
-  gap:7px;
+  gap:8px;
 }
 .critical-alert-label{
   color:#f87171;
@@ -30728,6 +30720,7 @@ html:not(.phone-landscape-layout) body #hardwareServoDialog .hardware-servo-pres
 }
 .critical-alert-repeat{
   min-width:18px;
+  margin-left:auto;
   padding:0;
   border:0;
   border-radius:0;
@@ -30736,58 +30729,34 @@ html:not(.phone-landscape-layout) body #hardwareServoDialog .hardware-servo-pres
   text-align:center;
 }
 .critical-alert-title{
-  color:#f8fafc;
+  color:#e5e7eb;
   font-size:11px;
   line-height:1.2;
-  font-weight:800;
-  letter-spacing:.03em;
+  font-weight:650;
+  letter-spacing:.01em;
 }
 .critical-alert-text{
   color:#cbd5e1;
-  font-size:12px;
+  font-size:12.5px;
   line-height:1.45;
   font-weight:400;
   word-break:keep-all;
 }
-.critical-alert-close{
-  position:absolute;
-  top:50%;
-  right:10px;
-  width:18px;
-  height:18px;
-  margin:0;
-  padding:0;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  place-items:center;
-  border:0;
-  border-radius:0;
-  background:transparent;
-  color:#94a3b8;
-  font:300 16px/1 system-ui,sans-serif;
-  transform:translateY(-50%);
-  cursor:pointer;
-}
-.critical-alert-close:hover{
-  background:transparent;
-  color:#e2e8f0;
-}
 
 @media (max-width:700px){
   .critical-alert-stack{
-    top:50%;
+    top:calc(14px + env(safe-area-inset-top,0px));
     right:auto;
     left:50%;
     width:min(390px,calc(100vw - 24px));
-    max-height:min(46dvh,300px);
+    max-height:min(40dvh,280px);
     gap:8px;
-    transform:translate(-50%,-50%);
+    transform:translateX(-50%);
   }
   .critical-alert{
-    min-height:78px;
-    padding:11px 36px 11px 12px;
-    border-radius:9px;
+    min-height:0;
+    padding:12px 14px 13px;
+    border-radius:8px;
   }
   .critical-alert-title{
     font-size:10.5px;
