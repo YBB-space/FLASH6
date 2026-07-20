@@ -604,6 +604,18 @@
             <span class="mobile-quick-label" data-i18n="controlInspectionLabel">설비 점검</span>
             <span class="mobile-quick-state pill pill-gray" data-mobile-pill="inspection">대기</span>
           </button>
+          <button id="mobileVirtualMissionBtn" type="button" class="control-tile mobile-control mobile-quick-btn" data-mobile-control="virtual_mission">
+            <span class="mobile-quick-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M7 5v14"></path>
+                <path d="M7 6h9l-1.6 3L16 12H7"></path>
+                <path d="M17.5 15.5v5"></path>
+                <path d="M15 18h5"></path>
+              </svg>
+            </span>
+            <span class="mobile-quick-label">가상 미션</span>
+            <span id="mobileVirtualMissionStatus" class="mobile-quick-state pill pill-gray">대기</span>
+          </button>
           <button type="button" class="control-tile mobile-control mobile-quick-btn" data-mobile-control="export">
             <span class="mobile-quick-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24"><path d="M12 5v9"/><path d="m8.5 11 3.5 3.5 3.5-3.5"/><path d="M6.5 18.5h11"/></svg>
@@ -1753,6 +1765,12 @@
                     <span id="igniteBtnLabel" class="sequence-btn-title" data-i18n="sequenceStartBtn">SEQUENCE START</span>
                   </span>
                   <span id="sequenceStatusDesktop" class="sequence-status-pill">준비</span>
+                </button>
+              </div>
+              <div class="virtual-mission-btn-wrap">
+                <button id="virtualMissionBtn" class="virtual-mission-btn" type="button" aria-label="시간 기반 가상 미션 시작">
+                  <span id="virtualMissionBtnLabel" class="virtual-mission-btn-title">미션 강제 구동</span>
+                  <span id="virtualMissionBtnStatus" class="virtual-mission-btn-status">VIRTUAL</span>
                 </button>
               </div>
               <div class="abort-btn-wrap">

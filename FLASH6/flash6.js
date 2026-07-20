@@ -5756,6 +5756,14 @@ function requestMobileMockup3dMesh(){
     let lastAbortReason = null;
     let firstSampleMs = null;
     let sequenceActive = false;
+    const VIRTUAL_MISSION_CH1_MS = 2000;
+    const VIRTUAL_MISSION_CH2_MS = 3000;
+    const VIRTUAL_MISSION_COMPLETE_MS = 4500;
+    let virtualMissionActive = false;
+    let virtualMissionStartMs = 0;
+    let virtualMissionTimer = null;
+    let virtualMissionCh1Logged = false;
+    let virtualMissionCh2Logged = false;
 
     // ✅ RelaySafe/LOCKOUT
     let relaySafeEnabled = true;
@@ -14968,7 +14976,7 @@ function requestMobileMockup3dMesh(){
       return !!(el.armLockToggle && el.armLockToggle.checked);
     }
     function isSequenceBusyForPanelModes(){
-      return sequenceActive || isFirmwareSequenceRunningState(currentSt) || localTplusActive || tplusUiActive;
+      return virtualMissionActive || sequenceActive || isFirmwareSequenceRunningState(currentSt) || localTplusActive || tplusUiActive;
     }
     function isTabletPanelModeBlocked(){
       return isTabletControlsLayout() && isSequenceBusyForPanelModes();
@@ -15039,7 +15047,7 @@ function requestMobileMockup3dMesh(){
 
     function updateMobileSequenceCardButtons(st){
       const state = (st == null) ? currentSt : st;
-      const running = !!(sequenceActive || isFirmwareSequenceRunningState(state) || localTplusActive || userWaitingLocal);
+      const running = !!(virtualMissionActive || sequenceActive || isFirmwareSequenceRunningState(state) || localTplusActive || userWaitingLocal);
       const storageGuard = getSequenceStorageGuard();
       const startBlocked = !!(replaySourceActive || lockoutLatched || running || inspectionRunning || safetyModeEnabled || storageGuard.blocked);
       const pauseBlocked = !!(replaySourceActive || lockoutLatched || !(state === 1 || userWaitingLocal));
@@ -16418,6 +16426,179 @@ function requestMobileMockup3dMesh(){
       el.mobileSequenceBarFill.style.width = (progress * 100).toFixed(2) + "%";
     }
 
+    function formatVirtualMissionTime(ms){
+      const value = Math.max(0, Math.round(Number(ms) || 0));
+      const minutes = Math.floor(value / 60000);
+      const seconds = Math.floor((value % 60000) / 1000);
+      const centiseconds = Math.floor((value % 1000) / 10);
+      return String(minutes).padStart(2, "0") + ":" +
+        String(seconds).padStart(2, "0") + ":" +
+        String(centiseconds).padStart(2, "0");
+    }
+
+    function updateVirtualMissionButtonUi(){
+      const realSequenceBusy = !!(
+        sequenceActive ||
+        isFirmwareSequenceRunningState(currentSt) ||
+        localTplusActive ||
+        replaySourceActive
+      );
+      if(el.virtualMissionBtn){
+        el.virtualMissionBtn.disabled = !virtualMissionActive && realSequenceBusy;
+        el.virtualMissionBtn.classList.toggle("is-running", virtualMissionActive);
+        el.virtualMissionBtn.setAttribute(
+          "aria-label",
+          virtualMissionActive ? "가상 미션 중단" : "시간 기반 가상 미션 시작"
+        );
+      }
+      if(el.virtualMissionBtnLabel){
+        el.virtualMissionBtnLabel.textContent = virtualMissionActive ? "가상 미션 중단" : "미션 강제 구동";
+      }
+      if(el.virtualMissionBtnStatus){
+        el.virtualMissionBtnStatus.textContent = virtualMissionActive ? "TIME DRIVEN" : "VIRTUAL";
+      }
+      if(el.mobileVirtualMissionBtn){
+        el.mobileVirtualMissionBtn.disabled = !virtualMissionActive && realSequenceBusy;
+        el.mobileVirtualMissionBtn.classList.toggle("is-active", virtualMissionActive);
+        el.mobileVirtualMissionBtn.setAttribute(
+          "aria-label",
+          virtualMissionActive ? "가상 미션 중단" : "시간 기반 가상 미션 시작"
+        );
+      }
+      if(el.mobileVirtualMissionStatus){
+        el.mobileVirtualMissionStatus.textContent = virtualMissionActive ? "진행중" : "대기";
+        el.mobileVirtualMissionStatus.className =
+          "mobile-quick-state pill " + (virtualMissionActive ? "pill-blue" : "pill-gray");
+      }
+    }
+
+    function renderVirtualMissionUi(nowMs){
+      if(!virtualMissionActive) return;
+      const elapsedMs = Math.max(0, Number(nowMs || Date.now()) - virtualMissionStartMs);
+      const timeLabel = "T+ " + formatVirtualMissionTime(elapsedMs);
+
+      if(el.countdown) el.countdown.textContent = timeLabel;
+      if(el.countdownMobile) el.countdownMobile.textContent = timeLabel;
+      if(el.countdownBig) el.countdownBig.textContent = timeLabel;
+      setMobileSequenceProgress(Math.min(1, elapsedMs / VIRTUAL_MISSION_CH2_MS));
+      syncMobileSequenceTime();
+
+      let statusText = "시간 기반 가상 미션 실행 중";
+      let statusPillText = "VIRTUAL";
+      if(elapsedMs >= VIRTUAL_MISSION_CH2_MS){
+        statusText = "가상 CH2 · 회수 시퀀스";
+        statusPillText = "CH2";
+        if(!virtualMissionCh2Logged){
+          virtualMissionCh2Logged = true;
+          addLogLine("가상 미션 CH2 실행 · T+3.000 s · 실제 출력 없음", "VIRTUAL");
+          showToast("가상 CH2 실행 · 실제 출력 없음", "info", {key:"virtual-mission-ch2"});
+        }
+      }else if(elapsedMs >= VIRTUAL_MISSION_CH1_MS){
+        statusText = "가상 CH1 · 단분리 시퀀스";
+        statusPillText = "CH1";
+        if(!virtualMissionCh1Logged){
+          virtualMissionCh1Logged = true;
+          addLogLine("가상 미션 CH1 실행 · T+2.000 s · 실제 출력 없음", "VIRTUAL");
+          showToast("가상 CH1 실행 · 실제 출력 없음", "info", {key:"virtual-mission-ch1"});
+        }
+      }
+
+      if(el.statusPill){
+        el.statusPill.className = "status-seq";
+        el.statusPill.textContent = statusPillText;
+      }
+      if(el.statusPillMeta){
+        el.statusPillMeta.className = "status-seq";
+        el.statusPillMeta.textContent = statusPillText;
+      }
+      if(el.statusText) el.statusText.textContent = statusText;
+      if(el.countdownStatus) el.countdownStatus.textContent = statusText;
+      if(el.sequenceStatusDesktop) el.sequenceStatusDesktop.textContent = "가상";
+      if(el.mobileSequenceWideStatus) el.mobileSequenceWideStatus.textContent = "가상";
+      if(el.mobileSequenceStatusText) el.mobileSequenceStatusText.textContent = statusText;
+      if(el.mobileSequenceStatusPill){
+        el.mobileSequenceStatusPill.textContent = statusPillText;
+        el.mobileSequenceStatusPill.className = "mobile-sequence-status-pill status-seq";
+      }
+      if(el.quickState){
+        el.quickState.innerHTML = '<span class="num">VIRTUAL</span>';
+        setQuickItemStatus(el.quickState, "warn");
+      }
+
+      updateVirtualMissionButtonUi();
+      syncCountdownInlineStatus();
+      syncGyroStatusFromMain();
+      syncExpandedHud();
+
+      if(elapsedMs >= VIRTUAL_MISSION_COMPLETE_MS){
+        stopVirtualMission("complete");
+      }
+    }
+
+    function stopVirtualMission(reason){
+      if(!virtualMissionActive) return;
+      if(virtualMissionTimer != null){
+        clearInterval(virtualMissionTimer);
+        virtualMissionTimer = null;
+      }
+      const completed = reason === "complete";
+      virtualMissionActive = false;
+      virtualMissionStartMs = 0;
+      virtualMissionCh1Logged = false;
+      virtualMissionCh2Logged = false;
+      updateVirtualMissionButtonUi();
+      setButtonsFromState(currentSt, lockoutLatched, sequenceActive);
+      setStatusFromState(
+        currentSt,
+        !!(latestTelemetry && latestTelemetry.ic === 1),
+        false,
+        lockoutLatched,
+        sequenceActive,
+        false
+      );
+      if(el.countdown && (!connOk || !window.__flashLastSample)){
+        el.countdown.textContent = "T- --:--:--";
+        if(el.countdownMobile) el.countdownMobile.textContent = "T- --:--:--";
+        if(el.countdownBig) el.countdownBig.textContent = "T- --:--:--";
+        syncMobileSequenceTime();
+      }
+      if(completed){
+        addLogLine("가상 미션 완료 · 실제 보드 출력 없음", "VIRTUAL");
+        showToast("가상 미션이 완료되었습니다. 실제 출력은 발생하지 않았습니다.", "success", {key:"virtual-mission-complete"});
+      }else if(reason === "board"){
+        addLogLine("실제 보드 시퀀스 감지 · 가상 미션 자동 종료", "VIRTUAL");
+        showToast("실제 보드 시퀀스를 감지해 가상 미션을 종료했습니다.", "notice", {key:"virtual-mission-board"});
+      }else{
+        addLogLine("가상 미션 사용자 중단 · 실제 보드 출력 없음", "VIRTUAL");
+        showToast("가상 미션을 중단했습니다.", "notice", {key:"virtual-mission-stop"});
+      }
+    }
+
+    function toggleVirtualMission(){
+      if(virtualMissionActive){
+        stopVirtualMission("user");
+        return;
+      }
+      if(
+        sequenceActive ||
+        isFirmwareSequenceRunningState(currentSt) ||
+        localTplusActive ||
+        replaySourceActive
+      ){
+        showToast("실제 시퀀스 또는 리플레이 진행 중에는 가상 미션을 시작할 수 없습니다.", "notice", {key:"virtual-mission-blocked"});
+        return;
+      }
+      virtualMissionActive = true;
+      virtualMissionStartMs = Date.now();
+      virtualMissionCh1Logged = false;
+      virtualMissionCh2Logged = false;
+      addLogLine("시간 기반 가상 미션 시작 · 실제 보드 출력 없음", "VIRTUAL");
+      showToast("가상 미션 시작 · 하드웨어 출력 없음", "info", {key:"virtual-mission-start"});
+      setButtonsFromState(currentSt, lockoutLatched, sequenceActive);
+      renderVirtualMissionUi(virtualMissionStartMs);
+      virtualMissionTimer = setInterval(()=>renderVirtualMissionUi(Date.now()), 40);
+    }
+
     function updateKstClock(){
       const fullState = getKstClockState(true);
       const compactState = getKstClockState(false);
@@ -17575,9 +17756,19 @@ function requestMobileMockup3dMesh(){
 
     function setButtonsFromState(st, lockout, seqActive){
       if(!el.igniteBtn||!el.abortBtn){ updateControlAccessUI(st); return; }
-      const running = !!(seqActive || isFirmwareSequenceRunningState(st) || localTplusActive);
+      const running = !!(virtualMissionActive || seqActive || isFirmwareSequenceRunningState(st) || localTplusActive);
       const storageGuard = getSequenceStorageGuard();
       const readyEligible = !replaySourceActive && isControlUnlocked() && (connOk || simEnabled) && !safetyModeEnabled && !storageGuard.blocked && st === 0 && !running;
+      if(virtualMissionActive){
+        el.igniteBtn.disabled = true;
+        el.abortBtn.disabled = true;
+        setIgniteButtonLabel("sequenceStartBtn");
+        updateControlAccessUI(st);
+        updateMobileAbortButton();
+        updateMobileSequenceStatusLabel(true, st, lockout);
+        updateVirtualMissionButtonUi();
+        return;
+      }
       if(replaySourceActive){
         el.igniteBtn.disabled = true;
         el.abortBtn.disabled = true;
@@ -17624,10 +17815,11 @@ function requestMobileMockup3dMesh(){
       updateControlAccessUI(st);
       updateMobileAbortButton();
       updateMobileSequenceStatusLabel(seqActive, st, lockout);
+      updateVirtualMissionButtonUi();
     }
 
     function updateMobileSequenceStatusLabel(seqActive, st, lockout){
-      const running = !!(seqActive || isFirmwareSequenceRunningState(st) || localTplusActive);
+      const running = !!(virtualMissionActive || seqActive || isFirmwareSequenceRunningState(st) || localTplusActive);
       const storageGuard = getSequenceStorageGuard();
       const readyEligible = !replaySourceActive && isControlUnlocked() && (connOk || simEnabled) && !safetyModeEnabled && !storageGuard.blocked && st === 0 && !running;
       let label = "불가";
@@ -22482,6 +22674,12 @@ function requestMobileMockup3dMesh(){
           (td != null && isFinite(td) && Number(td) !== 0)
         )
       );
+      if(
+        virtualMissionActive &&
+        (sequenceActive || isFirmwareSequenceRunningState(st))
+      ){
+        stopVirtualMission("board");
+      }
       if(ar != null){
         const mapped = mapAbortReasonCode(ar);
         if(mapped){
@@ -23392,6 +23590,9 @@ function requestMobileMockup3dMesh(){
             }
           }
           lastStatusCode=statusCode;
+        }
+        if(virtualMissionActive){
+          renderVirtualMissionUi(nowOk);
         }
 
         if(autoScrollChart){
@@ -33432,6 +33633,12 @@ function requestMobileMockup3dMesh(){
 
       el.igniteBtn = document.getElementById("igniteBtn");
       el.abortBtn = document.getElementById("abortBtn");
+      el.virtualMissionBtn = document.getElementById("virtualMissionBtn");
+      el.virtualMissionBtnLabel = document.getElementById("virtualMissionBtnLabel");
+      el.virtualMissionBtnStatus = document.getElementById("virtualMissionBtnStatus");
+      el.mobileVirtualMissionBtn = document.getElementById("mobileVirtualMissionBtn");
+      el.mobileVirtualMissionStatus = document.getElementById("mobileVirtualMissionStatus");
+      updateVirtualMissionButtonUi();
       el.forceBtn = document.getElementById("forceIgniteBtn");
       el.copyLogBtn = document.getElementById("copyLogBtn");
       el.gyroZeroBtn = document.getElementById("gyroZeroBtn");
@@ -34505,6 +34712,9 @@ function requestMobileMockup3dMesh(){
           }
           if(currentSt===0) showConfirm();
         });
+      }
+      if(el.virtualMissionBtn){
+        el.virtualMissionBtn.addEventListener("click", toggleVirtualMission);
       }
 
       if(el.abortBtn){
@@ -36815,6 +37025,7 @@ function requestMobileMockup3dMesh(){
       }
       const mobileControlActions = {
         sequence: ()=>{ if(el.igniteBtn) el.igniteBtn.click(); },
+        virtual_mission: ()=>{ toggleVirtualMission(); },
         serial: ()=>{ handleConnectAction(); },
         inspection: ()=>{ openInspectionFromUI(); },
         safety: ()=>{ toggleInput(el.safeModeToggle); },
