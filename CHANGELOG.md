@@ -3,6 +3,16 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 critical alert routing fix b32 — 2026-07-20
+
+Firmware build: `v6 b25` (unchanged)
+Protocol: `Flash6-Intelligent-b4` (unchanged)
+
+- Routed legacy `error` notifications into the persistent critical alert rail
+  in addition to explicit `critical` alarms.
+- Added lazy creation of the critical alert container so early runtime errors
+  cannot be lost during the initial DOM binding window.
+
 ## FLASH6 persistent critical alert rail b31 — 2026-07-20
 
 Firmware build: `v6 b25` (unchanged)

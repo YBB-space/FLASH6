@@ -14490,12 +14490,27 @@ function requestMobileMockup3dMesh(){
       }
     }
 
+    function ensureCriticalAlertStack(){
+      let stack = el.criticalAlertStack || document.getElementById("criticalAlertStack");
+      if(!stack && document.body){
+        stack = document.createElement("aside");
+        stack.id = "criticalAlertStack";
+        stack.className = "critical-alert-stack";
+        stack.setAttribute("aria-label", "Critical alerts");
+        stack.setAttribute("aria-live", "assertive");
+        document.body.appendChild(stack);
+      }
+      if(stack) el.criticalAlertStack = stack;
+      return stack;
+    }
+
     function showCriticalAlert(message, opts, titleText){
-      if(!el.criticalAlertStack) return false;
+      const alertStack = ensureCriticalAlertStack();
+      if(!alertStack) return false;
       const text = String(message || "");
       const key = (opts && opts.key) ? String(opts.key) : ("critical:" + text);
       let alert = null;
-      for(const node of el.criticalAlertStack.children){
+      for(const node of alertStack.children){
         if(node && node.dataset && node.dataset.key === key){
           alert = node;
           break;
@@ -14575,7 +14590,7 @@ function requestMobileMockup3dMesh(){
       alert.appendChild(signal);
       alert.appendChild(body);
       alert.appendChild(close);
-      el.criticalAlertStack.appendChild(alert);
+      alertStack.appendChild(alert);
       requestAnimationFrame(()=>alert.classList.add("is-visible"));
       return true;
     }
@@ -14703,11 +14718,12 @@ function requestMobileMockup3dMesh(){
     }
 
     function showToast(message, type, opts){
-      if(!el.toastContainer && !el.criticalAlertStack) return;
+      if(!el.toastContainer) el.toastContainer = document.getElementById("toastContainer");
       const rawType = type || "info";
-      const isCritical = String(rawType).toLowerCase() === "critical" || !!(opts && opts.critical);
+      const rawTypeName = String(rawType).toLowerCase();
+      const isCritical = rawTypeName === "critical" || rawTypeName === "error" || !!(opts && opts.critical);
       const toastType = normalizeToastType(rawType);
-      const titleType = normalizeToastTitleType(rawType);
+      const titleType = isCritical ? "critical" : normalizeToastTitleType(rawType);
       const duration = (opts && opts.duration) ? opts.duration : 3000;
       const key = (opts && opts.key) ? String(opts.key) : null;
       const titleText = (opts && opts.title) ? String(opts.title) : getToastTitle(titleType, message);
