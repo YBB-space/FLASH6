@@ -29528,3 +29528,22 @@ html.phone-landscape-layout .mission-force-timeline > div{
 html.phone-landscape-layout .mission-force-timeline strong{
   font-size:11px;
 }
+
+/* Keep the phone report as a bottom sheet; center only the desktop dialog. */
+@media (min-width:901px){
+  html:not(.phone-landscape-layout) body #flashLinkReportOverlay{
+    align-items:center !important;
+    justify-content:center !important;
+    padding:24px !important;
+  }
+  html:not(.phone-landscape-layout) body #flashLinkReportOverlay > .flash-link-report-dialog{
+    margin:auto !important;
+    border:1px solid var(--pc-modal-border) !important;
+    border-radius:8px !important;
+    box-shadow:0 24px 70px rgba(0,0,0,.48) !important;
+  }
+  html:not(.phone-landscape-layout) body #flashLinkReportOverlay .flash-link-report-body{
+    max-height:calc(100dvh - 110px) !important;
+    overflow-y:auto !important;
+  }
+}
