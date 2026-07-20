@@ -7108,6 +7108,12 @@
       gap:10px;
     }
     .flash-link-report-dialog .confirm-text{margin-bottom:8px}
+    .flash-link-report-step-indicator{
+      color:#7f8792;
+      font:650 9px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+      letter-spacing:.14em;
+      text-align:center;
+    }
     .flash-link-report-steps{
       display:block;
       margin:0 0 10px;
@@ -29545,5 +29551,10 @@ html.phone-landscape-layout .mission-force-timeline strong{
   html:not(.phone-landscape-layout) body #flashLinkReportOverlay .flash-link-report-body{
     max-height:calc(100dvh - 110px) !important;
     overflow-y:auto !important;
+  }
+  html:not(.phone-landscape-layout) body #flashLinkReportOverlay .confirm-actions{
+    grid-template-columns:minmax(0,1fr) !important;
+    width:100% !important;
+    margin:18px auto 0 !important;
   }
 }

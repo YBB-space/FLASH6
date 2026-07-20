@@ -6159,6 +6159,7 @@ function requestMobileMockup3dMesh(){
     const FLASH_LINK_REPORT_SAMPLE_MS = 200;
     const flashLinkReportState = {
       phase: "idle",
+      introStep: 1,
       samples: [],
       startedAtMs: 0,
       endsAtMs: 0,
@@ -11507,19 +11508,22 @@ function requestMobileMockup3dMesh(){
       }
       scheduleFlashLinkChartRender();
     }
-    function getFlashLinkReportPlacementSteps(){
+    function getFlashLinkReportPlacementSteps(step){
+      const currentStep = Number(step) === 2 ? 2 : 1;
       if(currentLang === "en"){
-        return [
-          "Place the Ground Station beside the PC/phone, and place the Avionics board 2-5 m ahead at the same height.",
-          "Keep both antennas in the same polarization. If a directional antenna is used, point the front face toward the Avionics board.",
-          "Keep both boards at least 30 cm away from metal desks, batteries, hands, and the back of a laptop, then do not move them for 60 seconds."
-        ];
+        return currentStep === 1
+          ? ["Place Ground beside the PC/phone and Avionics 2-5 m ahead at the same height."]
+          : [
+              "Align both antennas in the same direction and face them toward each other.",
+              "Keep them 30 cm from metal, batteries, hands, and laptops, then do not move them."
+            ];
       }
-      return [
-        "지상국 보드는 PC/폰 옆에 두고, 에비오닉스 보드는 2~5m 앞 같은 높이에 둡니다.",
-        "양쪽 안테나는 같은 방향/편파로 세우고, 지향성 안테나는 에비오닉스를 정면으로 향하게 합니다.",
-        "금속 책상, 배터리, 사람 손, 노트북 뒤쪽에서 30cm 이상 띄우고 60초 동안 움직이지 마세요."
-      ];
+      return currentStep === 1
+        ? ["지상국은 PC/폰 옆, 에비오닉스는 2~5m 앞 같은 높이에 두세요."]
+        : [
+            "두 안테나를 같은 방향으로 세우고 서로 마주 보게 하세요.",
+            "금속·배터리·손·노트북에서 30cm 이상 띄운 뒤 움직이지 마세요."
+          ];
     }
     function escapeHtmlText(text){
       return String(text == null ? "" : text)
@@ -11531,7 +11535,7 @@ function requestMobileMockup3dMesh(){
     }
     function renderFlashLinkReportSteps(){
       if(!el.flashLinkReportSteps) return;
-      el.flashLinkReportSteps.innerHTML = getFlashLinkReportPlacementSteps()
+      el.flashLinkReportSteps.innerHTML = getFlashLinkReportPlacementSteps(flashLinkReportState.introStep)
         .map((text)=>'<div class="flash-link-report-step">' + escapeHtmlText(text) + '</div>')
         .join("");
     }
@@ -11574,6 +11578,7 @@ function requestMobileMockup3dMesh(){
       const running = phase === "running";
       const countdown = phase === "countdown";
       const exporting = phase === "exporting";
+      const introStep = flashLinkReportState.introStep === 2 ? 2 : 1;
       if(el.flashLinkReportTitle){
         el.flashLinkReportTitle.textContent = exporting
           ? (currentLang === "ko" ? "보고서 생성 중" : "Building report")
@@ -11599,12 +11604,17 @@ function requestMobileMockup3dMesh(){
             : "The 60-second capture starts after 3 seconds. Keep both devices still now.";
         }else{
           el.flashLinkReportText.textContent = currentLang === "ko"
-            ? "두 기기를 약 1분 동안 같은 위치에 두고 ALTIS INTELLIGENT LINK1 품질을 측정합니다."
-            : "Keep both devices in place for about one minute while ALTIS INTELLIGENT LINK1 quality is measured.";
+            ? (introStep === 1 ? "기기 배치" : "안테나 및 주변 확인")
+            : (introStep === 1 ? "Device placement" : "Antenna and surroundings");
         }
+      }
+      if(el.flashLinkReportStep){
+        el.flashLinkReportStep.style.display = (phase === "idle") ? "" : "none";
+        el.flashLinkReportStep.textContent = "STEP " + introStep + " / 2";
       }
       if(el.flashLinkReportSteps){
         el.flashLinkReportSteps.style.display = (!running && !countdown && !exporting) ? "" : "none";
+        if(phase === "idle") renderFlashLinkReportSteps();
       }
       if(el.flashLinkReportProgress){
         el.flashLinkReportProgress.classList.toggle("hidden", !(running || countdown || exporting));
@@ -11620,6 +11630,9 @@ function requestMobileMockup3dMesh(){
       }
       if(el.flashLinkReportStart){
         el.flashLinkReportStart.style.display = (phase === "idle") ? "" : "none";
+        el.flashLinkReportStart.textContent = currentLang === "ko"
+          ? (introStep === 1 ? "다음" : "측정 시작")
+          : (introStep === 1 ? "Next" : "Start capture");
       }
       if(el.flashLinkReportCancel){
         el.flashLinkReportCancel.textContent = (phase === "countdown" || phase === "running")
@@ -11635,6 +11648,9 @@ function requestMobileMockup3dMesh(){
       }
     }
     function showFlashLinkReportOverlay(){
+      if(flashLinkReportState.phase === "idle"){
+        flashLinkReportState.introStep = 1;
+      }
       renderFlashLinkReportSteps();
       if(el.settingsOverlay && !el.settingsOverlay.classList.contains("hidden")){
         hideSettings();
@@ -11679,6 +11695,11 @@ function requestMobileMockup3dMesh(){
         return true;
       }
       if(controlId === "flashLinkReportStart"){
+        if(flashLinkReportState.phase === "idle" && flashLinkReportState.introStep === 1){
+          flashLinkReportState.introStep = 2;
+          updateFlashLinkReportUi();
+          return true;
+        }
         startFlashLinkReportCountdown();
         return true;
       }
@@ -33833,6 +33854,7 @@ function requestMobileMockup3dMesh(){
       el.flashLinkReportStatus = document.getElementById("flashLinkReportStatus");
       el.flashLinkReportOverlay = document.getElementById("flashLinkReportOverlay");
       el.flashLinkReportTitle = document.getElementById("flashLinkReportTitle");
+      el.flashLinkReportStep = document.getElementById("flashLinkReportStep");
       el.flashLinkReportText = document.getElementById("flashLinkReportText");
       el.flashLinkReportSteps = document.getElementById("flashLinkReportSteps");
       el.flashLinkReportProgress = document.getElementById("flashLinkReportProgress");
