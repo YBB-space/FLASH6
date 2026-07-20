@@ -40,7 +40,7 @@ static_assert(
   kSerialTxBufferActiveBytes >=
     kStreamJsonMaxBytes + kSerialControlReserveBytes + 1U,
   "USB telemetry TX buffer cannot hold one maximum frame plus ACK reserve");
-// At 200 Hz, a 50 ms batch normally contains ten 84-byte records.  Larger
+// At 200 Hz, a 50 ms batch normally contains ten 104-byte V5 records. Larger
 // contiguous writes avoid repeatedly programming the same NOR page while the
 // queue still keeps several seconds of headroom.
 constexpr uint32_t kStorageFlushIntervalMs = 50;
