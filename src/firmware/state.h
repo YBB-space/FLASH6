@@ -1,7 +1,7 @@
 
 constexpr char kFirmwareProgram[] = "Altis_Intelligent3_firmware1";
-constexpr char kFirmwareVersion[] = "0.8.14";
-constexpr char kFirmwareBuildId[] = "v6 b20";
+constexpr char kFirmwareVersion[] = "0.8.15";
+constexpr char kFirmwareBuildId[] = "v6 b21";
 constexpr char kFirmwareBoard[] = "Altis_Intelligent3_b3";
 constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b4";
 
@@ -52,6 +52,7 @@ constexpr uint8_t kStorageRecordVersionV1 = 1;
 constexpr uint8_t kStorageRecordVersionV2 = 2;
 constexpr uint8_t kStorageRecordVersionV3 = 3;
 constexpr uint8_t kStorageRecordVersionV4 = 4;
+constexpr uint8_t kStorageRecordVersionV5 = 5;
 constexpr uint8_t kStorageRecordTypeSampleV1 = 1;
 constexpr uint8_t kStorageRecordTypeMissionAlarmV1 = 2;
 constexpr const char* kMissionProfilePath = "/mission_profile.json";
@@ -411,19 +412,44 @@ enum class FlightPhase : uint8_t {
   Landed = 4,
 };
 
+enum class FlightTransitionReason : uint8_t {
+  None = 0,
+  LaunchAcceleration = 1,
+  LaunchBarometer = 2,
+  BurnoutAcceleration = 3,
+  ApogeeBarometer = 4,
+  LandingStable = 5,
+};
+
 struct FlightPhaseRuntime {
   FlightPhase phase = FlightPhase::PreFlight;
   bool ignitionSeen = false;
+  bool coastAccelLow = false;
+  bool descentEvidenceLatched = false;
+  bool ascentConfirmed = false;
   uint32_t phaseEnteredMs = 0;
+  uint32_t transitionAtMs = 0;
+  uint32_t lastTickUs = 0;
   uint32_t launchAccelSinceMs = 0;
   uint32_t launchSpeedSinceMs = 0;
   uint32_t coastSinceMs = 0;
   uint32_t descentSinceMs = 0;
   uint32_t landingSinceMs = 0;
   uint32_t lastBaroSampleMs = 0;
+  uint32_t lastApogeeUpdateMs = 0;
   float lastAltitudeM = NAN;
-  float verticalSpeedMps = 0.0f;
+  float rawAccelMagnitudeG = NAN;
+  float coastAccelFilteredG = NAN;
+  float rawVerticalSpeedMps = 0.0f;
+  float fastVerticalSpeedMps = 0.0f;
+  float displayVerticalSpeedMps = 0.0f;
+  float phaseStartAltitudeM = 0.0f;
   float apogeeM = 0.0f;
+  static constexpr uint8_t kVelocityHistoryCapacity = 24;
+  float velocityAltitudeM[kVelocityHistoryCapacity] = {};
+  uint32_t velocityTimestampMs[kVelocityHistoryCapacity] = {};
+  uint8_t velocityHistoryHead = 0;
+  uint8_t velocityHistoryCount = 0;
   static constexpr uint16_t kLandingHistoryCapacity = 256;
   float landingAltitudeM[kLandingHistoryCapacity] = {};
   uint32_t landingTimestampMs[kLandingHistoryCapacity] = {};
@@ -483,10 +509,17 @@ struct Telemetry {
   uint16_t ct = 0;
   float chipTempC = NAN;
   float imuTempC = NAN;
+  float flightRawAccelMagnitudeG = NAN;
+  float flightCoastAccelFilteredG = NAN;
+  float flightFastVerticalSpeedMps = 0.0f;
   uint8_t flightPhase = static_cast<uint8_t>(FlightPhase::PreFlight);
   float flightVerticalSpeedMps = 0.0f;
   float flightApogeeM = 0.0f;
   uint32_t flightPhaseElapsedMs = 0;
+  uint16_t flightCoastHoldMs = 0;
+  uint16_t flightDescentHoldMs = 0;
+  uint8_t flightTransitionReason = static_cast<uint8_t>(FlightTransitionReason::None);
+  uint32_t flightTransitionAtMs = 0;
   uint32_t ignitionDelayMs = UINT32_MAX;
   uint8_t deploymentState = 0;
   uint8_t deploymentFlags = 0;
@@ -853,6 +886,52 @@ struct StorageRecordV4 {
   StorageSamplePayloadV4 payload;
 };
 
+struct StorageSamplePayloadV5 {
+  float p;
+  float altM;
+  int16_t axMilliG;
+  int16_t ayMilliG;
+  int16_t azMilliG;
+  int16_t gxDeciDps;
+  int16_t gyDeciDps;
+  int16_t gzDeciDps;
+  int16_t rollCentiDeg;
+  int16_t pitchCentiDeg;
+  int16_t yawCentiDeg;
+  int32_t td;
+  uint16_t loopUs;
+  uint16_t cpuUs;
+  uint16_t flags;
+  uint8_t st;
+  uint8_t relayMask;
+  uint8_t abortReason;
+  uint8_t mode;
+  int32_t thrustMilliKgf;
+  int32_t loadcellRaw;
+  uint16_t loadcellHz;
+  uint16_t loadcellFlags;
+  int32_t gpsLatE7;
+  int32_t gpsLonE7;
+  int32_t gpsAltCm;
+  uint16_t gpsAgeMs;
+  uint16_t gpsFlags;
+  uint16_t rawAccelMilliG;
+  uint16_t coastAccelMilliG;
+  int16_t fastVerticalSpeedDeciMps;
+  int16_t displayVerticalSpeedDeciMps;
+  int32_t apogeeCm;
+  uint16_t coastHoldMs;
+  uint16_t descentHoldMs;
+  uint16_t transitionAt10Ms;
+  uint8_t transitionReason;
+  uint8_t deploymentFlags;
+};
+
+struct StorageRecordV5 {
+  StorageRecordHeaderV1 header;
+  StorageSamplePayloadV5 payload;
+};
+
 struct StorageMissionAlarmPayloadV1 {
   uint32_t eventSeq;
   uint8_t blockIndex;
@@ -878,6 +957,20 @@ struct StorageMissionAlarmPayloadV2 {
 struct StorageMissionAlarmRecordV2 {
   StorageRecordHeaderV1 header;
   StorageMissionAlarmPayloadV2 payload;
+};
+
+struct StorageMissionAlarmPayloadV3 {
+  uint32_t eventSeq;
+  uint8_t blockIndex;
+  uint8_t severity;
+  char title[14];
+  char message[32];
+  uint8_t reserved[36];
+};
+
+struct StorageMissionAlarmRecordV3 {
+  StorageRecordHeaderV1 header;
+  StorageMissionAlarmPayloadV3 payload;
 };
 
 struct StorageBinHeaderV1 {
@@ -1228,10 +1321,14 @@ static_assert(sizeof(StorageSamplePayloadV3) == 52, "StorageSamplePayloadV3 size
 static_assert(sizeof(StorageRecordV3) == 68, "StorageRecordV3 size mismatch");
 static_assert(sizeof(StorageSamplePayloadV4) == 68, "StorageSamplePayloadV4 size mismatch");
 static_assert(sizeof(StorageRecordV4) == 84, "StorageRecordV4 size mismatch");
+static_assert(sizeof(StorageSamplePayloadV5) == 88, "StorageSamplePayloadV5 size mismatch");
+static_assert(sizeof(StorageRecordV5) == 104, "StorageRecordV5 size mismatch");
 static_assert(sizeof(StorageMissionAlarmPayloadV1) == 52, "StorageMissionAlarmPayloadV1 size mismatch");
 static_assert(sizeof(StorageMissionAlarmRecordV1) == 68, "StorageMissionAlarmRecordV1 size mismatch");
 static_assert(sizeof(StorageMissionAlarmPayloadV2) == 68, "StorageMissionAlarmPayloadV2 size mismatch");
 static_assert(sizeof(StorageMissionAlarmRecordV2) == 84, "StorageMissionAlarmRecordV2 size mismatch");
+static_assert(sizeof(StorageMissionAlarmPayloadV3) == 88, "StorageMissionAlarmPayloadV3 size mismatch");
+static_assert(sizeof(StorageMissionAlarmRecordV3) == 104, "StorageMissionAlarmRecordV3 size mismatch");
 static_assert(sizeof(StorageBinHeaderV1) == 40, "StorageBinHeaderV1 size mismatch");
 static_assert(sizeof(NorMetadataV1) == 16, "NorMetadataV1 size mismatch");
 static_assert(sizeof(NorSectorHeaderV1) == 16, "NorSectorHeaderV1 size mismatch");
@@ -1247,6 +1344,8 @@ constexpr uint16_t kNorRecordsPerSectorV3 =
   (kNorFooterOffset - sizeof(NorSectorHeaderV3)) / sizeof(StorageRecordV3);
 constexpr uint16_t kNorRecordsPerSectorV4 =
   (kNorFooterOffset - sizeof(NorSectorHeaderV3)) / sizeof(StorageRecordV4);
+constexpr uint16_t kNorRecordsPerSectorV5 =
+  (kNorFooterOffset - sizeof(NorSectorHeaderV3)) / sizeof(StorageRecordV5);
 constexpr uint16_t kNorMaxRecordsPerSector12 =
   kNorRecordsPerSectorV2 > kNorRecordsPerSectorV1
     ? kNorRecordsPerSectorV2
@@ -1255,10 +1354,18 @@ constexpr uint16_t kNorMaxRecordsPerSector34 =
   kNorRecordsPerSectorV4 > kNorRecordsPerSectorV3
     ? kNorRecordsPerSectorV4
     : kNorRecordsPerSectorV3;
+constexpr uint16_t kNorMaxRecordsPerSector45 =
+  kNorRecordsPerSectorV5 > kNorRecordsPerSectorV4
+    ? kNorRecordsPerSectorV5
+    : kNorRecordsPerSectorV4;
 constexpr uint16_t kNorMaxRecordsPerSector =
   kNorMaxRecordsPerSector12 > kNorMaxRecordsPerSector34
-    ? kNorMaxRecordsPerSector12
-    : kNorMaxRecordsPerSector34;
+    ? (kNorMaxRecordsPerSector12 > kNorMaxRecordsPerSector45
+        ? kNorMaxRecordsPerSector12
+        : kNorMaxRecordsPerSector45)
+    : (kNorMaxRecordsPerSector34 > kNorMaxRecordsPerSector45
+        ? kNorMaxRecordsPerSector34
+        : kNorMaxRecordsPerSector45);
 constexpr uint16_t kNorDataSectorCount =
   (kNorExpectedCapacityBytes - kNorDataStartAddress) / kNorSectorBytes;
 constexpr uint32_t kNorLogicalCapacityBytesV1 =
@@ -1269,8 +1376,10 @@ constexpr uint32_t kNorLogicalCapacityBytesV3 =
   (uint32_t)kNorDataSectorCount * (uint32_t)kNorRecordsPerSectorV3 * (uint32_t)sizeof(StorageRecordV3);
 constexpr uint32_t kNorLogicalCapacityBytesV4 =
   (uint32_t)kNorDataSectorCount * (uint32_t)kNorRecordsPerSectorV4 * (uint32_t)sizeof(StorageRecordV4);
+constexpr uint32_t kNorLogicalCapacityBytesV5 =
+  (uint32_t)kNorDataSectorCount * (uint32_t)kNorRecordsPerSectorV5 * (uint32_t)sizeof(StorageRecordV5);
 constexpr uint32_t kNorLogicalCapacityBytes =
-  kNorLogicalCapacityBytesV4;
+  kNorLogicalCapacityBytesV5;
 
 struct StorageRuntime {
   bool ready = false;
@@ -1303,9 +1412,9 @@ StorageRuntime storageState;
 struct StorageQueueEntry {
   uint16_t size = 0;
   alignas(4) uint8_t bytes[
-    sizeof(StorageRecordV1) > sizeof(StorageRecordV4)
+    sizeof(StorageRecordV1) > sizeof(StorageRecordV5)
       ? sizeof(StorageRecordV1)
-      : sizeof(StorageRecordV4)
+      : sizeof(StorageRecordV5)
   ] = {};
 };
 StorageQueueEntry storageQueue[kStorageQueueDepth];

@@ -3,6 +3,31 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.8.15 — v6 b21 — 2026-07-20
+
+Protocol: `Flash6-Intelligent-b4` (ESP-NOW wire version `4`, unchanged)
+
+- Replaced the raw-sample burnout gate with a clipped 60 ms low-pass
+  acceleration magnitude, 0.55/0.85 G Schmitt hysteresis, a 900 ms minimum
+  powered-flight interval, and a 140 ms confirmation hold. A single vibration
+  spike can no longer restart the complete burnout delay.
+- Separated the causal 320 ms barometric slope used for apogee detection from
+  the 450 ms display velocity and the UI report's existing 2.4 s trend.
+- Replaced the inherently slow 2 m plus 500 ms descent gate with a
+  multi-condition apogee confirmation: no recent peak update, at least 0.45 m
+  below the recorded peak, fast vertical speed below -0.55 m/s, Schmitt
+  release thresholds, and a 140 ms hold.
+- Kept the T+2.0 primary and delayed-secondary deployment timers independent
+  from the phase detector so missed sensor detections still retain the
+  existing backup path.
+- Added storage record V5 diagnostics for raw and filtered acceleration,
+  fast and display vertical speed, recent apogee, coast/descent hold time,
+  transition reason/time, and deployment backup flags. V1 through V4 BIN
+  replay remains supported.
+- Added deterministic regression scenarios covering nominal burnout with
+  vibration, launch-like impact without flight, missing ignition, and a
+  transient pressure dip during ascent.
+
 ## 0.8.14 — v6 b20 — 2026-07-20
 
 Protocol: `Flash6-Intelligent-b4` (ESP-NOW wire version `4`, unchanged)

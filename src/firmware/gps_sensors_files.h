@@ -974,6 +974,7 @@ void sampleImu() {
       initImu();
     }
     snap.sampleValid = false;
+    snap.flightRawAccelMagnitudeG = NAN;
     snap.attitudeValid = false;
     snap.ct = (uint16_t)min<uint32_t>(65535U, micros() - startUs);
     return;
@@ -999,6 +1000,7 @@ void sampleImu() {
     imuReadErrors++;
     if (imuConsecutiveErrors < UINT8_MAX) imuConsecutiveErrors++;
     snap.sampleValid = false;
+    snap.flightRawAccelMagnitudeG = NAN;
     if (imuConsecutiveErrors >= 10U &&
         (lastImuValidMs == 0U ||
          (uint32_t)(nowMs - lastImuValidMs) > 250U)) {
@@ -1011,6 +1013,7 @@ void sampleImu() {
   imuConsecutiveErrors = 0;
   lastImuValidMs = nowMs;
   const float accMag = sqrtf(ax * ax + ay * ay + az * az);
+  snap.flightRawAccelMagnitudeG = accMag;
   const float rawRateMag = sqrtf(rawGx * rawGx + rawGy * rawGy + rawGz * rawGz);
   const bool biasCalStationary =
     isfinite(accMag) &&

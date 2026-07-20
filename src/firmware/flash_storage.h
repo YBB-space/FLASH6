@@ -230,7 +230,9 @@ bool norReadSectorInfo(uint16_t sectorIndex, uint32_t generation,
        (header.recordVersion == kStorageRecordVersionV3 &&
         header.recordSize == sizeof(StorageRecordV3)) ||
        (header.recordVersion == kStorageRecordVersionV4 &&
-        header.recordSize == sizeof(StorageRecordV4)))) {
+        header.recordSize == sizeof(StorageRecordV4)) ||
+       (header.recordVersion == kStorageRecordVersionV5 &&
+        header.recordSize == sizeof(StorageRecordV5)))) {
     headerSize = sizeof(NorSectorHeaderV3);
     sessionId = header.sessionId;
     recordVersion = header.recordVersion;
@@ -240,6 +242,7 @@ bool norReadSectorInfo(uint16_t sectorIndex, uint32_t generation,
 }
 
 uint16_t storageRecordSizeForVersion(uint8_t recordVersion) {
+  if (recordVersion == kStorageRecordVersionV5) return (uint16_t)sizeof(StorageRecordV5);
   if (recordVersion == kStorageRecordVersionV4) return (uint16_t)sizeof(StorageRecordV4);
   if (recordVersion == kStorageRecordVersionV3) return (uint16_t)sizeof(StorageRecordV3);
   if (recordVersion == kStorageRecordVersionV2) return (uint16_t)sizeof(StorageRecordV2);
@@ -247,6 +250,7 @@ uint16_t storageRecordSizeForVersion(uint8_t recordVersion) {
 }
 
 uint16_t storagePayloadSizeForVersion(uint8_t recordVersion) {
+  if (recordVersion == kStorageRecordVersionV5) return (uint16_t)sizeof(StorageSamplePayloadV5);
   if (recordVersion == kStorageRecordVersionV4) return (uint16_t)sizeof(StorageSamplePayloadV4);
   if (recordVersion == kStorageRecordVersionV3) return (uint16_t)sizeof(StorageSamplePayloadV3);
   if (recordVersion == kStorageRecordVersionV2) return (uint16_t)sizeof(StorageSamplePayloadV2);
@@ -254,6 +258,7 @@ uint16_t storagePayloadSizeForVersion(uint8_t recordVersion) {
 }
 
 uint16_t storageMissionAlarmPayloadSizeForVersion(uint8_t recordVersion) {
+  if (recordVersion == kStorageRecordVersionV5) return (uint16_t)sizeof(StorageMissionAlarmPayloadV3);
   if (recordVersion == kStorageRecordVersionV4) return (uint16_t)sizeof(StorageMissionAlarmPayloadV2);
   return (uint16_t)sizeof(StorageMissionAlarmPayloadV1);
 }
@@ -311,7 +316,8 @@ uint8_t norScanSectorRecords(uint16_t sectorIndex, uint8_t headerSize,
     if (!norRead(address, &header, sizeof(header))) break;
     const bool missionAlarmRecord = header.type == kStorageRecordTypeMissionAlarmV1 &&
       (recordVersion == kStorageRecordVersionV3 ||
-       recordVersion == kStorageRecordVersionV4);
+       recordVersion == kStorageRecordVersionV4 ||
+       recordVersion == kStorageRecordVersionV5);
     const bool supportedType =
       header.type == kStorageRecordTypeSampleV1 ||
       missionAlarmRecord;
@@ -327,8 +333,9 @@ uint8_t norScanSectorRecords(uint16_t sectorIndex, uint8_t headerSize,
     if (payloadValid &&
         (recordVersion == kStorageRecordVersionV2 ||
          recordVersion == kStorageRecordVersionV3 ||
-         recordVersion == kStorageRecordVersionV4)) {
-      uint8_t payload[sizeof(StorageSamplePayloadV4)] = {};
+         recordVersion == kStorageRecordVersionV4 ||
+         recordVersion == kStorageRecordVersionV5)) {
+      uint8_t payload[sizeof(StorageSamplePayloadV5)] = {};
       payloadValid =
         norRead(address + sizeof(StorageRecordHeaderV1), payload, expectedPayloadSize) &&
         crc16Ccitt(payload, expectedPayloadSize) == header.flags;
@@ -456,14 +463,14 @@ bool norStartNewSector() {
   header.generation = storageState.generation;
   header.sectorIndex = sectorIndex;
   header.sessionId = storageCurrentSessionId;
-  header.recordVersion = kStorageRecordVersionV4;
+  header.recordVersion = kStorageRecordVersionV5;
   header.recordType = kStorageRecordTypeSampleV1;
-  header.recordSize = sizeof(StorageRecordV4);
+  header.recordSize = sizeof(StorageRecordV5);
   if (!norProgram(address, &header, sizeof(header))) return false;
 
   storageSectorRecordCounts[sectorIndex] = 0;
   storageSectorHeaderSizes[sectorIndex] = sizeof(NorSectorHeaderV3);
-  storageSectorRecordVersions[sectorIndex] = kStorageRecordVersionV4;
+  storageSectorRecordVersions[sectorIndex] = kStorageRecordVersionV5;
   storageSectorSessionIds[sectorIndex] = storageCurrentSessionId;
   storageSectorPrefix[sectorIndex + 1U] = storageSectorPrefix[sectorIndex];
   storageSectorBytePrefix[sectorIndex + 1U] = storageSectorBytePrefix[sectorIndex];
@@ -783,7 +790,7 @@ bool storageFlush(bool force = false) {
       continue;
     }
 
-    uint8_t batch[kStorageDrainBatchMax * sizeof(StorageRecordV1)];
+    uint8_t batch[kStorageDrainBatchMax * sizeof(StorageRecordV5)];
     uint16_t batchCount = 0;
     uint16_t queueIndex = storageQueueHead;
     while (batchCount < batchLimit) {
@@ -883,7 +890,7 @@ void storageEnqueueSample(uint32_t timestampMs) {
     return;
   }
   if (!storageState.ready || storageState.full || !snap.sampleValid) return;
-  if ((storageState.usedBytes + storageState.queueBytes + sizeof(StorageRecordV4)) >
+  if ((storageState.usedBytes + storageState.queueBytes + sizeof(StorageRecordV5)) >
       storageState.capacityBytes) {
     storageState.full = true;
     storageState.droppedRecords++;
@@ -896,12 +903,12 @@ void storageEnqueueSample(uint32_t timestampMs) {
 
   const uint32_t nowMs = millis();
   StorageQueueEntry& entry = storageQueue[storageQueueTail];
-  entry.size = sizeof(StorageRecordV4);
-  StorageRecordV4& rec = *reinterpret_cast<StorageRecordV4*>(entry.bytes);
+  entry.size = sizeof(StorageRecordV5);
+  StorageRecordV5& rec = *reinterpret_cast<StorageRecordV5*>(entry.bytes);
   rec.header.marker = kStorageRecordMarker;
-  rec.header.version = kStorageRecordVersionV4;
+  rec.header.version = kStorageRecordVersionV5;
   rec.header.type = kStorageRecordTypeSampleV1;
-  rec.header.payloadSize = sizeof(StorageSamplePayloadV4);
+  rec.header.payloadSize = sizeof(StorageSamplePayloadV5);
   rec.header.flags = 0;
   rec.header.timestampMs = timestampMs;
   rec.header.seq = storageState.recordCount + storageQueueCount + 1U;
@@ -964,6 +971,40 @@ void storageEnqueueSample(uint32_t timestampMs) {
   if (snap.gpsReady) gpsFlags |= 1U << 2;
   if (snap.gpsTimeValid) gpsFlags |= 1U << 3;
   rec.payload.gpsFlags = gpsFlags;
+  rec.payload.rawAccelMilliG = isfinite(snap.flightRawAccelMagnitudeG)
+    ? (uint16_t)constrain(
+        (int)lroundf(snap.flightRawAccelMagnitudeG * 1000.0f),
+        0,
+        (int)UINT16_MAX)
+    : UINT16_MAX;
+  rec.payload.coastAccelMilliG = isfinite(snap.flightCoastAccelFilteredG)
+    ? (uint16_t)constrain(
+        (int)lroundf(snap.flightCoastAccelFilteredG * 1000.0f),
+        0,
+        (int)UINT16_MAX)
+    : UINT16_MAX;
+  rec.payload.fastVerticalSpeedDeciMps = quantizeInt16(
+    snap.flightFastVerticalSpeedMps,
+    -3276.7f,
+    3276.7f,
+    10.0f);
+  rec.payload.displayVerticalSpeedDeciMps = quantizeInt16(
+    snap.flightVerticalSpeedMps,
+    -3276.7f,
+    3276.7f,
+    10.0f);
+  rec.payload.apogeeCm = quantizeInt32(
+    snap.flightApogeeM,
+    -21474836.0f,
+    21474836.0f,
+    100.0f);
+  rec.payload.coastHoldMs = snap.flightCoastHoldMs;
+  rec.payload.descentHoldMs = snap.flightDescentHoldMs;
+  rec.payload.transitionAt10Ms = (uint16_t)min<uint32_t>(
+    UINT16_MAX,
+    snap.flightTransitionAtMs / 10U);
+  rec.payload.transitionReason = snap.flightTransitionReason;
+  rec.payload.deploymentFlags = snap.deploymentFlags;
   rec.header.flags = crc16Ccitt(
     reinterpret_cast<const uint8_t*>(&rec.payload), sizeof(rec.payload));
 
@@ -983,7 +1024,7 @@ bool storageEnqueueMissionAlarm(
   StorageLock lock(0);
   if (!lock || !storageState.ready || storageState.full) return false;
   if ((storageState.usedBytes + storageState.queueBytes +
-       sizeof(StorageMissionAlarmRecordV2)) > storageState.capacityBytes) {
+       sizeof(StorageMissionAlarmRecordV3)) > storageState.capacityBytes) {
     storageState.full = true;
     storageState.droppedRecords++;
     return false;
@@ -994,14 +1035,14 @@ bool storageEnqueueMissionAlarm(
   }
 
   StorageQueueEntry& entry = storageQueue[storageQueueTail];
-  entry.size = sizeof(StorageMissionAlarmRecordV2);
-  StorageMissionAlarmRecordV2& rec =
-    *reinterpret_cast<StorageMissionAlarmRecordV2*>(entry.bytes);
+  entry.size = sizeof(StorageMissionAlarmRecordV3);
+  StorageMissionAlarmRecordV3& rec =
+    *reinterpret_cast<StorageMissionAlarmRecordV3*>(entry.bytes);
   memset(&rec, 0, sizeof(rec));
   rec.header.marker = kStorageRecordMarker;
-  rec.header.version = kStorageRecordVersionV4;
+  rec.header.version = kStorageRecordVersionV5;
   rec.header.type = kStorageRecordTypeMissionAlarmV1;
-  rec.header.payloadSize = sizeof(StorageMissionAlarmPayloadV2);
+  rec.header.payloadSize = sizeof(StorageMissionAlarmPayloadV3);
   rec.header.timestampMs = timestampMs;
   rec.header.seq = storageState.recordCount + storageQueueCount + 1U;
   rec.payload.eventSeq = eventSeq;
@@ -1179,7 +1220,7 @@ String storageStatusJson() {
     "\"chip_capacity_bytes\":%lu,"
     "\"capacity_bytes\":%lu,\"used_bytes\":%lu,\"queue_bytes\":%lu,\"used_percent\":%.2f,"
     "\"record_hz\":%lu,\"selected_spi_hz\":%lu,\"session_count\":%lu,"
-    "\"record_format\":\"mixed-v1-v2-v3-v4\",\"current_record_version\":%u,\"current_record_bytes\":%u,"
+    "\"record_format\":\"mixed-v1-v2-v3-v4-v5\",\"current_record_version\":%u,\"current_record_bytes\":%u,"
     "\"current_session_id\":%lu,\"current_file\":\"%s\",\"record_count\":%lu,"
     "\"dropped_records\":%lu,\"lock_skipped_samples\":%lu,"
     "\"flush_count\":%lu,\"write_errors\":%lu,"
@@ -1200,8 +1241,8 @@ String storageStatusJson() {
     (unsigned long)kStorageRecordHz,
     (unsigned long)spiHz,
     (unsigned long)state.sessionCount,
-    (unsigned)kStorageRecordVersionV4,
-    (unsigned)sizeof(StorageRecordV4),
+    (unsigned)kStorageRecordVersionV5,
+    (unsigned)sizeof(StorageRecordV5),
     (unsigned long)currentSessionId,
     currentName,
     (unsigned long)state.recordCount,

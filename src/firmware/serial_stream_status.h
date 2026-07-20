@@ -36,8 +36,8 @@ void serialPrintStorageStatus() {
                 (unsigned long)storageCurrentSessionId,
                 currentName,
                 (unsigned long)kStorageRecordHz,
-                (unsigned)kStorageRecordVersionV4,
-                (unsigned)sizeof(StorageRecordV4),
+                (unsigned)kStorageRecordVersionV5,
+                (unsigned)sizeof(StorageRecordV5),
                 (unsigned long)storageSpiActiveHz,
                 (unsigned long)storageState.generation,
                 (unsigned long)storageState.sectorCount);

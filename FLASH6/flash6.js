@@ -5947,6 +5947,14 @@ function requestMobileMockup3dMesh(){
       FLIGHT_PHASES.DESCENT,
       FLIGHT_PHASES.LANDED
     ]);
+    const FLIGHT_TRANSITION_REASON_NAMES = Object.freeze([
+      "NONE",
+      "LAUNCH_ACCEL",
+      "LAUNCH_BARO",
+      "BURNOUT_ACCEL_FILTERED",
+      "APOGEE_FAST_BARO",
+      "LANDING_STABLE"
+    ]);
     const quickFlightMetrics = {
       originGeoAlt: NaN,
       originPressureMpa: NaN,
@@ -19587,8 +19595,10 @@ function requestMobileMockup3dMesh(){
     const REPLAY_BIN_SAMPLE_V2_PAYLOAD_BYTES = 40;
     const REPLAY_BIN_SAMPLE_V3_PAYLOAD_BYTES = 52;
     const REPLAY_BIN_SAMPLE_V4_PAYLOAD_BYTES = 68;
+    const REPLAY_BIN_SAMPLE_V5_PAYLOAD_BYTES = 88;
     const REPLAY_BIN_MISSION_ALARM_PAYLOAD_BYTES = 52;
     const REPLAY_BIN_MISSION_ALARM_V4_PAYLOAD_BYTES = 68;
+    const REPLAY_BIN_MISSION_ALARM_V5_PAYLOAD_BYTES = 88;
     const REPLAY_BIN_APP_RECORD_V4_BYTES = REPLAY_BIN_RECORD_HEADER_BYTES + REPLAY_BIN_SAMPLE_V4_PAYLOAD_BYTES;
     const REPLAY_BIN_RECORD_MARKER = 0xA55A;
     const REPLAY_BIN_RECORD_MARKER_ALT = 0x5AA5;
@@ -19787,7 +19797,7 @@ function requestMobileMockup3dMesh(){
           offset += 1;
           continue;
         }
-        if(recVersion !== 4 && recVersion !== 3 && recVersion !== 2 && recVersion !== 1 && recVersion !== 0){
+        if(recVersion !== 5 && recVersion !== 4 && recVersion !== 3 && recVersion !== 2 && recVersion !== 1 && recVersion !== 0){
           if(samples.length > 0){
             offset = nextOffset;
             continue;
@@ -19795,21 +19805,23 @@ function requestMobileMockup3dMesh(){
           offset += 1;
           continue;
         }
-        if((recVersion === 2 || recVersion === 3 || recVersion === 4) &&
+        if((recVersion === 2 || recVersion === 3 || recVersion === 4 || recVersion === 5) &&
             replayCrc16Ccitt(dv, payloadOffset, payloadSize) !== recordFlags){
           offset = nextOffset;
           continue;
         }
 
-        if((recVersion === 3 || recVersion === 4) &&
+        if((recVersion === 3 || recVersion === 4 || recVersion === 5) &&
            recType === 2 &&
-           payloadSize >= (recVersion === 4
-             ? REPLAY_BIN_MISSION_ALARM_V4_PAYLOAD_BYTES
+           payloadSize >= (recVersion >= 4
+             ? (recVersion === 5
+               ? REPLAY_BIN_MISSION_ALARM_V5_PAYLOAD_BYTES
+               : REPLAY_BIN_MISSION_ALARM_V4_PAYLOAD_BYTES)
              : REPLAY_BIN_MISSION_ALARM_PAYLOAD_BYTES)){
           const base = payloadOffset;
-          const utcMarker = recVersion === 4 ? dv.getUint32(base + 60, true) : 0;
-          const epochLow = recVersion === 4 ? dv.getUint32(base + 52, true) : 0;
-          const epochHigh = recVersion === 4 ? dv.getUint32(base + 56, true) : 0;
+          const utcMarker = recVersion >= 4 ? dv.getUint32(base + 60, true) : 0;
+          const epochLow = recVersion >= 4 ? dv.getUint32(base + 52, true) : 0;
+          const epochHigh = recVersion >= 4 ? dv.getUint32(base + 56, true) : 0;
           const recordedEpochMs = utcMarker === 0x31435455
             ? (epochHigh * 4294967296 + epochLow)
             : NaN;
@@ -19825,7 +19837,9 @@ function requestMobileMockup3dMesh(){
               : null
           });
           replayHasStoredMissionAlarms = true;
-        }else if((recType === 1 || recType === 0) && payloadSize >= REPLAY_BIN_SAMPLE_PAYLOAD_BYTES){
+        }else if((recVersion === 1 || recVersion === 0) &&
+                 (recType === 1 || recType === 0) &&
+                 payloadSize >= REPLAY_BIN_SAMPLE_PAYLOAD_BYTES){
           const base = payloadOffset;
           const sample = {
             t: dv.getFloat32(base + 0, true),
@@ -19861,6 +19875,85 @@ function requestMobileMockup3dMesh(){
             we: dv.getUint8(base + 69)
           };
 
+          appendSample(sample, headerTsMs);
+        }else if(recVersion === 5 && recType === 1 && payloadSize >= REPLAY_BIN_SAMPLE_V5_PAYLOAD_BYTES){
+          const base = payloadOffset;
+          const flags = dv.getUint16(base + 34, true);
+          const storedFlightPhaseCode = (flags & (1 << 15)) ? ((flags >>> 8) & 0x07) : null;
+          const thrustMilliKgf = dv.getInt32(base + 40, true);
+          const lcFlags = dv.getUint16(base + 50, true);
+          const gpsLatE7 = dv.getInt32(base + 52, true);
+          const gpsLonE7 = dv.getInt32(base + 56, true);
+          const gpsAltCm = dv.getInt32(base + 60, true);
+          const gpsFlags = dv.getUint16(base + 66, true);
+          const rawAccelMilliG = dv.getUint16(base + 68, true);
+          const coastAccelMilliG = dv.getUint16(base + 70, true);
+          const sample = {
+            t: thrustMilliKgf === -2147483648 ? 0 : (thrustMilliKgf / 1000),
+            p: dv.getFloat32(base + 0, true),
+            alt_m: dv.getFloat32(base + 4, true),
+            ax: dv.getInt16(base + 8, true) / 1000,
+            ay: dv.getInt16(base + 10, true) / 1000,
+            az: dv.getInt16(base + 12, true) / 1000,
+            gx: dv.getInt16(base + 14, true) / 10,
+            gy: dv.getInt16(base + 16, true) / 10,
+            gz: dv.getInt16(base + 18, true) / 10,
+            gr: dv.getInt16(base + 20, true) / 100,
+            gp: dv.getInt16(base + 22, true) / 100,
+            gyw: dv.getInt16(base + 24, true) / 100,
+            ga: (flags >>> 1) & 1,
+            td: dv.getInt32(base + 26, true),
+            lt: dv.getUint16(base + 30, true) / 1000,
+            ct: dv.getUint16(base + 32, true),
+            st: dv.getUint8(base + 36),
+            r: dv.getUint8(base + 37),
+            ar: dv.getUint8(base + 38),
+            m: dv.getUint8(base + 39),
+            lc_raw: dv.getInt32(base + 44, true),
+            hz: dv.getUint16(base + 48, true),
+            hx_hz: dv.getUint16(base + 48, true),
+            lc_ready: (lcFlags >>> 0) & 1,
+            lc_raw_ok: (lcFlags >>> 1) & 1,
+            lc_sat: (lcFlags >>> 2) & 1,
+            lc_offset_ok: (lcFlags >>> 3) & 1,
+            lc_noise: LOADCELL_NOISE_DB_FALLBACK,
+            gps_lat: gpsLatE7 === -2147483648 ? null : (gpsLatE7 / 10000000),
+            gps_lon: gpsLonE7 === -2147483648 ? null : (gpsLonE7 / 10000000),
+            gps_alt: gpsAltCm === -2147483648 ? null : (gpsAltCm / 100),
+            gps_age_ms: dv.getUint16(base + 64, true),
+            gps_fix: (gpsFlags >>> 0) & 1,
+            gps_seen: (gpsFlags >>> 1) & 1,
+            gps_ready: (gpsFlags >>> 2) & 1,
+            gps_time_valid: (gpsFlags >>> 3) & 1,
+            s: (flags >>> 2) & 1,
+            sp: (flags >>> 13) & 1,
+            ic: 1,
+            uw: (flags >>> 3) & 1,
+            ab: (flags >>> 4) & 1,
+            sm: (flags >>> 5) & 1,
+            ss: (flags >>> 6) & 1,
+            bo: flags & 1,
+            flight_phase_code:storedFlightPhaseCode,
+            flight_phase:storedFlightPhaseCode != null
+              ? (FLIGHT_PHASE_CODE_NAMES[storedFlightPhaseCode] || null)
+              : null,
+            deployment_state:((flags >>> 11) & 0x01) |
+              (((flags >>> 12) & 0x01) << 1) |
+              (((flags >>> 14) & 0x01) << 2),
+            deployment_flags:dv.getUint8(base + 87),
+            flight_accel_raw_g:rawAccelMilliG === 0xFFFF ? null : (rawAccelMilliG / 1000),
+            flight_accel_filtered_g:coastAccelMilliG === 0xFFFF ? null : (coastAccelMilliG / 1000),
+            flight_fast_vertical_speed_mps:dv.getInt16(base + 72, true) / 10,
+            flight_display_vertical_speed_mps:dv.getInt16(base + 74, true) / 10,
+            vertical_speed_mps:dv.getInt16(base + 74, true) / 10,
+            apogee_m:dv.getInt32(base + 76, true) / 100,
+            coast_hold_ms:dv.getUint16(base + 80, true),
+            descent_hold_ms:dv.getUint16(base + 82, true),
+            flight_transition_at_ms:dv.getUint16(base + 84, true) * 10,
+            flight_transition_reason:dv.getUint8(base + 86),
+            backup_executed:(dv.getUint8(base + 87) & (1 << 2)) ? 1 : 0,
+            ut: headerTsMs
+          };
           appendSample(sample, headerTsMs);
         }else if(recVersion === 4 && recType === 1 && payloadSize >= REPLAY_BIN_SAMPLE_V4_PAYLOAD_BYTES){
           const base = payloadOffset;
@@ -20377,6 +20470,16 @@ function requestMobileMockup3dMesh(){
           m: asFiniteOrNull(sample.m),
           flight_phase: sample.flight_phase || null,
           flight_phase_code: asFiniteOrNull(sample.flight_phase_code),
+          flight_accel_raw_g:asFiniteOrNull(sample.flight_accel_raw_g),
+          flight_accel_filtered_g:asFiniteOrNull(sample.flight_accel_filtered_g),
+          flight_fast_vertical_speed_mps:asFiniteOrNull(sample.flight_fast_vertical_speed_mps),
+          flight_display_vertical_speed_mps:asFiniteOrNull(sample.flight_display_vertical_speed_mps),
+          apogee_m:asFiniteOrNull(sample.apogee_m),
+          coast_hold_ms:asFiniteOrNull(sample.coast_hold_ms),
+          descent_hold_ms:asFiniteOrNull(sample.descent_hold_ms),
+          flight_transition_at_ms:asFiniteOrNull(sample.flight_transition_at_ms),
+          flight_transition_reason:asFiniteOrNull(sample.flight_transition_reason),
+          backup_executed:asFiniteOrNull(sample.backup_executed),
           deployment_state: asFiniteOrNull(sample.deployment_state) ?? 0,
           deployment_flags: asFiniteOrNull(sample.deployment_flags) ?? 0,
           mission_alarm_events:Array.isArray(sample.mission_alarm_events)
@@ -20712,7 +20815,7 @@ function requestMobileMockup3dMesh(){
         fw_program:"Altis_Intelligent3_firmware1",
         fw_board:"Altis_Intelligent3_b3",
         fw_protocol:"Flash6-Intelligent-b4",
-        fw_build:"v6 b20"
+        fw_build:"v6 b21"
       };
     }
 
@@ -35107,7 +35210,11 @@ function requestMobileMockup3dMesh(){
               t("hdrGyroX"), t("hdrGyroY"), t("hdrGyroZ"),
               t("hdrLoopMs"), t("hdrElapsedMs"), t("hdrCpuUs"),
               "ARM_PHYSICAL", "ARM_EFFECTIVE", t("hdrIgnOk"), t("hdrRelay"),
-              t("hdrState"), t("hdrTdMs"), "FLIGHT_PHASE", "DEPLOYMENT_STATE", "DEPLOYMENT_FLAGS"
+              t("hdrState"), t("hdrTdMs"), "FLIGHT_PHASE", "DEPLOYMENT_STATE", "DEPLOYMENT_FLAGS",
+              "FLIGHT_ACCEL_RAW_G", "COAST_ACCEL_FILTERED_G",
+              "FAST_VERTICAL_SPEED_MPS", "DISPLAY_VERTICAL_SPEED_MPS",
+              "RECENT_APOGEE_M", "COAST_HOLD_MS", "DESCENT_HOLD_MS",
+              "TRANSITION_REASON", "TRANSITION_AT_MS", "BACKUP_EXECUTED"
             ]];
 
             let reportGpsAltBase = null;
@@ -35285,7 +35392,40 @@ function requestMobileMockup3dMesh(){
                   : "",
                 (row.deployment_flags != null && isFinite(Number(row.deployment_flags)))
                   ? Number(row.deployment_flags)
-                  : ""
+                  : "",
+                (row.flight_accel_raw_g != null && isFinite(Number(row.flight_accel_raw_g)))
+                  ? Number(Number(row.flight_accel_raw_g).toFixed(3))
+                  : (isFinite(axVal) && isFinite(ayVal) && isFinite(azVal)
+                    ? Number(Math.sqrt((axVal * axVal) + (ayVal * ayVal) + (azVal * azVal)).toFixed(3))
+                    : ""),
+                (row.flight_accel_filtered_g != null && isFinite(Number(row.flight_accel_filtered_g)))
+                  ? Number(Number(row.flight_accel_filtered_g).toFixed(3))
+                  : "",
+                (row.flight_fast_vertical_speed_mps != null && isFinite(Number(row.flight_fast_vertical_speed_mps)))
+                  ? Number(Number(row.flight_fast_vertical_speed_mps).toFixed(2))
+                  : "",
+                (row.flight_display_vertical_speed_mps != null && isFinite(Number(row.flight_display_vertical_speed_mps)))
+                  ? Number(Number(row.flight_display_vertical_speed_mps).toFixed(2))
+                  : "",
+                (row.apogee_m != null && isFinite(Number(row.apogee_m)))
+                  ? Number(Number(row.apogee_m).toFixed(2))
+                  : "",
+                (row.coast_hold_ms != null && isFinite(Number(row.coast_hold_ms)))
+                  ? Number(row.coast_hold_ms)
+                  : "",
+                (row.descent_hold_ms != null && isFinite(Number(row.descent_hold_ms)))
+                  ? Number(row.descent_hold_ms)
+                  : "",
+                (row.flight_transition_reason != null && isFinite(Number(row.flight_transition_reason)))
+                  ? (FLIGHT_TRANSITION_REASON_NAMES[Number(row.flight_transition_reason)] ||
+                    ("REASON_" + Number(row.flight_transition_reason)))
+                  : "",
+                (row.flight_transition_at_ms != null && isFinite(Number(row.flight_transition_at_ms)))
+                  ? Number(row.flight_transition_at_ms)
+                  : "",
+                (row.backup_executed != null && isFinite(Number(row.backup_executed)))
+                  ? Number(row.backup_executed)
+                  : (((Number(row.deployment_flags) || 0) & (1 << 2)) ? 1 : 0)
               ]);
             }
 

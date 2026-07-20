@@ -1529,7 +1529,7 @@ void setupRoutes() {
              "\"rx_queue_depth\":%u,\"relay_queue_depth\":%u,\"telemetry_coalescing\":1,"
              "\"route_policy\":\"relay-primary-direct-fallback\","
              "\"primary_stale_ms\":%lu},"
-             "\"storage\":{\"header\":\"HWLOGV2\",\"record_version\":4,\"record_bytes\":84,"
+             "\"storage\":{\"header\":\"HWLOGV2\",\"record_version\":%u,\"record_bytes\":%u,"
              "\"crc\":\"crc16-ccitt\",\"loadcell\":\"thrustMilliKgf+raw+hz+flags\"}}",
              kFirmwareProtocol,
              (unsigned)kFlashLinkVersion,
@@ -1547,7 +1547,9 @@ void setupRoutes() {
              (unsigned)kFlashLinkCommandMaxAttempts,
              (unsigned)kFlashLinkRxQueueDepth,
              (unsigned)kFlashLinkRelayTxQueueDepth,
-             (unsigned long)kFlashLinkPrimaryRouteFreshMs);
+             (unsigned long)kFlashLinkPrimaryRouteFreshMs,
+             (unsigned)kStorageRecordVersionV5,
+             (unsigned)sizeof(StorageRecordV5));
     if (n <= 0 || (size_t)n >= sizeof(json)) {
       sendText(request, 500, "application/json",
                "{\"ok\":0,\"err\":\"PROTOCOL_OVERFLOW\"}");
