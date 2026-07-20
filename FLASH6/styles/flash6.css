@@ -28284,6 +28284,7 @@ html body #pyroControlOverlay > #pyroControlDialog > .settings-header > .setting
     .launcher-close-btn,
     .mission-preset-btn,
     .mission-tool-btn,
+    .flash-link-chart-tab,
     .data-list-item
   )){
     border-color:var(--pc-btn-neutral-border) !important;
@@ -28312,6 +28313,7 @@ html body #pyroControlOverlay > #pyroControlDialog > .settings-header > .setting
     .launcher-close-btn,
     .mission-preset-btn,
     .mission-tool-btn,
+    .flash-link-chart-tab,
     .data-list-item
   )):hover{
     border-color:#50545b !important;
@@ -28338,6 +28340,7 @@ html body #pyroControlOverlay > #pyroControlDialog > .settings-header > .setting
     .launcher-close-btn,
     .mission-preset-btn,
     .mission-tool-btn,
+    .flash-link-chart-tab,
     .data-list-item
   )):active{
     border-color:#34373c !important;
