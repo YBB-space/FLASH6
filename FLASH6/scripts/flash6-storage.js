@@ -1,0 +1,2608 @@
+/* FLASH6 application-data and avionics-storage runtime. */
+    function formatDurationHms(totalSec){
+      const sec = Math.max(0, Math.floor(Number(totalSec) || 0));
+      const h = Math.floor(sec / 3600);
+      const m = Math.floor((sec % 3600) / 60);
+      const s = sec % 60;
+      if(h > 0) return h + "h " + m + "m " + s + "s";
+      if(m > 0) return m + "m " + s + "s";
+      return s + "s";
+    }
+    function normalizeDataOrigin(data){
+      const settingsMode = getSettingsOperationModeValue();
+      const raw = String(
+        data && (
+          data.data_origin ??
+          data.origin ??
+          data.telemetry_origin ??
+          ""
+        ) || ""
+      ).trim().toLowerCase();
+      if(raw === "avionics" || raw === "remote" || raw === "1") return "avionics";
+      const mode = normalizeOperationModeValue(
+        data && (data.op_mode ?? data.operation_mode ?? settingsMode)
+      );
+      const linkMode = normalizeOperationModeValue(
+        data && (
+          data.link_mode ??
+          data.transport_mode ??
+          data.op_mode ??
+          data.operation_mode ??
+          settingsMode
+        )
+      );
+      const role = normalizeFlashLinkRole(
+        data && (
+          data.flash_link_role ??
+          data.fl_role ??
+          (uiSettings && uiSettings.flashLinkRole)
+        )
+      );
+      const remoteValidRaw = data && (
+        data.fl_remote_valid ??
+        data.flash_link_remote_valid
+      );
+      const remoteValid = remoteValidRaw == null
+        ? !!flashLinkUiRemoteValid
+        : Number(remoteValidRaw) !== 0;
+      const linkedRaw = data && (data.fl_link ?? data.flash_link_connected);
+      const linked = linkedRaw == null
+        ? !!flashLinkUiLinked
+        : Number(linkedRaw) !== 0;
+      const linkActive = linkMode === "flash_link" || mode === "flash_link" || linked;
+      if(linkActive && role === "avionics") return "avionics";
+      if(linkActive && role === "ground" && remoteValid) return "avionics";
+      if(raw === "local" || raw === "ground" || raw === "0") return "local";
+      return "local";
+    }
+
+    function dataOriginLabel(origin){
+      return String(origin || "").toLowerCase() === "avionics"
+        ? "AVIONICS"
+        : "LOCAL";
+    }
+
+    function getPreferredDataListOrigin(){
+      const flashLinkActive = getSettingsOperationModeValue() === "flash_link";
+      return flashLinkActive || String(currentDataOrigin || "").toLowerCase() === "avionics"
+        ? "avionics"
+        : "app";
+    }
+
+    function getDataListView(raw){
+      return String(raw || "").toLowerCase() === "avionics" ? "avionics" : "app";
+    }
+
+    function openAppDataDb(){
+      if(appDataDbPromise) return appDataDbPromise;
+      appDataDbPromise = new Promise((resolve, reject)=>{
+        if(typeof indexedDB === "undefined"){
+          reject(new Error("INDEXED_DB_UNAVAILABLE"));
+          return;
+        }
+        const request = indexedDB.open(APP_DATA_DB_NAME, APP_DATA_DB_VERSION);
+        request.onupgradeneeded = ()=>{
+          const db = request.result;
+          if(!db.objectStoreNames.contains("sessions")){
+            db.createObjectStore("sessions", {keyPath:"id"});
+          }
+          if(!db.objectStoreNames.contains("chunks")){
+            const chunks = db.createObjectStore("chunks", {keyPath:"id"});
+            chunks.createIndex("sessionId", "sessionId", {unique:false});
+          }
+        };
+        request.onsuccess = ()=>resolve(request.result);
+        request.onerror = ()=>reject(request.error || new Error("INDEXED_DB_OPEN_FAILED"));
+      }).catch((err)=>{
+        appDataDbPromise = null;
+        throw err;
+      });
+      return appDataDbPromise;
+    }
+
+    function appDataRequest(request){
+      return new Promise((resolve, reject)=>{
+        request.onsuccess = ()=>resolve(request.result);
+        request.onerror = ()=>reject(request.error || new Error("INDEXED_DB_REQUEST_FAILED"));
+      });
+    }
+
+    async function appDataPut(storeName, value){
+      const db = await openAppDataDb();
+      const tx = db.transaction(storeName, "readwrite");
+      const result = await appDataRequest(tx.objectStore(storeName).put(value));
+      await new Promise((resolve, reject)=>{
+        tx.oncomplete = ()=>resolve();
+        tx.onerror = ()=>reject(tx.error || new Error("INDEXED_DB_TRANSACTION_FAILED"));
+        tx.onabort = ()=>reject(tx.error || new Error("INDEXED_DB_TRANSACTION_ABORTED"));
+      });
+      return result;
+    }
+
+    async function appDataGetAll(storeName){
+      const db = await openAppDataDb();
+      const tx = db.transaction(storeName, "readonly");
+      return await appDataRequest(tx.objectStore(storeName).getAll());
+    }
+
+    async function appDataGetSessionChunks(sessionId){
+      const db = await openAppDataDb();
+      const tx = db.transaction("chunks", "readonly");
+      const index = tx.objectStore("chunks").index("sessionId");
+      return await appDataRequest(index.getAll(IDBKeyRange.only(sessionId)));
+    }
+
+    function makeAppDataSession(origin, transport, nowMs){
+      const id = "APP_" + String(nowMs) + "_" +
+        Math.random().toString(36).slice(2, 8).toUpperCase();
+      return {
+        id,
+        kind:"app",
+        origin,
+        transport:String(transport || "UNKNOWN").toUpperCase(),
+        startedAt:nowMs,
+        endedAt:nowMs,
+        sampleCount:0,
+        chunkCount:0,
+        bytes:0,
+        recordBytes:REPLAY_BIN_APP_RECORD_V4_BYTES,
+        recordVersion:4,
+        format:"HWLOGV2",
+        samplePeriodMs:0,
+        lastReceivedAt:0
+      };
+    }
+
+    function compactAppDataSample(data, transport, origin, receivedAt){
+      const numberOrNull = (value)=>{
+        const n = Number(value);
+        return isFinite(n) ? n : null;
+      };
+      return {
+        received_at:receivedAt,
+        origin,
+        transport:String(transport || "UNKNOWN").toUpperCase(),
+        seq:numberOrNull(data && data.seq),
+        ut:numberOrNull(data && (data.ut ?? data.uptime_ms)),
+        t:numberOrNull(data && (data.t ?? data.thrust)),
+        p:numberOrNull(data && data.p),
+        alt_m:numberOrNull(data && (data.alt_m ?? data.altitude_m)),
+        ax:numberOrNull(data && data.ax),
+        ay:numberOrNull(data && data.ay),
+        az:numberOrNull(data && data.az),
+        gx:numberOrNull(data && data.gx),
+        gy:numberOrNull(data && data.gy),
+        gz:numberOrNull(data && data.gz),
+        roll:numberOrNull(data && data.gr),
+        pitch:numberOrNull(data && data.gp),
+        yaw:numberOrNull(data && data.gyw),
+        ga:numberOrNull(data && data.ga),
+        lt:numberOrNull(data && data.lt),
+        ct:numberOrNull(data && data.ct),
+        st:numberOrNull(data && data.st),
+        td:numberOrNull(data && data.td),
+        flight_phase:data && data.flight_phase ? String(data.flight_phase) : null,
+        flight_phase_code:numberOrNull(data && data.flight_phase_code),
+        vertical_speed_mps:numberOrNull(data && (data.vertical_speed_mps ?? data.verticalSpeedMps)),
+        relay:numberOrNull(data && data.r),
+        safety:numberOrNull(data && data.sm),
+        arm:numberOrNull(data && data.s),
+        arm_physical:numberOrNull(data && (data.sp ?? data.arm_physical)),
+        user_wait:numberOrNull(data && data.uw),
+        abort:numberOrNull(data && data.ab),
+        abort_reason:numberOrNull(data && data.ar),
+        mode:numberOrNull(data && (data.m ?? data.opm)),
+        serial_stream:numberOrNull(data && data.ss),
+        baro_valid:numberOrNull(data && data.bo),
+        hx_hz:numberOrNull(data && (data.hx_hz ?? data.hz)),
+        lc_raw:numberOrNull(data && data.lc_raw),
+        lc_raw_ok:numberOrNull(data && data.lc_raw_ok),
+        lc_ready:numberOrNull(data && data.lc_ready),
+        lc_sat:numberOrNull(data && data.lc_sat),
+        lc_offset_ok:numberOrNull(data && data.lc_offset_ok),
+        gps_lat:numberOrNull(data && (data.gps_lat ?? data.gpsLat ?? data.lat)),
+        gps_lon:numberOrNull(data && (data.gps_lon ?? data.gps_lng ?? data.gpsLon ?? data.gpsLng ?? data.lon ?? data.lng)),
+        gps_alt:numberOrNull(data && (data.gps_alt ?? data.gpsAlt ?? data.alt)),
+        gps_age_ms:numberOrNull(data && (data.gps_age_ms ?? data.gpsAgeMs)),
+        gps_fix:numberOrNull(data && (data.gps_fix ?? data.gpsFix ?? data.fix)),
+        gps_seen:numberOrNull(data && (data.gps_seen ?? data.gpsSeen)),
+        gps_ready:numberOrNull(data && (data.gps_ready ?? data.gpsReady)),
+        gps_time_valid:numberOrNull(data && (data.gps_time_valid ?? data.gpsTimeValid))
+      };
+    }
+
+    function clampInt(value, lo, hi, scale){
+      const n = Number(value);
+      if(!isFinite(n)) return 0;
+      return Math.max(lo, Math.min(hi, Math.round(n * scale)));
+    }
+
+    function buildAppDataRecordV4(sample, sequence){
+      const record = new Uint8Array(REPLAY_BIN_APP_RECORD_V4_BYTES);
+      const dv = new DataView(record.buffer);
+      const payloadOffset = 16;
+      const p = Number(sample && sample.p);
+      const alt = Number(sample && sample.alt_m);
+      const thrust = Number(sample && sample.t);
+      const hxHz = Number(sample && (sample.hx_hz ?? sample.hz));
+      const lcRaw = Number(sample && sample.lc_raw);
+      const timestamp = Number(sample && sample.ut);
+      const receivedAt = Number(sample && sample.received_at);
+      const loopMs = Number(sample && sample.lt);
+      const cpuUs = Number(sample && sample.ct);
+      const gpsLat = Number(sample && sample.gps_lat);
+      const gpsLon = Number(sample && sample.gps_lon);
+      const gpsAlt = Number(sample && sample.gps_alt);
+      const gpsAgeMs = Number(sample && sample.gps_age_ms);
+      const gpsFix = Number(sample && sample.gps_fix);
+      const gpsSeen = Number(sample && sample.gps_seen);
+      const gpsReady = Number(sample && sample.gps_ready);
+      const gpsTimeValid = Number(sample && sample.gps_time_valid);
+      const hasGpsLatLon = isFinite(gpsLat) && isFinite(gpsLon);
+
+      dv.setUint16(0, REPLAY_BIN_RECORD_MARKER, true);
+      dv.setUint8(2, 4);
+      dv.setUint8(3, 1);
+      dv.setUint16(4, REPLAY_BIN_SAMPLE_V4_PAYLOAD_BYTES, true);
+      dv.setUint16(6, 0, true);
+      dv.setUint32(
+        8,
+        (isFinite(timestamp) && timestamp >= 0
+          ? timestamp
+          : (isFinite(receivedAt) ? receivedAt : Date.now())) >>> 0,
+        true
+      );
+      dv.setUint32(12, Math.max(1, Number(sequence) || 1) >>> 0, true);
+
+      dv.setFloat32(payloadOffset + 0, isFinite(p) ? p : 0, true);
+      dv.setFloat32(payloadOffset + 4, isFinite(alt) ? alt : 0, true);
+      dv.setInt16(payloadOffset + 8, clampInt(sample && sample.ax, -32767, 32767, 1000), true);
+      dv.setInt16(payloadOffset + 10, clampInt(sample && sample.ay, -32767, 32767, 1000), true);
+      dv.setInt16(payloadOffset + 12, clampInt(sample && sample.az, -32767, 32767, 1000), true);
+      dv.setInt16(payloadOffset + 14, clampInt(sample && sample.gx, -32767, 32767, 10), true);
+      dv.setInt16(payloadOffset + 16, clampInt(sample && sample.gy, -32767, 32767, 10), true);
+      dv.setInt16(payloadOffset + 18, clampInt(sample && sample.gz, -32767, 32767, 10), true);
+      dv.setInt16(payloadOffset + 20, clampInt(sample && sample.roll, -32767, 32767, 100), true);
+      dv.setInt16(payloadOffset + 22, clampInt(sample && sample.pitch, -32767, 32767, 100), true);
+      dv.setInt16(payloadOffset + 24, clampInt(sample && sample.yaw, -32767, 32767, 100), true);
+      dv.setInt32(payloadOffset + 26, isFinite(Number(sample && sample.td)) ? Math.round(Number(sample.td)) : 0, true);
+      dv.setUint16(
+        payloadOffset + 30,
+        isFinite(loopMs) && loopMs > 0
+          ? Math.max(1, Math.min(65535, Math.round(loopMs * 1000)))
+          : 10000,
+        true
+      );
+      dv.setUint16(
+        payloadOffset + 32,
+        isFinite(cpuUs) ? Math.max(0, Math.min(65535, Math.round(cpuUs))) : 0,
+        true
+      );
+
+      let flags = 0;
+      if((sample && sample.baro_valid) || (isFinite(p) && p > 0)) flags |= 1 << 0;
+      if((sample && sample.ga) || isFinite(Number(sample && sample.roll))) flags |= 1 << 1;
+      if(Number(sample && sample.arm)) flags |= 1 << 2;
+      if(Number(sample && sample.arm_physical)) flags |= 1 << 13;
+      const deploymentState = Math.max(0, Math.min(7, Math.round(Number(sample && sample.deployment_state) || 0)));
+      if(deploymentState & 0x01) flags |= 1 << 11;
+      if(deploymentState & 0x02) flags |= 1 << 12;
+      if(deploymentState & 0x04) flags |= 1 << 14;
+      if(Number(sample && sample.user_wait)) flags |= 1 << 3;
+      if(Number(sample && sample.abort)) flags |= 1 << 4;
+      if(Number(sample && sample.safety)) flags |= 1 << 5;
+      if(Number(sample && sample.serial_stream)) flags |= 1 << 6;
+      flags |= 1 << 7;
+      const storedFlightPhaseName = String((sample && sample.flight_phase) || "").toUpperCase();
+      const rawStoredFlightPhaseCode = sample ? sample.flight_phase_code : null;
+      const storedFlightPhaseCode = rawStoredFlightPhaseCode != null && Number.isInteger(Number(rawStoredFlightPhaseCode))
+        ? Number(rawStoredFlightPhaseCode)
+        : FLIGHT_PHASE_CODE_NAMES.indexOf(storedFlightPhaseName);
+      if(storedFlightPhaseCode >= 0 && storedFlightPhaseCode < FLIGHT_PHASE_CODE_NAMES.length){
+        flags |= (storedFlightPhaseCode & 0x07) << 8;
+        flags |= 1 << 15;
+      }
+      dv.setUint16(payloadOffset + 34, flags, true);
+      dv.setUint8(payloadOffset + 36, Math.max(0, Math.min(255, Number(sample && sample.st) || 0)));
+      dv.setUint8(payloadOffset + 37, Math.max(0, Math.min(255, Number(sample && sample.relay) || 0)));
+      dv.setUint8(payloadOffset + 38, Math.max(0, Math.min(255, Number(sample && sample.abort_reason) || 0)));
+      dv.setUint8(payloadOffset + 39, Math.max(0, Math.min(255, Number(sample && sample.mode) || 0)));
+      dv.setInt32(
+        payloadOffset + 40,
+        isFinite(thrust)
+          ? Math.max(-2147483647, Math.min(2147483647, Math.round(thrust * 1000)))
+          : -2147483648,
+        true
+      );
+      dv.setInt32(payloadOffset + 44, isFinite(lcRaw) ? Math.round(lcRaw) : 0, true);
+      dv.setUint16(payloadOffset + 48, isFinite(hxHz) ? Math.max(0, Math.min(65535, Math.round(hxHz))) : 0, true);
+      let lcFlags = 0;
+      if(Number(sample && sample.lc_ready)) lcFlags |= 1 << 0;
+      if(Number(sample && sample.lc_raw_ok)) lcFlags |= 1 << 1;
+      if(Number(sample && sample.lc_sat)) lcFlags |= 1 << 2;
+      if(Number(sample && sample.lc_offset_ok)) lcFlags |= 1 << 3;
+      dv.setUint16(payloadOffset + 50, lcFlags, true);
+      dv.setInt32(
+        payloadOffset + 52,
+        hasGpsLatLon ? Math.max(-900000000, Math.min(900000000, Math.round(gpsLat * 10000000))) : -2147483648,
+        true
+      );
+      dv.setInt32(
+        payloadOffset + 56,
+        hasGpsLatLon ? Math.max(-1800000000, Math.min(1800000000, Math.round(gpsLon * 10000000))) : -2147483648,
+        true
+      );
+      dv.setInt32(
+        payloadOffset + 60,
+        isFinite(gpsAlt) ? Math.max(-2147483647, Math.min(2147483647, Math.round(gpsAlt * 100))) : -2147483648,
+        true
+      );
+      dv.setUint16(payloadOffset + 64, isFinite(gpsAgeMs) ? Math.max(0, Math.min(65535, Math.round(gpsAgeMs))) : 65535, true);
+      let gpsFlags = 0;
+      if((isFinite(gpsFix) ? gpsFix !== 0 : hasGpsLatLon)) gpsFlags |= 1 << 0;
+      if((isFinite(gpsSeen) ? gpsSeen !== 0 : hasGpsLatLon)) gpsFlags |= 1 << 1;
+      if((isFinite(gpsReady) ? gpsReady !== 0 : hasGpsLatLon)) gpsFlags |= 1 << 2;
+      if(isFinite(gpsTimeValid) && gpsTimeValid !== 0) gpsFlags |= 1 << 3;
+      dv.setUint16(payloadOffset + 66, gpsFlags, true);
+
+      dv.setUint16(
+        6,
+        replayCrc16Ccitt(
+          new DataView(record.buffer, payloadOffset, REPLAY_BIN_SAMPLE_V4_PAYLOAD_BYTES),
+          0,
+          REPLAY_BIN_SAMPLE_V4_PAYLOAD_BYTES
+        ),
+        true
+      );
+      return record;
+    }
+
+    function encodeAppDataSamples(samples, firstSequence){
+      const list = Array.isArray(samples) ? samples : [];
+      const records = new Uint8Array(list.length * REPLAY_BIN_APP_RECORD_V4_BYTES);
+      list.forEach((sample, index)=>{
+        records.set(
+          buildAppDataRecordV4(sample, Number(firstSequence || 1) + index),
+          index * REPLAY_BIN_APP_RECORD_V4_BYTES
+        );
+      });
+      return records;
+    }
+
+    function flushAppDataSamples(){
+      if(!appDataSession || !appDataPendingSamples.length) return appDataFlushPromise;
+      const session = Object.assign({}, appDataSession);
+      const samples = appDataPendingSamples.splice(0, appDataPendingSamples.length);
+      const chunkIndex = session.chunkCount;
+      const firstSequence = session.sampleCount + 1;
+      const records = encodeAppDataSamples(samples, firstSequence);
+      session.chunkCount += 1;
+      session.sampleCount += samples.length;
+      session.endedAt = samples[samples.length - 1].received_at;
+      session.bytes += records.byteLength;
+      appDataSession = session;
+      appDataFlushPromise = appDataFlushPromise.then(async()=>{
+        await appDataPut("chunks", {
+          id:session.id + ":" + String(chunkIndex).padStart(8, "0"),
+          sessionId:session.id,
+          index:chunkIndex,
+          format:"HWLOGV2_RECORD_V4",
+          recordCount:samples.length,
+          firstSequence,
+          data:records.buffer
+        });
+        await appDataPut("sessions", session);
+      }).catch((err)=>{
+        reportSilentException("app-data-save", err);
+      });
+      return appDataFlushPromise;
+    }
+
+    function finalizeAppDataSession(){
+      flushAppDataSamples();
+      appDataSession = null;
+      appDataLastStoredAtMs = 0;
+    }
+
+    function recordIncomingSampleToApp(data, transport, isReplaySample){
+      if(isReplaySample || simEnabled || !data) return;
+      const nowMs = Date.now();
+      const origin = normalizeDataOrigin(data);
+      if(
+        !appDataSession ||
+        appDataSession.origin !== origin ||
+        (appDataLastStoredAtMs > 0 &&
+         (nowMs - appDataLastStoredAtMs) > APP_DATA_SESSION_GAP_MS)
+      ){
+        finalizeAppDataSession();
+        appDataSession = makeAppDataSession(origin, transport, nowMs);
+      }
+      if(
+        appDataSession.lastReceivedAt > 0 &&
+        nowMs > appDataSession.lastReceivedAt
+      ){
+        const deltaMs = nowMs - appDataSession.lastReceivedAt;
+        appDataSession.samplePeriodMs = appDataSession.samplePeriodMs > 0
+          ? ((appDataSession.samplePeriodMs * 0.9) + (deltaMs * 0.1))
+          : deltaMs;
+      }
+      appDataSession.lastReceivedAt = nowMs;
+      appDataLastStoredAtMs = nowMs;
+      appDataPendingSamples.push(
+        compactAppDataSample(data, transport, origin, nowMs)
+      );
+      if(appDataPendingSamples.length >= APP_DATA_CHUNK_SAMPLES){
+        flushAppDataSamples();
+      }
+    }
+
+    async function listAppDataSessions(){
+      try{
+        const sessions = await appDataGetAll("sessions");
+        return (Array.isArray(sessions) ? sessions : [])
+          .filter((item)=>item && item.id)
+          .sort((a, b)=>Number(b.startedAt || 0) - Number(a.startedAt || 0));
+      }catch(err){
+        reportSilentException("app-data-list", err);
+        return [];
+      }
+    }
+
+    async function buildAppDataSessionFile(session){
+      await flushAppDataSamples();
+      const chunks = await appDataGetSessionChunks(session.id);
+      chunks.sort((a, b)=>Number(a.index || 0) - Number(b.index || 0));
+      const recordParts = [];
+      let recordCount = 0;
+      let nextSequence = 1;
+      chunks.forEach((chunk)=>{
+        if(chunk && chunk.data instanceof ArrayBuffer){
+          const bytes = new Uint8Array(chunk.data);
+          if(bytes.byteLength > 0){
+            recordParts.push(bytes);
+            const recordBytes = Math.max(1, Number(session.recordBytes || REPLAY_BIN_APP_RECORD_V4_BYTES));
+            const count = Math.max(
+              0,
+              Number(chunk.recordCount || 0) || Math.floor(bytes.byteLength / recordBytes)
+            );
+            recordCount += count;
+            nextSequence += count;
+          }
+          return;
+        }
+        if(chunk && Array.isArray(chunk.samples)){
+          const records = encodeAppDataSamples(chunk.samples, nextSequence);
+          if(records.byteLength > 0){
+            recordParts.push(records);
+            recordCount += chunk.samples.length;
+            nextSequence += chunk.samples.length;
+          }
+        }
+      });
+      if(!recordParts.length || recordCount <= 0) throw new Error("APP_DATA_EMPTY");
+      const dataBytes = recordParts.reduce((sum, part)=>sum + part.byteLength, 0);
+      const header = buildSpiFlashBinHeader({
+        used_bytes:dataBytes,
+        record_count:recordCount,
+        sample_period_ms:
+          Number(session.samplePeriodMs) > 0
+            ? Math.max(1, Math.round(Number(session.samplePeriodMs)))
+            : Math.max(
+                1,
+                Math.round(
+                  (Number(session.endedAt || 0) - Number(session.startedAt || 0)) /
+                  Math.max(1, recordCount - 1)
+                )
+              ),
+        data_origin_code:String(session.origin || "").toLowerCase() === "avionics" ? 1 : 0,
+        app_source_tag:REPLAY_BIN_APP_SOURCE_TAG
+      });
+      const started = new Date(Number(session.startedAt || Date.now()));
+      const stamp = started.toISOString().replace(/[-:]/g, "").replace(/\..+$/, "");
+      const filename =
+        "ALTIS_APP_" + dataOriginLabel(session.origin) + "_" + stamp + ".bin";
+      return new File([header, ...recordParts], filename, {type:"application/octet-stream"});
+    }
+
+    async function downloadAppDataSession(session){
+      const file = await buildAppDataSessionFile(session);
+      downloadBlobAsFile(file, file.name);
+    }
+
+    function estimateSpiFlashRemainingSec(info){
+      const usedBytes = Number(info && info.used_bytes || 0);
+      const capBytes = Number(info && info.capacity_bytes || 0);
+      const queuedBytes = Number(info && info.queue_bytes || 0);
+      const recordCount = Number(info && info.record_count || 0);
+      const recordHz = Math.max(1, Number(info && info.record_hz || 200));
+
+      const remainingBytes = Math.max(0, capBytes - usedBytes - queuedBytes);
+      const fallbackBytesPerRecord = Math.max(1, Number(info && info.current_record_bytes || 56));
+      const bytesPerRecord = (recordCount > 0 && usedBytes > 0)
+        ? Math.max(1, usedBytes / recordCount)
+        : fallbackBytesPerRecord;
+      const remainRecords = remainingBytes / bytesPerRecord;
+      const remainSec = remainRecords / recordHz;
+      return Math.max(0, Math.floor(remainSec));
+    }
+
+    function getSpiFlashUsedPercent(info){
+      const target = info || latestSpiFlashStorageInfo;
+      if(!target || !target.ready) return NaN;
+      const reported = Number(target.used_percent);
+      if(isFinite(reported)) return Math.max(0, Math.min(100, reported));
+      const usedBytes = Number(target.used_bytes || 0);
+      const capBytes = Number(target.capacity_bytes || 0);
+      return capBytes > 0 ? Math.max(0, Math.min(100, (usedBytes / capBytes) * 100)) : NaN;
+    }
+
+    function isFlashLinkGroundStorageUi(){
+      return getSettingsOperationModeValue() === "flash_link" &&
+        normalizeFlashLinkRole(uiSettings && uiSettings.flashLinkRole) === "ground";
+    }
+
+    function getSpiFlashResetTarget(opts){
+      const origin = String(opts && opts.origin || "").toLowerCase();
+      const remote =
+        isFlashLinkGroundStorageUi() &&
+        (origin === "avionics" || (!origin && !simEnabled));
+      const avionics = remote || origin === "avionics";
+      return {
+        remote,
+        origin: avionics ? "avionics" : "local",
+        label: avionics ? "에비오닉스 저장공간" : "수신기 저장공간",
+        statusLabel: avionics ? "에비오닉스 저장공간" : "SPI Flash 저장소"
+      };
+    }
+
+    function getActiveStoragePreviewInfo(){
+      if(simEnabled){
+        return {
+          ready:true,
+          used_bytes:0,
+          capacity_bytes:1,
+          used_percent:0
+        };
+      }
+      return isFlashLinkGroundStorageUi()
+        ? (latestAvionicsStorageInfo || latestSpiFlashStorageInfo)
+        : latestSpiFlashStorageInfo;
+    }
+
+    function syncStoragePreview(text, force){
+      const targets = [el.mobilePreviewFlash, el.storageStatusPill].filter(Boolean);
+      if(!targets.length) return;
+      const setText = (nextText)=>{
+        targets.forEach((target)=>{ target.textContent = nextText; });
+      };
+      const nowMs = Date.now();
+      if(text != null){
+        const nextText = text || "--";
+        const canUpdate =
+          force ||
+          nextText !== storagePreviewLastText ||
+          (nowMs - storagePreviewLastUiMs) >= 500 ||
+          targets.some((target)=>!target.textContent.trim());
+        if(canUpdate && (nextText !== "--" || force || targets.some((target)=>!target.textContent.trim()))){
+          setText(nextText);
+          storagePreviewLastText = nextText;
+          storagePreviewLastUiMs = nowMs;
+        }
+        return;
+      }
+      const pct = getSpiFlashUsedPercent(getActiveStoragePreviewInfo());
+      const pctText = isFinite(pct) ? (pct.toFixed(1) + "%") : "--";
+      const canUpdate =
+        force ||
+        pctText !== storagePreviewLastText ||
+        (nowMs - storagePreviewLastUiMs) >= 500 ||
+        targets.some((target)=>!target.textContent.trim());
+      if(canUpdate && (pctText !== "--" || force || targets.some((target)=>!target.textContent.trim()))){
+        setText(pctText);
+        storagePreviewLastText = pctText;
+        storagePreviewLastUiMs = nowMs;
+      }
+    }
+
+    function getSequenceStorageGuard(){
+      if(simEnabled){
+        return {level:"ok", pct:0, blocked:false, label:"시뮬레이션 저장공간"};
+      }
+      const groundMode =
+        getSettingsOperationModeValue() === "flash_link" &&
+        normalizeFlashLinkRole(uiSettings && uiSettings.flashLinkRole) === "ground";
+      const storageInfo = groundMode
+        ? latestAvionicsStorageInfo
+        : latestSpiFlashStorageInfo;
+      const pct = getSpiFlashUsedPercent(storageInfo);
+      if(!isFinite(pct)){
+        return {
+          level:"unknown",
+          pct:NaN,
+          blocked:groundMode,
+          label:groundMode ? "에비오닉스 저장공간 확인 필요" : ""
+        };
+      }
+      if(pct >= 70) return {level:"red", pct, blocked:true, label:"저장공간 초기화 필요"};
+      if(pct >= 50) return {level:"orange", pct, blocked:false, label:"저장공간 경고"};
+      if(pct >= 30) return {level:"green", pct, blocked:false, label:"저장공간 확인"};
+      return {level:"ok", pct, blocked:false, label:""};
+    }
+
+    function showSequenceStorageGuardToast(force){
+      const guard = getSequenceStorageGuard();
+      if(guard.level === "unknown" && guard.blocked){
+        showToast("에비오닉스 저장공간 상태를 확인할 수 없어 시퀀스를 시작할 수 없습니다. A.I LINK 연결과 양쪽 펌웨어를 확인하세요.", "error", {key:"sequence-storage-unknown", keep:true, duration:7000});
+        return true;
+      }
+      if(!isFinite(guard.pct) || guard.level === "ok") return false;
+      const pctText = guard.pct.toFixed(1) + "%";
+      if(guard.level === "red"){
+        showToast("저장공간 " + pctText + " 사용 중입니다. 데이터 유실 방지를 위해 시퀀스 권한을 해제했습니다. 저장공간을 초기화하세요.", "error", {key:"sequence-storage-red", keep:true, duration:7000});
+        return true;
+      }
+      if(guard.level === "orange"){
+        showToast("저장공간 " + pctText + " 사용 중입니다. 시퀀스 전 초기화를 권장합니다.", "warn", {key:"sequence-storage-orange", keep:!!force, duration:6000});
+        return true;
+      }
+      if(guard.level === "green"){
+        showToast("저장공간 " + pctText + " 사용 중입니다. 꼭 필요하진 않지만 데이터 유실 방지를 위해 초기화하면 좋습니다.", "success", {key:"sequence-storage-green", keep:!!force, duration:5200});
+        return true;
+      }
+      return false;
+    }
+
+    function syncSequenceStorageGuardUi(){
+      const guard = getSequenceStorageGuard();
+      const levelClass = guard.level && guard.level !== "ok" && guard.level !== "unknown"
+        ? "storage-guard-" + guard.level
+        : "";
+      const targets = [
+        el.sequenceStatusDesktop,
+        el.mobileSequenceWideStatus,
+        el.mobileSequenceStatusPill
+      ];
+      targets.forEach((node)=>{
+        if(!node) return;
+        node.classList.remove("storage-guard-green", "storage-guard-orange", "storage-guard-red");
+        if(levelClass) node.classList.add(levelClass);
+      });
+      [el.igniteBtn, el.mobileSequenceStartBtn, el.mobileSequenceWideBtn].forEach((node)=>{
+        if(!node) return;
+        node.classList.remove("storage-guard-green", "storage-guard-orange", "storage-guard-red");
+        if(levelClass) node.classList.add(levelClass);
+      });
+    }
+
+    function updateSpiFlashStatusUi(info, errMsg){
+      if(errMsg){
+        const cachedInfo = getActiveStoragePreviewInfo();
+        if(cachedInfo && isFinite(getSpiFlashUsedPercent(cachedInfo))){
+          if(el.spiFlashStatusLine){
+            const cachedAt = cachedInfo === latestAvionicsStorageInfo
+              ? latestAvionicsStorageOkMs
+              : latestSpiFlashStorageOkMs;
+            const ageMs = Math.max(
+              0,
+              cachedAt ? (Date.now() - cachedAt) : 0
+            );
+            const ageText = ageMs < 15000 ? "방금 전" : Math.round(ageMs / 1000) + "초 전";
+            el.spiFlashStatusLine.textContent =
+              "FLASH 상태 확인 지연: " + String(errMsg) + " · 마지막값 유지(" + ageText + ")";
+          }
+          syncStoragePreview();
+          syncSequenceStorageGuardUi();
+          return;
+        }
+        latestSpiFlashStorageInfo = null;
+        lastSequenceStorageGuardLevel = "unknown";
+        if(el.spiFlashStatusLine) el.spiFlashStatusLine.textContent = "FLASH 상태 확인 실패: " + String(errMsg);
+        syncStoragePreview("--", true);
+        syncSequenceStorageGuardUi();
+        return;
+      }
+      if(!info || !info.ready){
+        latestSpiFlashStorageInfo = null;
+        lastSequenceStorageGuardLevel = "unknown";
+        spiFlashReadyState = false;
+        if(el.spiFlashStatusLine) el.spiFlashStatusLine.textContent = "FLASH NOT READY";
+        syncStoragePreview("--", !isFlashLinkGroundStorageUi());
+        syncSequenceStorageGuardUi();
+        return;
+      }
+      latestSpiFlashStorageInfo = Object.assign({}, info, {updated_at:Date.now()});
+      latestSpiFlashStorageOkMs = Date.now();
+      spiFlashReadyState = true;
+      const usedBytes = Number(info.used_bytes || 0);
+      const capBytes = Number(info.capacity_bytes || 0);
+      const chipBytes = Number(info.chip_capacity_bytes || capBytes);
+      const queuedBytes = Number(info.queue_bytes || 0);
+      const recordCount = Number(info.record_count || 0);
+      const usedMb = (usedBytes / (1024 * 1024)).toFixed(2);
+      const capMb = (capBytes / (1024 * 1024)).toFixed(2);
+      const chipMb = (chipBytes / (1024 * 1024)).toFixed(2);
+      const usedPercent = capBytes > 0 ? Math.max(0, Math.min(100, (usedBytes / capBytes) * 100)) : NaN;
+      syncStoragePreview();
+      const mfrHex = Number(info.jedec && info.jedec.mfr || 0).toString(16).toUpperCase().padStart(2, "0");
+      const capCodeHex = Number(info.jedec && info.jedec.cap_code || 0).toString(16).toUpperCase().padStart(2, "0");
+      const remainSec = estimateSpiFlashRemainingSec(info);
+      const remainHms = formatDurationHms(remainSec);
+      if(el.spiFlashStatusLine) el.spiFlashStatusLine.textContent =
+        "W25Q256JVEIQ " + chipMb + "MB · 기록영역 " + usedMb + "MB / " + capMb + "MB" +
+        (isFinite(usedPercent) ? " (" + usedPercent.toFixed(1) + "%)" : "") + " · records " + recordCount +
+        " · queue " + queuedBytes + "B · 남은 약 " + remainSec + "초 (" + remainHms + ")" +
+        " · JEDEC " + mfrHex + ".." + capCodeHex;
+      syncSequenceStorageGuardUi();
+      setButtonsFromState(currentSt, lockoutLatched, sequenceActive);
+      const guard = getSequenceStorageGuard();
+      if(guard.level !== lastSequenceStorageGuardLevel){
+        if(guard.level === "red") showSequenceStorageGuardToast(true);
+        lastSequenceStorageGuardLevel = guard.level;
+      }
+    }
+
+    const SPI_FLASH_REMOTE_CHUNK_BYTES = 8192;
+
+    function normalizeRemoteSpiFlashInfo(info){
+      if(!info || typeof info !== "object") return null;
+      const capacityBytes = Math.max(0, Number(info.capacity_bytes || info.chip_capacity_bytes || 0));
+      const usedBytes = Math.max(0, Number(info.used_bytes || 0));
+      const records = Math.max(0, Number(info.record_count || info.records || 0));
+      const ready = !!Number(info.ready || 0) || (capacityBytes > 0 && usedBytes >= 0);
+      const pct = capacityBytes > 0 ? Math.max(0, Math.min(100, (usedBytes / capacityBytes) * 100)) : 0;
+      return Object.assign({}, info, {
+        ok:1,
+        remote:1,
+        ready,
+        storage_kind:info.storage_kind || "external_spi_nor",
+        model:info.model || "W25Q256JVEIQ",
+        capacity_bytes:capacityBytes,
+        chip_capacity_bytes:Math.max(capacityBytes, Number(info.chip_capacity_bytes || 0)),
+        used_bytes:usedBytes,
+        used_percent:isFinite(Number(info.used_percent)) ? Number(info.used_percent) : pct,
+        record_count:records,
+        record_hz:Math.max(1, Number(info.record_hz || 200)),
+        updated_at:Date.now()
+      });
+    }
+
+    function updateRemoteSpiFlashInfo(info){
+      const normalized = normalizeRemoteSpiFlashInfo(info);
+      if(!normalized) return null;
+      latestAvionicsStorageInfo = normalized;
+      latestAvionicsStorageOkMs = Date.now();
+      syncStoragePreview();
+      syncSequenceStorageGuardUi();
+      return normalized;
+    }
+
+    async function fetchSpiFlashRemoteDataList(){
+      if(!isFlashLinkGroundStorageUi()){
+        throw new Error("FLASH_LINK_REMOTE_NOT_ACTIVE");
+      }
+      if(canUseSerialForSpiFlash()){
+        try{
+          return await fetchSpiFlashRemoteDataListViaSerial();
+        }catch(serialErr){
+          if(serialEnabled) throw serialErr;
+        }
+      }else if(serialEnabled){
+        if(!serialConnected) throw new Error("SERIAL_DISCONNECTED");
+        if(!serialTxEnabled) throw new Error("SERIAL_TX_DISABLED");
+        throw new Error("SERIAL_NOT_READY");
+      }
+      const API_BASE = getApiBaseForCommands();
+      const url = (API_BASE ? API_BASE : "") + "/storage/spi_flash/remote/list";
+      const ctrl = createAbortControllerSafe();
+      const timer = ctrl ? setTimeout(()=>{ try{ ctrl.abort(); }catch(_e){} }, 12000) : null;
+      const opt = API_BASE
+        ? Object.assign({cache:"no-store", mode:"cors"}, ctrl ? {signal:ctrl.signal} : {})
+        : Object.assign({cache:"no-store"}, ctrl ? {signal:ctrl.signal} : {});
+      try{
+        const res = await fetch(url, opt);
+        if(!res.ok) throw new Error("HTTP " + res.status);
+        const info = await res.json();
+        if(Number(info.list_available) === 0 || Number(info.list_complete) === 0){
+          throw new Error("REMOTE_SESSION_LIST_UNAVAILABLE");
+        }
+        const normalized = updateRemoteSpiFlashInfo(info) || info;
+        const items = Array.isArray(info.items) ? info.items : [];
+        return Object.assign({}, normalized, {items});
+      }catch(err){
+        throw err;
+      }finally{
+        if(timer) clearTimeout(timer);
+      }
+    }
+
+    async function fetchSpiFlashDataList(){
+      if(canUseSerialForSpiFlash()){
+        try{
+          return await fetchSpiFlashDataListViaSerial();
+        }catch(serialErr){
+          if(serialEnabled) throw serialErr;
+        }
+      }else if(serialEnabled){
+        if(!serialConnected) throw new Error("SERIAL_DISCONNECTED");
+        if(!serialTxEnabled) throw new Error("SERIAL_TX_DISABLED");
+        throw new Error("SERIAL_NOT_READY");
+      }
+      const API_BASE = getApiBaseForCommands();
+      const url = (API_BASE ? API_BASE : "") + "/storage/spi_flash/list";
+      const ctrl = createAbortControllerSafe();
+      const timer = ctrl ? setTimeout(()=>{ try{ ctrl.abort(); }catch(_e){} }, 3500) : null;
+      const opt = API_BASE
+        ? Object.assign({cache:"no-store", mode:"cors"}, ctrl ? {signal:ctrl.signal} : {})
+        : Object.assign({cache:"no-store"}, ctrl ? {signal:ctrl.signal} : {});
+      try{
+        const res = await fetch(url, opt);
+        if(!res.ok) throw new Error("HTTP " + res.status);
+        const info = await res.json();
+        updateSpiFlashStatusUi(info, null);
+        return info;
+      }catch(err){
+        const status = await fetchSpiFlashStatus().catch(()=>null);
+        if(status && status.ready){
+          return Object.assign({}, status, {items:[], list_unavailable:true});
+        }
+        throw err;
+      }finally{
+        if(timer) clearTimeout(timer);
+      }
+    }
+
+    function formatBytesCompact(bytes){
+      const n = Number(bytes || 0);
+      if(!isFinite(n) || n <= 0) return "0 B";
+      if(n >= 1024 * 1024) return (n / (1024 * 1024)).toFixed(2) + " MB";
+      if(n >= 1024) return (n / 1024).toFixed(1) + " KB";
+      return Math.round(n) + " B";
+    }
+
+    let dataListLiveTimer = null;
+    let dataListLivePending = false;
+
+    function normalizeRemoteDataListItems(info){
+      const items = info && Array.isArray(info.items) ? info.items : [];
+      return items.map((item)=>Object.assign({}, item, {
+        kind:"board",
+        origin:"avionics",
+        remote:true,
+        dataKey:"board-remote:" + String(item.offset || 0)
+      }));
+    }
+
+    function applyRemoteDataListResult(overlay, summary, info){
+      if(!overlay || !info) return;
+      overlay._remoteBoardInfo = info;
+      overlay._remoteBoardError = null;
+      overlay._remoteListFailureCount = 0;
+      overlay._remoteListRetryAt = 0;
+      overlay._boardItems = normalizeRemoteDataListItems(info).concat(
+        Array.isArray(overlay._localBoardItems) ? overlay._localBoardItems : []
+      );
+      renderDataListSummary(
+        summary,
+        info,
+        Array.isArray(overlay._appSessions) ? overlay._appSessions : [],
+        overlay._originFilter
+      );
+      renderDataListItems(overlay);
+    }
+
+    function renderDataListSummary(summary, info, appSessions, originFilter){
+      if(!summary) return;
+      info = info || {};
+      appSessions = Array.isArray(appSessions) ? appSessions : [];
+      const selectedView = getDataListView(originFilter);
+      const filteredAppSessions = selectedView === "app" ? appSessions : [];
+      const appBytes = filteredAppSessions.reduce(
+        (sum, item)=>sum + Math.max(0, Number(item && item.bytes || 0)),
+        0
+      );
+      const appSamples = filteredAppSessions.reduce(
+        (sum, item)=>sum + Math.max(0, Number(item && item.sampleCount || 0)),
+        0
+      );
+      const appSummary =
+        '<div class="data-storage-summary-heading">' +
+          '<span class="data-storage-title">APP</span>' +
+          '<span class="data-storage-total">LOCAL CAPTURE</span>' +
+        '</div>' +
+        '<div class="data-storage-metrics">' +
+          '<div><span>세션</span><strong>' + filteredAppSessions.length.toLocaleString("ko-KR") + '</strong></div>' +
+          '<div><span>사용량</span><strong>' + formatBytesCompact(appBytes) + '</strong></div>' +
+          '<div><span>샘플</span><strong>' + appSamples.toLocaleString("ko-KR") + '</strong></div>' +
+        '</div>' +
+        '<div class="data-storage-spec">HWLOGV2 BIN · 수신 데이터를 원본 형식으로 저장</div>';
+      if(selectedView === "app"){
+        summary.innerHTML = appSummary;
+        return;
+      }
+      const remoteInfo = isFlashLinkGroundStorageUi()
+        ? (normalizeRemoteSpiFlashInfo(latestAvionicsStorageInfo) || null)
+        : null;
+      const boardInfo = remoteInfo || info || {};
+      const remoteCapacity = Math.max(0, Number(boardInfo && boardInfo.capacity_bytes || 0));
+      const remoteUsed = Math.max(0, Number(boardInfo && boardInfo.used_bytes || 0));
+      const remoteRecords = Math.max(0, Number(boardInfo && boardInfo.record_count || 0));
+      const model = String(boardInfo && boardInfo.model || "W25Q256JVEIQ");
+      const liveText = remoteInfo || isFlashLinkGroundStorageUi()
+        ? "A.I LINK 실시간 동기화"
+        : "직접 연결";
+        const remotePct = remoteCapacity > 0
+          ? Math.max(0, Math.min(100, (remoteUsed / remoteCapacity) * 100))
+          : 0;
+      summary.innerHTML =
+        '<div class="data-storage-summary-heading">' +
+          '<span class="data-storage-title">에비오닉스 저장공간</span>' +
+          '<span class="data-storage-total">' + (remoteCapacity > 0 ? model : 'SYNC WAIT') + '</span>' +
+        '</div>' +
+        '<div class="data-storage-track" role="progressbar" aria-label="에비오닉스 저장공간 사용량" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + remotePct.toFixed(1) + '">' +
+          '<span class="data-storage-fill' + (remotePct > 0 ? ' has-usage' : '') + '" style="--storage-used:' + remotePct.toFixed(2) + '%" aria-hidden="true"></span>' +
+        '</div>' +
+        '<div class="data-storage-metrics">' +
+          '<div><span>전체 용량</span><strong>' + (remoteCapacity > 0 ? formatBytesCompact(remoteCapacity) : '--') + '</strong></div>' +
+          '<div><span>사용량</span><strong>' + formatBytesCompact(remoteUsed) + '</strong></div>' +
+          '<div><span>저장 기록</span><strong>' + remoteRecords.toLocaleString("ko-KR") + '</strong></div>' +
+        '</div>' +
+        '<div class="data-storage-spec">SPI NOR · ' + remotePct.toFixed(1) + '% 사용 · ' + liveText + '</div>';
+    }
+
+    function stopDataListLiveStatus(){
+      if(dataListLiveTimer){
+        clearTimeout(dataListLiveTimer);
+        dataListLiveTimer = null;
+      }
+    }
+
+    function startDataListLiveStatus(overlay, summary){
+      stopDataListLiveStatus();
+      const refresh = async()=>{
+        if(!overlay.classList.contains("is-open")) return;
+        const view = getDataListView(overlay._originFilter);
+        if(view === "app"){
+          renderDataListSummary(
+            summary,
+            overlay._boardInfo || {},
+            Array.isArray(overlay._appSessions) ? overlay._appSessions : [],
+            overlay._originFilter
+          );
+          syncDataStorageActionButtons();
+          if(overlay.classList.contains("is-open")) dataListLiveTimer = setTimeout(refresh, 1600);
+          return;
+        }
+        if(isFlashLinkGroundStorageUi()){
+          renderDataListSummary(
+            summary,
+            latestAvionicsStorageInfo || {},
+            Array.isArray(overlay._appSessions) ? overlay._appSessions : [],
+            overlay._originFilter
+          );
+          const nowMs = Date.now();
+          const retryDue = !!overlay._remoteBoardError &&
+            !overlay._remoteListPending &&
+            nowMs >= Number(overlay._remoteListRetryAt || 0);
+          if(retryDue){
+            overlay._remoteListPending = true;
+            renderDataListItems(overlay);
+            try{
+              const refreshed = await fetchSpiFlashRemoteDataList();
+              if(overlay.classList.contains("is-open")){
+                applyRemoteDataListResult(overlay, summary, refreshed);
+              }
+            }catch(error){
+              overlay._remoteBoardError = error;
+              const failures = Math.min(8, Math.max(0, Number(overlay._remoteListFailureCount || 0)) + 1);
+              overlay._remoteListFailureCount = failures;
+              overlay._remoteListRetryAt = Date.now() + Math.min(6000, 800 * Math.pow(2, Math.min(3, failures - 1)));
+              if(overlay.classList.contains("is-open")) renderDataListItems(overlay);
+            }finally{
+              overlay._remoteListPending = false;
+            }
+          }
+          syncDataStorageActionButtons();
+          if(overlay.classList.contains("is-open")) dataListLiveTimer = setTimeout(refresh, 1000);
+          return;
+        }
+        syncDataStorageActionButtons();
+        if(!dataListLivePending){
+          dataListLivePending = true;
+          try{
+            const info = await fetchSpiFlashStatus({background:true});
+            if(info && overlay.classList.contains("is-open")){
+              renderDataListSummary(
+                summary,
+                info,
+                Array.isArray(overlay._appSessions) ? overlay._appSessions : [],
+                overlay._originFilter
+              );
+            }
+          }finally{
+            dataListLivePending = false;
+          }
+        }
+        if(overlay.classList.contains("is-open")) dataListLiveTimer = setTimeout(refresh, 1000);
+      };
+      dataListLiveTimer = setTimeout(refresh, 1000);
+    }
+
+    function canUseDataStorageActions(){
+      if(serialEnabled) return !!(serialConnected && serialTxEnabled);
+      return !!(wsConnected || connOk);
+    }
+
+    function syncDataStorageActionButtons(){
+      const overlay = document.getElementById("dataListOverlay");
+      if(!overlay) return;
+      const canUse = canUseDataStorageActions();
+      const downloadBtn = overlay.querySelector("#dataStorageDownloadBtn");
+      const resetBtn = overlay.querySelector("#dataStorageResetBtn");
+      const actions = overlay.querySelector(".data-storage-actions");
+      const items = Array.isArray(overlay._dataItems) ? overlay._dataItems : [];
+      const view = getDataListView(overlay._originFilter);
+      const boardView = view === "avionics";
+      const title = canUse ? "" : "보드 저장공간 기능은 연결 후 사용할 수 있습니다.";
+      if(downloadBtn){
+        downloadBtn.disabled = items.length === 0;
+        downloadBtn.title = items.length ? "" : "저장된 데이터가 없습니다.";
+      }
+      if(resetBtn){
+        resetBtn.hidden = !boardView;
+        resetBtn.disabled = !canUse;
+        resetBtn.title = title;
+        resetBtn.textContent = "에비오닉스 초기화";
+      }
+      if(actions) actions.classList.toggle("is-app-only", !boardView);
+    }
+
+    function ensureDataResetConfirmOverlay(){
+      let overlay = document.getElementById("dataResetConfirmOverlay");
+      if(overlay) return overlay;
+      overlay = document.createElement("div");
+      overlay.id = "dataResetConfirmOverlay";
+      overlay.className = "mobile-chart-picker-overlay hidden";
+      overlay.style.display = "none";
+      overlay.innerHTML =
+        '<div class="mobile-chart-picker-dialog agent-help-dialog" role="dialog" aria-modal="true" aria-labelledby="dataResetConfirmTitle" aria-describedby="dataResetConfirmText">' +
+          '<div class="mobile-chart-picker-head">' +
+            '<div id="dataResetConfirmTitle" class="mobile-chart-picker-title">저장공간 초기화</div>' +
+            '<button id="dataResetConfirmClose" class="mobile-chart-picker-close" type="button" aria-label="닫기">×</button>' +
+          '</div>' +
+          '<div class="mobile-chart-picker-body">' +
+            '<p id="dataResetConfirmText" class="data-reset-warning">플래시 저장공간의 모든 기록을 정말 초기화하시겠습니까?</p>' +
+            '<p class="data-reset-note">저장된 데이터는 모두 삭제되며 복구할 수 없습니다. 초기화가 끝날 때까지 보드 전원과 USB 연결을 유지하세요.</p>' +
+            '<div class="data-reset-actions">' +
+              '<button id="dataResetHoldBtn" class="data-reset-hold pyro-hold-button" type="button"><span>3초간 길게 눌러 초기화</span></button>' +
+              '<button id="dataResetCancelBtn" class="data-reset-cancel" type="button">취소</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+      document.body.appendChild(overlay);
+
+      const holdBtn = overlay.querySelector("#dataResetHoldBtn");
+      const holdLabel = holdBtn ? holdBtn.querySelector("span") : null;
+      const cancelBtn = overlay.querySelector("#dataResetCancelBtn");
+      const closeBtn = overlay.querySelector("#dataResetConfirmClose");
+      const durationMs = 3000;
+      let holdTimer = null;
+      let holdStartedAt = 0;
+      let activePointerId = null;
+      let resetRunning = false;
+
+      const setProgress = (ratio)=>{
+        if(holdBtn) holdBtn.style.setProperty("--pyro-hold-progress", String(Math.max(0, Math.min(1, ratio))));
+      };
+      const cancelHold = ()=>{
+        if(holdTimer){ clearInterval(holdTimer); holdTimer = null; }
+        activePointerId = null;
+        if(holdBtn) holdBtn.classList.remove("is-holding");
+        if(!resetRunning) setProgress(0);
+      };
+      const close = ()=>{
+        if(resetRunning) return;
+        cancelHold();
+        overlay.classList.remove("is-open");
+        setTimeout(()=>{
+          if(overlay.classList.contains("is-open")) return;
+          overlay.classList.add("hidden");
+          overlay.style.display = "none";
+        }, 220);
+      };
+      const completeReset = async()=>{
+        if(resetRunning) return;
+        resetRunning = true;
+        cancelHold();
+        setProgress(1);
+        if(holdBtn) holdBtn.disabled = true;
+        if(cancelBtn) cancelBtn.disabled = true;
+        if(closeBtn) closeBtn.disabled = true;
+        const runningTarget = overlay._resetTarget || getSpiFlashResetTarget();
+        if(holdLabel) holdLabel.textContent = runningTarget.label + " 초기화 중… 0초";
+        stopDataListLiveStatus();
+        const resetStartedAt = Date.now();
+        const elapsedTimer = setInterval(()=>{
+          const target = overlay._resetTarget || getSpiFlashResetTarget();
+          if(holdLabel) holdLabel.textContent = target.label + " 초기화 중… " + Math.max(1, Math.floor((Date.now() - resetStartedAt) / 1000)) + "초";
+        }, 500);
+        let ok = false;
+        try{
+          ok = await resetSpiFlashStorage(overlay._resetTarget || {});
+        }finally{
+          clearInterval(elapsedTimer);
+          resetRunning = false;
+        }
+        if(holdBtn) holdBtn.disabled = false;
+        if(cancelBtn) cancelBtn.disabled = false;
+        if(closeBtn) closeBtn.disabled = false;
+        setProgress(0);
+        if(holdLabel) holdLabel.textContent = "3초간 길게 눌러 초기화";
+        if(ok){
+          close();
+          await showDataListOverlay();
+        }
+      };
+      const tick = ()=>{
+        const ratio = (Date.now() - holdStartedAt) / durationMs;
+        setProgress(ratio);
+        if(ratio < 1) return;
+        cancelHold();
+        completeReset();
+      };
+      const startHold = (ev)=>{
+        if(!holdBtn || holdTimer || resetRunning || holdBtn.disabled) return;
+        ev.preventDefault();
+        if(typeof ev.pointerId === "number"){
+          activePointerId = ev.pointerId;
+          try{ holdBtn.setPointerCapture(ev.pointerId); }catch(_e){}
+        }
+        holdStartedAt = Date.now();
+        holdBtn.classList.add("is-holding");
+        setProgress(0);
+        holdTimer = setInterval(tick, 32);
+      };
+      const stopHold = (ev)=>{
+        if(activePointerId !== null && typeof ev.pointerId === "number" && ev.pointerId !== activePointerId) return;
+        cancelHold();
+      };
+      if(holdBtn){
+        holdBtn.addEventListener("pointerdown", startHold);
+        holdBtn.addEventListener("pointerup", stopHold);
+        holdBtn.addEventListener("pointercancel", stopHold);
+        holdBtn.addEventListener("lostpointercapture", stopHold);
+        holdBtn.addEventListener("keydown", (ev)=>{
+          if((ev.key === "Enter" || ev.key === " ") && !ev.repeat) startHold(ev);
+        });
+        holdBtn.addEventListener("keyup", (ev)=>{
+          if(ev.key === "Enter" || ev.key === " ") stopHold(ev);
+        });
+        holdBtn.addEventListener("contextmenu", (ev)=>ev.preventDefault());
+      }
+      if(cancelBtn) cancelBtn.addEventListener("click", close);
+      if(closeBtn) closeBtn.addEventListener("click", close);
+      overlay.addEventListener("click", (ev)=>{ if(ev.target === overlay) close(); });
+      overlay._resetDialog = {cancelHold, holdBtn, holdLabel, cancelBtn, closeBtn};
+      return overlay;
+    }
+
+    function showDataResetConfirmOverlay(opts){
+      const overlay = ensureDataResetConfirmOverlay();
+      const desktopDialog = isDesktopLayout() && !isMobileLayout();
+      overlay.classList.toggle("is-desktop-reset-dialog", desktopDialog);
+      overlay.classList.toggle("is-mobile-reset-dialog", !desktopDialog);
+      const target = getSpiFlashResetTarget(opts);
+      const state = overlay._resetDialog || {};
+      overlay._resetTarget = target;
+      const title = overlay.querySelector("#dataResetConfirmTitle");
+      const text = overlay.querySelector("#dataResetConfirmText");
+      const note = overlay.querySelector(".data-reset-note");
+      if(title) title.textContent = target.label + " 초기화";
+      if(text) text.textContent =
+        target.label + "의 모든 기록을 정말 초기화하시겠습니까?";
+      if(note) note.textContent = target.remote
+        ? "에비오닉스 보드의 저장 데이터가 모두 삭제됩니다. 초기화가 끝날 때까지 양쪽 보드 전원을 유지하세요."
+        : "저장 데이터가 모두 삭제됩니다. 초기화가 끝날 때까지 보드 전원과 USB 연결을 유지하세요.";
+      if(state.cancelHold) state.cancelHold();
+      if(state.holdBtn) state.holdBtn.disabled = false;
+      if(state.cancelBtn) state.cancelBtn.disabled = false;
+      if(state.closeBtn) state.closeBtn.disabled = false;
+      if(state.holdLabel) state.holdLabel.textContent = "3초간 길게 눌러 초기화";
+      overlay.classList.remove("hidden");
+      overlay.style.display = "flex";
+      requestAnimationFrame(()=>overlay.classList.add("is-open"));
+    }
+
+    function getDataListItemDownloadLabel(item){
+      if(!item) return {title:"저장 기록", note:""};
+      if(item.kind === "app"){
+        const started = new Date(Number(item.startedAt || 0));
+        const title = isNaN(started.getTime())
+          ? String(item.id || "APP BIN")
+          : started.toLocaleString("ko-KR");
+        return {
+          title,
+          note:"APP BIN · 샘플 " + Math.max(0, Number(item.sampleCount || 0)).toLocaleString("ko-KR") + "개 · " + formatBytesCompact(item.bytes || 0)
+        };
+      }
+      return {
+        title:String(item.name || "BOARD BIN"),
+        note:"AVIONICS BIN · 레코드 " + Math.max(0, Number(item.records || 0)).toLocaleString("ko-KR") + "개 · " + formatBytesCompact(item.bytes || 0)
+      };
+    }
+
+    const storageDownloadProgressState = {
+      active:false,
+      startedAt:0,
+      lastPercent:-1,
+      lastRenderAt:0,
+      lastLoadedBytes:0,
+      lastSampleAt:0,
+      smoothedBytesPerSec:0,
+      speedSampleCount:0
+    };
+
+    function formatStorageDownloadEta(seconds){
+      const value = Math.max(0, Math.ceil(Number(seconds) || 0));
+      if(value <= 1) return "곧 완료";
+      if(value < 60) return "약 " + value + "초";
+      if(value < 3600){
+        const minutes = Math.floor(value / 60);
+        const remainSeconds = value % 60;
+        return remainSeconds > 0
+          ? "약 " + minutes + "분 " + remainSeconds + "초"
+          : "약 " + minutes + "분";
+      }
+      const hours = Math.floor(value / 3600);
+      const remainMinutes = Math.ceil((value % 3600) / 60);
+      return remainMinutes > 0
+        ? "약 " + hours + "시간 " + remainMinutes + "분"
+        : "약 " + hours + "시간";
+    }
+
+    function updateStorageDownloadSpeedEstimate(loaded, now){
+      const state = storageDownloadProgressState;
+      if(loaded < state.lastLoadedBytes){
+        state.lastLoadedBytes = loaded;
+        state.lastSampleAt = now;
+        state.smoothedBytesPerSec = 0;
+        state.speedSampleCount = 0;
+        return;
+      }
+      if(state.lastSampleAt <= 0){
+        state.lastLoadedBytes = loaded;
+        state.lastSampleAt = now;
+        return;
+      }
+      const elapsedMs = now - state.lastSampleAt;
+      const deltaBytes = loaded - state.lastLoadedBytes;
+      if(deltaBytes <= 0 || elapsedMs < 40) return;
+      const instantBytesPerSec = (deltaBytes * 1000) / elapsedMs;
+      if(isFinite(instantBytesPerSec) && instantBytesPerSec > 0){
+        if(state.smoothedBytesPerSec <= 0){
+          state.smoothedBytesPerSec = instantBytesPerSec;
+        }else{
+          const lower = state.smoothedBytesPerSec * 0.25;
+          const upper = state.smoothedBytesPerSec * 4;
+          const bounded = Math.max(lower, Math.min(upper, instantBytesPerSec));
+          state.smoothedBytesPerSec =
+            state.smoothedBytesPerSec * 0.76 + bounded * 0.24;
+        }
+        state.speedSampleCount += 1;
+      }
+      state.lastLoadedBytes = loaded;
+      state.lastSampleAt = now;
+    }
+
+    function blockStorageDownloadInteraction(ev){
+      if(!storageDownloadProgressState.active) return;
+      const overlay = document.getElementById("storageDownloadProgressOverlay");
+      if(ev.type === "focusin" && overlay && overlay.contains(ev.target)) return;
+      ev.preventDefault();
+      ev.stopImmediatePropagation();
+      if(ev.type === "focusin"){
+        const dialog = overlay && overlay.querySelector(".storage-download-progress-dialog");
+        if(dialog){
+          try{ dialog.focus({preventScroll:true}); }catch(_e){ dialog.focus(); }
+        }
+      }
+    }
+
+    function ensureStorageDownloadProgressOverlay(){
+      let overlay = document.getElementById("storageDownloadProgressOverlay");
+      if(overlay) return overlay;
+      overlay = document.createElement("div");
+      overlay.id = "storageDownloadProgressOverlay";
+      overlay.className = "storage-download-progress-overlay hidden";
+      overlay.setAttribute("aria-hidden", "true");
+      overlay.innerHTML =
+        '<section class="storage-download-progress-dialog" role="alertdialog" aria-modal="true" aria-labelledby="storageDownloadProgressTitle" aria-describedby="storageDownloadProgressStatus" tabindex="-1">' +
+          '<div class="storage-download-progress-kicker">STORAGE TRANSFER</div>' +
+          '<div class="storage-download-progress-heading">' +
+            '<h2 id="storageDownloadProgressTitle">저장 기록 다운로드</h2>' +
+            '<strong id="storageDownloadProgressPercent">0%</strong>' +
+          '</div>' +
+          '<div id="storageDownloadProgressFile" class="storage-download-progress-file">저장 기록</div>' +
+          '<div id="storageDownloadProgressBar" class="storage-download-progress-track" role="progressbar" aria-label="다운로드 진행률" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">' +
+            '<span id="storageDownloadProgressFill"></span>' +
+          '</div>' +
+          '<div class="storage-download-progress-meta">' +
+            '<span id="storageDownloadProgressStatus">다운로드 준비 중…</span>' +
+            '<span id="storageDownloadProgressBytes">0 B / 0 B</span>' +
+          '</div>' +
+          '<div class="storage-download-progress-estimate">' +
+            '<span>예상 남은 시간</span>' +
+            '<strong id="storageDownloadProgressEta" aria-live="polite">계산 중…</strong>' +
+          '</div>' +
+          '<p class="storage-download-progress-note">완료될 때까지 보드 전원과 연결을 유지하세요.</p>' +
+        '</section>';
+      overlay.addEventListener("click", (ev)=>{
+        ev.preventDefault();
+        ev.stopPropagation();
+      });
+      document.body.appendChild(overlay);
+      document.addEventListener("keydown", blockStorageDownloadInteraction, true);
+      document.addEventListener("keyup", blockStorageDownloadInteraction, true);
+      document.addEventListener("focusin", blockStorageDownloadInteraction, true);
+      return overlay;
+    }
+
+    function updateStorageDownloadProgress(loadedBytes, totalBytes, statusText, force){
+      if(!storageDownloadProgressState.active) return;
+      const overlay = ensureStorageDownloadProgressOverlay();
+      const total = Math.max(0, Math.floor(Number(totalBytes) || 0));
+      const loaded = Math.max(0, Math.min(total || Number.MAX_SAFE_INTEGER, Math.floor(Number(loadedBytes) || 0)));
+      const percent = total > 0
+        ? Math.max(0, Math.min(100, Math.floor((loaded * 100) / total)))
+        : 0;
+      const now = typeof performance !== "undefined" && typeof performance.now === "function"
+        ? performance.now()
+        : Date.now();
+      updateStorageDownloadSpeedEstimate(loaded, now);
+      const shouldRender =
+        !!force ||
+        percent !== storageDownloadProgressState.lastPercent ||
+        (now - storageDownloadProgressState.lastRenderAt) >= 180;
+      if(!shouldRender) return;
+      storageDownloadProgressState.lastPercent = percent;
+      storageDownloadProgressState.lastRenderAt = now;
+      const percentEl = overlay.querySelector("#storageDownloadProgressPercent");
+      const fill = overlay.querySelector("#storageDownloadProgressFill");
+      const bar = overlay.querySelector("#storageDownloadProgressBar");
+      const status = overlay.querySelector("#storageDownloadProgressStatus");
+      const bytes = overlay.querySelector("#storageDownloadProgressBytes");
+      const eta = overlay.querySelector("#storageDownloadProgressEta");
+      if(percentEl) percentEl.textContent = percent + "%";
+      if(fill) fill.style.width = percent + "%";
+      if(bar) bar.setAttribute("aria-valuenow", String(percent));
+      if(status && statusText) status.textContent = String(statusText);
+      if(bytes) bytes.textContent =
+        formatBytesCompact(loaded) + " / " + (total > 0 ? formatBytesCompact(total) : "--");
+      if(eta){
+        if(overlay.classList.contains("is-failed")){
+          eta.textContent = "중단됨";
+        }else if(total > 0 && loaded >= total){
+          eta.textContent = "전송 완료";
+        }else{
+          const remaining = Math.max(0, total - loaded);
+          const speed = storageDownloadProgressState.smoothedBytesPerSec;
+          const estimateReady =
+            total > 0 &&
+            loaded > 0 &&
+            speed > 0 &&
+            storageDownloadProgressState.speedSampleCount >= 2;
+          eta.textContent = estimateReady
+            ? formatStorageDownloadEta(remaining / speed)
+            : "계산 중…";
+        }
+      }
+    }
+
+    function showStorageDownloadProgress(item, statusText){
+      const overlay = ensureStorageDownloadProgressOverlay();
+      const label = getDataListItemDownloadLabel(item);
+      const total = Math.max(0, Math.floor(Number(item && item.bytes) || 0));
+      storageDownloadProgressState.active = true;
+      storageDownloadProgressState.startedAt = Date.now();
+      storageDownloadProgressState.lastPercent = -1;
+      storageDownloadProgressState.lastRenderAt = 0;
+      storageDownloadProgressState.lastLoadedBytes = 0;
+      storageDownloadProgressState.lastSampleAt = 0;
+      storageDownloadProgressState.smoothedBytesPerSec = 0;
+      storageDownloadProgressState.speedSampleCount = 0;
+      const file = overlay.querySelector("#storageDownloadProgressFile");
+      const dialog = overlay.querySelector(".storage-download-progress-dialog");
+      if(file) file.textContent = label.title;
+      overlay.classList.remove("is-complete", "is-failed", "hidden");
+      overlay.setAttribute("aria-hidden", "false");
+      document.documentElement.classList.add("storage-download-active");
+      updateStorageDownloadProgress(0, total, statusText || "다운로드 준비 중…", true);
+      requestAnimationFrame(()=>{
+        overlay.classList.add("is-open");
+        if(dialog){
+          try{ dialog.focus({preventScroll:true}); }catch(_e){ dialog.focus(); }
+        }
+      });
+    }
+
+    async function finishStorageDownloadProgress(success, totalBytes){
+      if(!storageDownloadProgressState.active) return;
+      const overlay = ensureStorageDownloadProgressOverlay();
+      const total = Math.max(0, Math.floor(Number(totalBytes) || 0));
+      overlay.classList.toggle("is-complete", !!success);
+      overlay.classList.toggle("is-failed", !success);
+      updateStorageDownloadProgress(
+        success ? total : Math.max(0, Math.floor(total * Math.max(0, storageDownloadProgressState.lastPercent) / 100)),
+        total,
+        success ? "다운로드 완료" : "다운로드 실패",
+        true
+      );
+      if(success && total === 0){
+        const percentEl = overlay.querySelector("#storageDownloadProgressPercent");
+        const fill = overlay.querySelector("#storageDownloadProgressFill");
+        const bar = overlay.querySelector("#storageDownloadProgressBar");
+        if(percentEl) percentEl.textContent = "100%";
+        if(fill) fill.style.width = "100%";
+        if(bar) bar.setAttribute("aria-valuenow", "100");
+      }
+      const minVisibleMs = success ? 420 : 760;
+      const elapsed = Date.now() - storageDownloadProgressState.startedAt;
+      if(elapsed < minVisibleMs) await delay(minVisibleMs - elapsed);
+      overlay.classList.remove("is-open");
+      await delay(180);
+      storageDownloadProgressState.active = false;
+      storageDownloadProgressState.startedAt = 0;
+      storageDownloadProgressState.lastLoadedBytes = 0;
+      storageDownloadProgressState.lastSampleAt = 0;
+      storageDownloadProgressState.smoothedBytesPerSec = 0;
+      storageDownloadProgressState.speedSampleCount = 0;
+      overlay.classList.add("hidden");
+      overlay.classList.remove("is-complete", "is-failed");
+      overlay.setAttribute("aria-hidden", "true");
+      document.documentElement.classList.remove("storage-download-active");
+    }
+
+    function ensureDataDownloadConfirmOverlay(){
+      let overlay = document.getElementById("dataDownloadConfirmOverlay");
+      if(overlay) return overlay;
+      overlay = document.createElement("div");
+      overlay.id = "dataDownloadConfirmOverlay";
+      overlay.className = "mobile-chart-picker-overlay hidden";
+      overlay.style.display = "none";
+      overlay.innerHTML =
+        '<div class="mobile-chart-picker-dialog agent-help-dialog data-download-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="dataDownloadConfirmTitle" aria-describedby="dataDownloadConfirmText">' +
+          '<div class="mobile-chart-picker-head">' +
+            '<div id="dataDownloadConfirmTitle" class="mobile-chart-picker-title">저장 기록 다운로드</div>' +
+            '<button id="dataDownloadConfirmClose" class="mobile-chart-picker-close" type="button" aria-label="닫기">×</button>' +
+          '</div>' +
+          '<div class="mobile-chart-picker-body">' +
+            '<p id="dataDownloadConfirmText" class="data-reset-warning">이 저장 기록을 다운로드할까요?</p>' +
+            '<p id="dataDownloadConfirmNote" class="data-reset-note"></p>' +
+            '<div class="data-reset-actions">' +
+              '<button id="dataDownloadConfirmOk" class="data-reset-hold" type="button">다운로드</button>' +
+              '<button id="dataDownloadConfirmCancel" class="data-reset-cancel" type="button">취소</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+      document.body.appendChild(overlay);
+      return overlay;
+    }
+
+    function confirmDataListDownload(item){
+      const overlay = ensureDataDownloadConfirmOverlay();
+      const desktopDialog = isDesktopLayout() && !isMobileLayout();
+      overlay.classList.toggle("is-desktop-download-dialog", desktopDialog);
+      overlay.classList.toggle("is-mobile-download-dialog", !desktopDialog);
+      const label = getDataListItemDownloadLabel(item);
+      const text = overlay.querySelector("#dataDownloadConfirmText");
+      const note = overlay.querySelector("#dataDownloadConfirmNote");
+      const okBtn = overlay.querySelector("#dataDownloadConfirmOk");
+      const cancelBtn = overlay.querySelector("#dataDownloadConfirmCancel");
+      const closeBtn = overlay.querySelector("#dataDownloadConfirmClose");
+      if(text) text.textContent = "\"" + label.title + "\" 저장 기록을 다운로드할까요?";
+      if(note) note.textContent = label.note;
+      overlay.classList.remove("hidden");
+      overlay.style.display = "flex";
+      requestAnimationFrame(()=>overlay.classList.add("is-open"));
+      return new Promise((resolve)=>{
+        let done = false;
+        const finish = (ok)=>{
+          if(done) return;
+          done = true;
+          overlay.classList.remove("is-open");
+          setTimeout(()=>{
+            if(overlay.classList.contains("is-open")) return;
+            overlay.classList.add("hidden");
+            overlay.style.display = "none";
+          }, 220);
+          if(okBtn) okBtn.onclick = null;
+          if(cancelBtn) cancelBtn.onclick = null;
+          if(closeBtn) closeBtn.onclick = null;
+          overlay.onclick = null;
+          resolve(!!ok);
+        };
+        if(okBtn) okBtn.onclick = ()=>finish(true);
+        if(cancelBtn) cancelBtn.onclick = ()=>finish(false);
+        if(closeBtn) closeBtn.onclick = ()=>finish(false);
+        overlay.onclick = (ev)=>{ if(ev.target === overlay) finish(false); };
+      });
+    }
+
+    function renderDataListItems(overlay){
+      if(!overlay) return;
+      const body = overlay.querySelector("#dataListBody");
+      if(!body) return;
+      const selectedView = getDataListView(overlay._originFilter);
+      const boardItems = (Array.isArray(overlay._boardItems) ? overlay._boardItems : [])
+        .filter((item)=>selectedView === "avionics" && String(item && item.origin || "").toLowerCase() === "avionics");
+      const appItems = (Array.isArray(overlay._appItems) ? overlay._appItems : [])
+        .filter(()=>selectedView === "app");
+      const visibleItems = boardItems.concat(appItems);
+      overlay._dataItems = visibleItems;
+      const detailsOpen = !!overlay._dataListDetailsOpen || !!overlay._downloadSelectMode;
+      const previewLimit = 5;
+
+      const escapeHtml = (text)=>String(text).replace(/[&<>"']/g, (ch)=>({
+        "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"
+      }[ch]));
+      const renderMoreButton = (hiddenCount, group)=>{
+        if(detailsOpen || hiddenCount <= 0) return "";
+        return '<button class="data-list-more" type="button" data-data-list-more="' + escapeHtml(group) + '">' +
+          '자세히 보기 · ' + hiddenCount.toLocaleString("ko-KR") + '개 더 보기' +
+        '</button>';
+      };
+      const boardEmptyText =
+        overlay._remoteBoardError
+            ? (Number(overlay._remoteListFailureCount || 0) >= 3
+                ? '저장 기록 목록 동기화가 지연되고 있습니다. A.I LINK 연결을 확인하는 동안 자동으로 다시 시도합니다.'
+                : '저장 기록 목록을 다시 동기화하는 중입니다…')
+            : overlay._boardError
+            ? '에비오닉스 보드 저장공간은 연결 후 확인할 수 있습니다.'
+            : '에비오닉스 저장공간에 저장된 기록이 없습니다.';
+      const boardHtml = boardItems.length
+        ? boardItems.slice().reverse().slice(0, detailsOpen ? boardItems.length : previewLimit).map((item)=>{
+                  const name = String(item.name || "DATA");
+                  const records = Math.max(0, Number(item.records || 0));
+                  const bytes = formatBytesCompact(item.bytes || 0);
+                  const currentText = Number(item.current || 0) ? " · 현재 기록 중" : "";
+                  return '<button class="agent-help-issue data-list-item" type="button" data-data-key="' + escapeHtml(item.dataKey) + '">' +
+                    '<span class="agent-help-dot" aria-hidden="true"></span><span>' +
+                    '<span class="agent-help-issue-title">' + escapeHtml(name) + '</span>' +
+                    '<span class="agent-help-issue-sub">AVIONICS BIN · 레코드 ' + records.toLocaleString("ko-KR") + '개 · ' + bytes + currentText + '</span>' +
+                    '</span><span class="agent-help-chevron" aria-hidden="true">›</span></button>';
+                }).join("") +
+                renderMoreButton(Math.max(0, boardItems.length - previewLimit), "board")
+        : '<p class="data-storage-empty">' + boardEmptyText + '</p>';
+      const appHtml = appItems.length
+        ? appItems.slice(0, detailsOpen ? appItems.length : previewLimit).map((item)=>{
+            const started = new Date(Number(item.startedAt || 0));
+            const title = isNaN(started.getTime())
+              ? String(item.id)
+              : started.toLocaleString("ko-KR");
+            const currentText = appDataSession && appDataSession.id === item.id
+              ? " · 현재 기록 중"
+              : "";
+            return '<button class="agent-help-issue data-list-item" type="button" data-data-key="' + escapeHtml(item.dataKey) + '">' +
+              '<span class="agent-help-dot" aria-hidden="true"></span><span>' +
+              '<span class="agent-help-issue-title">' + escapeHtml(title) + '</span>' +
+              '<span class="agent-help-issue-sub">APP BIN · 샘플 ' + Math.max(0, Number(item.sampleCount || 0)).toLocaleString("ko-KR") + '개 · ' + formatBytesCompact(item.bytes || 0) + currentText + '</span>' +
+              '</span><span class="agent-help-chevron" aria-hidden="true">›</span></button>';
+          }).join("") +
+          renderMoreButton(Math.max(0, appItems.length - previewLimit), "app")
+        : '<p class="data-storage-empty">APP BIN이 없습니다.</p>';
+      body.innerHTML = selectedView === "app" ? appHtml : boardHtml;
+
+      overlay.querySelectorAll("[data-data-origin-filter]").forEach((button)=>{
+        const active =
+          getDataListView(button.getAttribute("data-data-origin-filter")) === selectedView;
+        button.classList.toggle("is-active", active);
+        button.setAttribute("aria-selected", active ? "true" : "false");
+      });
+      syncDataStorageActionButtons();
+    }
+
+    function ensureDataListOverlay(){
+      let overlay = document.getElementById("dataListOverlay");
+      if(overlay) return overlay;
+      overlay = document.createElement("div");
+      overlay.id = "dataListOverlay";
+      overlay.className = "mobile-chart-picker-overlay hidden";
+      overlay.style.display = "none";
+      overlay.innerHTML =
+        '<div class="mobile-chart-picker-dialog agent-help-dialog data-storage-dialog" role="dialog" aria-modal="true" aria-label="저장공간">' +
+          '<div class="mobile-chart-picker-head">' +
+            '<div class="mobile-chart-picker-title">저장공간</div>' +
+            '<button id="dataListCloseBtn" class="mobile-chart-picker-close" type="button" aria-label="닫기">×</button>' +
+          '</div>' +
+          '<div class="mobile-chart-picker-body data-storage-dialog-body">' +
+            '<div class="data-storage-selector">' +
+              '<div class="settings-label">저장 위치</div>' +
+              '<div class="data-origin-filter" role="tablist" aria-label="저장공간 출처">' +
+                '<button type="button" role="tab" aria-selected="false" data-data-origin-filter="app">APP</button>' +
+                '<button class="is-active" type="button" role="tab" aria-selected="true" data-data-origin-filter="avionics">에비오닉스</button>' +
+              '</div>' +
+            '</div>' +
+            '<section class="data-storage-surface">' +
+              '<div class="data-storage-surface-head">' +
+                '<div><strong>저장공간 상태</strong><span>STORAGE STATUS</span></div>' +
+                '<span class="data-storage-live">OVERVIEW</span>' +
+              '</div>' +
+              '<div id="dataListSummary" class="agent-help-summary">저장공간 목록을 불러오는 중…</div>' +
+              '<div class="data-storage-list-head"><strong>저장 기록</strong><span>항목을 선택하면 다운로드합니다.</span></div>' +
+              '<div id="dataListBody" class="agent-help-list" aria-live="polite"></div>' +
+              '<div class="data-storage-actions">' +
+                '<button id="dataStorageDownloadBtn" class="data-storage-download" type="button">다운로드</button>' +
+                '<button id="dataStorageResetBtn" class="data-storage-reset" type="button">보드 초기화</button>' +
+              '</div>' +
+            '</section>' +
+          '</div>' +
+        '</div>';
+      document.body.appendChild(overlay);
+      overlay._originFilter = "avionics";
+      const close = ()=>{
+        stopDataListLiveStatus();
+        overlay._downloadSelectMode = false;
+        overlay.classList.remove("is-open");
+        setTimeout(()=>{
+          overlay.classList.add("hidden");
+          overlay.style.display = "none";
+        }, 220);
+      };
+      overlay.addEventListener("click", (ev)=>{ if(ev.target === overlay) close(); });
+      const closeBtn = overlay.querySelector("#dataListCloseBtn");
+      if(closeBtn) closeBtn.addEventListener("click", close);
+      overlay.querySelectorAll("[data-data-origin-filter]").forEach((button)=>{
+        button.addEventListener("click", ()=>{
+          overlay._originFilter =
+            button.getAttribute("data-data-origin-filter") === "avionics"
+              ? "avionics"
+              : "app";
+          overlay._downloadSelectMode = false;
+          overlay._dataListDetailsOpen = false;
+          const download = overlay.querySelector("#dataStorageDownloadBtn");
+          if(download) download.textContent = "다운로드";
+          renderDataListSummary(
+            overlay.querySelector("#dataListSummary"),
+            overlay._boardInfo || {},
+            Array.isArray(overlay._appSessions) ? overlay._appSessions : [],
+            overlay._originFilter
+          );
+          renderDataListItems(overlay);
+        });
+      });
+      const downloadBtn = overlay.querySelector("#dataStorageDownloadBtn");
+      if(downloadBtn){
+        downloadBtn.addEventListener("click", ()=>{
+          if(downloadBtn.disabled) return;
+          const items = Array.isArray(overlay._dataItems) ? overlay._dataItems : [];
+          if(!items.length){
+            showToast("다운로드할 저장 기록이 없습니다.", "notice", {key:"storage-download-empty"});
+            return;
+          }
+          stopDataListLiveStatus();
+          overlay._downloadSelectMode = true;
+          overlay._dataListDetailsOpen = true;
+          renderDataListItems(overlay);
+          downloadBtn.textContent = "저장 기록을 선택하세요";
+          const summary = overlay.querySelector("#dataListSummary");
+          if(summary) summary.textContent = "다운로드할 저장 기록을 선택하세요.";
+          overlay.querySelectorAll(".data-list-item").forEach(item=>item.classList.add("is-download-select"));
+        });
+      }
+      const body = overlay.querySelector("#dataListBody");
+      if(body){
+        body.addEventListener("click", async(ev)=>{
+          const moreBtn = ev.target && ev.target.closest ? ev.target.closest("[data-data-list-more]") : null;
+          if(moreBtn){
+            overlay._dataListDetailsOpen = true;
+            renderDataListItems(overlay);
+            return;
+          }
+          const row = ev.target && ev.target.closest ? ev.target.closest(".data-list-item") : null;
+          if(!row) return;
+          const key = String(row.getAttribute("data-data-key") || "");
+          const items = Array.isArray(overlay._dataItems) ? overlay._dataItems : [];
+          const selected = items.find(item=>String(item && item.dataKey || "") === key);
+          if(!selected) return;
+          const confirmed = await confirmDataListDownload(selected);
+          if(!confirmed) return;
+          overlay._downloadSelectMode = false;
+          overlay.querySelectorAll(".data-list-item").forEach(item=>item.classList.remove("is-download-select"));
+          if(downloadBtn){
+            downloadBtn.disabled = true;
+            downloadBtn.textContent = "다운로드 준비 중…";
+          }
+          const totalBytes = Math.max(0, Math.floor(Number(selected && selected.bytes) || 0));
+          let downloadSucceeded = false;
+          showStorageDownloadProgress(
+            selected,
+            selected.kind === "app" ? "APP 기록 구성 중…" : "보드 연결 확인 중…"
+          );
+          try{
+            if(selected.kind === "app"){
+              updateStorageDownloadProgress(0, totalBytes, "APP 기록 구성 중…", true);
+              await downloadAppDataSession(selected);
+              updateStorageDownloadProgress(totalBytes, totalBytes, "파일 저장 준비 완료", true);
+              downloadSucceeded = true;
+            }else{
+              downloadSucceeded = await downloadSpiFlashDump(selected);
+            }
+          }catch(err){
+            const reason = (err && err.message) ? err.message : String(err || "unknown");
+            const prefix = selected.kind === "app" ? "APP BIN" : "저장 기록";
+            showToast(prefix + " 다운로드 실패: " + reason, "error", {key:"data-download-unhandled-fail"});
+          }finally{
+            await finishStorageDownloadProgress(downloadSucceeded, totalBytes);
+            if(downloadBtn){
+              downloadBtn.disabled = false;
+              downloadBtn.textContent = "다운로드";
+            }
+            await showDataListOverlay();
+          }
+        });
+      }
+      const resetBtn = overlay.querySelector("#dataStorageResetBtn");
+      if(resetBtn){
+        resetBtn.addEventListener("click", ()=>{
+          if(resetBtn.disabled || !canUseDataStorageActions()) return;
+          showDataResetConfirmOverlay({origin:overlay._originFilter});
+        });
+      }
+      syncDataStorageActionButtons();
+      return overlay;
+    }
+
+    async function showDataListOverlay(opts){
+      const options = opts || {};
+      const overlay = ensureDataListOverlay();
+      const summary = overlay.querySelector("#dataListSummary");
+      const body = overlay.querySelector("#dataListBody");
+      const preferredOrigin = options.origin ? getDataListView(options.origin) : getPreferredDataListOrigin();
+      const appOnly = false;
+      overlay._originFilter = preferredOrigin;
+      overlay._originLocked = false;
+      overlay.classList.remove("is-avionics-only");
+      overlay.classList.remove("hidden");
+      overlay.style.display = "flex";
+      requestAnimationFrame(()=>overlay.classList.add("is-open"));
+      syncDataStorageActionButtons();
+      if(summary) summary.textContent = "저장공간 목록을 불러오는 중…";
+      if(summary) summary.classList.remove("is-message");
+      if(body) body.innerHTML = "";
+      await flushAppDataSamples();
+      const shouldLoadRemoteBoard = !appOnly && isFlashLinkGroundStorageUi();
+      const shouldLoadLocalBoard = !appOnly && !shouldLoadRemoteBoard;
+      const results = await Promise.all([
+        shouldLoadLocalBoard
+          ? fetchSpiFlashDataList()
+              .then((info)=>({info, error:null}))
+              .catch((error)=>({info:null, error}))
+          : Promise.resolve({info:null, error:null}),
+        listAppDataSessions(),
+        shouldLoadRemoteBoard
+          ? fetchSpiFlashRemoteDataList()
+              .then((info)=>({info, error:null}))
+              .catch((error)=>({info:null, error}))
+          : Promise.resolve({info:null, error:null})
+      ]);
+      const boardResult = results[0];
+      const appSessions = results[1];
+      const remoteBoardResult = results[2] || {info:null, error:null};
+      const info = boardResult.info || {};
+      const localBoardItems = shouldLoadLocalBoard ? (Array.isArray(info.items) ? info.items : []).map((item)=>Object.assign({}, item, {
+        kind:"board",
+        origin:"avionics",
+        dataKey:"board-avionics:" + String(item.offset || 0)
+      })) : [];
+      const remoteInfo = remoteBoardResult.info || {};
+      const remoteBoardItems = normalizeRemoteDataListItems(remoteInfo);
+      const appItems = appSessions.map((item)=>Object.assign({}, item, {
+        kind:"app",
+        dataKey:"app:" + String(item.id)
+      }));
+      overlay._boardInfo = info;
+      overlay._boardError = boardResult.error;
+      overlay._remoteBoardInfo = remoteInfo;
+      overlay._remoteBoardError = remoteBoardResult.error;
+      overlay._remoteListPending = false;
+      overlay._remoteListFailureCount = remoteBoardResult.error ? 1 : 0;
+      overlay._remoteListRetryAt = remoteBoardResult.error ? Date.now() + 800 : 0;
+      overlay._localBoardItems = localBoardItems;
+      overlay._boardItems = remoteBoardItems.concat(localBoardItems);
+      overlay._appItems = appItems;
+      overlay._appSessions = appSessions;
+      overlay._downloadSelectMode = false;
+      overlay._dataListDetailsOpen = false;
+      renderDataListSummary(summary, info, appSessions, overlay._originFilter);
+      if(shouldLoadRemoteBoard || boardResult.info || remoteBoardResult.info){
+        startDataListLiveStatus(overlay, summary);
+      }
+      renderDataListItems(overlay);
+    }
+
+    function canUseSerialForSpiFlash(){
+      return !!(serialConnected && serialTxEnabled);
+    }
+
+    const SPI_FLASH_SERIAL_CHUNK_BYTES = 8192;
+
+    function parseSpiFlashStatusAckMessage(message){
+      const raw = String(message || "").trim();
+      const prefix = "SPI_FLASH_STATUS";
+      if(raw.indexOf(prefix) !== 0) return null;
+
+      const fields = {};
+      const tail = raw.slice(prefix.length).trim();
+      const kvRegex = /([A-Za-z0-9_]+)=([^\s]+)/g;
+      let match;
+      while((match = kvRegex.exec(tail))){
+        const key = String(match[1] || "").toLowerCase();
+        const value = String(match[2] || "");
+        fields[key] = value;
+      }
+      const parseNumber = (key, fallback)=>{
+        const v = fields[key];
+        if(v == null || v === "") return fallback;
+        const n = Number(v);
+        return isFinite(n) ? n : fallback;
+      };
+
+      return {
+        ok: 1,
+        ready: parseNumber("ready", 0) ? 1 : 0,
+        busy: parseNumber("busy", 0) ? 1 : 0,
+        full: parseNumber("full", 0) ? 1 : 0,
+        jedec: {
+          mfr: parseNumber("mfr", 0),
+          type: parseNumber("type", 0),
+          cap_code: parseNumber("cap_code", 0)
+        },
+        capacity_bytes: parseNumber("capacity", 0),
+        chip_capacity_bytes: parseNumber("chip_capacity", 0),
+        model: String(fields.model || "W25Q256JVEIQ"),
+        storage_kind: String(fields.kind || "external_spi_nor"),
+        used_bytes: parseNumber("used", 0),
+        queue_bytes: parseNumber("queue", 0),
+        record_count: parseNumber("records", 0),
+        dropped_records: parseNumber("dropped", 0),
+        flush_count: parseNumber("flush", 0),
+        session_count: parseNumber("sessions", 0),
+        current_session_id: parseNumber("current_session", 0),
+        current_file: String(fields.current_file || ""),
+        record_hz: parseNumber("record_hz", 0),
+        current_record_version: parseNumber("record_ver", 3),
+        current_record_bytes: parseNumber("record_bytes", 68),
+        selected_spi_hz: parseNumber("spi_hz", 0)
+      };
+    }
+
+    function parseSpiFlashItemAckMessage(message){
+      const raw = String(message || "").trim();
+      const prefix = "SPI_FLASH_ITEM";
+      if(raw.indexOf(prefix) !== 0) return null;
+      const fields = {};
+      const kvRegex = /([A-Za-z0-9_]+)=([^\s]+)/g;
+      let match;
+      while((match = kvRegex.exec(raw.slice(prefix.length)))){
+        fields[String(match[1] || "").toLowerCase()] = String(match[2] || "");
+      }
+      const num = (key, fallback)=>{
+        const value = Number(fields[key]);
+        return isFinite(value) ? value : fallback;
+      };
+      const count = Math.max(0, Math.floor(num("count", 0)));
+      if(count === 0) return {count, idx:0, item:null};
+      const idx = Math.max(0, Math.floor(num("idx", 0)));
+      return {
+        count,
+        idx,
+        item:{
+          name:String(fields.name || ("DATA-" + String(idx + 1).padStart(4, "0"))),
+          offset:Math.max(0, Math.floor(num("off", 0))),
+          bytes:Math.max(0, Math.floor(num("bytes", 0))),
+          records:Math.max(0, Math.floor(num("records", 0))),
+          session_id:Math.max(0, Math.floor(num("session", 0))),
+          current:num("current", 0) ? 1 : 0,
+          started_at_ms:Math.max(0, Math.floor(num("started", 0)))
+        }
+      };
+    }
+
+    function parseSpiFlashRemoteItemAckMessage(message){
+      const raw = String(message || "").trim();
+      const prefix = "SPI_FLASH_REMOTE_ITEM";
+      if(raw.indexOf(prefix) !== 0) return null;
+      const fields = {};
+      const kvRegex = /([A-Za-z0-9_]+)=([^\s]+)/g;
+      let match;
+      while((match = kvRegex.exec(raw.slice(prefix.length)))){
+        fields[String(match[1] || "").toLowerCase()] = String(match[2] || "");
+      }
+      const num = (key, fallback)=>{
+        const value = Number(fields[key]);
+        return isFinite(value) ? value : fallback;
+      };
+      const count = Math.max(0, Math.floor(num("count", 0)));
+      const idx = Math.max(0, Math.floor(num("idx", 0)));
+      const status = {
+        ready:num("ready", 0) ? 1 : 0,
+        capacity_bytes:Math.max(0, Math.floor(num("capacity", 0))),
+        chip_capacity_bytes:Math.max(0, Math.floor(num("capacity", 0))),
+        used_bytes:Math.max(0, Math.floor(num("used", 0))),
+        record_count:Math.max(0, Math.floor(num("total_records", num("records", 0)))),
+        record_hz:Math.max(1, Math.floor(num("record_hz", 200)))
+      };
+      if(count === 0) return {count, idx:0, item:null, status};
+      return {
+        count,
+        idx,
+        status,
+        item:{
+          name:String(fields.name || ("FLASH6_REMOTE_" + String(idx + 1).padStart(4, "0"))),
+          offset:Math.max(0, Math.floor(num("off", 0))),
+          bytes:Math.max(0, Math.floor(num("bytes", 0))),
+          records:Math.max(0, Math.floor(num("records", 0))),
+          session_id:Math.max(0, Math.floor(num("session", 0))),
+          current:num("current", 0) ? 1 : 0,
+          started_at_ms:Math.max(0, Math.floor(num("started", 0))),
+          remote:true
+        }
+      };
+    }
+
+    async function fetchSpiFlashItemViaSerial(idx){
+      const wantedIdx = Math.max(0, Math.floor(Number(idx) || 0));
+      const waiter = createSerialAckWaiter((evt)=>{
+        if(evt.kind === "err") return true;
+        if(evt.kind !== "ack") return false;
+        const parsed = parseSpiFlashItemAckMessage(evt.message);
+        return !!parsed && (parsed.count === 0 || parsed.idx === wantedIdx);
+      }, 2000);
+      const wrote = await serialWriteLine("/storage/spi_flash/list?idx=" + wantedIdx);
+      if(!wrote){
+        cancelSerialAckWaiter(waiter, "SERIAL_WRITE_FAIL");
+        throw new Error("SERIAL_WRITE_FAIL");
+      }
+      const reply = await waiter.promise;
+      if(!reply.ok) throw new Error(reply.message || "SERIAL_LIST_FAIL");
+      const parsed = parseSpiFlashItemAckMessage(reply.message);
+      if(!parsed) throw new Error("SERIAL_LIST_PARSE_FAIL");
+      return parsed;
+    }
+
+    async function fetchSpiFlashDataListViaSerial(){
+      const info = await fetchSpiFlashStatusViaSerial();
+      const first = await fetchSpiFlashItemViaSerial(0);
+      const items = [];
+      const totalCount = Math.max(0, first.count);
+      const firstIdx = Math.max(0, totalCount - 32);
+      if(first.item && firstIdx === 0) items.push(first.item);
+      for(let idx = Math.max(1, firstIdx); idx < totalCount; idx++){
+        const next = await fetchSpiFlashItemViaSerial(idx);
+        if(next.item) items.push(next.item);
+      }
+      return Object.assign({}, info, {items, session_count:totalCount, listed_from:firstIdx});
+    }
+
+    async function fetchSpiFlashRemoteItemViaSerial(idx){
+      const wantedIdx = Math.max(0, Math.floor(Number(idx) || 0));
+      const waiter = createSerialAckWaiter((evt)=>{
+        if(evt.kind === "err") return true;
+        if(evt.kind !== "ack") return false;
+        const parsed = parseSpiFlashRemoteItemAckMessage(evt.message);
+        return !!parsed && (parsed.count === 0 || parsed.idx === wantedIdx);
+      }, 4200);
+      const wrote = await serialWriteLine("/storage/spi_flash/remote/list?idx=" + wantedIdx);
+      if(!wrote){
+        cancelSerialAckWaiter(waiter, "SERIAL_WRITE_FAIL");
+        throw new Error("SERIAL_WRITE_FAIL");
+      }
+      const reply = await waiter.promise;
+      if(!reply.ok) throw new Error(reply.message || "SERIAL_REMOTE_LIST_FAIL");
+      const parsed = parseSpiFlashRemoteItemAckMessage(reply.message);
+      if(!parsed) throw new Error("SERIAL_REMOTE_LIST_PARSE_FAIL");
+      return parsed;
+    }
+
+    async function fetchSpiFlashRemoteDataListViaSerial(){
+      const first = await fetchSpiFlashRemoteItemViaSerial(0);
+      const items = [];
+      const totalCount = Math.max(0, first.count);
+      const firstIdx = Math.max(0, totalCount - 32);
+      if(first.item && firstIdx === 0) items.push(first.item);
+      for(let idx = Math.max(1, firstIdx); idx < totalCount; idx++){
+        const next = await fetchSpiFlashRemoteItemViaSerial(idx);
+        if(next.item) items.push(next.item);
+      }
+      const rawInfo = Object.assign({}, first.status || {}, {
+        ok:1,
+        remote:1,
+        list_available:1,
+        list_complete:1,
+        session_count:totalCount,
+        listed_from:firstIdx
+      });
+      const info = updateRemoteSpiFlashInfo(rawInfo) || rawInfo;
+      return Object.assign({}, info, {items});
+    }
+
+    function parseSpiFlashBulkChunkAckMessage(message, prefix){
+      const raw = String(message || "").trim();
+      if(raw.indexOf(prefix) !== 0) return null;
+      const tail = raw.slice(prefix.length).trim();
+      const b64Marker = " b64=";
+      const b64At = tail.indexOf(b64Marker);
+      if(b64At < 0) return null;
+      const meta = tail.slice(0, b64At);
+      const b64 = tail.slice(b64At + b64Marker.length).trim();
+      const offMatch = meta.match(/(?:^|\s)off=(\d+)/);
+      const lenMatch = meta.match(/(?:^|\s)len=(\d+)/);
+      const off = offMatch ? Number(offMatch[1]) : NaN;
+      const len = lenMatch ? Number(lenMatch[1]) : NaN;
+      if(!isFinite(off) || off < 0 || !isFinite(len) || len <= 0 || !b64) return null;
+      return {off:Math.floor(off), len:Math.floor(len), b64};
+    }
+
+    function parseSpiFlashChunkAckMessage(message){
+      return parseSpiFlashBulkChunkAckMessage(message, "SPI_FLASH_CHUNK");
+    }
+
+    function parseSpiFlashRemoteChunkAckMessage(message){
+      return parseSpiFlashBulkChunkAckMessage(message, "SPI_FLASH_REMOTE_CHUNK");
+    }
+
+    function decodeBase64ToBytes(b64){
+      const text = String(b64 || "").trim();
+      if(!text) return new Uint8Array(0);
+      const bin = atob(text);
+      const out = new Uint8Array(bin.length);
+      for(let i=0;i<bin.length;i++){
+        out[i] = bin.charCodeAt(i) & 0xFF;
+      }
+      return out;
+    }
+
+    function buildSpiFlashBinHeader(info){
+      const headerSize = 40;
+      const dataBytes = Math.max(0, Number(info && info.used_bytes || 0)) >>> 0;
+      const recordCount = Math.max(0, Number(info && info.record_count || 0)) >>> 0;
+      let samplePeriodMs = Math.max(
+        1,
+        Number(info && info.sample_period_ms || 0) || 10
+      );
+      if(!(info && info.sample_period_ms) && Array.isArray(sampleHistory) && sampleHistory.length){
+        const tail = sampleHistory[sampleHistory.length - 1];
+        const lt = Number(tail && tail.lt);
+        if(isFinite(lt) && lt > 0) samplePeriodMs = Math.max(1, Math.round(lt));
+      }
+
+      const header = new Uint8Array(headerSize);
+      const dv = new DataView(header.buffer);
+      const magic = "HWLOGV2";
+      for(let i=0;i<magic.length;i++) header[i] = magic.charCodeAt(i);
+      header[7] = 0;
+      dv.setUint16(8, 2, true); // mixed fixed-record stream: v1 legacy + v2/v3 compact
+      dv.setUint16(10, headerSize, true);
+      dv.setUint32(12, dataBytes, true);
+      dv.setUint32(16, recordCount, true);
+      dv.setUint32(20, (Date.now() >>> 0), true); // exportedAtMs
+      dv.setUint32(24, (samplePeriodMs >>> 0), true);
+      dv.setUint32(28, (REPLAY_BIN_RECORD_MARKER >>> 0), true);
+      dv.setUint32(32, Math.max(0, Number(info && info.data_origin_code || 0)) >>> 0, true);
+      dv.setUint32(36, Math.max(0, Number(info && info.app_source_tag || 0)) >>> 0, true);
+      return header;
+    }
+
+    async function fetchSpiFlashStatusViaSerial(){
+      if(!canUseSerialForSpiFlash()){
+        throw new Error("SERIAL_NOT_READY");
+      }
+      const waiter = createSerialAckWaiter((evt)=>{
+        if(evt.kind === "err") return true;
+        return evt.kind === "ack" && String(evt.message || "").indexOf("SPI_FLASH_STATUS") === 0;
+      }, 1600);
+      const wrote = await serialWriteLine("/storage/spi_flash/status");
+      if(!wrote){
+        cancelSerialAckWaiter(waiter, "SERIAL_WRITE_FAIL");
+        throw new Error("SERIAL_WRITE_FAIL");
+      }
+      const reply = await waiter.promise;
+      if(!reply.ok){
+        throw new Error(reply.message || reply.kind || "SERIAL_FAIL");
+      }
+      const info = parseSpiFlashStatusAckMessage(reply.message);
+      if(!info){
+        throw new Error("SERIAL_PARSE_FAIL");
+      }
+      updateSpiFlashStatusUi(info, null);
+      return info;
+    }
+
+    async function fetchSpiFlashChunkViaSerial(off, len){
+      if(!canUseSerialForSpiFlash()){
+        throw new Error("SERIAL_NOT_READY");
+      }
+      const offInt = Math.max(0, Math.floor(Number(off) || 0));
+      const lenInt = Math.max(1, Math.min(SPI_FLASH_SERIAL_CHUNK_BYTES, Math.floor(Number(len) || 0)));
+      const cmd = "/storage/spi_flash/read?off=" + offInt + "&len=" + lenInt;
+      const waiter = createSerialAckWaiter((evt)=>{
+        if(evt.kind === "err") return true;
+        return evt.kind === "ack" && String(evt.message || "").indexOf("SPI_FLASH_CHUNK") === 0;
+      }, 2400);
+      const wrote = await serialWriteLine(cmd, {log:false, timeoutMs:2400});
+      if(!wrote){
+        cancelSerialAckWaiter(waiter, "SERIAL_WRITE_FAIL");
+        throw new Error("SERIAL_WRITE_FAIL");
+      }
+      const reply = await waiter.promise;
+      if(!reply.ok){
+        throw new Error(reply.message || reply.kind || "SERIAL_FAIL");
+      }
+      const chunk = parseSpiFlashChunkAckMessage(reply.message);
+      if(!chunk){
+        throw new Error("SERIAL_CHUNK_PARSE_FAIL");
+      }
+      if(chunk.off !== offInt || chunk.len <= 0 || chunk.len > lenInt){
+        throw new Error("SERIAL_CHUNK_MISMATCH");
+      }
+      const bytes = decodeBase64ToBytes(chunk.b64);
+      if(bytes.length !== chunk.len){
+        throw new Error("SERIAL_CHUNK_SIZE_FAIL");
+      }
+      return bytes;
+    }
+
+    async function fetchSpiFlashRemoteChunkViaSerial(off, len){
+      if(!canUseSerialForSpiFlash()){
+        throw new Error("SERIAL_NOT_READY");
+      }
+      const offInt = Math.max(0, Math.floor(Number(off) || 0));
+      const lenInt = Math.max(1, Math.min(SPI_FLASH_REMOTE_CHUNK_BYTES, Math.floor(Number(len) || 0)));
+      const cmd = "/storage/spi_flash/remote/read?off=" + offInt + "&len=" + lenInt;
+      const waiter = createSerialAckWaiter((evt)=>{
+        if(evt.kind === "err") return true;
+        return evt.kind === "ack" &&
+          String(evt.message || "").indexOf("SPI_FLASH_REMOTE_CHUNK") === 0;
+      }, 12000);
+      const wrote = await serialWriteLine(cmd, {log:false, timeoutMs:2400});
+      if(!wrote){
+        cancelSerialAckWaiter(waiter, "SERIAL_WRITE_FAIL");
+        throw new Error("SERIAL_WRITE_FAIL");
+      }
+      const reply = await waiter.promise;
+      if(!reply.ok) throw new Error(reply.message || reply.kind || "SERIAL_REMOTE_CHUNK_FAIL");
+      const chunk = parseSpiFlashRemoteChunkAckMessage(reply.message);
+      if(!chunk) throw new Error("SERIAL_REMOTE_CHUNK_PARSE_FAIL");
+      if(chunk.off !== offInt || chunk.len <= 0 || chunk.len > lenInt){
+        throw new Error("SERIAL_REMOTE_CHUNK_MISMATCH");
+      }
+      const bytes = decodeBase64ToBytes(chunk.b64);
+      if(bytes.length !== chunk.len) throw new Error("SERIAL_REMOTE_CHUNK_SIZE_FAIL");
+      return bytes;
+    }
+
+    async function downloadSpiFlashDumpViaSerial(selectedItem){
+      const info = await fetchSpiFlashStatusViaSerial();
+      const dataBytes = Math.max(0, Number(selectedItem && selectedItem.bytes || 0));
+      const baseOffset = Math.max(0, Number(selectedItem && selectedItem.offset || 0));
+      const recordCount = Math.max(0, Number(selectedItem && selectedItem.records || 0));
+      if(!dataBytes) throw new Error("EMPTY_DATA");
+      const header = buildSpiFlashBinHeader(Object.assign({}, info, {used_bytes:dataBytes, record_count:recordCount}));
+      const fileBytes = new Uint8Array(header.byteLength + dataBytes);
+      fileBytes.set(header, 0);
+      let off = 0;
+      const dataDownloadBtn = document.getElementById("dataStorageDownloadBtn");
+      updateStorageDownloadProgress(0, dataBytes, "USB 시리얼 전송 중…", true);
+      while(off < dataBytes){
+        const len = Math.min(SPI_FLASH_SERIAL_CHUNK_BYTES, dataBytes - off);
+        const bytes = await fetchSpiFlashChunkViaSerial(baseOffset + off, len);
+        if(!bytes.byteLength) throw new Error("SERIAL_EMPTY_CHUNK");
+        fileBytes.set(bytes, header.byteLength + off);
+        off += bytes.byteLength;
+        const pct = dataBytes > 0 ? Math.floor((off * 100) / dataBytes) : 100;
+        if(dataDownloadBtn) dataDownloadBtn.textContent = "다운로드 " + pct + "%";
+        if(el.spiFlashStatusLine){
+          el.spiFlashStatusLine.textContent = "SPI Flash BIN 시리얼 다운로드 중... " + pct + "%";
+        }
+        updateStorageDownloadProgress(off, dataBytes, "USB 시리얼 전송 중…");
+      }
+
+      updateStorageDownloadProgress(dataBytes, dataBytes, "파일 생성 중…", true);
+      const ts = new Date().toISOString().replace(/[:.]/g, "-");
+      const blob = new Blob([fileBytes], {type:"application/octet-stream"});
+      const safeName = String(selectedItem && selectedItem.name || "DATA").replace(/[^A-Za-z0-9_-]+/g, "_");
+      downloadBlobAsFile(blob, safeName + "_" + ts + ".bin");
+      showToast("SPI Flash BIN(Serial) 다운로드 완료", "success", {key:"spi-flash-dump-serial"});
+    }
+
+    async function fetchSpiFlashRemoteChunk(off, len){
+      if(canUseSerialForSpiFlash()){
+        try{
+          return await fetchSpiFlashRemoteChunkViaSerial(off, len);
+        }catch(serialErr){
+          if(serialEnabled) throw serialErr;
+        }
+      }else if(serialEnabled){
+        if(!serialConnected) throw new Error("SERIAL_DISCONNECTED");
+        if(!serialTxEnabled) throw new Error("SERIAL_TX_DISABLED");
+        throw new Error("SERIAL_NOT_READY");
+      }
+      const API_BASE = getApiBaseForCommands();
+      const offInt = Math.max(0, Math.floor(Number(off) || 0));
+      const lenInt = Math.max(1, Math.min(SPI_FLASH_REMOTE_CHUNK_BYTES, Math.floor(Number(len) || 0)));
+      const url = (API_BASE ? API_BASE : "") + "/storage/spi_flash/remote/read?off=" + offInt + "&len=" + lenInt;
+      let lastErr = null;
+      for(let attempt = 0; attempt < 3; attempt++){
+        const ctrl = createAbortControllerSafe();
+        const timer = ctrl ? setTimeout(()=>{ try{ ctrl.abort(); }catch(_e){} }, 4200) : null;
+        const opt = API_BASE
+          ? Object.assign({cache:"no-store", mode:"cors"}, ctrl ? {signal:ctrl.signal} : {})
+          : Object.assign({cache:"no-store"}, ctrl ? {signal:ctrl.signal} : {});
+        try{
+          const res = await fetch(url, opt);
+          if(!res.ok){
+            const text = await res.text();
+            throw new Error(text || ("HTTP " + res.status));
+          }
+          const json = await res.json();
+          const gotOff = Math.max(0, Number(json && json.off || 0));
+          const gotLen = Math.max(0, Number(json && json.len || 0));
+          if(gotOff !== offInt || gotLen <= 0 || gotLen > lenInt || !json.b64){
+            throw new Error("REMOTE_CHUNK_MISMATCH");
+          }
+          const bytes = decodeBase64ToBytes(json.b64);
+          if(bytes.length !== gotLen){
+            throw new Error("REMOTE_CHUNK_SIZE_FAIL");
+          }
+          return bytes;
+        }catch(err){
+          lastErr = err;
+          await delay(60 + attempt * 120);
+        }finally{
+          if(timer) clearTimeout(timer);
+        }
+      }
+      throw (lastErr || new Error("REMOTE_CHUNK_FAIL"));
+    }
+
+    async function downloadSpiFlashDumpViaFlashLink(selectedItem){
+      const dataBytes = Math.max(0, Number(selectedItem && selectedItem.bytes || 0));
+      const baseOffset = Math.max(0, Number(selectedItem && selectedItem.offset || 0));
+      const recordCount = Math.max(0, Number(selectedItem && selectedItem.records || 0));
+      if(!dataBytes) throw new Error("EMPTY_DATA");
+      const recordHz = Math.max(1, Number((latestAvionicsStorageInfo && latestAvionicsStorageInfo.record_hz) || 200));
+      const header = buildSpiFlashBinHeader(Object.assign(
+        {},
+        latestAvionicsStorageInfo || {},
+        {
+          used_bytes:dataBytes,
+          record_count:recordCount,
+          sample_period_ms:Math.max(1, Math.round(1000 / recordHz)),
+          data_origin_code:1
+        }
+      ));
+      const fileBytes = new Uint8Array(header.byteLength + dataBytes);
+      fileBytes.set(header, 0);
+      const dataDownloadBtn = document.getElementById("dataStorageDownloadBtn");
+      let off = 0;
+      updateStorageDownloadProgress(0, dataBytes, "A.I LINK 데이터 수신 중…", true);
+      while(off < dataBytes){
+        const len = Math.min(SPI_FLASH_REMOTE_CHUNK_BYTES, dataBytes - off);
+        const bytes = await fetchSpiFlashRemoteChunk(baseOffset + off, len);
+        if(!bytes.byteLength) throw new Error("REMOTE_EMPTY_CHUNK");
+        fileBytes.set(bytes, header.byteLength + off);
+        off += bytes.byteLength;
+        const pct = dataBytes > 0 ? Math.floor((off * 100) / dataBytes) : 100;
+        if(dataDownloadBtn) dataDownloadBtn.textContent = "무선 다운로드 " + pct + "%";
+        if(el.spiFlashStatusLine){
+          el.spiFlashStatusLine.textContent = "에비오닉스 BIN 무선 다운로드 중... " + pct + "%";
+        }
+        updateStorageDownloadProgress(off, dataBytes, "A.I LINK 데이터 수신 중…");
+        if((off % (SPI_FLASH_REMOTE_CHUNK_BYTES * 12)) === 0) await delay(0);
+      }
+
+      updateStorageDownloadProgress(dataBytes, dataBytes, "파일 생성 중…", true);
+      const ts = new Date().toISOString().replace(/[:.]/g, "-");
+      const blob = new Blob([fileBytes], {type:"application/octet-stream"});
+      const safeName = String(selectedItem && selectedItem.name || "FLASH6_AVIONICS").replace(/[^A-Za-z0-9_-]+/g, "_");
+      downloadBlobAsFile(blob, safeName + "_" + ts + ".bin");
+      showToast("에비오닉스 BIN 무선 다운로드 완료", "success", {key:"spi-flash-dump-remote"});
+    }
+
+    async function fetchSpiFlashStatus(opts){
+      const force = !!(opts && opts.force);
+      const recentSerialStream =
+        serialEnabled &&
+        serialConnected &&
+        lastSerialSampleAt > 0 &&
+        (Date.now() - lastSerialSampleAt) < 1800;
+      if(!force && recentSerialStream){
+        const cachedInfo = latestSpiFlashStorageInfo;
+        if(cachedInfo && isFinite(getSpiFlashUsedPercent(cachedInfo))){
+          syncStoragePreview();
+          return cachedInfo;
+        }
+        return null;
+      }
+      let serialReason = "";
+      if(canUseSerialForSpiFlash()){
+        try{
+          return await fetchSpiFlashStatusViaSerial();
+        }catch(err){
+          serialReason = (err && err.message) ? err.message : String(err || "SERIAL_ERROR");
+        }
+      }
+      const API_BASE = getApiBaseForCommands();
+      const url = (API_BASE ? API_BASE : "") + "/storage/spi_flash/status";
+      const ctrl = createAbortControllerSafe();
+      const timer = ctrl ? setTimeout(()=>{ try{ ctrl.abort(); }catch(_e){} }, 3500) : null;
+      const opt = API_BASE
+        ? Object.assign({cache:"no-store", mode:"cors"}, ctrl ? {signal:ctrl.signal} : {})
+        : Object.assign({cache:"no-store"}, ctrl ? {signal:ctrl.signal} : {});
+      try{
+        const res = await fetch(url, opt);
+        if(!res.ok){
+          throw new Error("HTTP " + res.status);
+        }
+        const info = await res.json();
+        updateSpiFlashStatusUi(info, null);
+        return info;
+      }catch(err){
+        const httpReason = (err && err.name === "AbortError")
+          ? "TIMEOUT(3.5s)"
+          : ((err && err.message) ? err.message : String(err || "unknown"));
+        const reason = serialReason ? ("SERIAL " + serialReason + " / HTTP " + httpReason) : httpReason;
+        updateSpiFlashStatusUi(null, reason);
+        return null;
+      }finally{
+        if(timer) clearTimeout(timer);
+      }
+    }
+
+    function ensureSpiFlashStateKnown(){
+      if(spiFlashReadyState != null) return;
+      const now = Date.now();
+      if(spiFlashProbePending) return;
+      if((now - spiFlashProbeLastMs) < 5000) return;
+      spiFlashProbePending = true;
+      spiFlashProbeLastMs = now;
+      fetchSpiFlashStatus({background:true}).catch(()=>{}).finally(()=>{ spiFlashProbePending = false; });
+    }
+
+    async function resetSpiFlashStorage(opts){
+      const target = getSpiFlashResetTarget(opts);
+      let serialReason = "";
+      if(canUseSerialForSpiFlash()){
+        let streamPaused = false;
+        try{
+          if(el.spiFlashStatusLine){
+            el.spiFlashStatusLine.textContent =
+              target.statusLabel + (target.remote ? " 초기화 명령 전송 중...(Serial)" : " 초기화 중...(Serial)");
+          }
+          if(!target.remote){
+            await setSerialStreamState(false);
+            streamPaused = true;
+            await delay(80);
+          }
+          const waiter = createSerialAckWaiter((evt)=>{
+            if(evt.kind === "err") return true;
+            if(evt.kind !== "ack") return false;
+            const message = String(evt.message || "");
+            if(message.indexOf("SPI_FLASH_INIT_OK") === 0) return true;
+            return target.remote && message.indexOf("FLASH_LINK_COMMAND_QUEUED") === 0;
+          }, target.remote ? 5000 : 180000);
+          const wrote = await serialWriteLine("/storage/spi_flash/init");
+          if(!wrote){
+            cancelSerialAckWaiter(waiter, "SERIAL_WRITE_FAIL");
+            throw new Error("SERIAL_WRITE_FAIL");
+          }
+          const reply = await waiter.promise;
+          if(!reply.ok){
+            throw new Error(reply.message || reply.kind || "SERIAL_FAIL");
+          }
+          if(target.remote){
+            if(el.spiFlashStatusLine){
+              el.spiFlashStatusLine.textContent =
+                "에비오닉스 저장공간 초기화 명령 전송 완료 · A.I LINK 상태 동기화 대기";
+            }
+            setTimeout(()=>{ syncStoragePreview(null, true); }, 1200);
+            showToast("에비오닉스 저장공간 초기화 명령을 보냈습니다.", "success", {key:"spi-flash-init"});
+            return true;
+          }
+          await fetchSpiFlashStatus({force:true});
+          showToast(target.statusLabel + "를 초기화했습니다.", "success", {key:"spi-flash-init"});
+          return true;
+        }catch(err){
+          serialReason = (err && err.message) ? err.message : String(err || "SERIAL_ERROR");
+          if(serialEnabled){
+            showToast(target.label + " 초기화 실패: " + serialReason, "error", {key:"spi-flash-init-fail"});
+            return false;
+          }
+        }finally{
+          if(streamPaused) await setSerialStreamState(true);
+        }
+      }
+      const API_BASE = getApiBaseForCommands();
+      const url = (API_BASE ? API_BASE : "") + "/storage/spi_flash/init";
+      const ctrl = createAbortControllerSafe();
+      const timer = ctrl ? setTimeout(()=>{ try{ ctrl.abort(); }catch(_e){} }, 180000) : null;
+      const opt = API_BASE
+        ? Object.assign({method:"POST", mode:"cors"}, ctrl ? {signal:ctrl.signal} : {})
+        : Object.assign({method:"POST"}, ctrl ? {signal:ctrl.signal} : {});
+      try{
+        if(el.spiFlashStatusLine){
+          el.spiFlashStatusLine.textContent =
+            target.statusLabel + (target.remote ? " 초기화 명령 전송 중..." : " 초기화 중...");
+        }
+        const res = await fetch(url, opt);
+        if(!res.ok){
+          const text = await res.text();
+          throw new Error(text || ("HTTP " + res.status));
+        }
+        if(target.remote){
+          if(el.spiFlashStatusLine){
+            el.spiFlashStatusLine.textContent =
+              "에비오닉스 저장공간 초기화 명령 전송 완료 · A.I LINK 상태 동기화 대기";
+          }
+          setTimeout(()=>{ syncStoragePreview(null, true); }, 1200);
+          showToast("에비오닉스 저장공간 초기화 명령을 보냈습니다.", "success", {key:"spi-flash-init"});
+          return true;
+        }
+        await fetchSpiFlashStatus({force:true});
+        showToast(target.statusLabel + "를 초기화했습니다.", "success", {key:"spi-flash-init"});
+        return true;
+      }catch(err){
+        const httpReason = (err && err.name === "AbortError")
+          ? "TIMEOUT(5s)"
+          : ((err && err.message) ? err.message : String(err || "unknown"));
+        const reason = serialReason ? ("SERIAL " + serialReason + " / HTTP " + httpReason) : httpReason;
+        showToast(target.label + " 초기화 실패: " + reason, "error", {key:"spi-flash-init-fail"});
+        updateSpiFlashStatusUi(null, reason);
+        return false;
+      }finally{
+        if(timer) clearTimeout(timer);
+      }
+    }
+
+    async function readStorageDownloadResponseBlob(response, expectedBytes){
+      const expected = Math.max(
+        0,
+        Math.floor(
+          Number(response && response.headers && response.headers.get("Content-Length")) ||
+          Number(expectedBytes) ||
+          0
+        )
+      );
+      if(!response.body || typeof response.body.getReader !== "function"){
+        updateStorageDownloadProgress(0, expected, "파일 데이터 수신 중…", true);
+        const blob = await response.blob();
+        updateStorageDownloadProgress(blob.size, expected || blob.size, "파일 생성 중…", true);
+        return blob;
+      }
+      const reader = response.body.getReader();
+      const chunks = [];
+      let received = 0;
+      updateStorageDownloadProgress(0, expected, "파일 데이터 수신 중…", true);
+      while(true){
+        const result = await reader.read();
+        if(result.done) break;
+        if(result.value && result.value.byteLength){
+          chunks.push(result.value);
+          received += result.value.byteLength;
+          updateStorageDownloadProgress(received, expected || received, "파일 데이터 수신 중…");
+        }
+      }
+      const total = expected || received;
+      updateStorageDownloadProgress(total, total, "파일 생성 중…", true);
+      return new Blob(chunks, {
+        type:String(response.headers.get("Content-Type") || "application/octet-stream")
+      });
+    }
+
+    async function downloadSpiFlashDump(selectedItem){
+      if(!selectedItem || !(Number(selectedItem.bytes) > 0)){
+        showToast("다운로드할 저장 기록을 선택하세요.", "notice", {key:"storage-download-select"});
+        return false;
+      }
+      const remoteTarget =
+        !!(selectedItem && selectedItem.remote) ||
+        (
+          isFlashLinkGroundStorageUi() &&
+          String(selectedItem && selectedItem.origin || "").toLowerCase() === "avionics"
+        );
+      if(remoteTarget){
+        let streamPaused = false;
+        try{
+          if(el.spiFlashStatusLine) el.spiFlashStatusLine.textContent = "에비오닉스 BIN 무선 다운로드 준비 중...";
+          if(el.spiFlashDumpBtn) el.spiFlashDumpBtn.disabled = true;
+          if(canUseSerialForSpiFlash()){
+            streamPaused = await setSerialStreamState(false, {
+              timeoutMs:1600,
+              writeTimeoutMs:1200
+            });
+            if(streamPaused) await delay(25);
+          }
+          await downloadSpiFlashDumpViaFlashLink(selectedItem);
+          return true;
+        }catch(err){
+          const reason = (err && err.name === "AbortError")
+            ? "TIMEOUT - A.I LINK 연결 상태를 확인하세요"
+            : ((err && err.message) ? err.message : String(err || "unknown"));
+          showToast("에비오닉스 BIN 무선 다운로드 실패: " + reason, "error", {key:"spi-flash-dump-remote-fail"});
+          if(el.spiFlashStatusLine){
+            el.spiFlashStatusLine.textContent = "에비오닉스 BIN 무선 다운로드 실패: " + reason;
+          }
+          return false;
+        }finally{
+          if(streamPaused){
+            await setSerialStreamState(true, {
+              timeoutMs:1600,
+              writeTimeoutMs:1200
+            });
+          }
+          if(el.spiFlashDumpBtn) el.spiFlashDumpBtn.disabled = false;
+        }
+      }
+      if(canUseSerialForSpiFlash()){
+        try{
+          if(el.spiFlashStatusLine) el.spiFlashStatusLine.textContent = "SPI Flash BIN 시리얼 다운로드 준비 중...";
+          if(el.spiFlashDumpBtn) el.spiFlashDumpBtn.disabled = true;
+          await setSerialStreamState(false);
+          await delay(80);
+          await downloadSpiFlashDumpViaSerial(selectedItem);
+          return true;
+        }catch(err){
+          const reason = (err && err.message) ? err.message : String(err || "unknown");
+          showToast("SPI Flash BIN(Serial) 다운로드 실패: " + reason, "error", {key:"spi-flash-dump-serial-fail"});
+          if(el.spiFlashStatusLine){
+            el.spiFlashStatusLine.textContent = "SPI Flash BIN(Serial) 다운로드 실패: " + reason;
+          }
+          return false;
+        }finally{
+          await setSerialStreamState(true);
+          if(el.spiFlashDumpBtn) el.spiFlashDumpBtn.disabled = false;
+        }
+      }
+
+      const API_BASE = getApiBaseForCommands();
+      const selectedOffset = Math.max(0, Math.floor(Number(selectedItem.offset) || 0));
+      const selectedBytes = Math.max(0, Math.floor(Number(selectedItem.bytes) || 0));
+      const url = (API_BASE ? API_BASE : "") + "/storage/spi_flash/export.bin?off=" + selectedOffset + "&len=" + selectedBytes;
+      const ctrl = createAbortControllerSafe();
+      const timeoutMs = 180000;
+      const timer = ctrl ? setTimeout(()=>{ try{ ctrl.abort(); }catch(_e){} }, timeoutMs) : null;
+      const opt = API_BASE
+        ? Object.assign({cache:"no-store", mode:"cors"}, ctrl ? {signal:ctrl.signal} : {})
+        : Object.assign({cache:"no-store"}, ctrl ? {signal:ctrl.signal} : {});
+      try{
+        if(el.spiFlashStatusLine) el.spiFlashStatusLine.textContent = "SPI Flash BIN 다운로드 준비 중...";
+        if(el.spiFlashDumpBtn) el.spiFlashDumpBtn.disabled = true;
+        const dataDownloadBtn = document.getElementById("dataStorageDownloadBtn");
+        if(dataDownloadBtn) dataDownloadBtn.textContent = "다운로드 중…";
+        const res = await fetch(url, opt);
+        if(!res.ok){
+          const text = await res.text();
+          throw new Error(text || ("HTTP " + res.status));
+        }
+        if(el.spiFlashStatusLine) el.spiFlashStatusLine.textContent = "SPI Flash BIN 다운로드 중...";
+        const blob = await readStorageDownloadResponseBlob(res, selectedBytes);
+        const ts = new Date().toISOString().replace(/[:.]/g, "-");
+        const safeName = String(selectedItem.name || "DATA").replace(/[^A-Za-z0-9_-]+/g, "_");
+        downloadBlobAsFile(blob, safeName + "_" + ts + ".bin");
+        showToast("SPI Flash BIN 다운로드 완료", "success", {key:"spi-flash-dump"});
+        await fetchSpiFlashStatus({force:true});
+        return true;
+      }catch(err){
+        const isAbort = !!(err && (err.name === "AbortError"));
+        const reason = isAbort
+          ? "TIMEOUT(180s) - 보드 Wi-Fi 연결 또는 192.168.4.1 접근 상태를 확인하세요"
+          : ((err && err.message) ? err.message : String(err || "unknown"));
+        showToast("SPI Flash BIN 다운로드 실패: " + reason, "error", {key:"spi-flash-dump-fail"});
+        if(el.spiFlashStatusLine){
+          el.spiFlashStatusLine.textContent = "SPI Flash BIN 다운로드 실패: " + reason;
+        }
+        return false;
+      }finally{
+        if(timer) clearTimeout(timer);
+        if(el.spiFlashDumpBtn) el.spiFlashDumpBtn.disabled = false;
+      }
+    }

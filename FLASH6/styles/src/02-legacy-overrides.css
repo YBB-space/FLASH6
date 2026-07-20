@@ -1,0 +1,1062 @@
+/* style block 2: id="desktopLegacyLayoutOnly" */
+    @media (min-width:768px) and (pointer:fine){
+      body.dashboard-view-active{
+        overflow:hidden !important;
+      }
+      body.dashboard-view-active .app-shell{
+        height:100dvh !important;
+        min-height:100dvh !important;
+        gap:0 !important;
+      }
+      body.dashboard-view-active .side-nav-desktop{
+        width:64px !important;
+      }
+      body.dashboard-view-active .side-nav-desktop:hover,
+      body.dashboard-view-active .side-nav-desktop.is-expanded{
+        width:176px !important;
+      }
+      body.dashboard-view-active .page-wrap{
+        height:100dvh !important;
+        min-height:100dvh !important;
+        overflow-x:hidden !important;
+        overflow-y:auto !important;
+        padding:16px clamp(28px,3.2vw,54px) 26px !important;
+        gap:30px !important;
+      }
+      body.dashboard-view-active .top-bar{
+        align-items:flex-start !important;
+        margin:0 !important;
+        padding:0 !important;
+      }
+      body.dashboard-view-active .countdown-mainline{
+        gap:14px !important;
+      }
+      body.dashboard-view-active .shell{
+        gap:16px !important;
+      }
+      body.dashboard-view-active #dashboardView .row-top{
+        --desktop-layout-top-height:clamp(154px,29vh,260px);
+        display:grid !important;
+        grid-template-columns:minmax(0,1.08fr) minmax(420px,1fr) !important;
+        gap:10px !important;
+        height:var(--desktop-layout-top-height) !important;
+        min-height:var(--desktop-layout-top-height) !important;
+        max-height:var(--desktop-layout-top-height) !important;
+      }
+      body.dashboard-view-active #dashboardView .row-top > .card-base{
+        height:var(--desktop-layout-top-height) !important;
+        min-height:0 !important;
+        max-height:var(--desktop-layout-top-height) !important;
+      }
+      body.dashboard-view-active .main-card.status-card.status-map-only{
+        padding:0 !important;
+      }
+      body.dashboard-view-active .main-card.status-card.status-map-only::before,
+      body.dashboard-view-active .main-card.status-card.status-map-only::after{
+        display:none !important;
+        content:none !important;
+      }
+      body.dashboard-view-active .main-card.status-card.status-map-only .status-map-layout{
+        display:grid !important;
+        grid-template-areas:"preview map" !important;
+        grid-template-columns:minmax(180px,.48fr) minmax(0,1fr) !important;
+        gap:8px !important;
+        height:100% !important;
+        margin:0 !important;
+        padding:0 !important;
+      }
+      body.dashboard-view-active #gyro3dExpandedHud,
+      body.dashboard-view-active .gyro3d-expanded-hud,
+      body.dashboard-view-active .status-expanded-metrics{
+        display:none !important;
+        opacity:0 !important;
+        pointer-events:none !important;
+        visibility:hidden !important;
+      }
+      body.dashboard-view-active #statusMapViewport:not(.is-expanded) #statusMapExpandedHud{
+        display:none !important;
+        opacity:0 !important;
+        pointer-events:none !important;
+        visibility:hidden !important;
+      }
+      body.dashboard-view-active #statusMapViewport.is-expanded #statusMapExpandedHud{
+        display:block !important;
+        opacity:1 !important;
+        pointer-events:none !important;
+        visibility:visible !important;
+      }
+      body.dashboard-view-active #statusMapViewport.is-expanded,
+      body.dashboard-view-active #statusMapViewport.is-expanded #statusMap,
+      body.dashboard-view-active #statusMapViewport.is-expanded .leaflet-container,
+      body.dashboard-view-active #statusMapViewport.is-expanded .leaflet-pane,
+      body.dashboard-view-active #statusMapViewport.is-expanded .leaflet-map-pane{
+        width:auto !important;
+        height:auto !important;
+      }
+      body.dashboard-view-active #statusMapViewport.is-expanded #statusMap,
+      body.dashboard-view-active #statusMapViewport.is-expanded .leaflet-container{
+        position:absolute !important;
+        inset:0 !important;
+        min-width:100vw !important;
+        min-height:100vh !important;
+      }
+      body.dashboard-view-active #statusMapViewport.is-expanded .leaflet-tile,
+      body.dashboard-view-active #statusMapViewport.is-expanded .leaflet-marker-icon,
+      body.dashboard-view-active #statusMapViewport.is-expanded .leaflet-marker-shadow{
+        max-width:none !important;
+      }
+      body.dashboard-view-active .main-card.status-card.status-map-only .status-flight-preview,
+      body.dashboard-view-active .main-card.status-card.status-map-only .status-map-panel,
+      body.dashboard-view-active #gyro3dViewport.status-gyro-canvas--3d{
+        height:100% !important;
+        min-height:0 !important;
+        max-height:none !important;
+      }
+      body.dashboard-view-active .status-flight-preview .mobile-preview-carousel{
+        display:block !important;
+        height:100% !important;
+        overflow:hidden !important;
+      }
+      body.dashboard-view-active .status-flight-preview .mobile-preview-carousel > section{
+        display:none !important;
+      }
+      body.dashboard-view-active .status-flight-preview .mobile-preview-carousel > .mobile-gyro-preview-slide{
+        display:block !important;
+        height:100% !important;
+        opacity:1 !important;
+        position:relative !important;
+        transform:none !important;
+        width:100% !important;
+      }
+      body.dashboard-view-active .status-flight-preview .mobile-stb-preview-image,
+      body.dashboard-view-active .status-flight-preview .mobile-chart-empty,
+      body.dashboard-view-active .status-flight-preview .mobile-chart-select-btn,
+      body.dashboard-view-active .status-flight-preview .mobile-preview-dots,
+      body.dashboard-view-active .status-flight-preview .mobile-sequence-progress-card,
+      body.dashboard-view-active .status-flight-preview .mobile-device-status-strip,
+      body.dashboard-view-active #navBallPreview{
+        display:none !important;
+      }
+      body.dashboard-view-active .status-flight-preview #gyro3dViewport.status-gyro-canvas--3d{
+        display:flex !important;
+        width:100% !important;
+      }
+      body.dashboard-view-active .motor-card{
+        display:flex !important;
+        flex-direction:column !important;
+        padding:16px !important;
+      }
+      body.dashboard-view-active .motor-card .quick-data-header{
+        display:grid !important;
+        flex:0 0 auto !important;
+        grid-template-columns:auto minmax(0,1fr) !important;
+        gap:8px !important;
+        align-items:start !important;
+        margin-bottom:20px !important;
+      }
+      body.dashboard-view-active .motor-card .quick-data-header .status-bar{
+        justify-content:flex-end !important;
+        gap:5px !important;
+        min-width:0 !important;
+        max-width:100% !important;
+        overflow:hidden !important;
+        width:auto !important;
+      }
+      body.dashboard-view-active .motor-card .quick-data-header .status-bar > *{
+        min-width:0 !important;
+      }
+      body.dashboard-view-active .motor-card .quick-data-header .status-battery{
+        order:99 !important;
+      }
+      body.dashboard-view-active .motor-card .quick-data-header .status-conn-block,
+      body.dashboard-view-active .motor-card .quick-data-header .status-battery,
+      body.dashboard-view-active .motor-card .quick-data-header .status-chiptemp{
+        height:auto !important;
+        padding:0 2px !important;
+        background:transparent !important;
+        border:0 !important;
+        border-radius:0 !important;
+        box-shadow:none !important;
+      }
+      body.dashboard-view-active .motor-card .quick-data-header .status-conn-block::before{
+        box-shadow:none !important;
+      }
+      body.dashboard-view-active .motor-card .quick-data-header .status-chiptemp:hover,
+      body.dashboard-view-active .motor-card .quick-data-header .status-chiptemp:focus-visible{
+        transform:none !important;
+        background:transparent !important;
+        border:0 !important;
+        box-shadow:none !important;
+      }
+      body.dashboard-view-active .motor-card .quick-data-header .status-conn-text,
+      body.dashboard-view-active .motor-card .quick-data-header .battery-text,
+      body.dashboard-view-active .motor-card .quick-data-header .chiptemp-label,
+      body.dashboard-view-active .motor-card .quick-data-header .chiptemp-text{
+        font-size:8px !important;
+      }
+      body.dashboard-view-active .quick-data-body{
+        display:flex !important;
+        flex:1 1 auto !important;
+        gap:14px !important;
+        min-height:0 !important;
+      }
+      body.dashboard-view-active .quick-data-body .quick-metrics{
+        flex:0 0 24% !important;
+        gap:14px !important;
+        height:100% !important;
+        margin:0 !important;
+      }
+      body.dashboard-view-active .quick-data-body .quick-metrics .status-metric:nth-child(n+3),
+      body.dashboard-view-active .quick-data-body .quick-metrics .mobile-only-quick-metric{
+        display:none !important;
+      }
+      body.dashboard-view-active .motor-card .item-grid .item-null{
+        display:flex !important;
+      }
+      body.dashboard-view-active .motor-card .item-grid .item.hidden{
+        display:flex !important;
+      }
+      body.dashboard-view-active .motor-card .item-grid .item-null:last-child{
+        display:none !important;
+      }
+      body.dashboard-view-active .quick-data-body .item-grid{
+        align-content:stretch !important;
+        gap:14px !important;
+        grid-auto-rows:1fr !important;
+        grid-template-columns:repeat(3,minmax(0,1fr)) !important;
+        height:100% !important;
+        margin:0 !important;
+      }
+      body.dashboard-view-active .status-metric,
+      body.dashboard-view-active .motor-card .item{
+        height:auto !important;
+        min-height:0 !important;
+        padding:12px 14px !important;
+      }
+      body.dashboard-view-active #dashboardView .row-bottom{
+        display:grid !important;
+        grid-template-columns:minmax(0,2.65fr) minmax(320px,.95fr) !important;
+        gap:16px !important;
+        align-items:start !important;
+      }
+      body.dashboard-view-active .row-bottom > .charts-card,
+      body.dashboard-view-active .row-bottom > .controls-card{
+        height:clamp(260px,49vh,440px) !important;
+        min-height:0 !important;
+      }
+      body.dashboard-view-active .charts-card{
+        grid-template-rows:minmax(0,1fr) !important;
+        padding:0 !important;
+        border:0 !important;
+        border-radius:0 !important;
+        background:transparent !important;
+        box-shadow:none !important;
+      }
+      body.dashboard-view-active .chart-header{
+        display:none !important;
+      }
+      body.dashboard-view-active .chart-row{
+        gap:10px !important;
+        height:100% !important;
+        margin:0 !important;
+        min-height:0 !important;
+      }
+      body.dashboard-view-active .chart-box{
+        height:100% !important;
+        min-height:0 !important;
+      }
+      body.dashboard-view-active .controls-card{
+        overflow:hidden !important;
+        padding:14px 16px !important;
+      }
+      body.dashboard-view-active #controlsHeader{
+        align-items:flex-start !important;
+        min-height:36px !important;
+        margin-bottom:12px !important;
+        padding:0 !important;
+        background:transparent !important;
+        border:0 !important;
+      }
+      body.dashboard-view-active #controlsCardTitle{
+        font-size:13px !important;
+        letter-spacing:.22em !important;
+        line-height:1.05 !important;
+      }
+      body.dashboard-view-active .controls-subtitle{
+        font-size:9px !important;
+        line-height:1.15 !important;
+        margin-top:4px !important;
+      }
+      body.dashboard-view-active .controls-header-actions{
+        display:flex !important;
+        align-items:flex-start !important;
+        min-width:0 !important;
+      }
+      body.dashboard-view-active .controls-toolbar{
+        gap:6px !important;
+      }
+      body.dashboard-view-active .controls-toolbar .controls-toolbar-action{
+        width:32px !important;
+        min-width:32px !important;
+        height:32px !important;
+        min-height:32px !important;
+        border-radius:10px !important;
+      }
+      body.dashboard-view-active .controls-grid,
+      body.dashboard-view-active .control-row{
+        gap:8px !important;
+      }
+      body.dashboard-view-active .controls-grid{
+        height:calc(100% - 48px) !important;
+        min-height:0 !important;
+      }
+      body.dashboard-view-active .controls-main-row{
+        display:grid !important;
+        grid-template-columns:minmax(0,1fr) minmax(92px,.56fr) !important;
+        gap:8px !important;
+        min-height:58px !important;
+      }
+      body.dashboard-view-active .primary-btn-wrap,
+      body.dashboard-view-active .abort-btn-wrap{
+        min-width:0 !important;
+      }
+      body.dashboard-view-active .control-row{
+        grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+        align-content:start !important;
+        min-height:0 !important;
+        overflow:hidden !important;
+      }
+      body.dashboard-view-active .controls-card .control-tile{
+        height:auto !important;
+        min-height:47px !important;
+        padding:8px 10px !important;
+      }
+      body.dashboard-view-active .controls-card .control-tile.span-2{
+        min-height:49px !important;
+      }
+      body.dashboard-view-active .controls-card .control-tile-mode{
+        min-height:49px !important;
+      }
+      body.dashboard-view-active .controls-card .control-tile-label{
+        font-size:11px !important;
+        line-height:1.1 !important;
+      }
+      body.dashboard-view-active .controls-card .control-tile-sub{
+        font-size:9px !important;
+        line-height:1.15 !important;
+        margin-top:2px !important;
+      }
+      body.dashboard-view-active .control-tile-actions{
+        gap:6px !important;
+        margin-left:auto !important;
+      }
+      body.dashboard-view-active .controls-card .control-row .control-tile-actions .pill,
+      body.dashboard-view-active .controls-card .control-row .control-tile-actions button,
+      body.dashboard-view-active .controls-card .control-row .control-tile-actions .control-tile-select{
+        height:25px !important;
+        min-width:58px !important;
+        max-width:112px !important;
+        font-size:9px !important;
+        padding-left:8px !important;
+        padding-right:8px !important;
+      }
+      body.dashboard-view-active #serialControlTile.control-tile-connect .control-tile-actions{
+        flex:0 0 auto !important;
+      }
+      body.dashboard-view-active #connectModeSelect{
+        min-width:84px !important;
+      }
+      body.dashboard-view-active .sequence-btn-title{
+        font-size:11px !important;
+      }
+      body.dashboard-view-active .sequence-status-pill{
+        padding:4px 9px !important;
+        font-size:10px !important;
+      }
+      body.dashboard-view-active .primary-btn.sequence-btn,
+      body.dashboard-view-active .controls-main-row .abort-btn-wrap .secondary-btn{
+        min-height:58px !important;
+        height:58px !important;
+        border-radius:12px !important;
+      }
+      .sequence-status-pill.storage-guard-green,
+      .mobile-sequence-status-pill.storage-guard-green{
+        border-color:rgba(34,197,94,0.68) !important;
+        background:rgba(34,197,94,0.16) !important;
+        color:#22c55e !important;
+      }
+      .sequence-status-pill.storage-guard-orange,
+      .mobile-sequence-status-pill.storage-guard-orange{
+        border-color:rgba(249,115,22,0.76) !important;
+        background:rgba(249,115,22,0.18) !important;
+        color:#fb923c !important;
+      }
+      .sequence-status-pill.storage-guard-red,
+      .mobile-sequence-status-pill.storage-guard-red{
+        border-color:rgba(239,68,68,0.78) !important;
+        background:rgba(239,68,68,0.18) !important;
+        color:#f87171 !important;
+      }
+      .primary-btn.sequence-btn.storage-guard-green,
+      .mobile-sequence-action.storage-guard-green{
+        border-color:rgba(34,197,94,0.54) !important;
+      }
+      .primary-btn.sequence-btn.storage-guard-orange,
+      .mobile-sequence-action.storage-guard-orange{
+        border-color:rgba(249,115,22,0.66) !important;
+      }
+      .primary-btn.sequence-btn.storage-guard-red,
+      .mobile-sequence-action.storage-guard-red{
+        border-color:rgba(239,68,68,0.74) !important;
+      }
+      body.dashboard-view-active .controls-main-row .abort-btn-wrap .secondary-btn{
+        font-size:13px !important;
+        letter-spacing:.08em !important;
+      }
+      @media(max-width:1180px){
+        body.dashboard-view-active .page-wrap{
+          padding-left:28px !important;
+          padding-right:28px !important;
+        }
+        body.dashboard-view-active #dashboardView .row-top{
+          grid-template-columns:minmax(0,1.02fr) minmax(405px,.98fr) !important;
+        }
+        body.dashboard-view-active #dashboardView .row-bottom{
+          grid-template-columns:minmax(0,2.1fr) minmax(230px,.78fr) !important;
+        }
+        body.dashboard-view-active .motor-card .quick-data-header #chipTempWrap,
+        body.dashboard-view-active .motor-card .quick-data-header #perfWrap{
+          display:none !important;
+        }
+      }
+    }
+    /* Desktop modal identity pass: keep mobile's dark cockpit tone, but use centered desktop dialogs. */
+    @media (min-width:901px) and (min-height:721px){
+      html:not(.phone-landscape-layout) body .confirm-overlay,
+      html:not(.phone-landscape-layout) body .reboot-overlay,
+      html:not(.phone-landscape-layout) body .ws-alert-overlay,
+      html:not(.phone-landscape-layout) body .disconnect-overlay,
+      html:not(.phone-landscape-layout) body #pyroControlOverlay,
+      html:not(.phone-landscape-layout) body #pyroConfirmOverlay{
+        position:fixed !important;
+        inset:0 !important;
+        display:flex !important;
+        align-items:center !important;
+        justify-content:center !important;
+        padding:24px !important;
+        background:rgba(0,0,0,.68) !important;
+        -webkit-backdrop-filter:blur(12px) saturate(1.05) !important;
+        backdrop-filter:blur(12px) saturate(1.05) !important;
+        overflow:auto !important;
+      }
+      html:not(.phone-landscape-layout) body .confirm-overlay.hidden,
+      html:not(.phone-landscape-layout) body .reboot-overlay.hidden,
+      html:not(.phone-landscape-layout) body .ws-alert-overlay.hidden,
+      html:not(.phone-landscape-layout) body .disconnect-overlay.hidden,
+      html:not(.phone-landscape-layout) body #pyroControlOverlay.hidden,
+      html:not(.phone-landscape-layout) body #pyroConfirmOverlay.hidden{
+        display:none !important;
+      }
+      html:not(.phone-landscape-layout) body .confirm-dialog,
+      html:not(.phone-landscape-layout) body .reboot-dialog,
+      html:not(.phone-landscape-layout) body .ws-alert-dialog,
+      html:not(.phone-landscape-layout) body .disconnect-dialog,
+      html:not(.phone-landscape-layout) body #pyroControlOverlay .pyro-control-dialog{
+        width:min(92vw, 560px) !important;
+        max-width:min(92vw, 560px) !important;
+        min-width:0 !important;
+        min-height:0 !important;
+        height:auto !important;
+        max-height:calc(100dvh - 48px) !important;
+        margin:auto !important;
+        padding:22px 24px 20px !important;
+        border:1px solid #343434 !important;
+        border-radius:18px !important;
+        background:#171717 !important;
+        color:#f4f4f4 !important;
+        box-shadow:0 28px 72px rgba(0,0,0,.56) !important;
+        overflow:auto !important;
+        text-align:center !important;
+      }
+      html:not(.phone-landscape-layout) body #confirmOverlay .confirm-dialog,
+      html:not(.phone-landscape-layout) body #forceOverlay .confirm-dialog{
+        width:min(92vw, 620px) !important;
+        max-width:min(92vw, 620px) !important;
+      }
+      html:not(.phone-landscape-layout) body .confirm-dialog::before,
+      html:not(.phone-landscape-layout) body .confirm-dialog::after,
+      html:not(.phone-landscape-layout) body .reboot-dialog::before,
+      html:not(.phone-landscape-layout) body .reboot-dialog::after,
+      html:not(.phone-landscape-layout) body .ws-alert-dialog::before,
+      html:not(.phone-landscape-layout) body .ws-alert-dialog::after,
+      html:not(.phone-landscape-layout) body .disconnect-dialog::before,
+      html:not(.phone-landscape-layout) body .disconnect-dialog::after,
+      html:not(.phone-landscape-layout) body #pyroControlOverlay .pyro-control-dialog::before,
+      html:not(.phone-landscape-layout) body #pyroControlOverlay .pyro-control-dialog::after{
+        content:none !important;
+        display:none !important;
+      }
+      html:not(.phone-landscape-layout) body .confirm-icon{
+        display:flex !important;
+        margin:0 auto 14px !important;
+        width:auto !important;
+        height:auto !important;
+        color:#f4f4f4 !important;
+      }
+      html:not(.phone-landscape-layout) body .confirm-icon span{
+        font-size:52px !important;
+        line-height:1 !important;
+        color:#f4f4f4 !important;
+      }
+      html:not(.phone-landscape-layout) body .confirm-title,
+      html:not(.phone-landscape-layout) body .ws-alert-title,
+      html:not(.phone-landscape-layout) body .disconnect-title{
+        min-height:0 !important;
+        margin:0 0 10px !important;
+        padding:0 !important;
+        border:0 !important;
+        display:block !important;
+        color:#f5f5f5 !important;
+        font-size:22px !important;
+        line-height:1.25 !important;
+        font-weight:760 !important;
+        letter-spacing:0 !important;
+        text-align:center !important;
+      }
+      html:not(.phone-landscape-layout) body .confirm-text,
+      html:not(.phone-landscape-layout) body .confirm-note,
+      html:not(.phone-landscape-layout) body .ws-alert-text,
+      html:not(.phone-landscape-layout) body .disconnect-text{
+        color:#b8b8b8 !important;
+        font-size:14px !important;
+        line-height:1.58 !important;
+        text-align:center !important;
+        word-break:keep-all !important;
+      }
+      html:not(.phone-landscape-layout) body .confirm-text{
+        margin:0 auto 16px !important;
+        max-width:46rem !important;
+      }
+      html:not(.phone-landscape-layout) body .confirm-note{
+        width:auto !important;
+        max-width:46rem !important;
+        margin:0 auto 16px !important;
+        padding:0 !important;
+        border:0 !important;
+        border-radius:0 !important;
+        background:transparent !important;
+        color:#d6d6d6 !important;
+      }
+      html:not(.phone-landscape-layout) body .ignition-warning-illustration,
+      html:not(.phone-landscape-layout) body .pyro-control-confirm-illustration{
+        width:min(100%, 430px) !important;
+        max-width:430px !important;
+        aspect-ratio:1 !important;
+        margin:8px auto 16px !important;
+        border-radius:12px !important;
+        overflow:hidden !important;
+        background:#f8f8f8 !important;
+      }
+      html:not(.phone-landscape-layout) body .ignition-warning-illustration img,
+      html:not(.phone-landscape-layout) body .pyro-control-confirm-illustration img{
+        width:100% !important;
+        height:100% !important;
+        object-fit:cover !important;
+      }
+      html:not(.phone-landscape-layout) body .confirm-actions,
+      html:not(.phone-landscape-layout) body .reboot-actions,
+      html:not(.phone-landscape-layout) body .disconnect-actions{
+        width:100% !important;
+        margin:12px auto 0 !important;
+        display:flex !important;
+        flex-direction:column !important;
+        align-items:center !important;
+        justify-content:center !important;
+        gap:10px !important;
+      }
+      html:not(.phone-landscape-layout) body #confirmOverlay .longpress-wrap{
+        width:100% !important;
+        min-height:0 !important;
+        margin:0 !important;
+      }
+      html:not(.phone-landscape-layout) body #confirmOverlay .longpress-btn{
+        position:relative !important;
+        width:min(100%, 360px) !important;
+        height:52px !important;
+        min-height:52px !important;
+        padding:0 18px !important;
+        border:1px solid #2fb65b !important;
+        border-radius:12px !important;
+        background:#179746 !important;
+        color:#fff !important;
+        box-shadow:none !important;
+      }
+      html:not(.phone-landscape-layout) body #confirmOverlay .longpress-btn span{
+        font-size:14px !important;
+        font-weight:720 !important;
+        color:#fff !important;
+      }
+      html:not(.phone-landscape-layout) body #confirmOverlay .longpress-ring,
+      html:not(.phone-landscape-layout) body #confirmOverlay .longpress-spinner{
+        border-radius:12px !important;
+      }
+      html:not(.phone-landscape-layout) body .confirm-cancel,
+      html:not(.phone-landscape-layout) body .force-cancel-link,
+      html:not(.phone-landscape-layout) body .reboot-actions .confirm-cancel{
+        position:static !important;
+        width:auto !important;
+        min-height:0 !important;
+        margin:0 !important;
+        padding:6px 10px !important;
+        border:0 !important;
+        background:transparent !important;
+        color:#9c9c9c !important;
+        font-size:13px !important;
+        line-height:1.2 !important;
+        text-decoration:underline !important;
+        text-underline-offset:4px !important;
+        box-shadow:none !important;
+      }
+      html:not(.phone-landscape-layout) body .confirm-cancel::before,
+      html:not(.phone-landscape-layout) body .confirm-cancel::after{
+        content:none !important;
+        display:none !important;
+      }
+      html:not(.phone-landscape-layout) body #confirmOverlay .confirm-cancel{
+        position:absolute !important;
+        top:14px !important;
+        right:14px !important;
+        z-index:4 !important;
+        width:34px !important;
+        height:34px !important;
+        min-height:34px !important;
+        padding:0 !important;
+        border-radius:10px !important;
+        color:transparent !important;
+        text-decoration:none !important;
+      }
+      html:not(.phone-landscape-layout) body #confirmOverlay .confirm-cancel::before,
+      html:not(.phone-landscape-layout) body #confirmOverlay .confirm-cancel::after{
+        content:"" !important;
+        display:block !important;
+        position:absolute !important;
+        left:9px !important;
+        top:16px !important;
+        width:16px !important;
+        height:2px !important;
+        border-radius:2px !important;
+        background:#bdbdbd !important;
+      }
+      html:not(.phone-landscape-layout) body #confirmOverlay .confirm-cancel::before{
+        transform:rotate(45deg) !important;
+      }
+      html:not(.phone-landscape-layout) body #confirmOverlay .confirm-cancel::after{
+        transform:rotate(-45deg) !important;
+      }
+      html:not(.phone-landscape-layout) body #confirmOverlay .confirm-cancel:hover{
+        background:#242424 !important;
+      }
+      html:not(.phone-landscape-layout) body .force-slide{
+        width:min(100%, 380px) !important;
+        max-width:380px !important;
+        height:52px !important;
+        border-radius:12px !important;
+        background:#202020 !important;
+        border-color:#3d3d3d !important;
+        box-shadow:none !important;
+      }
+      html:not(.phone-landscape-layout) body .force-slide-thumb{
+        height:44px !important;
+        border-radius:10px !important;
+        background:#efefef !important;
+        color:#111 !important;
+      }
+      html:not(.phone-landscape-layout) body #pyroControlOverlay .pyro-control-dialog .settings-header{
+        min-height:0 !important;
+        margin:0 0 14px !important;
+        padding:0 !important;
+        border:0 !important;
+      }
+      html:not(.phone-landscape-layout) body #pyroControlOverlay .pyro-control-title{
+        color:#f5f5f5 !important;
+        font-size:22px !important;
+      }
+      html:not(.phone-landscape-layout) body #pyroControlOverlay .pyro-control-close{
+        top:14px !important;
+        right:14px !important;
+      }
+    }
+
+/* style block 3: id="daqGyroPreviewGuard" */
+    html.mode-daq.board-connected body.dashboard-view-active #gyro3dViewport,
+    html.mode-daq.board-connected body.dashboard-view-active #gyroGlPreview,
+    html.mode-daq.board-connected body.dashboard-view-active #navBallPreview,
+    html.mode-daq.board-connected body.dashboard-view-active .mobile-gyro-preview-slide{
+      display:none !important;
+    }
+    @media(min-width:768px) and (pointer:fine){
+      html.mode-daq.board-connected body.dashboard-view-active .main-card.status-card.status-map-only .status-map-layout{
+        grid-template-columns:1fr !important;
+        grid-template-areas:"map" !important;
+      }
+      html.mode-daq.board-connected body.dashboard-view-active .main-card.status-card.status-map-only .status-flight-preview{
+        display:none !important;
+      }
+      html.mode-daq.board-connected body.dashboard-view-active .main-card.status-card.status-map-only .status-map-panel{
+        grid-area:map !important;
+        width:100% !important;
+      }
+    }
+    @media(max-width:900px), (pointer:coarse){
+      html.mode-daq.board-connected body.dashboard-view-active .status-flight-preview .mobile-gyro-preview-slide,
+      html.mode-daq.board-connected body.dashboard-view-active .status-flight-preview #gyro3dViewport,
+      html.mode-daq.board-connected body.dashboard-view-active .status-flight-preview #navBallPreview{
+        display:none !important;
+      }
+    }
+
+/* style block 4: id="welcomeConnectFinalOverride" */
+    html:has(#welcomeConnectScreen:not(.hidden)),
+    body:has(#welcomeConnectScreen:not(.hidden)){
+      width:100% !important;
+      min-height:100dvh !important;
+      overflow:hidden !important;
+      background:#050505 !important;
+    }
+    body:has(#welcomeConnectScreen:not(.hidden))::before,
+    body:has(#welcomeConnectScreen:not(.hidden)) #splash,
+    body:has(#welcomeConnectScreen:not(.hidden)) .app-shell,
+    body:has(#welcomeConnectScreen:not(.hidden)) .footer-nav,
+    body:has(#welcomeConnectScreen:not(.hidden)) .toast-container{
+      display:none !important;
+    }
+    body:has(#welcomeConnectScreen:not(.hidden)) #welcomeConnectScreen.welcome-connect-screen{
+      position:fixed !important;
+      inset:0 !important;
+      z-index:2147483000 !important;
+      display:grid !important;
+      place-items:center !important;
+      padding:clamp(28px,5vw,72px) !important;
+      opacity:1 !important;
+      color:#f5f5f5 !important;
+      background:#050505 !important;
+      filter:none !important;
+      backdrop-filter:none !important;
+      -webkit-backdrop-filter:none !important;
+    }
+    body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-panel{
+      width:min(100%,1040px) !important;
+      min-height:min(680px,calc(100dvh - 96px)) !important;
+      display:grid !important;
+      grid-template-columns:minmax(320px,1.04fr) minmax(360px,.96fr) !important;
+      gap:clamp(28px,5vw,70px) !important;
+      align-items:center !important;
+    }
+    body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-title{
+      color:#f5f5f5 !important;
+      font-size:clamp(52px,6vw,86px) !important;
+      line-height:.94 !important;
+    }
+    body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-brand{
+      color:#f5f5f5 !important;
+    }
+    body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-eyebrow{
+      color:#9c9c9c !important;
+    }
+    body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-copy{
+      color:#9c9c9c !important;
+      font-size:18px !important;
+      max-width:560px !important;
+    }
+    body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-card{
+      background:#171717 !important;
+      border:1px solid #303030 !important;
+      border-radius:8px !important;
+      box-shadow:0 24px 80px rgba(0,0,0,.48) !important;
+      padding:28px !important;
+    }
+    body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-status{
+      border-bottom-color:#303030 !important;
+    }
+    body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-status-title{
+      color:#9c9c9c !important;
+    }
+    body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-status-text{
+      color:#f5f5f5 !important;
+    }
+    body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-steps li{
+      color:#bdbdbd !important;
+    }
+    body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-steps b{
+      background:#242424 !important;
+      color:#f5f5f5 !important;
+    }
+    body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-actions{
+      grid-template-columns:minmax(0,1.25fr) minmax(0,.82fr) !important;
+    }
+    body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-btn{
+      border-radius:8px !important;
+      box-shadow:none !important;
+    }
+    body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-btn--find{
+      background:#efefef !important;
+      border-color:#efefef !important;
+      color:#111 !important;
+    }
+    body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-btn--wifi{
+      background:#202020 !important;
+      border-color:#3d3d3d !important;
+      color:#f5f5f5 !important;
+    }
+    body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-btn--replay{
+      background:#202020 !important;
+      border-color:#3d3d3d !important;
+      color:#f5f5f5 !important;
+    }
+    body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-btn--sim{
+      background:#242424 !important;
+      border-color:#3d3d3d !important;
+      color:#f5f5f5 !important;
+    }
+    body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-help{
+      color:#9c9c9c !important;
+    }
+    body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-sim-prompt{
+      color:#9c9c9c !important;
+    }
+    body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-sim-text-btn{
+      color:#f5f5f5 !important;
+    }
+    @media (max-width:860px){
+      body:has(#welcomeConnectScreen:not(.hidden)){
+        overflow:auto !important;
+      }
+      body:has(#welcomeConnectScreen:not(.hidden)) #welcomeConnectScreen.welcome-connect-screen{
+        position:fixed !important;
+        overflow:auto !important;
+        align-items:start !important;
+      }
+      body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-panel{
+        min-height:auto !important;
+        grid-template-columns:1fr !important;
+      }
+      body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-actions{
+        grid-template-columns:1fr !important;
+      }
+    }
+
+/* style block 5: id="replayScrollFinalOverride" */
+    html.replay-ui-active body.dashboard-view-active #controlsCard.controls-card.replay-mode,
+    html.replay-ui-active #controlsCard.controls-card.replay-mode{
+      display:flex !important;
+      flex-direction:column !important;
+      min-height:0 !important;
+      overflow-x:hidden !important;
+      overflow-y:auto !important;
+      overscroll-behavior:contain !important;
+      -webkit-overflow-scrolling:touch !important;
+      touch-action:pan-y !important;
+    }
+    html.replay-ui-active body.dashboard-view-active #controlsCard.controls-card.replay-mode .replay-panel,
+    html.replay-ui-active #controlsCard.controls-card.replay-mode .replay-panel{
+      display:flex !important;
+      flex:0 0 auto !important;
+      min-height:0 !important;
+      overflow:visible !important;
+      padding-bottom:max(18px, env(safe-area-inset-bottom, 0px)) !important;
+    }
+    html.replay-ui-active body.dashboard-view-active #controlsCard.controls-card.replay-mode #controlsHeader,
+    html.replay-ui-active #controlsCard.controls-card.replay-mode #controlsHeader{
+      flex:0 0 auto !important;
+    }
+    html.replay-ui-active #controlsCard.controls-card.replay-mode .replay-event-item{
+      box-sizing:border-box !important;
+      display:flex !important;
+      flex-direction:column !important;
+      justify-content:flex-start !important;
+      align-items:flex-start !important;
+      gap:4px !important;
+      text-align:left !important;
+    }
+    html.replay-ui-active #controlsCard.controls-card.replay-mode .replay-event-headline{
+      display:flex !important;
+      width:100% !important;
+      min-width:0 !important;
+      align-items:baseline !important;
+      justify-content:flex-start !important;
+      gap:8px !important;
+      text-align:left !important;
+    }
+    html.replay-ui-active #controlsCard.controls-card.replay-mode .replay-event-time{
+      flex:0 0 auto !important;
+      min-width:0 !important;
+      width:auto !important;
+      text-align:left !important;
+    }
+    html.replay-ui-active #controlsCard.controls-card.replay-mode .replay-event-item-title{
+      flex:0 1 auto !important;
+      min-width:0 !important;
+      text-align:left !important;
+    }
+    html.replay-ui-active #controlsCard.controls-card.replay-mode .replay-event-message,
+    html.replay-ui-active #controlsCard.controls-card.replay-mode .replay-event-meta{
+      width:100% !important;
+      text-align:left !important;
+    }
+    html.replay-ui-active #controlsCard.controls-card.replay-mode .replay-event-message{
+      margin-top:2px !important;
+    }
+    html.replay-ui-active .mobile-controls-panel.is-open{
+      overflow-x:hidden !important;
+      overflow-y:auto !important;
+      overscroll-behavior:contain !important;
+      -webkit-overflow-scrolling:touch !important;
+      touch-action:pan-y !important;
+    }
+    html.replay-ui-active .mobile-controls-panel #controlsCard.controls-card.replay-mode{
+      max-height:calc(100dvh - 48px - env(safe-area-inset-bottom, 0px)) !important;
+    }
+    html.replay-ui-active #controlsCard.controls-card.replay-mode::-webkit-scrollbar{
+      width:6px !important;
+      height:6px !important;
+    }
+    html.replay-ui-active #controlsCard.controls-card.replay-mode::-webkit-scrollbar-track{
+      background:transparent !important;
+    }
+    html.replay-ui-active #controlsCard.controls-card.replay-mode::-webkit-scrollbar-thumb{
+      border-radius:999px !important;
+      background:rgba(115,115,115,.58) !important;
+    }
+    @media(max-width:600px){
+      html.replay-ui-active #controlsCard.controls-card.replay-mode{
+        max-height:calc(100dvh - 40px - env(safe-area-inset-bottom, 0px)) !important;
+      }
+      html.replay-ui-active .mobile-controls-panel #controlsCard.controls-card.replay-mode{
+        max-height:calc(100dvh - 40px - env(safe-area-inset-bottom, 0px)) !important;
+      }
+      html.replay-ui-active #controlsCard.controls-card.replay-mode .replay-event-item{
+        gap:3px 8px !important;
+        padding:10px 12px !important;
+      }
+      html.replay-ui-active #controlsCard.controls-card.replay-mode .replay-event-time{
+        width:auto !important;
+      }
+      html.replay-ui-active #controlsCard.controls-card.replay-mode::-webkit-scrollbar{
+        width:0 !important;
+        height:0 !important;
+      }
+    }
+
+/* style block 6: id="welcomeIntroIdentityOverride" */
+    body:has(#welcomeConnectScreen:not(.hidden)) #welcomeConnectScreen.welcome-connect-screen{
+      background:
+        linear-gradient(90deg, rgba(255,255,255,.028) 0 1px, transparent 1px 100%),
+        linear-gradient(180deg, rgba(255,255,255,.024) 0 1px, transparent 1px 100%),
+        radial-gradient(ellipse at 50% 50%, rgba(255,255,255,.045), transparent 58%),
+        #050505 !important;
+      background-size:92px 92px, 92px 92px, auto, auto !important;
+    }
+    body:has(#welcomeConnectScreen:not(.hidden)) #welcomeConnectScreen.welcome-connect-screen::before{
+      content:"" !important;
+      position:absolute !important;
+      inset:clamp(14px,1.6vw,26px) !important;
+      border:1px solid rgba(255,255,255,.08) !important;
+      border-radius:18px !important;
+      pointer-events:none !important;
+    }
+    body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-panel{
+      position:relative !important;
+      z-index:1 !important;
+      width:min(100%,1120px) !important;
+      min-height:min(560px,calc(100dvh - 120px)) !important;
+      grid-template-columns:minmax(300px,.82fr) minmax(440px,520px) !important;
+      gap:clamp(42px,7vw,112px) !important;
+      align-items:center !important;
+    }
+    body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-hero{
+      align-self:center !important;
+      display:flex !important;
+      flex-direction:column !important;
+      align-items:flex-start !important;
+      justify-content:center !important;
+      min-width:0 !important;
+    }
+    body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-brand{
+      gap:12px !important;
+      margin:0 0 28px !important;
+      color:#f5f5f5 !important;
+      font-size:16px !important;
+      font-weight:900 !important;
+      letter-spacing:.02em !important;
+    }
+    body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-brand img{
+      width:54px !important;
+      height:54px !important;
+      opacity:.98 !important;
+    }
+    body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-title{
+      display:flex !important;
+      flex-direction:column !important;
+      gap:4px !important;
+      margin:0 !important;
+      max-width:520px !important;
+      color:#f5f5f5 !important;
+      font-size:64px !important;
+      line-height:.92 !important;
+      font-weight:920 !important;
+      letter-spacing:0 !important;
+    }
+    body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-copy{
+      margin:18px 0 0 !important;
+      color:#8a8a8a !important;
+      font-size:13px !important;
+      line-height:1.35 !important;
+      font-weight:850 !important;
+      letter-spacing:.16em !important;
+    }
+    body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-hero-meta{
+      display:flex !important;
+      flex-wrap:wrap !important;
+      gap:8px !important;
+      margin-top:34px !important;
+      color:#9c9c9c !important;
+    }
+    body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-hero-meta span{
+      display:inline-flex !important;
+      align-items:center !important;
+      min-height:30px !important;
+      padding:0 12px !important;
+      border:1px solid rgba(255,255,255,.11) !important;
+      border-radius:999px !important;
+      background:rgba(255,255,255,.035) !important;
+      color:#bdbdbd !important;
+      font-size:11px !important;
+      font-weight:850 !important;
+      letter-spacing:.04em !important;
+    }
+    @media (max-width:860px){
+      body:has(#welcomeConnectScreen:not(.hidden)) #welcomeConnectScreen.welcome-connect-screen{
+        padding:32px 18px !important;
+      }
+      body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-panel{
+        width:min(100%,560px) !important;
+        min-height:auto !important;
+        grid-template-columns:1fr !important;
+        gap:28px !important;
+      }
+      body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-hero{
+        align-items:center !important;
+        text-align:center !important;
+      }
+      body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-brand{
+        margin-bottom:18px !important;
+      }
+      body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-title{
+        align-items:center !important;
+        font-size:48px !important;
+      }
+      body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-hero-meta{
+        justify-content:center !important;
+        margin-top:22px !important;
+      }
+    }

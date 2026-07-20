@@ -3,6 +3,30 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 UI runtime structure b26 — 2026-07-20
+
+Firmware build: `v6 b25` (unchanged)
+Protocol: `Flash6-Intelligent-b4` (unchanged)
+
+- Replaced the 1.7 MB monolithic dashboard runtime with an ordered classic
+  script manifest and 15 responsibility-based modules covering state, views,
+  charts/replay, protocol decoding, transports, telemetry, storage, polling,
+  mission, hardware, reports, commands, and bootstrap.
+- Added a shared `window.Flash6` lifecycle scope and telemetry store. Global
+  listeners, periodic network/status jobs, and the polling loop now have
+  explicit cleanup ownership without changing the board API or telemetry
+  schema.
+- Added a generated single-request runtime bundle for normal static/native/AP
+  delivery. Direct module mode remains available for diagnostics and starts
+  transfers together while retaining manifest-order execution.
+- Split stylesheet sources into four ordered layers while retaining one
+  generated `styles/flash6.css` request for the ESP32 AP and native wrapper.
+- Moved the non-critical boot watchdog out of HTML, removed the remaining
+  inline DOM event handler, and removed nonexistent legacy runtime fallback
+  candidates.
+- Added repeatable runtime/CSS structure checks and synchronized the packaged
+  native web runtime.
+
 ## 0.8.19 — v6 b25 — 2026-07-20
 
 Protocol: `Flash6-Intelligent-b4` (ESP-NOW wire version `4`, unchanged)

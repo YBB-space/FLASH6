@@ -511,7 +511,6 @@
       animation:pageReveal .58s cubic-bezier(.22,1,.36,1);
       pointer-events:auto;
     }
-
     .lockout-bg{
       position:fixed;inset:0;z-index:0;pointer-events:none;
       opacity:0;transition:opacity .18s ease;
@@ -20890,7 +20889,6 @@
     html.replay-ui-active .side-nav-mobile .side-nav-divider-mobile{
       opacity:.18 !important;
     }
-
 /* style block 2: id="desktopLegacyLayoutOnly" */
     @media (min-width:768px) and (pointer:fine){
       body.dashboard-view-active{
@@ -21323,7 +21321,6 @@
         }
       }
     }
-
     /* Desktop modal identity pass: keep mobile's dark cockpit tone, but use centered desktop dialogs. */
     @media (min-width:901px) and (min-height:721px){
       html:not(.phone-landscape-layout) body .confirm-overlay,
@@ -21954,7 +21951,6 @@
         margin-top:22px !important;
       }
     }
-
 /* Camera page overlay skin: mirrors FLASH6/overlay.html inside the dashboard shell. */
 body.camera-view-active .top-bar{display:none !important}
 body.camera-view-active .page-wrap{
@@ -21962,7 +21958,6 @@ body.camera-view-active .page-wrap{
   gap:0 !important;
   background:#020617 !important;
 }
-
 
 /* Dashboard control panel · use the same restrained hardware-control language. */
 @media (min-width:901px){
@@ -29791,7 +29786,6 @@ html.phone-landscape-layout .mission-force-timeline strong{
     margin:18px auto 0 !important;
   }
 }
-
 /*
  * FLASH6 interface consistency layer.
  * One restrained visual language for the dashboard and desktop dialogs while
