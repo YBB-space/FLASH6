@@ -3,6 +3,28 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 pyro modal density pass b28 — 2026-07-20
+
+Firmware build: `v6 b25` (unchanged)
+Protocol: `Flash6-Intelligent-b4` (unchanged)
+
+- Removed the oversized nested CH1/CH2 control card and safety-note box from
+  the pyro modal.
+- Replaced stacked borders with one divider, tighter spacing, and a narrower
+  desktop dialog while keeping the existing safety action flow unchanged.
+
+## FLASH6 pyro modal responsive fix b27 — 2026-07-20
+
+Firmware build: `v6 b25` (unchanged)
+Protocol: `Flash6-Intelligent-b4` (unchanged)
+
+- Kept the desktop pyro control modal centered when a desktop window is narrow
+  instead of switching it to the touch bottom-sheet layout.
+- Added bounded internal scrolling so the channel, duration, presets, action,
+  and safety note are never clipped by the viewport.
+- Restored an unambiguous selected state for CH1/CH2 on desktop and touch
+  layouts.
+
 ## FLASH6 UI runtime structure b26 — 2026-07-20
 
 Firmware build: `v6 b25` (unchanged)

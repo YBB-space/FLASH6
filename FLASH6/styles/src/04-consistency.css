@@ -442,6 +442,225 @@ html[data-theme="dark"] body :is(
   }
 }
 
+/*
+ * A narrow desktop window is still a desktop surface. Do not turn hardware
+ * controls into the touch bottom sheet solely because the viewport is narrow.
+ */
+@media (max-width:900px) and (pointer:fine){
+  html:not(.phone-landscape-layout) body #pyroControlOverlay{
+    position:fixed !important;
+    inset:0 !important;
+    z-index:89100 !important;
+    display:flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    padding:20px !important;
+    overflow:auto !important;
+    background:rgba(3,5,8,.76) !important;
+    -webkit-backdrop-filter:none !important;
+    backdrop-filter:none !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlOverlay.hidden{
+    display:none !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlOverlay #pyroControlDialog{
+    position:relative !important;
+    width:min(680px, calc(100vw - 40px)) !important;
+    max-width:680px !important;
+    min-height:0 !important;
+    max-height:calc(100dvh - 40px) !important;
+    margin:auto !important;
+    padding:0 !important;
+    border:1px solid var(--ui-border) !important;
+    border-radius:var(--ui-radius) !important;
+    background:var(--ui-surface) !important;
+    box-shadow:0 24px 70px rgba(0,0,0,.58) !important;
+    overflow:hidden !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .settings-header{
+    position:relative !important;
+    min-height:58px !important;
+    margin:0 !important;
+    padding:0 58px 0 20px !important;
+    display:flex !important;
+    align-items:center !important;
+    justify-content:flex-start !important;
+    border:0 !important;
+    border-bottom:1px solid var(--ui-divider) !important;
+    background:#191a1d !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .settings-title{
+    color:var(--ui-text) !important;
+    font-size:16px !important;
+    line-height:1.2 !important;
+    font-weight:650 !important;
+    letter-spacing:0 !important;
+    text-transform:none !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .settings-close-btn{
+    position:absolute !important;
+    top:11px !important;
+    right:14px !important;
+    width:36px !important;
+    height:36px !important;
+    min-height:36px !important;
+    margin:0 !important;
+    padding:0 !important;
+    display:grid !important;
+    place-items:center !important;
+    border:1px solid transparent !important;
+    border-radius:var(--ui-control-radius) !important;
+    background:transparent !important;
+    color:#a9adb5 !important;
+    font-size:24px !important;
+    line-height:1 !important;
+    font-weight:300 !important;
+    transform:none !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .settings-close-btn::before,
+  html:not(.phone-landscape-layout) body #pyroControlDialog .settings-close-btn::after{
+    content:none !important;
+    display:none !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-body{
+    display:block !important;
+    max-height:calc(100dvh - 100px) !important;
+    padding:18px 20px 20px !important;
+    overflow-y:auto !important;
+    overscroll-behavior:contain;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-channel-label{
+    margin:0 0 9px !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-channel-grid{
+    display:grid !important;
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+    gap:6px !important;
+    margin:0 0 16px !important;
+    padding:4px !important;
+    border:1px solid var(--ui-border) !important;
+    border-radius:var(--ui-control-radius) !important;
+    background:#101113 !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-channel-btn{
+    min-height:40px !important;
+    padding:0 10px !important;
+    justify-content:center !important;
+    border:0 !important;
+    border-radius:5px !important;
+    background:transparent !important;
+    color:#8f949c !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-channel-btn span{
+    color:inherit !important;
+    font-size:12px !important;
+    font-weight:650 !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-channel-btn.is-active{
+    background:#e8e9eb !important;
+    color:#121315 !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-panel{
+    padding:20px !important;
+    border:1px solid var(--ui-border) !important;
+    border-radius:var(--ui-radius) !important;
+    background:#1b1c1f !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-row{
+    display:grid !important;
+    grid-template-columns:minmax(0,1fr) minmax(220px,.8fr) !important;
+    gap:14px !important;
+    align-items:end !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-value input,
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-presets button{
+    min-height:46px !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-run{
+    min-height:46px !important;
+    margin-top:16px !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-note{
+    margin-top:10px !important;
+  }
+}
+
+/* Touch devices keep the bottom-sheet composition, but never clip its body. */
+@media (max-width:900px) and (pointer:coarse), (max-width:900px) and (hover:none){
+  html:not(.phone-landscape-layout) body #pyroControlOverlay{
+    overflow:hidden !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlOverlay #pyroControlDialog{
+    max-height:min(92dvh,760px) !important;
+    overflow:hidden !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-body{
+    max-height:calc(min(92dvh,760px) - 58px) !important;
+    overflow-y:auto !important;
+    overscroll-behavior:contain;
+    -webkit-overflow-scrolling:touch;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-channel-btn.is-active{
+    border-color:#e8e9eb !important;
+    background:#e8e9eb !important;
+    color:#121315 !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-channel-btn.is-active span{
+    color:inherit !important;
+  }
+}
+
+/* Pyro control uses dividers, not nested cards. */
+html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-selector{
+  margin:0 !important;
+}
+html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-channel-grid{
+  margin-bottom:14px !important;
+  padding:3px !important;
+  border-color:#2d3035 !important;
+  background:#111214 !important;
+}
+html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-panel{
+  margin:0 !important;
+  padding:17px 0 0 !important;
+  border:0 !important;
+  border-top:1px solid var(--ui-divider) !important;
+  border-radius:0 !important;
+  background:transparent !important;
+  box-shadow:none !important;
+}
+html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-head{
+  margin:0 0 16px !important;
+}
+html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-row{
+  gap:12px !important;
+}
+html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-run{
+  margin-top:14px !important;
+  border-radius:var(--ui-control-radius) !important;
+  box-shadow:none !important;
+}
+html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-note{
+  margin:11px 0 0 !important;
+  padding:0 !important;
+  border:0 !important;
+  border-radius:0 !important;
+  background:transparent !important;
+  color:#8f949c !important;
+  font-size:10.5px !important;
+  line-height:1.45 !important;
+}
+
+@media (min-width:901px), (max-width:900px) and (pointer:fine){
+  html:not(.phone-landscape-layout) body #pyroControlOverlay #pyroControlDialog{
+    width:min(620px, calc(100vw - 40px)) !important;
+    max-width:620px !important;
+  }
+  html:not(.phone-landscape-layout) body #pyroControlDialog .pyro-control-body{
+    padding:17px 20px 20px !important;
+  }
+}
+
 @media (prefers-reduced-motion:reduce){
   :where(button,[role="button"],.settings-dialog,.confirm-dialog,.reboot-dialog){
     transition-duration:.01ms !important;
