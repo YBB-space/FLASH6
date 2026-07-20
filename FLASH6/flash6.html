@@ -127,7 +127,7 @@
   <!-- Preload 축소: AP 모드/저메모리 환경에서 동시 요청 버스트를 줄임 -->
   <script>
     (function(){
-    var ASSET_VER = "20260720-link-report-wizard-b25-360-__FLASH6_DEPLOY_SHA__";
+    var ASSET_VER = "20260720-link-report-visual-b25-361-__FLASH6_DEPLOY_SHA__";
       window.__flashBoot = window.__flashBoot || {jsReady:false,lastError:"",phase:"static_loader",version:ASSET_VER};
       var isLocalPreview = !!window.__flashBoot.localPreview;
       var beaconEnabled = (window.__flashBoot.beaconEnabled !== false);
@@ -377,7 +377,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="styles/flash6.css?v=20260720-link-report-wizard-b25-360-__FLASH6_DEPLOY_SHA__">
+  <link rel="stylesheet" href="styles/flash6.css?v=20260720-link-report-visual-b25-361-__FLASH6_DEPLOY_SHA__">
 </head>
 <body>
   <!-- ✅ LOCKOUT 배경 오버레이 -->
@@ -3252,7 +3252,47 @@
           <button id="flashLinkReportClose" class="settings-close-btn" type="button" aria-label="close">×</button>
         </div>
         <div class="flash-link-report-body">
-          <div id="flashLinkReportStep" class="flash-link-report-step-indicator">STEP 1 / 2</div>
+          <div id="flashLinkReportStep" class="flash-link-report-step-indicator" aria-label="1 / 2 단계">
+            <span class="is-active"><b>01</b><em>배치</em></span>
+            <i aria-hidden="true"></i>
+            <span><b>02</b><em>환경</em></span>
+          </div>
+          <div id="flashLinkReportVisual" class="flash-link-report-visual" data-step="1" aria-hidden="true">
+            <div class="flash-link-report-visual-pane is-placement" data-report-visual-step="1">
+              <div class="flash-link-report-node">
+                <span class="flash-link-report-signal"></span>
+                <strong>GROUND</strong>
+                <small>PC / PHONE</small>
+              </div>
+              <div class="flash-link-report-distance">
+                <strong>2–5 m</strong>
+                <span></span>
+                <small>SAME HEIGHT</small>
+              </div>
+              <div class="flash-link-report-node">
+                <span class="flash-link-report-signal"></span>
+                <strong>AVIONICS</strong>
+                <small>VEHICLE</small>
+              </div>
+            </div>
+            <div class="flash-link-report-visual-pane is-environment" data-report-visual-step="2">
+              <div class="flash-link-report-check">
+                <b>↔</b>
+                <strong>ANTENNA</strong>
+                <small>SAME DIRECTION</small>
+              </div>
+              <div class="flash-link-report-check">
+                <b>30<em>cm</em></b>
+                <strong>CLEAR ZONE</strong>
+                <small>KEEP OBJECTS AWAY</small>
+              </div>
+              <div class="flash-link-report-check">
+                <b>60<em>s</em></b>
+                <strong>KEEP STILL</strong>
+                <small>DO NOT MOVE</small>
+              </div>
+            </div>
+          </div>
           <div id="flashLinkReportText" class="confirm-text">
             기기 배치
           </div>

@@ -7109,10 +7109,210 @@
     }
     .flash-link-report-dialog .confirm-text{margin-bottom:8px}
     .flash-link-report-step-indicator{
-      color:#7f8792;
+      display:grid;
+      grid-template-columns:auto minmax(30px,1fr) auto;
+      align-items:center;
+      gap:12px;
+      width:min(100%,360px);
+      margin:0 auto 2px;
+      color:#6f7680;
+    }
+    .flash-link-report-step-indicator > span{
+      display:flex;
+      align-items:center;
+      gap:7px;
+      white-space:nowrap;
+    }
+    .flash-link-report-step-indicator > span > b{
+      display:grid;
+      place-items:center;
+      width:24px;
+      height:24px;
+      border:1px solid #34373d;
+      border-radius:50%;
+      color:#777e88;
       font:650 9px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-      letter-spacing:.14em;
+    }
+    .flash-link-report-step-indicator > span > em{
+      color:inherit;
+      font-size:10px;
+      line-height:1;
+      font-style:normal;
+      font-weight:650;
+    }
+    .flash-link-report-step-indicator > i{
+      height:1px;
+      background:#34373d;
+    }
+    .flash-link-report-step-indicator > span.is-active{
+      color:#e5e7eb;
+    }
+    .flash-link-report-step-indicator > span.is-active > b{
+      border-color:#d7d9dd;
+      background:#e5e7eb;
+      color:#17181a;
+    }
+    .flash-link-report-step-indicator > span.is-complete{
+      color:#9ba1aa;
+    }
+    .flash-link-report-step-indicator > span.is-complete > b{
+      border-color:#5b626d;
+      background:#2a2d32;
+      color:#d9dce1;
+    }
+    .flash-link-report-visual{
+      position:relative;
+      min-height:148px;
+      overflow:hidden;
+      border:1px solid #303238;
+      border-radius:8px;
+      background:
+        linear-gradient(rgba(255,255,255,.018),rgba(255,255,255,0)),
+        #101113;
+    }
+    .flash-link-report-visual::before{
+      content:"";
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      opacity:.45;
+      background:
+        linear-gradient(90deg,transparent 49.9%,rgba(148,163,184,.08) 50%,transparent 50.1%),
+        linear-gradient(transparent 49.9%,rgba(148,163,184,.06) 50%,transparent 50.1%);
+      background-size:42px 42px;
+    }
+    .flash-link-report-visual-pane{
+      position:relative;
+      z-index:1;
+      min-height:148px;
+      padding:20px 24px;
+    }
+    .flash-link-report-visual-pane.is-placement{
+      display:none;
+      grid-template-columns:112px minmax(90px,1fr) 112px;
+      align-items:center;
+      gap:18px;
+    }
+    .flash-link-report-visual-pane.is-environment{
+      display:none;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      align-items:stretch;
+      padding:20px 8px;
+    }
+    .flash-link-report-visual[data-step="1"] .is-placement{
+      display:grid;
+    }
+    .flash-link-report-visual[data-step="2"] .is-environment{
+      display:grid;
+    }
+    .flash-link-report-node{
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      gap:5px;
+      color:#e5e7eb;
       text-align:center;
+    }
+    .flash-link-report-node strong,
+    .flash-link-report-check strong{
+      color:#e4e6e9;
+      font-size:10px;
+      line-height:1;
+      font-weight:700;
+      letter-spacing:.09em;
+    }
+    .flash-link-report-node small,
+    .flash-link-report-distance small,
+    .flash-link-report-check small{
+      color:#717883;
+      font-size:7px;
+      line-height:1.15;
+      font-weight:650;
+      letter-spacing:.1em;
+    }
+    .flash-link-report-signal{
+      position:relative;
+      width:42px;
+      height:42px;
+      margin-bottom:4px;
+      border:1px solid #59616c;
+      border-radius:50%;
+    }
+    .flash-link-report-signal::before{
+      content:"";
+      position:absolute;
+      left:50%;
+      top:50%;
+      width:7px;
+      height:7px;
+      border-radius:50%;
+      background:#dfe2e6;
+      transform:translate(-50%,-50%);
+      box-shadow:0 0 14px rgba(226,232,240,.5);
+    }
+    .flash-link-report-signal::after{
+      content:"";
+      position:absolute;
+      inset:8px;
+      border:1px solid #4a515b;
+      border-radius:50%;
+    }
+    .flash-link-report-distance{
+      display:grid;
+      grid-template-rows:auto 1px auto;
+      align-items:center;
+      gap:9px;
+      text-align:center;
+    }
+    .flash-link-report-distance strong{
+      color:#f0f1f3;
+      font:580 18px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    }
+    .flash-link-report-distance > span{
+      position:relative;
+      height:1px;
+      background:#68717d;
+    }
+    .flash-link-report-distance > span::before,
+    .flash-link-report-distance > span::after{
+      content:"";
+      position:absolute;
+      top:-2px;
+      width:5px;
+      height:5px;
+      border-radius:50%;
+      background:#aab0b8;
+    }
+    .flash-link-report-distance > span::before{left:0}
+    .flash-link-report-distance > span::after{right:0}
+    .flash-link-report-check{
+      display:flex;
+      min-width:0;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      gap:7px;
+      padding:0 12px;
+      text-align:center;
+      border-left:1px solid #2e3035;
+    }
+    .flash-link-report-check:first-child{
+      border-left:0;
+    }
+    .flash-link-report-check > b{
+      min-height:32px;
+      color:#e9eaec;
+      font:500 25px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    }
+    .flash-link-report-check > b > em{
+      margin-left:2px;
+      color:#858c96;
+      font-size:10px;
+      font-style:normal;
+    }
+    .flash-link-report-check:first-child > b{
+      font-size:28px;
     }
     .flash-link-report-steps{
       display:block;
@@ -7142,8 +7342,9 @@
     .flash-link-report-progress.hidden{display:none !important}
     .flash-link-report-dialog .confirm-text{
       color:#d0d0d0;
-      font-size:13px;
+      font-size:14px;
       line-height:1.5;
+      font-weight:620;
       text-align:center;
     }
     .flash-link-report-dialog .confirm-actions{
@@ -22081,6 +22282,38 @@ body.dashboard-view-active .stage-overview-panel:has(> .stage-telemetry-deck.hid
     border-color:rgba(148,163,184,.3) !important;
     background:rgba(18,23,29,.96) !important;
     box-shadow:inset 0 1px 0 rgba(255,255,255,.035) !important;
+  }
+}
+
+@media (max-width:600px){
+  .flash-link-report-visual,
+  .flash-link-report-visual-pane{
+    min-height:126px;
+  }
+  .flash-link-report-visual-pane.is-placement{
+    grid-template-columns:78px minmax(62px,1fr) 78px;
+    gap:8px;
+    padding:14px 12px;
+  }
+  .flash-link-report-visual-pane.is-environment{
+    padding:14px 4px;
+  }
+  .flash-link-report-check{
+    gap:5px;
+    padding:0 5px;
+  }
+  .flash-link-report-check strong{
+    font-size:8px;
+  }
+  .flash-link-report-check small{
+    font-size:6px;
+  }
+  .flash-link-report-signal{
+    width:36px;
+    height:36px;
+  }
+  .flash-link-report-distance strong{
+    font-size:15px;
   }
 }
 @media (max-width:1180px), (pointer:coarse){

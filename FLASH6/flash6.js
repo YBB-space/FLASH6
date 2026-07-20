@@ -11610,7 +11610,21 @@ function requestMobileMockup3dMesh(){
       }
       if(el.flashLinkReportStep){
         el.flashLinkReportStep.style.display = (phase === "idle") ? "" : "none";
-        el.flashLinkReportStep.textContent = "STEP " + introStep + " / 2";
+        const stepOneLabel = currentLang === "ko" ? "배치" : "Placement";
+        const stepTwoLabel = currentLang === "ko" ? "환경" : "Environment";
+        el.flashLinkReportStep.setAttribute("aria-label", "STEP " + introStep + " / 2");
+        el.flashLinkReportStep.innerHTML =
+          '<span class="' + (introStep === 1 ? "is-active" : "is-complete") + '">' +
+            '<b>01</b><em>' + stepOneLabel + '</em>' +
+          '</span>' +
+          '<i aria-hidden="true"></i>' +
+          '<span class="' + (introStep === 2 ? "is-active" : "") + '">' +
+            '<b>02</b><em>' + stepTwoLabel + '</em>' +
+          '</span>';
+      }
+      if(el.flashLinkReportVisual){
+        el.flashLinkReportVisual.style.display = (phase === "idle") ? "" : "none";
+        el.flashLinkReportVisual.dataset.step = String(introStep);
       }
       if(el.flashLinkReportSteps){
         el.flashLinkReportSteps.style.display = (!running && !countdown && !exporting) ? "" : "none";
@@ -33855,6 +33869,7 @@ function requestMobileMockup3dMesh(){
       el.flashLinkReportOverlay = document.getElementById("flashLinkReportOverlay");
       el.flashLinkReportTitle = document.getElementById("flashLinkReportTitle");
       el.flashLinkReportStep = document.getElementById("flashLinkReportStep");
+      el.flashLinkReportVisual = document.getElementById("flashLinkReportVisual");
       el.flashLinkReportText = document.getElementById("flashLinkReportText");
       el.flashLinkReportSteps = document.getElementById("flashLinkReportSteps");
       el.flashLinkReportProgress = document.getElementById("flashLinkReportProgress");
