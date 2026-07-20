@@ -1762,7 +1762,7 @@ void flashLinkFillTelemetry(FlashLinkTelemetryV1& out) {
     : UINT16_MAX;
   out.deploymentState = snap.deploymentState;
   out.deploymentFlags = snap.deploymentFlags;
-  out.resetReason = static_cast<uint8_t>(bootResetReason);
+  out.resetReason = telemetryResetReasonCode();
 }
 
 void flashLinkFillMissionAlarm(FlashLinkMissionAlarmV1& out) {

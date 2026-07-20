@@ -112,9 +112,9 @@ size_t buildTelemetryJson(char* json, size_t jsonLen, bool full) {
     ? flashLinkRemoteState.pyroChannel
     : daqSequencePyroChannel;
   const bool remoteActive = remoteOutput && flashLinkRemoteActive();
-  const esp_reset_reason_t outputResetReason = remoteOutput
-    ? static_cast<esp_reset_reason_t>(flashLinkRemoteState.resetReason)
-    : bootResetReason;
+  const uint8_t outputResetReason = remoteOutput
+    ? flashLinkRemoteState.resetReason
+    : telemetryResetReasonCode();
   const uint32_t outputBootSession = remoteOutput
     ? (remoteActive ? flashLink.peerSession : 0U)
     : bootSessionId;
@@ -336,7 +336,7 @@ size_t buildTelemetryJson(char* json, size_t jsonLen, bool full) {
            (unsigned)flashLink.lastCommandResult,
            (unsigned long)flashLink.commandRetries,
            remoteOutput ? "avionics" : "local",
-           resetReasonName(outputResetReason),
+           resetReasonNameCode(outputResetReason),
            (unsigned)outputResetReason,
            (unsigned long)outputBootSession,
            (unsigned long)outputAlarm.seq,
@@ -512,7 +512,7 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
   const bool remoteActive = remoteOutput && flashLinkRemoteActive();
   const uint8_t outputResetCode = remoteOutput
     ? flashLinkRemoteState.resetReason
-    : static_cast<uint8_t>(bootResetReason);
+    : telemetryResetReasonCode();
   const uint32_t outputBootSession = remoteOutput
     ? (remoteActive ? flashLink.peerSession : 0U)
     : bootSessionId;

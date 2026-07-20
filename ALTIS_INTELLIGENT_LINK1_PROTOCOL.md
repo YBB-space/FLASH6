@@ -94,7 +94,8 @@ snapshots; the stage-2 snapshot is `null` in stage-1-only mode. Wire version
 `5` appends the ESP32 reset-reason code to the vehicle telemetry payload. The
 UI stream also appends `reset_code` and the header-derived `boot_session`, so a
 ground client can identify one brownout reboot without guessing from a link
-drop.
+drop. Firmware `0.8.21` also maps the ESP32-S3 ROM `POWER_GLITCH (23)` reason
+through this existing byte; the packet layout remains unchanged.
 
 The ground board sends five telemetry ACKs per second: every 20 frames in
 stage-1-only 100 Hz mode and every 10 frames per stage in dual-stage 50 Hz mode.
@@ -292,11 +293,12 @@ revisions should rotate keys per fleet or per paired board.
 
 ## Firmware Revision
 
-- Firmware version: `0.8.20`
-- Build ID: `v6 b26`
+- Firmware version: `0.8.21`
+- Build ID: `v6 b27`
 - Wire protocol: `Flash6-Intelligent-b5` / numeric version `5`
 - Storage record format: version `5` (unchanged by this revision)
 - Compatibility: both ground and avionics nodes must run wire version `5`.
   Version `5` adds the reset-reason byte to vehicle telemetry. HTTP, serial,
   and WebSocket telemetry append the reset reason and boot session while
-  retaining the existing fields and command interfaces.
+  retaining the existing fields and command interfaces. Build b27 recognizes
+  both `BROWNOUT (9)` and raw `POWER_GLITCH (23)` supply faults.

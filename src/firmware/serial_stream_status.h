@@ -12,15 +12,16 @@ void serialPrintStorageStatus() {
   char currentName[32];
   storageSessionName(storageCurrentSessionId, currentName, sizeof(currentName));
   Serial.printf("ACK SPI_FLASH_STATUS ready=%u busy=%u full=%u model=W25Q256JVEIQ kind=external_spi_nor "
-                "reset=%s reset_code=%u "
+                "reset=%s reset_code=%u reset_raw_code=%u "
                 "mfr=%u type=%u cap_code=%u chip_capacity=%lu capacity=%lu used=%lu queue=%lu "
                 "records=%lu dropped=%lu lock_skips=%lu flush=%lu sessions=%lu current_session=%lu current_file=%s "
                 "record_hz=%lu record_ver=%u record_bytes=%u spi_hz=%lu generation=%lu sectors=%lu\n",
                 storageState.ready ? 1U : 0U,
                 storageState.busy ? 1U : 0U,
                 storageState.full ? 1U : 0U,
-                resetReasonName(bootResetReason),
-                (unsigned)bootResetReason,
+                telemetryResetReasonName(),
+                (unsigned)telemetryResetReasonCode(),
+                (unsigned)bootRawResetReason,
                 (unsigned)storageJedecMfr,
                 (unsigned)storageJedecType,
                 (unsigned)flashCapacityCode(),

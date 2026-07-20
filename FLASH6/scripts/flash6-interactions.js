@@ -124,7 +124,12 @@
       if(!data || simEnabled || replaySourceActive) return "";
       const resetCode = Number(data.reset_code);
       const resetReason = String(data.reset_reason || "").trim().toUpperCase();
-      if(resetCode !== 9 && resetReason !== "BROWNOUT") return "";
+      const powerFaultReset =
+        resetCode === 9 ||
+        resetCode === 23 ||
+        resetReason === "BROWNOUT" ||
+        resetReason === "POWER_GLITCH";
+      if(!powerFaultReset) return "";
       const bootSession = Number(data.boot_session);
       if(!isFinite(bootSession) || bootSession <= 0) return "";
       const nodeId = Number(

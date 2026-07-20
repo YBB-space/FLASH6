@@ -1,7 +1,7 @@
 
 constexpr char kFirmwareProgram[] = "Altis_Intelligent3_firmware1";
-constexpr char kFirmwareVersion[] = "0.8.20";
-constexpr char kFirmwareBuildId[] = "v6 b26";
+constexpr char kFirmwareVersion[] = "0.8.21";
+constexpr char kFirmwareBuildId[] = "v6 b27";
 constexpr char kFirmwareBoard[] = "Altis_Intelligent3_b3";
 constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b5";
 constexpr bool kFirmwareMissionLocked = true;
@@ -361,6 +361,7 @@ String missionUploadSerial;
 size_t missionUploadExpectedBytes = 0;
 bool missionUploadActive = false;
 esp_reset_reason_t bootResetReason = ESP_RST_UNKNOWN;
+uint8_t bootRawResetReason = 0;
 uint32_t bootSessionId = 0;
 bool servoReady = false;
 bool servoAttached[kServoChannelCount] = {

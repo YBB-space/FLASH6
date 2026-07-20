@@ -3,6 +3,18 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.8.21 — v6 b27 — 2026-07-21
+
+Protocol: `Flash6-Intelligent-b5` (ESP-NOW wire version `5`, unchanged)
+
+- Read the ESP32-S3 ROM reset reason in addition to the high-level ESP-IDF
+  reason so short supply interruptions reported as raw `POWER_GLITCH (23)` are
+  no longer missed.
+- Classified both `BROWNOUT (9)` and `POWER_GLITCH (23)` as power-fault
+  restarts in FLASH6 while continuing to exclude ordinary `POWERON (1)`.
+- Added the raw ROM reset code to boot and storage diagnostics without changing
+  the A.I LINK packet layout.
+
 ## 0.8.20 — v6 b26 — 2026-07-21
 
 Protocol: `Flash6-Intelligent-b5` (ESP-NOW wire version `5`)

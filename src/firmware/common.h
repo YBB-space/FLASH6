@@ -60,6 +60,23 @@ const char* resetReasonName(esp_reset_reason_t reason) {
   }
 }
 
+constexpr uint8_t kRawPowerGlitchResetReason = 23U;
+
+uint8_t telemetryResetReasonCode() {
+  return bootRawResetReason == kRawPowerGlitchResetReason
+    ? kRawPowerGlitchResetReason
+    : static_cast<uint8_t>(bootResetReason);
+}
+
+const char* resetReasonNameCode(uint8_t reasonCode) {
+  if (reasonCode == kRawPowerGlitchResetReason) return "POWER_GLITCH";
+  return resetReasonName(static_cast<esp_reset_reason_t>(reasonCode));
+}
+
+const char* telemetryResetReasonName() {
+  return resetReasonNameCode(telemetryResetReasonCode());
+}
+
 bool truthy(const String& v) {
   String s = v;
   s.trim();

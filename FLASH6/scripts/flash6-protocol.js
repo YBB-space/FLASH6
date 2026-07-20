@@ -67,7 +67,9 @@
         lt:finiteOrNull(34),
         ct:finiteOrNull(35),
         reset_code:finiteOrNull(36),
-        reset_reason:finiteOrNull(36) === 9 ? "BROWNOUT" : null,
+        reset_reason:finiteOrNull(36) === 9
+          ? "BROWNOUT"
+          : (finiteOrNull(36) === 23 ? "POWER_GLITCH" : null),
         boot_session:finiteOrNull(37),
         data_origin:"avionics"
       };
@@ -147,7 +149,9 @@
         fl_stage2:(frame[90] != null) ? (Number(frame[90]) ? 1 : 0) : 0,
         fl_stage2_mode:(frame[93] != null) ? (Number(frame[93]) ? 1 : 0) : null,
         reset_code:resetCode,
-        reset_reason:resetCode === 9 ? "BROWNOUT" : null,
+        reset_reason:resetCode === 9
+          ? "BROWNOUT"
+          : (resetCode === 23 ? "POWER_GLITCH" : null),
         boot_session:(frame[97] != null && isFinite(Number(frame[97])))
           ? Number(frame[97])
           : null,
@@ -230,6 +234,6 @@
         fw_program:"Altis_Intelligent3_firmware1",
         fw_board:"Altis_Intelligent3_b3",
         fw_protocol:"Flash6-Intelligent-b5",
-        fw_build:"v6 b26"
+        fw_build:"v6 b27"
       };
     }

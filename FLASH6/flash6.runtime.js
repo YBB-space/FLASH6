@@ -21063,7 +21063,9 @@ function requestMobileMockup3dMesh(){
         lt:finiteOrNull(34),
         ct:finiteOrNull(35),
         reset_code:finiteOrNull(36),
-        reset_reason:finiteOrNull(36) === 9 ? "BROWNOUT" : null,
+        reset_reason:finiteOrNull(36) === 9
+          ? "BROWNOUT"
+          : (finiteOrNull(36) === 23 ? "POWER_GLITCH" : null),
         boot_session:finiteOrNull(37),
         data_origin:"avionics"
       };
@@ -21143,7 +21145,9 @@ function requestMobileMockup3dMesh(){
         fl_stage2:(frame[90] != null) ? (Number(frame[90]) ? 1 : 0) : 0,
         fl_stage2_mode:(frame[93] != null) ? (Number(frame[93]) ? 1 : 0) : null,
         reset_code:resetCode,
-        reset_reason:resetCode === 9 ? "BROWNOUT" : null,
+        reset_reason:resetCode === 9
+          ? "BROWNOUT"
+          : (resetCode === 23 ? "POWER_GLITCH" : null),
         boot_session:(frame[97] != null && isFinite(Number(frame[97])))
           ? Number(frame[97])
           : null,
@@ -21226,7 +21230,7 @@ function requestMobileMockup3dMesh(){
         fw_program:"Altis_Intelligent3_firmware1",
         fw_board:"Altis_Intelligent3_b3",
         fw_protocol:"Flash6-Intelligent-b5",
-        fw_build:"v6 b26"
+        fw_build:"v6 b27"
       };
     }
 
@@ -26751,7 +26755,12 @@ function requestMobileMockup3dMesh(){
       if(!data || simEnabled || replaySourceActive) return "";
       const resetCode = Number(data.reset_code);
       const resetReason = String(data.reset_reason || "").trim().toUpperCase();
-      if(resetCode !== 9 && resetReason !== "BROWNOUT") return "";
+      const powerFaultReset =
+        resetCode === 9 ||
+        resetCode === 23 ||
+        resetReason === "BROWNOUT" ||
+        resetReason === "POWER_GLITCH";
+      if(!powerFaultReset) return "";
       const bootSession = Number(data.boot_session);
       if(!isFinite(bootSession) || bootSession <= 0) return "";
       const nodeId = Number(

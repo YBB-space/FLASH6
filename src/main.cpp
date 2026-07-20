@@ -11,6 +11,7 @@
 #include <ArduinoJson.h>
 #include "esp_now.h"
 #include "esp_system.h"
+#include "esp_rom_sys.h"
 #include "esp_wifi.h"
 #include "esp_heap_caps.h"
 #include "mbedtls/base64.h"
@@ -39,6 +40,7 @@ namespace {
 
 void setup() {
   bootResetReason = esp_reset_reason();
+  bootRawResetReason = static_cast<uint8_t>(esp_rom_get_reset_reason(0));
   bootSessionId = esp_random();
   if (bootSessionId == 0U) bootSessionId = 1U;
   loopTaskHandle = xTaskGetCurrentTaskHandle();
@@ -71,9 +73,11 @@ void setup() {
                 kFirmwareBoard,
                 kFirmwareProtocol,
                 kFirmwareBuildId);
-  Serial.printf("[BOOT] reset_reason=%s code=%u\n",
-                resetReasonName(bootResetReason),
-                (unsigned)bootResetReason);
+  Serial.printf("[BOOT] reset_reason=%s code=%u api_code=%u raw_code=%u\n",
+                telemetryResetReasonName(),
+                (unsigned)telemetryResetReasonCode(),
+                (unsigned)bootResetReason,
+                (unsigned)bootRawResetReason);
   Serial.printf("[BOOT] session=%lu\n", (unsigned long)bootSessionId);
   if (!storageMutex) {
     Serial.println("[W25Q] recursive mutex allocation failed; storage disabled");

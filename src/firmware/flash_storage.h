@@ -1214,7 +1214,7 @@ String storageStatusJson() {
   storageSessionName(currentSessionId, currentName, sizeof(currentName));
   snprintf(json, sizeof(json),
     "{\"ok\":1,\"ready\":%u,\"busy\":%u,\"full\":%u,"
-    "\"reset_reason\":\"%s\",\"reset_code\":%u,"
+    "\"reset_reason\":\"%s\",\"reset_code\":%u,\"reset_raw_code\":%u,"
     "\"storage_kind\":\"external_spi_nor\",\"model\":\"W25Q256JVEIQ\","
     "\"jedec\":{\"mfr\":%u,\"type\":%u,\"cap_code\":%u},"
     "\"chip_capacity_bytes\":%lu,"
@@ -1228,8 +1228,9 @@ String storageStatusJson() {
     state.ready ? 1U : 0U,
     state.busy ? 1U : 0U,
     state.full ? 1U : 0U,
-    resetReasonName(bootResetReason),
-    (unsigned)bootResetReason,
+    telemetryResetReasonName(),
+    (unsigned)telemetryResetReasonCode(),
+    (unsigned)bootRawResetReason,
     (unsigned)jedecMfr,
     (unsigned)jedecType,
     (unsigned)jedecCapacity,
