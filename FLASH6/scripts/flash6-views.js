@@ -4350,7 +4350,7 @@
       if(!el.toastContainer) el.toastContainer = document.getElementById("toastContainer");
       const rawType = type || "info";
       const rawTypeName = String(rawType).toLowerCase();
-      const isCritical = rawTypeName === "critical" || rawTypeName === "error" || !!(opts && opts.critical);
+      const isCritical = rawTypeName === "critical" || !!(opts && opts.critical);
       const toastType = normalizeToastType(rawType);
       const titleType = isCritical ? "critical" : normalizeToastTitleType(rawType);
       const duration = (opts && opts.duration) ? opts.duration : 3000;

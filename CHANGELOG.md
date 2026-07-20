@@ -3,6 +3,17 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 critical alert routing correction b34 — 2026-07-20
+
+Firmware build: `v6 b25` (unchanged)
+Protocol: `Flash6-Intelligent-b4` (unchanged)
+
+- Restored ordinary `error` notifications to the existing transient toast
+  flow instead of promoting every failure to a persistent critical alarm.
+- Marked the sequence storage lockout conditions explicitly as critical, while
+  retaining persistent routing for alarms classified as critical by the alarm
+  engine.
+
 ## FLASH6 compact centered critical alert b33 — 2026-07-20
 
 Firmware build: `v6 b25` (unchanged)

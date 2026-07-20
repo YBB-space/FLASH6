@@ -632,13 +632,13 @@
     function showSequenceStorageGuardToast(force){
       const guard = getSequenceStorageGuard();
       if(guard.level === "unknown" && guard.blocked){
-        showToast("에비오닉스 저장공간 상태를 확인할 수 없어 시퀀스를 시작할 수 없습니다. A.I LINK 연결과 양쪽 펌웨어를 확인하세요.", "error", {key:"sequence-storage-unknown", keep:true, duration:7000});
+        showToast("에비오닉스 저장공간 상태를 확인할 수 없어 시퀀스를 시작할 수 없습니다. A.I LINK 연결과 양쪽 펌웨어를 확인하세요.", "critical", {key:"sequence-storage-unknown", keep:true, duration:7000});
         return true;
       }
       if(!isFinite(guard.pct) || guard.level === "ok") return false;
       const pctText = guard.pct.toFixed(1) + "%";
       if(guard.level === "red"){
-        showToast("저장공간 " + pctText + " 사용 중입니다. 데이터 유실 방지를 위해 시퀀스 권한을 해제했습니다. 저장공간을 초기화하세요.", "error", {key:"sequence-storage-red", keep:true, duration:7000});
+        showToast("저장공간 " + pctText + " 사용 중입니다. 데이터 유실 방지를 위해 시퀀스 권한을 해제했습니다. 저장공간을 초기화하세요.", "critical", {key:"sequence-storage-red", keep:true, duration:7000});
         return true;
       }
       if(guard.level === "orange"){
