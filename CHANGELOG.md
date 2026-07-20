@@ -3,6 +3,16 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 compact centered critical alert b33 — 2026-07-20
+
+Firmware build: `v6 b25` (unchanged)
+Protocol: `Flash6-Intelligent-b4` (unchanged)
+
+- Moved persistent critical alerts to the center of the viewport and reduced
+  them to the same compact footprint as the existing warning toast.
+- Removed the oversized signal, gradient, glow, and decorative warning rail;
+  retained only a restrained red edge and `CRITICAL` label.
+
 ## FLASH6 critical alert routing fix b32 — 2026-07-20
 
 Firmware build: `v6 b25` (unchanged)

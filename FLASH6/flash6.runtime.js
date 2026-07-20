@@ -14558,7 +14558,7 @@ function requestMobileMockup3dMesh(){
       meta.className = "critical-alert-meta";
       const label = document.createElement("span");
       label.className = "critical-alert-label";
-      label.textContent = "CRITICAL ALERT";
+      label.textContent = "CRITICAL";
       const repeat = document.createElement("span");
       repeat.className = "critical-alert-repeat";
       repeat.hidden = true;
