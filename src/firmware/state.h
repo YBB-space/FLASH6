@@ -1,7 +1,7 @@
 
 constexpr char kFirmwareProgram[] = "Altis_Intelligent3_firmware1";
-constexpr char kFirmwareVersion[] = "0.8.16";
-constexpr char kFirmwareBuildId[] = "v6 b22";
+constexpr char kFirmwareVersion[] = "0.8.17";
+constexpr char kFirmwareBuildId[] = "v6 b23";
 constexpr char kFirmwareBoard[] = "Altis_Intelligent3_b3";
 constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b4";
 constexpr bool kFirmwareMissionLocked = true;
@@ -1576,6 +1576,14 @@ const BuzzerNote kFlashLinkDisconnectedAlarm[] = {
 const BuzzerNote kFindMelody[] = {
   {1760, 120, 70}, {2349, 160, 90}, {1568, 120, 160},
   {1760, 120, 70}, {2349, 160, 90}, {3136, 220, 280},
+};
+// Recovery beacon for the piezo's loudest measured band. The repeated
+// two-short/one-long cadence stays easy to identify while keeping most of the
+// cycle at the approximately 4 kHz acoustic peak.
+const BuzzerNote kRecoveryFindMelody[] = {
+  {4000, 520, 110},
+  {4000, 520, 110},
+  {4000, 1260, 360},
 };
 const BuzzerNote kDeveloperOnMelody[] = {
   {1568, 80, 35}, {2093, 100, 0},

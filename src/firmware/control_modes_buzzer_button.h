@@ -331,6 +331,13 @@ void buzzerPlayFindMelody(bool loop = false) {
   buzzerPlayPattern(kFindMelody, sizeof(kFindMelody) / sizeof(kFindMelody[0]), loop);
 }
 
+void buzzerPlayRecoveryFindMelody() {
+  buzzerPlayPattern(
+    kRecoveryFindMelody,
+    sizeof(kRecoveryFindMelody) / sizeof(kRecoveryFindMelody[0]),
+    true);
+}
+
 void buzzerPlayBootButtonMenuCue(uint8_t action) {
   if (action == 0) return;
   if (action > kBootButtonMaxActionClicks) action = kBootButtonMaxActionClicks;

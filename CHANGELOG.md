@@ -3,6 +3,17 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.8.17 — v6 b23 — 2026-07-20
+
+Protocol: `Flash6-Intelligent-b4` (ESP-NOW wire version `4`, unchanged)
+
+- Added a dedicated recovery finding-beacon pattern at the piezo's measured
+  peak acoustic band near 4 kHz.
+- Start the repeating two-short/one-long recovery beacon immediately after
+  the CH2 servo deployment command and its mission event are recorded. The
+  pattern runs asynchronously, so flight-state, telemetry, and storage work
+  remain uninterrupted.
+
 ## 0.8.16 — v6 b22 — 2026-07-20
 
 Protocol: `Flash6-Intelligent-b4` (ESP-NOW wire version `4`, unchanged)
