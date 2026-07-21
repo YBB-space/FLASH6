@@ -3,6 +3,16 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 replay file drag-and-drop b40 — 2026-07-21
+
+Firmware build: `v6 b28` (unchanged)
+Protocol: `Flash6-Intelligent-b5` (unchanged)
+
+- Added drag-and-drop loading to the replay file picker while retaining the
+  existing BIN, CSV, and XLSX parser and validation path.
+- Added a restrained drop-target state so the modal clearly confirms when a
+  desktop file can be released without changing the mobile picker layout.
+
 ## 0.8.22 — v6 b28 — 2026-07-21
 
 Protocol: `Flash6-Intelligent-b5` (ESP-NOW wire version `5`, unchanged)

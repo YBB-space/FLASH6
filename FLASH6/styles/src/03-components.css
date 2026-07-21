@@ -1436,6 +1436,15 @@ body:has(#welcomeConnectScreen:not(.hidden)) #replayDataPickerOverlay.replay-dat
   border-color:#4a4e56;
   background:#222428;
 }
+.replay-data-picker-file.is-dragover{
+  border-color:#7da9ee;
+  background:#17202d;
+  box-shadow:inset 0 0 0 1px rgba(125,169,238,.34);
+}
+.replay-data-picker-file.is-dragover .replay-data-picker-file-icon,
+.replay-data-picker-file.is-dragover .replay-data-picker-file-copy strong{
+  color:#dce9ff;
+}
 .replay-data-picker-item:active,
 .replay-data-picker-file:active{
   transform:translateY(1px);

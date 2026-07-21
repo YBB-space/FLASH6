@@ -19300,6 +19300,11 @@ function requestMobileMockup3dMesh(){
       overlay.style.setProperty("z-index", "2147483646", "important");
       overlay.style.setProperty("display", show ? "flex" : "none", "important");
       overlay.setAttribute("aria-hidden", show ? "false" : "true");
+      if(!show){
+        overlay.querySelectorAll(".is-dragover").forEach(node=>{
+          node.classList.remove("is-dragover");
+        });
+      }
       if(show){
         requestAnimationFrame(()=>{
           const firstAction = overlay.querySelector(".replay-data-picker-item, #replayBrowseFileBtn");
@@ -34582,38 +34587,46 @@ function requestMobileMockup3dMesh(){
       if(el.replayFileBtn && el.replayFileInput){
         el.replayFileBtn.addEventListener("click",()=>showReplayDataPicker());
       }
-      if(el.replayFileBtn){
-        let dragDepth = 0;
-        const clearDragState = ()=>{
-          dragDepth = 0;
-          el.replayFileBtn.classList.remove("is-dragover");
+      const bindReplayFileDropTarget = (target)=>{
+        if(!target) return;
+        const hasDraggedFiles = (ev)=>{
+          const transfer = ev && ev.dataTransfer;
+          if(!transfer) return false;
+          if(transfer.files && transfer.files.length) return true;
+          return Array.from(transfer.types || []).indexOf("Files") >= 0;
         };
-        el.replayFileBtn.addEventListener("dragenter",(ev)=>{
+        const clearDragState = ()=>{
+          target.classList.remove("is-dragover");
+        };
+        target.addEventListener("dragenter",(ev)=>{
+          if(!hasDraggedFiles(ev)) return;
           ev.preventDefault();
-          dragDepth++;
-          el.replayFileBtn.classList.add("is-dragover");
+          target.classList.add("is-dragover");
         });
-        el.replayFileBtn.addEventListener("dragover",(ev)=>{
+        target.addEventListener("dragover",(ev)=>{
+          if(!hasDraggedFiles(ev)) return;
           ev.preventDefault();
           if(ev.dataTransfer) ev.dataTransfer.dropEffect = "copy";
-          el.replayFileBtn.classList.add("is-dragover");
+          target.classList.add("is-dragover");
         });
-        el.replayFileBtn.addEventListener("dragleave",(ev)=>{
-          ev.preventDefault();
-          dragDepth = Math.max(0, dragDepth - 1);
-          if(dragDepth === 0){
-            el.replayFileBtn.classList.remove("is-dragover");
-          }
+        target.addEventListener("dragleave",(ev)=>{
+          const nextTarget = ev.relatedTarget;
+          if(nextTarget && target.contains(nextTarget)) return;
+          clearDragState();
         });
-        el.replayFileBtn.addEventListener("drop",(ev)=>{
+        target.addEventListener("drop",(ev)=>{
+          if(!hasDraggedFiles(ev)) return;
           ev.preventDefault();
+          ev.stopPropagation();
           clearDragState();
           const file = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0]
             ? ev.dataTransfer.files[0]
             : null;
           if(file) loadReplayFile(file);
         });
-      }
+      };
+      bindReplayFileDropTarget(el.replayFileBtn);
+      bindReplayFileDropTarget(el.replayBrowseFileBtn);
       if(el.replayFileInput){
         el.replayFileInput.addEventListener("change", async ()=>{
           const file = el.replayFileInput.files && el.replayFileInput.files[0];

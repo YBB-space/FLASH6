@@ -2407,6 +2407,11 @@
       overlay.style.setProperty("z-index", "2147483646", "important");
       overlay.style.setProperty("display", show ? "flex" : "none", "important");
       overlay.setAttribute("aria-hidden", show ? "false" : "true");
+      if(!show){
+        overlay.querySelectorAll(".is-dragover").forEach(node=>{
+          node.classList.remove("is-dragover");
+        });
+      }
       if(show){
         requestAnimationFrame(()=>{
           const firstAction = overlay.querySelector(".replay-data-picker-item, #replayBrowseFileBtn");
