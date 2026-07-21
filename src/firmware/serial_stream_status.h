@@ -318,7 +318,7 @@ void handleSerialLine(const char* line) {
   cmd.trim();
 
   if (cmd == "help" || cmd == "/help") {
-    Serial.println("ACK GYRO_BARO_GPS_FLASH commands: /set?stream=0|1&ign_ms=1000&cd_ms=10000&daq_seq_pyro=1, /settings, /rates, /gps, /baro, /loadcell|zero|cal|reset, /servo?ch=1&deg=90 or SERVO 1 90, /storage/spi_flash/status|list|read|init, /storage/spi_flash/remote/list|read, /mission_profile_begin|chunk|end|cancel, /countdown_start, /mission_force_timed, /abort, /reset");
+    Serial.println("ACK GYRO_BARO_GPS_FLASH commands: /set?stream=0|1&ign_ms=1000&cd_ms=10000&daq_seq_pyro=1, /settings, /rates, /gps, /baro, /loadcell|zero|cal|reset, /servo?ch=1&deg=90 or SERVO 1 90, /storage/spi_flash/status|list|read|init, /storage/spi_flash/remote/list|read, /mission_profile_begin|chunk|end|cancel, /countdown_start, /mission_standby, /mission_force_timed, /abort, /reset");
     return;
   }
 
@@ -864,6 +864,7 @@ void handleSerialLine(const char* line) {
           (int32_t)requestedCountdownMs)) {
       return;
     }
+    missionLaunchStandby = false;
     sequenceUserWaiting = requestedWaiting;
     if (sequenceUserWaiting) countdownDurationMs = requestedCountdownMs;
     Serial.printf("ACK PRECOUNT uw=%u td=%ld\n", sequenceUserWaiting ? 1U : 0U, (long)sequenceTdMs(millis()));
@@ -912,6 +913,31 @@ void handleSerialLine(const char* line) {
     }
     Serial.println("ACK FORCED_TIMED_MISSION_STARTED");
     return;
+  }
+
+  if (cmd == "/mission_standby" || cmd == "MISSION_STANDBY") {
+    if (forwardFlashLinkSerialCommand(
+          FlashLinkCommandCode::MissionStandby)) {
+      return;
+    }
+    const MissionStandbyResult result = startMissionStandbyRuntime(millis());
+    switch (result) {
+      case MissionStandbyResult::Started:
+        Serial.println("ACK MISSION_STANDBY ignition=wired launch_gate=arm+motion");
+        return;
+      case MissionStandbyResult::ArmUnsafe:
+        Serial.println("ERR MISSION_STANDBY ARM_RELEASED_SAFE_MODE");
+        return;
+      case MissionStandbyResult::PermissionDenied:
+        Serial.println("ERR MISSION_STANDBY PERMISSION_DENIED");
+        return;
+      case MissionStandbyResult::SafetyMode:
+        Serial.println("ERR MISSION_STANDBY SAFETY_MODE");
+        return;
+      default:
+        Serial.println("ERR MISSION_STANDBY BUSY");
+        return;
+    }
   }
 
   if (cmd == "/abort" || cmd == "ABORT") {

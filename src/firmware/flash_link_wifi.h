@@ -14,6 +14,8 @@ const char* flashLinkCommandResultName(uint8_t result) {
     case FlashLinkCommandResult::SafetyMode: return "safety_mode";
     case FlashLinkCommandResult::Busy: return "busy";
     case FlashLinkCommandResult::InvalidArgument: return "invalid_argument";
+    case FlashLinkCommandResult::ArmUnsafe: return "arm_unsafe";
+    case FlashLinkCommandResult::PermissionDenied: return "permission_denied";
     default: return "unsupported";
   }
 }
@@ -238,6 +240,7 @@ bool flashLinkCommandIsUrgent(uint8_t code) {
          code == static_cast<uint8_t>(FlashLinkCommandCode::SequenceEnd) ||
          code == static_cast<uint8_t>(FlashLinkCommandCode::ForceIgnite) ||
          code == static_cast<uint8_t>(FlashLinkCommandCode::ForceTimedMission) ||
+         code == static_cast<uint8_t>(FlashLinkCommandCode::MissionStandby) ||
          code == static_cast<uint8_t>(FlashLinkCommandCode::SetSafety) ||
          code == static_cast<uint8_t>(FlashLinkCommandCode::SetArmLock) ||
          code == static_cast<uint8_t>(FlashLinkCommandCode::Reboot);
@@ -801,6 +804,7 @@ FlashLinkCommandResult flashLinkExecuteCommand(
       return FlashLinkCommandResult::Ok;
 
     case FlashLinkCommandCode::SetPrecount:
+      missionLaunchStandby = false;
       sequenceUserWaiting = command.arg0 != 0;
       if (sequenceUserWaiting && command.arg1 >= 3000 && command.arg1 <= 60000) {
         countdownDurationMs = (uint32_t)command.arg1;
@@ -830,6 +834,23 @@ FlashLinkCommandResult flashLinkExecuteCommand(
       }
       detail = sequenceTdMs(nowMs);
       return FlashLinkCommandResult::Ok;
+
+    case FlashLinkCommandCode::MissionStandby: {
+      const MissionStandbyResult result = startMissionStandbyRuntime(nowMs);
+      switch (result) {
+        case MissionStandbyResult::Started:
+          detail = 1;
+          return FlashLinkCommandResult::Ok;
+        case MissionStandbyResult::SafetyMode:
+          return FlashLinkCommandResult::SafetyMode;
+        case MissionStandbyResult::ArmUnsafe:
+          return FlashLinkCommandResult::ArmUnsafe;
+        case MissionStandbyResult::PermissionDenied:
+          return FlashLinkCommandResult::PermissionDenied;
+        default:
+          return FlashLinkCommandResult::Busy;
+      }
+    }
 
     case FlashLinkCommandCode::Abort:
       abortSequenceRuntime(command.arg0 > 0 ? (uint8_t)command.arg0 : 1U);

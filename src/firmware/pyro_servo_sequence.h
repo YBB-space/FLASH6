@@ -273,6 +273,9 @@ int32_t sequenceTdMs(uint32_t nowMs) {
   if (st == kSequenceStateFiring || st == kSequenceStateTplus) {
     return (int32_t)((nowMs >= sequenceFiringStartMs) ? (nowMs - sequenceFiringStartMs) : 0U);
   }
+  // Wired-ignition standby has no synthetic countdown. T+ starts only when
+  // the onboard launch detector confirms motion.
+  if (missionLaunchStandby) return 0;
   if (sequenceUserWaiting) return -(int32_t)countdownDurationMs;
   return 0;
 }
@@ -292,6 +295,7 @@ void clearSequenceRuntime() {
   buttonSequenceWarningBeeps = 0;
   sequenceState = kSequenceStateIdle;
   sequenceUserWaiting = false;
+  missionLaunchStandby = false;
   sequenceCountdownEndMs = 0;
   sequenceCountdownTotalMs = 0;
   sequenceCountdownBeepSecond = 0;
@@ -313,6 +317,7 @@ bool startFiringRuntime(uint32_t nowMs, uint8_t channel) {
   }
   sequenceState = kSequenceStateFiring;
   sequenceUserWaiting = false;
+  missionLaunchStandby = false;
   sequenceAborted = false;
   sequenceAbortReason = 0;
   sequenceFiringStartMs = nowMs;
@@ -329,6 +334,7 @@ bool startCountdownRuntimeFor(uint32_t nowMs, uint32_t durationMs, bool playStar
   durationMs = clampU32((long)durationMs, 3000, 60000, countdownDurationMs);
   sequenceState = kSequenceStateCountdown;
   sequenceUserWaiting = false;
+  missionLaunchStandby = false;
   sequenceAborted = false;
   sequenceAbortReason = 0;
   sequenceCountdownTotalMs = durationMs;

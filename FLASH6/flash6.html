@@ -127,7 +127,7 @@
   <!-- Preload 축소: AP 모드/저메모리 환경에서 동시 요청 버스트를 줄임 -->
   <script>
     (function(){
-    var ASSET_VER = "20260721-replay-wallclock-catchup-b42-__FLASH6_DEPLOY_SHA__";
+    var ASSET_VER = "20260722-wired-mission-control-drawer-b43-__FLASH6_DEPLOY_SHA__";
       window.__flashBoot = window.__flashBoot || {jsReady:false,lastError:"",phase:"static_loader",version:ASSET_VER};
       var isLocalPreview = !!window.__flashBoot.localPreview;
       var beaconEnabled = (window.__flashBoot.beaconEnabled !== false);
@@ -365,7 +365,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="styles/flash6.css?v=20260721-replay-wallclock-catchup-b42-__FLASH6_DEPLOY_SHA__">
+  <link rel="stylesheet" href="styles/flash6.css?v=20260722-wired-mission-control-drawer-b43-__FLASH6_DEPLOY_SHA__">
 </head>
 <body>
   <!-- ✅ LOCKOUT 배경 오버레이 -->
@@ -454,14 +454,7 @@
             <path d="M9 15.5h4"></path>
           </svg>
         </button>
-        <button class="side-nav-item" data-page-title="Hardware" data-nav-label="하드웨어" aria-label="Hardware">
-          <svg viewBox="0 0 24 24"><path d="M7 3v6"/><path d="M17 3v6"/><path d="M3 11h18"/><path d="M5 11v7h14v-7"/><path d="M8 21h8"/></svg>
-        </button>
-        <button id="sidebarTerminalBtn" class="side-nav-item" data-page-title="Terminal" data-nav-label="터미널" aria-label="Terminal">
-          <svg viewBox="0 0 24 24"><path d="M3 6h18v12H3z"/><path d="M7 10l3 2-3 2"/><path d="M12 14h5"/></svg>
-        </button>
-        <div class="side-nav-divider" aria-hidden="true"></div>
-        <button id="tabletControlsNavBtn" class="side-nav-btn js-controls-open tablet-controls-nav-btn" data-nav-label="제어" aria-label="Control panel">
+        <button id="desktopControlPanelNavBtn" class="side-nav-btn js-controls-open" data-nav-label="컨트롤 패널" aria-label="컨트롤 패널" title="컨트롤 패널" aria-expanded="false">
           <svg viewBox="0 0 24 24">
             <path d="M5 7h14"></path>
             <path d="M5 12h14"></path>
@@ -471,6 +464,10 @@
             <circle cx="11" cy="17" r="1.5"></circle>
           </svg>
         </button>
+        <button id="sidebarTerminalBtn" class="side-nav-item" data-page-title="Terminal" data-nav-label="터미널" aria-label="Terminal">
+          <svg viewBox="0 0 24 24"><path d="M3 6h18v12H3z"/><path d="M7 10l3 2-3 2"/><path d="M12 14h5"/></svg>
+        </button>
+        <div class="side-nav-divider" aria-hidden="true"></div>
         <button id="launcherOpenBtn" class="side-nav-action js-launcher-open launcher-desktop-only" data-nav-label="런처" aria-label="Launcher">
           <svg viewBox="0 0 24 24">
             <path d="M12 5 18 11H6z" style="fill:currentColor;stroke:none"></path>
@@ -489,6 +486,7 @@
         </button>
       </div>
     </aside>
+    <div id="desktopControlDrawerMount" class="desktop-control-drawer-mount" aria-hidden="true"></div>
     <aside class="side-nav side-nav-mobile" aria-label="mobile navigation">
       <div id="mobileControlsPanel" class="mobile-controls-panel" aria-hidden="true">
         <div class="mobile-controls-handle" aria-hidden="true"></div>
@@ -604,6 +602,17 @@
             </span>
             <span class="mobile-quick-label">강제 미션</span>
             <span id="mobileVirtualMissionStatus" class="mobile-quick-state pill pill-gray">대기</span>
+          </button>
+          <button id="mobileMissionStandbyBtn" type="button" class="control-tile mobile-control mobile-quick-btn" data-mobile-control="mission_standby">
+            <span class="mobile-quick-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M12 3v5"></path>
+                <path d="M8.5 6.5 12 10l3.5-3.5"></path>
+                <path d="M5 13.5a7 7 0 1 0 14 0"></path>
+              </svg>
+            </span>
+            <span class="mobile-quick-label">미션 대기</span>
+            <span id="mobileMissionStandbyStatus" class="mobile-quick-state pill pill-gray">준비</span>
           </button>
           <button type="button" class="control-tile mobile-control mobile-quick-btn" data-mobile-control="export">
             <span class="mobile-quick-icon" aria-hidden="true">
@@ -1813,6 +1822,14 @@
                 </div>
               </div>
 
+              <button id="missionStandbyBtn" class="control-tile is-btn span-2 mission-standby-tile" type="button" aria-label="유선 점화 발사 감지 대기 시작">
+                <span class="force-mission-copy">
+                  <span id="missionStandbyBtnLabel" class="control-tile-label">미션 대기</span>
+                  <span class="control-tile-sub">유선 점화 · 1단 발사 감지 시 T+ 시작</span>
+                </span>
+                <span id="missionStandbyBtnStatus" class="pill pill-gray">READY</span>
+              </button>
+
               <button id="virtualMissionBtn" class="control-tile is-btn span-2 force-mission-tile" type="button" aria-label="시간 기반 강제 미션 시작">
                 <span class="force-mission-copy">
                   <span id="virtualMissionBtnLabel" class="control-tile-label">미션 강제 구동</span>
@@ -2533,7 +2550,7 @@
                     <h2 id="fwProductTitle">FLASH6</h2>
                     <p>Flight telemetry, mission control and data acquisition.</p>
                   </div>
-                  <span class="fw-release-state">STABLE · B27</span>
+                  <span class="fw-release-state">STABLE · B29</span>
 
                   <dl class="fw-build-grid" aria-label="software build information">
                     <div>
@@ -2542,11 +2559,11 @@
                     </div>
                     <div>
                       <dt>BUILD ID</dt>
-                      <dd>v6 b28</dd>
+                      <dd>v6 b29</dd>
                     </div>
                     <div>
                       <dt>PROTOCOL</dt>
-                      <dd>Flash6-Intelligent-b5</dd>
+                      <dd>Flash6-Intelligent-b6</dd>
                     </div>
                   </dl>
                 </section>
@@ -3208,6 +3225,24 @@
         <div class="confirm-actions mission-force-actions">
           <button id="missionForceCancel" class="confirm-cancel" type="button">취소</button>
           <button id="missionForceConfirm" class="loadcell-primary mission-force-confirm" type="button">실제 서보 동작 실행</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 물리 ARM 해제 고위험 경고 -->
+    <div id="missionArmRiskOverlay" class="confirm-overlay mission-arm-risk-overlay hidden" style="display:none;" aria-hidden="true">
+      <div class="confirm-dialog mission-arm-risk-dialog" role="alertdialog" aria-modal="true" aria-labelledby="missionArmRiskTitle">
+        <div class="mission-arm-risk-heading">
+          <span class="mission-arm-risk-level">HIGH RISK</span>
+          <div id="missionArmRiskTitle" class="confirm-title">ARM 해제 상태 감지</div>
+        </div>
+        <div id="missionArmRiskStage" class="mission-arm-risk-stage">에비오닉스 ARM 상태를 확인하세요.</div>
+        <div class="confirm-text">
+          미션 대기를 시작하지 않았습니다. 미션 실행 권한을 해제하고 안전 모드와 ARM 잠금을 자동으로 적용했습니다.
+        </div>
+        <div class="confirm-note">기체와 점화 계통을 점검한 뒤 물리 ARM을 다시 설정하고 설비 점검을 진행하세요.</div>
+        <div class="confirm-actions mission-arm-risk-actions">
+          <button id="missionArmRiskConfirm" class="loadcell-primary" type="button">확인</button>
         </div>
       </div>
     </div>
@@ -3989,6 +4024,6 @@
     <button id="controlsOverlayClose" class="controls-overlay-close" type="button" aria-label="close">×</button>
     </div>
 
-  <script src="scripts/flash6-watchdog.js?v=20260721-replay-wallclock-catchup-b42-__FLASH6_DEPLOY_SHA__"></script>
+  <script src="scripts/flash6-watchdog.js?v=20260722-wired-mission-control-drawer-b43-__FLASH6_DEPLOY_SHA__"></script>
 </body>
 </html> 

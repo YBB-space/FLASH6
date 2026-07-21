@@ -468,6 +468,86 @@ bool startForcedTimedMissionRuntime(uint32_t nowMs) {
   return true;
 }
 
+MissionStandbyResult startMissionStandbyRuntime(uint32_t nowMs) {
+  // A board that boots or receives this command with the physical ARM already
+  // released must never become launch-sensitive. Revoke mission authority and
+  // force both software interlocks on; the operator must inspect and re-arm the
+  // vehicle before another standby request can be accepted.
+  if (!armSwitchPhysicalOn()) {
+    clearSequenceRuntime();
+    inspectionPassed = false;
+    armLock = true;
+    safetyMode = true;
+    applyPyroOutputs(nowMs);
+    missionEmitAlarm(
+      0,
+      "ARM unsafe",
+      "Mission standby rejected. Physical ARM is released; safety mode enabled.");
+    Serial.println("[MISSION] standby rejected arm_physical=off safe=1 arm_lock=1 inspection=0");
+    return MissionStandbyResult::ArmUnsafe;
+  }
+
+  if (safetyMode) return MissionStandbyResult::SafetyMode;
+  if (!inspectionPassed) return MissionStandbyResult::PermissionDenied;
+  if (sequenceState != kSequenceStateIdle || sequenceUserWaiting) {
+    return MissionStandbyResult::Busy;
+  }
+
+  flightPhaseResetRuntime();
+  missionResetLaunchRuntime(nowMs);
+  sequenceAborted = false;
+  sequenceAbortReason = 0;
+  sequenceState = kSequenceStateIdle;
+  sequenceUserWaiting = true;
+  missionLaunchStandby = true;
+  sequenceFiringStartMs = 0;
+  sequenceFiringEndMs = 0;
+  sequenceCountdownEndMs = 0;
+  sequenceCountdownTotalMs = 0;
+  sequenceRelayHoldUntilMs = 0;
+  sequenceRelayMask = 0;
+  applyPyroOutputs(nowMs);
+  missionEmitAlarm(
+    0,
+    "Mission standby",
+    "Wired ignition armed. Waiting for confirmed launch motion.");
+  missionSyncLaunchTelemetry();
+  Serial.println("[MISSION] standby active ignition=wired launch_gate=arm+motion pyro=off");
+  return MissionStandbyResult::Started;
+}
+
+bool missionLatchWiredLaunch(uint32_t launchMs) {
+  if (!missionLaunchStandby ||
+      sequenceState != kSequenceStateIdle ||
+      flightPhaseRuntime.phase != FlightPhase::PoweredFlight) {
+    return false;
+  }
+
+  missionLaunchStandby = false;
+  sequenceUserWaiting = false;
+  sequenceState = kSequenceStateTplus;
+  sequenceFiringStartMs = launchMs;
+  sequenceFiringEndMs = 0;
+  sequenceRelayHoldUntilMs = 0;
+  sequenceRelayMask = 0;
+  applyPyroOutputs(launchMs);
+
+  launchMission.forceTimed = false;
+  launchMission.launchLatched = true;
+  launchMission.state = LaunchMissionState::WaitingCoast;
+  launchMission.launchMs = launchMs;
+  launchMission.ignitionStartMs = 0;
+  launchMission.ignitionDelayMs = UINT32_MAX;
+  missionLastSequenceState = sequenceState;
+  missionEmitAlarm(
+    0,
+    "Launch detected",
+    "Wired ignition launch confirmed. Onboard T+ started.");
+  missionSyncLaunchTelemetry();
+  Serial.printf("[MISSION] wired launch latched T+0=%lums pyro=off\n", (unsigned long)launchMs);
+  return true;
+}
+
 void missionLaunchSequenceTick(uint32_t nowMs, bool armFalling, uint32_t armFallingMs) {
   if (armFalling && !launchMission.launchLatched) {
     const bool ignitionStarted = sequenceFiringStartMs != 0U &&
@@ -586,6 +666,10 @@ void missionRuntimeTick() {
   if ((uint32_t)(nowUs - missionLastTickUs) < kMissionTickPeriodUs) return;
   missionLastTickUs = nowUs;
   const uint32_t nowMs = millis();
+  if (missionLaunchStandby &&
+      flightPhaseRuntime.phase == FlightPhase::PoweredFlight) {
+    missionLatchWiredLaunch(flightPhaseRuntime.phaseEnteredMs);
+  }
   uint32_t armFallingMs = 0;
   const bool debouncedArmFalling = missionUpdateArmSwitch(nowMs, armFallingMs);
   const uint8_t switchNow = launchMission.armStableOn ? 1U : 0U;

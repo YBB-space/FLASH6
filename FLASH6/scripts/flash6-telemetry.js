@@ -611,6 +611,14 @@
         syncSequenceInteractionState(st);
       }
       currentSt=st;
+      if(isFirmwareSequenceRunningState(st)){
+        userWaitingLocal = false;
+        missionStandbyUiActive = false;
+      }else if(st === 0 && uw && td != null && Number(td) === 0){
+        missionStandbyUiActive = true;
+      }else if(st === 0 && !uw){
+        missionStandbyUiActive = false;
+      }
       sequenceActive = (
         st === 0 &&
         (
@@ -650,6 +658,7 @@
         mode,
         gs,
         uw: uw?1:0,
+        td: (td != null && isFinite(td)) ? Number(td) : null,
         sm: (sm != null) ? (sm ? 1 : 0) : (safetyModeEnabled ? 1 : 0),
         al: (al != null) ? (al ? 1 : 0) : null,
         lc_raw: lastLoadcellRaw,

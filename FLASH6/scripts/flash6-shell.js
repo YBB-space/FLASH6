@@ -3850,6 +3850,7 @@
         r: simState.st === 2 ? 1 : 0,
         st: simState.st,
         td: simTd,
+        uw:simState.missionStandby ? 1 : 0,
         gs: isIgniterCheckEnabled() ? 1 : 0,
         m: 2,
         sm:safetyModeEnabled ? 1 : 0,

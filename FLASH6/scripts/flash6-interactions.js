@@ -82,6 +82,7 @@
     let confirmTitleEl=null;
     let lpLastSentSec=3;
     let userWaitingLocal=false;
+    let missionStandbyUiActive=false;
 
     let forceOverlayEl=null;
     let launcherOverlayEl=null;
@@ -212,6 +213,7 @@
       releaseLongPressPointerCapture();
       resetLongPressVisual();
       userWaitingLocal=false;
+      missionStandbyUiActive=false;
       setOverlayVisible(confirmOverlayEl, false);
       if(sendPrecountReset){
         sendCommand({http:"/precount?uw=0&cd=0", ser:"PRECOUNT 0 0"}, false);
@@ -241,6 +243,7 @@
       releaseLongPressPointerCapture();
       resetLongPressVisual();
       userWaitingLocal=true;
+      missionStandbyUiActive=false;
       lpLastSentSec=3;
       setOverlayVisible(confirmOverlayEl, true);
       const cdMs = Math.max(3000, Math.min(60000, ((uiSettings ? uiSettings.countdownSec : 10) * 1000)));
@@ -286,6 +289,7 @@
       if(!el.longPressBtn || !longPressSpinnerEl || lpTimer) return;
       showSequenceStorageGuardToast(false);
       userWaitingLocal=true;
+      missionStandbyUiActive=false;
       lpStart=Date.now();
       lpLastSentSec=3;
       const configuredCdMs = Math.max(3000, Math.min(60000, ((uiSettings ? uiSettings.countdownSec : 10) * 1000)));

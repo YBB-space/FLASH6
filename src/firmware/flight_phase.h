@@ -297,7 +297,11 @@ void flightPhaseTick() {
   flightPhaseUpdateAcceleration(accelG, dtSec);
   const bool baroFresh = snap.baroValid && lastBaroValidMs != 0U &&
     (uint32_t)(nowMs - lastBaroValidMs) <= 250U;
-  const bool armReleasedFromLauncher = !armSwitchEffectiveOn();
+  // Software ARM lock is an output interlock, not a physical launch signal.
+  // Using the effective value here masks the launcher's real ON -> OFF edge
+  // whenever ARM lock is enabled. Wired-ignition standby therefore observes
+  // the physical input directly.
+  const bool armReleasedFromLauncher = !armSwitchPhysicalOn();
   snap.flightCoastHoldMs = 0U;
   snap.flightDescentHoldMs = 0U;
 
@@ -313,7 +317,10 @@ void flightPhaseTick() {
         rt.launchSpeedSinceMs,
         baroFresh && rt.fastVerticalSpeedMps > kFlightLaunchSpeedMps,
         kFlightLaunchHoldMs);
-      if (rt.ignitionSeen && armReleasedFromLauncher && (accelerationLaunch || speedLaunch)) {
+      const bool launchDetectionArmed = rt.ignitionSeen || missionLaunchStandby;
+      if (launchDetectionArmed &&
+          armReleasedFromLauncher &&
+          (accelerationLaunch || speedLaunch)) {
         flightPhaseSet(
           FlightPhase::PoweredFlight,
           nowMs,

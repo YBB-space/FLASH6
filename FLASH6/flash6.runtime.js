@@ -5840,6 +5840,7 @@ function requestMobileMockup3dMesh(){
         countdownStartMs:null,
         ignStartMs:null,
         countdownTotalMs:null,
+        missionStandby:false,
         flightStartMs:null,
         lastGeo:null,
         physicsLastMs:0,
@@ -5914,6 +5915,7 @@ function requestMobileMockup3dMesh(){
     let stageTelemetryModeActive = false;
     let cameraHudActiveStageId = 1;
     let cameraHudStageSwitchLatched = false;
+    let lastMissionStandbyAckKey = "";
     let gpsFixAlarmState = null;
     const STATUS_MAP_DEFAULT = Object.freeze({lat:34.96601, lon:127.83238, zoom:12});
     const STATUS_MAP_KR_BOUNDS = Object.freeze({south:33.0, west:124.5, north:38.9, east:131.9});
@@ -10329,6 +10331,7 @@ function requestMobileMockup3dMesh(){
         r: simState.st === 2 ? 1 : 0,
         st: simState.st,
         td: simTd,
+        uw:simState.missionStandby ? 1 : 0,
         gs: isIgniterCheckEnabled() ? 1 : 0,
         m: 2,
         sm:safetyModeEnabled ? 1 : 0,
@@ -11907,7 +11910,7 @@ function requestMobileMockup3dMesh(){
       const infoRows = [
         {cells:["ALTIS INTELLIGENT LINK1 COMMUNICATION REPORT"], style:2},
         {cells:["Generated at", now.toISOString()], style:3},
-        {cells:["Protocol", "Flash6-Intelligent-b5 / ALTIS INTELLIGENT LINK1 ESP-NOW LR"], style:3},
+        {cells:["Protocol", "Flash6-Intelligent-b6 / ALTIS INTELLIGENT LINK1 ESP-NOW LR"], style:3},
         {cells:["Board role", roleLabel], style:3},
         {cells:["Peer", peer || "--"], style:3},
         {cells:["Target rate", stats.targetHz + " Hz"], style:3},
@@ -12292,8 +12295,8 @@ function requestMobileMockup3dMesh(){
         const failed = Math.max(0, Number(src.fl_cmd_failed) || 0);
         const code = Math.max(0, Number(src.fl_cmd_last_code) || 0);
         const result = Math.max(0, Number(src.fl_cmd_last_result) || 0);
-        const resultKo = ["ACK", "안전모드 거부", "처리 불가", "인자 오류", "미지원"];
-        const resultEn = ["ACK", "Denied: safety", "Busy", "Invalid argument", "Unsupported"];
+        const resultKo = ["ACK", "안전모드 거부", "처리 불가", "인자 오류", "미지원", "ARM 위험", "권한 없음"];
+        const resultEn = ["ACK", "Denied: safety", "Busy", "Invalid argument", "Unsupported", "ARM unsafe", "Permission denied"];
         if(pending > 0){
           el.flashLinkCommandStatus.textContent =
             (currentLang === "ko" ? "전송 중 " : "Sending ") + pending;
@@ -12306,6 +12309,25 @@ function requestMobileMockup3dMesh(){
             (currentLang === "ko" ? "전송 실패 " : "Failed ") + failed;
         }else{
           el.flashLinkCommandStatus.textContent = "--";
+        }
+        if(code === 27 && pending === 0 && acked > 0){
+          const ackKey = code + ":" + result + ":" + acked + ":" + failed;
+          if(ackKey !== lastMissionStandbyAckKey){
+            lastMissionStandbyAckKey = ackKey;
+            if(result === 5){
+              userWaitingLocal = false;
+              missionStandbyUiActive = false;
+              enforceMissionStandbySafety([]);
+            }else if(result !== 0){
+              userWaitingLocal = false;
+              missionStandbyUiActive = false;
+              updateMissionStandbyButtonUi();
+              showToast("미션 대기 거부: " + (resultKo[result] || ("ERR " + result)), "error", {
+                key:"mission-standby-remote-rejected",
+                duration:4500
+              });
+            }
+          }
         }
       }
       if(wasOperational !== operational){
@@ -15253,6 +15275,7 @@ function requestMobileMockup3dMesh(){
       syncMobileControlButtons();
       updateMobileSequenceStatusLabel(sequenceActive, state, lockoutLatched);
       updateMobileSequenceCardButtons(state);
+      updateMissionStandbyButtonUi();
       updateMissionEditLockUI();
     }
 
@@ -15726,11 +15749,9 @@ function requestMobileMockup3dMesh(){
       const inspectionActive = !!inspectionPanelActive || isInspectionOverlayVisible() || isMobileInspectionPanelVisible();
       const servoActive = isServoControlVisible();
       const panelModeActive = replayActive || launcherActive || missionActive || inspectionActive || servoActive;
-      const controlsActive = isMobileLayout()
-        ? false
-        : (isTabletControlsLayout()
-            ? (tabletControlsOpen && !panelModeActive)
-            : (!panelModeActive));
+      const controlsActive = !isMobileLayout() &&
+        document.documentElement.classList.contains("control-drawer-open") &&
+        !panelModeActive;
       if(el.replayOpenBtns && el.replayOpenBtns.length){
         el.replayOpenBtns.forEach(btn=>btn.classList.toggle("is-active", replayActive));
       }
@@ -16437,6 +16458,10 @@ function requestMobileMockup3dMesh(){
       hideMobileControlsPanel();
       closeIgnitionModals();
       if(!el.controlsOverlay || !el.controlsOverlaySlot || !el.controlsCard) return;
+      if(!isMobileLayout()){
+        setDesktopControlDrawerOpen(true);
+        return;
+      }
       if(!controlsCardParent){
         controlsCardParent = el.controlsCard.parentNode;
         controlsCardNext = el.controlsCard.nextSibling;
@@ -16450,6 +16475,7 @@ function requestMobileMockup3dMesh(){
       updateNavActionState();
     }
     function hideControlsModal(){
+      setDesktopControlDrawerOpen(false);
       if(!el.controlsOverlay || !el.controlsCard || !controlsCardParent) return;
       resetControlsModesOnClose();
       el.controlsOverlay.classList.add("hidden");
@@ -16465,6 +16491,51 @@ function requestMobileMockup3dMesh(){
         el.controlsOverlay.appendChild(el.controlsOverlayClose);
       }
       updateNavActionState();
+    }
+
+    function isDesktopControlDrawerOpen(){
+      return !isMobileLayout() && document.documentElement.classList.contains("control-drawer-open");
+    }
+
+    function setDesktopControlDrawerOpen(open){
+      const next = !!open && !isMobileLayout();
+      if(el.controlsOverlay && !el.controlsOverlay.classList.contains("hidden") && controlsCardParent){
+        el.controlsOverlay.classList.add("hidden");
+        if(controlsCardNext && controlsCardNext.parentNode === controlsCardParent){
+          controlsCardParent.insertBefore(el.controlsCard, controlsCardNext);
+        }else if(el.controlsCard){
+          controlsCardParent.appendChild(el.controlsCard);
+        }
+        if(el.controlsOverlayClose) el.controlsOverlay.appendChild(el.controlsOverlayClose);
+      }
+      if(next && el.desktopControlDrawerMount && el.controlsCard &&
+         el.controlsCard.parentNode !== el.desktopControlDrawerMount){
+        el.desktopControlDrawerMount.appendChild(el.controlsCard);
+      }
+      document.documentElement.classList.toggle("control-drawer-open", next);
+      document.body.classList.toggle("control-drawer-open", next);
+      if(el.controlsCard){
+        el.controlsCard.classList.toggle("control-drawer-card", next);
+        el.controlsCard.setAttribute("aria-expanded", next ? "true" : "false");
+      }
+      if(el.desktopControlDrawerMount){
+        el.desktopControlDrawerMount.setAttribute("aria-hidden", next ? "false" : "true");
+      }
+      const navButton = document.getElementById("desktopControlPanelNavBtn");
+      if(navButton){
+        navButton.classList.toggle("is-active", next);
+        navButton.setAttribute("aria-expanded", next ? "true" : "false");
+      }
+      if(!next) resetControlsModesOnClose();
+      updateNavActionState();
+      requestAnimationFrame(()=>{
+        refreshChartLayout();
+        redrawCharts();
+      });
+    }
+
+    function toggleDesktopControlDrawer(){
+      setDesktopControlDrawerOpen(!isDesktopControlDrawerOpen());
     }
 
     let dashboardDrawerHideTimer = 0;
@@ -16629,6 +16700,163 @@ function requestMobileMockup3dMesh(){
         el.mobileVirtualMissionStatus.className =
           "mobile-quick-state pill " + (virtualMissionActive ? "pill-blue" : "pill-gray");
       }
+    }
+
+    function missionStandbyPhysicalArmValue(data){
+      if(!data || typeof data !== "object") return null;
+      const physicalRaw = data.sp ?? data.arm_physical ?? data.swPhysical;
+      const physical = physicalRaw == null ? NaN : Number(physicalRaw);
+      if(Number.isFinite(physical)) return physical !== 0;
+      const armLockRaw = data.al ?? data.arm_lock;
+      const effectiveRaw = data.s ?? data.sw;
+      const armLock = armLockRaw == null ? NaN : Number(armLockRaw);
+      const effective = effectiveRaw == null ? NaN : Number(effectiveRaw);
+      // Effective ARM reflects the physical input only while software ARM lock
+      // is explicitly off. Otherwise the physical state remains unknown.
+      if(Number.isFinite(armLock) && armLock === 0 && Number.isFinite(effective)){
+        return effective !== 0;
+      }
+      return null;
+    }
+
+    function missionStandbyUnsafeStageIds(){
+      const unsafe = [];
+      if(stageTelemetryModeActive){
+        [1, 2].forEach((stageId)=>{
+          if(stageId === 2 && !flashLinkUiStage2Mode) return;
+          const stage = stageTelemetryStore[stageId];
+          if(!stage || !stage.connected || !stage.valid) return;
+          if(missionStandbyPhysicalArmValue(stage.data) === false) unsafe.push(stageId);
+        });
+        return unsafe;
+      }
+      if(missionStandbyPhysicalArmValue(latestTelemetry) === false){
+        unsafe.push(cameraHudActiveStageId === 2 ? 2 : 1);
+      }
+      return unsafe;
+    }
+
+    function hideMissionArmRiskWarning(){
+      setOverlayVisible(el.missionArmRiskOverlay, false);
+    }
+
+    function showMissionArmRiskWarning(stageIds){
+      hideMobileControlsPanel();
+      const stages = Array.from(new Set((stageIds || []).filter(id=>id === 1 || id === 2)));
+      let stageText = "에비오닉스의 물리 ARM이 이미 해제되어 있습니다.";
+      if(stages.length){
+        stageText = stages.map(id=>id + "단부").join(" · ") + " 물리 ARM이 이미 해제되어 있습니다.";
+      }
+      if(el.missionArmRiskStage) el.missionArmRiskStage.textContent = stageText;
+      setOverlayVisible(el.missionArmRiskOverlay, true);
+    }
+
+    async function enforceMissionStandbySafety(stageIds){
+      markInspectionSyncPending(false);
+      applyInspectionAuthorityFromTelemetry(0);
+      applyBoardControlUiValue("safety", true);
+      applyBoardControlUiValue("armLock", true);
+      setButtonsFromState(currentSt, lockoutLatched, sequenceActive);
+      showMissionArmRiskWarning(stageIds);
+      addLogLine("미션 대기 거부 · 물리 ARM 해제 · 권한 회수 및 안전 모드 적용", "SAFETY");
+      const result = await sendCommand({
+        http:"/set?safe=1&arm_lock=1&inspection=0",
+        ser:"/set?safe=1&arm_lock=1&inspection=0"
+      }, true);
+      if(!result || !result.ok){
+        showToast("안전 명령 응답을 확인하지 못했습니다. 기체에 접근하지 말고 전원을 차단하세요.", "error", {
+          key:"mission-standby-safety-failed",
+          duration:7000
+        });
+      }
+    }
+
+    function updateMissionStandbyButtonUi(){
+      const waiting = !!missionStandbyUiActive;
+      const busy = !!(
+        virtualMissionActive || sequenceActive || isFirmwareSequenceRunningState(currentSt) ||
+        localTplusActive || replaySourceActive
+      );
+      const storageGuard = getSequenceStorageGuard();
+      const blocked = !waiting && (
+        busy || lockoutLatched || safetyModeEnabled || !isControlUnlocked() ||
+        !(connOk || serialConnected || simEnabled) || storageGuard.blocked || currentSt !== 0
+      );
+      if(el.missionStandbyBtn){
+        el.missionStandbyBtn.disabled = waiting || blocked;
+        el.missionStandbyBtn.classList.toggle("is-running", waiting);
+        el.missionStandbyBtn.setAttribute("aria-label", waiting
+          ? "1단 발사 감지 대기 중"
+          : "유선 점화 발사 감지 대기 시작");
+      }
+      if(el.missionStandbyBtnLabel){
+        el.missionStandbyBtnLabel.textContent = waiting ? "발사 감지 대기" : "미션 대기";
+      }
+      if(el.missionStandbyBtnStatus){
+        el.missionStandbyBtnStatus.textContent = waiting ? "WAITING" : "READY";
+        el.missionStandbyBtnStatus.className = "pill " + (waiting ? "pill-blue" : "pill-gray");
+      }
+      if(el.mobileMissionStandbyBtn){
+        el.mobileMissionStandbyBtn.disabled = waiting || blocked;
+        el.mobileMissionStandbyBtn.classList.toggle("is-active", waiting);
+      }
+      if(el.mobileMissionStandbyStatus){
+        el.mobileMissionStandbyStatus.textContent = waiting ? "감지 대기" : "준비";
+        el.mobileMissionStandbyStatus.className =
+          "mobile-quick-state pill " + (waiting ? "pill-blue" : "pill-gray");
+      }
+    }
+
+    async function startMissionStandbyFromUi(){
+      if(missionStandbyUiActive || sequenceActive) return;
+      const unsafeStages = missionStandbyUnsafeStageIds();
+      if(unsafeStages.length){
+        await enforceMissionStandbySafety(unsafeStages);
+        return;
+      }
+      const storageGuard = getSequenceStorageGuard();
+      if(storageGuard.blocked){
+        showSequenceStorageGuardToast(true);
+        return;
+      }
+      if(lockoutLatched || safetyModeEnabled || !isControlUnlocked()){
+        showToast(!isControlUnlocked()
+          ? "설비 점검을 완료한 뒤 미션 대기를 시작하세요."
+          : "안전 모드 또는 제어 제한을 해제한 뒤 다시 시도하세요.", "notice", {
+          key:"mission-standby-blocked"
+        });
+        return;
+      }
+      if(!(connOk || serialConnected || simEnabled)){
+        showToast("에비오닉스 연결 후 미션 대기를 시작하세요.", "notice", {key:"mission-standby-link"});
+        return;
+      }
+      hideMobileControlsPanel();
+      const result = await sendCommand({
+        http:"/mission_standby",
+        ser:"/mission_standby"
+      }, true);
+      if(!result || !result.ok){
+        const reason = String(result && result.reason || "");
+        if(reason.indexOf("ARM_RELEASED_SAFE_MODE") >= 0 || reason.indexOf("ARM_UNSAFE") >= 0){
+          await enforceMissionStandbySafety([]);
+          return;
+        }
+        showToast("미션 대기 진입 실패: " + (reason || "보드 응답 없음"), "error", {
+          key:"mission-standby-failed",
+          duration:4500
+        });
+        return;
+      }
+      userWaitingLocal = true;
+      missionStandbyUiActive = true;
+      updateMissionStandbyButtonUi();
+      setButtonsFromState(currentSt, lockoutLatched, true);
+      addLogLine("유선 점화 미션 대기 · 1단 발사 감지 후 T+ 시작", "MISSION");
+      showToast("미션 대기 중 · 1단 발사가 감지되면 T+가 시작됩니다.", "success", {
+        key:"mission-standby-active",
+        duration:4200
+      });
     }
 
     function renderVirtualMissionUi(nowMs){
@@ -17808,6 +18036,7 @@ function requestMobileMockup3dMesh(){
       if(chartSyncTimer) clearTimeout(chartSyncTimer);
       refreshChartLayout();
       if(isTabletControlsLayout()) return;
+      if(window.matchMedia("(min-width: 901px)").matches) return;
       if(!window.matchMedia("(min-width: 1100px)").matches) return;
       const chartsCard = document.querySelector(".charts-card");
       const controlsCard = document.getElementById("controlsCard");
@@ -17844,14 +18073,6 @@ function requestMobileMockup3dMesh(){
       }
       if(rowBottom && tabletLayoutActive){
         rowBottom.style.minHeight = "var(--chart-height)";
-      }
-      if(chartsCard && controlsCard && !tabletLayoutActive && window.matchMedia("(min-width: 1100px)").matches){
-        const controlsRect = controlsCard.getBoundingClientRect();
-        if(controlsRect.height > 0){
-          const targetHeight = Math.round(controlsRect.height);
-          chartsCard.style.height = targetHeight + "px";
-          chartsCard.style.minHeight = targetHeight + "px";
-        }
       }
       const ids=["thrustChart","pressureChart","accelChart","accelXYZChart","accelChartFlight","accelXYZChartFlight"];
       ids.forEach((id)=>{
@@ -18026,6 +18247,7 @@ function requestMobileMockup3dMesh(){
       updateControlAccessUI(st);
       updateMobileAbortButton();
       updateMobileSequenceStatusLabel(seqActive, st, lockout);
+      updateMissionStandbyButtonUi();
       updateVirtualMissionButtonUi();
     }
 
@@ -21334,8 +21556,8 @@ function requestMobileMockup3dMesh(){
         fl_rssi_age_ms:(frame[56] != null && isFinite(Number(frame[56]))) ? Number(frame[56]) : 4294967295,
         fw_program:"Altis_Intelligent3_firmware1",
         fw_board:"Altis_Intelligent3_b3",
-        fw_protocol:"Flash6-Intelligent-b5",
-        fw_build:"v6 b28"
+        fw_protocol:"Flash6-Intelligent-b6",
+        fw_build:"v6 b29"
       };
     }
 
@@ -23010,6 +23232,14 @@ function requestMobileMockup3dMesh(){
         syncSequenceInteractionState(st);
       }
       currentSt=st;
+      if(isFirmwareSequenceRunningState(st)){
+        userWaitingLocal = false;
+        missionStandbyUiActive = false;
+      }else if(st === 0 && uw && td != null && Number(td) === 0){
+        missionStandbyUiActive = true;
+      }else if(st === 0 && !uw){
+        missionStandbyUiActive = false;
+      }
       sequenceActive = (
         st === 0 &&
         (
@@ -23049,6 +23279,7 @@ function requestMobileMockup3dMesh(){
         mode,
         gs,
         uw: uw?1:0,
+        td: (td != null && isFinite(td)) ? Number(td) : null,
         sm: (sm != null) ? (sm ? 1 : 0) : (safetyModeEnabled ? 1 : 0),
         al: (al != null) ? (al ? 1 : 0) : null,
         lc_raw: lastLoadcellRaw,
@@ -26845,6 +27076,7 @@ function requestMobileMockup3dMesh(){
     let confirmTitleEl=null;
     let lpLastSentSec=3;
     let userWaitingLocal=false;
+    let missionStandbyUiActive=false;
 
     let forceOverlayEl=null;
     let launcherOverlayEl=null;
@@ -26975,6 +27207,7 @@ function requestMobileMockup3dMesh(){
       releaseLongPressPointerCapture();
       resetLongPressVisual();
       userWaitingLocal=false;
+      missionStandbyUiActive=false;
       setOverlayVisible(confirmOverlayEl, false);
       if(sendPrecountReset){
         sendCommand({http:"/precount?uw=0&cd=0", ser:"PRECOUNT 0 0"}, false);
@@ -27004,6 +27237,7 @@ function requestMobileMockup3dMesh(){
       releaseLongPressPointerCapture();
       resetLongPressVisual();
       userWaitingLocal=true;
+      missionStandbyUiActive=false;
       lpLastSentSec=3;
       setOverlayVisible(confirmOverlayEl, true);
       const cdMs = Math.max(3000, Math.min(60000, ((uiSettings ? uiSettings.countdownSec : 10) * 1000)));
@@ -27049,6 +27283,7 @@ function requestMobileMockup3dMesh(){
       if(!el.longPressBtn || !longPressSpinnerEl || lpTimer) return;
       showSequenceStorageGuardToast(false);
       userWaitingLocal=true;
+      missionStandbyUiActive=false;
       lpStart=Date.now();
       lpLastSentSec=3;
       const configuredCdMs = Math.max(3000, Math.min(60000, ((uiSettings ? uiSettings.countdownSec : 10) * 1000)));
@@ -33367,6 +33602,10 @@ function requestMobileMockup3dMesh(){
         simState.cdMs = 0;
         simState.countdownTotalMs = null;
         resetGyroPathTracking();
+      }else if(path.startsWith("/mission_standby")){
+        resetSimState();
+        simState.missionStandby = true;
+        simState.st = 0;
       }else if(path.startsWith("/sequence_end")){
         resetSimState();
         resetGyroPathTracking();
@@ -33409,6 +33648,8 @@ function requestMobileMockup3dMesh(){
           serLine = "/ignite";
         }else if(head === "MISSION_FORCE_TIMED"){
           serLine = "/mission_force_timed";
+        }else if(head === "MISSION_STANDBY"){
+          serLine = "/mission_standby";
         }else if(head === "PRECOUNT"){
           const uw = (parts[1] != null) ? Number(parts[1]) : 0;
           const cd = (parts[2] != null) ? Number(parts[2]) : 0;
@@ -33496,6 +33737,7 @@ function requestMobileMockup3dMesh(){
         normalizedPath.startsWith("/countdown_start") ||
         normalizedPath.startsWith("/ignite") ||
         normalizedPath.startsWith("/force_ignite") ||
+        normalizedPath.startsWith("/mission_standby") ||
         normalizedPath.startsWith("/mission_force_timed") ||
         normalizedPath.startsWith("/pyro_test") ||
         normalizedPath.startsWith("/abort") ||
@@ -34177,9 +34419,18 @@ function requestMobileMockup3dMesh(){
       el.virtualMissionBtnStatus = document.getElementById("virtualMissionBtnStatus");
       el.mobileVirtualMissionBtn = document.getElementById("mobileVirtualMissionBtn");
       el.mobileVirtualMissionStatus = document.getElementById("mobileVirtualMissionStatus");
+      el.missionStandbyBtn = document.getElementById("missionStandbyBtn");
+      el.missionStandbyBtnLabel = document.getElementById("missionStandbyBtnLabel");
+      el.missionStandbyBtnStatus = document.getElementById("missionStandbyBtnStatus");
+      el.mobileMissionStandbyBtn = document.getElementById("mobileMissionStandbyBtn");
+      el.mobileMissionStandbyStatus = document.getElementById("mobileMissionStandbyStatus");
+      el.missionArmRiskOverlay = document.getElementById("missionArmRiskOverlay");
+      el.missionArmRiskStage = document.getElementById("missionArmRiskStage");
+      el.missionArmRiskConfirm = document.getElementById("missionArmRiskConfirm");
       el.missionForceOverlay = document.getElementById("missionForceOverlay");
       el.missionForceConfirm = document.getElementById("missionForceConfirm");
       el.missionForceCancel = document.getElementById("missionForceCancel");
+      updateMissionStandbyButtonUi();
       updateVirtualMissionButtonUi();
       el.forceBtn = document.getElementById("forceIgniteBtn");
       el.copyLogBtn = document.getElementById("copyLogBtn");
@@ -34506,6 +34757,7 @@ function requestMobileMockup3dMesh(){
       el.controlsOverlay = document.getElementById("controlsOverlay");
       el.controlsOverlaySlot = document.getElementById("controlsOverlaySlot");
       el.controlsOverlayClose = document.getElementById("controlsOverlayClose");
+      el.desktopControlDrawerMount = document.getElementById("desktopControlDrawerMount");
       el.controlsToggleBtns = document.querySelectorAll(".js-controls-open");
       if(el.controlsCard && !controlsCardParent){
         controlsCardParent = el.controlsCard.parentNode || null;
@@ -35278,6 +35530,17 @@ function requestMobileMockup3dMesh(){
       if(el.virtualMissionBtn){
         el.virtualMissionBtn.addEventListener("click", toggleVirtualMission);
       }
+      if(el.missionStandbyBtn){
+        el.missionStandbyBtn.addEventListener("click", startMissionStandbyFromUi);
+      }
+      if(el.missionArmRiskConfirm){
+        el.missionArmRiskConfirm.addEventListener("click", hideMissionArmRiskWarning);
+      }
+      if(el.missionArmRiskOverlay){
+        el.missionArmRiskOverlay.addEventListener("click",(ev)=>{
+          if(ev.target === el.missionArmRiskOverlay) hideMissionArmRiskWarning();
+        });
+      }
       if(el.missionForceConfirm){
         el.missionForceConfirm.addEventListener("click", confirmForcedTimedMission);
       }
@@ -35610,7 +35873,6 @@ function requestMobileMockup3dMesh(){
         el.controlsToggleBtns.forEach(btn=>{
           btn.addEventListener("click",(ev)=>{
             ev.preventDefault();
-            ensureDashboardViewForPanels();
             setLauncherPanelVisible(false);
             setMissionPanelVisible(false);
             setInspectionPanelVisible(false);
@@ -35618,14 +35880,11 @@ function requestMobileMockup3dMesh(){
               exitReplayMode();
             }
             if(isMobileLayout() && el.mobileControlsPanel){
+              ensureDashboardViewForPanels();
               showMobileControlsPanel();
               return;
             }
-            if(isTabletControlsLayout()){
-              showTabletControlsPanel();
-              return;
-            }
-            showControlsModal();
+            toggleDesktopControlDrawer();
           });
         });
       }
@@ -35640,6 +35899,10 @@ function requestMobileMockup3dMesh(){
         el.tabletControlsClose.addEventListener("click",(ev)=>{
           ev.preventDefault();
           ev.stopPropagation();
+          if(isDesktopControlDrawerOpen()){
+            setDesktopControlDrawerOpen(false);
+            return;
+          }
           if(isTabletControlsLayout()){
             hideTabletControlsPanel();
             return;
@@ -35681,12 +35944,22 @@ function requestMobileMockup3dMesh(){
       }
 
       document.addEventListener("pointerdown",(ev)=>{
+        if(isDesktopControlDrawerOpen()){
+          const navButton = document.getElementById("desktopControlPanelNavBtn");
+          if(el.controlsCard && el.controlsCard.contains(ev.target)) return;
+          if(navButton && navButton.contains(ev.target)) return;
+          setDesktopControlDrawerOpen(false);
+        }
         if(!mobileControlsActive) return;
         if(el.mobileControlsPanel && el.mobileControlsPanel.contains(ev.target)) return;
         if(ev.target.closest && ev.target.closest(".js-controls-open")) return;
         hideMobileControlsPanel();
       });
       document.addEventListener("keydown",(ev)=>{
+        if(ev.key === "Escape" && isDesktopControlDrawerOpen()){
+          setDesktopControlDrawerOpen(false);
+          return;
+        }
         if(ev.key === "Escape" && tabletControlsOpen && isTabletControlsLayout()){
           hideTabletControlsPanel();
         }
@@ -36929,6 +37202,7 @@ function requestMobileMockup3dMesh(){
       const sideNavItems = document.querySelectorAll(".side-nav-item");
       const setActiveView = (title, options = {})=>{
         closeIgnitionModals();
+        setDesktopControlDrawerOpen(false);
         const label = title || "Dashboard";
         const lower = label.toLowerCase();
         const dashboardUsesCamera = lower === "dashboard" && isDesktopLayout();
@@ -37599,6 +37873,7 @@ function requestMobileMockup3dMesh(){
       }
       const mobileControlActions = {
         sequence: ()=>{ if(el.igniteBtn) el.igniteBtn.click(); },
+        mission_standby: ()=>{ startMissionStandbyFromUi(); },
         virtual_mission: ()=>{ toggleVirtualMission(); },
         serial: ()=>{ handleConnectAction(); },
         inspection: ()=>{ openInspectionFromUI(); },

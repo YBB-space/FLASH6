@@ -277,6 +277,7 @@ html[data-theme="dark"] body :is(
     #dataResetConfirmOverlay,
     #flashLinkReportOverlay,
     #missionForceOverlay,
+    #missionArmRiskOverlay,
     #rebootConfirmOverlay,
     #connectMethodOverlay,
     #wifiConnectOverlay,

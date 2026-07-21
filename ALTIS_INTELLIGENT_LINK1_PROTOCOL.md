@@ -56,7 +56,7 @@ All multibyte values use the ESP32 little-endian representation.
 | Payload size | 2 |
 | CRC16-CCITT | 2 |
 
-The packed header is 24 bytes. The current wire protocol value is `5`; the
+The packed header is 24 bytes. The current wire protocol value is `6`; the
 version field itself occupies one byte. The current telemetry frame is 134 bytes total, below the
 ESP-NOW v1 payload limit of 250 bytes.
 
@@ -150,7 +150,8 @@ cancelled instead of blocking control traffic for the newly active stage.
   retransmission returns the previous ACK without executing the action twice.
 - Identical commands arriving from the UI's serial and HTTP paths are
   coalesced while pending and for 500 ms after enqueue.
-- Safety-critical commands (`abort`, `sequence_end`, and `force_ignite`) and
+- Safety-critical commands (`abort`, `sequence_end`, `force_ignite`, and
+  `mission_standby`) and
   the operator-requested avionics reboot are inserted at the head of the
   command queue. If the queue is full, a lower priority pending command may be
   dropped so the urgent command can be sent.
@@ -170,12 +171,16 @@ Command ACK result codes:
 - `2`: busy or unable to enter the requested sequence state
 - `3`: invalid argument
 - `4`: unsupported command
+- `5`: physical ARM released; standby rejected and safety interlocks applied
+- `6`: mission execution permission denied
 
 Supported controls:
 
 - Safety mode, arm lock, inspection state, and buzzer mute
 - Ignition duration, countdown duration, and sequence pyro channel
 - Pre-count state, countdown start, immediate ignition, abort, and sequence end
+- Wired-ignition mission standby (command `27`): no ignition output is driven;
+  confirmed stage-1 launch motion establishes onboard T+0
 - Pyro test
 - Gyro zero/reset and barometer zero/reference pressure
 - Buzzer tone, finder pattern, and stop
@@ -293,12 +298,10 @@ revisions should rotate keys per fleet or per paired board.
 
 ## Firmware Revision
 
-- Firmware version: `0.8.21`
-- Build ID: `v6 b27`
-- Wire protocol: `Flash6-Intelligent-b5` / numeric version `5`
+- Firmware version: `0.8.23`
+- Build ID: `v6 b29`
+- Wire protocol: `Flash6-Intelligent-b6` / numeric version `6`
 - Storage record format: version `5` (unchanged by this revision)
-- Compatibility: both ground and avionics nodes must run wire version `5`.
-  Version `5` adds the reset-reason byte to vehicle telemetry. HTTP, serial,
-  and WebSocket telemetry append the reset reason and boot session while
-  retaining the existing fields and command interfaces. Build b27 recognizes
-  both `BROWNOUT (9)` and raw `POWER_GLITCH (23)` supply faults.
+- Compatibility: both ground and avionics nodes must run wire version `6`.
+  Version `6` adds mission-standby command and result values without changing
+  the telemetry or W25Q storage-record layouts.

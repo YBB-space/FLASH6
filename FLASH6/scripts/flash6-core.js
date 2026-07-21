@@ -5839,6 +5839,7 @@ function requestMobileMockup3dMesh(){
         countdownStartMs:null,
         ignStartMs:null,
         countdownTotalMs:null,
+        missionStandby:false,
         flightStartMs:null,
         lastGeo:null,
         physicsLastMs:0,
@@ -5913,6 +5914,7 @@ function requestMobileMockup3dMesh(){
     let stageTelemetryModeActive = false;
     let cameraHudActiveStageId = 1;
     let cameraHudStageSwitchLatched = false;
+    let lastMissionStandbyAckKey = "";
     let gpsFixAlarmState = null;
     const STATUS_MAP_DEFAULT = Object.freeze({lat:34.96601, lon:127.83238, zoom:12});
     const STATUS_MAP_KR_BOUNDS = Object.freeze({south:33.0, west:124.5, north:38.9, east:131.9});

@@ -909,6 +909,7 @@
       if(chartSyncTimer) clearTimeout(chartSyncTimer);
       refreshChartLayout();
       if(isTabletControlsLayout()) return;
+      if(window.matchMedia("(min-width: 901px)").matches) return;
       if(!window.matchMedia("(min-width: 1100px)").matches) return;
       const chartsCard = document.querySelector(".charts-card");
       const controlsCard = document.getElementById("controlsCard");
@@ -945,14 +946,6 @@
       }
       if(rowBottom && tabletLayoutActive){
         rowBottom.style.minHeight = "var(--chart-height)";
-      }
-      if(chartsCard && controlsCard && !tabletLayoutActive && window.matchMedia("(min-width: 1100px)").matches){
-        const controlsRect = controlsCard.getBoundingClientRect();
-        if(controlsRect.height > 0){
-          const targetHeight = Math.round(controlsRect.height);
-          chartsCard.style.height = targetHeight + "px";
-          chartsCard.style.minHeight = targetHeight + "px";
-        }
       }
       const ids=["thrustChart","pressureChart","accelChart","accelXYZChart","accelChartFlight","accelXYZChartFlight"];
       ids.forEach((id)=>{
@@ -1127,6 +1120,7 @@
       updateControlAccessUI(st);
       updateMobileAbortButton();
       updateMobileSequenceStatusLabel(seqActive, st, lockout);
+      updateMissionStandbyButtonUi();
       updateVirtualMissionButtonUi();
     }
 

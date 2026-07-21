@@ -44,6 +44,10 @@
         simState.cdMs = 0;
         simState.countdownTotalMs = null;
         resetGyroPathTracking();
+      }else if(path.startsWith("/mission_standby")){
+        resetSimState();
+        simState.missionStandby = true;
+        simState.st = 0;
       }else if(path.startsWith("/sequence_end")){
         resetSimState();
         resetGyroPathTracking();
@@ -86,6 +90,8 @@
           serLine = "/ignite";
         }else if(head === "MISSION_FORCE_TIMED"){
           serLine = "/mission_force_timed";
+        }else if(head === "MISSION_STANDBY"){
+          serLine = "/mission_standby";
         }else if(head === "PRECOUNT"){
           const uw = (parts[1] != null) ? Number(parts[1]) : 0;
           const cd = (parts[2] != null) ? Number(parts[2]) : 0;
@@ -173,6 +179,7 @@
         normalizedPath.startsWith("/countdown_start") ||
         normalizedPath.startsWith("/ignite") ||
         normalizedPath.startsWith("/force_ignite") ||
+        normalizedPath.startsWith("/mission_standby") ||
         normalizedPath.startsWith("/mission_force_timed") ||
         normalizedPath.startsWith("/pyro_test") ||
         normalizedPath.startsWith("/abort") ||

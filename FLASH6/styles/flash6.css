@@ -22311,6 +22311,202 @@ body.dashboard-view-active .stage-overview-panel:has(> .stage-telemetry-deck.hid
     font-size:15px;
   }
 }
+
+/* Desktop control drawer: the dashboard keeps the chart canvas clear and the
+   right navigation opens the command surface as one attached layer. */
+@media (min-width:901px){
+  body.dashboard-view-active #dashboardView .row-bottom{
+    grid-template-columns:minmax(0,1fr) !important;
+  }
+  body.dashboard-view-active #dashboardView .row-bottom > .charts-card{
+    width:100% !important;
+    grid-column:1 / -1 !important;
+  }
+  body.dashboard-view-active #controlsCard.controls-card,
+  html.tablet-controls-layout body.dashboard-view-active #controlsCard.controls-card,
+  .desktop-control-drawer-mount #controlsCard.controls-card{
+    display:flex !important;
+    position:fixed !important;
+    top:50% !important;
+    right:91px !important;
+    bottom:auto !important;
+    left:auto !important;
+    width:min(410px,calc(100vw - 130px)) !important;
+    max-width:410px !important;
+    height:auto !important;
+    min-height:0 !important;
+    max-height:calc(100dvh - 40px) !important;
+    margin:0 !important;
+    transform:translate(20px,-50%) !important;
+    opacity:0 !important;
+    visibility:hidden !important;
+    pointer-events:none !important;
+    border-color:#35383e !important;
+    border-radius:12px !important;
+    background:#15171a !important;
+    box-shadow:0 24px 64px rgba(0,0,0,.42) !important;
+    transition:opacity .18s ease,transform .22s cubic-bezier(.2,.78,.28,1),visibility 0s linear .22s !important;
+    z-index:47 !important;
+  }
+  html.control-drawer-open body.dashboard-view-active #controlsCard.controls-card{
+    transform:translate(0,-50%) !important;
+    opacity:1 !important;
+    visibility:visible !important;
+    pointer-events:auto !important;
+    transition:opacity .18s ease,transform .22s cubic-bezier(.2,.78,.28,1),visibility 0s !important;
+  }
+  html.control-drawer-open .desktop-control-drawer-mount #controlsCard.controls-card{
+    transform:translate(0,-50%) !important;
+    opacity:1 !important;
+    visibility:visible !important;
+    pointer-events:auto !important;
+    transition:opacity .18s ease,transform .22s cubic-bezier(.2,.78,.28,1),visibility 0s !important;
+  }
+  html.control-drawer-open body .app-shell > .side-nav-desktop{
+    border-color:rgba(141,187,255,.48) !important;
+    background:rgba(8,12,18,.34) !important;
+  }
+  body.dashboard-view-active #controlsCard .controls-grid,
+  .desktop-control-drawer-mount #controlsCard .controls-grid{
+    overflow-y:auto !important;
+    overscroll-behavior:contain;
+    scrollbar-width:thin;
+  }
+  body.dashboard-view-active #controlsCard .tablet-controls-close,
+  .desktop-control-drawer-mount #controlsCard .tablet-controls-close{
+    display:none !important;
+  }
+  html.control-drawer-open body.dashboard-view-active #controlsCard .tablet-controls-close,
+  html.control-drawer-open .desktop-control-drawer-mount #controlsCard .tablet-controls-close{
+    display:inline-flex !important;
+    position:static !important;
+    width:32px !important;
+    height:32px !important;
+    margin-left:4px !important;
+    border:1px solid #34373d !important;
+    border-radius:7px !important;
+    background:#202226 !important;
+    color:#aeb3bb !important;
+    align-items:center !important;
+    justify-content:center !important;
+  }
+  body.dashboard-view-active #controlsCard #controlsHeader,
+  .desktop-control-drawer-mount #controlsCard #controlsHeader{
+    padding-right:10px !important;
+  }
+  body.dashboard-view-active #desktopControlPanelNavBtn.is-active{
+    color:#8dbbff !important;
+  }
+  .desktop-control-drawer-mount #controlsCard.controls-card{
+    flex-direction:column !important;
+    padding:0 !important;
+    overflow:hidden !important;
+    border:1px solid #35383e !important;
+    background:#15171a !important;
+  }
+  .desktop-control-drawer-mount #controlsCard #controlsHeader{
+    flex:0 0 62px !important;
+    min-height:62px !important;
+    margin:0 !important;
+    padding:0 10px 0 18px !important;
+    align-items:center !important;
+    border:0 !important;
+    border-bottom:1px solid #2c2e32 !important;
+    background:#191a1d !important;
+  }
+  .desktop-control-drawer-mount #controlsCardTitle{
+    color:#f4f5f6 !important;
+    font-size:15px !important;
+    font-weight:650 !important;
+    letter-spacing:.16em !important;
+  }
+  .desktop-control-drawer-mount #controlsCard .controls-subtitle{
+    margin-top:4px !important;
+    color:#858a94 !important;
+    font-size:9px !important;
+    letter-spacing:.12em !important;
+  }
+  .desktop-control-drawer-mount #controlsCard .controls-toolbar{
+    gap:5px !important;
+  }
+  .desktop-control-drawer-mount #controlsCard .controls-toolbar-action{
+    width:32px !important;
+    min-width:32px !important;
+    height:32px !important;
+    min-height:32px !important;
+    border:1px solid #303238 !important;
+    border-radius:7px !important;
+    background:#1d1e21 !important;
+    color:#b7bbc2 !important;
+    box-shadow:none !important;
+  }
+  .desktop-control-drawer-mount #controlsCard .controls-grid{
+    flex:1 1 auto !important;
+    min-height:0 !important;
+    gap:8px !important;
+    margin:0 !important;
+    padding:14px 16px 16px !important;
+  }
+  .desktop-control-drawer-mount #controlsCard .controls-main-row{
+    grid-template-columns:minmax(0,1fr) minmax(92px,.4fr) !important;
+    min-height:56px !important;
+    gap:7px !important;
+  }
+  .desktop-control-drawer-mount #controlsCard :is(.primary-btn.sequence-btn,.controls-main-row .secondary-btn){
+    height:56px !important;
+    min-height:56px !important;
+    border-radius:7px !important;
+    box-shadow:none !important;
+  }
+  .desktop-control-drawer-mount #controlsCard .primary-btn.sequence-btn{
+    border:1px solid #393c42 !important;
+    background:#1b1c1f !important;
+    color:#f2f3f5 !important;
+  }
+  .desktop-control-drawer-mount #controlsCard .controls-main-row .secondary-btn{
+    border:1px solid #553033 !important;
+    background:#26191b !important;
+    color:#e08d93 !important;
+  }
+  .desktop-control-drawer-mount #controlsCard .control-row{
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+    gap:7px !important;
+    overflow:visible !important;
+  }
+  .desktop-control-drawer-mount #controlsCard :is(.control-tile,.control-tile.span-2,.control-tile-mode){
+    height:52px !important;
+    min-height:52px !important;
+    padding:0 11px !important;
+    border:1px solid #303238 !important;
+    border-radius:7px !important;
+    background:#1b1c1f !important;
+    box-shadow:none !important;
+  }
+  .desktop-control-drawer-mount #controlsCard .control-tile-label{
+    color:#e9eaec !important;
+    font-size:11px !important;
+    font-weight:620 !important;
+  }
+  .desktop-control-drawer-mount #controlsCard .control-tile-sub{
+    margin-top:3px !important;
+    color:#7f848e !important;
+    font-size:8px !important;
+  }
+  .desktop-control-drawer-mount #controlsCard .control-tile-actions :is(.pill,button){
+    min-width:60px !important;
+    height:27px !important;
+    padding:0 9px !important;
+    border:1px solid #393c42 !important;
+    border-radius:6px !important;
+    background:#24262a !important;
+    color:#c9ccd1 !important;
+    font-size:9px !important;
+    box-shadow:none !important;
+  }
+  .desktop-control-drawer-mount #controlsCard :is(.force-mission-tile,.mission-standby-tile){
+    grid-column:1 / -1 !important;
+  }
+}
 @media (max-width:1180px), (pointer:coarse){
   body.dashboard-view-active .stage-overview-panel{
     display:none !important;
@@ -29808,6 +30004,32 @@ body.dashboard-view-active #controlsCard .force-mission-tile > .pill{
   color:#94b6db !important;
 }
 
+body.dashboard-view-active #controlsCard .mission-standby-tile{
+  border-color:#365246 !important;
+  background:#1a211e !important;
+}
+body.dashboard-view-active #controlsCard .mission-standby-tile:hover:not(:disabled){
+  border-color:#4b7964 !important;
+  background:#1d2923 !important;
+}
+body.dashboard-view-active #controlsCard .mission-standby-tile:disabled{
+  opacity:.46 !important;
+  cursor:not-allowed;
+}
+body.dashboard-view-active #controlsCard .mission-standby-tile.is-running{
+  opacity:1 !important;
+  border-color:#4f8b6d !important;
+  background:#1b2c24 !important;
+}
+body.dashboard-view-active #controlsCard .mission-standby-tile > .pill{
+  flex:0 0 auto;
+  min-width:82px;
+  margin-left:auto;
+  border-color:#39594a !important;
+  background:#202d27 !important;
+  color:#9fd3b8 !important;
+}
+
 .mission-force-dialog{
   width:min(92vw,640px) !important;
 }
@@ -29864,6 +30086,91 @@ html.phone-landscape-layout .mission-force-timeline > div{
 }
 html.phone-landscape-layout .mission-force-timeline strong{
   font-size:11px;
+}
+
+.mission-arm-risk-overlay{
+  z-index:96 !important;
+  background:rgba(4,6,9,.78) !important;
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+}
+.mission-arm-risk-dialog{
+  width:min(92vw,520px) !important;
+  padding:28px !important;
+  border:1px solid #4b3437 !important;
+  border-radius:10px !important;
+  background:#17181b !important;
+  box-shadow:0 24px 70px rgba(0,0,0,.48) !important;
+}
+.mission-arm-risk-dialog::before,
+.mission-arm-risk-dialog::after{
+  display:none !important;
+}
+.mission-arm-risk-heading{
+  display:flex;
+  align-items:baseline;
+  gap:12px;
+  margin-bottom:18px;
+}
+.mission-arm-risk-level{
+  color:#ff727c;
+  font:700 10px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  letter-spacing:.14em;
+}
+.mission-arm-risk-dialog .confirm-title{
+  margin:0 !important;
+  color:#f3f4f6 !important;
+  font-size:19px !important;
+  font-weight:650 !important;
+  text-align:left !important;
+}
+.mission-arm-risk-stage{
+  padding:13px 15px;
+  border:1px solid #55383b;
+  border-radius:7px;
+  background:#25191b;
+  color:#ffb0b6;
+  font-size:13px;
+  font-weight:650;
+  line-height:1.45;
+}
+.mission-arm-risk-dialog .confirm-text{
+  margin:16px 0 8px !important;
+  color:#c4c7cd !important;
+  font-size:13px !important;
+  line-height:1.65 !important;
+  text-align:left !important;
+}
+.mission-arm-risk-dialog .confirm-note{
+  margin:0 0 20px !important;
+  color:#858a94 !important;
+  font-size:11px !important;
+  line-height:1.55 !important;
+  text-align:left !important;
+}
+.mission-arm-risk-actions{
+  display:block !important;
+  width:100%;
+}
+.mission-arm-risk-actions > button{
+  width:100% !important;
+  height:44px !important;
+  border:1px solid #474a51 !important;
+  border-radius:7px !important;
+  background:#24262a !important;
+  color:#eef0f3 !important;
+  font-weight:650 !important;
+}
+@media (max-width:600px){
+  .mission-arm-risk-dialog{
+    width:calc(100vw - 28px) !important;
+    padding:22px 20px !important;
+  }
+  .mission-arm-risk-heading{
+    align-items:flex-start;
+    flex-direction:column;
+    gap:7px;
+  }
 }
 
 /* Keep the phone report as a bottom sheet; center only the desktop dialog. */
@@ -30168,6 +30475,7 @@ html[data-theme="dark"] body :is(
     #dataResetConfirmOverlay,
     #flashLinkReportOverlay,
     #missionForceOverlay,
+    #missionArmRiskOverlay,
     #rebootConfirmOverlay,
     #connectMethodOverlay,
     #wifiConnectOverlay,

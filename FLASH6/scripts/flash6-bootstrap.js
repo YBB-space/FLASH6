@@ -377,9 +377,18 @@
       el.virtualMissionBtnStatus = document.getElementById("virtualMissionBtnStatus");
       el.mobileVirtualMissionBtn = document.getElementById("mobileVirtualMissionBtn");
       el.mobileVirtualMissionStatus = document.getElementById("mobileVirtualMissionStatus");
+      el.missionStandbyBtn = document.getElementById("missionStandbyBtn");
+      el.missionStandbyBtnLabel = document.getElementById("missionStandbyBtnLabel");
+      el.missionStandbyBtnStatus = document.getElementById("missionStandbyBtnStatus");
+      el.mobileMissionStandbyBtn = document.getElementById("mobileMissionStandbyBtn");
+      el.mobileMissionStandbyStatus = document.getElementById("mobileMissionStandbyStatus");
+      el.missionArmRiskOverlay = document.getElementById("missionArmRiskOverlay");
+      el.missionArmRiskStage = document.getElementById("missionArmRiskStage");
+      el.missionArmRiskConfirm = document.getElementById("missionArmRiskConfirm");
       el.missionForceOverlay = document.getElementById("missionForceOverlay");
       el.missionForceConfirm = document.getElementById("missionForceConfirm");
       el.missionForceCancel = document.getElementById("missionForceCancel");
+      updateMissionStandbyButtonUi();
       updateVirtualMissionButtonUi();
       el.forceBtn = document.getElementById("forceIgniteBtn");
       el.copyLogBtn = document.getElementById("copyLogBtn");
@@ -706,6 +715,7 @@
       el.controlsOverlay = document.getElementById("controlsOverlay");
       el.controlsOverlaySlot = document.getElementById("controlsOverlaySlot");
       el.controlsOverlayClose = document.getElementById("controlsOverlayClose");
+      el.desktopControlDrawerMount = document.getElementById("desktopControlDrawerMount");
       el.controlsToggleBtns = document.querySelectorAll(".js-controls-open");
       if(el.controlsCard && !controlsCardParent){
         controlsCardParent = el.controlsCard.parentNode || null;
@@ -1478,6 +1488,17 @@
       if(el.virtualMissionBtn){
         el.virtualMissionBtn.addEventListener("click", toggleVirtualMission);
       }
+      if(el.missionStandbyBtn){
+        el.missionStandbyBtn.addEventListener("click", startMissionStandbyFromUi);
+      }
+      if(el.missionArmRiskConfirm){
+        el.missionArmRiskConfirm.addEventListener("click", hideMissionArmRiskWarning);
+      }
+      if(el.missionArmRiskOverlay){
+        el.missionArmRiskOverlay.addEventListener("click",(ev)=>{
+          if(ev.target === el.missionArmRiskOverlay) hideMissionArmRiskWarning();
+        });
+      }
       if(el.missionForceConfirm){
         el.missionForceConfirm.addEventListener("click", confirmForcedTimedMission);
       }
@@ -1810,7 +1831,6 @@
         el.controlsToggleBtns.forEach(btn=>{
           btn.addEventListener("click",(ev)=>{
             ev.preventDefault();
-            ensureDashboardViewForPanels();
             setLauncherPanelVisible(false);
             setMissionPanelVisible(false);
             setInspectionPanelVisible(false);
@@ -1818,14 +1838,11 @@
               exitReplayMode();
             }
             if(isMobileLayout() && el.mobileControlsPanel){
+              ensureDashboardViewForPanels();
               showMobileControlsPanel();
               return;
             }
-            if(isTabletControlsLayout()){
-              showTabletControlsPanel();
-              return;
-            }
-            showControlsModal();
+            toggleDesktopControlDrawer();
           });
         });
       }
@@ -1840,6 +1857,10 @@
         el.tabletControlsClose.addEventListener("click",(ev)=>{
           ev.preventDefault();
           ev.stopPropagation();
+          if(isDesktopControlDrawerOpen()){
+            setDesktopControlDrawerOpen(false);
+            return;
+          }
           if(isTabletControlsLayout()){
             hideTabletControlsPanel();
             return;
@@ -1881,12 +1902,22 @@
       }
 
       document.addEventListener("pointerdown",(ev)=>{
+        if(isDesktopControlDrawerOpen()){
+          const navButton = document.getElementById("desktopControlPanelNavBtn");
+          if(el.controlsCard && el.controlsCard.contains(ev.target)) return;
+          if(navButton && navButton.contains(ev.target)) return;
+          setDesktopControlDrawerOpen(false);
+        }
         if(!mobileControlsActive) return;
         if(el.mobileControlsPanel && el.mobileControlsPanel.contains(ev.target)) return;
         if(ev.target.closest && ev.target.closest(".js-controls-open")) return;
         hideMobileControlsPanel();
       });
       document.addEventListener("keydown",(ev)=>{
+        if(ev.key === "Escape" && isDesktopControlDrawerOpen()){
+          setDesktopControlDrawerOpen(false);
+          return;
+        }
         if(ev.key === "Escape" && tabletControlsOpen && isTabletControlsLayout()){
           hideTabletControlsPanel();
         }
@@ -3129,6 +3160,7 @@
       const sideNavItems = document.querySelectorAll(".side-nav-item");
       const setActiveView = (title, options = {})=>{
         closeIgnitionModals();
+        setDesktopControlDrawerOpen(false);
         const label = title || "Dashboard";
         const lower = label.toLowerCase();
         const dashboardUsesCamera = lower === "dashboard" && isDesktopLayout();
@@ -3799,6 +3831,7 @@
       }
       const mobileControlActions = {
         sequence: ()=>{ if(el.igniteBtn) el.igniteBtn.click(); },
+        mission_standby: ()=>{ startMissionStandbyFromUi(); },
         virtual_mission: ()=>{ toggleVirtualMission(); },
         serial: ()=>{ handleConnectAction(); },
         inspection: ()=>{ openInspectionFromUI(); },

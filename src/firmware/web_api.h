@@ -2028,6 +2028,7 @@ void setupRoutes() {
           (int32_t)requestedCountdownMs)) {
       return;
     }
+    missionLaunchStandby = false;
     sequenceUserWaiting = requestedWaiting;
     if (sequenceUserWaiting && requestedCountdownMs >= 3000) {
       countdownDurationMs = requestedCountdownMs;
@@ -2089,6 +2090,32 @@ void setupRoutes() {
       return;
     }
     sendText(request, 200, "text/plain", "FORCED_TIMED_MISSION_STARTED");
+  });
+
+  server.on("/mission_standby", HTTP_GET, [](AsyncWebServerRequest* request) {
+    if (forwardFlashLinkHttpCommand(
+          request,
+          FlashLinkCommandCode::MissionStandby)) {
+      return;
+    }
+    const MissionStandbyResult result = startMissionStandbyRuntime(millis());
+    switch (result) {
+      case MissionStandbyResult::Started:
+        sendText(request, 200, "application/json", "{\"ok\":1,\"mission_standby\":1,\"ignition\":\"wired\"}");
+        return;
+      case MissionStandbyResult::ArmUnsafe:
+        sendText(request, 409, "application/json", "{\"ok\":0,\"err\":\"ARM_RELEASED_SAFE_MODE\",\"safe\":1,\"arm_lock\":1,\"inspection\":0}");
+        return;
+      case MissionStandbyResult::PermissionDenied:
+        sendText(request, 403, "application/json", "{\"ok\":0,\"err\":\"MISSION_PERMISSION_DENIED\"}");
+        return;
+      case MissionStandbyResult::SafetyMode:
+        sendText(request, 403, "application/json", "{\"ok\":0,\"err\":\"SAFETY_MODE\"}");
+        return;
+      default:
+        sendText(request, 409, "application/json", "{\"ok\":0,\"err\":\"BUSY\"}");
+        return;
+    }
   });
 
   server.on("/abort", HTTP_GET, [](AsyncWebServerRequest* request) {
@@ -2270,6 +2297,7 @@ void setupRoutes() {
   server.on("/ignite", HTTP_OPTIONS, options);
   server.on("/force_ignite", HTTP_OPTIONS, options);
   server.on("/mission_force_timed", HTTP_OPTIONS, options);
+  server.on("/mission_standby", HTTP_OPTIONS, options);
   server.on("/pyro_test", HTTP_OPTIONS, options);
   server.on("/abort", HTTP_OPTIONS, options);
   server.on("/sequence_end", HTTP_OPTIONS, options);

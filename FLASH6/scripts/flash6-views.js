@@ -1530,7 +1530,7 @@
       const infoRows = [
         {cells:["ALTIS INTELLIGENT LINK1 COMMUNICATION REPORT"], style:2},
         {cells:["Generated at", now.toISOString()], style:3},
-        {cells:["Protocol", "Flash6-Intelligent-b5 / ALTIS INTELLIGENT LINK1 ESP-NOW LR"], style:3},
+        {cells:["Protocol", "Flash6-Intelligent-b6 / ALTIS INTELLIGENT LINK1 ESP-NOW LR"], style:3},
         {cells:["Board role", roleLabel], style:3},
         {cells:["Peer", peer || "--"], style:3},
         {cells:["Target rate", stats.targetHz + " Hz"], style:3},
@@ -1915,8 +1915,8 @@
         const failed = Math.max(0, Number(src.fl_cmd_failed) || 0);
         const code = Math.max(0, Number(src.fl_cmd_last_code) || 0);
         const result = Math.max(0, Number(src.fl_cmd_last_result) || 0);
-        const resultKo = ["ACK", "안전모드 거부", "처리 불가", "인자 오류", "미지원"];
-        const resultEn = ["ACK", "Denied: safety", "Busy", "Invalid argument", "Unsupported"];
+        const resultKo = ["ACK", "안전모드 거부", "처리 불가", "인자 오류", "미지원", "ARM 위험", "권한 없음"];
+        const resultEn = ["ACK", "Denied: safety", "Busy", "Invalid argument", "Unsupported", "ARM unsafe", "Permission denied"];
         if(pending > 0){
           el.flashLinkCommandStatus.textContent =
             (currentLang === "ko" ? "전송 중 " : "Sending ") + pending;
@@ -1929,6 +1929,25 @@
             (currentLang === "ko" ? "전송 실패 " : "Failed ") + failed;
         }else{
           el.flashLinkCommandStatus.textContent = "--";
+        }
+        if(code === 27 && pending === 0 && acked > 0){
+          const ackKey = code + ":" + result + ":" + acked + ":" + failed;
+          if(ackKey !== lastMissionStandbyAckKey){
+            lastMissionStandbyAckKey = ackKey;
+            if(result === 5){
+              userWaitingLocal = false;
+              missionStandbyUiActive = false;
+              enforceMissionStandbySafety([]);
+            }else if(result !== 0){
+              userWaitingLocal = false;
+              missionStandbyUiActive = false;
+              updateMissionStandbyButtonUi();
+              showToast("미션 대기 거부: " + (resultKo[result] || ("ERR " + result)), "error", {
+                key:"mission-standby-remote-rejected",
+                duration:4500
+              });
+            }
+          }
         }
       }
       if(wasOperational !== operational){
@@ -4876,6 +4895,7 @@
       syncMobileControlButtons();
       updateMobileSequenceStatusLabel(sequenceActive, state, lockoutLatched);
       updateMobileSequenceCardButtons(state);
+      updateMissionStandbyButtonUi();
       updateMissionEditLockUI();
     }
 
@@ -5349,11 +5369,9 @@
       const inspectionActive = !!inspectionPanelActive || isInspectionOverlayVisible() || isMobileInspectionPanelVisible();
       const servoActive = isServoControlVisible();
       const panelModeActive = replayActive || launcherActive || missionActive || inspectionActive || servoActive;
-      const controlsActive = isMobileLayout()
-        ? false
-        : (isTabletControlsLayout()
-            ? (tabletControlsOpen && !panelModeActive)
-            : (!panelModeActive));
+      const controlsActive = !isMobileLayout() &&
+        document.documentElement.classList.contains("control-drawer-open") &&
+        !panelModeActive;
       if(el.replayOpenBtns && el.replayOpenBtns.length){
         el.replayOpenBtns.forEach(btn=>btn.classList.toggle("is-active", replayActive));
       }
@@ -6060,6 +6078,10 @@
       hideMobileControlsPanel();
       closeIgnitionModals();
       if(!el.controlsOverlay || !el.controlsOverlaySlot || !el.controlsCard) return;
+      if(!isMobileLayout()){
+        setDesktopControlDrawerOpen(true);
+        return;
+      }
       if(!controlsCardParent){
         controlsCardParent = el.controlsCard.parentNode;
         controlsCardNext = el.controlsCard.nextSibling;
@@ -6073,6 +6095,7 @@
       updateNavActionState();
     }
     function hideControlsModal(){
+      setDesktopControlDrawerOpen(false);
       if(!el.controlsOverlay || !el.controlsCard || !controlsCardParent) return;
       resetControlsModesOnClose();
       el.controlsOverlay.classList.add("hidden");
@@ -6088,6 +6111,51 @@
         el.controlsOverlay.appendChild(el.controlsOverlayClose);
       }
       updateNavActionState();
+    }
+
+    function isDesktopControlDrawerOpen(){
+      return !isMobileLayout() && document.documentElement.classList.contains("control-drawer-open");
+    }
+
+    function setDesktopControlDrawerOpen(open){
+      const next = !!open && !isMobileLayout();
+      if(el.controlsOverlay && !el.controlsOverlay.classList.contains("hidden") && controlsCardParent){
+        el.controlsOverlay.classList.add("hidden");
+        if(controlsCardNext && controlsCardNext.parentNode === controlsCardParent){
+          controlsCardParent.insertBefore(el.controlsCard, controlsCardNext);
+        }else if(el.controlsCard){
+          controlsCardParent.appendChild(el.controlsCard);
+        }
+        if(el.controlsOverlayClose) el.controlsOverlay.appendChild(el.controlsOverlayClose);
+      }
+      if(next && el.desktopControlDrawerMount && el.controlsCard &&
+         el.controlsCard.parentNode !== el.desktopControlDrawerMount){
+        el.desktopControlDrawerMount.appendChild(el.controlsCard);
+      }
+      document.documentElement.classList.toggle("control-drawer-open", next);
+      document.body.classList.toggle("control-drawer-open", next);
+      if(el.controlsCard){
+        el.controlsCard.classList.toggle("control-drawer-card", next);
+        el.controlsCard.setAttribute("aria-expanded", next ? "true" : "false");
+      }
+      if(el.desktopControlDrawerMount){
+        el.desktopControlDrawerMount.setAttribute("aria-hidden", next ? "false" : "true");
+      }
+      const navButton = document.getElementById("desktopControlPanelNavBtn");
+      if(navButton){
+        navButton.classList.toggle("is-active", next);
+        navButton.setAttribute("aria-expanded", next ? "true" : "false");
+      }
+      if(!next) resetControlsModesOnClose();
+      updateNavActionState();
+      requestAnimationFrame(()=>{
+        refreshChartLayout();
+        redrawCharts();
+      });
+    }
+
+    function toggleDesktopControlDrawer(){
+      setDesktopControlDrawerOpen(!isDesktopControlDrawerOpen());
     }
 
     let dashboardDrawerHideTimer = 0;
@@ -6252,6 +6320,163 @@
         el.mobileVirtualMissionStatus.className =
           "mobile-quick-state pill " + (virtualMissionActive ? "pill-blue" : "pill-gray");
       }
+    }
+
+    function missionStandbyPhysicalArmValue(data){
+      if(!data || typeof data !== "object") return null;
+      const physicalRaw = data.sp ?? data.arm_physical ?? data.swPhysical;
+      const physical = physicalRaw == null ? NaN : Number(physicalRaw);
+      if(Number.isFinite(physical)) return physical !== 0;
+      const armLockRaw = data.al ?? data.arm_lock;
+      const effectiveRaw = data.s ?? data.sw;
+      const armLock = armLockRaw == null ? NaN : Number(armLockRaw);
+      const effective = effectiveRaw == null ? NaN : Number(effectiveRaw);
+      // Effective ARM reflects the physical input only while software ARM lock
+      // is explicitly off. Otherwise the physical state remains unknown.
+      if(Number.isFinite(armLock) && armLock === 0 && Number.isFinite(effective)){
+        return effective !== 0;
+      }
+      return null;
+    }
+
+    function missionStandbyUnsafeStageIds(){
+      const unsafe = [];
+      if(stageTelemetryModeActive){
+        [1, 2].forEach((stageId)=>{
+          if(stageId === 2 && !flashLinkUiStage2Mode) return;
+          const stage = stageTelemetryStore[stageId];
+          if(!stage || !stage.connected || !stage.valid) return;
+          if(missionStandbyPhysicalArmValue(stage.data) === false) unsafe.push(stageId);
+        });
+        return unsafe;
+      }
+      if(missionStandbyPhysicalArmValue(latestTelemetry) === false){
+        unsafe.push(cameraHudActiveStageId === 2 ? 2 : 1);
+      }
+      return unsafe;
+    }
+
+    function hideMissionArmRiskWarning(){
+      setOverlayVisible(el.missionArmRiskOverlay, false);
+    }
+
+    function showMissionArmRiskWarning(stageIds){
+      hideMobileControlsPanel();
+      const stages = Array.from(new Set((stageIds || []).filter(id=>id === 1 || id === 2)));
+      let stageText = "에비오닉스의 물리 ARM이 이미 해제되어 있습니다.";
+      if(stages.length){
+        stageText = stages.map(id=>id + "단부").join(" · ") + " 물리 ARM이 이미 해제되어 있습니다.";
+      }
+      if(el.missionArmRiskStage) el.missionArmRiskStage.textContent = stageText;
+      setOverlayVisible(el.missionArmRiskOverlay, true);
+    }
+
+    async function enforceMissionStandbySafety(stageIds){
+      markInspectionSyncPending(false);
+      applyInspectionAuthorityFromTelemetry(0);
+      applyBoardControlUiValue("safety", true);
+      applyBoardControlUiValue("armLock", true);
+      setButtonsFromState(currentSt, lockoutLatched, sequenceActive);
+      showMissionArmRiskWarning(stageIds);
+      addLogLine("미션 대기 거부 · 물리 ARM 해제 · 권한 회수 및 안전 모드 적용", "SAFETY");
+      const result = await sendCommand({
+        http:"/set?safe=1&arm_lock=1&inspection=0",
+        ser:"/set?safe=1&arm_lock=1&inspection=0"
+      }, true);
+      if(!result || !result.ok){
+        showToast("안전 명령 응답을 확인하지 못했습니다. 기체에 접근하지 말고 전원을 차단하세요.", "error", {
+          key:"mission-standby-safety-failed",
+          duration:7000
+        });
+      }
+    }
+
+    function updateMissionStandbyButtonUi(){
+      const waiting = !!missionStandbyUiActive;
+      const busy = !!(
+        virtualMissionActive || sequenceActive || isFirmwareSequenceRunningState(currentSt) ||
+        localTplusActive || replaySourceActive
+      );
+      const storageGuard = getSequenceStorageGuard();
+      const blocked = !waiting && (
+        busy || lockoutLatched || safetyModeEnabled || !isControlUnlocked() ||
+        !(connOk || serialConnected || simEnabled) || storageGuard.blocked || currentSt !== 0
+      );
+      if(el.missionStandbyBtn){
+        el.missionStandbyBtn.disabled = waiting || blocked;
+        el.missionStandbyBtn.classList.toggle("is-running", waiting);
+        el.missionStandbyBtn.setAttribute("aria-label", waiting
+          ? "1단 발사 감지 대기 중"
+          : "유선 점화 발사 감지 대기 시작");
+      }
+      if(el.missionStandbyBtnLabel){
+        el.missionStandbyBtnLabel.textContent = waiting ? "발사 감지 대기" : "미션 대기";
+      }
+      if(el.missionStandbyBtnStatus){
+        el.missionStandbyBtnStatus.textContent = waiting ? "WAITING" : "READY";
+        el.missionStandbyBtnStatus.className = "pill " + (waiting ? "pill-blue" : "pill-gray");
+      }
+      if(el.mobileMissionStandbyBtn){
+        el.mobileMissionStandbyBtn.disabled = waiting || blocked;
+        el.mobileMissionStandbyBtn.classList.toggle("is-active", waiting);
+      }
+      if(el.mobileMissionStandbyStatus){
+        el.mobileMissionStandbyStatus.textContent = waiting ? "감지 대기" : "준비";
+        el.mobileMissionStandbyStatus.className =
+          "mobile-quick-state pill " + (waiting ? "pill-blue" : "pill-gray");
+      }
+    }
+
+    async function startMissionStandbyFromUi(){
+      if(missionStandbyUiActive || sequenceActive) return;
+      const unsafeStages = missionStandbyUnsafeStageIds();
+      if(unsafeStages.length){
+        await enforceMissionStandbySafety(unsafeStages);
+        return;
+      }
+      const storageGuard = getSequenceStorageGuard();
+      if(storageGuard.blocked){
+        showSequenceStorageGuardToast(true);
+        return;
+      }
+      if(lockoutLatched || safetyModeEnabled || !isControlUnlocked()){
+        showToast(!isControlUnlocked()
+          ? "설비 점검을 완료한 뒤 미션 대기를 시작하세요."
+          : "안전 모드 또는 제어 제한을 해제한 뒤 다시 시도하세요.", "notice", {
+          key:"mission-standby-blocked"
+        });
+        return;
+      }
+      if(!(connOk || serialConnected || simEnabled)){
+        showToast("에비오닉스 연결 후 미션 대기를 시작하세요.", "notice", {key:"mission-standby-link"});
+        return;
+      }
+      hideMobileControlsPanel();
+      const result = await sendCommand({
+        http:"/mission_standby",
+        ser:"/mission_standby"
+      }, true);
+      if(!result || !result.ok){
+        const reason = String(result && result.reason || "");
+        if(reason.indexOf("ARM_RELEASED_SAFE_MODE") >= 0 || reason.indexOf("ARM_UNSAFE") >= 0){
+          await enforceMissionStandbySafety([]);
+          return;
+        }
+        showToast("미션 대기 진입 실패: " + (reason || "보드 응답 없음"), "error", {
+          key:"mission-standby-failed",
+          duration:4500
+        });
+        return;
+      }
+      userWaitingLocal = true;
+      missionStandbyUiActive = true;
+      updateMissionStandbyButtonUi();
+      setButtonsFromState(currentSt, lockoutLatched, true);
+      addLogLine("유선 점화 미션 대기 · 1단 발사 감지 후 T+ 시작", "MISSION");
+      showToast("미션 대기 중 · 1단 발사가 감지되면 T+가 시작됩니다.", "success", {
+        key:"mission-standby-active",
+        duration:4200
+      });
     }
 
     function renderVirtualMissionUi(nowMs){

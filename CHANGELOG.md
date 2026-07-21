@@ -3,6 +3,22 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.8.23 — v6 b29 — 2026-07-22
+
+Protocol: `Flash6-Intelligent-b6` (ESP-NOW wire version `6`)
+
+- Added wired-ignition mission standby. The firmware keeps every pyro output
+  off, waits for a physically armed stage-1 launch plus confirmed motion, and
+  starts the onboard T+ clock at that detected launch timestamp.
+- Rejected standby when the physical ARM input is already released, revoked
+  mission inspection authority, enabled safety mode and ARM lock, and returned
+  an explicit high-risk result to FLASH6.
+- Added HTTP, USB serial, and reliable A.I LINK command 27 support for mission
+  standby, with distinct ARM-unsafe and permission-denied ACK results.
+- Added desktop and mobile mission-standby controls plus a stage-aware ARM-risk
+  warning. The dashboard control card now opens as a compact drawer attached to
+  the right navigation instead of occupying dashboard chart space.
+
 ## FLASH6 real-time replay catch-up b42 — 2026-07-21
 
 Firmware build: `v6 b28` (unchanged)

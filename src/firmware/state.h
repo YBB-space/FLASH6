@@ -1,9 +1,9 @@
 
 constexpr char kFirmwareProgram[] = "Altis_Intelligent3_firmware1";
-constexpr char kFirmwareVersion[] = "0.8.22";
-constexpr char kFirmwareBuildId[] = "v6 b28";
+constexpr char kFirmwareVersion[] = "0.8.23";
+constexpr char kFirmwareBuildId[] = "v6 b29";
 constexpr char kFirmwareBoard[] = "Altis_Intelligent3_b3";
-constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b5";
+constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b6";
 constexpr bool kFirmwareMissionLocked = true;
 constexpr char kFirmwareMissionSource[] = "builtin_launch_sequence";
 constexpr char kFirmwareMissionLockReason[] = "BUILTIN_MISSION";
@@ -132,7 +132,7 @@ constexpr uint8_t kWifiChannel = 6;
 constexpr uint8_t kWifiMaxClients = 2;
 constexpr char kWifiPass[] = "12345678";
 constexpr uint32_t kFlashLinkMagic = 0x314B4C46UL;  // FLK1
-constexpr uint8_t kFlashLinkVersion = 5;
+constexpr uint8_t kFlashLinkVersion = 6;
 constexpr uint8_t kFlashLinkChannel = 6;
 constexpr uint8_t kFlashLinkVehicleNodeCount = 2;
 constexpr uint8_t kFlashLinkNodeIdGround = 0;
@@ -305,6 +305,10 @@ uint8_t flashLinkTargetNodeId = kFlashLinkNodeIdStage1;
 volatile bool buzzerMuted = false;
 volatile uint8_t sequenceState = kSequenceStateIdle;
 volatile bool sequenceUserWaiting = false;
+// Wired pad ignition does not produce a firmware firing event. This gate is
+// armed explicitly by ground control and lets the flight detector establish
+// T+0 from the first confirmed launch motion without energising a pyro output.
+volatile bool missionLaunchStandby = false;
 volatile bool sequenceAborted = false;
 volatile uint8_t sequenceAbortReason = 0;
 
@@ -599,6 +603,7 @@ enum class FlashLinkCommandCode : uint8_t {
   StorageReset = 24,
   Reboot = 25,
   ForceTimedMission = 26,
+  MissionStandby = 27,
 };
 
 enum class FlashLinkCommandResult : uint8_t {
@@ -607,6 +612,8 @@ enum class FlashLinkCommandResult : uint8_t {
   Busy = 2,
   InvalidArgument = 3,
   Unsupported = 4,
+  ArmUnsafe = 5,
+  PermissionDenied = 6,
 };
 
 #pragma pack(push, 1)
@@ -1685,3 +1692,11 @@ bool loadMissionRuntimeFromFlash();
 void missionRuntimeTick();
 void missionResetLaunchRuntime(uint32_t nowMs);
 bool startForcedTimedMissionRuntime(uint32_t nowMs);
+enum class MissionStandbyResult : uint8_t {
+  Started = 0,
+  SafetyMode = 1,
+  Busy = 2,
+  ArmUnsafe = 3,
+  PermissionDenied = 4,
+};
+MissionStandbyResult startMissionStandbyRuntime(uint32_t nowMs);
