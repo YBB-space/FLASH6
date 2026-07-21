@@ -298,6 +298,47 @@ void flashLinkQueueStorageListResponse(
   }
 }
 
+void flashLinkQueueStorageReadResponse(
+  const uint8_t* destination,
+  const FlashLinkStorageReadResponseV1& response
+) {
+  if (!destination) return;
+  const uint32_t nowMs = millis();
+  int8_t freeSlot = -1;
+  uint8_t oldestSlot = 0;
+  uint32_t oldestAgeMs = 0;
+  for (uint8_t i = 0; i < kFlashLinkStorageResponseQueueDepth; ++i) {
+    FlashLinkStorageReadTx& queued = flashLinkStorageReadTxQueue[i];
+    if (queued.pending &&
+        queued.response.transaction == response.transaction &&
+        queued.response.offset == response.offset &&
+        memcmp(queued.destination, destination, ESP_NOW_ETH_ALEN) == 0) {
+      // A request retry can arrive before the queued response is transmitted.
+      // Refresh the payload in place without consuming another queue slot.
+      queued.response = response;
+      queued.attempts = 0;
+      queued.queuedMs = nowMs;
+      return;
+    }
+    if (!queued.pending && freeSlot < 0) freeSlot = (int8_t)i;
+    const uint32_t ageMs = queued.pending
+      ? (uint32_t)(nowMs - queued.queuedMs)
+      : 0U;
+    if (ageMs > oldestAgeMs) {
+      oldestAgeMs = ageMs;
+      oldestSlot = i;
+    }
+  }
+
+  const uint8_t slot = freeSlot >= 0 ? (uint8_t)freeSlot : oldestSlot;
+  FlashLinkStorageReadTx& queued = flashLinkStorageReadTxQueue[slot];
+  memcpy(queued.destination, destination, ESP_NOW_ETH_ALEN);
+  queued.response = response;
+  queued.pending = true;
+  queued.attempts = 0;
+  queued.queuedMs = nowMs;
+}
+
 uint32_t flashLinkNextStorageReadTransaction() {
   uint32_t transaction = ++flashLink.nextStorageReadTransaction;
   if (transaction == 0) transaction = ++flashLink.nextStorageReadTransaction;
@@ -1243,6 +1284,9 @@ void flashLinkResetPeer() {
   flashLinkStorageReadCancel(0);
   flashLinkStorageListCancel(0);
   flashLinkStorageListTx = {};
+  for (uint8_t i = 0; i < kFlashLinkStorageResponseQueueDepth; ++i) {
+    flashLinkStorageReadTxQueue[i] = {};
+  }
   if (flashLinkStage1RelayRole()) {
     flashLinkRelayTxHead = 0;
     flashLinkRelayTxTail = 0;
@@ -2475,11 +2519,10 @@ void flashLinkHandlePacket(FlashLinkRxSlot& slot) {
     } else {
       response.status = 3;
     }
-    flashLinkSendPacket(
-      FlashLinkPacketType::StorageReadResponse,
-      slot.mac,
-      &response,
-      sizeof(response));
+    // Multiple windowed requests can be drained in one service pass. Sending
+    // directly here loses every response after the first whenever ESP-NOW is
+    // still busy, so retain them and flush one per radio-ready service turn.
+    flashLinkQueueStorageReadResponse(slot.mac, response);
     return;
   }
 
@@ -3259,6 +3302,43 @@ bool flashLinkFlushPendingStorageListResponse() {
   return false;
 }
 
+bool flashLinkFlushPendingStorageReadResponse() {
+  const uint32_t nowMs = millis();
+  int8_t selected = -1;
+  uint32_t oldestAgeMs = 0;
+  for (uint8_t i = 0; i < kFlashLinkStorageResponseQueueDepth; ++i) {
+    FlashLinkStorageReadTx& queued = flashLinkStorageReadTxQueue[i];
+    if (!queued.pending) continue;
+    const uint32_t ageMs = (uint32_t)(nowMs - queued.queuedMs);
+    if (selected < 0 || ageMs > oldestAgeMs) {
+      selected = (int8_t)i;
+      oldestAgeMs = ageMs;
+    }
+  }
+  if (selected < 0) return false;
+
+  FlashLinkStorageReadTx& queued = flashLinkStorageReadTxQueue[selected];
+  flashLinkHoldStorageTransfer(nowMs);
+  if (oldestAgeMs > 5000U ||
+      queued.attempts >= kFlashLinkStorageRequestMaxAttempts) {
+    queued = {};
+    return true;
+  }
+  if (flashLink.txBusy) return true;
+  if (flashLinkSendPacket(
+        FlashLinkPacketType::StorageReadResponse,
+        queued.destination,
+        &queued.response,
+        sizeof(queued.response))) {
+    queued = {};
+  } else {
+    queued.attempts++;
+  }
+  // Storage replies stay ahead of relay/telemetry traffic for this service
+  // turn. The next queued reply is sent as soon as the MAC callback clears TX.
+  return true;
+}
+
 void flashLinkTick() {
   if (!flashLinkMode || !flashLink.initialized) return;
 
@@ -3288,6 +3368,7 @@ void flashLinkTick() {
     flashLink.txFail++;
   }
   if (flashLinkFlushPendingCommandAck()) return;
+  if (flashLinkFlushPendingStorageReadResponse()) return;
   if (flashLinkFlushPendingStorageListResponse()) return;
   if (flashLinkStage1RelayTick(nowMs)) return;
   // ESP-NOW RX draining, storage replies, command acknowledgements, and stage

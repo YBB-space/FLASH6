@@ -3,6 +3,20 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.8.22 — v6 b28 — 2026-07-21
+
+Protocol: `Flash6-Intelligent-b5` (ESP-NOW wire version `5`, unchanged)
+
+- Added an avionics-side response queue for windowed A.I LINK storage reads so
+  a burst of requests no longer loses every reply received while ESP-NOW is
+  still busy transmitting the previous packet.
+- Kept queued storage replies ahead of telemetry and relay background traffic,
+  while preserving the existing 8 KiB host chunk and eight-packet radio window.
+- Retried the same validated offset from FLASH6 after transient remote chunk
+  timeouts instead of aborting the entire BIN download on the first lost burst.
+- Extended only the remote storage transaction deadline; flight telemetry,
+  command timing, packet layout, and recorded data format are unchanged.
+
 ## 0.8.21 — v6 b27 — 2026-07-21
 
 Protocol: `Flash6-Intelligent-b5` (ESP-NOW wire version `5`, unchanged)

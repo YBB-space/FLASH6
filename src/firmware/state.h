@@ -1,7 +1,7 @@
 
 constexpr char kFirmwareProgram[] = "Altis_Intelligent3_firmware1";
-constexpr char kFirmwareVersion[] = "0.8.21";
-constexpr char kFirmwareBuildId[] = "v6 b27";
+constexpr char kFirmwareVersion[] = "0.8.22";
+constexpr char kFirmwareBuildId[] = "v6 b28";
 constexpr char kFirmwareBoard[] = "Altis_Intelligent3_b3";
 constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b5";
 constexpr bool kFirmwareMissionLocked = true;
@@ -183,6 +183,11 @@ constexpr uint16_t kFlashLinkStorageHttpChunkBytes = 1024;
 // the ESP-NOW wire packet and the HTTP fallback response size.
 constexpr uint16_t kFlashLinkStorageSerialChunkBytes = 8192;
 constexpr uint8_t kFlashLinkStorageWindowDepth = 8;
+// An avionics node can receive a complete ground-side request window before
+// ESP-NOW becomes writable again. Retain every response instead of dropping
+// packets that arrive while the radio is still transmitting the previous one.
+constexpr uint8_t kFlashLinkStorageResponseQueueDepth =
+  kFlashLinkStorageWindowDepth;
 // Every bulk-read packet extends this quiet period. While it is active, A.I
 // LINK services only storage traffic and relay forwarding; periodic telemetry,
 // heartbeats, discovery, USB JSON, and WebSocket JSON remain silent.
@@ -1176,6 +1181,14 @@ struct FlashLinkStorageListTx {
   FlashLinkStorageListResponseV1 response{};
 };
 
+struct FlashLinkStorageReadTx {
+  bool pending = false;
+  uint8_t attempts = 0;
+  uint32_t queuedMs = 0;
+  uint8_t destination[ESP_NOW_ETH_ALEN] = {};
+  FlashLinkStorageReadResponseV1 response{};
+};
+
 struct FlashLinkRemoteState {
   uint16_t flags = 0;
   uint8_t relayMask = 0;
@@ -1290,6 +1303,8 @@ FlashLinkRuntime flashLink;
 FlashLinkStorageReadClient flashLinkStorageReadClients[kFlashLinkStorageWindowDepth];
 FlashLinkStorageListClient flashLinkStorageListClient;
 FlashLinkStorageListTx flashLinkStorageListTx;
+FlashLinkStorageReadTx
+  flashLinkStorageReadTxQueue[kFlashLinkStorageResponseQueueDepth];
 FlashLinkRemoteState flashLinkRemoteState;
 FlashLinkGroundPeer flashLinkGroundPeers[kFlashLinkVehicleNodeCount];
 FlashLinkRelayRuntime flashLinkRelay;

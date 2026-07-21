@@ -197,7 +197,7 @@ void serialPrintRemoteStorageChunk(uint32_t offset, uint32_t len) {
         (uint16_t)len,
         serialStorageBulkData,
         totalLen,
-        3200U) ||
+        4800U) ||
       totalLen != len) {
     Serial.println("ERR SPI_FLASH_REMOTE_CHUNK TIMEOUT");
     return;

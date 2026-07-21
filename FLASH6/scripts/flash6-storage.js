@@ -2184,26 +2184,53 @@
       const offInt = Math.max(0, Math.floor(Number(off) || 0));
       const lenInt = Math.max(1, Math.min(SPI_FLASH_REMOTE_CHUNK_BYTES, Math.floor(Number(len) || 0)));
       const cmd = "/storage/spi_flash/remote/read?off=" + offInt + "&len=" + lenInt;
-      const waiter = createSerialAckWaiter((evt)=>{
-        if(evt.kind === "err") return true;
-        return evt.kind === "ack" &&
-          String(evt.message || "").indexOf("SPI_FLASH_REMOTE_CHUNK") === 0;
-      }, 12000);
-      const wrote = await serialWriteLine(cmd, {log:false, timeoutMs:2400});
-      if(!wrote){
-        cancelSerialAckWaiter(waiter, "SERIAL_WRITE_FAIL");
-        throw new Error("SERIAL_WRITE_FAIL");
+      let lastErr = null;
+      for(let attempt = 0; attempt < 4; attempt++){
+        const waiter = createSerialAckWaiter((evt)=>{
+          const message = String(evt.message || "");
+          if(evt.kind === "err"){
+            return message.indexOf("SPI_FLASH_REMOTE_CHUNK") === 0;
+          }
+          return evt.kind === "ack" &&
+            message.indexOf("SPI_FLASH_REMOTE_CHUNK") === 0;
+        }, 6500);
+        const wrote = await serialWriteLine(cmd, {log:false, timeoutMs:2400});
+        if(!wrote){
+          cancelSerialAckWaiter(waiter, "SERIAL_WRITE_FAIL");
+        }
+        const reply = await waiter.promise;
+        try{
+          if(!reply.ok){
+            throw new Error(reply.message || reply.kind || "SERIAL_REMOTE_CHUNK_FAIL");
+          }
+          const chunk = parseSpiFlashRemoteChunkAckMessage(reply.message);
+          if(!chunk) throw new Error("SERIAL_REMOTE_CHUNK_PARSE_FAIL");
+          if(chunk.off !== offInt || chunk.len <= 0 || chunk.len > lenInt){
+            throw new Error("SERIAL_REMOTE_CHUNK_MISMATCH");
+          }
+          const bytes = decodeBase64ToBytes(chunk.b64);
+          if(bytes.length !== chunk.len) throw new Error("SERIAL_REMOTE_CHUNK_SIZE_FAIL");
+          return bytes;
+        }catch(err){
+          lastErr = err;
+          const reason = String(err && err.message || err || "");
+          if(
+            reason.indexOf("SERIAL_DISCONNECTED") >= 0 ||
+            reason.indexOf("SERIAL_NOT_READY") >= 0 ||
+            reason.indexOf("SERIAL_TX_DISABLED") >= 0
+          ){
+            throw err;
+          }
+          if(attempt < 3){
+            if(el.spiFlashStatusLine){
+              el.spiFlashStatusLine.textContent =
+                "A.I LINK 청크 재요청 중... " + (attempt + 2) + "/4";
+            }
+            await delay(90 + attempt * 140);
+          }
+        }
       }
-      const reply = await waiter.promise;
-      if(!reply.ok) throw new Error(reply.message || reply.kind || "SERIAL_REMOTE_CHUNK_FAIL");
-      const chunk = parseSpiFlashRemoteChunkAckMessage(reply.message);
-      if(!chunk) throw new Error("SERIAL_REMOTE_CHUNK_PARSE_FAIL");
-      if(chunk.off !== offInt || chunk.len <= 0 || chunk.len > lenInt){
-        throw new Error("SERIAL_REMOTE_CHUNK_MISMATCH");
-      }
-      const bytes = decodeBase64ToBytes(chunk.b64);
-      if(bytes.length !== chunk.len) throw new Error("SERIAL_REMOTE_CHUNK_SIZE_FAIL");
-      return bytes;
+      throw (lastErr || new Error("SERIAL_REMOTE_CHUNK_FAIL"));
     }
 
     async function downloadSpiFlashDumpViaSerial(selectedItem){
@@ -2257,9 +2284,9 @@
       const lenInt = Math.max(1, Math.min(SPI_FLASH_REMOTE_CHUNK_BYTES, Math.floor(Number(len) || 0)));
       const url = (API_BASE ? API_BASE : "") + "/storage/spi_flash/remote/read?off=" + offInt + "&len=" + lenInt;
       let lastErr = null;
-      for(let attempt = 0; attempt < 3; attempt++){
+      for(let attempt = 0; attempt < 4; attempt++){
         const ctrl = createAbortControllerSafe();
-        const timer = ctrl ? setTimeout(()=>{ try{ ctrl.abort(); }catch(_e){} }, 4200) : null;
+        const timer = ctrl ? setTimeout(()=>{ try{ ctrl.abort(); }catch(_e){} }, 5500) : null;
         const opt = API_BASE
           ? Object.assign({cache:"no-store", mode:"cors"}, ctrl ? {signal:ctrl.signal} : {})
           : Object.assign({cache:"no-store"}, ctrl ? {signal:ctrl.signal} : {});
