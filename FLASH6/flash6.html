@@ -1770,6 +1770,22 @@
               </div>
             </div>
             <div class="control-row">
+              <button id="missionStandbyBtn" class="control-tile is-btn mission-standby-tile" type="button" aria-label="유선 점화 발사 감지 대기 시작">
+                <span class="force-mission-copy">
+                  <span id="missionStandbyBtnLabel" class="control-tile-label">미션 대기</span>
+                  <span class="control-tile-sub">발사 감지 후 T+ 시작</span>
+                </span>
+                <span id="missionStandbyBtnStatus" class="pill pill-gray">READY</span>
+              </button>
+
+              <button id="virtualMissionBtn" class="control-tile is-btn force-mission-tile" type="button" aria-label="시간 기반 강제 미션 시작">
+                <span class="force-mission-copy">
+                  <span id="virtualMissionBtnLabel" class="control-tile-label">미션 강제 구동</span>
+                  <span class="control-tile-sub">시간 기준 가상 시퀀스</span>
+                </span>
+                <span id="virtualMissionBtnStatus" class="pill pill-gray">TIME BASED</span>
+              </button>
+
               <div id="storageOpenBtn" class="control-tile is-btn span-2" role="button" tabindex="0" aria-label="저장공간 열기">
                 <div>
                   <div class="control-tile-label" data-i18n="controlsSectionData">저장공간</div>
@@ -1821,22 +1837,6 @@
                   <button id="armLockPill" class="pill pill-toggle is-off" type="button">OFF</button>
                 </div>
               </div>
-
-              <button id="missionStandbyBtn" class="control-tile is-btn span-2 mission-standby-tile" type="button" aria-label="유선 점화 발사 감지 대기 시작">
-                <span class="force-mission-copy">
-                  <span id="missionStandbyBtnLabel" class="control-tile-label">미션 대기</span>
-                  <span class="control-tile-sub">유선 점화 · 1단 발사 감지 시 T+ 시작</span>
-                </span>
-                <span id="missionStandbyBtnStatus" class="pill pill-gray">READY</span>
-              </button>
-
-              <button id="virtualMissionBtn" class="control-tile is-btn span-2 force-mission-tile" type="button" aria-label="시간 기반 강제 미션 시작">
-                <span class="force-mission-copy">
-                  <span id="virtualMissionBtnLabel" class="control-tile-label">미션 강제 구동</span>
-                  <span class="control-tile-sub">파이로 출력 없이 시간 기준 CH1 · CH2 실행</span>
-                </span>
-                <span id="virtualMissionBtnStatus" class="pill pill-gray">TIME BASED</span>
-              </button>
 
             </div>
           </div>

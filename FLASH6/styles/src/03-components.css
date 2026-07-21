@@ -551,7 +551,10 @@ body.dashboard-view-active .stage-overview-panel:has(> .stage-telemetry-deck.hid
     box-shadow:none !important;
   }
   .desktop-control-drawer-mount #controlsCard :is(.force-mission-tile,.mission-standby-tile){
-    grid-column:1 / -1 !important;
+    grid-column:auto !important;
+  }
+  .desktop-control-drawer-mount #controlsCard :is(.force-mission-tile,.mission-standby-tile) .control-tile-sub{
+    display:none !important;
   }
 }
 @media (max-width:1180px), (pointer:coarse){
