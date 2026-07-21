@@ -26906,6 +26906,13 @@ body.camera-view-active .camera-center-countdown .camera-count-time{
   body .side-nav-desktop .side-nav-btn svg{
     filter:drop-shadow(0 1px 3px rgba(0,0,0,.72));
   }
+  body .side-nav-desktop #sidebarSettingsBtn svg{
+    width:18px !important;
+    height:18px !important;
+    min-width:18px !important;
+    min-height:18px !important;
+    flex-basis:18px !important;
+  }
   body .side-nav-desktop:hover .side-nav-menu{
     align-items:center !important;
     gap:4px !important;
