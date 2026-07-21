@@ -3,6 +3,18 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 real-time replay catch-up b42 — 2026-07-21
+
+Firmware build: `v6 b28` (unchanged)
+Protocol: `Flash6-Intelligent-b5` (unchanged)
+
+- Locked replay progress to wall-clock media time even when dense 200 Hz BIN
+  records exceed the browser's per-sample rendering capacity.
+- Coalesced already-due samples to a maximum display cadence of roughly 60 Hz
+  instead of allowing an unbounded playback queue to run at about half speed.
+- Preserved mission alarms contained in coalesced records and continued to
+  forward the newest timestamped sample to board mission simulation.
+
 ## FLASH6 wall-clock replay scheduler b41 — 2026-07-21
 
 Firmware build: `v6 b28` (unchanged)

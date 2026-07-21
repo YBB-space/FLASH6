@@ -787,6 +787,7 @@ if (typeof window !== "undefined") {
       timer: null,
       nextDeadlineMs: NaN,
       lastUiUpdateMs: 0,
+      lastRenderMs: 0,
       playing: false,
       speed: 1,
       fileName: "",
@@ -803,6 +804,9 @@ if (typeof window !== "undefined") {
     const REPLAY_MIN_FRAME_DELAY_MS = 1;
     const REPLAY_MAX_FRAME_DELAY_MS = 120;
     const REPLAY_DEFAULT_FRAME_DELAY_MS = 10;
+    // BIN recordings can contain 200 Hz telemetry. Rendering every stored
+    // sample overloads the browser and makes media time fall behind wall time.
+    const REPLAY_MIN_RENDER_INTERVAL_MS = 16;
     let logDataRevision = 0;
     let reportExportedRevision = 0;
     let reportExportedOnce = false;

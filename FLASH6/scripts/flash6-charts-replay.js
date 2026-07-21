@@ -2080,6 +2080,35 @@
     function resetReplayClock(){
       replayState.nextDeadlineMs = NaN;
       replayState.lastUiUpdateMs = 0;
+      replayState.lastRenderMs = 0;
+    }
+
+    function mergeReplayAlarmEvents(replaySample, startIndex, endIndex){
+      if(startIndex == null || !isFinite(Number(startIndex))) return replaySample;
+      const firstIndex = Math.max(0, Math.min(endIndex, Number(startIndex) || 0));
+      if(firstIndex >= endIndex) return replaySample;
+      const merged = [];
+      for(let index = firstIndex; index <= endIndex; index++){
+        const source = replayState.samples[index] && replayState.samples[index].sample;
+        if(!source) continue;
+        if(Array.isArray(source.mission_alarm_events)){
+          for(const event of source.mission_alarm_events){
+            if(event) merged.push(Object.assign({}, event));
+          }
+        }
+        const seq = Number(source.mission_alarm_seq);
+        if(isFinite(seq) && seq > 0){
+          merged.push({
+            seq,
+            block: source.mission_alarm_block,
+            title: source.mission_alarm_title,
+            message: source.mission_alarm_message,
+            timestampMs: source.mission_alarm_ts
+          });
+        }
+      }
+      if(merged.length) replaySample.mission_alarm_events = merged;
+      return replaySample;
     }
 
     function applyReplaySampleAt(index, opts){
@@ -2087,7 +2116,11 @@
       const frame = replayState.samples[index];
       if(!frame || !frame.sample) return false;
       const options = opts || {};
-      const replaySample = Object.assign({}, frame.sample, {_replayTsMs: frame.tsMs});
+      const replaySample = mergeReplayAlarmEvents(
+        Object.assign({}, frame.sample, {_replayTsMs: frame.tsMs}),
+        options.mergeFromIndex,
+        index
+      );
       onIncomingSample(replaySample, "REPLAY", {
         fastSeek: !!options.fastSeek,
         forceUi: !!options.forceUi
@@ -2097,6 +2130,7 @@
       }
       replayState.lastIndex = index;
       const uiNowMs = replayClockNowMs();
+      replayState.lastRenderMs = uiNowMs;
       const uiDue =
         !!options.forceUi ||
         index >= replayState.samples.length - 1 ||
@@ -2124,7 +2158,11 @@
         replayState.nextDeadlineMs += waitMs;
       }
       const untilDeadlineMs = Math.max(0, replayState.nextDeadlineMs - nowMs);
-      replayState.timer = setTimeout(runReplayTick, Math.round(untilDeadlineMs));
+      const sinceRenderMs = replayState.lastRenderMs > 0
+        ? Math.max(0, nowMs - replayState.lastRenderMs)
+        : REPLAY_MIN_RENDER_INTERVAL_MS;
+      const renderThrottleMs = Math.max(0, REPLAY_MIN_RENDER_INTERVAL_MS - sinceRenderMs);
+      replayState.timer = setTimeout(runReplayTick, Math.round(Math.max(untilDeadlineMs, renderThrottleMs)));
     }
 
     function replayPlaybackDelayBetween(currentIndex, nextIndex){
@@ -2163,25 +2201,37 @@
       }
 
       const currentIndex = replayState.index;
-      // Arm the following sample before rendering this one. The timer then
-      // runs concurrently with chart/HUD work and is already due when a heavy
-      // frame finishes, instead of paying an additional browser timer clamp.
-      if(currentIndex + 1 < total){
-        scheduleReplayTick(
-          replayPlaybackDelayBetween(currentIndex, currentIndex + 1)
-        );
+      let renderIndex = currentIndex;
+      let renderDeadlineMs = Number(replayState.nextDeadlineMs);
+      const nowMs = replayClockNowMs();
+      if(!isFinite(renderDeadlineMs)) renderDeadlineMs = nowMs;
+
+      // Keep replay media time locked to the wall clock. When a 200 Hz log is
+      // more dense than the browser can render, coalesce already-due samples
+      // into the newest frame instead of letting an ever-growing queue slow
+      // playback. Mission alarm records from coalesced samples are merged below.
+      while(renderIndex + 1 < total){
+        const nextDelayMs = replayPlaybackDelayBetween(renderIndex, renderIndex + 1);
+        if((renderDeadlineMs + nextDelayMs) > nowMs) break;
+        renderDeadlineMs += nextDelayMs;
+        renderIndex++;
       }
+      replayState.nextDeadlineMs = renderDeadlineMs;
+      const nextDelayMs = (renderIndex + 1 < total)
+        ? replayPlaybackDelayBetween(renderIndex, renderIndex + 1)
+        : null;
       let applied = false;
       try{
-        applied = applyReplaySampleAt(currentIndex);
+        applied = applyReplaySampleAt(renderIndex, {mergeFromIndex:currentIndex});
       }catch(err){
         applied = false;
         console.warn("Replay sample apply failed", err);
       }
       if(!applied){
-        replayState.index = currentIndex + 1;
+        replayState.index = renderIndex + 1;
         if(replayState.index < total){
           setReplayStatus("리플레이 샘플 일부를 건너뛰고 계속 재생합니다.");
+          scheduleReplayTick(nextDelayMs);
           return;
         }
         replayState.playing = false;
@@ -2190,7 +2240,7 @@
         notifyAlarm("REPLAY_AUTOSTOP");
         return;
       }
-      replayState.index = currentIndex + 1;
+      replayState.index = renderIndex + 1;
 
       if(!replayState.playing){
         clearReplayTimer();
@@ -2203,7 +2253,7 @@
         notifyAlarm("REPLAY_AUTOSTOP");
         return;
       }
-
+      scheduleReplayTick(nextDelayMs);
     }
 
     function pauseReplayPlayback(opts){
