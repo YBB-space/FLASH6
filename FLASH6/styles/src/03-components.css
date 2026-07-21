@@ -8154,11 +8154,11 @@ html.phone-landscape-layout .mission-force-timeline strong{
 .mission-arm-risk-dialog{
   display:grid !important;
   grid-template-columns:minmax(0,1fr) !important;
-  gap:0 !important;
-  width:min(92vw,500px) !important;
-  padding:0 !important;
+  gap:12px !important;
+  width:min(92vw,430px) !important;
+  padding:22px 24px 20px !important;
   border:1px solid #3a3c42 !important;
-  border-radius:9px !important;
+  border-radius:8px !important;
   background:#17181b !important;
   box-shadow:0 24px 70px rgba(0,0,0,.48) !important;
   overflow:hidden !important;
@@ -8169,13 +8169,13 @@ html.phone-landscape-layout .mission-force-timeline strong{
 }
 .mission-arm-risk-heading{
   display:flex;
-  align-items:center;
-  gap:11px;
-  min-height:68px;
+  align-items:baseline;
+  gap:10px;
+  min-height:0;
   margin:0 !important;
-  padding:0 24px;
-  border-bottom:1px solid #2d2f34;
-  background:#191a1d;
+  padding:0;
+  border:0;
+  background:transparent;
 }
 .mission-arm-risk-level{
   color:#ff727c;
@@ -8186,48 +8186,51 @@ html.phone-landscape-layout .mission-force-timeline strong{
 .mission-arm-risk-dialog .confirm-title{
   margin:0 !important;
   color:#f3f4f6 !important;
-  font-size:18px !important;
+  font-size:17px !important;
   line-height:1.25 !important;
   font-weight:650 !important;
   text-align:left !important;
 }
 .mission-arm-risk-stage{
   margin:0 !important;
-  padding:20px 24px 0;
+  padding:8px 0 0;
   border:0;
   border-radius:0;
   background:transparent;
   color:#ffb0b6;
-  font-size:12px;
+  font-size:11px;
   font-weight:650;
   line-height:1.45;
   text-align:left;
 }
-.mission-arm-risk-dialog .confirm-text{
+#missionArmRiskOverlay .mission-arm-risk-dialog > .confirm-text{
   margin:0 !important;
-  padding:10px 24px 0 !important;
+  padding:0 !important;
   color:#c4c7cd !important;
-  font-size:12px !important;
-  line-height:1.6 !important;
-  text-align:left !important;
-}
-.mission-arm-risk-dialog .confirm-note{
-  margin:0 !important;
-  padding:12px 24px 0 !important;
-  color:#858a94 !important;
-  font-size:10px !important;
+  font-size:11px !important;
   line-height:1.55 !important;
   text-align:left !important;
 }
-.mission-arm-risk-actions{
-  display:block !important;
-  width:auto !important;
-  margin:20px 24px 22px !important;
+#missionArmRiskOverlay .mission-arm-risk-dialog > .confirm-note{
+  margin:0 !important;
+  padding:0 !important;
+  color:#858a94 !important;
+  font-size:9px !important;
+  line-height:1.55 !important;
+  text-align:left !important;
 }
-.mission-arm-risk-actions > button{
+#missionArmRiskOverlay .mission-arm-risk-actions{
+  display:flex !important;
+  justify-content:flex-end !important;
   width:100% !important;
-  min-height:42px !important;
-  height:42px !important;
+  margin:4px 0 0 !important;
+}
+#missionArmRiskOverlay #missionArmRiskConfirm{
+  width:92px !important;
+  min-width:92px !important;
+  max-width:92px !important;
+  min-height:38px !important;
+  height:38px !important;
   margin:0 !important;
   border:1px solid #3b3e44 !important;
   border-radius:6px !important;
@@ -8237,33 +8240,22 @@ html.phone-landscape-layout .mission-force-timeline strong{
   font-size:12px !important;
   font-weight:650 !important;
 }
-.mission-arm-risk-actions > button:hover{
+#missionArmRiskOverlay #missionArmRiskConfirm:hover{
   border-color:#4b4f57 !important;
   background:#292b30 !important;
 }
 @media (max-width:600px){
   .mission-arm-risk-dialog{
     width:calc(100vw - 28px) !important;
+    padding:20px !important;
   }
   .mission-arm-risk-heading{
-    align-items:flex-start;
-    flex-direction:column;
-    justify-content:center;
-    gap:6px;
-    min-height:78px;
-    padding:0 20px;
+    align-items:baseline;
+    flex-direction:row;
+    gap:8px;
   }
   .mission-arm-risk-stage{
-    padding:18px 20px 0;
-  }
-  .mission-arm-risk-dialog .confirm-text{
-    padding:9px 20px 0 !important;
-  }
-  .mission-arm-risk-dialog .confirm-note{
-    padding:11px 20px 0 !important;
-  }
-  .mission-arm-risk-actions{
-    margin:18px 20px 20px !important;
+    padding-top:6px;
   }
 }
 
