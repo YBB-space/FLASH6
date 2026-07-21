@@ -3,6 +3,18 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 wall-clock replay scheduler b41 — 2026-07-21
+
+Firmware build: `v6 b28` (unchanged)
+Protocol: `Flash6-Intelligent-b5` (unchanged)
+
+- Replaced chained relative replay timers with an absolute media deadline so
+  chart and HUD processing time no longer accumulates into every sample gap.
+- Rebased the media clock after pause, seek, restart, and playback-speed
+  changes to avoid jumps while preserving the selected 0.5x/1x/2x/4x rate.
+- Limited replay-only control redraws to roughly 30 Hz while continuing to
+  consume and forward every recorded sample at its source timestamp cadence.
+
 ## FLASH6 replay file drag-and-drop b40 — 2026-07-21
 
 Firmware build: `v6 b28` (unchanged)

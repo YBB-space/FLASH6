@@ -1053,9 +1053,12 @@
             if(replayState.playing){
               clearReplayTimer();
               if(replayState.lastIndex >= 0 && replayState.index < replayState.samples.length){
-                scheduleReplayTick(replayPlaybackDelayBetween(replayState.lastIndex, replayState.index));
+                scheduleReplayTick(
+                  replayPlaybackDelayBetween(replayState.lastIndex, replayState.index),
+                  {rebase:true}
+                );
               }else{
-                scheduleReplayTick(0);
+                scheduleReplayTick(0, {rebase:true});
               }
             }
           });

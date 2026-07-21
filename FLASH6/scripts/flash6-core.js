@@ -785,6 +785,8 @@ if (typeof window !== "undefined") {
       index: 0,
       lastIndex: -1,
       timer: null,
+      nextDeadlineMs: NaN,
+      lastUiUpdateMs: 0,
       playing: false,
       speed: 1,
       fileName: "",

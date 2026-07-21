@@ -786,6 +786,8 @@ if (typeof window !== "undefined") {
       index: 0,
       lastIndex: -1,
       timer: null,
+      nextDeadlineMs: NaN,
+      lastUiUpdateMs: 0,
       playing: false,
       speed: 1,
       fileName: "",
@@ -18964,6 +18966,17 @@ function requestMobileMockup3dMesh(){
       }
     }
 
+    function replayClockNowMs(){
+      return (typeof performance !== "undefined" && typeof performance.now === "function")
+        ? performance.now()
+        : Date.now();
+    }
+
+    function resetReplayClock(){
+      replayState.nextDeadlineMs = NaN;
+      replayState.lastUiUpdateMs = 0;
+    }
+
     function applyReplaySampleAt(index, opts){
       if(index < 0 || index >= replayState.samples.length) return false;
       const frame = replayState.samples[index];
@@ -18978,17 +18991,35 @@ function requestMobileMockup3dMesh(){
         sendBoardMissionSimSample(replaySample).catch(()=>{});
       }
       replayState.lastIndex = index;
-      if(!options.suppressSeekUi){
+      const uiNowMs = replayClockNowMs();
+      const uiDue =
+        !!options.forceUi ||
+        index >= replayState.samples.length - 1 ||
+        !isFinite(replayState.lastUiUpdateMs) ||
+        (uiNowMs - replayState.lastUiUpdateMs) >= 32;
+      if(!options.suppressSeekUi && uiDue){
+        replayState.lastUiUpdateMs = uiNowMs;
         updateReplaySeekUi();
+        syncReplayAlarmEventActive();
       }
       return true;
     }
 
-    function scheduleReplayTick(delayMs){
+    function scheduleReplayTick(delayMs, opts){
       clearReplayTimer();
       if(!replayState.playing) return;
       const waitMs = Math.max(0, Math.round(Number(delayMs) || 0));
-      replayState.timer = setTimeout(runReplayTick, waitMs);
+      const nowMs = replayClockNowMs();
+      const rebase = !!(opts && opts.rebase);
+      if(rebase || !isFinite(replayState.nextDeadlineMs)){
+        replayState.nextDeadlineMs = nowMs + waitMs;
+      }else{
+        // Keep an absolute media clock. Rendering/telemetry work performed by
+        // the previous tick must not be added to the next sample interval.
+        replayState.nextDeadlineMs += waitMs;
+      }
+      const untilDeadlineMs = Math.max(0, replayState.nextDeadlineMs - nowMs);
+      replayState.timer = setTimeout(runReplayTick, Math.round(untilDeadlineMs));
     }
 
     function replayPlaybackDelayBetween(currentIndex, nextIndex){
@@ -19027,6 +19058,14 @@ function requestMobileMockup3dMesh(){
       }
 
       const currentIndex = replayState.index;
+      // Arm the following sample before rendering this one. The timer then
+      // runs concurrently with chart/HUD work and is already due when a heavy
+      // frame finishes, instead of paying an additional browser timer clamp.
+      if(currentIndex + 1 < total){
+        scheduleReplayTick(
+          replayPlaybackDelayBetween(currentIndex, currentIndex + 1)
+        );
+      }
       let applied = false;
       try{
         applied = applyReplaySampleAt(currentIndex);
@@ -19038,7 +19077,6 @@ function requestMobileMockup3dMesh(){
         replayState.index = currentIndex + 1;
         if(replayState.index < total){
           setReplayStatus("리플레이 샘플 일부를 건너뛰고 계속 재생합니다.");
-          scheduleReplayTick(REPLAY_DEFAULT_FRAME_DELAY_MS);
           return;
         }
         replayState.playing = false;
@@ -19048,9 +19086,11 @@ function requestMobileMockup3dMesh(){
         return;
       }
       replayState.index = currentIndex + 1;
-      updateReplayModeUi();
 
-      if(!replayState.playing) return;
+      if(!replayState.playing){
+        clearReplayTimer();
+        return;
+      }
       if(replayState.index >= total){
         replayState.playing = false;
         setReplayStatus("리플레이 종료");
@@ -19059,12 +19099,12 @@ function requestMobileMockup3dMesh(){
         return;
       }
 
-      scheduleReplayTick(replayPlaybackDelayBetween(currentIndex, replayState.index));
     }
 
     function pauseReplayPlayback(opts){
       const silent = !!(opts && opts.silent);
       clearReplayTimer();
+      resetReplayClock();
       const wasPlaying = replayState.playing;
       replayState.playing = false;
       sendBoardMissionSimControl(false).catch(()=>{});
@@ -19093,7 +19133,7 @@ function requestMobileMockup3dMesh(){
       replayState.playing = true;
       setReplayStatus("리플레이 재생 중");
       updateReplayModeUi();
-      scheduleReplayTick(0);
+      scheduleReplayTick(0, {rebase:true});
     }
 
     function restartReplayPlayback(){
@@ -19111,7 +19151,7 @@ function requestMobileMockup3dMesh(){
       replayState.playing = true;
       setReplayStatus("리플레이를 처음부터 재생합니다.");
       updateReplayModeUi();
-      scheduleReplayTick(0);
+      scheduleReplayTick(0, {rebase:true});
     }
 
     function seekReplayToIndex(targetIndex, resumePlayback){
@@ -19129,7 +19169,10 @@ function requestMobileMockup3dMesh(){
         setReplayStatus("리플레이 시점 이동");
         if(shouldResume && replayState.index <= maxIndex){
           replayState.playing = true;
-          scheduleReplayTick(replayPlaybackDelayBetween(index, replayState.index));
+          scheduleReplayTick(
+            replayPlaybackDelayBetween(index, replayState.index),
+            {rebase:true}
+          );
         }
         updateReplayModeUi();
         return;
@@ -19170,7 +19213,10 @@ function requestMobileMockup3dMesh(){
         setReplayStatus("리플레이 시점 이동");
         if(shouldResume && replayState.index <= maxIndex){
           replayState.playing = true;
-          scheduleReplayTick(replayPlaybackDelayBetween(index, replayState.index));
+          scheduleReplayTick(
+            replayPlaybackDelayBetween(index, replayState.index),
+            {rebase:true}
+          );
         }
       })().catch((err)=>{
         if(taskToken !== replaySeekTaskToken) return;
@@ -34753,9 +34799,12 @@ function requestMobileMockup3dMesh(){
             if(replayState.playing){
               clearReplayTimer();
               if(replayState.lastIndex >= 0 && replayState.index < replayState.samples.length){
-                scheduleReplayTick(replayPlaybackDelayBetween(replayState.lastIndex, replayState.index));
+                scheduleReplayTick(
+                  replayPlaybackDelayBetween(replayState.lastIndex, replayState.index),
+                  {rebase:true}
+                );
               }else{
-                scheduleReplayTick(0);
+                scheduleReplayTick(0, {rebase:true});
               }
             }
           });
