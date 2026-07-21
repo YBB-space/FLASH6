@@ -18216,10 +18216,18 @@ function requestMobileMockup3dMesh(){
         return;
       }
       if(!isControlUnlocked()){
-        el.igniteBtn.disabled = true;
+        // Before inspection this primary action is the inspection entry point,
+        // not a disabled sequence control. The click handler opens the
+        // inspection flow and the label switches back after authority is granted.
+        el.igniteBtn.disabled = !!inspectionRunning;
         el.abortBtn.disabled = (st===0);
-        setIgniteButtonLabel("sequenceStartBtn");
+        setIgniteButtonLabel("controlInspectionLabel");
+        if(el.sequenceStatusDesktop) el.sequenceStatusDesktop.textContent = inspectionRunning ? "점검 중" : "점검 필요";
+        if(el.mobileSequenceWideStatus) el.mobileSequenceWideStatus.textContent = inspectionRunning ? "점검 중" : "점검 필요";
         updateControlAccessUI(st);
+        updateMobileSequenceCardButtons(st);
+        updateMissionStandbyButtonUi();
+        updateVirtualMissionButtonUi();
         return;
       }
       if(st===0){
