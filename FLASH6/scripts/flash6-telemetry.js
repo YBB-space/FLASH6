@@ -81,7 +81,10 @@
         const message = localized.message;
         const rawTitle = normalizeMissionAlarmTitle(event.title);
         if(!isReplaySample && rawTitle === "ARM contact fault"){
-          showMissionArmRiskWarning(eventStageId ? [eventStageId] : [], "contact");
+          const contactMode = /mission remains active/i.test(String(event.message || ""))
+            ? "contact-flight"
+            : "contact";
+          showMissionArmRiskWarning(eventStageId ? [eventStageId] : [], contactMode);
         }else if(!isReplaySample && rawTitle === "Launch detection fault"){
           showMissionArmRiskWarning(eventStageId ? [eventStageId] : [1], "launch");
         }

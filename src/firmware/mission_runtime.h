@@ -451,7 +451,12 @@ bool missionUpdateArmSwitch(uint32_t nowMs, uint32_t& fallingEdgeMs) {
   if (rawOn != launchMission.armRawOn) {
     launchMission.armRawOn = rawOn;
     launchMission.armRawChangedMs = nowMs;
-    const bool chatterSensitive = missionLaunchStandby && !launchMission.launchLatched;
+    // Contact chatter is a hardware fault, not a mission-state fault. Keep
+    // watching vehicle ARM inputs while idle, during ignition/standby and in
+    // flight so an intermittent connector cannot disappear merely because the
+    // operator has not entered mission standby yet. Ground nodes have no
+    // vehicle ARM contact to supervise.
+    const bool chatterSensitive = !flashLinkGroundRole();
     if (chatterSensitive) {
       if (launchMission.armChatterWindowMs == 0U ||
           (uint32_t)(nowMs - launchMission.armChatterWindowMs) >
@@ -561,6 +566,23 @@ void missionServiceAbortBroadcast(uint32_t nowMs) {
 void missionEnterArmContactFault(uint32_t nowMs) {
   if (launchMission.armContactFault) return;
   launchMission.armContactFault = true;
+
+  // Once T+ is established, stopping the recovery mission because a released
+  // mechanical contact bounced would be less safe than continuing. Report the
+  // fault immediately but preserve the already-running flight sequence. In
+  // every pre-launch/post-flight state, fail closed as before.
+  const bool missionInFlight = launchMission.launchLatched &&
+    launchMission.state != LaunchMissionState::Complete &&
+    launchMission.state != LaunchMissionState::Fault;
+  if (missionInFlight) {
+    missionEmitAlarm(
+      0,
+      "ARM contact fault",
+      "ARM input is unstable during flight. Mission remains active; inspect connector, sensor and wiring after recovery.");
+    missionSyncLaunchTelemetry();
+    return;
+  }
+
   launchMission.state = LaunchMissionState::Fault;
   missionLaunchStandby = false;
   sequenceUserWaiting = false;
@@ -862,7 +884,7 @@ void missionHandleInterstageEvent(
 
 void missionLaunchSequenceTick(uint32_t nowMs, bool armFalling, uint32_t armFallingMs) {
   if (launchMission.armChatterCount >= kLaunchArmChatterTransitions &&
-      missionLaunchStandby) {
+      !flashLinkGroundRole()) {
     missionEnterArmContactFault(nowMs);
     return;
   }

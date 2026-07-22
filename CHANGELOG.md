@@ -3,6 +3,20 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.9.1 — v6 b31 — 2026-07-22
+
+Protocol: `Flash6-Intelligent-b7` (unchanged; ESP-NOW wire version `7`)
+
+- Extended ARM contact-chatter monitoring from mission standby to every
+  vehicle operating state. Three raw transitions inside one second now raise
+  the existing high-risk inspection modal even while the board is idle.
+- Pre-launch and post-flight chatter still fail closed by revoking inspection
+  authority and enabling safety mode plus ARM lock. Chatter detected after T+
+  is reported immediately without cancelling the active recovery sequence.
+- Updated the FLASH6 warning copy so idle faults no longer claim they occurred
+  during standby, while an in-flight fault clearly states that recovery logic
+  remains active.
+
 ## 0.9.0 — v6 b30 — 2026-07-22
 
 Protocol: `Flash6-Intelligent-b7` (ESP-NOW wire version `7`)

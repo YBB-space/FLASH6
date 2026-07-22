@@ -16808,9 +16808,14 @@ function requestMobileMockup3dMesh(){
       let note = "기체와 점화 계통 확인 후 물리 ARM 재설정 → 설비 점검 순서로 진행하세요.";
       if(mode === "contact"){
         title = "ARM 신호 불안정";
-        body = "STANDBY 중 ARM 입력이 반복해서 전환되어 미션 권한을 회수하고 안전 모드로 전환했습니다.";
+        body = "ARM 입력이 반복해서 전환되어 미션 권한을 회수하고 안전 모드로 전환했습니다.";
         stageText = stagePrefix + " ARM 커넥터·센서·배선을 점검하세요.";
         note = "접점이 안정된 뒤 물리 ARM 재설정 → 설비 점검 순서로 다시 진행하세요.";
+      }else if(mode === "contact-flight"){
+        title = "ARM 신호 불안정";
+        body = "비행 중 ARM 접점 불안정이 감지되었습니다. 진행 중인 복구 시퀀스는 안전을 위해 계속 실행합니다.";
+        stageText = stagePrefix + " ARM 커넥터·센서·배선을 회수 후 점검하세요.";
+        note = "비행 종료 전에는 발사체에 접근하지 말고 원격 텔레메트리 상태를 계속 확인하세요.";
       }else if(mode === "launch"){
         title = "발사 감지 비정상";
         body = "점화 출력이 끝난 뒤에도 1단 ARM 해제가 확인되지 않았습니다. 발사 여부가 불명확합니다.";
@@ -22892,7 +22897,10 @@ function requestMobileMockup3dMesh(){
         const message = localized.message;
         const rawTitle = normalizeMissionAlarmTitle(event.title);
         if(!isReplaySample && rawTitle === "ARM contact fault"){
-          showMissionArmRiskWarning(eventStageId ? [eventStageId] : [], "contact");
+          const contactMode = /mission remains active/i.test(String(event.message || ""))
+            ? "contact-flight"
+            : "contact";
+          showMissionArmRiskWarning(eventStageId ? [eventStageId] : [], contactMode);
         }else if(!isReplaySample && rawTitle === "Launch detection fault"){
           showMissionArmRiskWarning(eventStageId ? [eventStageId] : [1], "launch");
         }
