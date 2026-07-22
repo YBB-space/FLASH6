@@ -22512,7 +22512,7 @@ body.dashboard-view-active .stage-overview-panel:has(> .stage-telemetry-deck.hid
     min-width:54px !important;
     padding:0 7px !important;
   }
-  html.mode-flight .desktop-control-drawer-mount #controlsCard #rebootControlTile{
+  html.mode-flight .desktop-control-drawer-mount #controlsCard #gyroZeroControlTile{
     grid-column:1 / -1 !important;
   }
   .desktop-control-drawer-mount #controlsCard :is(.force-mission-tile,.mission-standby-tile){
