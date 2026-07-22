@@ -13,7 +13,18 @@
         "Backup deployment":"백업 단분리 실행",
         "Servo 1 failed":"서보 1 작동 실패",
         "Secondary deployment":"2차 사출 실행",
-        "Servo 2 failed":"서보 2 작동 실패"
+        "Servo 2 failed":"서보 2 작동 실패",
+        "ARM contact fault":"ARM 신호 불안정",
+        "ARM unsafe":"ARM 해제 상태 감지",
+        "Launch detection fault":"발사 감지 비정상",
+        "T+ started":"T+ 시작",
+        "Stage separation fault":"단분리 작동 실패",
+        "Stage-1 ejection":"1단 사출",
+        "Stage-1 ejection fault":"1단 사출 실패",
+        "Stage-2 ignition":"2단 점화",
+        "Stage-2 ejection":"2단 사출",
+        "Stage-2 ejection fault":"2단 사출 실패",
+        "Interstage link lost":"단간 통신 단절"
       };
       let localizedMessage = message;
       const delayMatch = message.match(/^ARM released\. Ignition delay (\d+) ms\.$/i);
@@ -25,6 +36,7 @@
           "No coasting by T+2.0s. Backup deploy started.":"T+2.0초까지 코스팅 미감지 · 백업 단분리를 실행했습니다.",
           "Early-coast hold complete. CH1 set to 85 deg.":"조기 코스팅 대기 완료 · 서보 1을 85도로 작동했습니다.",
           "Coasting confirmed. CH1 set to 85 deg.":"코스팅 확인 · 서보 1을 85도로 작동했습니다.",
+          "Filtered coasting confirmed. Separation executed.":"필터링된 코스팅 확인 · 1단 단분리를 실행했습니다.",
           "Coasting before T+1.5s. Deployment held.":"T+1.5초 전 코스팅 감지 · 전개를 대기합니다.",
           "CH2 set to 85 deg. Mission sequence complete.":"서보 2를 85도로 작동했습니다 · 미션 시퀀스 완료.",
           "CH2 command failed. Check deployment system.":"서보 2 작동 실패 · 사출 장치를 점검하세요."
@@ -67,6 +79,12 @@
         const stagePrefix = eventStageId === 1 ? "1단 · " : (eventStageId === 2 ? "2단 · " : "");
         const title = stagePrefix + localized.title;
         const message = localized.message;
+        const rawTitle = normalizeMissionAlarmTitle(event.title);
+        if(!isReplaySample && rawTitle === "ARM contact fault"){
+          showMissionArmRiskWarning(eventStageId ? [eventStageId] : [], "contact");
+        }else if(!isReplaySample && rawTitle === "Launch detection fault"){
+          showMissionArmRiskWarning(eventStageId ? [eventStageId] : [1], "launch");
+        }
         showToast(message, "notice", {
           key:"hardware-mission-alarm-" + eventKey,
           title,
@@ -521,6 +539,13 @@
         const boardIgnRaw = data.ign_ms ?? data.ignition_ms ?? data.ignDurationMs ?? null;
         const boardCdRaw = data.cd_ms ?? data.countdown_ms ?? data.countdownDurationMs ?? null;
         const boardPyroRaw = data.daq_seq_pyro ?? data.daq_pyro ?? data.pyro_ch ?? null;
+        const missionTimingFields = [
+          ["missionStage1SeparationBackupMs", data.mission_s1_sep_backup_ms, 500, 15000],
+          ["missionStage1EjectionDelayMs", data.mission_s1_eject_delay_ms, 100, 10000],
+          ["missionStage2EjectionDelayMs", data.mission_s2_eject_delay_ms, 500, 30000],
+          ["missionLaunchGraceMs", data.mission_launch_grace_ms, 1000, 30000],
+          ["missionLinkLossMs", data.mission_link_loss_ms, 200, 5000]
+        ];
         const boardLinkModeRaw = data.link_mode ?? data.transport_mode ?? null;
         const boardOpModeRaw = boardLinkModeRaw ?? data.op_mode ?? data.operation_mode ?? null;
         const boardFlashLinkRoleRaw = data.flash_link_role ?? data.fl_role ?? null;
@@ -595,6 +620,14 @@
             boardSettingsChanged = true;
           }
         }
+        missionTimingFields.forEach(([key, raw, min, max])=>{
+          if(raw == null || !isFinite(Number(raw))) return;
+          const next = Math.max(min, Math.min(max, Math.round(Number(raw))));
+          if(uiSettings[key] !== next){
+            uiSettings[key] = next;
+            boardSettingsChanged = true;
+          }
+        });
         if(boardSettingsChanged){
           saveSettings();
           applySettingsToUI();
@@ -1357,6 +1390,14 @@
             st !== 1;
           if(lockoutLatched) stateLabel = t("statusLockout");
           else if(ab) stateLabel = t("statusAbort");
+          else if(st===5){
+            stateLabel = "LAUNCH FAULT";
+            stateStatus = "bad";
+          }
+          else if(st===4){
+            stateLabel = "WAITING LAUNCH";
+            stateStatus = "warn";
+          }
           else if(showFlightPhase && (st === 0 || st === 2 || st === 3)){
             stateLabel = flightPhaseInfo.label;
             stateStatus = flightPhaseInfo.status;
@@ -1376,8 +1417,9 @@
             }
           }
           if(stateStatus == null){
-            if(lockoutLatched || ab || st===2) stateStatus = "bad";
+            if(lockoutLatched || ab || st===2 || st===5) stateStatus = "bad";
             else if(st===3) stateStatus = "ok";
+            else if(st===4) stateStatus = "warn";
             else if(parachuteStatusActive) stateStatus = "ok";
             else if(st===1 || sequenceActive || (st===0 && (!icOn || loadcellErrorActive))) stateStatus = "warn";
             else if(st===0) stateStatus = "ok";

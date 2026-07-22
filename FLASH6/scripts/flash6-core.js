@@ -501,7 +501,7 @@ if (typeof window !== "undefined") {
     let currentSt = 0;
     function isFirmwareSequenceRunningState(value){
       const state = Number(value);
-      return state === 1 || state === 2 || state === 3;
+      return state === 1 || state === 2 || state === 3 || state === 4 || state === 5;
     }
     function isFirmwareTplusState(value){
       return Number(value) === 3;

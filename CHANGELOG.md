@@ -3,6 +3,46 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.9.0 — v6 b30 — 2026-07-22
+
+Protocol: `Flash6-Intelligent-b7` (ESP-NOW wire version `7`)
+
+Compatibility: ground, stage 1, and stage 2 must all run wire version `7`.
+
+- Rebuilt launch control around separate absolute, ignition, and mission
+  sequences. A stable stage-1 physical ARM release now establishes T+ and
+  transfers control to the mission immediately, including from automatic
+  ignition standby.
+- Added `WAITING_LAUNCH` after automatic ignition output. If stage-1 ARM is
+  still not released after the configurable grace period, the firmware keeps
+  monitoring but raises a high-risk launch-detection fault instead of
+  fabricating T+.
+- Added a 50 ms ARM debounce and a pre-launch chatter interlock. Repeated ARM
+  transitions revoke mission authority, enable safety mode and ARM lock, and
+  raise an inspection warning for the connector, sensor, and wiring.
+- Stage 1 now separates at filtered coasting or the configurable T+ backup,
+  commands SERVO CH1 to 80 degrees, and waits for confirmed stage-2 physical
+  ARM release before the configurable SERVO CH2 ejection delay.
+- Added a latched interstage-loss fallback: when stage 1 and stage 2 cannot
+  communicate, stage-1 ejection is timed from separation instead of waiting
+  indefinitely for the remote ARM event.
+- Stage 2 now receives repeated idempotent standby, T+, separation, and ARM
+  events directly from stage 1. With the link available, PYRO CH1 requires
+  both stage-1 separation and stable local ARM release; with the link lost,
+  sustained powered-flight acceleration establishes local T+ and local ARM
+  release authorizes ignition.
+- ABORT now propagates across the interstage link for one second using repeated
+  sequence-scoped events, while the receiving board applies the stop locally
+  without creating an event loop.
+- Added configurable stage-1 separation backup, stage-1 ejection delay,
+  stage-2 ejection delay, launch-detection grace, and interstage-link timeout.
+  Values persist in NVS, synchronize from stage 1 to stage 2, and are included
+  in A.I LINK telemetry so FLASH6 reviews the actual active-board settings.
+- Added a FLASH6 pre-standby mission review, desktop/mobile layouts, explicit
+  `WAITING LAUNCH` and `LAUNCH FAULT` status handling, and high-risk ARM-contact
+  and launch-detection warnings. Existing deployment-state and flag meanings
+  remain compatible with HUD, replay, storage reports, and exports.
+
 ## 0.8.23 — v6 b29 — 2026-07-22
 
 Protocol: `Flash6-Intelligent-b6` (ESP-NOW wire version `6`)

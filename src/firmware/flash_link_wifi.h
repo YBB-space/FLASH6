@@ -33,6 +33,34 @@ uint8_t flashLinkPacketSourceNode(const FlashLinkHeaderV1& header) {
   return header.flags & kFlashLinkNodeIdMask;
 }
 
+bool flashLinkSendMissionEvent(const FlashLinkMissionEventV1& event) {
+  if (!flashLink.initialized || flashLink.txBusy || flashLinkGroundRole() ||
+      !flashLinkStage2Enabled) {
+    return false;
+  }
+  if (flashLinkStage1RelayRole()) {
+    if (!flashLinkRelay.stage2PeerReady) return false;
+    return flashLinkSendPacket(
+      FlashLinkPacketType::MissionEvent,
+      flashLinkRelay.stage2Mac,
+      &event,
+      sizeof(event),
+      0,
+      kFlashLinkNodeIdStage2);
+  }
+  if (flashLinkStage2LeafRole()) {
+    if (!flashLink.peerReady) return false;
+    return flashLinkSendPacket(
+      FlashLinkPacketType::MissionEvent,
+      flashLink.peerMac,
+      &event,
+      sizeof(event),
+      0,
+      kFlashLinkNodeIdStage1);
+  }
+  return false;
+}
+
 uint8_t flashLinkPacketTargetNode(const FlashLinkHeaderV1& header) {
   return (header.flags & kFlashLinkTargetNodeMask) >> kFlashLinkTargetNodeShift;
 }
@@ -781,6 +809,31 @@ FlashLinkCommandResult flashLinkExecuteCommand(
       }
       setDaqSequencePyroChannel(command.arg0);
       detail = daqSequencePyroChannel;
+      return FlashLinkCommandResult::Ok;
+
+    case FlashLinkCommandCode::SetStage1SeparationBackupMs:
+      setMissionStage1SeparationBackupMs(command.arg0);
+      detail = (int32_t)missionStage1SeparationBackupMs;
+      return FlashLinkCommandResult::Ok;
+
+    case FlashLinkCommandCode::SetStage1EjectionDelayMs:
+      setMissionStage1EjectionDelayMs(command.arg0);
+      detail = (int32_t)missionStage1EjectionDelayMs;
+      return FlashLinkCommandResult::Ok;
+
+    case FlashLinkCommandCode::SetStage2EjectionDelayMs:
+      setMissionStage2EjectionDelayMs(command.arg0);
+      detail = (int32_t)missionStage2EjectionDelayMs;
+      return FlashLinkCommandResult::Ok;
+
+    case FlashLinkCommandCode::SetLaunchDetectionGraceMs:
+      setMissionLaunchDetectionGraceMs(command.arg0);
+      detail = (int32_t)missionLaunchDetectionGraceMs;
+      return FlashLinkCommandResult::Ok;
+
+    case FlashLinkCommandCode::SetInterstageLinkLossMs:
+      setMissionInterstageLinkLossMs(command.arg0);
+      detail = (int32_t)missionInterstageLinkLossMs;
       return FlashLinkCommandResult::Ok;
 
     case FlashLinkCommandCode::SetDataMode:
@@ -1828,6 +1881,11 @@ void flashLinkFillTelemetry(FlashLinkTelemetryV1& out) {
   out.deploymentState = snap.deploymentState;
   out.deploymentFlags = snap.deploymentFlags;
   out.resetReason = telemetryResetReasonCode();
+  out.missionStage1SeparationBackupMs = missionStage1SeparationBackupMs;
+  out.missionStage1EjectionDelayMs = missionStage1EjectionDelayMs;
+  out.missionStage2EjectionDelayMs = missionStage2EjectionDelayMs;
+  out.missionLaunchDetectionGraceMs = missionLaunchDetectionGraceMs;
+  out.missionInterstageLinkLossMs = missionInterstageLinkLossMs;
 }
 
 void flashLinkFillMissionAlarm(FlashLinkMissionAlarmV1& out) {
@@ -1912,6 +1970,11 @@ void flashLinkDecodeTelemetry(
   state.mode = in.mode == 1U ? 1U : 0U;
   state.pyroChannel = clampPyroChannel(in.pyroChannel);
   state.resetReason = in.resetReason;
+  state.missionStage1SeparationBackupMs = in.missionStage1SeparationBackupMs;
+  state.missionStage1EjectionDelayMs = in.missionStage1EjectionDelayMs;
+  state.missionStage2EjectionDelayMs = in.missionStage2EjectionDelayMs;
+  state.missionLaunchDetectionGraceMs = in.missionLaunchDetectionGraceMs;
+  state.missionInterstageLinkLossMs = in.missionInterstageLinkLossMs;
   if (alarmSeq != in.missionAlarmSeq) {
     alarmSeq = in.missionAlarmSeq;
     alarmTimestampMs = in.missionAlarmTimestampMs;
@@ -2109,12 +2172,22 @@ bool flashLinkHandleStage2RelayUplink(
         flashLinkRelay.stage2RxTelemetryFrames++;
         flashLinkRelay.stage2LastTelemetryRxMs = nowMs;
         flashLinkRelay.stage2Linked = true;
+        flashLinkRelay.stage2Telemetry = telemetry;
+        flashLinkRelay.stage2TelemetryValid = true;
       }
       if (duplicate ||
           (flashLinkRelay.stage2RxTelemetryFrames % flashLinkAckEveryFrames()) == 0U) {
         flashLinkRelay.stage2AckPending = true;
       }
       if (duplicate) return true;
+    }
+    if (type == FlashLinkPacketType::MissionEvent &&
+        header.payloadBytes == sizeof(FlashLinkMissionEventV1)) {
+      const FlashLinkMissionEventV1& event =
+        *reinterpret_cast<const FlashLinkMissionEventV1*>(
+          slot.data + sizeof(FlashLinkHeaderV1));
+      flashLinkRelay.stage2Linked = true;
+      missionHandleInterstageEvent(event, kFlashLinkNodeIdStage2, nowMs);
     }
   }
 
@@ -2151,6 +2224,25 @@ void flashLinkHandlePacket(FlashLinkRxSlot& slot) {
   const uint8_t targetNodeId = flashLinkPacketTargetNode(*header);
   const bool relayedPacket = flashLinkPacketRelayed(*header);
   bool directGroundPacket = false;
+
+  // Stage-1 and stage-2 mission events use their direct interstage peer and
+  // never wait behind ground-station command routing.
+  if (type == FlashLinkPacketType::MissionEvent &&
+      header->payloadBytes == sizeof(FlashLinkMissionEventV1) &&
+      flashLinkStage2LeafRole() &&
+      header->role == static_cast<uint8_t>(FlashLinkRole::Avionics) &&
+      incomingNodeId == kFlashLinkNodeIdStage1 &&
+      targetNodeId == kFlashLinkNodeIdStage2 && !relayedPacket &&
+      flashLink.peerReady &&
+      memcmp(slot.mac, flashLink.peerMac, ESP_NOW_ETH_ALEN) == 0) {
+    flashLink.lastPeerRxMs = nowMs;
+    flashLink.linked = true;
+    const FlashLinkMissionEventV1& event =
+      *reinterpret_cast<const FlashLinkMissionEventV1*>(
+        slot.data + sizeof(FlashLinkHeaderV1));
+    missionHandleInterstageEvent(event, kFlashLinkNodeIdStage1, nowMs);
+    return;
+  }
 
   if (type == FlashLinkPacketType::Discover &&
       header->payloadBytes == sizeof(FlashLinkDiscoveryV1) &&
@@ -2882,8 +2974,7 @@ void flashLinkGroundAutoSelectTarget(uint32_t nowMs) {
   const bool stage2Fresh = telemetryFresh(*stage2);
   const bool primaryDeploymentSucceeded =
     stage1->remoteValid &&
-    stage1->snap.deploymentState >=
-      static_cast<uint8_t>(LaunchMissionState::WaitingSecondary) &&
+    stage1->snap.deploymentState >= 2U &&
     (stage1->snap.deploymentFlags & (1U << 3)) == 0U;
   if (primaryDeploymentSucceeded) stage2MissionLatched = true;
   if (stage1Fresh && stage2Fresh &&

@@ -166,6 +166,11 @@
         ignDurationMs:1000,
         countdownSec:10,
         daqSequencePyroChannel:1,
+        missionStage1SeparationBackupMs:2000,
+        missionStage1EjectionDelayMs:1000,
+        missionStage2EjectionDelayMs:5000,
+        missionLaunchGraceMs:5000,
+        missionLinkLossMs:500,
         opMode:"daq",
         flashLinkRole:"avionics",
         flashLinkNodeId:1,
@@ -212,6 +217,11 @@
         const cd = Number(uiSettings.countdownSec);
         uiSettings.countdownSec = (isFinite(cd) ? Math.max(3, Math.min(60, Math.round(cd))) : 10);
         uiSettings.daqSequencePyroChannel = normalizePyroChannel(uiSettings.daqSequencePyroChannel, 1);
+        uiSettings.missionStage1SeparationBackupMs = Math.max(500, Math.min(15000, Math.round(Number(uiSettings.missionStage1SeparationBackupMs) || 2000)));
+        uiSettings.missionStage1EjectionDelayMs = Math.max(100, Math.min(10000, Math.round(Number(uiSettings.missionStage1EjectionDelayMs) || 1000)));
+        uiSettings.missionStage2EjectionDelayMs = Math.max(500, Math.min(30000, Math.round(Number(uiSettings.missionStage2EjectionDelayMs) || 5000)));
+        uiSettings.missionLaunchGraceMs = Math.max(1000, Math.min(30000, Math.round(Number(uiSettings.missionLaunchGraceMs) || 5000)));
+        uiSettings.missionLinkLossMs = Math.max(200, Math.min(5000, Math.round(Number(uiSettings.missionLinkLossMs) || 500)));
         uiSettings.quickDataDigits = normalizeDecimalDigits(uiSettings.quickDataDigits, 1);
         uiSettings.loadcellChartDigits = normalizeDecimalDigits(uiSettings.loadcellChartDigits, 3);
         uiSettings.storageExportDigits = normalizeDecimalDigits(uiSettings.storageExportDigits, 3);
@@ -1428,6 +1438,7 @@
         if(st === 1) activeIndex = 1;
         else if(st === 2) activeIndex = 2;
         else if(st === 3) activeIndex = 2;
+        else if(st === 4 || st === 5) activeIndex = 2;
         if(phaseCode === 1) activeIndex = 3;
         else if(phaseCode === 2) activeIndex = 4;
         else if(phaseCode === 3) activeIndex = 7;
@@ -1734,6 +1745,11 @@
       }
       if(el.countdownSecInput) el.countdownSecInput.value = uiSettings.countdownSec;
       if(el.daqSequencePyroSelect) el.daqSequencePyroSelect.value = String(normalizePyroChannel(uiSettings.daqSequencePyroChannel, 1));
+      if(el.missionS1SeparationMs) el.missionS1SeparationMs.value = uiSettings.missionStage1SeparationBackupMs;
+      if(el.missionS1EjectionMs) el.missionS1EjectionMs.value = uiSettings.missionStage1EjectionDelayMs;
+      if(el.missionS2EjectionMs) el.missionS2EjectionMs.value = uiSettings.missionStage2EjectionDelayMs;
+      if(el.missionLaunchGraceMs) el.missionLaunchGraceMs.value = uiSettings.missionLaunchGraceMs;
+      if(el.missionLinkLossMs) el.missionLinkLossMs.value = uiSettings.missionLinkLossMs;
       if(el.opModeSelect) el.opModeSelect.value = uiSettings.opMode || "daq";
       const flashLinkEnabled = getSettingsOperationModeValue() === "flash_link";
       if(el.opModeSelect){

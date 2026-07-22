@@ -171,6 +171,21 @@ void saveSequenceSettings() {
   if (settingsPrefs.getUInt("cd_ms", 0U) != countdownDurationMs) {
     settingsPrefs.putUInt("cd_ms", countdownDurationMs);
   }
+  if (settingsPrefs.getUInt("m_s1_sep", 0U) != missionStage1SeparationBackupMs) {
+    settingsPrefs.putUInt("m_s1_sep", missionStage1SeparationBackupMs);
+  }
+  if (settingsPrefs.getUInt("m_s1_ej", 0U) != missionStage1EjectionDelayMs) {
+    settingsPrefs.putUInt("m_s1_ej", missionStage1EjectionDelayMs);
+  }
+  if (settingsPrefs.getUInt("m_s2_ej", 0U) != missionStage2EjectionDelayMs) {
+    settingsPrefs.putUInt("m_s2_ej", missionStage2EjectionDelayMs);
+  }
+  if (settingsPrefs.getUInt("m_launch", 0U) != missionLaunchDetectionGraceMs) {
+    settingsPrefs.putUInt("m_launch", missionLaunchDetectionGraceMs);
+  }
+  if (settingsPrefs.getUInt("m_link", 0U) != missionInterstageLinkLossMs) {
+    settingsPrefs.putUInt("m_link", missionInterstageLinkLossMs);
+  }
   if (settingsPrefs.getUChar("daq_pyro", 0U) != daqSequencePyroChannel) {
     settingsPrefs.putUChar("daq_pyro", daqSequencePyroChannel);
   }
@@ -208,6 +223,16 @@ void loadSequenceSettings() {
   if (!settingsPrefsReady) return;
   ignitionDurationMs = clampU32((long)settingsPrefs.getUInt("ign_ms", kDefaultIgnitionMs), 100, 3000, kDefaultIgnitionMs);
   countdownDurationMs = clampU32((long)settingsPrefs.getUInt("cd_ms", kDefaultCountdownMs), 3000, 60000, kDefaultCountdownMs);
+  missionStage1SeparationBackupMs = clampU32(
+    (long)settingsPrefs.getUInt("m_s1_sep", 2000U), 500, 15000, 2000U);
+  missionStage1EjectionDelayMs = clampU32(
+    (long)settingsPrefs.getUInt("m_s1_ej", 1000U), 100, 10000, 1000U);
+  missionStage2EjectionDelayMs = clampU32(
+    (long)settingsPrefs.getUInt("m_s2_ej", 5000U), 500, 30000, 5000U);
+  missionLaunchDetectionGraceMs = clampU32(
+    (long)settingsPrefs.getUInt("m_launch", 5000U), 1000, 30000, 5000U);
+  missionInterstageLinkLossMs = clampU32(
+    (long)settingsPrefs.getUInt("m_link", 500U), 200, 5000, 500U);
   daqSequencePyroChannel = clampPyroChannel((long)settingsPrefs.getUChar("daq_pyro", 1));
   flashLinkRole = settingsPrefs.getUChar("fl_role", 0) == 1U
     ? FlashLinkRole::Ground
@@ -263,6 +288,31 @@ void setDaqSequencePyroChannel(long channel) {
   saveSequenceSettings();
 }
 
+void setMissionStage1SeparationBackupMs(long ms) {
+  missionStage1SeparationBackupMs = clampU32(ms, 500, 15000, 2000U);
+  saveSequenceSettings();
+}
+
+void setMissionStage1EjectionDelayMs(long ms) {
+  missionStage1EjectionDelayMs = clampU32(ms, 100, 10000, 1000U);
+  saveSequenceSettings();
+}
+
+void setMissionStage2EjectionDelayMs(long ms) {
+  missionStage2EjectionDelayMs = clampU32(ms, 500, 30000, 5000U);
+  saveSequenceSettings();
+}
+
+void setMissionLaunchDetectionGraceMs(long ms) {
+  missionLaunchDetectionGraceMs = clampU32(ms, 1000, 30000, 5000U);
+  saveSequenceSettings();
+}
+
+void setMissionInterstageLinkLossMs(long ms) {
+  missionInterstageLinkLossMs = clampU32(ms, 200, 5000, 500U);
+  saveSequenceSettings();
+}
+
 int32_t sequenceTdMs(uint32_t nowMs) {
   const uint8_t st = sequenceState;
   if (st == kSequenceStateCountdown) {
@@ -274,7 +324,7 @@ int32_t sequenceTdMs(uint32_t nowMs) {
     return (int32_t)((nowMs >= sequenceFiringStartMs) ? (nowMs - sequenceFiringStartMs) : 0U);
   }
   // Wired-ignition standby has no synthetic countdown. T+ starts only when
-  // the onboard launch detector confirms motion.
+  // the stable stage-1 physical ARM release is confirmed.
   if (missionLaunchStandby) return 0;
   if (sequenceUserWaiting) return -(int32_t)countdownDurationMs;
   return 0;
@@ -317,7 +367,9 @@ bool startFiringRuntime(uint32_t nowMs, uint8_t channel) {
   }
   sequenceState = kSequenceStateFiring;
   sequenceUserWaiting = false;
-  missionLaunchStandby = false;
+  // Automatic ignition owns the outputs, but launch detection remains armed.
+  // A confirmed stage-1 ARM release atomically transfers authority to mission.
+  missionLaunchStandby = true;
   sequenceAborted = false;
   sequenceAbortReason = 0;
   sequenceFiringStartMs = nowMs;
@@ -334,7 +386,7 @@ bool startCountdownRuntimeFor(uint32_t nowMs, uint32_t durationMs, bool playStar
   durationMs = clampU32((long)durationMs, 3000, 60000, countdownDurationMs);
   sequenceState = kSequenceStateCountdown;
   sequenceUserWaiting = false;
-  missionLaunchStandby = false;
+  missionLaunchStandby = true;
   sequenceAborted = false;
   sequenceAbortReason = 0;
   sequenceCountdownTotalMs = durationMs;
@@ -358,12 +410,21 @@ uint32_t reportedCountdownDurationMs() {
     : countdownDurationMs;
 }
 
-void abortSequenceRuntime(uint8_t reason) {
+void abortSequenceRuntimeInternal(uint8_t reason, bool broadcastInterstage) {
+  if (broadcastInterstage) missionBroadcastAbort(reason);
   clearSequenceRuntime();
   sequenceAborted = true;
   sequenceAbortReason = reason ? reason : 1;
   sequenceAbortHoldUntilMs = millis() + 3500U;
   buzzerPlayTone(520, 260);
+}
+
+void abortSequenceRuntime(uint8_t reason) {
+  abortSequenceRuntimeInternal(reason, true);
+}
+
+void abortSequenceRuntimeFromInterstage(uint8_t reason) {
+  abortSequenceRuntimeInternal(reason, false);
 }
 
 void sequenceTick() {
@@ -398,7 +459,10 @@ void sequenceTick() {
     return;
   }
   if (sequenceState == kSequenceStateFiring && (int32_t)(nowMs - sequenceFiringEndMs) >= 0) {
-    sequenceState = kSequenceStateTplus;
+    // Ignition output ending is not T+; only a stable stage-1 physical ARM
+    // release establishes launch. Keep authority in the ignition sequence.
+    sequenceState = kSequenceStateWaitingLaunch;
+    sequenceUserWaiting = true;
     sequenceFiringEndMs = 0;
     sequenceRelayHoldUntilMs = 0;
     sequenceRelayMask = 0;

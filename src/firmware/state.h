@@ -1,9 +1,9 @@
 
 constexpr char kFirmwareProgram[] = "Altis_Intelligent3_firmware1";
-constexpr char kFirmwareVersion[] = "0.8.23";
-constexpr char kFirmwareBuildId[] = "v6 b29";
+constexpr char kFirmwareVersion[] = "0.9.0";
+constexpr char kFirmwareBuildId[] = "v6 b30";
 constexpr char kFirmwareBoard[] = "Altis_Intelligent3_b3";
-constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b6";
+constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b7";
 constexpr bool kFirmwareMissionLocked = true;
 constexpr char kFirmwareMissionSource[] = "builtin_launch_sequence";
 constexpr char kFirmwareMissionLockReason[] = "BUILTIN_MISSION";
@@ -67,6 +67,8 @@ constexpr uint8_t kSequenceStateIdle = 0;
 constexpr uint8_t kSequenceStateCountdown = 1;
 constexpr uint8_t kSequenceStateFiring = 2;
 constexpr uint8_t kSequenceStateTplus = 3;
+constexpr uint8_t kSequenceStateWaitingLaunch = 4;
+constexpr uint8_t kSequenceStateFault = 5;
 
 constexpr int kI2cSda = 8;
 constexpr int kI2cScl = 7;
@@ -132,7 +134,7 @@ constexpr uint8_t kWifiChannel = 6;
 constexpr uint8_t kWifiMaxClients = 2;
 constexpr char kWifiPass[] = "12345678";
 constexpr uint32_t kFlashLinkMagic = 0x314B4C46UL;  // FLK1
-constexpr uint8_t kFlashLinkVersion = 6;
+constexpr uint8_t kFlashLinkVersion = 7;
 constexpr uint8_t kFlashLinkChannel = 6;
 constexpr uint8_t kFlashLinkVehicleNodeCount = 2;
 constexpr uint8_t kFlashLinkNodeIdGround = 0;
@@ -309,6 +311,13 @@ volatile bool sequenceUserWaiting = false;
 // armed explicitly by ground control and lets the flight detector establish
 // T+0 from the first confirmed launch motion without energising a pyro output.
 volatile bool missionLaunchStandby = false;
+// Built-in dual-stage mission timing. Values are persisted in the settings
+// namespace and are intentionally separate from the UI's display smoothing.
+uint32_t missionStage1SeparationBackupMs = 2000U;
+uint32_t missionStage1EjectionDelayMs = 1000U;
+uint32_t missionStage2EjectionDelayMs = 5000U;
+uint32_t missionLaunchDetectionGraceMs = 5000U;
+uint32_t missionInterstageLinkLossMs = 500U;
 volatile bool sequenceAborted = false;
 volatile uint8_t sequenceAbortReason = 0;
 
@@ -574,6 +583,16 @@ enum class FlashLinkPacketType : uint8_t {
   MissionAlarm = 11,
   StorageListRequest = 12,
   StorageListResponse = 13,
+  MissionEvent = 14,
+};
+
+enum class MissionInterstageEventCode : uint8_t {
+  Standby = 1,
+  Tplus = 2,
+  Stage1Separated = 3,
+  Stage2ArmReleased = 4,
+  Stage2Ignited = 5,
+  MissionAbort = 6,
 };
 
 enum class FlashLinkCommandCode : uint8_t {
@@ -604,6 +623,11 @@ enum class FlashLinkCommandCode : uint8_t {
   Reboot = 25,
   ForceTimedMission = 26,
   MissionStandby = 27,
+  SetStage1SeparationBackupMs = 28,
+  SetStage1EjectionDelayMs = 29,
+  SetStage2EjectionDelayMs = 30,
+  SetLaunchDetectionGraceMs = 31,
+  SetInterstageLinkLossMs = 32,
 };
 
 enum class FlashLinkCommandResult : uint8_t {
@@ -685,6 +709,11 @@ struct FlashLinkTelemetryV1 {
   uint8_t deploymentState;
   uint8_t deploymentFlags;
   uint8_t resetReason;
+  uint32_t missionStage1SeparationBackupMs;
+  uint32_t missionStage1EjectionDelayMs;
+  uint32_t missionStage2EjectionDelayMs;
+  uint32_t missionLaunchDetectionGraceMs;
+  uint32_t missionInterstageLinkLossMs;
 };
 
 struct FlashLinkStorageStatusV1 {
@@ -743,6 +772,29 @@ struct FlashLinkMissionAlarmV1 {
   char title[24];
   char message[64];
 };
+
+struct FlashLinkMissionEventV1 {
+  uint32_t sequenceId;
+  uint32_t eventSeq;
+  uint32_t eventAtMs;
+  int32_t tplusMs;
+  uint8_t code;
+  uint8_t sourceNodeId;
+  uint8_t flags;
+  uint8_t reserved;
+  uint32_t stage1SeparationBackupMs;
+  uint32_t stage1EjectionDelayMs;
+  uint32_t stage2EjectionDelayMs;
+  uint32_t launchDetectionGraceMs;
+  uint32_t interstageLinkLossMs;
+};
+
+static_assert(
+  sizeof(FlashLinkHeaderV1) + sizeof(FlashLinkTelemetryV1) <= kFlashLinkMaxPacketBytes,
+  "A.I LINK telemetry exceeds the ESP-NOW packet limit");
+static_assert(
+  sizeof(FlashLinkHeaderV1) + sizeof(FlashLinkMissionEventV1) <= kFlashLinkMaxPacketBytes,
+  "A.I LINK mission event exceeds the ESP-NOW packet limit");
 
 struct FlashLinkCommandV1 {
   uint32_t transaction;
@@ -1052,7 +1104,7 @@ struct NorSectorFooterV1 {
 #pragma pack(pop)
 
 static_assert(sizeof(FlashLinkHeaderV1) == 24, "ALTIS INTELLIGENT LINK1 header size changed");
-static_assert(sizeof(FlashLinkTelemetryV1) == 110, "ALTIS INTELLIGENT LINK1 telemetry payload size changed");
+static_assert(sizeof(FlashLinkTelemetryV1) == 130, "ALTIS INTELLIGENT LINK1 telemetry payload size changed");
 static_assert(sizeof(FlashLinkMissionAlarmV1) == 100, "ALTIS INTELLIGENT LINK1 mission alarm payload size changed");
 static_assert(sizeof(FlashLinkStorageListResponseV1) == 172, "ALTIS INTELLIGENT LINK1 storage list payload size changed");
 static_assert(
@@ -1207,6 +1259,11 @@ struct FlashLinkRemoteState {
   uint16_t countdownMs = kDefaultCountdownMs;
   uint8_t pyroChannel = 1;
   uint8_t resetReason = static_cast<uint8_t>(ESP_RST_UNKNOWN);
+  uint32_t missionStage1SeparationBackupMs = 2000U;
+  uint32_t missionStage1EjectionDelayMs = 1000U;
+  uint32_t missionStage2EjectionDelayMs = 5000U;
+  uint32_t missionLaunchDetectionGraceMs = 5000U;
+  uint32_t missionInterstageLinkLossMs = 500U;
   uint32_t storageUsedBytes = 0;
   uint32_t storageCapacityBytes = 0;
   uint32_t storageRecordCount = 0;
@@ -1294,6 +1351,8 @@ struct FlashLinkRelayRuntime {
   uint32_t stage2LastDiscoveryMs = 0;
   uint32_t stage2LastHelloMs = 0;
   uint32_t stage2LastHeartbeatMs = 0;
+  FlashLinkTelemetryV1 stage2Telemetry{};
+  bool stage2TelemetryValid = false;
   uint32_t forwardedUp = 0;
   uint32_t forwardedDown = 0;
   uint32_t telemetryCoalesced = 0;
@@ -1668,6 +1727,11 @@ void flashLinkSetStage2Mode(bool enabled, bool persist = true);
 bool flashLinkStage2RelayActive(uint32_t nowMs);
 bool flashLinkStage2DirectGroundActive(uint32_t nowMs);
 void saveSequenceSettings();
+void setMissionStage1SeparationBackupMs(long ms);
+void setMissionStage1EjectionDelayMs(long ms);
+void setMissionStage2EjectionDelayMs(long ms);
+void setMissionLaunchDetectionGraceMs(long ms);
+void setMissionInterstageLinkLossMs(long ms);
 void saveBootOnceMode(const char* mode);
 bool flashLinkQueueCommand(
   FlashLinkCommandCode code,
@@ -1692,6 +1756,12 @@ bool loadMissionRuntimeFromFlash();
 void missionRuntimeTick();
 void missionResetLaunchRuntime(uint32_t nowMs);
 bool startForcedTimedMissionRuntime(uint32_t nowMs);
+bool flashLinkSendMissionEvent(const FlashLinkMissionEventV1& event);
+void missionBroadcastAbort(uint8_t reason);
+void missionHandleInterstageEvent(
+  const FlashLinkMissionEventV1& event,
+  uint8_t sourceNodeId,
+  uint32_t receivedAtMs);
 enum class MissionStandbyResult : uint8_t {
   Started = 0,
   SafetyMode = 1,

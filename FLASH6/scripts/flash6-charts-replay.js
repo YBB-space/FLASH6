@@ -993,6 +993,24 @@
         syncGyroStatusFromMain();
         return 5;
       }
+      if(st===5){
+        el.statusPill.className="status-abort";
+        if(el.statusPillMeta) el.statusPillMeta.className="status-abort";
+        el.statusPill.textContent = "LAUNCH FAULT";
+        if(el.statusPillMeta) el.statusPillMeta.textContent = "LAUNCH FAULT";
+        el.statusText.textContent = "점화 출력 후 1단 ARM 해제가 감지되지 않았습니다. 발사체에 접근하지 마세요.";
+        syncGyroStatusFromMain();
+        return 10;
+      }
+      if(st===4){
+        el.statusPill.className="status-count";
+        if(el.statusPillMeta) el.statusPillMeta.className="status-count";
+        el.statusPill.textContent = "WAITING LAUNCH";
+        if(el.statusPillMeta) el.statusPillMeta.textContent = "WAITING LAUNCH";
+        el.statusText.textContent = "점화 출력 완료 · 1단 ARM 해제와 발사 인식을 계속 감시합니다.";
+        syncGyroStatusFromMain();
+        return 8;
+      }
       if(st===2){
         el.statusPill.className="status-fire";
         if(el.statusPillMeta) el.statusPillMeta.className="status-fire";

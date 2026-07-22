@@ -336,10 +336,31 @@ void handleSerialLine(const char* line) {
   }
 
   if (cmd == "/settings") {
-    Serial.printf("ACK SETTINGS ign_ms=%lu cd_ms=%lu daq_seq_pyro=%u safe=%u arm_lock=%u inspection=%u mute=%u flash_link_role=%s flash_link_node_id=%u flash_link_target_node_id=%u flash_link_stage2_mode=%u flash_link_hz=%lu mission_locked=%u mission_source=%s\n",
+    const bool remoteSettings = flashLinkGroundRole() && flashLinkRemoteActive();
+    const uint32_t outputStage1SeparationMs = remoteSettings
+      ? flashLinkRemoteState.missionStage1SeparationBackupMs
+      : missionStage1SeparationBackupMs;
+    const uint32_t outputStage1EjectionMs = remoteSettings
+      ? flashLinkRemoteState.missionStage1EjectionDelayMs
+      : missionStage1EjectionDelayMs;
+    const uint32_t outputStage2EjectionMs = remoteSettings
+      ? flashLinkRemoteState.missionStage2EjectionDelayMs
+      : missionStage2EjectionDelayMs;
+    const uint32_t outputLaunchGraceMs = remoteSettings
+      ? flashLinkRemoteState.missionLaunchDetectionGraceMs
+      : missionLaunchDetectionGraceMs;
+    const uint32_t outputLinkLossMs = remoteSettings
+      ? flashLinkRemoteState.missionInterstageLinkLossMs
+      : missionInterstageLinkLossMs;
+    Serial.printf("ACK SETTINGS ign_ms=%lu cd_ms=%lu daq_seq_pyro=%u mission_s1_sep_backup_ms=%lu mission_s1_eject_delay_ms=%lu mission_s2_eject_delay_ms=%lu mission_launch_grace_ms=%lu mission_link_loss_ms=%lu safe=%u arm_lock=%u inspection=%u mute=%u flash_link_role=%s flash_link_node_id=%u flash_link_target_node_id=%u flash_link_stage2_mode=%u flash_link_hz=%lu mission_locked=%u mission_source=%s\n",
                   (unsigned long)ignitionDurationMs,
                   (unsigned long)countdownDurationMs,
                   (unsigned)daqSequencePyroChannel,
+                  (unsigned long)outputStage1SeparationMs,
+                  (unsigned long)outputStage1EjectionMs,
+                  (unsigned long)outputStage2EjectionMs,
+                  (unsigned long)outputLaunchGraceMs,
+                  (unsigned long)outputLinkLossMs,
                   safetyMode ? 1U : 0U,
                   armLock ? 1U : 0U,
                   inspectionPassed ? 1U : 0U,
@@ -676,6 +697,34 @@ void handleSerialLine(const char* line) {
           }
           if (forwardRemote) queueRemote(FlashLinkCommandCode::SetCountdownMs, parsed);
           else setCountdownDurationMs(parsed);
+        }
+        else if (key == "mission_s1_sep_backup_ms" ||
+                 key == "mission_s1_eject_delay_ms" ||
+                 key == "mission_s2_eject_delay_ms" ||
+                 key == "mission_launch_grace_ms" ||
+                 key == "mission_link_loss_ms") {
+          long parsed = 0;
+          if (!parseLongStrict(val, parsed)) {
+            Serial.println("ERR SET BAD_MISSION_SETTING");
+            return;
+          }
+          FlashLinkCommandCode code = FlashLinkCommandCode::SetStage1SeparationBackupMs;
+          void (*setter)(long) = setMissionStage1SeparationBackupMs;
+          if (key == "mission_s1_eject_delay_ms") {
+            code = FlashLinkCommandCode::SetStage1EjectionDelayMs;
+            setter = setMissionStage1EjectionDelayMs;
+          } else if (key == "mission_s2_eject_delay_ms") {
+            code = FlashLinkCommandCode::SetStage2EjectionDelayMs;
+            setter = setMissionStage2EjectionDelayMs;
+          } else if (key == "mission_launch_grace_ms") {
+            code = FlashLinkCommandCode::SetLaunchDetectionGraceMs;
+            setter = setMissionLaunchDetectionGraceMs;
+          } else if (key == "mission_link_loss_ms") {
+            code = FlashLinkCommandCode::SetInterstageLinkLossMs;
+            setter = setMissionInterstageLinkLossMs;
+          }
+          if (forwardRemote) queueRemote(code, parsed);
+          else setter(parsed);
         }
         else if (key == "daq_seq_pyro" || key == "daq_pyro" || key == "pyro_ch") {
           long parsed = 0;

@@ -6401,14 +6401,30 @@
       setOverlayVisible(el.missionArmRiskOverlay, false);
     }
 
-    function showMissionArmRiskWarning(stageIds){
+    function showMissionArmRiskWarning(stageIds, reason){
       hideMobileControlsPanel();
       const stages = Array.from(new Set((stageIds || []).filter(id=>id === 1 || id === 2)));
-      let stageText = "에비오닉스의 물리 ARM이 이미 해제되어 있습니다.";
-      if(stages.length){
-        stageText = stages.map(id=>id + "단부").join(" · ") + " 물리 ARM이 이미 해제되어 있습니다.";
+      const stagePrefix = stages.length ? stages.map(id=>id + "단부").join(" · ") : "에비오닉스";
+      const mode = reason || "released";
+      let title = "ARM 해제 상태 감지";
+      let body = "미션 대기를 중단하고 실행 권한을 회수했습니다. 안전 모드와 ARM 잠금이 적용되었습니다.";
+      let stageText = stagePrefix + " 물리 ARM이 이미 해제되어 있습니다.";
+      let note = "기체와 점화 계통 확인 후 물리 ARM 재설정 → 설비 점검 순서로 진행하세요.";
+      if(mode === "contact"){
+        title = "ARM 신호 불안정";
+        body = "STANDBY 중 ARM 입력이 반복해서 전환되어 미션 권한을 회수하고 안전 모드로 전환했습니다.";
+        stageText = stagePrefix + " ARM 커넥터·센서·배선을 점검하세요.";
+        note = "접점이 안정된 뒤 물리 ARM 재설정 → 설비 점검 순서로 다시 진행하세요.";
+      }else if(mode === "launch"){
+        title = "발사 감지 비정상";
+        body = "점화 출력이 끝난 뒤에도 1단 ARM 해제가 확인되지 않았습니다. 발사 여부가 불명확합니다.";
+        stageText = "발사체에 접근하지 말고 충분한 안전 대기 시간을 확보하세요.";
+        note = "원격 상태와 점화 계통을 먼저 확인한 뒤 현장 안전 절차에 따라 접근하세요.";
       }
+      if(el.missionArmRiskTitle) el.missionArmRiskTitle.textContent = title;
+      if(el.missionArmRiskText) el.missionArmRiskText.textContent = body;
       if(el.missionArmRiskStage) el.missionArmRiskStage.textContent = stageText;
+      if(el.missionArmRiskNote) el.missionArmRiskNote.textContent = note;
       setOverlayVisible(el.missionArmRiskOverlay, true);
     }
 
@@ -6468,6 +6484,94 @@
       }
     }
 
+    function updateMissionStandbyReviewValues(){
+      const sec = value=>(Math.max(0, Number(value) || 0) / 1000).toFixed(1) + " s";
+      const forceS1Ms = Math.max(0, Number(uiSettings.missionStage1SeparationBackupMs) || 0);
+      const forceS2Ms = forceS1Ms + Math.max(0, Number(uiSettings.missionStage1EjectionDelayMs) || 0);
+      if(el.missionForceS1Time) el.missionForceS1Time.textContent = "T+" + (forceS1Ms / 1000).toFixed(1);
+      if(el.missionForceS2Time) el.missionForceS2Time.textContent = "T+" + (forceS2Ms / 1000).toFixed(1);
+      if(el.missionReviewS1Separation){
+        el.missionReviewS1Separation.textContent = "T+" + sec(uiSettings.missionStage1SeparationBackupMs) + " 백업";
+      }
+      if(el.missionReviewS1Ejection){
+        el.missionReviewS1Ejection.textContent = "2단 ARM +" + sec(uiSettings.missionStage1EjectionDelayMs);
+      }
+      if(el.missionReviewLinkFallback){
+        el.missionReviewLinkFallback.textContent = "단분리 +" + sec(uiSettings.missionStage1EjectionDelayMs);
+      }
+      if(el.missionReviewLinkLoss){
+        el.missionReviewLinkLoss.textContent = sec(uiSettings.missionLinkLossMs) + " 연속 미수신";
+      }
+      if(el.missionReviewLaunchGrace){
+        el.missionReviewLaunchGrace.textContent = "점화 종료 +" + sec(uiSettings.missionLaunchGraceMs);
+      }
+      if(el.missionReviewS2Ejection){
+        el.missionReviewS2Ejection.textContent = "점화 +" + sec(uiSettings.missionStage2EjectionDelayMs);
+      }
+    }
+
+    async function refreshMissionTimingFromBoard(){
+      if(simEnabled) return true;
+      if(serialConnected){
+        const reply = await requestSerialSettingsAck(1400);
+        return !!(reply && reply.ok);
+      }
+      try{
+        const data = await fetchJsonTimeout("/data_full", 1400);
+        if(!data || typeof data !== "object") return false;
+        const fields = [
+          ["missionStage1SeparationBackupMs", data.mission_s1_sep_backup_ms, 500, 15000],
+          ["missionStage1EjectionDelayMs", data.mission_s1_eject_delay_ms, 100, 10000],
+          ["missionStage2EjectionDelayMs", data.mission_s2_eject_delay_ms, 500, 30000],
+          ["missionLaunchGraceMs", data.mission_launch_grace_ms, 1000, 30000],
+          ["missionLinkLossMs", data.mission_link_loss_ms, 200, 5000]
+        ];
+        let complete = true;
+        fields.forEach(([key, raw, min, max])=>{
+          if(raw == null || !isFinite(Number(raw))){ complete = false; return; }
+          uiSettings[key] = Math.max(min, Math.min(max, Math.round(Number(raw))));
+        });
+        if(complete){ saveSettings(); applySettingsToUI(); }
+        return complete;
+      }catch(_e){
+        return false;
+      }
+    }
+
+    async function confirmMissionStandbyFromUi(){
+      setOverlayVisible(el.missionStandbyReviewOverlay, false);
+      const unsafeStages = missionStandbyUnsafeStageIds();
+      if(unsafeStages.length){
+        await enforceMissionStandbySafety(unsafeStages);
+        return;
+      }
+      const result = await sendCommand({
+        http:"/mission_standby",
+        ser:"/mission_standby"
+      }, true);
+      if(!result || !result.ok){
+        const reason = String(result && result.reason || "");
+        if(reason.indexOf("ARM_RELEASED_SAFE_MODE") >= 0 || reason.indexOf("ARM_UNSAFE") >= 0){
+          await enforceMissionStandbySafety([]);
+          return;
+        }
+        showToast("미션 대기 진입 실패: " + (reason || "보드 응답 없음"), "error", {
+          key:"mission-standby-failed",
+          duration:4500
+        });
+        return;
+      }
+      userWaitingLocal = true;
+      missionStandbyUiActive = true;
+      updateMissionStandbyButtonUi();
+      setButtonsFromState(currentSt, lockoutLatched, true);
+      addLogLine("미션 대기 · 1단 ARM 해제 시 즉시 T+ 및 미션 제어권 획득", "MISSION");
+      showToast("미션 대기 중 · 1단 ARM 해제를 감시합니다.", "success", {
+        key:"mission-standby-active",
+        duration:4200
+      });
+    }
+
     async function startMissionStandbyFromUi(){
       if(missionStandbyUiActive || sequenceActive) return;
       const unsafeStages = missionStandbyUnsafeStageIds();
@@ -6493,31 +6597,16 @@
         return;
       }
       hideMobileControlsPanel();
-      const result = await sendCommand({
-        http:"/mission_standby",
-        ser:"/mission_standby"
-      }, true);
-      if(!result || !result.ok){
-        const reason = String(result && result.reason || "");
-        if(reason.indexOf("ARM_RELEASED_SAFE_MODE") >= 0 || reason.indexOf("ARM_UNSAFE") >= 0){
-          await enforceMissionStandbySafety([]);
-          return;
-        }
-        showToast("미션 대기 진입 실패: " + (reason || "보드 응답 없음"), "error", {
-          key:"mission-standby-failed",
-          duration:4500
+      const settingsReady = await refreshMissionTimingFromBoard();
+      if(!settingsReady){
+        showToast("보드에 저장된 미션 타이머를 확인할 수 없어 미션 대기를 중단했습니다.", "error", {
+          key:"mission-settings-unavailable",
+          duration:5200
         });
         return;
       }
-      userWaitingLocal = true;
-      missionStandbyUiActive = true;
-      updateMissionStandbyButtonUi();
-      setButtonsFromState(currentSt, lockoutLatched, true);
-      addLogLine("유선 점화 미션 대기 · 1단 발사 감지 후 T+ 시작", "MISSION");
-      showToast("미션 대기 중 · 1단 발사가 감지되면 T+가 시작됩니다.", "success", {
-        key:"mission-standby-active",
-        duration:4200
-      });
+      updateMissionStandbyReviewValues();
+      setOverlayVisible(el.missionStandbyReviewOverlay, true);
     }
 
     function renderVirtualMissionUi(nowMs){
@@ -6658,6 +6747,7 @@
         showToast("에비오닉스 연결 후 강제 미션을 실행하세요.", "notice", {key:"forced-mission-link"});
         return;
       }
+      updateMissionStandbyReviewValues();
       setOverlayVisible(el.missionForceOverlay, true);
     }
 

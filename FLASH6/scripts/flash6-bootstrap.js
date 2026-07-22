@@ -384,10 +384,15 @@
       el.mobileMissionStandbyBtn = document.getElementById("mobileMissionStandbyBtn");
       el.mobileMissionStandbyStatus = document.getElementById("mobileMissionStandbyStatus");
       el.missionArmRiskOverlay = document.getElementById("missionArmRiskOverlay");
+      el.missionArmRiskTitle = document.getElementById("missionArmRiskTitle");
+      el.missionArmRiskText = document.getElementById("missionArmRiskText");
       el.missionArmRiskStage = document.getElementById("missionArmRiskStage");
+      el.missionArmRiskNote = document.getElementById("missionArmRiskNote");
       el.missionArmRiskConfirm = document.getElementById("missionArmRiskConfirm");
       el.missionForceOverlay = document.getElementById("missionForceOverlay");
       el.missionForceConfirm = document.getElementById("missionForceConfirm");
+      el.missionForceS1Time = document.getElementById("missionForceS1Time");
+      el.missionForceS2Time = document.getElementById("missionForceS2Time");
       el.missionForceCancel = document.getElementById("missionForceCancel");
       updateMissionStandbyButtonUi();
       updateVirtualMissionButtonUi();
@@ -487,6 +492,21 @@
       el.ignTimeInput = document.getElementById("ignTimeInput");
       el.countdownSecInput = document.getElementById("countdownSecInput");
       el.daqSequencePyroSelect = document.getElementById("daqSequencePyroSelect");
+      el.missionS1SeparationMs = document.getElementById("missionS1SeparationMs");
+      el.missionS1EjectionMs = document.getElementById("missionS1EjectionMs");
+      el.missionS2EjectionMs = document.getElementById("missionS2EjectionMs");
+      el.missionLaunchGraceMs = document.getElementById("missionLaunchGraceMs");
+      el.missionLinkLossMs = document.getElementById("missionLinkLossMs");
+      el.missionTimingSave = document.getElementById("missionTimingSave");
+      el.missionStandbyReviewOverlay = document.getElementById("missionStandbyReviewOverlay");
+      el.missionStandbyReviewCancel = document.getElementById("missionStandbyReviewCancel");
+      el.missionStandbyReviewConfirm = document.getElementById("missionStandbyReviewConfirm");
+      el.missionReviewS1Separation = document.getElementById("missionReviewS1Separation");
+      el.missionReviewS1Ejection = document.getElementById("missionReviewS1Ejection");
+      el.missionReviewLinkFallback = document.getElementById("missionReviewLinkFallback");
+      el.missionReviewLinkLoss = document.getElementById("missionReviewLinkLoss");
+      el.missionReviewLaunchGrace = document.getElementById("missionReviewLaunchGrace");
+      el.missionReviewS2Ejection = document.getElementById("missionReviewS2Ejection");
       el.ignTimeSave = document.getElementById("ignTimeSave");
       el.countdownSave = document.getElementById("countdownSave");
       el.opModeSelect = document.getElementById("opModeSelect");
@@ -4791,6 +4811,29 @@
         }
       };
 
+      const applyMissionTimingSettings = async ()=>{
+        if(!uiSettings) return;
+        const s1Sep = clampInt(el.missionS1SeparationMs && el.missionS1SeparationMs.value, 500, 15000, 2000);
+        const s1Eject = clampInt(el.missionS1EjectionMs && el.missionS1EjectionMs.value, 100, 10000, 1000);
+        const s2Eject = clampInt(el.missionS2EjectionMs && el.missionS2EjectionMs.value, 500, 30000, 5000);
+        const launchGrace = clampInt(el.missionLaunchGraceMs && el.missionLaunchGraceMs.value, 1000, 30000, 5000);
+        const linkLoss = clampInt(el.missionLinkLossMs && el.missionLinkLossMs.value, 200, 5000, 500);
+        uiSettings.missionStage1SeparationBackupMs = s1Sep;
+        uiSettings.missionStage1EjectionDelayMs = s1Eject;
+        uiSettings.missionStage2EjectionDelayMs = s2Eject;
+        uiSettings.missionLaunchGraceMs = launchGrace;
+        uiSettings.missionLinkLossMs = linkLoss;
+        saveSettings();
+        applySettingsToUI();
+        const query = "mission_s1_sep_backup_ms=" + s1Sep +
+          "&mission_s1_eject_delay_ms=" + s1Eject +
+          "&mission_s2_eject_delay_ms=" + s2Eject +
+          "&mission_launch_grace_ms=" + launchGrace +
+          "&mission_link_loss_ms=" + linkLoss;
+        const result = await sendCommand({http:"/set?" + query, ser:"/set?" + query}, false);
+        showToast(result && result.ok ? "내장 미션 타이밍을 보드에 저장했습니다." : "미션 타이밍 저장 응답을 확인하지 못했습니다.", result && result.ok ? "success" : "error", {key:"mission-timing-save"});
+      };
+
       if(el.ignTimeSave){
         el.ignTimeSave.addEventListener("click", ()=>{ applyIgnitionTime(); });
       }
@@ -4799,6 +4842,20 @@
       }
       if(el.daqSequencePyroSelect){
         el.daqSequencePyroSelect.addEventListener("change",()=>{ applyDaqSequencePyroChannel(); });
+      }
+      if(el.missionTimingSave){
+        el.missionTimingSave.addEventListener("click", ()=>{ applyMissionTimingSettings(); });
+      }
+      if(el.missionStandbyReviewCancel){
+        el.missionStandbyReviewCancel.addEventListener("click", ()=>setOverlayVisible(el.missionStandbyReviewOverlay, false));
+      }
+      if(el.missionStandbyReviewConfirm){
+        el.missionStandbyReviewConfirm.addEventListener("click", ()=>{ confirmMissionStandbyFromUi(); });
+      }
+      if(el.missionStandbyReviewOverlay){
+        el.missionStandbyReviewOverlay.addEventListener("click", ev=>{
+          if(ev.target === el.missionStandbyReviewOverlay) setOverlayVisible(el.missionStandbyReviewOverlay, false);
+        });
       }
       if(el.ignTimeInput){
         el.ignTimeInput.addEventListener("keydown",(ev)=>{

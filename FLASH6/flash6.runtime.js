@@ -502,7 +502,7 @@ if (typeof window !== "undefined") {
     let currentSt = 0;
     function isFirmwareSequenceRunningState(value){
       const state = Number(value);
-      return state === 1 || state === 2 || state === 3;
+      return state === 1 || state === 2 || state === 3 || state === 4 || state === 5;
     }
     function isFirmwareTplusState(value){
       return Number(value) === 3;
@@ -6647,6 +6647,11 @@ function requestMobileMockup3dMesh(){
         ignDurationMs:1000,
         countdownSec:10,
         daqSequencePyroChannel:1,
+        missionStage1SeparationBackupMs:2000,
+        missionStage1EjectionDelayMs:1000,
+        missionStage2EjectionDelayMs:5000,
+        missionLaunchGraceMs:5000,
+        missionLinkLossMs:500,
         opMode:"daq",
         flashLinkRole:"avionics",
         flashLinkNodeId:1,
@@ -6693,6 +6698,11 @@ function requestMobileMockup3dMesh(){
         const cd = Number(uiSettings.countdownSec);
         uiSettings.countdownSec = (isFinite(cd) ? Math.max(3, Math.min(60, Math.round(cd))) : 10);
         uiSettings.daqSequencePyroChannel = normalizePyroChannel(uiSettings.daqSequencePyroChannel, 1);
+        uiSettings.missionStage1SeparationBackupMs = Math.max(500, Math.min(15000, Math.round(Number(uiSettings.missionStage1SeparationBackupMs) || 2000)));
+        uiSettings.missionStage1EjectionDelayMs = Math.max(100, Math.min(10000, Math.round(Number(uiSettings.missionStage1EjectionDelayMs) || 1000)));
+        uiSettings.missionStage2EjectionDelayMs = Math.max(500, Math.min(30000, Math.round(Number(uiSettings.missionStage2EjectionDelayMs) || 5000)));
+        uiSettings.missionLaunchGraceMs = Math.max(1000, Math.min(30000, Math.round(Number(uiSettings.missionLaunchGraceMs) || 5000)));
+        uiSettings.missionLinkLossMs = Math.max(200, Math.min(5000, Math.round(Number(uiSettings.missionLinkLossMs) || 500)));
         uiSettings.quickDataDigits = normalizeDecimalDigits(uiSettings.quickDataDigits, 1);
         uiSettings.loadcellChartDigits = normalizeDecimalDigits(uiSettings.loadcellChartDigits, 3);
         uiSettings.storageExportDigits = normalizeDecimalDigits(uiSettings.storageExportDigits, 3);
@@ -7909,6 +7919,7 @@ function requestMobileMockup3dMesh(){
         if(st === 1) activeIndex = 1;
         else if(st === 2) activeIndex = 2;
         else if(st === 3) activeIndex = 2;
+        else if(st === 4 || st === 5) activeIndex = 2;
         if(phaseCode === 1) activeIndex = 3;
         else if(phaseCode === 2) activeIndex = 4;
         else if(phaseCode === 3) activeIndex = 7;
@@ -8215,6 +8226,11 @@ function requestMobileMockup3dMesh(){
       }
       if(el.countdownSecInput) el.countdownSecInput.value = uiSettings.countdownSec;
       if(el.daqSequencePyroSelect) el.daqSequencePyroSelect.value = String(normalizePyroChannel(uiSettings.daqSequencePyroChannel, 1));
+      if(el.missionS1SeparationMs) el.missionS1SeparationMs.value = uiSettings.missionStage1SeparationBackupMs;
+      if(el.missionS1EjectionMs) el.missionS1EjectionMs.value = uiSettings.missionStage1EjectionDelayMs;
+      if(el.missionS2EjectionMs) el.missionS2EjectionMs.value = uiSettings.missionStage2EjectionDelayMs;
+      if(el.missionLaunchGraceMs) el.missionLaunchGraceMs.value = uiSettings.missionLaunchGraceMs;
+      if(el.missionLinkLossMs) el.missionLinkLossMs.value = uiSettings.missionLinkLossMs;
       if(el.opModeSelect) el.opModeSelect.value = uiSettings.opMode || "daq";
       const flashLinkEnabled = getSettingsOperationModeValue() === "flash_link";
       if(el.opModeSelect){
@@ -16781,14 +16797,30 @@ function requestMobileMockup3dMesh(){
       setOverlayVisible(el.missionArmRiskOverlay, false);
     }
 
-    function showMissionArmRiskWarning(stageIds){
+    function showMissionArmRiskWarning(stageIds, reason){
       hideMobileControlsPanel();
       const stages = Array.from(new Set((stageIds || []).filter(id=>id === 1 || id === 2)));
-      let stageText = "에비오닉스의 물리 ARM이 이미 해제되어 있습니다.";
-      if(stages.length){
-        stageText = stages.map(id=>id + "단부").join(" · ") + " 물리 ARM이 이미 해제되어 있습니다.";
+      const stagePrefix = stages.length ? stages.map(id=>id + "단부").join(" · ") : "에비오닉스";
+      const mode = reason || "released";
+      let title = "ARM 해제 상태 감지";
+      let body = "미션 대기를 중단하고 실행 권한을 회수했습니다. 안전 모드와 ARM 잠금이 적용되었습니다.";
+      let stageText = stagePrefix + " 물리 ARM이 이미 해제되어 있습니다.";
+      let note = "기체와 점화 계통 확인 후 물리 ARM 재설정 → 설비 점검 순서로 진행하세요.";
+      if(mode === "contact"){
+        title = "ARM 신호 불안정";
+        body = "STANDBY 중 ARM 입력이 반복해서 전환되어 미션 권한을 회수하고 안전 모드로 전환했습니다.";
+        stageText = stagePrefix + " ARM 커넥터·센서·배선을 점검하세요.";
+        note = "접점이 안정된 뒤 물리 ARM 재설정 → 설비 점검 순서로 다시 진행하세요.";
+      }else if(mode === "launch"){
+        title = "발사 감지 비정상";
+        body = "점화 출력이 끝난 뒤에도 1단 ARM 해제가 확인되지 않았습니다. 발사 여부가 불명확합니다.";
+        stageText = "발사체에 접근하지 말고 충분한 안전 대기 시간을 확보하세요.";
+        note = "원격 상태와 점화 계통을 먼저 확인한 뒤 현장 안전 절차에 따라 접근하세요.";
       }
+      if(el.missionArmRiskTitle) el.missionArmRiskTitle.textContent = title;
+      if(el.missionArmRiskText) el.missionArmRiskText.textContent = body;
       if(el.missionArmRiskStage) el.missionArmRiskStage.textContent = stageText;
+      if(el.missionArmRiskNote) el.missionArmRiskNote.textContent = note;
       setOverlayVisible(el.missionArmRiskOverlay, true);
     }
 
@@ -16848,6 +16880,94 @@ function requestMobileMockup3dMesh(){
       }
     }
 
+    function updateMissionStandbyReviewValues(){
+      const sec = value=>(Math.max(0, Number(value) || 0) / 1000).toFixed(1) + " s";
+      const forceS1Ms = Math.max(0, Number(uiSettings.missionStage1SeparationBackupMs) || 0);
+      const forceS2Ms = forceS1Ms + Math.max(0, Number(uiSettings.missionStage1EjectionDelayMs) || 0);
+      if(el.missionForceS1Time) el.missionForceS1Time.textContent = "T+" + (forceS1Ms / 1000).toFixed(1);
+      if(el.missionForceS2Time) el.missionForceS2Time.textContent = "T+" + (forceS2Ms / 1000).toFixed(1);
+      if(el.missionReviewS1Separation){
+        el.missionReviewS1Separation.textContent = "T+" + sec(uiSettings.missionStage1SeparationBackupMs) + " 백업";
+      }
+      if(el.missionReviewS1Ejection){
+        el.missionReviewS1Ejection.textContent = "2단 ARM +" + sec(uiSettings.missionStage1EjectionDelayMs);
+      }
+      if(el.missionReviewLinkFallback){
+        el.missionReviewLinkFallback.textContent = "단분리 +" + sec(uiSettings.missionStage1EjectionDelayMs);
+      }
+      if(el.missionReviewLinkLoss){
+        el.missionReviewLinkLoss.textContent = sec(uiSettings.missionLinkLossMs) + " 연속 미수신";
+      }
+      if(el.missionReviewLaunchGrace){
+        el.missionReviewLaunchGrace.textContent = "점화 종료 +" + sec(uiSettings.missionLaunchGraceMs);
+      }
+      if(el.missionReviewS2Ejection){
+        el.missionReviewS2Ejection.textContent = "점화 +" + sec(uiSettings.missionStage2EjectionDelayMs);
+      }
+    }
+
+    async function refreshMissionTimingFromBoard(){
+      if(simEnabled) return true;
+      if(serialConnected){
+        const reply = await requestSerialSettingsAck(1400);
+        return !!(reply && reply.ok);
+      }
+      try{
+        const data = await fetchJsonTimeout("/data_full", 1400);
+        if(!data || typeof data !== "object") return false;
+        const fields = [
+          ["missionStage1SeparationBackupMs", data.mission_s1_sep_backup_ms, 500, 15000],
+          ["missionStage1EjectionDelayMs", data.mission_s1_eject_delay_ms, 100, 10000],
+          ["missionStage2EjectionDelayMs", data.mission_s2_eject_delay_ms, 500, 30000],
+          ["missionLaunchGraceMs", data.mission_launch_grace_ms, 1000, 30000],
+          ["missionLinkLossMs", data.mission_link_loss_ms, 200, 5000]
+        ];
+        let complete = true;
+        fields.forEach(([key, raw, min, max])=>{
+          if(raw == null || !isFinite(Number(raw))){ complete = false; return; }
+          uiSettings[key] = Math.max(min, Math.min(max, Math.round(Number(raw))));
+        });
+        if(complete){ saveSettings(); applySettingsToUI(); }
+        return complete;
+      }catch(_e){
+        return false;
+      }
+    }
+
+    async function confirmMissionStandbyFromUi(){
+      setOverlayVisible(el.missionStandbyReviewOverlay, false);
+      const unsafeStages = missionStandbyUnsafeStageIds();
+      if(unsafeStages.length){
+        await enforceMissionStandbySafety(unsafeStages);
+        return;
+      }
+      const result = await sendCommand({
+        http:"/mission_standby",
+        ser:"/mission_standby"
+      }, true);
+      if(!result || !result.ok){
+        const reason = String(result && result.reason || "");
+        if(reason.indexOf("ARM_RELEASED_SAFE_MODE") >= 0 || reason.indexOf("ARM_UNSAFE") >= 0){
+          await enforceMissionStandbySafety([]);
+          return;
+        }
+        showToast("미션 대기 진입 실패: " + (reason || "보드 응답 없음"), "error", {
+          key:"mission-standby-failed",
+          duration:4500
+        });
+        return;
+      }
+      userWaitingLocal = true;
+      missionStandbyUiActive = true;
+      updateMissionStandbyButtonUi();
+      setButtonsFromState(currentSt, lockoutLatched, true);
+      addLogLine("미션 대기 · 1단 ARM 해제 시 즉시 T+ 및 미션 제어권 획득", "MISSION");
+      showToast("미션 대기 중 · 1단 ARM 해제를 감시합니다.", "success", {
+        key:"mission-standby-active",
+        duration:4200
+      });
+    }
+
     async function startMissionStandbyFromUi(){
       if(missionStandbyUiActive || sequenceActive) return;
       const unsafeStages = missionStandbyUnsafeStageIds();
@@ -16873,31 +16993,16 @@ function requestMobileMockup3dMesh(){
         return;
       }
       hideMobileControlsPanel();
-      const result = await sendCommand({
-        http:"/mission_standby",
-        ser:"/mission_standby"
-      }, true);
-      if(!result || !result.ok){
-        const reason = String(result && result.reason || "");
-        if(reason.indexOf("ARM_RELEASED_SAFE_MODE") >= 0 || reason.indexOf("ARM_UNSAFE") >= 0){
-          await enforceMissionStandbySafety([]);
-          return;
-        }
-        showToast("미션 대기 진입 실패: " + (reason || "보드 응답 없음"), "error", {
-          key:"mission-standby-failed",
-          duration:4500
+      const settingsReady = await refreshMissionTimingFromBoard();
+      if(!settingsReady){
+        showToast("보드에 저장된 미션 타이머를 확인할 수 없어 미션 대기를 중단했습니다.", "error", {
+          key:"mission-settings-unavailable",
+          duration:5200
         });
         return;
       }
-      userWaitingLocal = true;
-      missionStandbyUiActive = true;
-      updateMissionStandbyButtonUi();
-      setButtonsFromState(currentSt, lockoutLatched, true);
-      addLogLine("유선 점화 미션 대기 · 1단 발사 감지 후 T+ 시작", "MISSION");
-      showToast("미션 대기 중 · 1단 발사가 감지되면 T+가 시작됩니다.", "success", {
-        key:"mission-standby-active",
-        duration:4200
-      });
+      updateMissionStandbyReviewValues();
+      setOverlayVisible(el.missionStandbyReviewOverlay, true);
     }
 
     function renderVirtualMissionUi(nowMs){
@@ -17038,6 +17143,7 @@ function requestMobileMockup3dMesh(){
         showToast("에비오닉스 연결 후 강제 미션을 실행하세요.", "notice", {key:"forced-mission-link"});
         return;
       }
+      updateMissionStandbyReviewValues();
       setOverlayVisible(el.missionForceOverlay, true);
     }
 
@@ -18160,6 +18266,24 @@ function requestMobileMockup3dMesh(){
         el.statusText.textContent = t("statusSequenceText");
         syncGyroStatusFromMain();
         return 5;
+      }
+      if(st===5){
+        el.statusPill.className="status-abort";
+        if(el.statusPillMeta) el.statusPillMeta.className="status-abort";
+        el.statusPill.textContent = "LAUNCH FAULT";
+        if(el.statusPillMeta) el.statusPillMeta.textContent = "LAUNCH FAULT";
+        el.statusText.textContent = "점화 출력 후 1단 ARM 해제가 감지되지 않았습니다. 발사체에 접근하지 마세요.";
+        syncGyroStatusFromMain();
+        return 10;
+      }
+      if(st===4){
+        el.statusPill.className="status-count";
+        if(el.statusPillMeta) el.statusPillMeta.className="status-count";
+        el.statusPill.textContent = "WAITING LAUNCH";
+        if(el.statusPillMeta) el.statusPillMeta.textContent = "WAITING LAUNCH";
+        el.statusText.textContent = "점화 출력 완료 · 1단 ARM 해제와 발사 인식을 계속 감시합니다.";
+        syncGyroStatusFromMain();
+        return 8;
       }
       if(st===2){
         el.statusPill.className="status-fire";
@@ -22169,6 +22293,23 @@ function requestMobileMockup3dMesh(){
             Number(lockMatch[1]) !== 0 ? "BUILTIN_MISSION" : ""
           );
         }
+        if(uiSettings){
+          const fields = [
+            ["missionStage1SeparationBackupMs", "mission_s1_sep_backup_ms", 500, 15000],
+            ["missionStage1EjectionDelayMs", "mission_s1_eject_delay_ms", 100, 10000],
+            ["missionStage2EjectionDelayMs", "mission_s2_eject_delay_ms", 500, 30000],
+            ["missionLaunchGraceMs", "mission_launch_grace_ms", 1000, 30000],
+            ["missionLinkLossMs", "mission_link_loss_ms", 200, 5000]
+          ];
+          let changed = false;
+          fields.forEach(([key, wire, min, max])=>{
+            const match = message.match(new RegExp("\\b" + wire + "=(\\d+)", "i"));
+            if(!match) return;
+            const value = Math.max(min, Math.min(max, Number(match[1])));
+            if(uiSettings[key] !== value){ uiSettings[key] = value; changed = true; }
+          });
+          if(changed){ saveSettings(); applySettingsToUI(); }
+        }
       }
       return reply;
     }
@@ -22683,7 +22824,18 @@ function requestMobileMockup3dMesh(){
         "Backup deployment":"백업 단분리 실행",
         "Servo 1 failed":"서보 1 작동 실패",
         "Secondary deployment":"2차 사출 실행",
-        "Servo 2 failed":"서보 2 작동 실패"
+        "Servo 2 failed":"서보 2 작동 실패",
+        "ARM contact fault":"ARM 신호 불안정",
+        "ARM unsafe":"ARM 해제 상태 감지",
+        "Launch detection fault":"발사 감지 비정상",
+        "T+ started":"T+ 시작",
+        "Stage separation fault":"단분리 작동 실패",
+        "Stage-1 ejection":"1단 사출",
+        "Stage-1 ejection fault":"1단 사출 실패",
+        "Stage-2 ignition":"2단 점화",
+        "Stage-2 ejection":"2단 사출",
+        "Stage-2 ejection fault":"2단 사출 실패",
+        "Interstage link lost":"단간 통신 단절"
       };
       let localizedMessage = message;
       const delayMatch = message.match(/^ARM released\. Ignition delay (\d+) ms\.$/i);
@@ -22695,6 +22847,7 @@ function requestMobileMockup3dMesh(){
           "No coasting by T+2.0s. Backup deploy started.":"T+2.0초까지 코스팅 미감지 · 백업 단분리를 실행했습니다.",
           "Early-coast hold complete. CH1 set to 85 deg.":"조기 코스팅 대기 완료 · 서보 1을 85도로 작동했습니다.",
           "Coasting confirmed. CH1 set to 85 deg.":"코스팅 확인 · 서보 1을 85도로 작동했습니다.",
+          "Filtered coasting confirmed. Separation executed.":"필터링된 코스팅 확인 · 1단 단분리를 실행했습니다.",
           "Coasting before T+1.5s. Deployment held.":"T+1.5초 전 코스팅 감지 · 전개를 대기합니다.",
           "CH2 set to 85 deg. Mission sequence complete.":"서보 2를 85도로 작동했습니다 · 미션 시퀀스 완료.",
           "CH2 command failed. Check deployment system.":"서보 2 작동 실패 · 사출 장치를 점검하세요."
@@ -22737,6 +22890,12 @@ function requestMobileMockup3dMesh(){
         const stagePrefix = eventStageId === 1 ? "1단 · " : (eventStageId === 2 ? "2단 · " : "");
         const title = stagePrefix + localized.title;
         const message = localized.message;
+        const rawTitle = normalizeMissionAlarmTitle(event.title);
+        if(!isReplaySample && rawTitle === "ARM contact fault"){
+          showMissionArmRiskWarning(eventStageId ? [eventStageId] : [], "contact");
+        }else if(!isReplaySample && rawTitle === "Launch detection fault"){
+          showMissionArmRiskWarning(eventStageId ? [eventStageId] : [1], "launch");
+        }
         showToast(message, "notice", {
           key:"hardware-mission-alarm-" + eventKey,
           title,
@@ -23191,6 +23350,13 @@ function requestMobileMockup3dMesh(){
         const boardIgnRaw = data.ign_ms ?? data.ignition_ms ?? data.ignDurationMs ?? null;
         const boardCdRaw = data.cd_ms ?? data.countdown_ms ?? data.countdownDurationMs ?? null;
         const boardPyroRaw = data.daq_seq_pyro ?? data.daq_pyro ?? data.pyro_ch ?? null;
+        const missionTimingFields = [
+          ["missionStage1SeparationBackupMs", data.mission_s1_sep_backup_ms, 500, 15000],
+          ["missionStage1EjectionDelayMs", data.mission_s1_eject_delay_ms, 100, 10000],
+          ["missionStage2EjectionDelayMs", data.mission_s2_eject_delay_ms, 500, 30000],
+          ["missionLaunchGraceMs", data.mission_launch_grace_ms, 1000, 30000],
+          ["missionLinkLossMs", data.mission_link_loss_ms, 200, 5000]
+        ];
         const boardLinkModeRaw = data.link_mode ?? data.transport_mode ?? null;
         const boardOpModeRaw = boardLinkModeRaw ?? data.op_mode ?? data.operation_mode ?? null;
         const boardFlashLinkRoleRaw = data.flash_link_role ?? data.fl_role ?? null;
@@ -23265,6 +23431,14 @@ function requestMobileMockup3dMesh(){
             boardSettingsChanged = true;
           }
         }
+        missionTimingFields.forEach(([key, raw, min, max])=>{
+          if(raw == null || !isFinite(Number(raw))) return;
+          const next = Math.max(min, Math.min(max, Math.round(Number(raw))));
+          if(uiSettings[key] !== next){
+            uiSettings[key] = next;
+            boardSettingsChanged = true;
+          }
+        });
         if(boardSettingsChanged){
           saveSettings();
           applySettingsToUI();
@@ -24027,6 +24201,14 @@ function requestMobileMockup3dMesh(){
             st !== 1;
           if(lockoutLatched) stateLabel = t("statusLockout");
           else if(ab) stateLabel = t("statusAbort");
+          else if(st===5){
+            stateLabel = "LAUNCH FAULT";
+            stateStatus = "bad";
+          }
+          else if(st===4){
+            stateLabel = "WAITING LAUNCH";
+            stateStatus = "warn";
+          }
           else if(showFlightPhase && (st === 0 || st === 2 || st === 3)){
             stateLabel = flightPhaseInfo.label;
             stateStatus = flightPhaseInfo.status;
@@ -24046,8 +24228,9 @@ function requestMobileMockup3dMesh(){
             }
           }
           if(stateStatus == null){
-            if(lockoutLatched || ab || st===2) stateStatus = "bad";
+            if(lockoutLatched || ab || st===2 || st===5) stateStatus = "bad";
             else if(st===3) stateStatus = "ok";
+            else if(st===4) stateStatus = "warn";
             else if(parachuteStatusActive) stateStatus = "ok";
             else if(st===1 || sequenceActive || (st===0 && (!icOn || loadcellErrorActive))) stateStatus = "warn";
             else if(st===0) stateStatus = "ok";
@@ -34476,10 +34659,15 @@ function requestMobileMockup3dMesh(){
       el.mobileMissionStandbyBtn = document.getElementById("mobileMissionStandbyBtn");
       el.mobileMissionStandbyStatus = document.getElementById("mobileMissionStandbyStatus");
       el.missionArmRiskOverlay = document.getElementById("missionArmRiskOverlay");
+      el.missionArmRiskTitle = document.getElementById("missionArmRiskTitle");
+      el.missionArmRiskText = document.getElementById("missionArmRiskText");
       el.missionArmRiskStage = document.getElementById("missionArmRiskStage");
+      el.missionArmRiskNote = document.getElementById("missionArmRiskNote");
       el.missionArmRiskConfirm = document.getElementById("missionArmRiskConfirm");
       el.missionForceOverlay = document.getElementById("missionForceOverlay");
       el.missionForceConfirm = document.getElementById("missionForceConfirm");
+      el.missionForceS1Time = document.getElementById("missionForceS1Time");
+      el.missionForceS2Time = document.getElementById("missionForceS2Time");
       el.missionForceCancel = document.getElementById("missionForceCancel");
       updateMissionStandbyButtonUi();
       updateVirtualMissionButtonUi();
@@ -34579,6 +34767,21 @@ function requestMobileMockup3dMesh(){
       el.ignTimeInput = document.getElementById("ignTimeInput");
       el.countdownSecInput = document.getElementById("countdownSecInput");
       el.daqSequencePyroSelect = document.getElementById("daqSequencePyroSelect");
+      el.missionS1SeparationMs = document.getElementById("missionS1SeparationMs");
+      el.missionS1EjectionMs = document.getElementById("missionS1EjectionMs");
+      el.missionS2EjectionMs = document.getElementById("missionS2EjectionMs");
+      el.missionLaunchGraceMs = document.getElementById("missionLaunchGraceMs");
+      el.missionLinkLossMs = document.getElementById("missionLinkLossMs");
+      el.missionTimingSave = document.getElementById("missionTimingSave");
+      el.missionStandbyReviewOverlay = document.getElementById("missionStandbyReviewOverlay");
+      el.missionStandbyReviewCancel = document.getElementById("missionStandbyReviewCancel");
+      el.missionStandbyReviewConfirm = document.getElementById("missionStandbyReviewConfirm");
+      el.missionReviewS1Separation = document.getElementById("missionReviewS1Separation");
+      el.missionReviewS1Ejection = document.getElementById("missionReviewS1Ejection");
+      el.missionReviewLinkFallback = document.getElementById("missionReviewLinkFallback");
+      el.missionReviewLinkLoss = document.getElementById("missionReviewLinkLoss");
+      el.missionReviewLaunchGrace = document.getElementById("missionReviewLaunchGrace");
+      el.missionReviewS2Ejection = document.getElementById("missionReviewS2Ejection");
       el.ignTimeSave = document.getElementById("ignTimeSave");
       el.countdownSave = document.getElementById("countdownSave");
       el.opModeSelect = document.getElementById("opModeSelect");
@@ -38883,6 +39086,29 @@ function requestMobileMockup3dMesh(){
         }
       };
 
+      const applyMissionTimingSettings = async ()=>{
+        if(!uiSettings) return;
+        const s1Sep = clampInt(el.missionS1SeparationMs && el.missionS1SeparationMs.value, 500, 15000, 2000);
+        const s1Eject = clampInt(el.missionS1EjectionMs && el.missionS1EjectionMs.value, 100, 10000, 1000);
+        const s2Eject = clampInt(el.missionS2EjectionMs && el.missionS2EjectionMs.value, 500, 30000, 5000);
+        const launchGrace = clampInt(el.missionLaunchGraceMs && el.missionLaunchGraceMs.value, 1000, 30000, 5000);
+        const linkLoss = clampInt(el.missionLinkLossMs && el.missionLinkLossMs.value, 200, 5000, 500);
+        uiSettings.missionStage1SeparationBackupMs = s1Sep;
+        uiSettings.missionStage1EjectionDelayMs = s1Eject;
+        uiSettings.missionStage2EjectionDelayMs = s2Eject;
+        uiSettings.missionLaunchGraceMs = launchGrace;
+        uiSettings.missionLinkLossMs = linkLoss;
+        saveSettings();
+        applySettingsToUI();
+        const query = "mission_s1_sep_backup_ms=" + s1Sep +
+          "&mission_s1_eject_delay_ms=" + s1Eject +
+          "&mission_s2_eject_delay_ms=" + s2Eject +
+          "&mission_launch_grace_ms=" + launchGrace +
+          "&mission_link_loss_ms=" + linkLoss;
+        const result = await sendCommand({http:"/set?" + query, ser:"/set?" + query}, false);
+        showToast(result && result.ok ? "내장 미션 타이밍을 보드에 저장했습니다." : "미션 타이밍 저장 응답을 확인하지 못했습니다.", result && result.ok ? "success" : "error", {key:"mission-timing-save"});
+      };
+
       if(el.ignTimeSave){
         el.ignTimeSave.addEventListener("click", ()=>{ applyIgnitionTime(); });
       }
@@ -38891,6 +39117,20 @@ function requestMobileMockup3dMesh(){
       }
       if(el.daqSequencePyroSelect){
         el.daqSequencePyroSelect.addEventListener("change",()=>{ applyDaqSequencePyroChannel(); });
+      }
+      if(el.missionTimingSave){
+        el.missionTimingSave.addEventListener("click", ()=>{ applyMissionTimingSettings(); });
+      }
+      if(el.missionStandbyReviewCancel){
+        el.missionStandbyReviewCancel.addEventListener("click", ()=>setOverlayVisible(el.missionStandbyReviewOverlay, false));
+      }
+      if(el.missionStandbyReviewConfirm){
+        el.missionStandbyReviewConfirm.addEventListener("click", ()=>{ confirmMissionStandbyFromUi(); });
+      }
+      if(el.missionStandbyReviewOverlay){
+        el.missionStandbyReviewOverlay.addEventListener("click", ev=>{
+          if(ev.target === el.missionStandbyReviewOverlay) setOverlayVisible(el.missionStandbyReviewOverlay, false);
+        });
       }
       if(el.ignTimeInput){
         el.ignTimeInput.addEventListener("keydown",(ev)=>{

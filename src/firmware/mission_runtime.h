@@ -87,16 +87,21 @@ MissionAlarmState missionAlarmRemote;
 
 constexpr uint32_t kLaunchArmDebounceMs = 50U;
 constexpr uint32_t kLaunchEarlyCoastMs = 1500U;
-constexpr uint32_t kLaunchCoastDeadlineMs = 2000U;
-constexpr uint32_t kLaunchSecondaryDelayMs = 1000U;
-constexpr uint8_t kLaunchDeployAngleDeg = 85U;
+constexpr uint32_t kLaunchArmChatterWindowMs = 1000U;
+constexpr uint8_t kLaunchArmChatterTransitions = 3U;
+constexpr uint32_t kMissionEventRepeatMs = 100U;
+constexpr uint8_t kStage1SeparationAngleDeg = 80U;
+constexpr uint8_t kStage1EjectionAngleDeg = 80U;
+constexpr uint8_t kStage2EjectionAngleDeg = 0U;
 
 enum class LaunchMissionState : uint8_t {
   Idle = 0,
-  WaitingCoast = 1,
-  WaitingSecondary = 2,
-  Complete = 3,
-  Fault = 4,
+  Standby = 1,
+  WaitingCoast = 2,
+  WaitingStage2Arm = 3,
+  WaitingStage2Ejection = 4,
+  Complete = 5,
+  Fault = 6,
 };
 
 struct LaunchMissionRuntime {
@@ -104,21 +109,53 @@ struct LaunchMissionRuntime {
   bool forceTimed = false;
   bool armRawOn = true;
   bool armStableOn = true;
+  bool armContactFault = false;
   bool launchLatched = false;
+  bool launchDetectionFault = false;
   bool coastSeen = false;
   bool earlyCoast = false;
   bool coastTimeout = false;
+  bool interstageFallback = false;
+  bool stage1Separated = false;
+  bool stage2ArmReleased = false;
+  bool stage2Ignited = false;
+  bool stage1Ejected = false;
+  bool stage2Ejected = false;
   bool primaryFailed = false;
   bool secondaryCommanded = false;
   bool secondaryFailed = false;
   uint32_t armRawChangedMs = 0;
+  uint32_t armChatterWindowMs = 0;
+  uint8_t armChatterCount = 0;
+  uint32_t standbyStartedMs = 0;
+  uint32_t waitingLaunchSinceMs = 0;
   uint32_t launchMs = 0;
   uint32_t ignitionStartMs = 0;
   uint32_t ignitionDelayMs = UINT32_MAX;
   uint32_t primaryCommandMs = 0;
+  uint32_t stage2ArmReleasedMs = 0;
+  uint32_t stage2IgnitionMs = 0;
+  uint32_t localMotionSinceMs = 0;
+  uint32_t sequenceId = 0;
+  uint32_t eventSeq = 0;
+  uint32_t lastStandbyEventTxMs = 0;
+  uint32_t lastTplusEventTxMs = 0;
+  uint32_t lastSeparationEventTxMs = 0;
+  uint32_t lastStage2ArmEventTxMs = 0;
 };
 
 LaunchMissionRuntime launchMission;
+
+struct MissionAbortBroadcastRuntime {
+  bool active = false;
+  uint8_t reason = 0;
+  uint32_t sequenceId = 0;
+  uint32_t eventSeq = 0;
+  uint32_t untilMs = 0;
+  uint32_t lastTxMs = 0;
+};
+
+MissionAbortBroadcastRuntime missionAbortBroadcast;
 
 void missionCopyText(char* out, size_t outLen, const char* value, const char* fallback = "") {
   if (!out || outLen == 0) return;
@@ -127,7 +164,20 @@ void missionCopyText(char* out, size_t outLen, const char* value, const char* fa
 
 void missionSyncLaunchTelemetry() {
   snap.ignitionDelayMs = launchMission.ignitionDelayMs;
-  snap.deploymentState = static_cast<uint8_t>(launchMission.state);
+  // Preserve the public deployment_state/flags contract used by existing
+  // HUD, replay and report code. The richer launch state machine remains an
+  // internal detail and is exposed through alarms/sequence_state instead.
+  if (launchMission.state == LaunchMissionState::Fault) {
+    snap.deploymentState = 4U;
+  } else if (launchMission.state == LaunchMissionState::Complete) {
+    snap.deploymentState = 3U;
+  } else if (launchMission.stage1Separated || launchMission.stage2Ignited) {
+    snap.deploymentState = 2U;
+  } else if (launchMission.launchLatched) {
+    snap.deploymentState = 1U;
+  } else {
+    snap.deploymentState = 0U;
+  }
   snap.deploymentFlags = 0;
   if (launchMission.ignitionDelayMs != UINT32_MAX) snap.deploymentFlags |= 1U << 0;
   if (launchMission.earlyCoast) snap.deploymentFlags |= 1U << 1;
@@ -140,11 +190,13 @@ void missionSyncLaunchTelemetry() {
 }
 
 void missionResetLaunchRuntime(uint32_t nowMs) {
-  const bool rawOn = armSwitchEffectiveOn();
+  const bool rawOn = armSwitchPhysicalOn();
   launchMission = LaunchMissionRuntime{};
   launchMission.armRawOn = rawOn;
   launchMission.armStableOn = rawOn;
   launchMission.armRawChangedMs = nowMs;
+  launchMission.sequenceId = bootSessionId ^ nowMs;
+  if (launchMission.sequenceId == 0U) launchMission.sequenceId = 1U;
   missionSyncLaunchTelemetry();
 }
 
@@ -395,10 +447,21 @@ void missionEmitAlarm(uint16_t blockIndex, const char* title, const char* messag
 
 bool missionUpdateArmSwitch(uint32_t nowMs, uint32_t& fallingEdgeMs) {
   fallingEdgeMs = 0;
-  const bool rawOn = armSwitchEffectiveOn();
+  const bool rawOn = armSwitchPhysicalOn();
   if (rawOn != launchMission.armRawOn) {
     launchMission.armRawOn = rawOn;
     launchMission.armRawChangedMs = nowMs;
+    const bool chatterSensitive = missionLaunchStandby && !launchMission.launchLatched;
+    if (chatterSensitive) {
+      if (launchMission.armChatterWindowMs == 0U ||
+          (uint32_t)(nowMs - launchMission.armChatterWindowMs) >
+            kLaunchArmChatterWindowMs) {
+        launchMission.armChatterWindowMs = nowMs;
+        launchMission.armChatterCount = 1U;
+      } else if (launchMission.armChatterCount < UINT8_MAX) {
+        launchMission.armChatterCount++;
+      }
+    }
   }
   if (rawOn == launchMission.armStableOn ||
       (uint32_t)(nowMs - launchMission.armRawChangedMs) < kLaunchArmDebounceMs) {
@@ -413,22 +476,198 @@ bool missionUpdateArmSwitch(uint32_t nowMs, uint32_t& fallingEdgeMs) {
   return false;
 }
 
+bool missionInterstageLinkHealthy(uint32_t nowMs) {
+  if (!flashLinkMode || !flashLinkStage2Enabled) return false;
+  if (flashLinkStage1NodeRole()) {
+    return flashLinkRelay.stage2PeerReady && flashLinkRelay.stage2Linked &&
+      flashLinkRelay.stage2LastRxMs != 0U &&
+      (uint32_t)(nowMs - flashLinkRelay.stage2LastRxMs) <=
+        missionInterstageLinkLossMs;
+  }
+  if (flashLinkStage2NodeRole()) {
+    return flashLink.peerReady && flashLink.linked &&
+      flashLink.lastPeerRxMs != 0U &&
+      (uint32_t)(nowMs - flashLink.lastPeerRxMs) <=
+        missionInterstageLinkLossMs;
+  }
+  return false;
+}
+
+bool missionIsStage2Node() {
+  return flashLinkStage2Enabled && flashLinkStage2NodeRole();
+}
+
+bool missionIsStage1Node() {
+  // Stage 1 is also the default for single-board/wired operation where
+  // A.I LINK is disabled. Ground nodes never execute a vehicle mission.
+  return !flashLinkGroundRole() && !missionIsStage2Node();
+}
+
+void missionSendInterstageEvent(
+  MissionInterstageEventCode code,
+  uint32_t eventAtMs,
+  int32_t tplusMs = 0
+) {
+  if (!flashLinkMode || !flashLinkStage2Enabled || flashLinkGroundRole()) return;
+  FlashLinkMissionEventV1 event{};
+  event.sequenceId = launchMission.sequenceId;
+  event.eventSeq = ++launchMission.eventSeq;
+  event.eventAtMs = eventAtMs;
+  event.tplusMs = tplusMs;
+  event.code = static_cast<uint8_t>(code);
+  event.sourceNodeId = flashLinkLocalNodeId();
+  if (launchMission.interstageFallback) event.flags |= 1U << 0;
+  event.stage1SeparationBackupMs = missionStage1SeparationBackupMs;
+  event.stage1EjectionDelayMs = missionStage1EjectionDelayMs;
+  event.stage2EjectionDelayMs = missionStage2EjectionDelayMs;
+  event.launchDetectionGraceMs = missionLaunchDetectionGraceMs;
+  event.interstageLinkLossMs = missionInterstageLinkLossMs;
+  flashLinkSendMissionEvent(event);
+}
+
+void missionBroadcastAbort(uint8_t reason) {
+  if (!flashLinkMode || !flashLinkStage2Enabled || flashLinkGroundRole()) return;
+  const uint32_t nowMs = millis();
+  missionAbortBroadcast.active = true;
+  missionAbortBroadcast.reason = reason ? reason : 1U;
+  missionAbortBroadcast.sequenceId = launchMission.sequenceId;
+  missionAbortBroadcast.eventSeq = launchMission.eventSeq;
+  missionAbortBroadcast.untilMs = nowMs + 1000U;
+  missionAbortBroadcast.lastTxMs = 0U;
+}
+
+void missionServiceAbortBroadcast(uint32_t nowMs) {
+  if (!missionAbortBroadcast.active) return;
+  if ((int32_t)(nowMs - missionAbortBroadcast.untilMs) > 0) {
+    missionAbortBroadcast.active = false;
+    return;
+  }
+  if (missionAbortBroadcast.lastTxMs != 0U &&
+      (uint32_t)(nowMs - missionAbortBroadcast.lastTxMs) < kMissionEventRepeatMs) {
+    return;
+  }
+  FlashLinkMissionEventV1 event{};
+  event.sequenceId = missionAbortBroadcast.sequenceId;
+  event.eventSeq = ++missionAbortBroadcast.eventSeq;
+  event.eventAtMs = nowMs;
+  event.code = static_cast<uint8_t>(MissionInterstageEventCode::MissionAbort);
+  event.sourceNodeId = flashLinkLocalNodeId();
+  event.flags = missionAbortBroadcast.reason;
+  if (flashLinkSendMissionEvent(event)) {
+    missionAbortBroadcast.lastTxMs = nowMs;
+  }
+}
+
+void missionEnterArmContactFault(uint32_t nowMs) {
+  if (launchMission.armContactFault) return;
+  launchMission.armContactFault = true;
+  launchMission.state = LaunchMissionState::Fault;
+  missionLaunchStandby = false;
+  sequenceUserWaiting = false;
+  sequenceState = kSequenceStateFault;
+  inspectionPassed = false;
+  armLock = true;
+  safetyMode = true;
+  sequenceRelayHoldUntilMs = 0;
+  sequenceRelayMask = 0;
+  applyPyroOutputs(nowMs);
+  missionEmitAlarm(
+    0,
+    "ARM contact fault",
+    "ARM input is unstable. Inspect connector, sensor and wiring; safety mode enabled.");
+  missionSyncLaunchTelemetry();
+}
+
+void missionLatchTplus(uint32_t launchMs, const char* reason) {
+  if (launchMission.launchLatched) return;
+  missionLaunchStandby = false;
+  sequenceUserWaiting = false;
+  sequenceState = kSequenceStateTplus;
+  sequenceFiringStartMs = launchMs;
+  sequenceFiringEndMs = 0;
+  sequenceRelayHoldUntilMs = 0;
+  sequenceRelayMask = 0;
+  applyPyroOutputs(launchMs);
+
+  launchMission.launchLatched = true;
+  launchMission.launchMs = launchMs;
+  launchMission.state = missionIsStage2Node()
+    ? LaunchMissionState::WaitingStage2Arm
+    : LaunchMissionState::WaitingCoast;
+  missionLastSequenceState = sequenceState;
+  missionEmitAlarm(0, "T+ started", reason ? reason : "Stage-1 ARM released.");
+  missionSyncLaunchTelemetry();
+}
+
 void missionCommandPrimaryDeployment(uint32_t nowMs) {
-  const bool ok = setServoAngle(1U, kLaunchDeployAngleDeg);
+  const bool ok = setServoAngle(1U, kStage1SeparationAngleDeg);
   launchMission.primaryFailed = !ok;
   launchMission.primaryCommandMs = nowMs;
-  launchMission.state = LaunchMissionState::WaitingSecondary;
+  launchMission.stage1Separated = true;
+  if (launchMission.forceTimed) launchMission.interstageFallback = true;
+  launchMission.state = LaunchMissionState::WaitingStage2Arm;
+  missionSendInterstageEvent(
+    MissionInterstageEventCode::Stage1Separated,
+    nowMs,
+    (int32_t)(nowMs - launchMission.launchMs));
   if (!ok) {
-    missionEmitAlarm(0, "Servo 1 failed", "CH1 command failed. CH2 remains scheduled.");
+    missionEmitAlarm(0, "Stage separation fault", "SERVO CH1 80 degree command failed.");
   } else if (launchMission.forceTimed) {
-    missionEmitAlarm(0, "Forced timed deployment", "T+2.0s reached. CH1 set to 85 deg.");
+    missionEmitAlarm(0, "Forced separation", "Backup time reached. SERVO CH1 set to 80 degrees.");
   } else if (launchMission.coastTimeout) {
-    missionEmitAlarm(0, "Coasting detect fail", "No coasting by T+2.0s. Backup deploy started.");
+    missionEmitAlarm(0, "Coasting backup", "No coasting by configured backup time. Separation executed.");
   } else if (launchMission.earlyCoast) {
-    missionEmitAlarm(0, "Backup deployment", "Early-coast hold complete. CH1 set to 85 deg.");
+    missionEmitAlarm(0, "Early coasting", "Filtered coasting confirmed. Separation executed.");
   } else {
-    missionEmitAlarm(0, "Coasting confirmed", "Coasting confirmed. CH1 set to 85 deg.");
+    missionEmitAlarm(0, "Coasting confirmed", "SERVO CH1 set to 80 degrees.");
   }
+}
+
+void missionCommandStage1Ejection(uint32_t nowMs) {
+  if (launchMission.stage1Ejected) return;
+  const bool ok = setServoAngle(2U, kStage1EjectionAngleDeg);
+  launchMission.stage1Ejected = true;
+  launchMission.secondaryCommanded = true;
+  launchMission.secondaryFailed = !ok;
+  launchMission.state = ok && !launchMission.primaryFailed
+    ? LaunchMissionState::Complete
+    : LaunchMissionState::Fault;
+  missionEmitAlarm(
+    0,
+    ok ? "Stage-1 ejection" : "Stage-1 ejection fault",
+    ok ? "SERVO CH2 set to 80 degrees." : "SERVO CH2 command failed.");
+  if (ok) buzzerPlayRecoveryFindMelody();
+  missionSyncLaunchTelemetry();
+}
+
+void missionCommandStage2Ignition(uint32_t nowMs) {
+  if (launchMission.stage2Ignited || safetyMode) return;
+  launchMission.stage2Ignited = true;
+  launchMission.stage2IgnitionMs = nowMs;
+  launchMission.state = LaunchMissionState::WaitingStage2Ejection;
+  sequenceRelayMask = pyroMaskForChannel(1U);
+  sequenceRelayHoldUntilMs = nowMs + ignitionDurationMs;
+  applyPyroOutputs(nowMs);
+  missionSendInterstageEvent(
+    MissionInterstageEventCode::Stage2Ignited,
+    nowMs,
+    (int32_t)(nowMs - launchMission.launchMs));
+  missionEmitAlarm(0, "Stage-2 ignition", "PYRO CH1 ignition output started.");
+}
+
+void missionCommandStage2Ejection(uint32_t nowMs) {
+  if (launchMission.stage2Ejected) return;
+  const bool ok = setServoAngle(1U, kStage2EjectionAngleDeg);
+  launchMission.stage2Ejected = true;
+  launchMission.secondaryCommanded = true;
+  launchMission.secondaryFailed = !ok;
+  launchMission.state = ok ? LaunchMissionState::Complete : LaunchMissionState::Fault;
+  missionEmitAlarm(
+    0,
+    ok ? "Stage-2 ejection" : "Stage-2 ejection fault",
+    ok ? "SERVO CH1 set to 0 degrees." : "SERVO CH1 command failed.");
+  if (ok) buzzerPlayRecoveryFindMelody();
+  missionSyncLaunchTelemetry();
 }
 
 bool startForcedTimedMissionRuntime(uint32_t nowMs) {
@@ -453,18 +692,16 @@ bool startForcedTimedMissionRuntime(uint32_t nowMs) {
   applyPyroOutputs(nowMs);
 
   launchMission.forceTimed = true;
-  launchMission.launchLatched = true;
-  launchMission.state = LaunchMissionState::WaitingCoast;
-  launchMission.launchMs = nowMs;
   launchMission.ignitionStartMs = nowMs;
   launchMission.ignitionDelayMs = 0;
-  missionLastSequenceState = sequenceState;
+  missionLatchTplus(nowMs, "Forced timed mission started without PYRO output.");
   missionEmitAlarm(
     0,
     "Forced timed mission",
     "Virtual T+ started. No pyro output; CH1/CH2 servo schedule is active.");
   missionSyncLaunchTelemetry();
-  Serial.println("[MISSION] forced timed start T+0 pyro=off CH1=2000ms CH2=3000ms");
+  Serial.printf("[MISSION] forced timed start T+0 pyro=off separation=%lums\n",
+                (unsigned long)missionStage1SeparationBackupMs);
   return true;
 }
 
@@ -488,6 +725,7 @@ MissionStandbyResult startMissionStandbyRuntime(uint32_t nowMs) {
   }
 
   if (safetyMode) return MissionStandbyResult::SafetyMode;
+  if (armLock) return MissionStandbyResult::PermissionDenied;
   if (!inspectionPassed) return MissionStandbyResult::PermissionDenied;
   if (sequenceState != kSequenceStateIdle || sequenceUserWaiting) {
     return MissionStandbyResult::Busy;
@@ -507,103 +745,271 @@ MissionStandbyResult startMissionStandbyRuntime(uint32_t nowMs) {
   sequenceRelayHoldUntilMs = 0;
   sequenceRelayMask = 0;
   applyPyroOutputs(nowMs);
+  launchMission.state = LaunchMissionState::Standby;
+  launchMission.standbyStartedMs = nowMs;
   missionEmitAlarm(
     0,
     "Mission standby",
-    "Wired ignition armed. Waiting for confirmed launch motion.");
+    "Waiting for stable stage-1 physical ARM release.");
+  if (missionIsStage1Node()) {
+    missionSendInterstageEvent(MissionInterstageEventCode::Standby, nowMs, 0);
+    launchMission.lastStandbyEventTxMs = nowMs;
+  }
   missionSyncLaunchTelemetry();
-  Serial.println("[MISSION] standby active ignition=wired launch_gate=arm+motion pyro=off");
+  Serial.println("[MISSION] standby active ignition=wired launch_gate=stage1_arm_release pyro=off");
   return MissionStandbyResult::Started;
 }
 
-bool missionLatchWiredLaunch(uint32_t launchMs) {
-  if (!missionLaunchStandby ||
-      sequenceState != kSequenceStateIdle ||
-      flightPhaseRuntime.phase != FlightPhase::PoweredFlight) {
-    return false;
+void missionHandleInterstageEvent(
+  const FlashLinkMissionEventV1& event,
+  uint8_t sourceNodeId,
+  uint32_t receivedAtMs
+) {
+  if (!flashLinkStage2Enabled || event.sequenceId == 0U) return;
+  const MissionInterstageEventCode code =
+    static_cast<MissionInterstageEventCode>(event.code);
+
+  if (missionIsStage2Node() && sourceNodeId == kFlashLinkNodeIdStage1) {
+    if (code == MissionInterstageEventCode::Standby) {
+      if (launchMission.launchLatched) return;
+      const uint32_t nextStage1SeparationMs = clampU32(
+        (long)event.stage1SeparationBackupMs, 500, 15000, 2000U);
+      const uint32_t nextStage1EjectionMs = clampU32(
+        (long)event.stage1EjectionDelayMs, 100, 10000, 1000U);
+      const uint32_t nextStage2EjectionMs = clampU32(
+        (long)event.stage2EjectionDelayMs, 500, 30000, 5000U);
+      const uint32_t nextLaunchGraceMs = clampU32(
+        (long)event.launchDetectionGraceMs, 1000, 30000, 5000U);
+      const uint32_t nextLinkLossMs = clampU32(
+        (long)event.interstageLinkLossMs, 200, 5000, 500U);
+      const bool settingsChanged =
+        missionStage1SeparationBackupMs != nextStage1SeparationMs ||
+        missionStage1EjectionDelayMs != nextStage1EjectionMs ||
+        missionStage2EjectionDelayMs != nextStage2EjectionMs ||
+        missionLaunchDetectionGraceMs != nextLaunchGraceMs ||
+        missionInterstageLinkLossMs != nextLinkLossMs;
+      missionStage1SeparationBackupMs = nextStage1SeparationMs;
+      missionStage1EjectionDelayMs = nextStage1EjectionMs;
+      missionStage2EjectionDelayMs = nextStage2EjectionMs;
+      missionLaunchDetectionGraceMs = nextLaunchGraceMs;
+      missionInterstageLinkLossMs = nextLinkLossMs;
+      if (settingsChanged) saveSequenceSettings();
+      if (!missionLaunchStandby && !launchMission.launchLatched) {
+        const MissionStandbyResult result = startMissionStandbyRuntime(receivedAtMs);
+        if (result != MissionStandbyResult::Started) return;
+      }
+      launchMission.sequenceId = event.sequenceId;
+      return;
+    }
+    if (code == MissionInterstageEventCode::Tplus) {
+      if (launchMission.launchLatched &&
+          event.sequenceId != launchMission.sequenceId) return;
+      if (!missionLaunchStandby && !launchMission.launchLatched &&
+          armSwitchPhysicalOn()) {
+        const MissionStandbyResult result = startMissionStandbyRuntime(receivedAtMs);
+        if (result == MissionStandbyResult::Started) {
+          launchMission.sequenceId = event.sequenceId;
+        }
+      }
+      if (!launchMission.launchLatched && missionLaunchStandby) {
+        const uint32_t elapsed = event.tplusMs > 0 ? (uint32_t)event.tplusMs : 0U;
+        const uint32_t localLaunchMs = receivedAtMs >= elapsed
+          ? receivedAtMs - elapsed
+          : receivedAtMs;
+        launchMission.sequenceId = event.sequenceId;
+        missionLatchTplus(localLaunchMs, "Stage-1 T+ event received.");
+      }
+      return;
+    }
+    if (code == MissionInterstageEventCode::Stage1Separated) {
+      if (launchMission.launchLatched &&
+          event.sequenceId != launchMission.sequenceId) return;
+      if (!launchMission.launchLatched && missionLaunchStandby) {
+        const uint32_t elapsed = event.tplusMs > 0 ? (uint32_t)event.tplusMs : 0U;
+        launchMission.sequenceId = event.sequenceId;
+        missionLatchTplus(
+          receivedAtMs >= elapsed ? receivedAtMs - elapsed : receivedAtMs,
+          "Stage-1 separation event recovered missing T+ event.");
+      }
+      if (!launchMission.launchLatched) return;
+      launchMission.stage1Separated = true;
+      return;
+    }
+    if (code == MissionInterstageEventCode::MissionAbort &&
+        event.sequenceId == launchMission.sequenceId) {
+      abortSequenceRuntimeFromInterstage(3U);
+    }
+    return;
   }
 
-  missionLaunchStandby = false;
-  sequenceUserWaiting = false;
-  sequenceState = kSequenceStateTplus;
-  sequenceFiringStartMs = launchMs;
-  sequenceFiringEndMs = 0;
-  sequenceRelayHoldUntilMs = 0;
-  sequenceRelayMask = 0;
-  applyPyroOutputs(launchMs);
-
-  launchMission.forceTimed = false;
-  launchMission.launchLatched = true;
-  launchMission.state = LaunchMissionState::WaitingCoast;
-  launchMission.launchMs = launchMs;
-  launchMission.ignitionStartMs = 0;
-  launchMission.ignitionDelayMs = UINT32_MAX;
-  missionLastSequenceState = sequenceState;
-  missionEmitAlarm(
-    0,
-    "Launch detected",
-    "Wired ignition launch confirmed. Onboard T+ started.");
-  missionSyncLaunchTelemetry();
-  Serial.printf("[MISSION] wired launch latched T+0=%lums pyro=off\n", (unsigned long)launchMs);
-  return true;
+  if (missionIsStage1Node() && sourceNodeId == kFlashLinkNodeIdStage2) {
+    if (code == MissionInterstageEventCode::MissionAbort &&
+        event.sequenceId == launchMission.sequenceId) {
+      abortSequenceRuntimeFromInterstage(3U);
+      return;
+    }
+    if (code == MissionInterstageEventCode::Stage2ArmReleased &&
+        event.sequenceId == launchMission.sequenceId &&
+        launchMission.launchLatched && launchMission.stage1Separated) {
+      if (!launchMission.stage2ArmReleased) {
+        launchMission.stage2ArmReleased = true;
+        launchMission.stage2ArmReleasedMs = receivedAtMs;
+        missionEmitAlarm(0, "Stage-2 separation confirmed", "Remote ARM release received.");
+      }
+    }
+  }
 }
 
 void missionLaunchSequenceTick(uint32_t nowMs, bool armFalling, uint32_t armFallingMs) {
-  if (armFalling && !launchMission.launchLatched) {
-    const bool ignitionStarted = sequenceFiringStartMs != 0U &&
-      (sequenceState == kSequenceStateFiring || sequenceState == kSequenceStateTplus);
-    if (ignitionStarted && (int32_t)(armFallingMs - sequenceFiringStartMs) >= 0) {
-      launchMission.launchLatched = true;
-      launchMission.state = LaunchMissionState::WaitingCoast;
-      launchMission.launchMs = armFallingMs;
-      launchMission.ignitionStartMs = sequenceFiringStartMs;
-      launchMission.ignitionDelayMs = armFallingMs - sequenceFiringStartMs;
-      char message[64];
-      snprintf(message, sizeof(message), "ARM released. Ignition delay %lu ms.",
-               (unsigned long)launchMission.ignitionDelayMs);
-      missionEmitAlarm(0, "Launch detected", message);
+  if (launchMission.armChatterCount >= kLaunchArmChatterTransitions &&
+      missionLaunchStandby) {
+    missionEnterArmContactFault(nowMs);
+    return;
+  }
+
+  if (armFalling) {
+    if (missionIsStage1Node() && missionLaunchStandby &&
+        !launchMission.launchLatched) {
+      if (sequenceFiringStartMs != 0U && armFallingMs >= sequenceFiringStartMs) {
+        launchMission.ignitionStartMs = sequenceFiringStartMs;
+        launchMission.ignitionDelayMs = armFallingMs - sequenceFiringStartMs;
+      }
+      missionLatchTplus(armFallingMs, "Stage-1 physical ARM released; mission authority acquired.");
+      missionSendInterstageEvent(MissionInterstageEventCode::Tplus, armFallingMs, 0);
+    } else if (missionIsStage2Node() &&
+               (missionLaunchStandby || launchMission.launchLatched) &&
+               !launchMission.stage2ArmReleased) {
+      launchMission.stage2ArmReleased = true;
+      launchMission.stage2ArmReleasedMs = armFallingMs;
+      if (launchMission.launchLatched) {
+        missionSendInterstageEvent(
+          MissionInterstageEventCode::Stage2ArmReleased,
+          armFallingMs,
+          (int32_t)(armFallingMs - launchMission.launchMs));
+        missionEmitAlarm(0, "Stage-2 separation", "Local ARM release confirmed.");
+      }
     }
   }
 
-  if (launchMission.state == LaunchMissionState::WaitingCoast) {
-    const uint32_t elapsedMs = nowMs - launchMission.launchMs;
-    if (launchMission.forceTimed) {
-      if (elapsedMs >= kLaunchCoastDeadlineMs) {
-        missionCommandPrimaryDeployment(nowMs);
-      }
-      missionSyncLaunchTelemetry();
-      return;
+  if (!launchMission.launchLatched && sequenceState == kSequenceStateWaitingLaunch) {
+    if (launchMission.waitingLaunchSinceMs == 0U) {
+      launchMission.waitingLaunchSinceMs = nowMs;
+    } else if (!launchMission.launchDetectionFault &&
+               (uint32_t)(nowMs - launchMission.waitingLaunchSinceMs) >=
+                 missionLaunchDetectionGraceMs) {
+      launchMission.launchDetectionFault = true;
+      sequenceState = kSequenceStateFault;
+      missionEmitAlarm(
+        0,
+        "Launch detection fault",
+        "Ignition ended without stage-1 ARM release. Keep clear of the vehicle.");
     }
-    const bool coasting =
-      snap.flightPhase == static_cast<uint8_t>(FlightPhase::Coasting);
-    if (elapsedMs >= kLaunchCoastDeadlineMs) {
-      if (!launchMission.coastSeen) launchMission.coastTimeout = true;
-      missionCommandPrimaryDeployment(nowMs);
-    } else if (coasting && !launchMission.coastSeen) {
-      launchMission.coastSeen = true;
-      if (elapsedMs <= kLaunchEarlyCoastMs) {
-        launchMission.earlyCoast = true;
-        missionEmitAlarm(0, "Early coasting", "Coasting before T+1.5s. Deployment held.");
-      } else if (elapsedMs <= kLaunchCoastDeadlineMs) {
-        missionCommandPrimaryDeployment(nowMs);
+  }
+
+  if (missionIsStage2Node() && missionLaunchStandby &&
+      !launchMission.launchLatched && !missionInterstageLinkHealthy(nowMs)) {
+    const bool poweredMotion = isfinite(snap.flightRawAccelMagnitudeG) &&
+      snap.flightRawAccelMagnitudeG >= kFlightLaunchAccelG;
+    if (poweredMotion) {
+      if (launchMission.localMotionSinceMs == 0U) launchMission.localMotionSinceMs = nowMs;
+      if ((uint32_t)(nowMs - launchMission.localMotionSinceMs) >= kFlightLaunchHoldMs) {
+        launchMission.interstageFallback = true;
+        missionLatchTplus(launchMission.localMotionSinceMs,
+                          "Stage link lost; local powered-flight fallback established T+.");
       }
-    }
-  } else if (launchMission.state == LaunchMissionState::WaitingSecondary &&
-             (uint32_t)(nowMs - launchMission.primaryCommandMs) >= kLaunchSecondaryDelayMs) {
-    const bool ok = setServoAngle(2U, kLaunchDeployAngleDeg);
-    launchMission.secondaryCommanded = true;
-    launchMission.secondaryFailed = !ok;
-    if (ok) {
-      launchMission.state = launchMission.primaryFailed
-        ? LaunchMissionState::Fault
-        : LaunchMissionState::Complete;
-      missionEmitAlarm(0, "Secondary deployment", "CH2 set to 85 deg. Mission sequence complete.");
     } else {
-      launchMission.state = LaunchMissionState::Fault;
-      missionEmitAlarm(0, "Servo 2 failed", "CH2 command failed. Check deployment system.");
+      launchMission.localMotionSinceMs = 0U;
     }
-    buzzerPlayRecoveryFindMelody();
-    Serial.println("[MISSION] recovery find buzzer started tones=1800,2300,2800Hz loop=1");
+  }
+
+  if (missionIsStage1Node() && launchMission.launchLatched) {
+    const uint32_t elapsedMs = nowMs - launchMission.launchMs;
+    if (!launchMission.stage1Separated) {
+      const bool coasting =
+        snap.flightPhase == static_cast<uint8_t>(FlightPhase::Coasting);
+      if (elapsedMs >= missionStage1SeparationBackupMs) {
+        if (!launchMission.coastSeen) launchMission.coastTimeout = true;
+        missionCommandPrimaryDeployment(nowMs);
+      } else if (coasting && !launchMission.coastSeen) {
+        launchMission.coastSeen = true;
+        launchMission.earlyCoast = elapsedMs <= kLaunchEarlyCoastMs;
+        missionCommandPrimaryDeployment(nowMs);
+      }
+    }
+
+    if (launchMission.stage1Separated && !launchMission.stage1Ejected) {
+      if (!launchMission.stage2ArmReleased &&
+          flashLinkRelay.stage2TelemetryValid &&
+          (flashLinkRelay.stage2Telemetry.flags & (1U << 13)) == 0U) {
+        launchMission.stage2ArmReleased = true;
+        launchMission.stage2ArmReleasedMs = nowMs;
+        missionEmitAlarm(
+          0,
+          "Stage-2 separation confirmed",
+          "Remote telemetry confirms physical ARM release.");
+      }
+      if (!launchMission.interstageFallback && !missionInterstageLinkHealthy(nowMs)) {
+        launchMission.interstageFallback = true;
+        missionEmitAlarm(
+          0,
+          "Interstage link lost",
+          "Stage-1 ejection fallback uses separation time.");
+      }
+      const uint32_t ejectionBaseMs = launchMission.interstageFallback
+        ? launchMission.primaryCommandMs
+        : launchMission.stage2ArmReleasedMs;
+      const bool ejectionAuthorized = launchMission.interstageFallback ||
+        launchMission.stage2ArmReleased;
+      if (ejectionAuthorized &&
+          (uint32_t)(nowMs - ejectionBaseMs) >= missionStage1EjectionDelayMs) {
+        missionCommandStage1Ejection(nowMs);
+      }
+    }
+  }
+
+  if (missionIsStage2Node() && launchMission.launchLatched) {
+    const bool separationAuthorized = launchMission.interstageFallback ||
+      launchMission.stage1Separated;
+    if (!launchMission.stage2Ignited && launchMission.stage2ArmReleased &&
+        separationAuthorized) {
+      missionCommandStage2Ignition(nowMs);
+    }
+    if (launchMission.stage2Ignited && !launchMission.stage2Ejected &&
+        (uint32_t)(nowMs - launchMission.stage2IgnitionMs) >=
+          missionStage2EjectionDelayMs) {
+      missionCommandStage2Ejection(nowMs);
+    }
+  }
+
+  if (missionIsStage1Node() && launchMission.launchLatched &&
+      !launchMission.stage1Ejected &&
+      (launchMission.lastTplusEventTxMs == 0U ||
+       (uint32_t)(nowMs - launchMission.lastTplusEventTxMs) >= kMissionEventRepeatMs)) {
+    launchMission.lastTplusEventTxMs = nowMs;
+    missionSendInterstageEvent(
+      MissionInterstageEventCode::Tplus,
+      launchMission.launchMs,
+      (int32_t)(nowMs - launchMission.launchMs));
+  }
+  if (missionIsStage1Node() && launchMission.stage1Separated &&
+      !launchMission.stage1Ejected &&
+      (launchMission.lastSeparationEventTxMs == 0U ||
+       (uint32_t)(nowMs - launchMission.lastSeparationEventTxMs) >= kMissionEventRepeatMs)) {
+    launchMission.lastSeparationEventTxMs = nowMs;
+    missionSendInterstageEvent(
+      MissionInterstageEventCode::Stage1Separated,
+      launchMission.primaryCommandMs,
+      (int32_t)(nowMs - launchMission.launchMs));
+  }
+  if (missionIsStage2Node() && launchMission.stage2ArmReleased &&
+      !launchMission.stage2Ejected &&
+      (launchMission.lastStage2ArmEventTxMs == 0U ||
+       (uint32_t)(nowMs - launchMission.lastStage2ArmEventTxMs) >= kMissionEventRepeatMs)) {
+    launchMission.lastStage2ArmEventTxMs = nowMs;
+    missionSendInterstageEvent(
+      MissionInterstageEventCode::Stage2ArmReleased,
+      launchMission.stage2ArmReleasedMs,
+      (int32_t)(nowMs - launchMission.launchMs));
   }
   missionSyncLaunchTelemetry();
 }
@@ -666,10 +1072,7 @@ void missionRuntimeTick() {
   if ((uint32_t)(nowUs - missionLastTickUs) < kMissionTickPeriodUs) return;
   missionLastTickUs = nowUs;
   const uint32_t nowMs = millis();
-  if (missionLaunchStandby &&
-      flightPhaseRuntime.phase == FlightPhase::PoweredFlight) {
-    missionLatchWiredLaunch(flightPhaseRuntime.phaseEnteredMs);
-  }
+  missionServiceAbortBroadcast(nowMs);
   uint32_t armFallingMs = 0;
   const bool debouncedArmFalling = missionUpdateArmSwitch(nowMs, armFallingMs);
   const uint8_t switchNow = launchMission.armStableOn ? 1U : 0U;
@@ -682,6 +1085,15 @@ void missionRuntimeTick() {
   if (sequenceStart) {
     flightPhaseResetRuntime();
     missionResetLaunchRuntime(nowMs);
+    launchMission.state = LaunchMissionState::Standby;
+    launchMission.standbyStartedMs = nowMs;
+  }
+  if (missionIsStage1Node() && missionLaunchStandby &&
+      !launchMission.launchLatched &&
+      (launchMission.lastStandbyEventTxMs == 0U ||
+       (uint32_t)(nowMs - launchMission.lastStandbyEventTxMs) >= 250U)) {
+    launchMission.lastStandbyEventTxMs = nowMs;
+    missionSendInterstageEvent(MissionInterstageEventCode::Standby, nowMs, 0);
   }
   missionLaunchSequenceTick(nowMs, switchFalling, armFallingMs);
 

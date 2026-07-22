@@ -140,6 +140,22 @@ size_t buildTelemetryJson(char* json, size_t jsonLen, bool full) {
   const char* outputFlightPhaseName = flightPhaseName(static_cast<FlightPhase>(outputFlightPhase));
   const bool outputIgnitionDelayValid =
     (output.deploymentFlags & 1U) != 0U && output.ignitionDelayMs != UINT32_MAX;
+  const bool outputRemoteSettings = remoteOutput && remoteActive;
+  const uint32_t outputMissionStage1SeparationMs = outputRemoteSettings
+    ? flashLinkRemoteState.missionStage1SeparationBackupMs
+    : missionStage1SeparationBackupMs;
+  const uint32_t outputMissionStage1EjectionMs = outputRemoteSettings
+    ? flashLinkRemoteState.missionStage1EjectionDelayMs
+    : missionStage1EjectionDelayMs;
+  const uint32_t outputMissionStage2EjectionMs = outputRemoteSettings
+    ? flashLinkRemoteState.missionStage2EjectionDelayMs
+    : missionStage2EjectionDelayMs;
+  const uint32_t outputMissionLaunchGraceMs = outputRemoteSettings
+    ? flashLinkRemoteState.missionLaunchDetectionGraceMs
+    : missionLaunchDetectionGraceMs;
+  const uint32_t outputMissionLinkLossMs = outputRemoteSettings
+    ? flashLinkRemoteState.missionInterstageLinkLossMs
+    : missionInterstageLinkLossMs;
   char alarmTitle[52];
   char alarmMessage[132];
   formatJsonEscaped(outputAlarm.title, alarmTitle, sizeof(alarmTitle));
@@ -158,7 +174,7 @@ size_t buildTelemetryJson(char* json, size_t jsonLen, bool full) {
     stage2Peer.peerReady && stage2Peer.linked &&
     stage2Peer.remoteValid && stage2Peer.lastTelemetryRxMs != 0U &&
     (uint32_t)(nowMs - stage2Peer.lastTelemetryRxMs) <= kFlashLinkTelemetryStaleMs;
-  char fullFields[640] = {};
+  char fullFields[960] = {};
   if (full) {
     const bool outputImuReady = remoteOutput ? output.sampleValid : imuReady;
     const bool outputBaroReady = remoteOutput ? output.baroValid : baroReady;
@@ -171,6 +187,11 @@ size_t buildTelemetryJson(char* json, size_t jsonLen, bool full) {
       "\"fw_board\":\"%s\","
       "\"fw_protocol\":\"%s\","
       "\"mission_locked\":%u,\"mission_source\":\"%s\","
+      "\"mission_s1_sep_backup_ms\":%lu,"
+      "\"mission_s1_eject_delay_ms\":%lu,"
+      "\"mission_s2_eject_delay_ms\":%lu,"
+      "\"mission_launch_grace_ms\":%lu,"
+      "\"mission_link_loss_ms\":%lu,"
       "\"sample_hz\":%lu,\"serial_hz\":%lu,\"wifi_hz\":%lu,"
       "\"flash_link_hz\":%lu,"
       "\"record_hz\":%lu,\"baro_hz\":%lu,\"gps_hz\":%lu,\"loadcell_hz\":%u,"
@@ -185,6 +206,11 @@ size_t buildTelemetryJson(char* json, size_t jsonLen, bool full) {
       kFirmwareProtocol,
       kFirmwareMissionLocked ? 1U : 0U,
       kFirmwareMissionSource,
+      (unsigned long)outputMissionStage1SeparationMs,
+      (unsigned long)outputMissionStage1EjectionMs,
+      (unsigned long)outputMissionStage2EjectionMs,
+      (unsigned long)outputMissionLaunchGraceMs,
+      (unsigned long)outputMissionLinkLossMs,
       (unsigned long)kImuSampleHz,
       (unsigned long)kSerialStreamHz,
       (unsigned long)activeWifiStreamHz(),
@@ -1804,6 +1830,33 @@ void setupRoutes() {
       }
       if (forwardRemote) queueRemote(FlashLinkCommandCode::SetCountdownMs, value);
       else setCountdownDurationMs(value);
+    }
+    struct MissionSettingParam {
+      const char* key;
+      FlashLinkCommandCode command;
+      void (*setter)(long);
+    };
+    const MissionSettingParam missionSettingParams[] = {
+      {"mission_s1_sep_backup_ms", FlashLinkCommandCode::SetStage1SeparationBackupMs,
+       setMissionStage1SeparationBackupMs},
+      {"mission_s1_eject_delay_ms", FlashLinkCommandCode::SetStage1EjectionDelayMs,
+       setMissionStage1EjectionDelayMs},
+      {"mission_s2_eject_delay_ms", FlashLinkCommandCode::SetStage2EjectionDelayMs,
+       setMissionStage2EjectionDelayMs},
+      {"mission_launch_grace_ms", FlashLinkCommandCode::SetLaunchDetectionGraceMs,
+       setMissionLaunchDetectionGraceMs},
+      {"mission_link_loss_ms", FlashLinkCommandCode::SetInterstageLinkLossMs,
+       setMissionInterstageLinkLossMs},
+    };
+    for (const MissionSettingParam& setting : missionSettingParams) {
+      if (!request->hasParam(setting.key)) continue;
+      long value = 0;
+      if (!requestParamLong(request, setting.key, value)) {
+        sendText(request, 400, "application/json", "{\"ok\":0,\"err\":\"BAD_MISSION_SETTING\"}");
+        return;
+      }
+      if (forwardRemote) queueRemote(setting.command, value);
+      else setting.setter(value);
     }
     const char* pyroKey = request->hasParam("daq_seq_pyro")
       ? "daq_seq_pyro"

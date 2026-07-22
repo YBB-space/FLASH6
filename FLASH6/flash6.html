@@ -127,7 +127,7 @@
   <!-- Preload 축소: AP 모드/저메모리 환경에서 동시 요청 버스트를 줄임 -->
   <script>
     (function(){
-    var ASSET_VER = "20260722-nav-abort-below-b51-__FLASH6_DEPLOY_SHA__";
+    var ASSET_VER = "20260722-mission-sequence-b52-__FLASH6_DEPLOY_SHA__";
       window.__flashBoot = window.__flashBoot || {jsReady:false,lastError:"",phase:"static_loader",version:ASSET_VER};
       var isLocalPreview = !!window.__flashBoot.localPreview;
       var beaconEnabled = (window.__flashBoot.beaconEnabled !== false);
@@ -365,7 +365,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="styles/flash6.css?v=20260722-nav-abort-below-b51-__FLASH6_DEPLOY_SHA__">
+  <link rel="stylesheet" href="styles/flash6.css?v=20260722-mission-sequence-b52-__FLASH6_DEPLOY_SHA__">
 </head>
 <body>
   <!-- ✅ LOCKOUT 배경 오버레이 -->
@@ -2468,6 +2468,31 @@
                   </div>
                 </div>
               </div>
+
+              <div class="settings-group mission-timing-settings">
+                <div class="settings-group-title">내장 미션 타이밍</div>
+                <div class="settings-row">
+                  <div><div class="settings-label">1단 단분리 백업</div><div class="hint-mini">코스팅이 검출되지 않을 때 T+ 기준 단분리 시각</div></div>
+                  <div class="settings-number-wrap"><input id="missionS1SeparationMs" type="number" min="500" max="15000" step="100" class="settings-number"><div class="settings-desc">ms</div></div>
+                </div>
+                <div class="settings-row">
+                  <div><div class="settings-label">1단 사출 지연</div><div class="hint-mini">통신 정상 시 2단 ARM 해제 후, 단절 시 단분리 후 지연</div></div>
+                  <div class="settings-number-wrap"><input id="missionS1EjectionMs" type="number" min="100" max="10000" step="100" class="settings-number"><div class="settings-desc">ms</div></div>
+                </div>
+                <div class="settings-row">
+                  <div><div class="settings-label">2단 사출 지연</div><div class="hint-mini">2단 PYRO CH1 점화 후 SERVO CH1 사출 지연</div></div>
+                  <div class="settings-number-wrap"><input id="missionS2EjectionMs" type="number" min="500" max="30000" step="100" class="settings-number"><div class="settings-desc">ms</div></div>
+                </div>
+                <div class="settings-row">
+                  <div><div class="settings-label">발사 추가 감시</div><div class="hint-mini">점화 출력 종료 후 발사 감지 비정상 판정까지의 시간</div></div>
+                  <div class="settings-number-wrap"><input id="missionLaunchGraceMs" type="number" min="1000" max="30000" step="500" class="settings-number"><div class="settings-desc">ms</div></div>
+                </div>
+                <div class="settings-row">
+                  <div><div class="settings-label">단간 링크 단절 판정</div><div class="hint-mini">연속 미수신이 유지되어야 백업 경로로 전환</div></div>
+                  <div class="settings-number-wrap"><input id="missionLinkLossMs" type="number" min="200" max="5000" step="100" class="settings-number"><div class="settings-desc">ms</div></div>
+                </div>
+                <button id="missionTimingSave" class="settings-btn" type="button">미션 타이밍 저장</button>
+              </div>
             </div>
 
             <!-- SAFETY -->
@@ -3199,8 +3224,8 @@
         </div>
         <div class="mission-force-timeline" aria-label="강제 미션 실행 순서">
           <div><span>T+0.0</span><strong>가상 비행 시간 시작</strong></div>
-          <div><span>T+2.0</span><strong>CH1 서보 85°</strong></div>
-          <div><span>T+3.0</span><strong>CH2 서보 85° · 파인딩 버저</strong></div>
+          <div><span id="missionForceS1Time">T+2.0</span><strong>CH1 서보 80°</strong></div>
+          <div><span id="missionForceS2Time">T+3.0</span><strong>CH2 서보 80° · 파인딩 버저</strong></div>
         </div>
         <div class="confirm-note">기체 주변과 서보 가동부를 비운 뒤 실행하세요.</div>
         <div class="confirm-actions mission-force-actions">
@@ -3215,12 +3240,35 @@
       <div class="brownout-warning-dialog mission-arm-risk-dialog" role="alertdialog" aria-modal="true" aria-labelledby="missionArmRiskTitle">
         <div class="brownout-warning-kicker mission-arm-risk-level">HIGH RISK</div>
         <div id="missionArmRiskTitle" class="brownout-warning-title">ARM 해제 상태 감지</div>
-        <div class="brownout-warning-text">
+        <div id="missionArmRiskText" class="brownout-warning-text">
           미션 대기를 중단하고 실행 권한을 회수했습니다. 안전 모드와 ARM 잠금이 적용되었습니다.
         </div>
         <div id="missionArmRiskStage" class="brownout-warning-check mission-arm-risk-stage">에비오닉스 ARM 상태를 확인하세요.</div>
-        <div class="brownout-warning-text mission-arm-risk-note">기체와 점화 계통 확인 후 물리 ARM 재설정 → 설비 점검 순서로 진행하세요.</div>
+        <div id="missionArmRiskNote" class="brownout-warning-text mission-arm-risk-note">기체와 점화 계통 확인 후 물리 ARM 재설정 → 설비 점검 순서로 진행하세요.</div>
         <button id="missionArmRiskConfirm" class="brownout-warning-confirm" type="button">확인</button>
+      </div>
+    </div>
+
+    <div id="missionStandbyReviewOverlay" class="confirm-overlay mission-standby-review-overlay hidden" style="display:none;">
+      <div class="confirm-dialog mission-standby-review-dialog" role="dialog" aria-modal="true" aria-labelledby="missionStandbyReviewTitle">
+        <div class="confirm-icon" aria-hidden="true"><span>T+</span></div>
+        <div id="missionStandbyReviewTitle" class="confirm-title">내장 미션을 대기 상태로 전환할까요?</div>
+        <div class="confirm-text">보드에 저장된 타이머와 인터록을 확인한 뒤 발사 감시를 시작합니다.</div>
+        <div class="mission-standby-review-grid">
+          <div><span>발사 인식</span><strong>1단 ARM 해제</strong></div>
+          <div><span>1단 단분리</span><strong id="missionReviewS1Separation">T+2.0 s 백업</strong></div>
+          <div><span>1단 사출</span><strong id="missionReviewS1Ejection">2단 ARM +1.0 s</strong></div>
+          <div><span>통신 단절</span><strong id="missionReviewLinkFallback">단분리 +1.0 s</strong></div>
+          <div><span>링크 단절 판정</span><strong id="missionReviewLinkLoss">0.5 s 연속 미수신</strong></div>
+          <div><span>발사 감지 경고</span><strong id="missionReviewLaunchGrace">점화 종료 +5.0 s</strong></div>
+          <div><span>2단 점화</span><strong>분리 신호 + 2단 ARM</strong></div>
+          <div><span>2단 사출</span><strong id="missionReviewS2Ejection">점화 +5.0 s</strong></div>
+        </div>
+        <div class="confirm-note">ARM 신호가 불안정하거나 이미 해제된 경우 안전모드로 전환하고 미션을 시작하지 않습니다.</div>
+        <div class="confirm-actions">
+          <button id="missionStandbyReviewCancel" class="confirm-cancel" type="button">취소</button>
+          <button id="missionStandbyReviewConfirm" class="loadcell-primary" type="button">확인 후 미션 대기</button>
+        </div>
       </div>
     </div>
 

@@ -557,6 +557,23 @@
             Number(lockMatch[1]) !== 0 ? "BUILTIN_MISSION" : ""
           );
         }
+        if(uiSettings){
+          const fields = [
+            ["missionStage1SeparationBackupMs", "mission_s1_sep_backup_ms", 500, 15000],
+            ["missionStage1EjectionDelayMs", "mission_s1_eject_delay_ms", 100, 10000],
+            ["missionStage2EjectionDelayMs", "mission_s2_eject_delay_ms", 500, 30000],
+            ["missionLaunchGraceMs", "mission_launch_grace_ms", 1000, 30000],
+            ["missionLinkLossMs", "mission_link_loss_ms", 200, 5000]
+          ];
+          let changed = false;
+          fields.forEach(([key, wire, min, max])=>{
+            const match = message.match(new RegExp("\\b" + wire + "=(\\d+)", "i"));
+            if(!match) return;
+            const value = Math.max(min, Math.min(max, Number(match[1])));
+            if(uiSettings[key] !== value){ uiSettings[key] = value; changed = true; }
+          });
+          if(changed){ saveSettings(); applySettingsToUI(); }
+        }
       }
       return reply;
     }
