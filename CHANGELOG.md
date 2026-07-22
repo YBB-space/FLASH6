@@ -3,6 +3,18 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.9.2 — v6 b32 — 2026-07-22
+
+Protocol: `Flash6-Intelligent-b7` (unchanged; ESP-NOW wire version `7`)
+
+- Made a configured stage-2 board mission-inert unless two-stage operation is
+  explicitly enabled. Countdown, ignition, mission standby, forced mission,
+  stage-2 ARM monitoring, and built-in stage-2 actions are all gated together.
+- Removed the unsafe fallback where a stage-2 node with two-stage operation
+  disabled could be interpreted as a single-stage/stage-1 mission node.
+- Disabling two-stage operation during an existing stage-2 countdown or
+  mission now clears pending relay output and sequence state on the next tick.
+
 ## 0.9.1 — v6 b31 — 2026-07-22
 
 Protocol: `Flash6-Intelligent-b7` (unchanged; ESP-NOW wire version `7`)

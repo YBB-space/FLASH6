@@ -26,6 +26,14 @@ bool flashLinkStage2LeafRole() {
   return flashLinkStage2Enabled && flashLinkStage2NodeRole();
 }
 
+bool flashLinkMissionRoleEnabled() {
+  // A board configured as STAGE 2 must remain mission-inert until the
+  // operator explicitly enables two-stage operation. With A.I LINK disabled,
+  // the board keeps the existing single-stage/local behavior.
+  return !flashLinkGroundRole() &&
+    (!flashLinkStage2NodeRole() || flashLinkStage2Enabled);
+}
+
 uint32_t flashLinkTelemetryHz() {
   return flashLinkStage2Enabled
     ? kFlashLinkDualStageTelemetryHz

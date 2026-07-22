@@ -456,7 +456,7 @@ bool missionUpdateArmSwitch(uint32_t nowMs, uint32_t& fallingEdgeMs) {
     // flight so an intermittent connector cannot disappear merely because the
     // operator has not entered mission standby yet. Ground nodes have no
     // vehicle ARM contact to supervise.
-    const bool chatterSensitive = !flashLinkGroundRole();
+    const bool chatterSensitive = flashLinkMissionRoleEnabled();
     if (chatterSensitive) {
       if (launchMission.armChatterWindowMs == 0U ||
           (uint32_t)(nowMs - launchMission.armChatterWindowMs) >
@@ -504,8 +504,9 @@ bool missionIsStage2Node() {
 
 bool missionIsStage1Node() {
   // Stage 1 is also the default for single-board/wired operation where
-  // A.I LINK is disabled. Ground nodes never execute a vehicle mission.
-  return !flashLinkGroundRole() && !missionIsStage2Node();
+  // A.I LINK is disabled. A configured stage-2 node never falls back into the
+  // stage-1 mission while two-stage operation is disabled.
+  return flashLinkMissionRoleEnabled() && !flashLinkStage2NodeRole();
 }
 
 void missionSendInterstageEvent(
@@ -693,7 +694,7 @@ void missionCommandStage2Ejection(uint32_t nowMs) {
 }
 
 bool startForcedTimedMissionRuntime(uint32_t nowMs) {
-  if (safetyMode ||
+  if (!flashLinkMissionRoleEnabled() || safetyMode ||
       sequenceState != kSequenceStateIdle ||
       sequenceUserWaiting) {
     return false;
@@ -728,6 +729,10 @@ bool startForcedTimedMissionRuntime(uint32_t nowMs) {
 }
 
 MissionStandbyResult startMissionStandbyRuntime(uint32_t nowMs) {
+  if (!flashLinkMissionRoleEnabled()) {
+    return MissionStandbyResult::PermissionDenied;
+  }
+
   // A board that boots or receives this command with the physical ARM already
   // released must never become launch-sensitive. Revoke mission authority and
   // force both software interlocks on; the operator must inspect and re-arm the
@@ -884,7 +889,7 @@ void missionHandleInterstageEvent(
 
 void missionLaunchSequenceTick(uint32_t nowMs, bool armFalling, uint32_t armFallingMs) {
   if (launchMission.armChatterCount >= kLaunchArmChatterTransitions &&
-      !flashLinkGroundRole()) {
+      flashLinkMissionRoleEnabled()) {
     missionEnterArmContactFault(nowMs);
     return;
   }

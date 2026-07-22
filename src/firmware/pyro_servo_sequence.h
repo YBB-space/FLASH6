@@ -360,7 +360,7 @@ void clearSequenceRuntime() {
 }
 
 bool startFiringRuntime(uint32_t nowMs, uint8_t channel) {
-  if (safetyMode ||
+  if (!flashLinkMissionRoleEnabled() || safetyMode ||
       (sequenceState != kSequenceStateIdle &&
        sequenceState != kSequenceStateCountdown)) {
     return false;
@@ -382,7 +382,8 @@ bool startFiringRuntime(uint32_t nowMs, uint8_t channel) {
 }
 
 bool startCountdownRuntimeFor(uint32_t nowMs, uint32_t durationMs, bool playStartTone) {
-  if (safetyMode || sequenceState != kSequenceStateIdle) return false;
+  if (!flashLinkMissionRoleEnabled() || safetyMode ||
+      sequenceState != kSequenceStateIdle) return false;
   durationMs = clampU32((long)durationMs, 3000, 60000, countdownDurationMs);
   sequenceState = kSequenceStateCountdown;
   sequenceUserWaiting = false;
@@ -429,6 +430,15 @@ void abortSequenceRuntimeFromInterstage(uint8_t reason) {
 
 void sequenceTick() {
   const uint32_t nowMs = millis();
+  // If two-stage operation is disabled while a stage-2 board is already in a
+  // countdown/mission state, fail closed and remove every pending output on
+  // the next control tick.
+  if (!flashLinkMissionRoleEnabled() &&
+      (sequenceState != kSequenceStateIdle || sequenceUserWaiting ||
+       missionLaunchStandby || sequenceRelayMask != 0U)) {
+    clearSequenceRuntime();
+    return;
+  }
   if (sequenceAborted && (int32_t)(sequenceAbortHoldUntilMs - nowMs) <= 0) {
     sequenceAborted = false;
     sequenceAbortReason = 0;
