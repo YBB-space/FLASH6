@@ -16196,9 +16196,9 @@ function requestMobileMockup3dMesh(){
       if(!nav) return;
       const navRect = nav.getBoundingClientRect();
       const buttonRect = el.desktopNavAbortBtn.getBoundingClientRect();
-      const buttonSize = buttonRect.height || 56;
+      const buttonSize = buttonRect.height || 72;
       const top = Math.max(12, Math.round(navRect.top - buttonSize - 10));
-      const right = Math.max(12, Math.round(window.innerWidth - navRect.right + ((navRect.width - (buttonRect.width || 56)) / 2)));
+      const right = Math.max(12, Math.round(window.innerWidth - navRect.right + ((navRect.width - (buttonRect.width || 72)) / 2)));
       el.desktopNavAbortBtn.style.top = top + "px";
       el.desktopNavAbortBtn.style.right = right + "px";
     }
@@ -16206,12 +16206,19 @@ function requestMobileMockup3dMesh(){
     function updateDesktopNavAbortButton(){
       if(!el.desktopNavAbortBtn) return;
       const disabled = !el.abortBtn || !!el.abortBtn.disabled;
-      const label = (el.abortBtn && String(el.abortBtn.textContent || "").trim()) || (tplusUiActive ? "STOP" : "ABORT");
+      const visible = !missionStandbyUiActive && !!(
+        virtualMissionActive || sequenceActive ||
+        isFirmwareSequenceRunningState(currentSt) ||
+        localTplusActive || tplusUiActive
+      );
       el.desktopNavAbortBtn.disabled = disabled;
-      el.desktopNavAbortBtn.textContent = label;
-      el.desktopNavAbortBtn.classList.toggle("is-active", !disabled);
-      el.desktopNavAbortBtn.setAttribute("aria-label", label === "STOP" ? "시퀀스 종료" : "시퀀스 중단");
-      positionDesktopNavAbortButton();
+      el.desktopNavAbortBtn.classList.toggle("is-visible", visible);
+      el.desktopNavAbortBtn.classList.toggle("is-active", visible && !disabled);
+      const isStop = tplusUiActive || isFirmwareTplusState(currentSt) || localTplusActive;
+      const label = isStop ? "시퀀스 종료" : "시퀀스 중단";
+      el.desktopNavAbortBtn.setAttribute("aria-label", label);
+      el.desktopNavAbortBtn.setAttribute("title", label);
+      if(visible) positionDesktopNavAbortButton();
     }
 
     function updateAbortButtonLabel(isTplus){
