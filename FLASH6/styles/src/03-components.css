@@ -550,6 +550,18 @@ body.dashboard-view-active .stage-overview-panel:has(> .stage-telemetry-deck.hid
     font-size:9px !important;
     box-shadow:none !important;
   }
+  .desktop-control-drawer-mount #controlsCard .control-tile-actions--dual{
+    display:flex !important;
+    align-items:center !important;
+    gap:5px !important;
+  }
+  .desktop-control-drawer-mount #controlsCard .control-tile-actions--dual > button{
+    min-width:54px !important;
+    padding:0 7px !important;
+  }
+  html.mode-flight .desktop-control-drawer-mount #controlsCard #rebootControlTile{
+    grid-column:1 / -1 !important;
+  }
   .desktop-control-drawer-mount #controlsCard :is(.force-mission-tile,.mission-standby-tile){
     grid-column:auto !important;
   }

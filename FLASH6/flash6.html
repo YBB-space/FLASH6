@@ -127,7 +127,7 @@
   <!-- Preload 축소: AP 모드/저메모리 환경에서 동시 요청 버스트를 줄임 -->
   <script>
     (function(){
-    var ASSET_VER = "20260722-shared-risk-dialog-b45-__FLASH6_DEPLOY_SHA__";
+    var ASSET_VER = "20260722-control-utility-tiles-b46-__FLASH6_DEPLOY_SHA__";
       window.__flashBoot = window.__flashBoot || {jsReady:false,lastError:"",phase:"static_loader",version:ASSET_VER};
       var isLocalPreview = !!window.__flashBoot.localPreview;
       var beaconEnabled = (window.__flashBoot.beaconEnabled !== false);
@@ -365,7 +365,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="styles/flash6.css?v=20260722-shared-risk-dialog-b45-__FLASH6_DEPLOY_SHA__">
+  <link rel="stylesheet" href="styles/flash6.css?v=20260722-control-utility-tiles-b46-__FLASH6_DEPLOY_SHA__">
 </head>
 <body>
   <!-- ✅ LOCKOUT 배경 오버레이 -->
@@ -1703,48 +1703,6 @@
                   </span>
                   <span class="controls-toolbar-text sr-only" data-i18n="gyroZeroBtn">자이로 영점</span>
                 </button>
-                <button id="missionOpenBtn" class="toolbar-btn controls-toolbar-action" type="button">
-                  <span class="controls-toolbar-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24">
-                      <path d="M12 3v3"></path>
-                      <path d="M12 18v3"></path>
-                      <path d="M3 12h3"></path>
-                      <path d="M18 12h3"></path>
-                      <circle cx="12" cy="12" r="5"></circle>
-                      <circle cx="12" cy="12" r="1.5"></circle>
-                    </svg>
-                  </span>
-                  <span class="controls-toolbar-text sr-only" data-i18n="missionToolbarBtn">미션 지정</span>
-                </button>
-                <button id="exportCsvBtn" class="toolbar-btn controls-toolbar-action" type="button">
-                  <span class="controls-toolbar-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24">
-                      <path d="M12 4v10"></path>
-                      <path d="m8.5 10.5 3.5 3.5 3.5-3.5"></path>
-                      <path d="M5 18h14"></path>
-                    </svg>
-                  </span>
-                  <span class="controls-toolbar-text sr-only" data-i18n="exportXlsx">보고서 내보내기</span>
-                </button>
-                <button id="exportDocxBtn" class="toolbar-btn controls-toolbar-action" type="button" aria-label="Word 보고서 내보내기" title="Word 보고서 내보내기">
-                  <span class="controls-toolbar-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24">
-                      <path d="M7 3h7l4 4v14H7z"></path>
-                      <path d="M14 3v5h5"></path>
-                      <path d="m9.5 12 1.2 5 1.3-3.4 1.3 3.4 1.2-5"></path>
-                    </svg>
-                  </span>
-                  <span class="controls-toolbar-text sr-only">Word 보고서 내보내기</span>
-                </button>
-                <button id="rebootBoardBtn" class="toolbar-btn controls-toolbar-action" type="button">
-                  <span class="controls-toolbar-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24">
-                      <path d="M12 3v5"></path>
-                      <path d="M7.1 5.9A8 8 0 1 0 16.9 5.9"></path>
-                    </svg>
-                  </span>
-                  <span class="controls-toolbar-text sr-only" data-i18n="controlRebootBtn">재부팅</span>
-                </button>
               </div>
               <button id="tabletControlsClose" class="tablet-controls-close" type="button" aria-label="Close control panel">×</button>
             </div>
@@ -1830,6 +1788,35 @@
                 <div class="control-tile-actions">
                   <input type="checkbox" id="armLockToggle" class="hidden-input">
                   <button id="armLockPill" class="pill pill-toggle is-off" type="button">OFF</button>
+                </div>
+              </div>
+
+              <div id="reportExportTile" class="control-tile span-2 control-utility-tile">
+                <div>
+                  <div class="control-tile-label">보고서</div>
+                  <div class="control-tile-sub">Flight data export</div>
+                </div>
+                <div class="control-tile-actions control-tile-actions--dual">
+                  <button id="exportCsvBtn" class="pill pill-gray" type="button" aria-label="Excel 보고서 내보내기">XLSX</button>
+                  <button id="exportDocxBtn" class="pill pill-gray" type="button" aria-label="Word 보고서 내보내기" title="Word 보고서 내보내기">DOCX</button>
+                </div>
+              </div>
+
+              <button id="missionOpenBtn" class="control-tile is-btn control-utility-tile" type="button" aria-label="미션 지정">
+                <span>
+                  <span class="control-tile-label" data-i18n="missionToolbarBtn">미션 지정</span>
+                  <span class="control-tile-sub">Mission editor</span>
+                </span>
+                <span class="pill pill-gray">열기</span>
+              </button>
+
+              <div id="rebootControlTile" class="control-tile is-btn control-utility-tile" role="group" aria-label="에비오닉스 재부팅">
+                <div>
+                  <div class="control-tile-label" data-i18n="controlRebootBtn">재부팅</div>
+                  <div class="control-tile-sub">Avionics reset</div>
+                </div>
+                <div class="control-tile-actions">
+                  <button id="rebootBoardBtn" class="pill pill-gray" type="button">실행</button>
                 </div>
               </div>
 
@@ -4015,6 +4002,6 @@
     <button id="controlsOverlayClose" class="controls-overlay-close" type="button" aria-label="close">×</button>
     </div>
 
-  <script src="scripts/flash6-watchdog.js?v=20260722-shared-risk-dialog-b45-__FLASH6_DEPLOY_SHA__"></script>
+  <script src="scripts/flash6-watchdog.js?v=20260722-control-utility-tiles-b46-__FLASH6_DEPLOY_SHA__"></script>
 </body>
 </html> 
