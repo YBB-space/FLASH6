@@ -5817,7 +5817,10 @@
       const navRect = nav.getBoundingClientRect();
       const buttonRect = el.desktopNavAbortBtn.getBoundingClientRect();
       const buttonSize = buttonRect.height || 72;
-      const top = Math.max(12, Math.round(navRect.top - buttonSize - 10));
+      const top = Math.min(
+        window.innerHeight - buttonSize - 12,
+        Math.round(navRect.bottom + 10)
+      );
       const right = Math.max(12, Math.round(window.innerWidth - navRect.right + ((navRect.width - (buttonRect.width || 72)) / 2)));
       el.desktopNavAbortBtn.style.top = top + "px";
       el.desktopNavAbortBtn.style.right = right + "px";
