@@ -15277,6 +15277,7 @@ function requestMobileMockup3dMesh(){
       updateMobileSequenceCardButtons(state);
       updateMissionStandbyButtonUi();
       updateMissionEditLockUI();
+      updateDesktopNavAbortButton();
     }
 
     const MOBILE_PANEL_MEDIA = window.matchMedia("(max-width: 900px) and (orientation: landscape), (max-width: 600px)");
@@ -16189,6 +16190,30 @@ function requestMobileMockup3dMesh(){
       el.tabletAbortBtn.disabled = !!(el.abortBtn && el.abortBtn.disabled);
     }
 
+    function positionDesktopNavAbortButton(){
+      if(!el.desktopNavAbortBtn || window.innerWidth <= 900) return;
+      const nav = document.querySelector(".side-nav-desktop");
+      if(!nav) return;
+      const navRect = nav.getBoundingClientRect();
+      const buttonRect = el.desktopNavAbortBtn.getBoundingClientRect();
+      const buttonSize = buttonRect.height || 56;
+      const top = Math.max(12, Math.round(navRect.top - buttonSize - 10));
+      const right = Math.max(12, Math.round(window.innerWidth - navRect.right + ((navRect.width - (buttonRect.width || 56)) / 2)));
+      el.desktopNavAbortBtn.style.top = top + "px";
+      el.desktopNavAbortBtn.style.right = right + "px";
+    }
+
+    function updateDesktopNavAbortButton(){
+      if(!el.desktopNavAbortBtn) return;
+      const disabled = !el.abortBtn || !!el.abortBtn.disabled;
+      const label = (el.abortBtn && String(el.abortBtn.textContent || "").trim()) || (tplusUiActive ? "STOP" : "ABORT");
+      el.desktopNavAbortBtn.disabled = disabled;
+      el.desktopNavAbortBtn.textContent = label;
+      el.desktopNavAbortBtn.classList.toggle("is-active", !disabled);
+      el.desktopNavAbortBtn.setAttribute("aria-label", label === "STOP" ? "시퀀스 종료" : "시퀀스 중단");
+      positionDesktopNavAbortButton();
+    }
+
     function updateAbortButtonLabel(isTplus){
       const label = isTplus ? "STOP" : "ABORT";
       tplusUiActive = !!isTplus;
@@ -16196,6 +16221,7 @@ function requestMobileMockup3dMesh(){
       if(el.mobileAbortBtn) el.mobileAbortBtn.textContent = label;
       if(el.tabletAbortBtn) el.tabletAbortBtn.textContent = label;
       updateTabletAbortButton();
+      updateDesktopNavAbortButton();
     }
 
     function setIgniteButtonLabel(key){
@@ -34422,6 +34448,7 @@ function requestMobileMockup3dMesh(){
 
       el.igniteBtn = document.getElementById("igniteBtn");
       el.abortBtn = document.getElementById("abortBtn");
+      el.desktopNavAbortBtn = document.getElementById("desktopNavAbortBtn");
       el.virtualMissionBtn = document.getElementById("virtualMissionBtn");
       el.virtualMissionBtnLabel = document.getElementById("virtualMissionBtnLabel");
       el.virtualMissionBtnStatus = document.getElementById("virtualMissionBtnStatus");
@@ -35581,6 +35608,23 @@ function requestMobileMockup3dMesh(){
           showToast(t("abortRequestedToast", {safety:safetyLineSuffix()}),"error");
           hideConfirm();
         });
+      }
+      if(el.desktopNavAbortBtn){
+        el.desktopNavAbortBtn.addEventListener("click",(ev)=>{
+          ev.preventDefault();
+          if(el.abortBtn && !el.abortBtn.disabled) el.abortBtn.click();
+        });
+        window.addEventListener("resize",()=>{
+          requestAnimationFrame(updateDesktopNavAbortButton);
+        }, {passive:true});
+        const desktopNav = document.querySelector(".side-nav-desktop");
+        if(desktopNav && window.ResizeObserver){
+          const abortNavObserver = new ResizeObserver(()=>{
+            requestAnimationFrame(updateDesktopNavAbortButton);
+          });
+          abortNavObserver.observe(desktopNav);
+        }
+        updateDesktopNavAbortButton();
       }
 
       if(confirmCancelBtn){ confirmCancelBtn.addEventListener("click",()=>hideConfirm()); }

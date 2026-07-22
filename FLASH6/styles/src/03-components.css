@@ -4880,8 +4880,51 @@ body.camera-view-active .camera-center-countdown .camera-count-time{
   }
 }
 
+.desktop-nav-abort{display:none}
+
 /* Desktop floating liquid-glass navigation dock. */
 @media (min-width:901px){
+  body .desktop-nav-abort{
+    position:fixed;
+    top:calc(50% - 210px);
+    right:22px;
+    z-index:49;
+    display:grid;
+    place-items:center;
+    width:56px;
+    height:56px;
+    min-width:56px;
+    min-height:56px;
+    padding:0;
+    border:1px solid rgba(255,255,255,.24);
+    border-radius:50%;
+    background:rgba(11,14,19,.42);
+    color:rgba(226,232,240,.48);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 10px 28px rgba(0,0,0,.24);
+    -webkit-backdrop-filter:blur(22px) saturate(125%);
+    backdrop-filter:blur(22px) saturate(125%);
+    font:700 9px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    letter-spacing:.08em;
+    transition:border-color .16s ease,background .16s ease,color .16s ease,box-shadow .16s ease,transform .12s ease;
+  }
+  body .desktop-nav-abort:disabled{
+    cursor:not-allowed;
+    opacity:.58;
+  }
+  body .desktop-nav-abort.is-active:not(:disabled){
+    border-color:rgba(255,102,113,.78);
+    background:rgba(111,25,32,.76);
+    color:#fff3f4;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 10px 30px rgba(73,9,15,.42);
+    cursor:pointer;
+  }
+  body .desktop-nav-abort.is-active:not(:disabled):hover{
+    border-color:#ff7d87;
+    background:rgba(139,31,39,.86);
+  }
+  body .desktop-nav-abort.is-active:not(:disabled):active{
+    transform:scale(.96);
+  }
   body .app-shell > .side-nav-desktop,
   body.camera-view-active.camera-dashboard-default .app-shell > .side-nav-desktop,
   body.dashboard-view-active .app-shell > .side-nav-desktop{

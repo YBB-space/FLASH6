@@ -372,6 +372,7 @@
 
       el.igniteBtn = document.getElementById("igniteBtn");
       el.abortBtn = document.getElementById("abortBtn");
+      el.desktopNavAbortBtn = document.getElementById("desktopNavAbortBtn");
       el.virtualMissionBtn = document.getElementById("virtualMissionBtn");
       el.virtualMissionBtnLabel = document.getElementById("virtualMissionBtnLabel");
       el.virtualMissionBtnStatus = document.getElementById("virtualMissionBtnStatus");
@@ -1531,6 +1532,23 @@
           showToast(t("abortRequestedToast", {safety:safetyLineSuffix()}),"error");
           hideConfirm();
         });
+      }
+      if(el.desktopNavAbortBtn){
+        el.desktopNavAbortBtn.addEventListener("click",(ev)=>{
+          ev.preventDefault();
+          if(el.abortBtn && !el.abortBtn.disabled) el.abortBtn.click();
+        });
+        window.addEventListener("resize",()=>{
+          requestAnimationFrame(updateDesktopNavAbortButton);
+        }, {passive:true});
+        const desktopNav = document.querySelector(".side-nav-desktop");
+        if(desktopNav && window.ResizeObserver){
+          const abortNavObserver = new ResizeObserver(()=>{
+            requestAnimationFrame(updateDesktopNavAbortButton);
+          });
+          abortNavObserver.observe(desktopNav);
+        }
+        updateDesktopNavAbortButton();
       }
 
       if(confirmCancelBtn){ confirmCancelBtn.addEventListener("click",()=>hideConfirm()); }

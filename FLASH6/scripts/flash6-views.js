@@ -4897,6 +4897,7 @@
       updateMobileSequenceCardButtons(state);
       updateMissionStandbyButtonUi();
       updateMissionEditLockUI();
+      updateDesktopNavAbortButton();
     }
 
     const MOBILE_PANEL_MEDIA = window.matchMedia("(max-width: 900px) and (orientation: landscape), (max-width: 600px)");
@@ -5809,6 +5810,30 @@
       el.tabletAbortBtn.disabled = !!(el.abortBtn && el.abortBtn.disabled);
     }
 
+    function positionDesktopNavAbortButton(){
+      if(!el.desktopNavAbortBtn || window.innerWidth <= 900) return;
+      const nav = document.querySelector(".side-nav-desktop");
+      if(!nav) return;
+      const navRect = nav.getBoundingClientRect();
+      const buttonRect = el.desktopNavAbortBtn.getBoundingClientRect();
+      const buttonSize = buttonRect.height || 56;
+      const top = Math.max(12, Math.round(navRect.top - buttonSize - 10));
+      const right = Math.max(12, Math.round(window.innerWidth - navRect.right + ((navRect.width - (buttonRect.width || 56)) / 2)));
+      el.desktopNavAbortBtn.style.top = top + "px";
+      el.desktopNavAbortBtn.style.right = right + "px";
+    }
+
+    function updateDesktopNavAbortButton(){
+      if(!el.desktopNavAbortBtn) return;
+      const disabled = !el.abortBtn || !!el.abortBtn.disabled;
+      const label = (el.abortBtn && String(el.abortBtn.textContent || "").trim()) || (tplusUiActive ? "STOP" : "ABORT");
+      el.desktopNavAbortBtn.disabled = disabled;
+      el.desktopNavAbortBtn.textContent = label;
+      el.desktopNavAbortBtn.classList.toggle("is-active", !disabled);
+      el.desktopNavAbortBtn.setAttribute("aria-label", label === "STOP" ? "시퀀스 종료" : "시퀀스 중단");
+      positionDesktopNavAbortButton();
+    }
+
     function updateAbortButtonLabel(isTplus){
       const label = isTplus ? "STOP" : "ABORT";
       tplusUiActive = !!isTplus;
@@ -5816,6 +5841,7 @@
       if(el.mobileAbortBtn) el.mobileAbortBtn.textContent = label;
       if(el.tabletAbortBtn) el.tabletAbortBtn.textContent = label;
       updateTabletAbortButton();
+      updateDesktopNavAbortButton();
     }
 
     function setIgniteButtonLabel(key){
