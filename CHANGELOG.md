@@ -3,6 +3,23 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.9.3 — v6 b33 — 2026-07-23
+
+Protocol: `Flash6-Intelligent-b7` (unchanged; ESP-NOW wire version `7`)
+
+- Added role-aware ARM polarity for the stage-2 Hall sensor. Stage 2 now treats
+  raw LOW as separation mechanism installed (magnet near) and raw HIGH as
+  separated (magnet departed), while stage 1 keeps HIGH=installed and
+  LOW=released.
+- Changed stage-2 ignition authorization to the debounced LOW-to-HIGH Hall
+  transition and changed stage 1's relayed telemetry fallback to recognize the
+  same separation state.
+- Kept the existing public telemetry contract by normalizing physical/effective
+  ARM fields to ON=installed and OFF=released on both stages. FLASH6 and stored
+  records therefore do not need stage-specific polarity guesses.
+- Stage-2 standby now rejects a missing magnet/high Hall input and fails closed
+  through the existing safety-mode, ARM-lock, and inspection warning path.
+
 ## 0.9.2 — v6 b32 — 2026-07-22
 
 Protocol: `Flash6-Intelligent-b7` (unchanged; ESP-NOW wire version `7`)

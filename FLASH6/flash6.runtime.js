@@ -22871,8 +22871,10 @@ function requestMobileMockup3dMesh(){
         localizedMessage = "단간 통신 단절 · 로컬 추력 비행 감지로 T+를 설정했습니다.";
       }else if(/^Virtual T\+ started\. No pyro output/i.test(message)){
         localizedMessage = "가상 T+ 시작 · 파이로 출력 없이 서보 시퀀스를 실행합니다.";
-      }else if(/^Mission standby rejected\. Physical ARM is released/i.test(message)){
-        localizedMessage = "물리 ARM 해제 상태로 미션 대기가 거부되었습니다 · 안전 모드를 적용했습니다.";
+      }else if(/^Mission standby rejected\. (?:Physical ARM|ARM\/separation mechanism) is released/i.test(message)){
+        localizedMessage = "ARM 또는 단분리 장치가 해제된 상태라 미션 대기가 거부되었습니다 · 안전 모드를 적용했습니다.";
+      }else if(/^Hall sensor confirmed magnet departure\./i.test(message)){
+        localizedMessage = "홀센서에서 자석 이탈을 확인했습니다 · 2단 단분리로 판정합니다.";
       }else if(/^Ignition ended without stage-1 ARM release/i.test(message)){
         localizedMessage = "점화 종료 후에도 1단 ARM 해제가 감지되지 않았습니다 · 발사체에 접근하지 마세요.";
       }else{
@@ -22889,9 +22891,11 @@ function requestMobileMockup3dMesh(){
           "SERVO CH1 command failed.":"서보 CH1 명령이 실패했습니다.",
           "Virtual T+ started. No pyro output; CH1/CH2 servo schedule is active.":"가상 T+ 시작 · 파이로 출력 없이 서보 시퀀스를 실행합니다.",
           "Mission standby rejected. Physical ARM is released; safety mode enabled.":"물리 ARM 해제 상태로 미션 대기가 거부되었습니다 · 안전 모드를 적용했습니다.",
+          "Mission standby rejected. ARM/separation mechanism is released; safety mode enabled.":"ARM 또는 단분리 장치가 해제된 상태라 미션 대기가 거부되었습니다 · 안전 모드를 적용했습니다.",
           "Waiting for stable stage-1 physical ARM release.":"안정적인 1단 물리 ARM 해제를 기다리는 중입니다.",
           "Remote ARM release received.":"원격 ARM 해제 신호를 수신했습니다.",
           "Local ARM release confirmed.":"로컬 ARM 해제를 확인했습니다.",
+          "Hall sensor confirmed magnet departure.":"홀센서에서 자석 이탈을 확인했습니다 · 2단 단분리로 판정합니다.",
           "Ignition ended without stage-1 ARM release. Keep clear of the vehicle.":"점화 종료 후에도 1단 ARM 해제가 감지되지 않았습니다 · 발사체에 접근하지 마세요.",
           "Remote telemetry confirms physical ARM release.":"원격 텔레메트리에서 물리 ARM 해제를 확인했습니다.",
           "Stage-1 ejection fallback uses separation time.":"단간 통신 단절 · 단분리 시각 기준으로 1단 사출 백업을 실행합니다.",

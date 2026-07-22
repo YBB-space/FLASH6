@@ -931,13 +931,13 @@ void storageEnqueueSample(uint32_t timestampMs) {
   uint16_t flags = 0;
   if (snap.baroValid) flags |= 1U << 0;
   if (snap.attitudeValid) flags |= 1U << 1;
-  if (armSwitchEffectiveOn()) flags |= 1U << 2;
+  if (armSwitchEffectiveInstalled()) flags |= 1U << 2;
   if (sequenceUserWaiting) flags |= 1U << 3;
   if (sequenceAbortActive(nowMs)) flags |= 1U << 4;
   if (safetyMode) flags |= 1U << 5;
   if (serialStream) flags |= 1U << 6;
   if (snap.sampleValid) flags |= 1U << 7;
-  if (armSwitchPhysicalOn()) flags |= 1U << 13;
+  if (armSwitchPhysicalInstalled()) flags |= 1U << 13;
   const uint8_t deploymentState = snap.deploymentState & 0x07U;
   if (deploymentState & 0x01U) flags |= 1U << 11;
   if (deploymentState & 0x02U) flags |= 1U << 12;

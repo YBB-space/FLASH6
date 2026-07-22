@@ -34,6 +34,21 @@ bool flashLinkMissionRoleEnabled() {
     (!flashLinkStage2NodeRole() || flashLinkStage2Enabled);
 }
 
+bool armSwitchPhysicalInstalled() {
+  const bool pinHigh = armSwitchPhysicalOn();
+  // The stage-2 input is a Hall sensor: magnet near (mechanism installed) is
+  // LOW and magnet departed (separated) is HIGH. Keep the public ARM fields
+  // role-normalized so UI, logs and relay consumers retain ON=installed and
+  // OFF=released semantics on both vehicle stages.
+  return flashLinkStage2Enabled && flashLinkStage2NodeRole()
+    ? !pinHigh
+    : pinHigh;
+}
+
+bool armSwitchEffectiveInstalled() {
+  return armLock || armSwitchPhysicalInstalled();
+}
+
 uint32_t flashLinkTelemetryHz() {
   return flashLinkStage2Enabled
     ? kFlashLinkDualStageTelemetryHz

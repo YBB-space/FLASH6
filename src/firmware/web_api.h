@@ -303,8 +303,8 @@ size_t buildTelemetryJson(char* json, size_t jsonLen, bool full) {
            gpsLat, gpsLon, gpsAlt,
            (unsigned long)output.ut, output.lt, (unsigned)output.ct,
            chipTempValid ? output.chipTempC : 0.0f, chipTempValid ? 1U : 0U,
-           remoteOutput ? ((remoteFlags >> 5) & 1U) : (armSwitchEffectiveOn() ? 1U : 0U),
-           remoteOutput ? ((remoteFlags >> 13) & 1U) : (armSwitchPhysicalOn() ? 1U : 0U),
+           remoteOutput ? ((remoteFlags >> 5) & 1U) : (armSwitchEffectiveInstalled() ? 1U : 0U),
+           remoteOutput ? ((remoteFlags >> 13) & 1U) : (armSwitchPhysicalInstalled() ? 1U : 0U),
            (unsigned)relayMask,
            (unsigned)st,
            (long)td,
@@ -504,7 +504,7 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
     if (output.attitudeValid) flags |= 1U << 2;
     if (output.gpsFix) flags |= 1U << 3;
     if (output.gpsSeen) flags |= 1U << 4;
-    if (armSwitchEffectiveOn()) flags |= 1U << 5;
+    if (armSwitchEffectiveInstalled()) flags |= 1U << 5;
     flags |= 1U << 6;
     if (sequenceUserWaiting) flags |= 1U << 7;
     if (sequenceAbortActive(nowMs)) flags |= 1U << 8;
@@ -751,7 +751,7 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
                outputIgnitionDelayValid ? 1U : 0U,
                (unsigned)output.deploymentState,
                (unsigned)output.deploymentFlags,
-               remoteOutput ? ((remoteFlags >> 13) & 1U) : (armSwitchPhysicalOn() ? 1U : 0U),
+               remoteOutput ? ((remoteFlags >> 13) & 1U) : (armSwitchPhysicalInstalled() ? 1U : 0U),
                (unsigned)flashLinkNodeId,
                (unsigned)flashLinkTargetNodeId,
                streamStage1Connected ? 1U : 0U,

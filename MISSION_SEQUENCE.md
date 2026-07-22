@@ -1,6 +1,6 @@
 # FLASH6 Built-in Mission Sequence
 
-Firmware `0.9.2` / build `v6 b32` / protocol `Flash6-Intelligent-b7`
+Firmware `0.9.3` / build `v6 b33` / protocol `Flash6-Intelligent-b7`
 
 ## Sequence authority
 
@@ -34,17 +34,23 @@ and the same stage-1 ARM release rule starts T+.
 
 1. Receive standby and the active mission settings from stage 1.
 2. Receive repeated T+ and stage-1 separation events.
-3. When both stage-1 separation and stable local physical ARM release are
+3. Treat the Hall input as LOW while the separation magnet is near and the
+   mechanism is installed. A debounced LOW-to-HIGH transition means the magnet
+   has departed and stage-2 separation is confirmed.
+4. When both stage-1 separation and this stable local Hall separation are
    present, start PYRO CH1 immediately for the configured ignition duration.
-4. After the configured stage-2 ejection delay, command SERVO CH1 to 0°.
-5. If the stage-1 link is lost, sustained powered-flight acceleration provides
+5. After the configured stage-2 ejection delay, command SERVO CH1 to 0°.
+6. If the stage-1 link is lost, sustained powered-flight acceleration provides
    a local T+ backup. In that fallback only, stable local ARM release replaces
    the missing remote separation event and authorizes ignition.
 
 ## Safety interlocks
 
-- A standby request with physical ARM already OFF is rejected. Safety mode and
-  ARM lock are enabled and inspection authority is revoked.
+- A standby request with the release mechanism already open is rejected. This
+  means raw LOW on stage 1 and raw HIGH on the stage-2 Hall input. Safety mode
+  and ARM lock are enabled and inspection authority is revoked.
+- Telemetry and stored records remain role-normalized: physical ARM ON means
+  installed and OFF means released on both stages, regardless of pin polarity.
 - Three raw ARM transitions inside one second before T+ are treated as contact
   chatter. Mission authority is revoked and connector/sensor/wiring inspection
   is required.

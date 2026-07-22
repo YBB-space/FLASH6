@@ -445,8 +445,22 @@ void missionEmitAlarm(uint16_t blockIndex, const char* title, const char* messag
   buzzerPlayTone(2480, 180);
 }
 
-bool missionUpdateArmSwitch(uint32_t nowMs, uint32_t& fallingEdgeMs) {
-  fallingEdgeMs = 0;
+bool missionUsesStage2HallPolarity() {
+  return flashLinkStage2Enabled && flashLinkStage2NodeRole();
+}
+
+bool missionArmMechanismInstalled() {
+  return armSwitchPhysicalInstalled();
+}
+
+bool missionArmReleaseTransition(bool wasHigh, bool isHigh) {
+  return missionUsesStage2HallPolarity()
+    ? (!wasHigh && isHigh)
+    : (wasHigh && !isHigh);
+}
+
+bool missionUpdateArmSwitch(uint32_t nowMs, uint32_t& releaseEdgeMs) {
+  releaseEdgeMs = 0;
   const bool rawOn = armSwitchPhysicalOn();
   if (rawOn != launchMission.armRawOn) {
     launchMission.armRawOn = rawOn;
@@ -474,8 +488,8 @@ bool missionUpdateArmSwitch(uint32_t nowMs, uint32_t& fallingEdgeMs) {
   }
   const bool wasOn = launchMission.armStableOn;
   launchMission.armStableOn = rawOn;
-  if (wasOn && !rawOn) {
-    fallingEdgeMs = launchMission.armRawChangedMs;
+  if (missionArmReleaseTransition(wasOn, rawOn)) {
+    releaseEdgeMs = launchMission.armRawChangedMs;
     return true;
   }
   return false;
@@ -499,7 +513,7 @@ bool missionInterstageLinkHealthy(uint32_t nowMs) {
 }
 
 bool missionIsStage2Node() {
-  return flashLinkStage2Enabled && flashLinkStage2NodeRole();
+  return missionUsesStage2HallPolarity();
 }
 
 bool missionIsStage1Node() {
@@ -737,7 +751,7 @@ MissionStandbyResult startMissionStandbyRuntime(uint32_t nowMs) {
   // released must never become launch-sensitive. Revoke mission authority and
   // force both software interlocks on; the operator must inspect and re-arm the
   // vehicle before another standby request can be accepted.
-  if (!armSwitchPhysicalOn()) {
+  if (!missionArmMechanismInstalled()) {
     clearSequenceRuntime();
     inspectionPassed = false;
     armLock = true;
@@ -746,8 +760,10 @@ MissionStandbyResult startMissionStandbyRuntime(uint32_t nowMs) {
     missionEmitAlarm(
       0,
       "ARM unsafe",
-      "Mission standby rejected. Physical ARM is released; safety mode enabled.");
-    Serial.println("[MISSION] standby rejected arm_physical=off safe=1 arm_lock=1 inspection=0");
+      "Mission standby rejected. ARM/separation mechanism is released; safety mode enabled.");
+    Serial.printf("[MISSION] standby rejected arm_pin=%s stage2_hall=%u safe=1 arm_lock=1 inspection=0\n",
+                  armSwitchPhysicalOn() ? "HIGH" : "LOW",
+                  missionUsesStage2HallPolarity() ? 1U : 0U);
     return MissionStandbyResult::ArmUnsafe;
   }
 
@@ -832,7 +848,7 @@ void missionHandleInterstageEvent(
       if (launchMission.launchLatched &&
           event.sequenceId != launchMission.sequenceId) return;
       if (!missionLaunchStandby && !launchMission.launchLatched &&
-          armSwitchPhysicalOn()) {
+          missionArmMechanismInstalled()) {
         const MissionStandbyResult result = startMissionStandbyRuntime(receivedAtMs);
         if (result == MissionStandbyResult::Started) {
           launchMission.sequenceId = event.sequenceId;
@@ -887,33 +903,33 @@ void missionHandleInterstageEvent(
   }
 }
 
-void missionLaunchSequenceTick(uint32_t nowMs, bool armFalling, uint32_t armFallingMs) {
+void missionLaunchSequenceTick(uint32_t nowMs, bool armReleased, uint32_t armReleasedMs) {
   if (launchMission.armChatterCount >= kLaunchArmChatterTransitions &&
       flashLinkMissionRoleEnabled()) {
     missionEnterArmContactFault(nowMs);
     return;
   }
 
-  if (armFalling) {
+  if (armReleased) {
     if (missionIsStage1Node() && missionLaunchStandby &&
         !launchMission.launchLatched) {
-      if (sequenceFiringStartMs != 0U && armFallingMs >= sequenceFiringStartMs) {
+      if (sequenceFiringStartMs != 0U && armReleasedMs >= sequenceFiringStartMs) {
         launchMission.ignitionStartMs = sequenceFiringStartMs;
-        launchMission.ignitionDelayMs = armFallingMs - sequenceFiringStartMs;
+        launchMission.ignitionDelayMs = armReleasedMs - sequenceFiringStartMs;
       }
-      missionLatchTplus(armFallingMs, "Stage-1 physical ARM released; mission authority acquired.");
-      missionSendInterstageEvent(MissionInterstageEventCode::Tplus, armFallingMs, 0);
+      missionLatchTplus(armReleasedMs, "Stage-1 physical ARM released; mission authority acquired.");
+      missionSendInterstageEvent(MissionInterstageEventCode::Tplus, armReleasedMs, 0);
     } else if (missionIsStage2Node() &&
                (missionLaunchStandby || launchMission.launchLatched) &&
                !launchMission.stage2ArmReleased) {
       launchMission.stage2ArmReleased = true;
-      launchMission.stage2ArmReleasedMs = armFallingMs;
+      launchMission.stage2ArmReleasedMs = armReleasedMs;
       if (launchMission.launchLatched) {
         missionSendInterstageEvent(
           MissionInterstageEventCode::Stage2ArmReleased,
-          armFallingMs,
-          (int32_t)(armFallingMs - launchMission.launchMs));
-        missionEmitAlarm(0, "Stage-2 separation", "Local ARM release confirmed.");
+          armReleasedMs,
+          (int32_t)(armReleasedMs - launchMission.launchMs));
+        missionEmitAlarm(0, "Stage-2 separation", "Hall sensor confirmed magnet departure.");
       }
     }
   }
@@ -1100,12 +1116,11 @@ void missionRuntimeTick() {
   missionLastTickUs = nowUs;
   const uint32_t nowMs = millis();
   missionServiceAbortBroadcast(nowMs);
-  uint32_t armFallingMs = 0;
-  const bool debouncedArmFalling = missionUpdateArmSwitch(nowMs, armFallingMs);
+  uint32_t armReleasedMs = 0;
+  const bool debouncedArmReleased = missionUpdateArmSwitch(nowMs, armReleasedMs);
   const uint8_t switchNow = launchMission.armStableOn ? 1U : 0U;
   const bool switchRising = missionLastSwitch == 0U && switchNow == 1U;
-  const bool switchFalling = debouncedArmFalling ||
-    (missionLastSwitch == 1U && switchNow == 0U);
+  const bool switchFalling = missionLastSwitch == 1U && switchNow == 0U;
   const bool sequenceStart =
     missionLastSequenceState == kSequenceStateIdle &&
     (sequenceState == kSequenceStateCountdown || sequenceState == kSequenceStateFiring);
@@ -1122,7 +1137,7 @@ void missionRuntimeTick() {
     launchMission.lastStandbyEventTxMs = nowMs;
     missionSendInterstageEvent(MissionInterstageEventCode::Standby, nowMs, 0);
   }
-  missionLaunchSequenceTick(nowMs, switchFalling, armFallingMs);
+  missionLaunchSequenceTick(nowMs, debouncedArmReleased, armReleasedMs);
 
   for (uint8_t i = 0; i < 8; ++i) {
     const int32_t current = missionVariables[i];

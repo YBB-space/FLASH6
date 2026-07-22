@@ -1838,7 +1838,7 @@ void flashLinkFillTelemetry(FlashLinkTelemetryV1& out) {
   if (snap.attitudeValid) out.flags |= 1U << 2;
   if (snap.gpsFix) out.flags |= 1U << 3;
   if (snap.gpsSeen) out.flags |= 1U << 4;
-  if (armSwitchEffectiveOn()) out.flags |= 1U << 5;
+  if (armSwitchEffectiveInstalled()) out.flags |= 1U << 5;
   out.flags |= 1U << 6;
   if (sequenceUserWaiting) out.flags |= 1U << 7;
   if (sequenceAbortActive(nowMs)) out.flags |= 1U << 8;
@@ -1846,7 +1846,7 @@ void flashLinkFillTelemetry(FlashLinkTelemetryV1& out) {
   if (armLock) out.flags |= 1U << 10;
   if (inspectionPassed) out.flags |= 1U << 11;
   if (storageState.ready) out.flags |= 1U << 12;
-  if (armSwitchPhysicalOn()) out.flags |= 1U << 13;
+  if (armSwitchPhysicalInstalled()) out.flags |= 1U << 13;
   if (isfinite(snap.chipTempC)) out.flags |= 1U << 15;
   out.ignitionMs = (uint16_t)min<uint32_t>(65535U, ignitionDurationMs);
   out.countdownMs = (uint16_t)min<uint32_t>(65535U, reportedCountdownDurationMs());
