@@ -27894,7 +27894,7 @@ html body #pyroControlOverlay > #pyroControlDialog > .settings-header > .setting
 }
 
 /* Supply-event acknowledgement. Kept independent from reboot confirmation. */
-body #brownoutWarningOverlay.brownout-warning-overlay{
+body :is(#brownoutWarningOverlay,#missionArmRiskOverlay).brownout-warning-overlay{
   position:fixed !important;
   inset:0 !important;
   z-index:2147483645 !important;
@@ -27907,10 +27907,10 @@ body #brownoutWarningOverlay.brownout-warning-overlay{
   -webkit-backdrop-filter:blur(8px) !important;
   backdrop-filter:blur(8px) !important;
 }
-body #brownoutWarningOverlay.brownout-warning-overlay.hidden{
+body :is(#brownoutWarningOverlay,#missionArmRiskOverlay).brownout-warning-overlay.hidden{
   display:none !important;
 }
-body #brownoutWarningOverlay > .brownout-warning-dialog{
+body :is(#brownoutWarningOverlay,#missionArmRiskOverlay) > .brownout-warning-dialog{
   width:min(480px, calc(100vw - 48px)) !important;
   margin:auto !important;
   padding:24px !important;
@@ -27922,7 +27922,7 @@ body #brownoutWarningOverlay > .brownout-warning-dialog{
   box-shadow:0 24px 72px rgba(0,0,0,.52) !important;
   text-align:left !important;
 }
-body #brownoutWarningOverlay .brownout-warning-kicker{
+body :is(#brownoutWarningOverlay,#missionArmRiskOverlay) .brownout-warning-kicker{
   margin:0 0 8px !important;
   color:#d6a85b !important;
   font-size:10px !important;
@@ -27930,7 +27930,7 @@ body #brownoutWarningOverlay .brownout-warning-kicker{
   font-weight:700 !important;
   letter-spacing:.16em !important;
 }
-body #brownoutWarningOverlay .brownout-warning-title{
+body :is(#brownoutWarningOverlay,#missionArmRiskOverlay) .brownout-warning-title{
   margin:0 !important;
   color:#f5f5f6 !important;
   font-size:20px !important;
@@ -27938,14 +27938,14 @@ body #brownoutWarningOverlay .brownout-warning-title{
   font-weight:650 !important;
   letter-spacing:-.02em !important;
 }
-body #brownoutWarningOverlay .brownout-warning-text{
+body :is(#brownoutWarningOverlay,#missionArmRiskOverlay) .brownout-warning-text{
   margin:12px 0 0 !important;
   color:#aeb2b9 !important;
   font-size:14px !important;
   line-height:1.58 !important;
   font-weight:450 !important;
 }
-body #brownoutWarningOverlay .brownout-warning-check{
+body :is(#brownoutWarningOverlay,#missionArmRiskOverlay) .brownout-warning-check{
   margin:18px 0 0 !important;
   padding:13px 14px !important;
   border:1px solid #303238 !important;
@@ -27957,7 +27957,7 @@ body #brownoutWarningOverlay .brownout-warning-check{
   letter-spacing:.01em !important;
   text-align:center !important;
 }
-body #brownoutWarningOverlay .brownout-warning-confirm{
+body :is(#brownoutWarningOverlay,#missionArmRiskOverlay) .brownout-warning-confirm{
   width:100% !important;
   min-height:46px !important;
   margin:20px 0 0 !important;
@@ -27971,18 +27971,18 @@ body #brownoutWarningOverlay .brownout-warning-confirm{
   line-height:1 !important;
   font-weight:700 !important;
 }
-body #brownoutWarningOverlay .brownout-warning-confirm:hover{
+body :is(#brownoutWarningOverlay,#missionArmRiskOverlay) .brownout-warning-confirm:hover{
   background:#f4f4f5 !important;
 }
 @media (max-width:600px){
-  body #brownoutWarningOverlay.brownout-warning-overlay{
+  body :is(#brownoutWarningOverlay,#missionArmRiskOverlay).brownout-warning-overlay{
     padding:16px !important;
   }
-  body #brownoutWarningOverlay > .brownout-warning-dialog{
+  body :is(#brownoutWarningOverlay,#missionArmRiskOverlay) > .brownout-warning-dialog{
     width:100% !important;
     padding:21px 20px 20px !important;
   }
-  body #brownoutWarningOverlay .brownout-warning-title{
+  body :is(#brownoutWarningOverlay,#missionArmRiskOverlay) .brownout-warning-title{
     font-size:19px !important;
   }
 }
@@ -30098,118 +30098,19 @@ html.phone-landscape-layout .mission-force-timeline strong{
   font-size:11px;
 }
 
-.mission-arm-risk-overlay{
-  z-index:96 !important;
-  background:rgba(4,6,9,.78) !important;
-  backdrop-filter:blur(8px);
-  -webkit-backdrop-filter:blur(8px);
+body #missionArmRiskOverlay .mission-arm-risk-level{
+  color:#ff727c !important;
 }
-.mission-arm-risk-dialog{
-  display:grid !important;
-  grid-template-columns:minmax(0,1fr) !important;
-  gap:12px !important;
-  width:min(92vw,430px) !important;
-  padding:22px 24px 20px !important;
-  border:1px solid #3a3c42 !important;
-  border-radius:8px !important;
-  background:#17181b !important;
-  box-shadow:0 24px 70px rgba(0,0,0,.48) !important;
-  overflow:hidden !important;
-}
-.mission-arm-risk-dialog::before,
-.mission-arm-risk-dialog::after{
-  display:none !important;
-}
-.mission-arm-risk-heading{
-  display:flex;
-  align-items:baseline;
-  gap:10px;
-  min-height:0;
-  margin:0 !important;
-  padding:0;
-  border:0;
-  background:transparent;
-}
-.mission-arm-risk-level{
-  color:#ff727c;
-  font:700 9px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-  letter-spacing:.12em;
-  white-space:nowrap;
-}
-.mission-arm-risk-dialog .confirm-title{
-  margin:0 !important;
-  color:#f3f4f6 !important;
-  font-size:17px !important;
-  line-height:1.25 !important;
+body #missionArmRiskOverlay .mission-arm-risk-stage{
+  border-color:#4b3034 !important;
+  background:#211719 !important;
+  color:#ffabb2 !important;
   font-weight:650 !important;
-  text-align:left !important;
 }
-.mission-arm-risk-stage{
-  margin:0 !important;
-  padding:8px 0 0;
-  border:0;
-  border-radius:0;
-  background:transparent;
-  color:#ffb0b6;
-  font-size:11px;
-  font-weight:650;
-  line-height:1.45;
-  text-align:left;
-}
-#missionArmRiskOverlay .mission-arm-risk-dialog > .confirm-text{
-  margin:0 !important;
-  padding:0 !important;
-  color:#c4c7cd !important;
-  font-size:11px !important;
-  line-height:1.55 !important;
-  text-align:left !important;
-}
-#missionArmRiskOverlay .mission-arm-risk-dialog > .confirm-note{
-  margin:0 !important;
-  padding:0 !important;
+body #missionArmRiskOverlay .mission-arm-risk-note{
+  margin-top:10px !important;
   color:#858a94 !important;
-  font-size:9px !important;
-  line-height:1.55 !important;
-  text-align:left !important;
-}
-#missionArmRiskOverlay .mission-arm-risk-actions{
-  display:flex !important;
-  justify-content:flex-end !important;
-  width:100% !important;
-  margin:4px 0 0 !important;
-}
-#missionArmRiskOverlay #missionArmRiskConfirm{
-  width:92px !important;
-  min-width:92px !important;
-  max-width:92px !important;
-  min-height:38px !important;
-  height:38px !important;
-  margin:0 !important;
-  border:1px solid #3b3e44 !important;
-  border-radius:6px !important;
-  background:#222428 !important;
-  color:#eef0f3 !important;
-  box-shadow:none !important;
   font-size:12px !important;
-  font-weight:650 !important;
-}
-#missionArmRiskOverlay #missionArmRiskConfirm:hover{
-  border-color:#4b4f57 !important;
-  background:#292b30 !important;
-}
-@media (max-width:600px){
-  .mission-arm-risk-dialog{
-    width:calc(100vw - 28px) !important;
-    padding:20px !important;
-  }
-  .mission-arm-risk-heading{
-    align-items:baseline;
-    flex-direction:row;
-    gap:8px;
-  }
-  .mission-arm-risk-stage{
-    padding-top:6px;
-  }
 }
 
 /* Keep the phone report as a bottom sheet; center only the desktop dialog. */
