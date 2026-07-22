@@ -5826,7 +5826,12 @@
     function updateDesktopNavAbortButton(){
       if(!el.desktopNavAbortBtn) return;
       const disabled = !el.abortBtn || !!el.abortBtn.disabled;
-      const visible = !missionStandbyUiActive && !!(
+      const sequenceConfirmOpen = !!(
+        confirmOverlayEl &&
+        !confirmOverlayEl.classList.contains("hidden") &&
+        confirmOverlayEl.getAttribute("aria-hidden") !== "true"
+      );
+      const visible = !sequenceConfirmOpen && !missionStandbyUiActive && !!(
         virtualMissionActive || sequenceActive ||
         isFirmwareSequenceRunningState(currentSt) ||
         localTplusActive || tplusUiActive

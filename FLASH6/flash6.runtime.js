@@ -16206,7 +16206,12 @@ function requestMobileMockup3dMesh(){
     function updateDesktopNavAbortButton(){
       if(!el.desktopNavAbortBtn) return;
       const disabled = !el.abortBtn || !!el.abortBtn.disabled;
-      const visible = !missionStandbyUiActive && !!(
+      const sequenceConfirmOpen = !!(
+        confirmOverlayEl &&
+        !confirmOverlayEl.classList.contains("hidden") &&
+        confirmOverlayEl.getAttribute("aria-hidden") !== "true"
+      );
+      const visible = !sequenceConfirmOpen && !missionStandbyUiActive && !!(
         virtualMissionActive || sequenceActive ||
         isFirmwareSequenceRunningState(currentSt) ||
         localTplusActive || tplusUiActive
@@ -27250,6 +27255,7 @@ function requestMobileMockup3dMesh(){
       userWaitingLocal=false;
       missionStandbyUiActive=false;
       setOverlayVisible(confirmOverlayEl, false);
+      if(!sendPrecountReset) updateDesktopNavAbortButton();
       if(sendPrecountReset){
         sendCommand({http:"/precount?uw=0&cd=0", ser:"PRECOUNT 0 0"}, false);
       }

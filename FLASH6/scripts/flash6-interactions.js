@@ -215,6 +215,7 @@
       userWaitingLocal=false;
       missionStandbyUiActive=false;
       setOverlayVisible(confirmOverlayEl, false);
+      if(!sendPrecountReset) updateDesktopNavAbortButton();
       if(sendPrecountReset){
         sendCommand({http:"/precount?uw=0&cd=0", ser:"PRECOUNT 0 0"}, false);
       }
