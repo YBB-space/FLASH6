@@ -22835,19 +22835,66 @@ function requestMobileMockup3dMesh(){
         "Launch detection fault":"발사 감지 비정상",
         "T+ started":"T+ 시작",
         "Stage separation fault":"단분리 작동 실패",
+        "Forced separation":"강제 단분리",
+        "Coasting backup":"코스팅 백업 단분리",
         "Stage-1 ejection":"1단 사출",
         "Stage-1 ejection fault":"1단 사출 실패",
         "Stage-2 ignition":"2단 점화",
         "Stage-2 ejection":"2단 사출",
         "Stage-2 ejection fault":"2단 사출 실패",
+        "Stage-2 separation":"2단 분리 감지",
+        "Forced timed mission":"미션 강제 구동",
+        "Mission standby":"미션 대기",
         "Interstage link lost":"단간 통신 단절"
       };
+      let localizedTitle = titles[title] || "";
+      // Firmware alarm fields are fixed-size and a long title may arrive
+      // truncated. Match that known prefix instead of exposing it in English.
+      if(!localizedTitle && /^Stage-2 separation con/i.test(title)){
+        localizedTitle = "2단 분리 확인";
+      }
       let localizedMessage = message;
       const delayMatch = message.match(/^ARM released\. Ignition delay (\d+) ms\.$/i);
       if(delayMatch){
         localizedMessage = "ARM 분리 감지 · 점화 지연 " + delayMatch[1] + "ms";
+      }else if(/^ARM input is unstable during flight\./i.test(message)){
+        localizedMessage = "비행 중 ARM 접점 불안정 감지 · 복구 시퀀스는 계속 실행됩니다.";
+      }else if(/^ARM input is unstable\./i.test(message)){
+        localizedMessage = "ARM 입력 불안정 감지 · 커넥터·센서·배선을 점검하세요.";
+      }else if(/^Stage-1 physical ARM released/i.test(message)){
+        localizedMessage = "1단 물리 ARM 해제 감지 · 미션 제어권을 획득했습니다.";
+      }else if(/^Stage-1 T\+ event received\./i.test(message)){
+        localizedMessage = "1단 T+ 이벤트를 수신했습니다.";
+      }else if(/^Stage-1 separation event recovered/i.test(message)){
+        localizedMessage = "1단 분리 이벤트로 누락된 T+를 복구했습니다.";
+      }else if(/^Stage link lost; local powered-flight fallback/i.test(message)){
+        localizedMessage = "단간 통신 단절 · 로컬 추력 비행 감지로 T+를 설정했습니다.";
+      }else if(/^Virtual T\+ started\. No pyro output/i.test(message)){
+        localizedMessage = "가상 T+ 시작 · 파이로 출력 없이 서보 시퀀스를 실행합니다.";
+      }else if(/^Mission standby rejected\. Physical ARM is released/i.test(message)){
+        localizedMessage = "물리 ARM 해제 상태로 미션 대기가 거부되었습니다 · 안전 모드를 적용했습니다.";
+      }else if(/^Ignition ended without stage-1 ARM release/i.test(message)){
+        localizedMessage = "점화 종료 후에도 1단 ARM 해제가 감지되지 않았습니다 · 발사체에 접근하지 마세요.";
       }else{
         const messages = {
+          "Stage-1 ARM released.":"1단 ARM 해제를 감지했습니다.",
+          "SERVO CH1 80 degree command failed.":"서보 CH1 80° 명령이 실패했습니다.",
+          "Backup time reached. SERVO CH1 set to 80 degrees.":"백업 시간 도달 · 서보 CH1을 80°로 작동했습니다.",
+          "No coasting by configured backup time. Separation executed.":"설정된 백업 시간까지 코스팅 미감지 · 단분리를 실행했습니다.",
+          "SERVO CH1 set to 80 degrees.":"서보 CH1을 80°로 작동했습니다.",
+          "SERVO CH2 set to 80 degrees.":"서보 CH2를 80°로 작동했습니다.",
+          "SERVO CH2 command failed.":"서보 CH2 명령이 실패했습니다.",
+          "PYRO CH1 ignition output started.":"파이로 CH1 점화 출력을 시작했습니다.",
+          "SERVO CH1 set to 0 degrees.":"서보 CH1을 0°로 작동했습니다.",
+          "SERVO CH1 command failed.":"서보 CH1 명령이 실패했습니다.",
+          "Virtual T+ started. No pyro output; CH1/CH2 servo schedule is active.":"가상 T+ 시작 · 파이로 출력 없이 서보 시퀀스를 실행합니다.",
+          "Mission standby rejected. Physical ARM is released; safety mode enabled.":"물리 ARM 해제 상태로 미션 대기가 거부되었습니다 · 안전 모드를 적용했습니다.",
+          "Waiting for stable stage-1 physical ARM release.":"안정적인 1단 물리 ARM 해제를 기다리는 중입니다.",
+          "Remote ARM release received.":"원격 ARM 해제 신호를 수신했습니다.",
+          "Local ARM release confirmed.":"로컬 ARM 해제를 확인했습니다.",
+          "Ignition ended without stage-1 ARM release. Keep clear of the vehicle.":"점화 종료 후에도 1단 ARM 해제가 감지되지 않았습니다 · 발사체에 접근하지 마세요.",
+          "Remote telemetry confirms physical ARM release.":"원격 텔레메트리에서 물리 ARM 해제를 확인했습니다.",
+          "Stage-1 ejection fallback uses separation time.":"단간 통신 단절 · 단분리 시각 기준으로 1단 사출 백업을 실행합니다.",
           "CH1 command failed. CH2 remains scheduled.":"서보 1 작동 실패 · 서보 2는 예정대로 실행합니다.",
           "No coasting by T+2.0s. Backup deploy started.":"T+2.0초까지 코스팅 미감지 · 백업 단분리를 실행했습니다.",
           "Early-coast hold complete. CH1 set to 85 deg.":"조기 코스팅 대기 완료 · 서보 1을 85도로 작동했습니다.",
@@ -22860,7 +22907,7 @@ function requestMobileMockup3dMesh(){
         localizedMessage = messages[message] || message;
       }
       return {
-        title:titles[title] || title || "미션 알람",
+        title:localizedTitle || title || "미션 알람",
         message:localizedMessage || "미션 알람"
       };
     }

@@ -16,6 +16,9 @@ Protocol: `Flash6-Intelligent-b7` (unchanged; ESP-NOW wire version `7`)
 - Updated the FLASH6 warning copy so idle faults no longer claim they occurred
   during standby, while an in-flight fault clearly states that recovery logic
   remains active.
+- Localized the built-in firmware mission-alarm titles and messages in FLASH6,
+  including fixed-buffer truncation handling, so hardware alarms no longer
+  expose English wire text in the Korean operator UI.
 
 ## 0.9.0 — v6 b30 — 2026-07-22
 
