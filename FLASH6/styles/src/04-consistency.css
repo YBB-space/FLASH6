@@ -1572,16 +1572,16 @@ html.replay-ui-active body .side-nav-mobile .js-controls-open{
 
   html.replay-ui-active body.camera-view-active #controlsCard.replay-mode .replay-panel{
     height:100% !important;
-    padding:5px 50px 5px 22px !important;
+    padding:5px 50px !important;
     display:flex !important;
     align-items:center !important;
     justify-content:center !important;
   }
 
   html.replay-ui-active body.camera-view-active #controlsCard.replay-mode .replay-layout-row{
-    width:min(1540px,calc(100vw - 132px)) !important;
+    width:min(1440px,calc(100vw - 160px)) !important;
     margin:0 auto !important;
-    grid-template-columns:minmax(180px,260px) minmax(420px,1fr) !important;
+    grid-template-columns:minmax(170px,230px) minmax(420px,1fr) !important;
     gap:22px !important;
   }
 

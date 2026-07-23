@@ -3,6 +3,15 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 replay dock spacing b69 — 2026-07-24
+
+Firmware build: `v6 b33` (unchanged)
+Protocol: `Flash6-Intelligent-b7` (unchanged)
+
+- Equalized the desktop replay dock's left and right content padding.
+- Reduced the transport content and replay file selector widths for a tighter,
+  visually centered layout.
+
 ## FLASH6 replay HUD clipping fix b68 — 2026-07-24
 
 Firmware build: `v6 b33` (unchanged)
