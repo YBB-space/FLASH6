@@ -3,6 +3,16 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 replay view interaction b62 — 2026-07-24
+
+Firmware build: `v6 b33` (unchanged)
+Protocol: `Flash6-Intelligent-b7` (unchanged)
+
+- Prevented clicks outside the bottom playback dock from closing replay mode.
+- Gyro-preview camera interaction and other dashboard pointer controls now
+  remain usable while replay playback is active.
+- Replay exit remains available through the dedicated close control.
+
 ## FLASH6 replay tools panel b61 — 2026-07-24
 
 Firmware build: `v6 b33` (unchanged)

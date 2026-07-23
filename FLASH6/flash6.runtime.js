@@ -36560,6 +36560,7 @@ function requestMobileMockup3dMesh(){
           return;
         }
         if(isDesktopControlDrawerOpen()){
+          if(replayUiActive) return;
           const navButton = document.getElementById("desktopControlPanelNavBtn");
           if(el.controlsCard && el.controlsCard.contains(ev.target)) return;
           if(navButton && navButton.contains(ev.target)) return;
