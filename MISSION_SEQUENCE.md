@@ -1,6 +1,6 @@
 # FLASH6 Built-in Mission Sequence
 
-Firmware `0.9.3` / build `v6 b33` / protocol `Flash6-Intelligent-b7`
+Firmware `0.9.4` / build `v6 b34` / protocol `Flash6-Intelligent-b8`
 
 ## Sequence authority
 
@@ -23,9 +23,11 @@ and the same stage-1 ARM release rule starts T+.
 
 1. Enter standby only while physical ARM is ON and safety/inspection permits.
 2. Stable ARM ON-to-OFF establishes T+ and is repeated to stage 2.
-3. Filtered coasting or the configured T+ backup commands SERVO CH1 to 80°.
+3. Filtered coasting or the configured T+ backup commands SERVO CH1 to the
+   configured stage-1 separation angle (default 80°).
 4. With a healthy interstage link, wait for stable stage-2 ARM release, then
-   wait the configured stage-1 ejection delay and command SERVO CH2 to 80°.
+   wait the configured stage-1 ejection delay and command SERVO CH2 to the
+   configured stage-1 ejection angle (default 80°).
 5. If the interstage link is continuously stale for the configured timeout,
    latch fallback and command SERVO CH2 after the same delay measured from
    stage-1 separation. Link recovery does not undo the latched fallback.
@@ -39,7 +41,8 @@ and the same stage-1 ARM release rule starts T+.
    has departed and stage-2 separation is confirmed.
 4. When both stage-1 separation and this stable local Hall separation are
    present, start PYRO CH1 immediately for the configured ignition duration.
-5. After the configured stage-2 ejection delay, command SERVO CH1 to 0°.
+5. After the configured stage-2 ejection delay, command SERVO CH1 to the
+   configured stage-2 ejection angle (default 0°).
 6. If the stage-1 link is lost, sustained powered-flight acceleration provides
    a local T+ backup. In that fallback only, stable local ARM release replaces
    the missing remote separation event and authorizes ignition.
@@ -60,10 +63,13 @@ and the same stage-1 ARM release rule starts T+.
   second; both boards shut down local outputs without echoing an event loop.
 - The built-in mission remains locked against UI block-code replacement.
 
-## Persistent timing settings
+## Persistent mission settings
 
 - Stage-1 separation backup: 500–15000 ms, default 2000 ms
 - Stage-1 ejection delay: 100–10000 ms, default 1000 ms
 - Stage-2 ejection delay: 500–30000 ms, default 5000 ms
 - Launch-detection grace: 1000–30000 ms, default 5000 ms
 - Interstage link-loss threshold: 200–5000 ms, default 500 ms
+- Stage-1 separation angle: 0–180°, default 80°
+- Stage-1 ejection angle: 0–180°, default 80°
+- Stage-2 ejection angle: 0–180°, default 0°

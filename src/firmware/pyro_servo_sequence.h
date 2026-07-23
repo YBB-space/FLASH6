@@ -186,6 +186,15 @@ void saveSequenceSettings() {
   if (settingsPrefs.getUInt("m_link", 0U) != missionInterstageLinkLossMs) {
     settingsPrefs.putUInt("m_link", missionInterstageLinkLossMs);
   }
+  if (settingsPrefs.getUChar("m_s1_sep_deg", 0xFFU) != missionStage1SeparationAngleDeg) {
+    settingsPrefs.putUChar("m_s1_sep_deg", missionStage1SeparationAngleDeg);
+  }
+  if (settingsPrefs.getUChar("m_s1_ej_deg", 0xFFU) != missionStage1EjectionAngleDeg) {
+    settingsPrefs.putUChar("m_s1_ej_deg", missionStage1EjectionAngleDeg);
+  }
+  if (settingsPrefs.getUChar("m_s2_ej_deg", 0xFFU) != missionStage2EjectionAngleDeg) {
+    settingsPrefs.putUChar("m_s2_ej_deg", missionStage2EjectionAngleDeg);
+  }
   if (settingsPrefs.getUChar("daq_pyro", 0U) != daqSequencePyroChannel) {
     settingsPrefs.putUChar("daq_pyro", daqSequencePyroChannel);
   }
@@ -233,6 +242,12 @@ void loadSequenceSettings() {
     (long)settingsPrefs.getUInt("m_launch", 5000U), 1000, 30000, 5000U);
   missionInterstageLinkLossMs = clampU32(
     (long)settingsPrefs.getUInt("m_link", 500U), 200, 5000, 500U);
+  missionStage1SeparationAngleDeg = clampServoAngle(
+    (long)settingsPrefs.getUChar("m_s1_sep_deg", 80U));
+  missionStage1EjectionAngleDeg = clampServoAngle(
+    (long)settingsPrefs.getUChar("m_s1_ej_deg", 80U));
+  missionStage2EjectionAngleDeg = clampServoAngle(
+    (long)settingsPrefs.getUChar("m_s2_ej_deg", 0U));
   daqSequencePyroChannel = clampPyroChannel((long)settingsPrefs.getUChar("daq_pyro", 1));
   flashLinkRole = settingsPrefs.getUChar("fl_role", 0) == 1U
     ? FlashLinkRole::Ground
@@ -310,6 +325,21 @@ void setMissionLaunchDetectionGraceMs(long ms) {
 
 void setMissionInterstageLinkLossMs(long ms) {
   missionInterstageLinkLossMs = clampU32(ms, 200, 5000, 500U);
+  saveSequenceSettings();
+}
+
+void setMissionStage1SeparationAngleDeg(long degrees) {
+  missionStage1SeparationAngleDeg = clampServoAngle(degrees);
+  saveSequenceSettings();
+}
+
+void setMissionStage1EjectionAngleDeg(long degrees) {
+  missionStage1EjectionAngleDeg = clampServoAngle(degrees);
+  saveSequenceSettings();
+}
+
+void setMissionStage2EjectionAngleDeg(long degrees) {
+  missionStage2EjectionAngleDeg = clampServoAngle(degrees);
   saveSequenceSettings();
 }
 

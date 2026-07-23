@@ -587,7 +587,10 @@
             ["missionStage1EjectionDelayMs", "mission_s1_eject_delay_ms", 100, 10000],
             ["missionStage2EjectionDelayMs", "mission_s2_eject_delay_ms", 500, 30000],
             ["missionLaunchGraceMs", "mission_launch_grace_ms", 1000, 30000],
-            ["missionLinkLossMs", "mission_link_loss_ms", 200, 5000]
+            ["missionLinkLossMs", "mission_link_loss_ms", 200, 5000],
+            ["missionStage1SeparationAngleDeg", "mission_s1_sep_angle_deg", 0, 180],
+            ["missionStage1EjectionAngleDeg", "mission_s1_eject_angle_deg", 0, 180],
+            ["missionStage2EjectionAngleDeg", "mission_s2_eject_angle_deg", 0, 180]
           ];
           let changed = false;
           fields.forEach(([key, wire, min, max])=>{

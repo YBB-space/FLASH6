@@ -3,6 +3,19 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.9.4 — v6 b34 — 2026-07-24
+
+Protocol: `Flash6-Intelligent-b8` (ESP-NOW wire version `8`)
+
+- Added persistent sequence settings for the stage-1 separation, stage-1
+  ejection, and stage-2 ejection servo target angles.
+- Routed configured angles through USB serial, Wi-Fi, A.I LINK telemetry,
+  remote commands, and interstage standby synchronization.
+- Replaced the mission runtime's fixed `80° / 80° / 0°` targets with the
+  configured `0–180°` values and exposed them in FLASH6 sequence settings.
+- Corrected the sequence settings input clamp so timer values are no longer
+  interpreted as scaled numbers when they are saved.
+
 ## FLASH6 replay dock alignment b70 — 2026-07-24
 
 Firmware build: `v6 b33` (unchanged)

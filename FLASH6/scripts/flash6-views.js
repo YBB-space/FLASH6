@@ -1530,7 +1530,7 @@
       const infoRows = [
         {cells:["ALTIS INTELLIGENT LINK1 COMMUNICATION REPORT"], style:2},
         {cells:["Generated at", now.toISOString()], style:3},
-        {cells:["Protocol", "Flash6-Intelligent-b6 / ALTIS INTELLIGENT LINK1 ESP-NOW LR"], style:3},
+        {cells:["Protocol", "Flash6-Intelligent-b8 / ALTIS INTELLIGENT LINK1 ESP-NOW LR"], style:3},
         {cells:["Board role", roleLabel], style:3},
         {cells:["Peer", peer || "--"], style:3},
         {cells:["Target rate", stats.targetHz + " Hz"], style:3},
@@ -6571,11 +6571,13 @@
       const forceS2Ms = forceS1Ms + Math.max(0, Number(uiSettings.missionStage1EjectionDelayMs) || 0);
       if(el.missionForceS1Time) el.missionForceS1Time.textContent = "T+" + (forceS1Ms / 1000).toFixed(1);
       if(el.missionForceS2Time) el.missionForceS2Time.textContent = "T+" + (forceS2Ms / 1000).toFixed(1);
+      if(el.missionForceS1Action) el.missionForceS1Action.textContent = "CH1 서보 " + uiSettings.missionStage1SeparationAngleDeg + "°";
+      if(el.missionForceS2Action) el.missionForceS2Action.textContent = "CH2 서보 " + uiSettings.missionStage1EjectionAngleDeg + "° · 파인딩 버저";
       if(el.missionReviewS1Separation){
-        el.missionReviewS1Separation.textContent = "T+" + sec(uiSettings.missionStage1SeparationBackupMs) + " 백업";
+        el.missionReviewS1Separation.textContent = "T+" + sec(uiSettings.missionStage1SeparationBackupMs) + " · " + uiSettings.missionStage1SeparationAngleDeg + "°";
       }
       if(el.missionReviewS1Ejection){
-        el.missionReviewS1Ejection.textContent = "2단 ARM +" + sec(uiSettings.missionStage1EjectionDelayMs);
+        el.missionReviewS1Ejection.textContent = "2단 ARM +" + sec(uiSettings.missionStage1EjectionDelayMs) + " · " + uiSettings.missionStage1EjectionAngleDeg + "°";
       }
       if(el.missionReviewLinkFallback){
         el.missionReviewLinkFallback.textContent = "단분리 +" + sec(uiSettings.missionStage1EjectionDelayMs);
@@ -6587,7 +6589,7 @@
         el.missionReviewLaunchGrace.textContent = "점화 종료 +" + sec(uiSettings.missionLaunchGraceMs);
       }
       if(el.missionReviewS2Ejection){
-        el.missionReviewS2Ejection.textContent = "점화 +" + sec(uiSettings.missionStage2EjectionDelayMs);
+        el.missionReviewS2Ejection.textContent = "점화 +" + sec(uiSettings.missionStage2EjectionDelayMs) + " · " + uiSettings.missionStage2EjectionAngleDeg + "°";
       }
     }
 
@@ -6605,7 +6607,10 @@
           ["missionStage1EjectionDelayMs", data.mission_s1_eject_delay_ms, 100, 10000],
           ["missionStage2EjectionDelayMs", data.mission_s2_eject_delay_ms, 500, 30000],
           ["missionLaunchGraceMs", data.mission_launch_grace_ms, 1000, 30000],
-          ["missionLinkLossMs", data.mission_link_loss_ms, 200, 5000]
+          ["missionLinkLossMs", data.mission_link_loss_ms, 200, 5000],
+          ["missionStage1SeparationAngleDeg", data.mission_s1_sep_angle_deg, 0, 180],
+          ["missionStage1EjectionAngleDeg", data.mission_s1_eject_angle_deg, 0, 180],
+          ["missionStage2EjectionAngleDeg", data.mission_s2_eject_angle_deg, 0, 180]
         ];
         let complete = true;
         fields.forEach(([key, raw, min, max])=>{

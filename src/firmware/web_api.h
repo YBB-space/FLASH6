@@ -156,6 +156,15 @@ size_t buildTelemetryJson(char* json, size_t jsonLen, bool full) {
   const uint32_t outputMissionLinkLossMs = outputRemoteSettings
     ? flashLinkRemoteState.missionInterstageLinkLossMs
     : missionInterstageLinkLossMs;
+  const uint8_t outputMissionStage1SeparationAngleDeg = outputRemoteSettings
+    ? flashLinkRemoteState.missionStage1SeparationAngleDeg
+    : missionStage1SeparationAngleDeg;
+  const uint8_t outputMissionStage1EjectionAngleDeg = outputRemoteSettings
+    ? flashLinkRemoteState.missionStage1EjectionAngleDeg
+    : missionStage1EjectionAngleDeg;
+  const uint8_t outputMissionStage2EjectionAngleDeg = outputRemoteSettings
+    ? flashLinkRemoteState.missionStage2EjectionAngleDeg
+    : missionStage2EjectionAngleDeg;
   char alarmTitle[52];
   char alarmMessage[132];
   formatJsonEscaped(outputAlarm.title, alarmTitle, sizeof(alarmTitle));
@@ -174,7 +183,7 @@ size_t buildTelemetryJson(char* json, size_t jsonLen, bool full) {
     stage2Peer.peerReady && stage2Peer.linked &&
     stage2Peer.remoteValid && stage2Peer.lastTelemetryRxMs != 0U &&
     (uint32_t)(nowMs - stage2Peer.lastTelemetryRxMs) <= kFlashLinkTelemetryStaleMs;
-  char fullFields[960] = {};
+  char fullFields[1120] = {};
   if (full) {
     const bool outputImuReady = remoteOutput ? output.sampleValid : imuReady;
     const bool outputBaroReady = remoteOutput ? output.baroValid : baroReady;
@@ -192,6 +201,9 @@ size_t buildTelemetryJson(char* json, size_t jsonLen, bool full) {
       "\"mission_s2_eject_delay_ms\":%lu,"
       "\"mission_launch_grace_ms\":%lu,"
       "\"mission_link_loss_ms\":%lu,"
+      "\"mission_s1_sep_angle_deg\":%u,"
+      "\"mission_s1_eject_angle_deg\":%u,"
+      "\"mission_s2_eject_angle_deg\":%u,"
       "\"sample_hz\":%lu,\"serial_hz\":%lu,\"wifi_hz\":%lu,"
       "\"flash_link_hz\":%lu,"
       "\"record_hz\":%lu,\"baro_hz\":%lu,\"gps_hz\":%lu,\"loadcell_hz\":%u,"
@@ -211,6 +223,9 @@ size_t buildTelemetryJson(char* json, size_t jsonLen, bool full) {
       (unsigned long)outputMissionStage2EjectionMs,
       (unsigned long)outputMissionLaunchGraceMs,
       (unsigned long)outputMissionLinkLossMs,
+      (unsigned)outputMissionStage1SeparationAngleDeg,
+      (unsigned)outputMissionStage1EjectionAngleDeg,
+      (unsigned)outputMissionStage2EjectionAngleDeg,
       (unsigned long)kImuSampleHz,
       (unsigned long)kSerialStreamHz,
       (unsigned long)activeWifiStreamHz(),
@@ -1847,6 +1862,12 @@ void setupRoutes() {
        setMissionLaunchDetectionGraceMs},
       {"mission_link_loss_ms", FlashLinkCommandCode::SetInterstageLinkLossMs,
        setMissionInterstageLinkLossMs},
+      {"mission_s1_sep_angle_deg", FlashLinkCommandCode::SetStage1SeparationAngleDeg,
+       setMissionStage1SeparationAngleDeg},
+      {"mission_s1_eject_angle_deg", FlashLinkCommandCode::SetStage1EjectionAngleDeg,
+       setMissionStage1EjectionAngleDeg},
+      {"mission_s2_eject_angle_deg", FlashLinkCommandCode::SetStage2EjectionAngleDeg,
+       setMissionStage2EjectionAngleDeg},
     };
     for (const MissionSettingParam& setting : missionSettingParams) {
       if (!request->hasParam(setting.key)) continue;

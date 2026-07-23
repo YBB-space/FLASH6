@@ -352,7 +352,16 @@ void handleSerialLine(const char* line) {
     const uint32_t outputLinkLossMs = remoteSettings
       ? flashLinkRemoteState.missionInterstageLinkLossMs
       : missionInterstageLinkLossMs;
-    Serial.printf("ACK SETTINGS ign_ms=%lu cd_ms=%lu daq_seq_pyro=%u mission_s1_sep_backup_ms=%lu mission_s1_eject_delay_ms=%lu mission_s2_eject_delay_ms=%lu mission_launch_grace_ms=%lu mission_link_loss_ms=%lu safe=%u arm_lock=%u inspection=%u mute=%u flash_link_role=%s flash_link_node_id=%u flash_link_target_node_id=%u flash_link_stage2_mode=%u flash_link_hz=%lu mission_locked=%u mission_source=%s\n",
+    const uint8_t outputStage1SeparationAngleDeg = remoteSettings
+      ? flashLinkRemoteState.missionStage1SeparationAngleDeg
+      : missionStage1SeparationAngleDeg;
+    const uint8_t outputStage1EjectionAngleDeg = remoteSettings
+      ? flashLinkRemoteState.missionStage1EjectionAngleDeg
+      : missionStage1EjectionAngleDeg;
+    const uint8_t outputStage2EjectionAngleDeg = remoteSettings
+      ? flashLinkRemoteState.missionStage2EjectionAngleDeg
+      : missionStage2EjectionAngleDeg;
+    Serial.printf("ACK SETTINGS ign_ms=%lu cd_ms=%lu daq_seq_pyro=%u mission_s1_sep_backup_ms=%lu mission_s1_eject_delay_ms=%lu mission_s2_eject_delay_ms=%lu mission_launch_grace_ms=%lu mission_link_loss_ms=%lu mission_s1_sep_angle_deg=%u mission_s1_eject_angle_deg=%u mission_s2_eject_angle_deg=%u safe=%u arm_lock=%u inspection=%u mute=%u flash_link_role=%s flash_link_node_id=%u flash_link_target_node_id=%u flash_link_stage2_mode=%u flash_link_hz=%lu mission_locked=%u mission_source=%s\n",
                   (unsigned long)ignitionDurationMs,
                   (unsigned long)countdownDurationMs,
                   (unsigned)daqSequencePyroChannel,
@@ -361,6 +370,9 @@ void handleSerialLine(const char* line) {
                   (unsigned long)outputStage2EjectionMs,
                   (unsigned long)outputLaunchGraceMs,
                   (unsigned long)outputLinkLossMs,
+                  (unsigned)outputStage1SeparationAngleDeg,
+                  (unsigned)outputStage1EjectionAngleDeg,
+                  (unsigned)outputStage2EjectionAngleDeg,
                   safetyMode ? 1U : 0U,
                   armLock ? 1U : 0U,
                   inspectionPassed ? 1U : 0U,
@@ -702,7 +714,10 @@ void handleSerialLine(const char* line) {
                  key == "mission_s1_eject_delay_ms" ||
                  key == "mission_s2_eject_delay_ms" ||
                  key == "mission_launch_grace_ms" ||
-                 key == "mission_link_loss_ms") {
+                 key == "mission_link_loss_ms" ||
+                 key == "mission_s1_sep_angle_deg" ||
+                 key == "mission_s1_eject_angle_deg" ||
+                 key == "mission_s2_eject_angle_deg") {
           long parsed = 0;
           if (!parseLongStrict(val, parsed)) {
             Serial.println("ERR SET BAD_MISSION_SETTING");
@@ -722,6 +737,15 @@ void handleSerialLine(const char* line) {
           } else if (key == "mission_link_loss_ms") {
             code = FlashLinkCommandCode::SetInterstageLinkLossMs;
             setter = setMissionInterstageLinkLossMs;
+          } else if (key == "mission_s1_sep_angle_deg") {
+            code = FlashLinkCommandCode::SetStage1SeparationAngleDeg;
+            setter = setMissionStage1SeparationAngleDeg;
+          } else if (key == "mission_s1_eject_angle_deg") {
+            code = FlashLinkCommandCode::SetStage1EjectionAngleDeg;
+            setter = setMissionStage1EjectionAngleDeg;
+          } else if (key == "mission_s2_eject_angle_deg") {
+            code = FlashLinkCommandCode::SetStage2EjectionAngleDeg;
+            setter = setMissionStage2EjectionAngleDeg;
           }
           if (forwardRemote) queueRemote(code, parsed);
           else setter(parsed);

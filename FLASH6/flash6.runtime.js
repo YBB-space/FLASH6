@@ -6658,6 +6658,9 @@ function requestMobileMockup3dMesh(){
         missionStage2EjectionDelayMs:5000,
         missionLaunchGraceMs:5000,
         missionLinkLossMs:500,
+        missionStage1SeparationAngleDeg:80,
+        missionStage1EjectionAngleDeg:80,
+        missionStage2EjectionAngleDeg:0,
         opMode:"daq",
         flashLinkRole:"avionics",
         flashLinkNodeId:1,
@@ -6709,6 +6712,14 @@ function requestMobileMockup3dMesh(){
         uiSettings.missionStage2EjectionDelayMs = Math.max(500, Math.min(30000, Math.round(Number(uiSettings.missionStage2EjectionDelayMs) || 5000)));
         uiSettings.missionLaunchGraceMs = Math.max(1000, Math.min(30000, Math.round(Number(uiSettings.missionLaunchGraceMs) || 5000)));
         uiSettings.missionLinkLossMs = Math.max(200, Math.min(5000, Math.round(Number(uiSettings.missionLinkLossMs) || 500)));
+        {
+          const stage1SeparationAngle = Number(uiSettings.missionStage1SeparationAngleDeg);
+          const stage1EjectionAngle = Number(uiSettings.missionStage1EjectionAngleDeg);
+          const stage2Angle = Number(uiSettings.missionStage2EjectionAngleDeg);
+          uiSettings.missionStage1SeparationAngleDeg = Math.max(0, Math.min(180, Math.round(isFinite(stage1SeparationAngle) ? stage1SeparationAngle : 80)));
+          uiSettings.missionStage1EjectionAngleDeg = Math.max(0, Math.min(180, Math.round(isFinite(stage1EjectionAngle) ? stage1EjectionAngle : 80)));
+          uiSettings.missionStage2EjectionAngleDeg = Math.max(0, Math.min(180, Math.round(isFinite(stage2Angle) ? stage2Angle : 0)));
+        }
         uiSettings.quickDataDigits = normalizeDecimalDigits(uiSettings.quickDataDigits, 1);
         uiSettings.loadcellChartDigits = normalizeDecimalDigits(uiSettings.loadcellChartDigits, 3);
         uiSettings.storageExportDigits = normalizeDecimalDigits(uiSettings.storageExportDigits, 3);
@@ -8237,6 +8248,9 @@ function requestMobileMockup3dMesh(){
       if(el.missionS2EjectionMs) el.missionS2EjectionMs.value = uiSettings.missionStage2EjectionDelayMs;
       if(el.missionLaunchGraceMs) el.missionLaunchGraceMs.value = uiSettings.missionLaunchGraceMs;
       if(el.missionLinkLossMs) el.missionLinkLossMs.value = uiSettings.missionLinkLossMs;
+      if(el.missionS1SeparationAngleDeg) el.missionS1SeparationAngleDeg.value = uiSettings.missionStage1SeparationAngleDeg;
+      if(el.missionS1EjectionAngleDeg) el.missionS1EjectionAngleDeg.value = uiSettings.missionStage1EjectionAngleDeg;
+      if(el.missionS2EjectionAngleDeg) el.missionS2EjectionAngleDeg.value = uiSettings.missionStage2EjectionAngleDeg;
       if(el.opModeSelect) el.opModeSelect.value = uiSettings.opMode || "daq";
       const flashLinkEnabled = getSettingsOperationModeValue() === "flash_link";
       if(el.opModeSelect){
@@ -12018,7 +12032,7 @@ function requestMobileMockup3dMesh(){
       const infoRows = [
         {cells:["ALTIS INTELLIGENT LINK1 COMMUNICATION REPORT"], style:2},
         {cells:["Generated at", now.toISOString()], style:3},
-        {cells:["Protocol", "Flash6-Intelligent-b6 / ALTIS INTELLIGENT LINK1 ESP-NOW LR"], style:3},
+        {cells:["Protocol", "Flash6-Intelligent-b8 / ALTIS INTELLIGENT LINK1 ESP-NOW LR"], style:3},
         {cells:["Board role", roleLabel], style:3},
         {cells:["Peer", peer || "--"], style:3},
         {cells:["Target rate", stats.targetHz + " Hz"], style:3},
@@ -17059,11 +17073,13 @@ function requestMobileMockup3dMesh(){
       const forceS2Ms = forceS1Ms + Math.max(0, Number(uiSettings.missionStage1EjectionDelayMs) || 0);
       if(el.missionForceS1Time) el.missionForceS1Time.textContent = "T+" + (forceS1Ms / 1000).toFixed(1);
       if(el.missionForceS2Time) el.missionForceS2Time.textContent = "T+" + (forceS2Ms / 1000).toFixed(1);
+      if(el.missionForceS1Action) el.missionForceS1Action.textContent = "CH1 서보 " + uiSettings.missionStage1SeparationAngleDeg + "°";
+      if(el.missionForceS2Action) el.missionForceS2Action.textContent = "CH2 서보 " + uiSettings.missionStage1EjectionAngleDeg + "° · 파인딩 버저";
       if(el.missionReviewS1Separation){
-        el.missionReviewS1Separation.textContent = "T+" + sec(uiSettings.missionStage1SeparationBackupMs) + " 백업";
+        el.missionReviewS1Separation.textContent = "T+" + sec(uiSettings.missionStage1SeparationBackupMs) + " · " + uiSettings.missionStage1SeparationAngleDeg + "°";
       }
       if(el.missionReviewS1Ejection){
-        el.missionReviewS1Ejection.textContent = "2단 ARM +" + sec(uiSettings.missionStage1EjectionDelayMs);
+        el.missionReviewS1Ejection.textContent = "2단 ARM +" + sec(uiSettings.missionStage1EjectionDelayMs) + " · " + uiSettings.missionStage1EjectionAngleDeg + "°";
       }
       if(el.missionReviewLinkFallback){
         el.missionReviewLinkFallback.textContent = "단분리 +" + sec(uiSettings.missionStage1EjectionDelayMs);
@@ -17075,7 +17091,7 @@ function requestMobileMockup3dMesh(){
         el.missionReviewLaunchGrace.textContent = "점화 종료 +" + sec(uiSettings.missionLaunchGraceMs);
       }
       if(el.missionReviewS2Ejection){
-        el.missionReviewS2Ejection.textContent = "점화 +" + sec(uiSettings.missionStage2EjectionDelayMs);
+        el.missionReviewS2Ejection.textContent = "점화 +" + sec(uiSettings.missionStage2EjectionDelayMs) + " · " + uiSettings.missionStage2EjectionAngleDeg + "°";
       }
     }
 
@@ -17093,7 +17109,10 @@ function requestMobileMockup3dMesh(){
           ["missionStage1EjectionDelayMs", data.mission_s1_eject_delay_ms, 100, 10000],
           ["missionStage2EjectionDelayMs", data.mission_s2_eject_delay_ms, 500, 30000],
           ["missionLaunchGraceMs", data.mission_launch_grace_ms, 1000, 30000],
-          ["missionLinkLossMs", data.mission_link_loss_ms, 200, 5000]
+          ["missionLinkLossMs", data.mission_link_loss_ms, 200, 5000],
+          ["missionStage1SeparationAngleDeg", data.mission_s1_sep_angle_deg, 0, 180],
+          ["missionStage1EjectionAngleDeg", data.mission_s1_eject_angle_deg, 0, 180],
+          ["missionStage2EjectionAngleDeg", data.mission_s2_eject_angle_deg, 0, 180]
         ];
         let complete = true;
         fields.forEach(([key, raw, min, max])=>{
@@ -21919,8 +21938,8 @@ function requestMobileMockup3dMesh(){
         fl_rssi_age_ms:(frame[56] != null && isFinite(Number(frame[56]))) ? Number(frame[56]) : 4294967295,
         fw_program:"Altis_Intelligent3_firmware1",
         fw_board:"Altis_Intelligent3_b3",
-        fw_protocol:"Flash6-Intelligent-b6",
-        fw_build:"v6 b29"
+        fw_protocol:"Flash6-Intelligent-b8",
+        fw_build:"v6 b34"
       };
     }
 
@@ -22513,7 +22532,10 @@ function requestMobileMockup3dMesh(){
             ["missionStage1EjectionDelayMs", "mission_s1_eject_delay_ms", 100, 10000],
             ["missionStage2EjectionDelayMs", "mission_s2_eject_delay_ms", 500, 30000],
             ["missionLaunchGraceMs", "mission_launch_grace_ms", 1000, 30000],
-            ["missionLinkLossMs", "mission_link_loss_ms", 200, 5000]
+            ["missionLinkLossMs", "mission_link_loss_ms", 200, 5000],
+            ["missionStage1SeparationAngleDeg", "mission_s1_sep_angle_deg", 0, 180],
+            ["missionStage1EjectionAngleDeg", "mission_s1_eject_angle_deg", 0, 180],
+            ["missionStage2EjectionAngleDeg", "mission_s2_eject_angle_deg", 0, 180]
           ];
           let changed = false;
           fields.forEach(([key, wire, min, max])=>{
@@ -23131,10 +23153,14 @@ function requestMobileMockup3dMesh(){
         const messages = {
           "Stage-1 ARM released.":"1단 ARM 해제를 감지했습니다.",
           "SERVO CH1 80 degree command failed.":"서보 CH1 80° 명령이 실패했습니다.",
+          "SERVO CH1 command failed.":"서보 CH1 명령이 실패했습니다.",
           "Backup time reached. SERVO CH1 set to 80 degrees.":"백업 시간 도달 · 서보 CH1을 80°로 작동했습니다.",
+          "Backup time reached. SERVO CH1 moved to configured angle.":"백업 시간 도달 · 서보 CH1을 설정 각도로 작동했습니다.",
           "No coasting by configured backup time. Separation executed.":"설정된 백업 시간까지 코스팅 미감지 · 단분리를 실행했습니다.",
           "SERVO CH1 set to 80 degrees.":"서보 CH1을 80°로 작동했습니다.",
+          "SERVO CH1 moved to configured angle.":"서보 CH1을 설정 각도로 작동했습니다.",
           "SERVO CH2 set to 80 degrees.":"서보 CH2를 80°로 작동했습니다.",
+          "SERVO CH2 moved to configured angle.":"서보 CH2를 설정 각도로 작동했습니다.",
           "SERVO CH2 command failed.":"서보 CH2 명령이 실패했습니다.",
           "PYRO CH1 ignition output started.":"파이로 CH1 점화 출력을 시작했습니다.",
           "SERVO CH1 set to 0 degrees.":"서보 CH1을 0°로 작동했습니다.",
@@ -23664,7 +23690,10 @@ function requestMobileMockup3dMesh(){
           ["missionStage1EjectionDelayMs", data.mission_s1_eject_delay_ms, 100, 10000],
           ["missionStage2EjectionDelayMs", data.mission_s2_eject_delay_ms, 500, 30000],
           ["missionLaunchGraceMs", data.mission_launch_grace_ms, 1000, 30000],
-          ["missionLinkLossMs", data.mission_link_loss_ms, 200, 5000]
+          ["missionLinkLossMs", data.mission_link_loss_ms, 200, 5000],
+          ["missionStage1SeparationAngleDeg", data.mission_s1_sep_angle_deg, 0, 180],
+          ["missionStage1EjectionAngleDeg", data.mission_s1_eject_angle_deg, 0, 180],
+          ["missionStage2EjectionAngleDeg", data.mission_s2_eject_angle_deg, 0, 180]
         ];
         const boardLinkModeRaw = data.link_mode ?? data.transport_mode ?? null;
         const boardOpModeRaw = boardLinkModeRaw ?? data.op_mode ?? data.operation_mode ?? null;
@@ -34977,6 +35006,8 @@ function requestMobileMockup3dMesh(){
       el.missionForceConfirm = document.getElementById("missionForceConfirm");
       el.missionForceS1Time = document.getElementById("missionForceS1Time");
       el.missionForceS2Time = document.getElementById("missionForceS2Time");
+      el.missionForceS1Action = document.getElementById("missionForceS1Action");
+      el.missionForceS2Action = document.getElementById("missionForceS2Action");
       el.missionForceCancel = document.getElementById("missionForceCancel");
       updateMissionStandbyButtonUi();
       updateVirtualMissionButtonUi();
@@ -35081,6 +35112,9 @@ function requestMobileMockup3dMesh(){
       el.missionS2EjectionMs = document.getElementById("missionS2EjectionMs");
       el.missionLaunchGraceMs = document.getElementById("missionLaunchGraceMs");
       el.missionLinkLossMs = document.getElementById("missionLinkLossMs");
+      el.missionS1SeparationAngleDeg = document.getElementById("missionS1SeparationAngleDeg");
+      el.missionS1EjectionAngleDeg = document.getElementById("missionS1EjectionAngleDeg");
+      el.missionS2EjectionAngleDeg = document.getElementById("missionS2EjectionAngleDeg");
       el.missionTimingSave = document.getElementById("missionTimingSave");
       el.missionStandbyReviewOverlay = document.getElementById("missionStandbyReviewOverlay");
       el.missionStandbyReviewCancel = document.getElementById("missionStandbyReviewCancel");
@@ -39439,25 +39473,39 @@ function requestMobileMockup3dMesh(){
 
       const applyMissionTimingSettings = async ()=>{
         if(!uiSettings) return;
-        const s1Sep = clampInt(el.missionS1SeparationMs && el.missionS1SeparationMs.value, 500, 15000, 2000);
-        const s1Eject = clampInt(el.missionS1EjectionMs && el.missionS1EjectionMs.value, 100, 10000, 1000);
-        const s2Eject = clampInt(el.missionS2EjectionMs && el.missionS2EjectionMs.value, 500, 30000, 5000);
-        const launchGrace = clampInt(el.missionLaunchGraceMs && el.missionLaunchGraceMs.value, 1000, 30000, 5000);
-        const linkLoss = clampInt(el.missionLinkLossMs && el.missionLinkLossMs.value, 200, 5000, 500);
+        const missionSettingInt = (input, min, max, fallback)=>{
+          const parsed = Number(input && input.value);
+          const value = isFinite(parsed) ? Math.round(parsed) : fallback;
+          return Math.max(min, Math.min(max, value));
+        };
+        const s1Sep = missionSettingInt(el.missionS1SeparationMs, 500, 15000, 2000);
+        const s1Eject = missionSettingInt(el.missionS1EjectionMs, 100, 10000, 1000);
+        const s2Eject = missionSettingInt(el.missionS2EjectionMs, 500, 30000, 5000);
+        const launchGrace = missionSettingInt(el.missionLaunchGraceMs, 1000, 30000, 5000);
+        const linkLoss = missionSettingInt(el.missionLinkLossMs, 200, 5000, 500);
+        const s1SeparationAngle = missionSettingInt(el.missionS1SeparationAngleDeg, 0, 180, 80);
+        const s1EjectionAngle = missionSettingInt(el.missionS1EjectionAngleDeg, 0, 180, 80);
+        const s2EjectionAngle = missionSettingInt(el.missionS2EjectionAngleDeg, 0, 180, 0);
         uiSettings.missionStage1SeparationBackupMs = s1Sep;
         uiSettings.missionStage1EjectionDelayMs = s1Eject;
         uiSettings.missionStage2EjectionDelayMs = s2Eject;
         uiSettings.missionLaunchGraceMs = launchGrace;
         uiSettings.missionLinkLossMs = linkLoss;
+        uiSettings.missionStage1SeparationAngleDeg = s1SeparationAngle;
+        uiSettings.missionStage1EjectionAngleDeg = s1EjectionAngle;
+        uiSettings.missionStage2EjectionAngleDeg = s2EjectionAngle;
         saveSettings();
         applySettingsToUI();
         const query = "mission_s1_sep_backup_ms=" + s1Sep +
           "&mission_s1_eject_delay_ms=" + s1Eject +
           "&mission_s2_eject_delay_ms=" + s2Eject +
           "&mission_launch_grace_ms=" + launchGrace +
-          "&mission_link_loss_ms=" + linkLoss;
+          "&mission_link_loss_ms=" + linkLoss +
+          "&mission_s1_sep_angle_deg=" + s1SeparationAngle +
+          "&mission_s1_eject_angle_deg=" + s1EjectionAngle +
+          "&mission_s2_eject_angle_deg=" + s2EjectionAngle;
         const result = await sendCommand({http:"/set?" + query, ser:"/set?" + query}, false);
-        showToast(result && result.ok ? "내장 미션 타이밍을 보드에 저장했습니다." : "미션 타이밍 저장 응답을 확인하지 못했습니다.", result && result.ok ? "success" : "error", {key:"mission-timing-save"});
+        showToast(result && result.ok ? "내장 미션 설정을 보드에 저장했습니다." : "미션 설정 저장 응답을 확인하지 못했습니다.", result && result.ok ? "success" : "error", {key:"mission-timing-save"});
       };
 
       if(el.ignTimeSave){

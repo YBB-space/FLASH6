@@ -1,9 +1,9 @@
 
 constexpr char kFirmwareProgram[] = "Altis_Intelligent3_firmware1";
-constexpr char kFirmwareVersion[] = "0.9.3";
-constexpr char kFirmwareBuildId[] = "v6 b33";
+constexpr char kFirmwareVersion[] = "0.9.4";
+constexpr char kFirmwareBuildId[] = "v6 b34";
 constexpr char kFirmwareBoard[] = "Altis_Intelligent3_b3";
-constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b7";
+constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b8";
 constexpr bool kFirmwareMissionLocked = true;
 constexpr char kFirmwareMissionSource[] = "builtin_launch_sequence";
 constexpr char kFirmwareMissionLockReason[] = "BUILTIN_MISSION";
@@ -134,7 +134,7 @@ constexpr uint8_t kWifiChannel = 6;
 constexpr uint8_t kWifiMaxClients = 2;
 constexpr char kWifiPass[] = "12345678";
 constexpr uint32_t kFlashLinkMagic = 0x314B4C46UL;  // FLK1
-constexpr uint8_t kFlashLinkVersion = 7;
+constexpr uint8_t kFlashLinkVersion = 8;
 constexpr uint8_t kFlashLinkChannel = 6;
 constexpr uint8_t kFlashLinkVehicleNodeCount = 2;
 constexpr uint8_t kFlashLinkNodeIdGround = 0;
@@ -318,6 +318,9 @@ uint32_t missionStage1EjectionDelayMs = 1000U;
 uint32_t missionStage2EjectionDelayMs = 5000U;
 uint32_t missionLaunchDetectionGraceMs = 5000U;
 uint32_t missionInterstageLinkLossMs = 500U;
+uint8_t missionStage1SeparationAngleDeg = 80U;
+uint8_t missionStage1EjectionAngleDeg = 80U;
+uint8_t missionStage2EjectionAngleDeg = 0U;
 volatile bool sequenceAborted = false;
 volatile uint8_t sequenceAbortReason = 0;
 
@@ -628,6 +631,9 @@ enum class FlashLinkCommandCode : uint8_t {
   SetStage2EjectionDelayMs = 30,
   SetLaunchDetectionGraceMs = 31,
   SetInterstageLinkLossMs = 32,
+  SetStage1SeparationAngleDeg = 33,
+  SetStage1EjectionAngleDeg = 34,
+  SetStage2EjectionAngleDeg = 35,
 };
 
 enum class FlashLinkCommandResult : uint8_t {
@@ -714,6 +720,9 @@ struct FlashLinkTelemetryV1 {
   uint32_t missionStage2EjectionDelayMs;
   uint32_t missionLaunchDetectionGraceMs;
   uint32_t missionInterstageLinkLossMs;
+  uint8_t missionStage1SeparationAngleDeg;
+  uint8_t missionStage1EjectionAngleDeg;
+  uint8_t missionStage2EjectionAngleDeg;
 };
 
 struct FlashLinkStorageStatusV1 {
@@ -787,6 +796,9 @@ struct FlashLinkMissionEventV1 {
   uint32_t stage2EjectionDelayMs;
   uint32_t launchDetectionGraceMs;
   uint32_t interstageLinkLossMs;
+  uint8_t stage1SeparationAngleDeg;
+  uint8_t stage1EjectionAngleDeg;
+  uint8_t stage2EjectionAngleDeg;
 };
 
 static_assert(
@@ -1104,7 +1116,7 @@ struct NorSectorFooterV1 {
 #pragma pack(pop)
 
 static_assert(sizeof(FlashLinkHeaderV1) == 24, "ALTIS INTELLIGENT LINK1 header size changed");
-static_assert(sizeof(FlashLinkTelemetryV1) == 130, "ALTIS INTELLIGENT LINK1 telemetry payload size changed");
+static_assert(sizeof(FlashLinkTelemetryV1) == 133, "ALTIS INTELLIGENT LINK1 telemetry payload size changed");
 static_assert(sizeof(FlashLinkMissionAlarmV1) == 100, "ALTIS INTELLIGENT LINK1 mission alarm payload size changed");
 static_assert(sizeof(FlashLinkStorageListResponseV1) == 172, "ALTIS INTELLIGENT LINK1 storage list payload size changed");
 static_assert(
@@ -1264,6 +1276,9 @@ struct FlashLinkRemoteState {
   uint32_t missionStage2EjectionDelayMs = 5000U;
   uint32_t missionLaunchDetectionGraceMs = 5000U;
   uint32_t missionInterstageLinkLossMs = 500U;
+  uint8_t missionStage1SeparationAngleDeg = 80U;
+  uint8_t missionStage1EjectionAngleDeg = 80U;
+  uint8_t missionStage2EjectionAngleDeg = 0U;
   uint32_t storageUsedBytes = 0;
   uint32_t storageCapacityBytes = 0;
   uint32_t storageRecordCount = 0;

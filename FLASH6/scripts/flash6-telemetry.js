@@ -65,10 +65,14 @@
         const messages = {
           "Stage-1 ARM released.":"1단 ARM 해제를 감지했습니다.",
           "SERVO CH1 80 degree command failed.":"서보 CH1 80° 명령이 실패했습니다.",
+          "SERVO CH1 command failed.":"서보 CH1 명령이 실패했습니다.",
           "Backup time reached. SERVO CH1 set to 80 degrees.":"백업 시간 도달 · 서보 CH1을 80°로 작동했습니다.",
+          "Backup time reached. SERVO CH1 moved to configured angle.":"백업 시간 도달 · 서보 CH1을 설정 각도로 작동했습니다.",
           "No coasting by configured backup time. Separation executed.":"설정된 백업 시간까지 코스팅 미감지 · 단분리를 실행했습니다.",
           "SERVO CH1 set to 80 degrees.":"서보 CH1을 80°로 작동했습니다.",
+          "SERVO CH1 moved to configured angle.":"서보 CH1을 설정 각도로 작동했습니다.",
           "SERVO CH2 set to 80 degrees.":"서보 CH2를 80°로 작동했습니다.",
+          "SERVO CH2 moved to configured angle.":"서보 CH2를 설정 각도로 작동했습니다.",
           "SERVO CH2 command failed.":"서보 CH2 명령이 실패했습니다.",
           "PYRO CH1 ignition output started.":"파이로 CH1 점화 출력을 시작했습니다.",
           "SERVO CH1 set to 0 degrees.":"서보 CH1을 0°로 작동했습니다.",
@@ -598,7 +602,10 @@
           ["missionStage1EjectionDelayMs", data.mission_s1_eject_delay_ms, 100, 10000],
           ["missionStage2EjectionDelayMs", data.mission_s2_eject_delay_ms, 500, 30000],
           ["missionLaunchGraceMs", data.mission_launch_grace_ms, 1000, 30000],
-          ["missionLinkLossMs", data.mission_link_loss_ms, 200, 5000]
+          ["missionLinkLossMs", data.mission_link_loss_ms, 200, 5000],
+          ["missionStage1SeparationAngleDeg", data.mission_s1_sep_angle_deg, 0, 180],
+          ["missionStage1EjectionAngleDeg", data.mission_s1_eject_angle_deg, 0, 180],
+          ["missionStage2EjectionAngleDeg", data.mission_s2_eject_angle_deg, 0, 180]
         ];
         const boardLinkModeRaw = data.link_mode ?? data.transport_mode ?? null;
         const boardOpModeRaw = boardLinkModeRaw ?? data.op_mode ?? data.operation_mode ?? null;

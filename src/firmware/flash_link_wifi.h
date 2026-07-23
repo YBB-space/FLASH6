@@ -836,6 +836,21 @@ FlashLinkCommandResult flashLinkExecuteCommand(
       detail = (int32_t)missionInterstageLinkLossMs;
       return FlashLinkCommandResult::Ok;
 
+    case FlashLinkCommandCode::SetStage1SeparationAngleDeg:
+      setMissionStage1SeparationAngleDeg(command.arg0);
+      detail = missionStage1SeparationAngleDeg;
+      return FlashLinkCommandResult::Ok;
+
+    case FlashLinkCommandCode::SetStage1EjectionAngleDeg:
+      setMissionStage1EjectionAngleDeg(command.arg0);
+      detail = missionStage1EjectionAngleDeg;
+      return FlashLinkCommandResult::Ok;
+
+    case FlashLinkCommandCode::SetStage2EjectionAngleDeg:
+      setMissionStage2EjectionAngleDeg(command.arg0);
+      detail = missionStage2EjectionAngleDeg;
+      return FlashLinkCommandResult::Ok;
+
     case FlashLinkCommandCode::SetDataMode:
       if (command.arg0 != 0 && command.arg0 != 1) {
         return FlashLinkCommandResult::InvalidArgument;
@@ -1886,6 +1901,9 @@ void flashLinkFillTelemetry(FlashLinkTelemetryV1& out) {
   out.missionStage2EjectionDelayMs = missionStage2EjectionDelayMs;
   out.missionLaunchDetectionGraceMs = missionLaunchDetectionGraceMs;
   out.missionInterstageLinkLossMs = missionInterstageLinkLossMs;
+  out.missionStage1SeparationAngleDeg = missionStage1SeparationAngleDeg;
+  out.missionStage1EjectionAngleDeg = missionStage1EjectionAngleDeg;
+  out.missionStage2EjectionAngleDeg = missionStage2EjectionAngleDeg;
 }
 
 void flashLinkFillMissionAlarm(FlashLinkMissionAlarmV1& out) {
@@ -1975,6 +1993,9 @@ void flashLinkDecodeTelemetry(
   state.missionStage2EjectionDelayMs = in.missionStage2EjectionDelayMs;
   state.missionLaunchDetectionGraceMs = in.missionLaunchDetectionGraceMs;
   state.missionInterstageLinkLossMs = in.missionInterstageLinkLossMs;
+  state.missionStage1SeparationAngleDeg = in.missionStage1SeparationAngleDeg;
+  state.missionStage1EjectionAngleDeg = in.missionStage1EjectionAngleDeg;
+  state.missionStage2EjectionAngleDeg = in.missionStage2EjectionAngleDeg;
   if (alarmSeq != in.missionAlarmSeq) {
     alarmSeq = in.missionAlarmSeq;
     alarmTimestampMs = in.missionAlarmTimestampMs;

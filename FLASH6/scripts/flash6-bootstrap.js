@@ -393,6 +393,8 @@
       el.missionForceConfirm = document.getElementById("missionForceConfirm");
       el.missionForceS1Time = document.getElementById("missionForceS1Time");
       el.missionForceS2Time = document.getElementById("missionForceS2Time");
+      el.missionForceS1Action = document.getElementById("missionForceS1Action");
+      el.missionForceS2Action = document.getElementById("missionForceS2Action");
       el.missionForceCancel = document.getElementById("missionForceCancel");
       updateMissionStandbyButtonUi();
       updateVirtualMissionButtonUi();
@@ -497,6 +499,9 @@
       el.missionS2EjectionMs = document.getElementById("missionS2EjectionMs");
       el.missionLaunchGraceMs = document.getElementById("missionLaunchGraceMs");
       el.missionLinkLossMs = document.getElementById("missionLinkLossMs");
+      el.missionS1SeparationAngleDeg = document.getElementById("missionS1SeparationAngleDeg");
+      el.missionS1EjectionAngleDeg = document.getElementById("missionS1EjectionAngleDeg");
+      el.missionS2EjectionAngleDeg = document.getElementById("missionS2EjectionAngleDeg");
       el.missionTimingSave = document.getElementById("missionTimingSave");
       el.missionStandbyReviewOverlay = document.getElementById("missionStandbyReviewOverlay");
       el.missionStandbyReviewCancel = document.getElementById("missionStandbyReviewCancel");
@@ -4855,25 +4860,39 @@
 
       const applyMissionTimingSettings = async ()=>{
         if(!uiSettings) return;
-        const s1Sep = clampInt(el.missionS1SeparationMs && el.missionS1SeparationMs.value, 500, 15000, 2000);
-        const s1Eject = clampInt(el.missionS1EjectionMs && el.missionS1EjectionMs.value, 100, 10000, 1000);
-        const s2Eject = clampInt(el.missionS2EjectionMs && el.missionS2EjectionMs.value, 500, 30000, 5000);
-        const launchGrace = clampInt(el.missionLaunchGraceMs && el.missionLaunchGraceMs.value, 1000, 30000, 5000);
-        const linkLoss = clampInt(el.missionLinkLossMs && el.missionLinkLossMs.value, 200, 5000, 500);
+        const missionSettingInt = (input, min, max, fallback)=>{
+          const parsed = Number(input && input.value);
+          const value = isFinite(parsed) ? Math.round(parsed) : fallback;
+          return Math.max(min, Math.min(max, value));
+        };
+        const s1Sep = missionSettingInt(el.missionS1SeparationMs, 500, 15000, 2000);
+        const s1Eject = missionSettingInt(el.missionS1EjectionMs, 100, 10000, 1000);
+        const s2Eject = missionSettingInt(el.missionS2EjectionMs, 500, 30000, 5000);
+        const launchGrace = missionSettingInt(el.missionLaunchGraceMs, 1000, 30000, 5000);
+        const linkLoss = missionSettingInt(el.missionLinkLossMs, 200, 5000, 500);
+        const s1SeparationAngle = missionSettingInt(el.missionS1SeparationAngleDeg, 0, 180, 80);
+        const s1EjectionAngle = missionSettingInt(el.missionS1EjectionAngleDeg, 0, 180, 80);
+        const s2EjectionAngle = missionSettingInt(el.missionS2EjectionAngleDeg, 0, 180, 0);
         uiSettings.missionStage1SeparationBackupMs = s1Sep;
         uiSettings.missionStage1EjectionDelayMs = s1Eject;
         uiSettings.missionStage2EjectionDelayMs = s2Eject;
         uiSettings.missionLaunchGraceMs = launchGrace;
         uiSettings.missionLinkLossMs = linkLoss;
+        uiSettings.missionStage1SeparationAngleDeg = s1SeparationAngle;
+        uiSettings.missionStage1EjectionAngleDeg = s1EjectionAngle;
+        uiSettings.missionStage2EjectionAngleDeg = s2EjectionAngle;
         saveSettings();
         applySettingsToUI();
         const query = "mission_s1_sep_backup_ms=" + s1Sep +
           "&mission_s1_eject_delay_ms=" + s1Eject +
           "&mission_s2_eject_delay_ms=" + s2Eject +
           "&mission_launch_grace_ms=" + launchGrace +
-          "&mission_link_loss_ms=" + linkLoss;
+          "&mission_link_loss_ms=" + linkLoss +
+          "&mission_s1_sep_angle_deg=" + s1SeparationAngle +
+          "&mission_s1_eject_angle_deg=" + s1EjectionAngle +
+          "&mission_s2_eject_angle_deg=" + s2EjectionAngle;
         const result = await sendCommand({http:"/set?" + query, ser:"/set?" + query}, false);
-        showToast(result && result.ok ? "내장 미션 타이밍을 보드에 저장했습니다." : "미션 타이밍 저장 응답을 확인하지 못했습니다.", result && result.ok ? "success" : "error", {key:"mission-timing-save"});
+        showToast(result && result.ok ? "내장 미션 설정을 보드에 저장했습니다." : "미션 설정 저장 응답을 확인하지 못했습니다.", result && result.ok ? "success" : "error", {key:"mission-timing-save"});
       };
 
       if(el.ignTimeSave){

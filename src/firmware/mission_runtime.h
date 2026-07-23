@@ -90,9 +90,6 @@ constexpr uint32_t kLaunchEarlyCoastMs = 1500U;
 constexpr uint32_t kLaunchArmChatterWindowMs = 1000U;
 constexpr uint8_t kLaunchArmChatterTransitions = 3U;
 constexpr uint32_t kMissionEventRepeatMs = 100U;
-constexpr uint8_t kStage1SeparationAngleDeg = 80U;
-constexpr uint8_t kStage1EjectionAngleDeg = 80U;
-constexpr uint8_t kStage2EjectionAngleDeg = 0U;
 
 enum class LaunchMissionState : uint8_t {
   Idle = 0,
@@ -542,6 +539,9 @@ void missionSendInterstageEvent(
   event.stage2EjectionDelayMs = missionStage2EjectionDelayMs;
   event.launchDetectionGraceMs = missionLaunchDetectionGraceMs;
   event.interstageLinkLossMs = missionInterstageLinkLossMs;
+  event.stage1SeparationAngleDeg = missionStage1SeparationAngleDeg;
+  event.stage1EjectionAngleDeg = missionStage1EjectionAngleDeg;
+  event.stage2EjectionAngleDeg = missionStage2EjectionAngleDeg;
   flashLinkSendMissionEvent(event);
 }
 
@@ -637,7 +637,7 @@ void missionLatchTplus(uint32_t launchMs, const char* reason) {
 }
 
 void missionCommandPrimaryDeployment(uint32_t nowMs) {
-  const bool ok = setServoAngle(1U, kStage1SeparationAngleDeg);
+  const bool ok = setServoAngle(1U, missionStage1SeparationAngleDeg);
   launchMission.primaryFailed = !ok;
   launchMission.primaryCommandMs = nowMs;
   launchMission.stage1Separated = true;
@@ -648,21 +648,21 @@ void missionCommandPrimaryDeployment(uint32_t nowMs) {
     nowMs,
     (int32_t)(nowMs - launchMission.launchMs));
   if (!ok) {
-    missionEmitAlarm(0, "Stage separation fault", "SERVO CH1 80 degree command failed.");
+    missionEmitAlarm(0, "Stage separation fault", "SERVO CH1 command failed.");
   } else if (launchMission.forceTimed) {
-    missionEmitAlarm(0, "Forced separation", "Backup time reached. SERVO CH1 set to 80 degrees.");
+    missionEmitAlarm(0, "Forced separation", "Backup time reached. SERVO CH1 moved to configured angle.");
   } else if (launchMission.coastTimeout) {
     missionEmitAlarm(0, "Coasting backup", "No coasting by configured backup time. Separation executed.");
   } else if (launchMission.earlyCoast) {
     missionEmitAlarm(0, "Early coasting", "Filtered coasting confirmed. Separation executed.");
   } else {
-    missionEmitAlarm(0, "Coasting confirmed", "SERVO CH1 set to 80 degrees.");
+    missionEmitAlarm(0, "Coasting confirmed", "SERVO CH1 moved to configured angle.");
   }
 }
 
 void missionCommandStage1Ejection(uint32_t nowMs) {
   if (launchMission.stage1Ejected) return;
-  const bool ok = setServoAngle(2U, kStage1EjectionAngleDeg);
+  const bool ok = setServoAngle(2U, missionStage1EjectionAngleDeg);
   launchMission.stage1Ejected = true;
   launchMission.secondaryCommanded = true;
   launchMission.secondaryFailed = !ok;
@@ -672,7 +672,7 @@ void missionCommandStage1Ejection(uint32_t nowMs) {
   missionEmitAlarm(
     0,
     ok ? "Stage-1 ejection" : "Stage-1 ejection fault",
-    ok ? "SERVO CH2 set to 80 degrees." : "SERVO CH2 command failed.");
+    ok ? "SERVO CH2 moved to configured angle." : "SERVO CH2 command failed.");
   if (ok) buzzerPlayRecoveryFindMelody();
   missionSyncLaunchTelemetry();
 }
@@ -694,7 +694,7 @@ void missionCommandStage2Ignition(uint32_t nowMs) {
 
 void missionCommandStage2Ejection(uint32_t nowMs) {
   if (launchMission.stage2Ejected) return;
-  const bool ok = setServoAngle(1U, kStage2EjectionAngleDeg);
+  const bool ok = setServoAngle(1U, missionStage2EjectionAngleDeg);
   launchMission.stage2Ejected = true;
   launchMission.secondaryCommanded = true;
   launchMission.secondaryFailed = !ok;
@@ -702,7 +702,7 @@ void missionCommandStage2Ejection(uint32_t nowMs) {
   missionEmitAlarm(
     0,
     ok ? "Stage-2 ejection" : "Stage-2 ejection fault",
-    ok ? "SERVO CH1 set to 0 degrees." : "SERVO CH1 command failed.");
+    ok ? "SERVO CH1 moved to configured angle." : "SERVO CH1 command failed.");
   if (ok) buzzerPlayRecoveryFindMelody();
   missionSyncLaunchTelemetry();
 }
@@ -825,17 +825,29 @@ void missionHandleInterstageEvent(
         (long)event.launchDetectionGraceMs, 1000, 30000, 5000U);
       const uint32_t nextLinkLossMs = clampU32(
         (long)event.interstageLinkLossMs, 200, 5000, 500U);
+      const uint8_t nextStage1SeparationAngle =
+        clampServoAngle((long)event.stage1SeparationAngleDeg);
+      const uint8_t nextStage1EjectionAngle =
+        clampServoAngle((long)event.stage1EjectionAngleDeg);
+      const uint8_t nextStage2EjectionAngle =
+        clampServoAngle((long)event.stage2EjectionAngleDeg);
       const bool settingsChanged =
         missionStage1SeparationBackupMs != nextStage1SeparationMs ||
         missionStage1EjectionDelayMs != nextStage1EjectionMs ||
         missionStage2EjectionDelayMs != nextStage2EjectionMs ||
         missionLaunchDetectionGraceMs != nextLaunchGraceMs ||
-        missionInterstageLinkLossMs != nextLinkLossMs;
+        missionInterstageLinkLossMs != nextLinkLossMs ||
+        missionStage1SeparationAngleDeg != nextStage1SeparationAngle ||
+        missionStage1EjectionAngleDeg != nextStage1EjectionAngle ||
+        missionStage2EjectionAngleDeg != nextStage2EjectionAngle;
       missionStage1SeparationBackupMs = nextStage1SeparationMs;
       missionStage1EjectionDelayMs = nextStage1EjectionMs;
       missionStage2EjectionDelayMs = nextStage2EjectionMs;
       missionLaunchDetectionGraceMs = nextLaunchGraceMs;
       missionInterstageLinkLossMs = nextLinkLossMs;
+      missionStage1SeparationAngleDeg = nextStage1SeparationAngle;
+      missionStage1EjectionAngleDeg = nextStage1EjectionAngle;
+      missionStage2EjectionAngleDeg = nextStage2EjectionAngle;
       if (settingsChanged) saveSequenceSettings();
       if (!missionLaunchStandby && !launchMission.launchLatched) {
         const MissionStandbyResult result = startMissionStandbyRuntime(receivedAtMs);

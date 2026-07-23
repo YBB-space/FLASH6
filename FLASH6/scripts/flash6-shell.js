@@ -171,6 +171,9 @@
         missionStage2EjectionDelayMs:5000,
         missionLaunchGraceMs:5000,
         missionLinkLossMs:500,
+        missionStage1SeparationAngleDeg:80,
+        missionStage1EjectionAngleDeg:80,
+        missionStage2EjectionAngleDeg:0,
         opMode:"daq",
         flashLinkRole:"avionics",
         flashLinkNodeId:1,
@@ -222,6 +225,14 @@
         uiSettings.missionStage2EjectionDelayMs = Math.max(500, Math.min(30000, Math.round(Number(uiSettings.missionStage2EjectionDelayMs) || 5000)));
         uiSettings.missionLaunchGraceMs = Math.max(1000, Math.min(30000, Math.round(Number(uiSettings.missionLaunchGraceMs) || 5000)));
         uiSettings.missionLinkLossMs = Math.max(200, Math.min(5000, Math.round(Number(uiSettings.missionLinkLossMs) || 500)));
+        {
+          const stage1SeparationAngle = Number(uiSettings.missionStage1SeparationAngleDeg);
+          const stage1EjectionAngle = Number(uiSettings.missionStage1EjectionAngleDeg);
+          const stage2Angle = Number(uiSettings.missionStage2EjectionAngleDeg);
+          uiSettings.missionStage1SeparationAngleDeg = Math.max(0, Math.min(180, Math.round(isFinite(stage1SeparationAngle) ? stage1SeparationAngle : 80)));
+          uiSettings.missionStage1EjectionAngleDeg = Math.max(0, Math.min(180, Math.round(isFinite(stage1EjectionAngle) ? stage1EjectionAngle : 80)));
+          uiSettings.missionStage2EjectionAngleDeg = Math.max(0, Math.min(180, Math.round(isFinite(stage2Angle) ? stage2Angle : 0)));
+        }
         uiSettings.quickDataDigits = normalizeDecimalDigits(uiSettings.quickDataDigits, 1);
         uiSettings.loadcellChartDigits = normalizeDecimalDigits(uiSettings.loadcellChartDigits, 3);
         uiSettings.storageExportDigits = normalizeDecimalDigits(uiSettings.storageExportDigits, 3);
@@ -1750,6 +1761,9 @@
       if(el.missionS2EjectionMs) el.missionS2EjectionMs.value = uiSettings.missionStage2EjectionDelayMs;
       if(el.missionLaunchGraceMs) el.missionLaunchGraceMs.value = uiSettings.missionLaunchGraceMs;
       if(el.missionLinkLossMs) el.missionLinkLossMs.value = uiSettings.missionLinkLossMs;
+      if(el.missionS1SeparationAngleDeg) el.missionS1SeparationAngleDeg.value = uiSettings.missionStage1SeparationAngleDeg;
+      if(el.missionS1EjectionAngleDeg) el.missionS1EjectionAngleDeg.value = uiSettings.missionStage1EjectionAngleDeg;
+      if(el.missionS2EjectionAngleDeg) el.missionS2EjectionAngleDeg.value = uiSettings.missionStage2EjectionAngleDeg;
       if(el.opModeSelect) el.opModeSelect.value = uiSettings.opMode || "daq";
       const flashLinkEnabled = getSettingsOperationModeValue() === "flash_link";
       if(el.opModeSelect){
