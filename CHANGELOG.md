@@ -3,6 +3,18 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 replay viewport dock b63 — 2026-07-24
+
+Firmware build: `v6 b33` (unchanged)
+Protocol: `Flash6-Intelligent-b7` (unchanged)
+
+- Reserved a dedicated lower viewport strip for the desktop replay transport
+  instead of overlaying it on the camera/gyro HUD.
+- Reduced the replay camera canvas height so the lower velocity, acceleration,
+  and altitude instruments remain fully visible above the transport.
+- Expanded the playback dock edge-to-edge across the lower screen area and
+  re-centered the navigation and replay tools within the remaining HUD height.
+
 ## FLASH6 replay view interaction b62 — 2026-07-24
 
 Firmware build: `v6 b33` (unchanged)
