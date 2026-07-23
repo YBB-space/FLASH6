@@ -3,6 +3,14 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 replay dock alignment b70 — 2026-07-24
+
+Firmware build: `v6 b33` (unchanged)
+Protocol: `Flash6-Intelligent-b7` (unchanged)
+
+- Aligned the replay close control to the same 50 px outer inset used by the
+  left-side replay content.
+
 ## FLASH6 replay dock spacing b69 — 2026-07-24
 
 Firmware build: `v6 b33` (unchanged)

@@ -31945,7 +31945,7 @@ html.replay-ui-active body .side-nav-mobile .js-controls-open{
 
   html.replay-ui-active body.camera-view-active #controlsCard.replay-mode .replay-dock-close{
     top:50% !important;
-    right:22px !important;
+    right:50px !important;
     transform:translateY(-50%) !important;
   }
 
