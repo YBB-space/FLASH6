@@ -3,6 +3,19 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 actual-speed quick metric b58 — 2026-07-24
+
+Firmware build: `v6 b33` (unchanged)
+Protocol: `Flash6-Intelligent-b7` (unchanged)
+
+- Changed the flight-mode Quick Data secondary metric from barometric altitude
+  rate to actual speed, prioritizing a 3-axis velocity vector, GPS displacement,
+  and the existing attitude/IMU fusion estimate.
+- Updated the shared expanded map and gyro HUD label from `Altitude Speed` to
+  `Speed`; flight-phase detection continues to use its dedicated vertical-speed
+  path independently. Vertical speed remains only as a compatibility fallback
+  for legacy replay data without an actual-speed source.
+
 ## FLASH6 replay controls visibility b57 — 2026-07-23
 
 Firmware build: `v6 b33` (unchanged)

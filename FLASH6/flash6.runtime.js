@@ -12910,22 +12910,56 @@ function requestMobileMockup3dMesh(){
         source:"ui_fallback"
       };
     }
-    function readQuickTelemetrySpeedMps(data){
+    function readTelemetryActualSpeedMps(data){
       if(!data || typeof data !== "object") return NaN;
-      const candidates = [
+      const east = Number(
+        data.velocity_e_mps ?? data.velocityEastMps ??
+        data.vel_e_mps ?? data.velEastMps
+      );
+      const north = Number(
+        data.velocity_n_mps ?? data.velocityNorthMps ??
+        data.vel_n_mps ?? data.velNorthMps
+      );
+      const up = Number(
+        data.velocity_u_mps ?? data.velocityUpMps ??
+        data.vel_u_mps ?? data.velUpMps
+      );
+      if(isFinite(east) && isFinite(north) && isFinite(up)){
+        return Math.hypot(east, north, up);
+      }
+
+      const groundSpeedCandidates = [
         data.gps_speed_mps, data.gpsSpeedMps,
         data.ground_speed_mps, data.groundSpeedMps,
+        data.gps_speed, data.gpsSpeed
+      ];
+      for(let i=0;i<groundSpeedCandidates.length;i++){
+        const raw = groundSpeedCandidates[i];
+        if(raw == null || (typeof raw === "string" && raw.trim() === "")) continue;
+        const groundSpeed = Number(raw);
+        if(!isFinite(groundSpeed)) continue;
+        const verticalSpeed = readTelemetryVerticalSpeedMps(data);
+        return isFinite(verticalSpeed)
+          ? Math.hypot(groundSpeed, verticalSpeed)
+          : Math.abs(groundSpeed);
+      }
+
+      const totalSpeedCandidates = [
         data.speed_mps, data.speedMps,
-        data.gps_speed, data.gpsSpeed,
         data.speed, data.spd, data.vel, data.v
       ];
-      for(let i=0;i<candidates.length;i++){
-        const raw = candidates[i];
+      for(let i=0;i<totalSpeedCandidates.length;i++){
+        const raw = totalSpeedCandidates[i];
         if(raw == null) continue;
         if(typeof raw === "string" && raw.trim() === "") continue;
         const val = Number(raw);
         if(isFinite(val)) return Math.abs(val);
       }
+      return NaN;
+    }
+    function readQuickTelemetrySpeedMps(data){
+      const actualSpeedMps = readTelemetryActualSpeedMps(data);
+      if(isFinite(actualSpeedMps)) return actualSpeedMps;
       const verticalSpeedMps = readTelemetryVerticalSpeedMps(data);
       if(isFinite(verticalSpeedMps)) return Math.abs(verticalSpeedMps);
       return NaN;
@@ -12933,7 +12967,7 @@ function requestMobileMockup3dMesh(){
     function getQuickFlightMetrics(data, nowMs){
       const now = nowMs || Date.now();
       let altitudeM = NaN;
-      let speedMps = readQuickTelemetrySpeedMps(data);
+      let speedMps = readTelemetryActualSpeedMps(data);
       const useSimFlightMetrics = !!(simEnabled && !replaySourceActive && simState);
 
       if(useSimFlightMetrics){
@@ -12993,7 +13027,15 @@ function requestMobileMockup3dMesh(){
             : geo.alt;
         }
 
+        const geoChanged =
+          !isFinite(quickFlightMetrics.lastLat) ||
+          !isFinite(quickFlightMetrics.lastLon) ||
+          Math.abs(geo.lat - quickFlightMetrics.lastLat) > 0.00000001 ||
+          Math.abs(geo.lon - quickFlightMetrics.lastLon) > 0.00000001 ||
+          (isFinite(geo.alt) && isFinite(quickFlightMetrics.lastAlt) &&
+            Math.abs(geo.alt - quickFlightMetrics.lastAlt) > 0.01);
         if(
+          geoChanged &&
           isFinite(quickFlightMetrics.lastLat) &&
           isFinite(quickFlightMetrics.lastLon) &&
           quickFlightMetrics.lastMs > 0
@@ -13018,21 +13060,35 @@ function requestMobileMockup3dMesh(){
           }
         }
 
-        quickFlightMetrics.lastLat = geo.lat;
-        quickFlightMetrics.lastLon = geo.lon;
-        quickFlightMetrics.lastAlt = isFinite(geo.alt) ? geo.alt : NaN;
-        quickFlightMetrics.lastMs = now;
+        if(geoChanged){
+          quickFlightMetrics.lastLat = geo.lat;
+          quickFlightMetrics.lastLon = geo.lon;
+          quickFlightMetrics.lastAlt = isFinite(geo.alt) ? geo.alt : NaN;
+          quickFlightMetrics.lastMs = now;
+        }
       }
 
       if(!isFinite(speedMps) && isFinite(quickFlightMetrics.speedMps)){
         speedMps = quickFlightMetrics.speedMps;
+      }
+      if(!isFinite(speedMps) && gyroPathState && gyroPathState.fusionReady){
+        const fusionSpeed = Math.hypot(
+          Number(gyroPathState.fusionVelX),
+          Number(gyroPathState.fusionVelY),
+          Number(gyroPathState.fusionVelZ)
+        );
+        if(isFinite(fusionSpeed)) speedMps = fusionSpeed;
+      }
+      if(!isFinite(speedMps)){
+        const verticalSpeedMps = readTelemetryVerticalSpeedMps(data);
+        if(isFinite(verticalSpeedMps)) speedMps = Math.abs(verticalSpeedMps);
       }
       return {altitudeM, speedMps};
     }
     function updateQuickMetricLabels(){
       const inFlightMode = isFlightModeUi();
       const primaryLabel = inFlightMode ? "Altitude" : "Thrust";
-      const secondaryLabel = inFlightMode ? "Altitude Speed" : "Pressure";
+      const secondaryLabel = inFlightMode ? "Speed" : "Pressure";
       if(el.quickMetricPrimaryLabel){
         el.quickMetricPrimaryLabel.textContent = primaryLabel;
       }
@@ -24200,8 +24256,8 @@ function requestMobileMockup3dMesh(){
               : `<span class="num">--</span><span class="unit">m</span>`;
           }
           if(el.pressure){
-            el.pressure.innerHTML = isFinite(quickAltitudeRateMps)
-              ? `<span class="num">${quickAltitudeRateMps.toFixed(1)}</span><span class="unit">m/s</span>`
+            el.pressure.innerHTML = isFinite(quickSpeedMps)
+              ? `<span class="num">${quickSpeedMps.toFixed(1)}</span><span class="unit">m/s</span>`
               : `<span class="num">--</span><span class="unit">m/s</span>`;
           }
         }else{

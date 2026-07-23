@@ -1226,8 +1226,8 @@
               : `<span class="num">--</span><span class="unit">m</span>`;
           }
           if(el.pressure){
-            el.pressure.innerHTML = isFinite(quickAltitudeRateMps)
-              ? `<span class="num">${quickAltitudeRateMps.toFixed(1)}</span><span class="unit">m/s</span>`
+            el.pressure.innerHTML = isFinite(quickSpeedMps)
+              ? `<span class="num">${quickSpeedMps.toFixed(1)}</span><span class="unit">m/s</span>`
               : `<span class="num">--</span><span class="unit">m/s</span>`;
           }
         }else{
