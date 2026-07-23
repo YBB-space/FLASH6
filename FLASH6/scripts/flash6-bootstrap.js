@@ -615,6 +615,7 @@
       el.launcherPitchAngleTablet = document.getElementById("launcherPitchAngleTablet");
       el.replayOpenBtns = document.querySelectorAll(".js-replay-open");
       el.replayPanel = document.getElementById("replayPanel");
+      el.replayCloseBtn = document.getElementById("replayCloseBtn");
       el.replayFileInput = document.getElementById("replayFileInput");
       el.replayFileBtn = document.getElementById("replayFileBtn");
       el.replayDropTitle = document.getElementById("replayDropTitle");
@@ -1941,6 +1942,19 @@
       }
       if(el.controlsOverlayClose){
         el.controlsOverlayClose.addEventListener("click", hideControlsModal);
+      }
+      if(el.replayCloseBtn){
+        el.replayCloseBtn.addEventListener("click",(ev)=>{
+          ev.preventDefault();
+          ev.stopPropagation();
+          if(isMobileLayout()){
+            hideControlsModal();
+          }else if(isTabletControlsLayout()){
+            hideTabletControlsPanel();
+          }else{
+            setDesktopControlDrawerOpen(false);
+          }
+        });
       }
       if(el.controlsOverlay){
         el.controlsOverlay.addEventListener("click",(ev)=>{ if(ev.target === el.controlsOverlay) hideControlsModal(); });

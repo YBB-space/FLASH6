@@ -3,6 +3,19 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 replay bottom dock b60 — 2026-07-24
+
+Firmware build: `v6 b33` (unchanged)
+Protocol: `Flash6-Intelligent-b7` (unchanged)
+
+- Replaced the desktop replay side drawer with a fixed bottom playback dock
+  while preserving the existing replay engine and data interfaces.
+- Gave the seek timeline the primary horizontal space and grouped file change,
+  playback, speed, gyro-zero, and report export actions into one compact
+  transport surface.
+- Kept the mobile and tablet replay control surfaces separate and unchanged,
+  and added a dedicated desktop replay-exit control.
+
 ## FLASH6 replay home exit b59 — 2026-07-24
 
 Firmware build: `v6 b33` (unchanged)
