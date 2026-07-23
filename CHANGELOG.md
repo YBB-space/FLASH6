@@ -3,6 +3,16 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 replay dock compact b66 — 2026-07-24
+
+Firmware build: `v6 b33` (unchanged)
+Protocol: `Flash6-Intelligent-b7` (unchanged)
+
+- Reduced the desktop replay transport strip to 82 px and compacted its file
+  selector to remove unnecessary vertical space.
+- Extended and strengthened the upper fade so the HUD transitions visibly but
+  smoothly into the replay transport surface.
+
 ## FLASH6 replay dock fade b65 — 2026-07-24
 
 Firmware build: `v6 b33` (unchanged)

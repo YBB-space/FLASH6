@@ -1489,7 +1489,7 @@ html.replay-ui-active body .side-nav-mobile .js-controls-open{
    playback controls. */
 @media (min-width:901px) and (pointer:fine){
   html.replay-ui-active body.camera-view-active{
-    --replay-transport-height:96px;
+    --replay-transport-height:82px;
   }
 
   html.replay-ui-active body.camera-view-active .app-shell,
@@ -1535,7 +1535,7 @@ html.replay-ui-active body .side-nav-mobile .js-controls-open{
     border-bottom:0 !important;
     border-left:0 !important;
     border-radius:0 !important;
-    background:linear-gradient(180deg,#0d1015 0%,#111318 34%,#111318 100%) !important;
+    background:linear-gradient(180deg,#0b0e13 0%,#101217 42%,#111318 100%) !important;
     box-shadow:none !important;
     transform:none !important;
   }
@@ -1544,23 +1544,23 @@ html.replay-ui-active body .side-nav-mobile .js-controls-open{
   html.replay-ui-active.control-drawer-open body.camera-view-active .desktop-control-drawer-mount #controlsCard.controls-card.replay-mode::before{
     content:"" !important;
     position:absolute !important;
-    top:-22px !important;
+    top:-30px !important;
     right:0 !important;
     bottom:auto !important;
     left:0 !important;
     z-index:0 !important;
     display:block !important;
     width:auto !important;
-    height:22px !important;
+    height:30px !important;
     border:0 !important;
-    background:linear-gradient(180deg,rgba(13,16,21,0) 0%,rgba(13,16,21,.34) 48%,#0d1015 100%) !important;
+    background:linear-gradient(180deg,rgba(11,14,19,0) 0%,rgba(11,14,19,.18) 28%,rgba(11,14,19,.68) 72%,#0b0e13 100%) !important;
     box-shadow:none !important;
     pointer-events:none !important;
   }
 
   html.replay-ui-active body.camera-view-active #controlsCard.replay-mode .replay-panel{
     height:100% !important;
-    padding:8px 50px 8px 22px !important;
+    padding:5px 50px 5px 22px !important;
     display:flex !important;
     align-items:center !important;
     justify-content:center !important;
@@ -1571,6 +1571,15 @@ html.replay-ui-active body .side-nav-mobile .js-controls-open{
     margin:0 auto !important;
     grid-template-columns:minmax(180px,260px) minmax(420px,1fr) !important;
     gap:22px !important;
+  }
+
+  html.replay-ui-active body.camera-view-active #controlsCard.replay-mode .replay-file-row{
+    padding-top:12px !important;
+  }
+
+  html.replay-ui-active body.camera-view-active #controlsCard.replay-mode .replay-dropzone{
+    min-height:40px !important;
+    max-height:40px !important;
   }
 
   html.replay-ui-active body.camera-view-active #controlsCard.replay-mode .replay-dock-close{
