@@ -3,6 +3,16 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 replay dock fade b65 — 2026-07-24
+
+Firmware build: `v6 b33` (unchanged)
+Protocol: `Flash6-Intelligent-b7` (unchanged)
+
+- Replaced the replay dock's upper border with a soft transparent-to-surface
+  gradient transition.
+- Removed the remaining hard edge and drop shadow while preserving the compact
+  transport height and centered control layout.
+
 ## FLASH6 replay dock density b64 — 2026-07-24
 
 Firmware build: `v6 b33` (unchanged)
