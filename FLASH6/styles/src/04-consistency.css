@@ -1507,8 +1507,15 @@ html.replay-ui-active body .side-nav-mobile .js-controls-open{
   html.replay-ui-active body.camera-view-active .camera-view,
   html.replay-ui-active body.camera-view-active.camera-dashboard-default .camera-view,
   html.replay-ui-active body.camera-view-active.camera-gyro-plus-layout .camera-view{
-    height:100% !important;
+    position:fixed !important;
+    top:0 !important;
+    right:0 !important;
+    bottom:var(--replay-transport-height) !important;
+    left:0 !important;
+    width:100vw !important;
+    height:auto !important;
     min-height:0 !important;
+    max-height:none !important;
   }
 
   html.replay-ui-active body.camera-view-active .app-shell > .side-nav-desktop{
@@ -1542,18 +1549,23 @@ html.replay-ui-active body .side-nav-mobile .js-controls-open{
 
   html.replay-ui-active.control-drawer-open body.camera-view-active #controlsCard.controls-card.replay-mode::before,
   html.replay-ui-active.control-drawer-open body.camera-view-active .desktop-control-drawer-mount #controlsCard.controls-card.replay-mode::before{
+    content:none !important;
+    display:none !important;
+  }
+
+  html.replay-ui-active body.camera-view-active #cameraView.camera-view::after{
     content:"" !important;
     position:absolute !important;
-    top:-30px !important;
+    top:auto !important;
     right:0 !important;
-    bottom:auto !important;
+    bottom:0 !important;
     left:0 !important;
-    z-index:0 !important;
+    z-index:4 !important;
     display:block !important;
     width:auto !important;
     height:30px !important;
     border:0 !important;
-    background:linear-gradient(180deg,rgba(11,14,19,0) 0%,rgba(11,14,19,.18) 28%,rgba(11,14,19,.68) 72%,#0b0e13 100%) !important;
+    background:linear-gradient(180deg,rgba(11,14,19,0) 0%,rgba(11,14,19,.16) 30%,rgba(11,14,19,.64) 74%,#0b0e13 100%) !important;
     box-shadow:none !important;
     pointer-events:none !important;
   }

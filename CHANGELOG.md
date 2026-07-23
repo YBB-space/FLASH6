@@ -3,6 +3,16 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 replay HUD clipping fix b68 — 2026-07-24
+
+Firmware build: `v6 b33` (unchanged)
+Protocol: `Flash6-Intelligent-b7` (unchanged)
+
+- Anchored the replay camera/gyro viewport directly above the transport strip
+  so late parent-layout changes cannot move HUD instruments behind the dock.
+- Moved the boundary fade from the high-layer transport element into the camera
+  viewport beneath the HUD instruments, preventing intermittent gauge clipping.
+
 ## FLASH6 replay gyro zero b67 — 2026-07-24
 
 Firmware build: `v6 b33` (unchanged)
