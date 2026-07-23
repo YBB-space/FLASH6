@@ -5811,6 +5811,7 @@ function requestMobileMockup3dMesh(){
     let serialPortEventsBound = false;
     let serialLineBuf = "";
     let serialConnected = false;
+    let serialConnectedRole = "";
     let lastSerialSampleAt = 0;
     let lastSerialActivityAt = 0;
     let pendingSerialTelemetrySample = null;
@@ -5823,6 +5824,9 @@ function requestMobileMockup3dMesh(){
     let autoWifiConnectBusy = false;
     let autoWifiConnectTimer = null;
     let serialConnectStage = "idle";
+    let serialConnectRequireGround = false;
+    let serialGroundRequired = false;
+    let lastAutoSerialScanMs = 0;
     let welcomeConnectCompleted = false;
     let welcomeConnectionVerifiedAtMs = 0;
     let welcomeConnectAttempted = false;
@@ -6122,6 +6126,7 @@ function requestMobileMockup3dMesh(){
     const SERIAL_BAUD_CANDIDATES = [SERIAL_BAUD_RATE, 460800, 115200];
     const SERIAL_PROBE_TIMEOUT_MS = 2200;
     const SERIAL_PARSE_ERROR_LOG_LIMIT = 3;
+    const SERIAL_LINK_STALE_MS = 6500;
     const SERVO_CHANNELS = [1, 2, 3, 4, 5];
     const PYRO_CHANNELS = [1, 2];
     // UI channel label -> board servo channel remap.
@@ -6134,6 +6139,7 @@ function requestMobileMockup3dMesh(){
     let serialParseErrorCount = 0;
     let serialAckWaiters = [];
     let serialConnectBusy = false;
+    let serialStaleRecoveryBusy = false;
     let serialAutoReconnectTimer = null;
     let serialAutoReconnectAttempts = 0;
     let missionCanvasZoom = 1;
@@ -8427,7 +8433,18 @@ function requestMobileMockup3dMesh(){
       return !isMobileLayout();
     }
     function isGroundStationTransportConnected(){
-      return !!(connOk || wsConnected || serialConnected);
+      if(serialEnabled) return serialConnected && serialConnectedRole === "ground";
+      if(!(connOk || wsConnected)) return false;
+      const telemetryFresh = lastOkMs > 0 &&
+        (Date.now() - lastOkMs) <= DISCONNECT_GRACE_MS;
+      return !!(telemetryFresh && latestTelemetry && isGroundStationTelemetry(latestTelemetry));
+    }
+    function isGroundStationTelemetry(data){
+      if(!data || typeof data !== "object") return false;
+      const rawRole = data.flash_link_role ?? data.fl_role ?? data.fl_role_code ?? null;
+      if(rawRole == null || rawRole === "") return true;
+      if(Number(rawRole) === 1) return true;
+      return String(rawRole).trim().toLowerCase() === "ground";
     }
     function markWelcomeConnectionReady(){
       welcomeConnectCompleted = true;
@@ -8438,10 +8455,7 @@ function requestMobileMockup3dMesh(){
       welcomeConnectionVerifiedAtMs = 0;
     }
     function isWelcomeConnectionReady(){
-      const probeFresh = welcomeConnectCompleted &&
-        welcomeConnectionVerifiedAtMs > 0 &&
-        (Date.now() - welcomeConnectionVerifiedAtMs) < 30000;
-      return !!(isGroundStationTransportConnected() || probeFresh);
+      return isGroundStationTransportConnected();
     }
     function syncWelcomePrimaryAction(busyLabel){
       if(!el.welcomeBoardSearchBtn || !el.welcomeBoardSearchLabel) return;
@@ -8517,9 +8531,9 @@ function requestMobileMockup3dMesh(){
       const groundConnected = isGroundStationTransportConnected();
       syncWelcomeConnectCopy();
       setWelcomeConnectVisible(true);
-      if(groundConnected || connected){
+      if(groundConnected){
         markWelcomeConnectionReady();
-        setWelcomeConnectStatus("connected", groundConnected ? "지상국 연결 완료" : "연결 완료");
+        setWelcomeConnectStatus("connected", "지상국 연결 완료");
         return;
       }
       if(isWelcomeConnectionReady()){
@@ -8542,7 +8556,7 @@ function requestMobileMockup3dMesh(){
       welcomeConnectAttempted = true;
       setWelcomeConnectStatus("connecting", "USB 연결 준비중");
       await setConnectTransportMode("serial", {toast:false});
-      await serialConnect();
+      await serialConnect({requireGround:true});
       updateSerialControlTile();
       updateSerialPill();
       if(serialConnected){
@@ -8592,7 +8606,7 @@ function requestMobileMockup3dMesh(){
       setWelcomeBoardSearchBusy(true, "연결 확인중");
       setWelcomeConnectStatus("connecting", "Wi-Fi 보드 확인중");
       try{
-        if(connOk || wsConnected){
+        if(isGroundStationTransportConnected()){
           await setConnectTransportMode("wifi", {toast:false});
           if(!wsConnected && !wsRetryTimer) scheduleWsReconnect("welcome board search wifi");
           markWelcomeConnectionReady();
@@ -8618,15 +8632,24 @@ function requestMobileMockup3dMesh(){
 
         setWelcomeBoardSearchBusy(true, "USB 확인중");
         setWelcomeConnectStatus("connecting", "USB 시리얼 확인중");
-        const grantedPort = await getPreviouslyGrantedSerialPort();
+        const grantedPorts = await getPreviouslyGrantedSerialPorts();
         await setConnectTransportMode("serial", {toast:false});
-        if(!grantedPort){
-          openSerialConnectWizard();
+        if(!grantedPorts.length){
+          openSerialConnectWizard({requireGround:true});
           setWelcomeConnectStatus("idle", "USB 보드를 선택하세요");
           showToast("USB 보드를 선택한 뒤 연결을 눌러주세요.", "notice", {key:"welcome-usb-permission"});
           return;
         }
-        await serialConnect({preferGranted:true, grantedOnly:true, port:grantedPort});
+        for(const port of grantedPorts){
+          const connected = await serialConnect({
+            preferGranted:true,
+            grantedOnly:true,
+            port,
+            requireGround:true,
+            quiet:true
+          });
+          if(connected) break;
+        }
         updateSerialControlTile();
         updateSerialPill();
         if(serialConnected){
@@ -8636,8 +8659,9 @@ function requestMobileMockup3dMesh(){
           showToast("USB 시리얼 연결 완료", "success", {key:"welcome-board-search"});
           return;
         }
+        openSerialConnectWizard({requireGround:true});
         setWelcomeConnectStatus("idle", "보드를 찾지 못했습니다");
-        showToast("보드를 찾지 못했습니다. Wi-Fi 또는 USB 연결을 확인하세요.", "error", {key:"welcome-board-search"});
+        showToast("허용된 USB 장치에서 지상국을 찾지 못했습니다. 지상국 보드를 직접 선택하세요.", "error", {key:"welcome-board-search"});
       }finally{
         setWelcomeBoardSearchBusy(false);
       }
@@ -9309,7 +9333,7 @@ function requestMobileMockup3dMesh(){
     }
     async function probeWelcomeWifiBoardReachable(){
       wifiConnectLastProbeError = "";
-      if(connOk || wsConnected) return true;
+      if(isGroundStationTransportConnected()) return true;
       // 650 ms was too short for the first request after joining the board AP:
       // ARP/DHCP settling alone can consume most of that window.
       const timeoutMs = 1200;
@@ -9334,29 +9358,59 @@ function requestMobileMockup3dMesh(){
         }
       });
       const results = await Promise.all(attempts);
-      const match = results.find(result=>result && result.ok);
-      if(!match){
+      const reachable = results.filter(result=>result && result.ok);
+      if(!reachable.length){
         const failed = results.find(result=>result && result.error);
         wifiConnectLastProbeError = "ping: " + normalizeNetError(failed && failed.error, "failed");
         return false;
       }
-      if(match.base){
-        setApiBaseOverride(match.base, isLocalPreviewHost());
+      let match = null;
+      let sample = null;
+      let lastVerifyError = null;
+      for(const candidate of reachable){
+        try{
+          const candidateSample = decodeFlash6ProtocolFrame(
+            await fetchJsonTimeout((candidate.base ? candidate.base : "") + "/data", 1500)
+          );
+          if(!candidateSample || !isGroundStationTelemetry(candidateSample)){
+            lastVerifyError = new Error(
+              candidateSample ? "NOT_GROUND_STATION" : "INVALID_FLASH6_TELEMETRY"
+            );
+            continue;
+          }
+          match = candidate;
+          sample = candidateSample;
+          break;
+        }catch(error){
+          lastVerifyError = error;
+        }
       }
+      if(!match || !sample){
+        wifiConnectLastProbeError = lastVerifyError &&
+          String(lastVerifyError.message || lastVerifyError) === "NOT_GROUND_STATION"
+          ? "연결된 보드가 지상국 역할이 아닙니다."
+          : "telemetry: " + normalizeNetError(lastVerifyError, "FLASH6 지상국 응답 없음");
+        return false;
+      }
+      if(match.base) setApiBaseOverride(match.base, isLocalPreviewHost());
       if(typeof window !== "undefined"){
         window.__flashLastProbe = {ok:true, kind:"welcome_ping", url:match.url, at:Date.now()};
       }
       if(!wsConnected && !wsRetryTimer) scheduleWsReconnect("welcome ping alive");
-      updateData().catch(()=>{});
+      onIncomingSample(sample, "WIFI");
       return true;
     }
     async function probeWifiBoardReachable(){
       wifiConnectLastProbeError = "";
-      if(connOk || wsConnected) return true;
+      if(isGroundStationTransportConnected()) return true;
       try{
         if(await probeBoardPing(1800)){
+          const sample = await fetchJsonWithFallback(1800);
+          if(!sample || !isGroundStationTelemetry(sample)){
+            throw new Error("NOT_GROUND_STATION");
+          }
+          onIncomingSample(sample, "WIFI");
           if(!wsConnected && !wsRetryTimer) scheduleWsReconnect("ping alive");
-          updateData().catch(()=>{});
           return true;
         }
       }catch(e){
@@ -9368,17 +9422,20 @@ function requestMobileMockup3dMesh(){
       }catch(e){
         wifiConnectLastProbeError = "wifi_info: " + normalizeNetError(e, "failed");
       }
-      if(connOk || wsConnected) return true;
+      if(isGroundStationTransportConnected()) return true;
 
       try{
         const sample = await fetchJsonWithFallback(1800);
+        if(!sample || !isGroundStationTelemetry(sample)){
+          throw new Error("NOT_GROUND_STATION");
+        }
         onIncomingSample(sample, "WIFI");
         return true;
       }catch(e){
         wifiConnectLastProbeError = "data: " + normalizeNetError(e, "failed");
       }
 
-      return !!(connOk || wsConnected);
+      return isGroundStationTransportConnected();
     }
     async function wifiConnectWaitTick(){
       if(wifiConnectStage !== "waiting") return;
@@ -9455,20 +9512,28 @@ function requestMobileMockup3dMesh(){
         el.serialConnectNextBtn.disabled = false;
       }
     }
-    function openSerialConnectWizard(){
+    function openSerialConnectWizard(opts){
       if(!el.serialConnectOverlay) return;
+      serialConnectRequireGround = !!(opts && opts.requireGround);
       setSerialConnectWizardStage("guide");
       setOverlayVisible(el.serialConnectOverlay, true);
     }
     function closeSerialConnectWizard(){
       serialConnectStage = "idle";
+      serialConnectRequireGround = false;
       setOverlayVisible(el.serialConnectOverlay, false);
       syncMobileGroundStationWaitOverlay();
     }
     async function startSerialConnectFromWizard(){
       if(serialConnectStage === "waiting") return;
       setSerialConnectWizardStage("waiting");
-      await serialConnect();
+      // This path is initiated by an explicit operator action. Always show the
+      // browser picker so a previously granted avionics port cannot trap the
+      // wizard on the wrong ESP32 device.
+      await serialConnect({
+        requireGround:serialConnectRequireGround,
+        preferGranted:false
+      });
       updateSerialControlTile();
       updateSerialPill();
       if(serialConnected){
@@ -9509,8 +9574,10 @@ function requestMobileMockup3dMesh(){
         closeWsSocketSafe(1000, "serial mode");
         wsConnected = false;
         wsConnectStartedMs = 0;
+        connOk = false;
         setAlarmActive("WS_DISCONNECTED", false);
         updateWsUI();
+        updateConnectionUI(false);
       }
 
       if(mode === "wifi" && serialConnected){
@@ -9570,12 +9637,17 @@ function requestMobileMockup3dMesh(){
         showToast(t("connectSerialAlready"), "info", {key:"serial-already"});
         return;
       }
-      openSerialConnectWizard();
+      openSerialConnectWizard({requireGround:!welcomeDashboardEntered});
       await startSerialConnectFromWizard();
     }
     async function runAutoWifiConnect(reason){
       if(simEnabled) return;
+      // The discovery loop belongs to the welcome screen only. Once the
+      // operator enters the dashboard, each transport's own reconnect logic
+      // must retain ownership instead of an 1.8 s loop switching Wi-Fi/USB.
+      if(welcomeDashboardEntered) return;
       if(autoWifiConnectBusy) return;
+      if(welcomeBoardSearchBusy) return;
       if(serialConnected || serialConnectStage === "waiting" || serialConnectBusy) return;
       if(wifiConnectStage === "waiting") return;
       autoWifiConnectBusy = true;
@@ -9583,7 +9655,7 @@ function requestMobileMockup3dMesh(){
         if(serialEnabled){
           await setConnectTransportMode("wifi", {toast:false});
         }
-        if(connOk || wsConnected){
+        if(isGroundStationTransportConnected()){
           if(!wsConnected && !wsRetryTimer) scheduleWsReconnect(reason || "auto wifi");
           syncWelcomeConnectScreen(true);
           return;
@@ -9591,24 +9663,29 @@ function requestMobileMockup3dMesh(){
         if(!wsConnected && !wsRetryTimer) scheduleWsReconnect(reason || "auto wifi");
         let wifiReachable = false;
         try{
-          wifiReachable = await probeBoardPing(650);
-          if(wifiReachable && !wsConnected && !wsRetryTimer){
-            scheduleWsReconnect(reason || "auto wifi");
-          }
+          wifiReachable = await probeWelcomeWifiBoardReachable();
         }catch(_e){}
-        if(connOk || wsConnected){
+        if(wifiReachable && isGroundStationTransportConnected()){
           syncWelcomeConnectScreen(true);
           return;
         }
-        if(wifiReachable){
-          syncWelcomeConnectScreen(false);
-          return;
-        }
 
-        const grantedPort = await getPreviouslyGrantedSerialPort();
-        if(grantedPort && !isGroundStationTransportConnected()){
+        const nowMs = Date.now();
+        if((nowMs - lastAutoSerialScanMs) < 5000) return;
+        lastAutoSerialScanMs = nowMs;
+        const grantedPorts = await getPreviouslyGrantedSerialPorts();
+        if(grantedPorts.length && !isGroundStationTransportConnected()){
           await setConnectTransportMode("serial", {toast:false});
-          await serialConnect({preferGranted:true, autoReconnect:true});
+          for(const port of grantedPorts){
+            const connected = await serialConnect({
+              preferGranted:true,
+              autoReconnect:true,
+              port,
+              requireGround:true,
+              quiet:true
+            });
+            if(connected) break;
+          }
           serialConnectStage = serialConnected ? "success" : "idle";
         }
       }finally{
@@ -9624,7 +9701,7 @@ function requestMobileMockup3dMesh(){
       }, 1800);
     }
     async function startAutoWifiThenSerialConnect(){
-      if(connOk || wsConnected){
+      if(isGroundStationTransportConnected()){
         await setConnectTransportMode("wifi", {toast:false});
         if(!wsConnected && !wsRetryTimer) scheduleWsReconnect("mobile auto wifi");
         showToast("Wi-Fi 연결 감지됨", "success", {key:"mobile-auto-wifi"});
@@ -21908,6 +21985,25 @@ function requestMobileMockup3dMesh(){
       evaluateRuntimeAlarms(Date.now());
     }
 
+    function ensureSerialAlive(){
+      if(!serialEnabled || !serialConnected || serialConnectBusy || serialStaleRecoveryBusy) return;
+      const lastActivity = Math.max(lastSerialActivityAt || 0, lastSerialSampleAt || 0);
+      if(!lastActivity || (Date.now() - lastActivity) <= SERIAL_LINK_STALE_MS) return;
+      serialStaleRecoveryBusy = true;
+      addLogLine("WebSerial link stale; reopening the verified ground-station port.", "SER");
+      serialConnected = false;
+      serialConnectedRole = "";
+      flushSerialAckWaiters("SERIAL_STALE");
+      updateSerialPill();
+      connOk = false;
+      updateConnectionUI(false);
+      closeSerialHandles({closePort:true}).finally(()=>{
+        serialPort = null;
+        serialStaleRecoveryBusy = false;
+        scheduleSerialAutoReconnect("stale link");
+      });
+    }
+
     // =====================
     // 통신: Wi-Fi 폴링
     // =====================
@@ -22018,6 +22114,7 @@ function requestMobileMockup3dMesh(){
         addLogLine("WebSerial port disconnected by browser event.", "SER");
         if(serialConnected){
           serialConnected = false;
+          serialConnectedRole = "";
           flushSerialAckWaiters("SERIAL_DISCONNECTED");
           updateSerialPill();
           connOk = false;
@@ -22289,6 +22386,10 @@ function requestMobileMockup3dMesh(){
       );
       if(reply && reply.ok){
         const message = String(reply.message || "");
+        const roleMatch = message.match(/\bflash_link_role=([^\s]+)/i);
+        reply.flashLinkRole = roleMatch
+          ? String(roleMatch[1] || "").trim().toLowerCase()
+          : "";
         const lockMatch = message.match(/\bmission_locked=(\d+)/i);
         const sourceMatch = message.match(/\bmission_source=([^\s]+)/i);
         if(lockMatch){
@@ -22412,16 +22513,16 @@ function requestMobileMockup3dMesh(){
       return { ok:sawReadableText, reason:(sawReadableText ? "TEXT" : "TIMEOUT"), sample:null, leftover:probeBuf };
     }
 
-    async function getPreviouslyGrantedSerialPort(){
-      if(!serialSupported() || !navigator.serial.getPorts) return null;
+    async function getPreviouslyGrantedSerialPorts(){
+      if(!serialSupported() || !navigator.serial.getPorts) return [];
       let ports = [];
       try{
         ports = await navigator.serial.getPorts();
       }catch(e){
         addLogLine("WebSerial getPorts failed: " + (e?.message || e), "SER");
-        return null;
+        return [];
       }
-      if(!ports || !ports.length) return null;
+      if(!ports || !ports.length) return [];
       const usbPorts = ports.filter(port=>{
         try{
           const info = port && typeof port.getInfo === "function" ? port.getInfo() : null;
@@ -22442,7 +22543,12 @@ function requestMobileMockup3dMesh(){
         return {port, score, index};
       });
       ranked.sort((a, b)=>(b.score - a.score) || (a.index - b.index));
-      return ranked.length ? ranked[0].port : null;
+      return ranked.map(item=>item.port);
+    }
+
+    async function getPreviouslyGrantedSerialPort(){
+      const ports = await getPreviouslyGrantedSerialPorts();
+      return ports.length ? ports[0] : null;
     }
 
     function cancelSerialAutoReconnect(){
@@ -22462,7 +22568,11 @@ function requestMobileMockup3dMesh(){
       serialAutoReconnectTimer = setTimeout(async ()=>{
         serialAutoReconnectTimer = null;
         if(!serialEnabled || simEnabled || serialConnected || serialConnectBusy) return;
-        await serialConnect({preferGranted:true, autoReconnect:true});
+        await serialConnect({
+          preferGranted:true,
+          autoReconnect:true,
+          requireGround:serialGroundRequired
+        });
         if(!serialConnected){
           scheduleSerialAutoReconnect("retry");
         }
@@ -22472,6 +22582,13 @@ function requestMobileMockup3dMesh(){
     async function serialConnect(opts){
       const options = opts || {};
       const autoReconnect = !!options.autoReconnect;
+      const requireGround = !!options.requireGround;
+      const quiet = !!options.quiet;
+      if(Object.prototype.hasOwnProperty.call(options, "requireGround") && !autoReconnect){
+        serialGroundRequired = requireGround;
+      }else if(requireGround){
+        serialGroundRequired = true;
+      }
       if(simEnabled){
         setSimEnabled(false, {silent:true});
       }
@@ -22560,7 +22677,13 @@ function requestMobileMockup3dMesh(){
         let gotBoardAck = false;
         const settingsAck = await requestSerialSettingsAck(1100);
         if(settingsAck && settingsAck.ok){
+          if(requireGround && settingsAck.flashLinkRole !== "ground"){
+            throw new Error("SERIAL_NOT_GROUND_STATION");
+          }
+          serialConnectedRole = settingsAck.flashLinkRole || "";
           gotBoardAck = true;
+        }else if(requireGround){
+          throw new Error("SERIAL_GROUND_ROLE_UNVERIFIED");
         }
         const handshakeDeadline = Date.now() + (gotBoardAck ? 4200 : 9000);
         while(serialConnected && Date.now() < handshakeDeadline){
@@ -22570,10 +22693,13 @@ function requestMobileMockup3dMesh(){
           }
           gotSample = await waitForSerialSampleAfter(handshakeStartedAt, gotBoardAck ? 1200 : 1800);
           if(gotSample) break;
-          if(gotBoardAck) break;
+          if(gotBoardAck && !requireGround) break;
         }
         if(!gotSample && !gotBoardAck){
           throw new Error("SERIAL_DATA_TIMEOUT");
+        }
+        if(requireGround && !gotSample){
+          throw new Error("SERIAL_GROUND_TELEMETRY_TIMEOUT");
         }
 
         markSerialControlLinkReady(gotSample);
@@ -22589,14 +22715,25 @@ function requestMobileMockup3dMesh(){
           showToast("시리얼 재연결됨", "success", {key:"serial-auto-reconnect"});
         }
         syncDaqSequencePyroChannelToBoard(false);
+        return true;
       }catch(e){
         await closeSerialHandles({ closePort:true });
         serialPort = null;
         serialConnected = false;
+        serialConnectedRole = "";
         updateSerialPill();
         const serialErrText = String(e?.message || e || "SERIAL_CONNECT_FAILED");
         addLogLine(t("webserialConnectFailed", {err:serialErrText}), "SER");
-        if(autoReconnect){
+        if(quiet){
+          // Automatic discovery may inspect more than one granted ESP32 port.
+          // Keep rejected non-ground ports out of the operator notification UI.
+        }else if(serialErrText === "SERIAL_NOT_GROUND_STATION"){
+          showToast("선택한 장치는 지상국 보드가 아닙니다. 지상국 보드를 선택하세요.", "error", {key:"serial-ground-role"});
+        }else if(serialErrText === "SERIAL_GROUND_ROLE_UNVERIFIED"){
+          showToast("지상국 역할을 확인하지 못했습니다. 보드 전원과 펌웨어를 확인하세요.", "error", {key:"serial-ground-role"});
+        }else if(serialErrText === "SERIAL_GROUND_TELEMETRY_TIMEOUT"){
+          showToast("지상국 응답은 확인했지만 텔레메트리가 없습니다. 지상국 모드와 스트림을 확인하세요.", "error", {key:"serial-ground-telemetry"});
+        }else if(autoReconnect){
           showToast("시리얼 재연결 중", "notice", {key:"serial-auto-reconnect"});
         }else if(serialErrText === "SERIAL_DATA_TIMEOUT"){
           showToast("USB는 열렸지만 보드 응답이 없습니다. 포트와 모드를 확인하세요.", "error", {key:"serial-data-timeout"});
@@ -22605,6 +22742,7 @@ function requestMobileMockup3dMesh(){
         }else{
           showToast(t("webserialConnectFailedToast"), "error");
         }
+        return false;
       }finally{
         serialConnectBusy = false;
       }
@@ -22622,9 +22760,12 @@ function requestMobileMockup3dMesh(){
       }finally{
         flushSerialAckWaiters("SERIAL_DISCONNECTED");
         serialConnected = false;
+        serialConnectedRole = "";
+        connOk = false;
         serialParseErrorCount = 0;
         serialRxDisabledWarned = false;
         updateSerialPill();
+        updateConnectionUI(false);
         addLogLine(t("webserialDisconnected"), "SER");
         if(serialEnabled && !silent) showDisconnectOverlay();
       }
@@ -22799,6 +22940,7 @@ function requestMobileMockup3dMesh(){
           flushSerialAckWaiters("SERIAL_DISCONNECTED");
           if(serialConnected){
             serialConnected = false;
+            serialConnectedRole = "";
             updateSerialPill();
             if(serialEnabled){
               connOk = false;
@@ -39611,6 +39753,7 @@ function requestMobileMockup3dMesh(){
       openWebSocket();
       updateWsUI();
       intervalApp(ensureWsAlive, 500);
+      intervalApp(ensureSerialAlive, 500);
       intervalApp(fetchWifiInfo, 2000);
       intervalApp(fetchServoInfo, 2000);
       intervalApp(()=>{ fetchSpiFlashStatus({background:true}).catch(()=>{}); }, 5000);

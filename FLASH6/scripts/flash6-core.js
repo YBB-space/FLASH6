@@ -5810,6 +5810,7 @@ function requestMobileMockup3dMesh(){
     let serialPortEventsBound = false;
     let serialLineBuf = "";
     let serialConnected = false;
+    let serialConnectedRole = "";
     let lastSerialSampleAt = 0;
     let lastSerialActivityAt = 0;
     let pendingSerialTelemetrySample = null;
@@ -5822,6 +5823,9 @@ function requestMobileMockup3dMesh(){
     let autoWifiConnectBusy = false;
     let autoWifiConnectTimer = null;
     let serialConnectStage = "idle";
+    let serialConnectRequireGround = false;
+    let serialGroundRequired = false;
+    let lastAutoSerialScanMs = 0;
     let welcomeConnectCompleted = false;
     let welcomeConnectionVerifiedAtMs = 0;
     let welcomeConnectAttempted = false;
@@ -6121,6 +6125,7 @@ function requestMobileMockup3dMesh(){
     const SERIAL_BAUD_CANDIDATES = [SERIAL_BAUD_RATE, 460800, 115200];
     const SERIAL_PROBE_TIMEOUT_MS = 2200;
     const SERIAL_PARSE_ERROR_LOG_LIMIT = 3;
+    const SERIAL_LINK_STALE_MS = 6500;
     const SERVO_CHANNELS = [1, 2, 3, 4, 5];
     const PYRO_CHANNELS = [1, 2];
     // UI channel label -> board servo channel remap.
@@ -6133,6 +6138,7 @@ function requestMobileMockup3dMesh(){
     let serialParseErrorCount = 0;
     let serialAckWaiters = [];
     let serialConnectBusy = false;
+    let serialStaleRecoveryBusy = false;
     let serialAutoReconnectTimer = null;
     let serialAutoReconnectAttempts = 0;
     let missionCanvasZoom = 1;

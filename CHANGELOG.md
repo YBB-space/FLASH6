@@ -3,6 +3,25 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 ground-station connection stabilization b55 — 2026-07-23
+
+Firmware build: `v6 b33` (unchanged)
+Protocol: `Flash6-Intelligent-b7` (unchanged)
+
+- Changed welcome-screen discovery to require a valid FLASH6 telemetry frame
+  from a board reporting the `GROUND` role. A generic HTTP `/ping` response no
+  longer marks the ground station as connected.
+- Ranked and inspected every previously authorized ESP32 WebSerial port instead
+  of blindly opening the first one. Non-ground avionics ports are rejected
+  before their telemetry stream is enabled.
+- Required both the ground-role settings ACK and a live telemetry sample before
+  exposing `Start`, and removed the stale 30-second connection-ready latch.
+- Limited Wi-Fi/USB discovery switching to the welcome screen. After dashboard
+  entry, WebSocket and WebSerial retain their own reconnect paths without the
+  discovery loop changing transport underneath them.
+- Added a 6.5-second serial inactivity watchdog that closes stale handles and
+  reopens the last verified ground-station transport.
+
 ## 0.9.3 — v6 b33 — 2026-07-23
 
 Protocol: `Flash6-Intelligent-b7` (unchanged; ESP-NOW wire version `7`)

@@ -167,6 +167,25 @@
       evaluateRuntimeAlarms(Date.now());
     }
 
+    function ensureSerialAlive(){
+      if(!serialEnabled || !serialConnected || serialConnectBusy || serialStaleRecoveryBusy) return;
+      const lastActivity = Math.max(lastSerialActivityAt || 0, lastSerialSampleAt || 0);
+      if(!lastActivity || (Date.now() - lastActivity) <= SERIAL_LINK_STALE_MS) return;
+      serialStaleRecoveryBusy = true;
+      addLogLine("WebSerial link stale; reopening the verified ground-station port.", "SER");
+      serialConnected = false;
+      serialConnectedRole = "";
+      flushSerialAckWaiters("SERIAL_STALE");
+      updateSerialPill();
+      connOk = false;
+      updateConnectionUI(false);
+      closeSerialHandles({closePort:true}).finally(()=>{
+        serialPort = null;
+        serialStaleRecoveryBusy = false;
+        scheduleSerialAutoReconnect("stale link");
+      });
+    }
+
     // =====================
     // 통신: Wi-Fi 폴링
     // =====================
@@ -277,6 +296,7 @@
         addLogLine("WebSerial port disconnected by browser event.", "SER");
         if(serialConnected){
           serialConnected = false;
+          serialConnectedRole = "";
           flushSerialAckWaiters("SERIAL_DISCONNECTED");
           updateSerialPill();
           connOk = false;
@@ -548,6 +568,10 @@
       );
       if(reply && reply.ok){
         const message = String(reply.message || "");
+        const roleMatch = message.match(/\bflash_link_role=([^\s]+)/i);
+        reply.flashLinkRole = roleMatch
+          ? String(roleMatch[1] || "").trim().toLowerCase()
+          : "";
         const lockMatch = message.match(/\bmission_locked=(\d+)/i);
         const sourceMatch = message.match(/\bmission_source=([^\s]+)/i);
         if(lockMatch){
@@ -671,16 +695,16 @@
       return { ok:sawReadableText, reason:(sawReadableText ? "TEXT" : "TIMEOUT"), sample:null, leftover:probeBuf };
     }
 
-    async function getPreviouslyGrantedSerialPort(){
-      if(!serialSupported() || !navigator.serial.getPorts) return null;
+    async function getPreviouslyGrantedSerialPorts(){
+      if(!serialSupported() || !navigator.serial.getPorts) return [];
       let ports = [];
       try{
         ports = await navigator.serial.getPorts();
       }catch(e){
         addLogLine("WebSerial getPorts failed: " + (e?.message || e), "SER");
-        return null;
+        return [];
       }
-      if(!ports || !ports.length) return null;
+      if(!ports || !ports.length) return [];
       const usbPorts = ports.filter(port=>{
         try{
           const info = port && typeof port.getInfo === "function" ? port.getInfo() : null;
@@ -701,7 +725,12 @@
         return {port, score, index};
       });
       ranked.sort((a, b)=>(b.score - a.score) || (a.index - b.index));
-      return ranked.length ? ranked[0].port : null;
+      return ranked.map(item=>item.port);
+    }
+
+    async function getPreviouslyGrantedSerialPort(){
+      const ports = await getPreviouslyGrantedSerialPorts();
+      return ports.length ? ports[0] : null;
     }
 
     function cancelSerialAutoReconnect(){
@@ -721,7 +750,11 @@
       serialAutoReconnectTimer = setTimeout(async ()=>{
         serialAutoReconnectTimer = null;
         if(!serialEnabled || simEnabled || serialConnected || serialConnectBusy) return;
-        await serialConnect({preferGranted:true, autoReconnect:true});
+        await serialConnect({
+          preferGranted:true,
+          autoReconnect:true,
+          requireGround:serialGroundRequired
+        });
         if(!serialConnected){
           scheduleSerialAutoReconnect("retry");
         }
@@ -731,6 +764,13 @@
     async function serialConnect(opts){
       const options = opts || {};
       const autoReconnect = !!options.autoReconnect;
+      const requireGround = !!options.requireGround;
+      const quiet = !!options.quiet;
+      if(Object.prototype.hasOwnProperty.call(options, "requireGround") && !autoReconnect){
+        serialGroundRequired = requireGround;
+      }else if(requireGround){
+        serialGroundRequired = true;
+      }
       if(simEnabled){
         setSimEnabled(false, {silent:true});
       }
@@ -819,7 +859,13 @@
         let gotBoardAck = false;
         const settingsAck = await requestSerialSettingsAck(1100);
         if(settingsAck && settingsAck.ok){
+          if(requireGround && settingsAck.flashLinkRole !== "ground"){
+            throw new Error("SERIAL_NOT_GROUND_STATION");
+          }
+          serialConnectedRole = settingsAck.flashLinkRole || "";
           gotBoardAck = true;
+        }else if(requireGround){
+          throw new Error("SERIAL_GROUND_ROLE_UNVERIFIED");
         }
         const handshakeDeadline = Date.now() + (gotBoardAck ? 4200 : 9000);
         while(serialConnected && Date.now() < handshakeDeadline){
@@ -829,10 +875,13 @@
           }
           gotSample = await waitForSerialSampleAfter(handshakeStartedAt, gotBoardAck ? 1200 : 1800);
           if(gotSample) break;
-          if(gotBoardAck) break;
+          if(gotBoardAck && !requireGround) break;
         }
         if(!gotSample && !gotBoardAck){
           throw new Error("SERIAL_DATA_TIMEOUT");
+        }
+        if(requireGround && !gotSample){
+          throw new Error("SERIAL_GROUND_TELEMETRY_TIMEOUT");
         }
 
         markSerialControlLinkReady(gotSample);
@@ -848,14 +897,25 @@
           showToast("시리얼 재연결됨", "success", {key:"serial-auto-reconnect"});
         }
         syncDaqSequencePyroChannelToBoard(false);
+        return true;
       }catch(e){
         await closeSerialHandles({ closePort:true });
         serialPort = null;
         serialConnected = false;
+        serialConnectedRole = "";
         updateSerialPill();
         const serialErrText = String(e?.message || e || "SERIAL_CONNECT_FAILED");
         addLogLine(t("webserialConnectFailed", {err:serialErrText}), "SER");
-        if(autoReconnect){
+        if(quiet){
+          // Automatic discovery may inspect more than one granted ESP32 port.
+          // Keep rejected non-ground ports out of the operator notification UI.
+        }else if(serialErrText === "SERIAL_NOT_GROUND_STATION"){
+          showToast("선택한 장치는 지상국 보드가 아닙니다. 지상국 보드를 선택하세요.", "error", {key:"serial-ground-role"});
+        }else if(serialErrText === "SERIAL_GROUND_ROLE_UNVERIFIED"){
+          showToast("지상국 역할을 확인하지 못했습니다. 보드 전원과 펌웨어를 확인하세요.", "error", {key:"serial-ground-role"});
+        }else if(serialErrText === "SERIAL_GROUND_TELEMETRY_TIMEOUT"){
+          showToast("지상국 응답은 확인했지만 텔레메트리가 없습니다. 지상국 모드와 스트림을 확인하세요.", "error", {key:"serial-ground-telemetry"});
+        }else if(autoReconnect){
           showToast("시리얼 재연결 중", "notice", {key:"serial-auto-reconnect"});
         }else if(serialErrText === "SERIAL_DATA_TIMEOUT"){
           showToast("USB는 열렸지만 보드 응답이 없습니다. 포트와 모드를 확인하세요.", "error", {key:"serial-data-timeout"});
@@ -864,6 +924,7 @@
         }else{
           showToast(t("webserialConnectFailedToast"), "error");
         }
+        return false;
       }finally{
         serialConnectBusy = false;
       }
@@ -881,9 +942,12 @@
       }finally{
         flushSerialAckWaiters("SERIAL_DISCONNECTED");
         serialConnected = false;
+        serialConnectedRole = "";
+        connOk = false;
         serialParseErrorCount = 0;
         serialRxDisabledWarned = false;
         updateSerialPill();
+        updateConnectionUI(false);
         addLogLine(t("webserialDisconnected"), "SER");
         if(serialEnabled && !silent) showDisconnectOverlay();
       }
@@ -1058,6 +1122,7 @@
           flushSerialAckWaiters("SERIAL_DISCONNECTED");
           if(serialConnected){
             serialConnected = false;
+            serialConnectedRole = "";
             updateSerialPill();
             if(serialEnabled){
               connOk = false;
