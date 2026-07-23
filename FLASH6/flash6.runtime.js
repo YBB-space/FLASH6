@@ -19852,13 +19852,9 @@ function requestMobileMockup3dMesh(){
     }
 
     function enterReplayMode(){
-      hideMobileControlsPanel();
       if(isTabletPanelModeBlocked()){
         showTabletPanelBlockedToast("replay");
         return;
-      }
-      if(isTabletControlsLayout()){
-        showTabletControlsPanel();
       }
       setLauncherPanelVisible(false);
       setMissionPanelVisible(false);
@@ -19868,6 +19864,11 @@ function requestMobileMockup3dMesh(){
         showReplayDataPicker();
       }
       updateReplayModeUi();
+      if(isTabletControlsLayout()){
+        showTabletControlsPanel();
+      }else{
+        showControlsModal();
+      }
     }
 
     function activateReplayModeAfterSelection(){

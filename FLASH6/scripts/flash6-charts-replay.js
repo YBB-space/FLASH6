@@ -2481,13 +2481,9 @@
     }
 
     function enterReplayMode(){
-      hideMobileControlsPanel();
       if(isTabletPanelModeBlocked()){
         showTabletPanelBlockedToast("replay");
         return;
-      }
-      if(isTabletControlsLayout()){
-        showTabletControlsPanel();
       }
       setLauncherPanelVisible(false);
       setMissionPanelVisible(false);
@@ -2497,6 +2493,11 @@
         showReplayDataPicker();
       }
       updateReplayModeUi();
+      if(isTabletControlsLayout()){
+        showTabletControlsPanel();
+      }else{
+        showControlsModal();
+      }
     }
 
     function activateReplayModeAfterSelection(){

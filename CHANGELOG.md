@@ -3,6 +3,17 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 replay controls visibility b57 — 2026-07-23
+
+Firmware build: `v6 b33` (unchanged)
+Protocol: `Flash6-Intelligent-b7` (unchanged)
+
+- Restored the replay control surface after selecting a replay data file.
+- Replay mode now opens the existing desktop control drawer, mobile control
+  modal, or tablet control panel for the active layout.
+- Kept playback, seeking, speed, gyro-zero, and report export controls on the
+  shared replay control implementation.
+
 ## FLASH6 direct-avionics connection compatibility b56 — 2026-07-23
 
 Firmware build: `v6 b33` (unchanged)
