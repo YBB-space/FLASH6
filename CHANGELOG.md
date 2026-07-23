@@ -3,6 +3,18 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 replay home exit b59 — 2026-07-24
+
+Firmware build: `v6 b33` (unchanged)
+Protocol: `Flash6-Intelligent-b7` (unchanged)
+
+- Closing the replay control surface now stops playback, restores the live data
+  source, and returns the desktop UI to the FLASH6 welcome screen.
+- Applied the same close behavior to the close button, outside click, Escape
+  key, desktop drawer toggle, mobile modal, and tablet panel.
+- Preserved a verified physical board connection while clearing replay-only
+  welcome readiness when no board is connected.
+
 ## FLASH6 actual-speed quick metric b58 — 2026-07-24
 
 Firmware build: `v6 b33` (unchanged)

@@ -16012,7 +16012,7 @@ function requestMobileMockup3dMesh(){
     }
     function resetControlsModesOnClose(){
       if(replayUiActive){
-        exitReplayMode();
+        exitReplayMode({returnHome:true});
       }
       setMissionPanelVisible(false);
       setInspectionPanelVisible(false);
@@ -20032,7 +20032,17 @@ function requestMobileMockup3dMesh(){
       renderReplayRecentSessions(sessions);
     }
 
-    function exitReplayMode(){
+    function returnToWelcomeAfterReplay(){
+      welcomeDashboardEntered = false;
+      if(!isVerifiedBoardTransportConnected()){
+        clearWelcomeConnectionReady();
+        setWelcomeConnectStatus("idle", "연결 대기중");
+      }
+      syncWelcomeConnectScreen(isVerifiedBoardTransportConnected());
+    }
+
+    function exitReplayMode(options){
+      const opts = options || {};
       cancelReplaySeekProcessing();
       replayUiActive = false;
       pauseReplayPlayback({silent:true});
@@ -20041,6 +20051,9 @@ function requestMobileMockup3dMesh(){
       setReplayStatus("실시간 모드");
       updateReplayModeUi();
       updateData().catch(()=>{});
+      if(opts.returnHome){
+        returnToWelcomeAfterReplay();
+      }
     }
 
     function replayNormalizeZipPath(path){
@@ -36421,7 +36434,14 @@ function requestMobileMockup3dMesh(){
             setMissionPanelVisible(false);
             setInspectionPanelVisible(false);
             if(replayUiActive){
-              exitReplayMode();
+              if(isMobileLayout()){
+                hideControlsModal();
+              }else if(isTabletControlsLayout()){
+                hideTabletControlsPanel();
+              }else{
+                setDesktopControlDrawerOpen(false);
+              }
+              return;
             }
             if(isMobileLayout() && el.mobileControlsPanel){
               ensureDashboardViewForPanels();

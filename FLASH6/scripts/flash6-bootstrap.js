@@ -1873,7 +1873,14 @@
             setMissionPanelVisible(false);
             setInspectionPanelVisible(false);
             if(replayUiActive){
-              exitReplayMode();
+              if(isMobileLayout()){
+                hideControlsModal();
+              }else if(isTabletControlsLayout()){
+                hideTabletControlsPanel();
+              }else{
+                setDesktopControlDrawerOpen(false);
+              }
+              return;
             }
             if(isMobileLayout() && el.mobileControlsPanel){
               ensureDashboardViewForPanels();

@@ -5524,7 +5524,7 @@
     }
     function resetControlsModesOnClose(){
       if(replayUiActive){
-        exitReplayMode();
+        exitReplayMode({returnHome:true});
       }
       setMissionPanelVisible(false);
       setInspectionPanelVisible(false);

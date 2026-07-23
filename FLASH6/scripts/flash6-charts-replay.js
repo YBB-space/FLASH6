@@ -2605,7 +2605,17 @@
       renderReplayRecentSessions(sessions);
     }
 
-    function exitReplayMode(){
+    function returnToWelcomeAfterReplay(){
+      welcomeDashboardEntered = false;
+      if(!isVerifiedBoardTransportConnected()){
+        clearWelcomeConnectionReady();
+        setWelcomeConnectStatus("idle", "연결 대기중");
+      }
+      syncWelcomeConnectScreen(isVerifiedBoardTransportConnected());
+    }
+
+    function exitReplayMode(options){
+      const opts = options || {};
       cancelReplaySeekProcessing();
       replayUiActive = false;
       pauseReplayPlayback({silent:true});
@@ -2614,6 +2624,9 @@
       setReplayStatus("실시간 모드");
       updateReplayModeUi();
       updateData().catch(()=>{});
+      if(opts.returnHome){
+        returnToWelcomeAfterReplay();
+      }
     }
 
     function replayNormalizeZipPath(path){
