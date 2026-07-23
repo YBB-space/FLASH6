@@ -3,6 +3,16 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 replay gyro zero b67 — 2026-07-24
+
+Firmware build: `v6 b33` (unchanged)
+Protocol: `Flash6-Intelligent-b7` (unchanged)
+
+- Routed replay gyro-zero through the local attitude-reference path instead of
+  attempting to calibrate a live avionics board.
+- The selected replay frame now becomes the visual zero reference and its
+  offsets remain applied as subsequent replay samples are rendered.
+
 ## FLASH6 replay dock compact b66 — 2026-07-24
 
 Firmware build: `v6 b33` (unchanged)

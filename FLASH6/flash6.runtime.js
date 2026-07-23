@@ -38066,7 +38066,10 @@ function requestMobileMockup3dMesh(){
         el.settingsOverlay.addEventListener("click",(ev)=>{ if(ev.target===el.settingsOverlay) hideSettings(); });
       }
       async function handleGyroZero(){
-        if(simEnabled){
+        // Replay owns an offline attitude stream. Its zero reference must stay
+        // local to the viewer instead of sending a calibration command to a
+        // connected (or absent) avionics board.
+        if(simEnabled || replayUiActive){
           if(!applyGyroZeroReference()){
             showToast(t("gyroZeroUnavailableToast"), "warn");
             return;
