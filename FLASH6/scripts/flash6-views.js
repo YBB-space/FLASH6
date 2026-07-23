@@ -1954,7 +1954,7 @@
         updateMotorInfoPanel();
       }
       syncMobileBoardHeader();
-      syncWelcomeConnectScreen(isGroundStationTransportConnected());
+      syncWelcomeConnectScreen(isVerifiedBoardTransportConnected());
       syncFlashLinkTopologyUi();
     }
     function syncDaqSequencePyroChannelToBoard(logIt){

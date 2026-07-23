@@ -172,7 +172,7 @@
       const lastActivity = Math.max(lastSerialActivityAt || 0, lastSerialSampleAt || 0);
       if(!lastActivity || (Date.now() - lastActivity) <= SERIAL_LINK_STALE_MS) return;
       serialStaleRecoveryBusy = true;
-      addLogLine("WebSerial link stale; reopening the verified ground-station port.", "SER");
+      addLogLine("WebSerial link stale; reopening the verified FLASH6 board port.", "SER");
       serialConnected = false;
       serialConnectedRole = "";
       flushSerialAckWaiters("SERIAL_STALE");

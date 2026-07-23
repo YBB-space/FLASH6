@@ -3,6 +3,20 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 direct-avionics connection compatibility b56 — 2026-07-23
+
+Firmware build: `v6 b33` (unchanged)
+Protocol: `Flash6-Intelligent-b7` (unchanged)
+
+- Kept telemetry-based board verification while allowing both supported
+  `GROUND` and `AVIONICS` roles over Wi-Fi and WebSerial.
+- Removed the welcome-screen ground-only gate that rejected a directly
+  connected avionics board after a valid settings handshake.
+- Kept transport ownership stable after connection and display the verified
+  board role on the welcome screen instead of treating every board as ground.
+- Generalized mobile connection waiting and stale-port recovery copy to cover
+  either a ground-station or direct-avionics connection.
+
 ## FLASH6 ground-station connection stabilization b55 — 2026-07-23
 
 Firmware build: `v6 b33` (unchanged)

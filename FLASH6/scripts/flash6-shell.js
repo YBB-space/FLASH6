@@ -1945,19 +1945,32 @@
     function isDesktopWelcomeLayout(){
       return !isMobileLayout();
     }
-    function isGroundStationTransportConnected(){
-      if(serialEnabled) return serialConnected && serialConnectedRole === "ground";
+    function isVerifiedBoardTransportConnected(){
+      if(serialEnabled) return serialConnected;
       if(!(connOk || wsConnected)) return false;
       const telemetryFresh = lastOkMs > 0 &&
         (Date.now() - lastOkMs) <= DISCONNECT_GRACE_MS;
-      return !!(telemetryFresh && latestTelemetry && isGroundStationTelemetry(latestTelemetry));
+      return !!(telemetryFresh && latestTelemetry && isSupportedBoardTelemetry(latestTelemetry));
     }
-    function isGroundStationTelemetry(data){
+    function isSupportedBoardTelemetry(data){
       if(!data || typeof data !== "object") return false;
       const rawRole = data.flash_link_role ?? data.fl_role ?? data.fl_role_code ?? null;
       if(rawRole == null || rawRole === "") return true;
-      if(Number(rawRole) === 1) return true;
-      return String(rawRole).trim().toLowerCase() === "ground";
+      const numericRole = Number(rawRole);
+      if(Number.isFinite(numericRole)) return numericRole === 0 || numericRole === 1;
+      const role = String(rawRole).trim().toLowerCase();
+      return role === "ground" || role === "avionics";
+    }
+    function connectedBoardRoleLabel(){
+      const rawRole = serialEnabled
+        ? serialConnectedRole
+        : (latestTelemetry && (
+            latestTelemetry.flash_link_role ??
+            latestTelemetry.fl_role ??
+            latestTelemetry.fl_role_code
+          ));
+      const role = normalizeFlashLinkRole(rawRole);
+      return role === "ground" ? "지상국" : "에비오닉스";
     }
     function markWelcomeConnectionReady(){
       welcomeConnectCompleted = true;
@@ -1968,7 +1981,7 @@
       welcomeConnectionVerifiedAtMs = 0;
     }
     function isWelcomeConnectionReady(){
-      return isGroundStationTransportConnected();
+      return isVerifiedBoardTransportConnected();
     }
     function syncWelcomePrimaryAction(busyLabel){
       if(!el.welcomeBoardSearchBtn || !el.welcomeBoardSearchLabel) return;
@@ -2041,12 +2054,12 @@
         setWelcomeConnectVisible(false);
         return;
       }
-      const groundConnected = isGroundStationTransportConnected();
+      const boardConnected = isVerifiedBoardTransportConnected();
       syncWelcomeConnectCopy();
       setWelcomeConnectVisible(true);
-      if(groundConnected){
+      if(boardConnected){
         markWelcomeConnectionReady();
-        setWelcomeConnectStatus("connected", "지상국 연결 완료");
+        setWelcomeConnectStatus("connected", connectedBoardRoleLabel() + " 연결 완료");
         return;
       }
       if(isWelcomeConnectionReady()){
@@ -2069,7 +2082,7 @@
       welcomeConnectAttempted = true;
       setWelcomeConnectStatus("connecting", "USB 연결 준비중");
       await setConnectTransportMode("serial", {toast:false});
-      await serialConnect({requireGround:true});
+      await serialConnect({requireGround:false});
       updateSerialControlTile();
       updateSerialPill();
       if(serialConnected){
@@ -2119,13 +2132,14 @@
       setWelcomeBoardSearchBusy(true, "연결 확인중");
       setWelcomeConnectStatus("connecting", "Wi-Fi 보드 확인중");
       try{
-        if(isGroundStationTransportConnected()){
-          await setConnectTransportMode("wifi", {toast:false});
-          if(!wsConnected && !wsRetryTimer) scheduleWsReconnect("welcome board search wifi");
+        if(isVerifiedBoardTransportConnected()){
+          if(!serialEnabled && !wsConnected && !wsRetryTimer){
+            scheduleWsReconnect("welcome board search wifi");
+          }
           markWelcomeConnectionReady();
-          setWelcomeConnectStatus("connected", "Wi-Fi 연결 완료");
+          setWelcomeConnectStatus("connected", connectedBoardRoleLabel() + " 연결 완료");
           syncWelcomeConnectScreen(true);
-          showToast("Wi-Fi 연결 감지됨", "success", {key:"welcome-board-search"});
+          showToast("FLASH6 보드 연결 감지됨", "success", {key:"welcome-board-search"});
           return;
         }
         await setConnectTransportMode("wifi", {toast:false});
@@ -2148,7 +2162,7 @@
         const grantedPorts = await getPreviouslyGrantedSerialPorts();
         await setConnectTransportMode("serial", {toast:false});
         if(!grantedPorts.length){
-          openSerialConnectWizard({requireGround:true});
+          openSerialConnectWizard({requireGround:false});
           setWelcomeConnectStatus("idle", "USB 보드를 선택하세요");
           showToast("USB 보드를 선택한 뒤 연결을 눌러주세요.", "notice", {key:"welcome-usb-permission"});
           return;
@@ -2158,7 +2172,7 @@
             preferGranted:true,
             grantedOnly:true,
             port,
-            requireGround:true,
+            requireGround:false,
             quiet:true
           });
           if(connected) break;
@@ -2172,9 +2186,9 @@
           showToast("USB 시리얼 연결 완료", "success", {key:"welcome-board-search"});
           return;
         }
-        openSerialConnectWizard({requireGround:true});
+        openSerialConnectWizard({requireGround:false});
         setWelcomeConnectStatus("idle", "보드를 찾지 못했습니다");
-        showToast("허용된 USB 장치에서 지상국을 찾지 못했습니다. 지상국 보드를 직접 선택하세요.", "error", {key:"welcome-board-search"});
+        showToast("허용된 USB 장치에서 FLASH6 보드를 찾지 못했습니다. 보드를 직접 선택하세요.", "error", {key:"welcome-board-search"});
       }finally{
         setWelcomeBoardSearchBusy(false);
       }
@@ -2283,7 +2297,7 @@
       hideMobileControlsPanel();
       if(!el.disconnectOverlay) return;
       el.disconnectOverlay.classList.add("is-ground-waiting");
-      if(el.disconnectTitle) el.disconnectTitle.textContent = "지상국 연결 대기 중";
+      if(el.disconnectTitle) el.disconnectTitle.textContent = "FLASH6 보드 연결 대기 중";
       if(el.disconnectText) el.disconnectText.textContent = "Wi-Fi 또는 USB 연결을 자동으로 확인하고 있습니다.";
       setOverlayVisible(el.disconnectOverlay, true);
     }
@@ -2363,7 +2377,7 @@
         }
         return;
       }
-      if(isGroundStationTransportConnected()){
+      if(isVerifiedBoardTransportConnected()){
         groundStationConnectionEstablished = true;
         if(waitingVisible) hideDisconnectOverlay();
         return;
@@ -2846,7 +2860,7 @@
     }
     async function probeWelcomeWifiBoardReachable(){
       wifiConnectLastProbeError = "";
-      if(isGroundStationTransportConnected()) return true;
+      if(isVerifiedBoardTransportConnected()) return true;
       // 650 ms was too short for the first request after joining the board AP:
       // ARP/DHCP settling alone can consume most of that window.
       const timeoutMs = 1200;
@@ -2885,9 +2899,9 @@
           const candidateSample = decodeFlash6ProtocolFrame(
             await fetchJsonTimeout((candidate.base ? candidate.base : "") + "/data", 1500)
           );
-          if(!candidateSample || !isGroundStationTelemetry(candidateSample)){
+          if(!candidateSample || !isSupportedBoardTelemetry(candidateSample)){
             lastVerifyError = new Error(
-              candidateSample ? "NOT_GROUND_STATION" : "INVALID_FLASH6_TELEMETRY"
+              candidateSample ? "UNSUPPORTED_FLASH6_ROLE" : "INVALID_FLASH6_TELEMETRY"
             );
             continue;
           }
@@ -2900,9 +2914,9 @@
       }
       if(!match || !sample){
         wifiConnectLastProbeError = lastVerifyError &&
-          String(lastVerifyError.message || lastVerifyError) === "NOT_GROUND_STATION"
-          ? "연결된 보드가 지상국 역할이 아닙니다."
-          : "telemetry: " + normalizeNetError(lastVerifyError, "FLASH6 지상국 응답 없음");
+          String(lastVerifyError.message || lastVerifyError) === "UNSUPPORTED_FLASH6_ROLE"
+          ? "연결된 장치가 지원되는 FLASH6 보드 역할이 아닙니다."
+          : "telemetry: " + normalizeNetError(lastVerifyError, "FLASH6 보드 응답 없음");
         return false;
       }
       if(match.base) setApiBaseOverride(match.base, isLocalPreviewHost());
@@ -2915,12 +2929,12 @@
     }
     async function probeWifiBoardReachable(){
       wifiConnectLastProbeError = "";
-      if(isGroundStationTransportConnected()) return true;
+      if(isVerifiedBoardTransportConnected()) return true;
       try{
         if(await probeBoardPing(1800)){
           const sample = await fetchJsonWithFallback(1800);
-          if(!sample || !isGroundStationTelemetry(sample)){
-            throw new Error("NOT_GROUND_STATION");
+          if(!sample || !isSupportedBoardTelemetry(sample)){
+            throw new Error("UNSUPPORTED_FLASH6_ROLE");
           }
           onIncomingSample(sample, "WIFI");
           if(!wsConnected && !wsRetryTimer) scheduleWsReconnect("ping alive");
@@ -2935,12 +2949,12 @@
       }catch(e){
         wifiConnectLastProbeError = "wifi_info: " + normalizeNetError(e, "failed");
       }
-      if(isGroundStationTransportConnected()) return true;
+      if(isVerifiedBoardTransportConnected()) return true;
 
       try{
         const sample = await fetchJsonWithFallback(1800);
-        if(!sample || !isGroundStationTelemetry(sample)){
-          throw new Error("NOT_GROUND_STATION");
+        if(!sample || !isSupportedBoardTelemetry(sample)){
+          throw new Error("UNSUPPORTED_FLASH6_ROLE");
         }
         onIncomingSample(sample, "WIFI");
         return true;
@@ -2948,7 +2962,7 @@
         wifiConnectLastProbeError = "data: " + normalizeNetError(e, "failed");
       }
 
-      return isGroundStationTransportConnected();
+      return isVerifiedBoardTransportConnected();
     }
     async function wifiConnectWaitTick(){
       if(wifiConnectStage !== "waiting") return;
@@ -3150,7 +3164,7 @@
         showToast(t("connectSerialAlready"), "info", {key:"serial-already"});
         return;
       }
-      openSerialConnectWizard({requireGround:!welcomeDashboardEntered});
+      openSerialConnectWizard({requireGround:false});
       await startSerialConnectFromWizard();
     }
     async function runAutoWifiConnect(reason){
@@ -3168,7 +3182,7 @@
         if(serialEnabled){
           await setConnectTransportMode("wifi", {toast:false});
         }
-        if(isGroundStationTransportConnected()){
+        if(isVerifiedBoardTransportConnected()){
           if(!wsConnected && !wsRetryTimer) scheduleWsReconnect(reason || "auto wifi");
           syncWelcomeConnectScreen(true);
           return;
@@ -3178,7 +3192,7 @@
         try{
           wifiReachable = await probeWelcomeWifiBoardReachable();
         }catch(_e){}
-        if(wifiReachable && isGroundStationTransportConnected()){
+        if(wifiReachable && isVerifiedBoardTransportConnected()){
           syncWelcomeConnectScreen(true);
           return;
         }
@@ -3187,14 +3201,14 @@
         if((nowMs - lastAutoSerialScanMs) < 5000) return;
         lastAutoSerialScanMs = nowMs;
         const grantedPorts = await getPreviouslyGrantedSerialPorts();
-        if(grantedPorts.length && !isGroundStationTransportConnected()){
+        if(grantedPorts.length && !isVerifiedBoardTransportConnected()){
           await setConnectTransportMode("serial", {toast:false});
           for(const port of grantedPorts){
             const connected = await serialConnect({
               preferGranted:true,
               autoReconnect:true,
               port,
-              requireGround:true,
+              requireGround:false,
               quiet:true
             });
             if(connected) break;
@@ -3203,7 +3217,7 @@
         }
       }finally{
         autoWifiConnectBusy = false;
-        syncWelcomeConnectScreen(isGroundStationTransportConnected());
+        syncWelcomeConnectScreen(isVerifiedBoardTransportConnected());
       }
     }
     function startAutoWifiConnectLoop(){
@@ -3214,10 +3228,11 @@
       }, 1800);
     }
     async function startAutoWifiThenSerialConnect(){
-      if(isGroundStationTransportConnected()){
-        await setConnectTransportMode("wifi", {toast:false});
-        if(!wsConnected && !wsRetryTimer) scheduleWsReconnect("mobile auto wifi");
-        showToast("Wi-Fi 연결 감지됨", "success", {key:"mobile-auto-wifi"});
+      if(isVerifiedBoardTransportConnected()){
+        if(!serialEnabled && !wsConnected && !wsRetryTimer){
+          scheduleWsReconnect("mobile auto wifi");
+        }
+        showToast("FLASH6 보드 연결 감지됨", "success", {key:"mobile-auto-wifi"});
         return;
       }
       showToast("Wi-Fi 자동 확인 중", "info", {key:"mobile-auto-wifi"});
