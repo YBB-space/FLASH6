@@ -31838,7 +31838,7 @@ html.replay-ui-active body .side-nav-mobile .js-controls-open{
    playback controls. */
 @media (min-width:901px) and (pointer:fine){
   html.replay-ui-active body.camera-view-active{
-    --replay-transport-height:118px;
+    --replay-transport-height:96px;
   }
 
   html.replay-ui-active body.camera-view-active .app-shell,
@@ -31880,26 +31880,28 @@ html.replay-ui-active body .side-nav-mobile .js-controls-open{
     height:var(--replay-transport-height) !important;
     min-height:var(--replay-transport-height) !important;
     border-right:0 !important;
+    border-top:1px solid rgba(255,255,255,.065) !important;
     border-bottom:0 !important;
     border-left:0 !important;
     border-radius:0 !important;
-    background:#121419 !important;
-    box-shadow:0 -12px 34px rgba(0,0,0,.28),0 1px 0 rgba(255,255,255,.03) inset !important;
+    background:linear-gradient(180deg,#0d1015 0%,#111318 34%,#111318 100%) !important;
+    box-shadow:0 -5px 18px rgba(0,0,0,.12) !important;
     transform:none !important;
   }
 
   html.replay-ui-active body.camera-view-active #controlsCard.replay-mode .replay-panel{
     height:100% !important;
-    padding:14px 54px 14px 24px !important;
+    padding:8px 50px 8px 22px !important;
     display:flex !important;
     align-items:center !important;
+    justify-content:center !important;
   }
 
   html.replay-ui-active body.camera-view-active #controlsCard.replay-mode .replay-layout-row{
     width:min(1540px,calc(100vw - 132px)) !important;
     margin:0 auto !important;
     grid-template-columns:minmax(180px,260px) minmax(420px,1fr) !important;
-    gap:24px !important;
+    gap:22px !important;
   }
 
   html.replay-ui-active body.camera-view-active #controlsCard.replay-mode .replay-dock-close{
