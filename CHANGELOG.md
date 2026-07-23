@@ -3,6 +3,17 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 replay tools panel b61 — 2026-07-24
+
+Firmware build: `v6 b33` (unchanged)
+Protocol: `Flash6-Intelligent-b7` (unchanged)
+
+- Re-enabled the control-panel navigation action while replay mode is active.
+- Moved replay gyro-zero and Excel/Word report actions out of the bottom
+  transport and into a dedicated replay control panel.
+- Connected the replay gyro-zero action to the shared live/simulation gyro
+  reference handler and kept playback controls focused on transport only.
+
 ## FLASH6 replay bottom dock b60 — 2026-07-24
 
 Firmware build: `v6 b33` (unchanged)

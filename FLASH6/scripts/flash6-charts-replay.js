@@ -2016,6 +2016,9 @@
 
     function updateReplayModeUi(){
       document.documentElement.classList.toggle("replay-ui-active", !!replayUiActive);
+      if(!replayUiActive){
+        setReplayToolsPanelOpen(false);
+      }
       if(el.controlsCard){
         el.controlsCard.classList.toggle("replay-mode", replayUiActive);
       }

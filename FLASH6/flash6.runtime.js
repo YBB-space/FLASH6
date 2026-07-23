@@ -15909,19 +15909,23 @@ function requestMobileMockup3dMesh(){
     }
     function updateNavActionState(){
       const replayActive = !!replayUiActive;
+      const replayToolsActive = replayActive && isReplayToolsPanelOpen();
       const launcherActive = !!launcherPanelActive || isLauncherOverlayVisible() || isMobileLauncherPanelVisible();
       const missionActive = !!missionPanelActive || isMissionOverlayVisible() || isMobileMissionPanelVisible();
       const inspectionActive = !!inspectionPanelActive || isInspectionOverlayVisible() || isMobileInspectionPanelVisible();
       const servoActive = isServoControlVisible();
       const panelModeActive = replayActive || launcherActive || missionActive || inspectionActive || servoActive;
-      const controlsActive = !isMobileLayout() &&
+      const controlsActive = replayToolsActive || (!isMobileLayout() &&
         document.documentElement.classList.contains("control-drawer-open") &&
-        !panelModeActive;
+        !panelModeActive);
       if(el.replayOpenBtns && el.replayOpenBtns.length){
         el.replayOpenBtns.forEach(btn=>btn.classList.toggle("is-active", replayActive));
       }
       if(el.controlsToggleBtns && el.controlsToggleBtns.length){
-        el.controlsToggleBtns.forEach(btn=>btn.classList.toggle("is-active", controlsActive));
+        el.controlsToggleBtns.forEach(btn=>{
+          btn.classList.toggle("is-active", controlsActive);
+          if(replayActive) btn.setAttribute("aria-expanded", replayToolsActive ? "true" : "false");
+        });
       }
       if(el.launcherOpenBtns && el.launcherOpenBtns.length){
         el.launcherOpenBtns.forEach(btn=>btn.classList.toggle("is-active", launcherActive));
@@ -16017,6 +16021,21 @@ function requestMobileMockup3dMesh(){
       setMissionPanelVisible(false);
       setInspectionPanelVisible(false);
       setLauncherPanelVisible(false);
+    }
+    function isReplayToolsPanelOpen(){
+      return document.documentElement.classList.contains("replay-tools-open");
+    }
+    function setReplayToolsPanelOpen(open){
+      const next = !!open && !!replayUiActive;
+      document.documentElement.classList.toggle("replay-tools-open", next);
+      if(el.replayToolsPanel){
+        el.replayToolsPanel.classList.toggle("is-open", next);
+        el.replayToolsPanel.setAttribute("aria-hidden", next ? "false" : "true");
+      }
+      updateNavActionState();
+    }
+    function toggleReplayToolsPanel(){
+      setReplayToolsPanelOpen(!isReplayToolsPanelOpen());
     }
     function applyTabletControlsLayout(){
       if(!el.controlsCard) return;
@@ -16728,8 +16747,9 @@ function requestMobileMockup3dMesh(){
       }
       const navButton = document.getElementById("desktopControlPanelNavBtn");
       if(navButton){
-        navButton.classList.toggle("is-active", next);
-        navButton.setAttribute("aria-expanded", next ? "true" : "false");
+        const replayToolsActive = !!replayUiActive && isReplayToolsPanelOpen();
+        navButton.classList.toggle("is-active", replayToolsActive || (next && !replayUiActive));
+        navButton.setAttribute("aria-expanded", replayToolsActive ? "true" : ((next && !replayUiActive) ? "true" : "false"));
       }
       if(!next) resetControlsModesOnClose();
       updateNavActionState();
@@ -19443,6 +19463,9 @@ function requestMobileMockup3dMesh(){
 
     function updateReplayModeUi(){
       document.documentElement.classList.toggle("replay-ui-active", !!replayUiActive);
+      if(!replayUiActive){
+        setReplayToolsPanelOpen(false);
+      }
       if(el.controlsCard){
         el.controlsCard.classList.toggle("replay-mode", replayUiActive);
       }
@@ -35177,6 +35200,12 @@ function requestMobileMockup3dMesh(){
       el.replayOpenBtns = document.querySelectorAll(".js-replay-open");
       el.replayPanel = document.getElementById("replayPanel");
       el.replayCloseBtn = document.getElementById("replayCloseBtn");
+      el.replayToolsPanel = document.getElementById("replayToolsPanel");
+      el.replayToolsCloseBtn = document.getElementById("replayToolsCloseBtn");
+      el.replayGyroZeroBtn = document.getElementById("replayGyroZeroBtn");
+      if(el.replayToolsPanel && el.replayToolsPanel.parentNode !== document.body){
+        document.body.appendChild(el.replayToolsPanel);
+      }
       el.replayFileInput = document.getElementById("replayFileInput");
       el.replayFileBtn = document.getElementById("replayFileBtn");
       el.replayDropTitle = document.getElementById("replayDropTitle");
@@ -36435,13 +36464,7 @@ function requestMobileMockup3dMesh(){
             setMissionPanelVisible(false);
             setInspectionPanelVisible(false);
             if(replayUiActive){
-              if(isMobileLayout()){
-                hideControlsModal();
-              }else if(isTabletControlsLayout()){
-                hideTabletControlsPanel();
-              }else{
-                setDesktopControlDrawerOpen(false);
-              }
+              toggleReplayToolsPanel();
               return;
             }
             if(isMobileLayout() && el.mobileControlsPanel){
@@ -36517,11 +36540,25 @@ function requestMobileMockup3dMesh(){
           }
         });
       }
+      if(el.replayToolsCloseBtn){
+        el.replayToolsCloseBtn.addEventListener("click",(ev)=>{
+          ev.preventDefault();
+          ev.stopPropagation();
+          setReplayToolsPanelOpen(false);
+        });
+      }
       if(el.controlsOverlay){
         el.controlsOverlay.addEventListener("click",(ev)=>{ if(ev.target === el.controlsOverlay) hideControlsModal(); });
       }
 
       document.addEventListener("pointerdown",(ev)=>{
+        if(replayUiActive && isReplayToolsPanelOpen()){
+          const navButton = document.getElementById("desktopControlPanelNavBtn");
+          if(el.replayToolsPanel && el.replayToolsPanel.contains(ev.target)) return;
+          if(navButton && navButton.contains(ev.target)) return;
+          setReplayToolsPanelOpen(false);
+          return;
+        }
         if(isDesktopControlDrawerOpen()){
           const navButton = document.getElementById("desktopControlPanelNavBtn");
           if(el.controlsCard && el.controlsCard.contains(ev.target)) return;
@@ -38067,6 +38104,9 @@ function requestMobileMockup3dMesh(){
       }
       if(el.gyroZeroBtn){
         el.gyroZeroBtn.addEventListener("click", handleGyroZero);
+      }
+      if(el.replayGyroZeroBtn){
+        el.replayGyroZeroBtn.addEventListener("click", handleGyroZero);
       }
       if(el.cameraControlMenuClose){
         el.cameraControlMenuClose.addEventListener("click",()=>setCameraControlMenuOpen(false));

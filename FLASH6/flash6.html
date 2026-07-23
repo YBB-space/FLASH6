@@ -127,7 +127,7 @@
   <!-- Preload 축소: AP 모드/저메모리 환경에서 동시 요청 버스트를 줄임 -->
   <script>
     (function(){
-    var ASSET_VER = "20260724-replay-bottom-dock-b60-__FLASH6_DEPLOY_SHA__";
+    var ASSET_VER = "20260724-replay-tools-panel-b61-__FLASH6_DEPLOY_SHA__";
       window.__flashBoot = window.__flashBoot || {jsReady:false,lastError:"",phase:"static_loader",version:ASSET_VER};
       var isLocalPreview = !!window.__flashBoot.localPreview;
       var beaconEnabled = (window.__flashBoot.beaconEnabled !== false);
@@ -365,7 +365,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="styles/flash6.css?v=20260724-replay-bottom-dock-b60-__FLASH6_DEPLOY_SHA__">
+  <link rel="stylesheet" href="styles/flash6.css?v=20260724-replay-tools-panel-b61-__FLASH6_DEPLOY_SHA__">
 </head>
 <body>
   <!-- ✅ LOCKOUT 배경 오버레이 -->
@@ -1877,28 +1877,44 @@
                       <button class="pill replay-speed-btn is-active" data-replay-speed="1" type="button">1x</button>
                       <button class="pill replay-speed-btn" data-replay-speed="2" type="button">2x</button>
                       <button id="replayTminus10Btn" class="pill replay-speed-btn replay-tminus-btn" type="button">QUICK</button>
-                      <button id="replayGyroZeroBtn" class="pill replay-speed-btn replay-gyro-zero-btn" type="button">자이로 영점</button>
                     </div>
                   </div>
                 </div>
               </div>
-              <div class="replay-export-row">
-                <button id="replayConvertBtn" class="replay-icon-btn replay-convert-btn" type="button" aria-label="보고서 내보내기" title="보고서 내보내기">
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M12 4v10"></path>
-                    <path d="m8.5 10.5 3.5 3.5 3.5-3.5"></path>
-                    <path d="M5 19h14"></path>
-                  </svg>
-                  <span class="replay-btn-label">Excel 보고서</span>
+            </div>
+            <div id="replayToolsPanel" class="replay-tools-panel" aria-hidden="true">
+              <div class="replay-tools-head">
+                <div>
+                  <div class="replay-tools-title">REPLAY CONTROL</div>
+                  <div class="replay-tools-subtitle">Calibration &amp; reports</div>
+                </div>
+                <button id="replayToolsCloseBtn" class="replay-tools-close" type="button" aria-label="리플레이 컨트롤 패널 닫기">×</button>
+              </div>
+              <div class="replay-tools-actions">
+                <button id="replayGyroZeroBtn" class="replay-tool-action replay-tool-action--wide" type="button">
+                  <span class="replay-tool-action-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"></circle><path d="M12 2v4M12 18v4M2 12h4M18 12h4"></path></svg>
+                  </span>
+                  <span><strong>자이로 영점</strong><small>현재 자세를 기준점으로 설정</small></span>
                 </button>
-                <button id="replayDocxBtn" class="replay-icon-btn replay-convert-btn" type="button" aria-label="Word 보고서 내보내기" title="Word 보고서 내보내기">
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M7 3h7l4 4v14H7z"></path>
-                    <path d="M14 3v5h5"></path>
-                    <path d="m9.5 12 1.2 5 1.3-3.4 1.3 3.4 1.2-5"></path>
-                  </svg>
-                  <span class="replay-btn-label">Word 보고서</span>
-                </button>
+                <div class="replay-export-row">
+                  <button id="replayConvertBtn" class="replay-icon-btn replay-convert-btn" type="button" aria-label="보고서 내보내기" title="보고서 내보내기">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M12 4v10"></path>
+                      <path d="m8.5 10.5 3.5 3.5 3.5-3.5"></path>
+                      <path d="M5 19h14"></path>
+                    </svg>
+                    <span class="replay-btn-label">Excel 보고서</span>
+                  </button>
+                  <button id="replayDocxBtn" class="replay-icon-btn replay-convert-btn" type="button" aria-label="Word 보고서 내보내기" title="Word 보고서 내보내기">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M7 3h7l4 4v14H7z"></path>
+                      <path d="M14 3v5h5"></path>
+                      <path d="m9.5 12 1.2 5 1.3-3.4 1.3 3.4 1.2-5"></path>
+                    </svg>
+                    <span class="replay-btn-label">Word 보고서</span>
+                  </button>
+                </div>
               </div>
             </div>
             <div id="replayAlarmEventsPanel" class="replay-event-panel hidden" aria-live="polite">

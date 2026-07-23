@@ -5421,19 +5421,23 @@
     }
     function updateNavActionState(){
       const replayActive = !!replayUiActive;
+      const replayToolsActive = replayActive && isReplayToolsPanelOpen();
       const launcherActive = !!launcherPanelActive || isLauncherOverlayVisible() || isMobileLauncherPanelVisible();
       const missionActive = !!missionPanelActive || isMissionOverlayVisible() || isMobileMissionPanelVisible();
       const inspectionActive = !!inspectionPanelActive || isInspectionOverlayVisible() || isMobileInspectionPanelVisible();
       const servoActive = isServoControlVisible();
       const panelModeActive = replayActive || launcherActive || missionActive || inspectionActive || servoActive;
-      const controlsActive = !isMobileLayout() &&
+      const controlsActive = replayToolsActive || (!isMobileLayout() &&
         document.documentElement.classList.contains("control-drawer-open") &&
-        !panelModeActive;
+        !panelModeActive);
       if(el.replayOpenBtns && el.replayOpenBtns.length){
         el.replayOpenBtns.forEach(btn=>btn.classList.toggle("is-active", replayActive));
       }
       if(el.controlsToggleBtns && el.controlsToggleBtns.length){
-        el.controlsToggleBtns.forEach(btn=>btn.classList.toggle("is-active", controlsActive));
+        el.controlsToggleBtns.forEach(btn=>{
+          btn.classList.toggle("is-active", controlsActive);
+          if(replayActive) btn.setAttribute("aria-expanded", replayToolsActive ? "true" : "false");
+        });
       }
       if(el.launcherOpenBtns && el.launcherOpenBtns.length){
         el.launcherOpenBtns.forEach(btn=>btn.classList.toggle("is-active", launcherActive));
@@ -5529,6 +5533,21 @@
       setMissionPanelVisible(false);
       setInspectionPanelVisible(false);
       setLauncherPanelVisible(false);
+    }
+    function isReplayToolsPanelOpen(){
+      return document.documentElement.classList.contains("replay-tools-open");
+    }
+    function setReplayToolsPanelOpen(open){
+      const next = !!open && !!replayUiActive;
+      document.documentElement.classList.toggle("replay-tools-open", next);
+      if(el.replayToolsPanel){
+        el.replayToolsPanel.classList.toggle("is-open", next);
+        el.replayToolsPanel.setAttribute("aria-hidden", next ? "false" : "true");
+      }
+      updateNavActionState();
+    }
+    function toggleReplayToolsPanel(){
+      setReplayToolsPanelOpen(!isReplayToolsPanelOpen());
     }
     function applyTabletControlsLayout(){
       if(!el.controlsCard) return;
@@ -6240,8 +6259,9 @@
       }
       const navButton = document.getElementById("desktopControlPanelNavBtn");
       if(navButton){
-        navButton.classList.toggle("is-active", next);
-        navButton.setAttribute("aria-expanded", next ? "true" : "false");
+        const replayToolsActive = !!replayUiActive && isReplayToolsPanelOpen();
+        navButton.classList.toggle("is-active", replayToolsActive || (next && !replayUiActive));
+        navButton.setAttribute("aria-expanded", replayToolsActive ? "true" : ((next && !replayUiActive) ? "true" : "false"));
       }
       if(!next) resetControlsModesOnClose();
       updateNavActionState();

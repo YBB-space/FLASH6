@@ -31341,6 +31341,180 @@ html:not(.phone-landscape-layout) body #hardwareServoDialog .hardware-servo-pres
 .replay-dock-close{
   display:none;
 }
+.replay-tools-panel{
+  position:fixed;
+  top:50%;
+  right:92px;
+  z-index:82;
+  width:min(310px,calc(100vw - 132px));
+  padding:0;
+  overflow:hidden;
+  border:1px solid #373b43;
+  border-radius:10px;
+  background:#17191d;
+  box-shadow:0 22px 58px rgba(0,0,0,.46);
+  opacity:0;
+  visibility:hidden;
+  pointer-events:none;
+  transform:translate(12px,-50%);
+  transition:opacity .16s ease,transform .2s cubic-bezier(.2,.78,.28,1),visibility 0s linear .2s;
+}
+.replay-tools-panel.is-open{
+  opacity:1;
+  visibility:visible;
+  pointer-events:auto;
+  transform:translate(0,-50%);
+  transition:opacity .16s ease,transform .2s cubic-bezier(.2,.78,.28,1),visibility 0s;
+}
+.replay-tools-head{
+  min-height:60px;
+  padding:0 12px 0 17px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  border-bottom:1px solid #2d3036;
+  background:#1a1c20;
+}
+.replay-tools-title{
+  color:#f1f2f4;
+  font-size:13px;
+  line-height:1.2;
+  font-weight:680;
+  letter-spacing:.12em;
+}
+.replay-tools-subtitle{
+  margin-top:4px;
+  color:#777d87;
+  font-size:9px;
+  line-height:1.2;
+  font-weight:600;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+}
+.replay-tools-close{
+  width:32px;
+  height:32px;
+  padding:0;
+  display:grid;
+  place-items:center;
+  border:1px solid transparent;
+  border-radius:6px;
+  background:transparent;
+  color:#969ba4;
+  font-size:22px;
+  line-height:1;
+  font-weight:300;
+}
+.replay-tools-close:hover{
+  border-color:#393d45;
+  background:#24272c;
+  color:#f3f4f6;
+}
+.replay-tools-actions{
+  display:grid;
+  gap:8px;
+  padding:14px;
+}
+.replay-tool-action{
+  width:100%;
+  min-height:62px;
+  padding:0 13px;
+  display:flex;
+  align-items:center;
+  gap:11px;
+  border:1px solid #32363e;
+  border-radius:7px;
+  background:#1c1f24;
+  color:#e5e7eb;
+  text-align:left;
+  box-shadow:none;
+}
+.replay-tool-action:hover:not(:disabled){
+  border-color:#525864;
+  background:#23262c;
+}
+.replay-tool-action-icon{
+  width:30px;
+  height:30px;
+  flex:0 0 30px;
+  display:grid;
+  place-items:center;
+  border:1px solid #3a3f48;
+  border-radius:6px;
+  color:#b5bac3;
+}
+.replay-tool-action-icon svg{
+  width:17px;
+  height:17px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.7;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.replay-tool-action strong,
+.replay-tool-action small{
+  display:block;
+}
+.replay-tool-action strong{
+  color:#e9eaec;
+  font-size:11px;
+  line-height:1.2;
+  font-weight:650;
+}
+.replay-tool-action small{
+  margin-top:4px;
+  color:#858b95;
+  font-size:9px;
+  line-height:1.25;
+  font-weight:500;
+}
+.replay-tools-panel .replay-export-row{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;
+  margin:0;
+}
+.replay-tools-panel .replay-convert-btn{
+  width:100%;
+  min-width:0;
+  min-height:48px;
+  padding:0 8px;
+  border:1px solid #32363e;
+  border-radius:7px;
+  background:#1c1f24;
+  color:#b9bec7;
+  box-shadow:none;
+}
+.replay-tools-panel .replay-convert-btn:hover:not(:disabled){
+  border-color:#525864;
+  background:#23262c;
+  color:#f1f2f4;
+  transform:none;
+  box-shadow:none;
+}
+.replay-tools-panel .replay-convert-btn .replay-btn-label{
+  font-size:9px;
+  font-weight:620;
+  white-space:nowrap;
+}
+.replay-tools-panel .replay-convert-btn svg{
+  width:15px;
+  height:15px;
+}
+.replay-tools-panel :is(button:disabled){
+  opacity:.42;
+  cursor:not-allowed;
+}
+
+html.replay-ui-active body .side-nav-desktop #desktopControlPanelNavBtn,
+html.replay-ui-active body .side-nav-mobile .js-controls-open{
+  opacity:1 !important;
+  filter:none !important;
+  pointer-events:auto !important;
+  cursor:pointer !important;
+}
 
 @media (min-width:901px) and (pointer:fine){
   html.replay-ui-active.control-drawer-open body.dashboard-view-active #controlsCard.controls-card.replay-mode,
@@ -31391,7 +31565,7 @@ html:not(.phone-landscape-layout) body #hardwareServoDialog .hardware-servo-pres
 
   html.replay-ui-active #controlsCard.replay-mode .replay-layout-row{
     display:grid !important;
-    grid-template-columns:minmax(150px,210px) minmax(360px,1fr) auto !important;
+    grid-template-columns:minmax(150px,210px) minmax(360px,1fr) !important;
     align-items:center !important;
     gap:16px !important;
     width:100% !important;
@@ -31579,43 +31753,6 @@ html:not(.phone-landscape-layout) body #hardwareServoDialog .hardware-servo-pres
     color:#f5f6f7 !important;
   }
 
-  html.replay-ui-active #controlsCard.replay-mode .replay-export-row{
-    display:grid !important;
-    grid-template-columns:repeat(2,minmax(72px,1fr)) !important;
-    align-items:center !important;
-    gap:6px !important;
-    margin:0 !important;
-  }
-
-  html.replay-ui-active #controlsCard.replay-mode .replay-convert-btn{
-    width:auto !important;
-    min-width:76px !important;
-    min-height:38px !important;
-    padding:0 10px !important;
-    border:1px solid #343840 !important;
-    border-radius:7px !important;
-    background:#1d2025 !important;
-    color:#b9bec7 !important;
-    box-shadow:none !important;
-  }
-
-  html.replay-ui-active #controlsCard.replay-mode .replay-convert-btn:hover:not(:disabled){
-    border-color:#565c67 !important;
-    background:#25282e !important;
-    color:#f1f2f4 !important;
-    transform:none !important;
-  }
-
-  html.replay-ui-active #controlsCard.replay-mode .replay-convert-btn svg{
-    width:15px !important;
-    height:15px !important;
-  }
-
-  html.replay-ui-active #controlsCard.replay-mode .replay-convert-btn .replay-btn-label{
-    font-size:9px !important;
-    white-space:nowrap !important;
-  }
-
   html.replay-ui-active #controlsCard.replay-mode .replay-dock-close{
     position:absolute !important;
     top:13px !important;
@@ -31677,5 +31814,21 @@ html:not(.phone-landscape-layout) body #hardwareServoDialog .hardware-servo-pres
 
   html.replay-ui-active #controlsCard.replay-mode .replay-panel.replay-empty .replay-dropzone{
     max-height:48px !important;
+  }
+}
+
+@media (max-width:900px), (pointer:coarse){
+  .replay-tools-panel{
+    top:auto;
+    right:12px;
+    bottom:max(12px,env(safe-area-inset-bottom,0px));
+    left:12px;
+    width:auto;
+    max-width:520px;
+    margin:0 auto;
+    transform:translateY(14px);
+  }
+  .replay-tools-panel.is-open{
+    transform:none;
   }
 }

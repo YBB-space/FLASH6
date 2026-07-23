@@ -616,6 +616,12 @@
       el.replayOpenBtns = document.querySelectorAll(".js-replay-open");
       el.replayPanel = document.getElementById("replayPanel");
       el.replayCloseBtn = document.getElementById("replayCloseBtn");
+      el.replayToolsPanel = document.getElementById("replayToolsPanel");
+      el.replayToolsCloseBtn = document.getElementById("replayToolsCloseBtn");
+      el.replayGyroZeroBtn = document.getElementById("replayGyroZeroBtn");
+      if(el.replayToolsPanel && el.replayToolsPanel.parentNode !== document.body){
+        document.body.appendChild(el.replayToolsPanel);
+      }
       el.replayFileInput = document.getElementById("replayFileInput");
       el.replayFileBtn = document.getElementById("replayFileBtn");
       el.replayDropTitle = document.getElementById("replayDropTitle");
@@ -1874,13 +1880,7 @@
             setMissionPanelVisible(false);
             setInspectionPanelVisible(false);
             if(replayUiActive){
-              if(isMobileLayout()){
-                hideControlsModal();
-              }else if(isTabletControlsLayout()){
-                hideTabletControlsPanel();
-              }else{
-                setDesktopControlDrawerOpen(false);
-              }
+              toggleReplayToolsPanel();
               return;
             }
             if(isMobileLayout() && el.mobileControlsPanel){
@@ -1956,11 +1956,25 @@
           }
         });
       }
+      if(el.replayToolsCloseBtn){
+        el.replayToolsCloseBtn.addEventListener("click",(ev)=>{
+          ev.preventDefault();
+          ev.stopPropagation();
+          setReplayToolsPanelOpen(false);
+        });
+      }
       if(el.controlsOverlay){
         el.controlsOverlay.addEventListener("click",(ev)=>{ if(ev.target === el.controlsOverlay) hideControlsModal(); });
       }
 
       document.addEventListener("pointerdown",(ev)=>{
+        if(replayUiActive && isReplayToolsPanelOpen()){
+          const navButton = document.getElementById("desktopControlPanelNavBtn");
+          if(el.replayToolsPanel && el.replayToolsPanel.contains(ev.target)) return;
+          if(navButton && navButton.contains(ev.target)) return;
+          setReplayToolsPanelOpen(false);
+          return;
+        }
         if(isDesktopControlDrawerOpen()){
           const navButton = document.getElementById("desktopControlPanelNavBtn");
           if(el.controlsCard && el.controlsCard.contains(ev.target)) return;
@@ -3506,6 +3520,9 @@
       }
       if(el.gyroZeroBtn){
         el.gyroZeroBtn.addEventListener("click", handleGyroZero);
+      }
+      if(el.replayGyroZeroBtn){
+        el.replayGyroZeroBtn.addEventListener("click", handleGyroZero);
       }
       if(el.cameraControlMenuClose){
         el.cameraControlMenuClose.addEventListener("click",()=>setCameraControlMenuOpen(false));
