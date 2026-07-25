@@ -553,6 +553,31 @@ assert.match(
   /const GYRO_TRAIL_HORIZONTAL_EXAGGERATION = 1\.0;/,
   "live gyro trajectory must preserve the same metric proportions as reports"
 );
+assert.match(
+  reportSource,
+  /const groundHalf = Math\.max\(\s*horizontalSpan \* 0\.68,\s*altitudeSpan \* 0\.38\s*\);/,
+  "trajectory ground reference plane must remain readable without changing metric scale"
+);
+assert.match(
+  reportSource,
+  /"APOGEE  " \+ maxA\.toFixed\(1\) \+ " m · T\+" \+ apogeeTPlusSec\.toFixed\(3\) \+ " s"/,
+  "apogee marker must include altitude and T+ time"
+);
+assert.match(
+  reportSource,
+  /"STAGE SEP  T\+"[\s\S]*stageSeparationEvent\.point\.altitudeM\.toFixed\(1\) \+ " m"/,
+  "stage-separation marker must include event altitude"
+);
+assert.match(
+  reportSource,
+  /"EJECTION  T\+"[\s\S]*ejectionEvent\.point\.altitudeM\.toFixed\(1\) \+ " m"/,
+  "ejection marker must include event altitude"
+);
+assert.match(
+  reportSource,
+  /"END  " \+ endPoint\.altitudeM\.toFixed\(1\) \+ " m"/,
+  "end marker must include final altitude"
+);
 
 assert.match(
   bootstrapSource,

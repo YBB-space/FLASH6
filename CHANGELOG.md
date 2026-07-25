@@ -3,6 +3,17 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 trajectory ground plane and event labels b85 — 2026-07-25
+
+Firmware build: `v6 b37` (unchanged)
+Protocol: `Flash6-Intelligent-b8` (unchanged)
+
+- Expanded the trajectory ground reference grid independently from the measured
+  X/Z bounds while preserving one true metric projection scale for all axes.
+- Kept the exact corrected-apogee sample in the decimated trajectory data.
+- Added altitude to stage-separation, ejection, and end markers.
+- Added T+ time to the apogee marker.
+
 ## FLASH6 pressure-robust flight altitude b84 — 2026-07-25
 
 Firmware build: `v6 b37` (unchanged)

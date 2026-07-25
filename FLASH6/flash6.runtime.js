@@ -35255,6 +35255,13 @@ function requestMobileMockup3dMesh(){
       const eventPointIndexes = new Set();
       if(stageSeparationEvent) eventPointIndexes.add(stageSeparationEvent.index);
       if(ejectionEvent) eventPointIndexes.add(ejectionEvent.index);
+      let rawApogeePointIndex = 0;
+      for(let index = 1; index < rawPoints.length; index++){
+        if(rawPoints[index].altitudeM > rawPoints[rawApogeePointIndex].altitudeM){
+          rawApogeePointIndex = index;
+        }
+      }
+      eventPointIndexes.add(rawApogeePointIndex);
 
       const maxPoints = 1800;
       const stride = Math.max(1, Math.ceil(rawPoints.length / maxPoints));
@@ -35351,7 +35358,15 @@ function requestMobileMockup3dMesh(){
       const baseA = Math.min(0, minA);
       const horizontalSpan = Math.max(2, maxE - minE, maxN - minN);
       const altitudeSpan = Math.max(1, maxA - baseA);
-      const groundHalf = horizontalSpan * 0.58;
+      // The grid is a reference ground plane, not the measured range bounds.
+      // Keeping it tight to a nearly vertical trajectory makes the pad look
+      // like a tiny postage stamp when all axes use the correct metric scale.
+      // Expand only the grid footprint; trajectory coordinates and projection
+      // scale remain physically unchanged.
+      const groundHalf = Math.max(
+        horizontalSpan * 0.68,
+        altitudeSpan * 0.38
+      );
       let covarianceEE = 0;
       let covarianceNN = 0;
       let covarianceEN = 0;
@@ -35493,8 +35508,23 @@ function requestMobileMockup3dMesh(){
         ctx.textAlign = "left";
       };
       drawMarker(points[0], "#10b981", "LAUNCH", false);
-      drawMarker(points[apogeeIndex], "#f59e0b", "APOGEE " + maxA.toFixed(1) + " m", false);
-      drawMarker(points[points.length - 1], "#ef4444", "END", true);
+      const apogeeTPlusSec = Math.max(
+        0,
+        points[apogeeIndex].elapsedSec - trajectoryStartElapsedSec
+      );
+      const endPoint = points[points.length - 1];
+      drawMarker(
+        points[apogeeIndex],
+        "#f59e0b",
+        "APOGEE  " + maxA.toFixed(1) + " m · T+" + apogeeTPlusSec.toFixed(3) + " s",
+        false
+      );
+      drawMarker(
+        endPoint,
+        "#ef4444",
+        "END  " + endPoint.altitudeM.toFixed(1) + " m",
+        true
+      );
       if(stageSeparationEvent && isFinite(stageSeparationTPlusSec)){
         const inferredSuffix = stageSeparationEvent.inferred ? " · EST" : "";
         const projected = project(
@@ -35505,7 +35535,8 @@ function requestMobileMockup3dMesh(){
         drawMarker(
           stageSeparationEvent.point,
           "#2563eb",
-          "STAGE SEP  T+" + stageSeparationTPlusSec.toFixed(3) + " s" + inferredSuffix,
+          "STAGE SEP  T+" + stageSeparationTPlusSec.toFixed(3) + " s · " +
+            stageSeparationEvent.point.altitudeM.toFixed(1) + " m" + inferredSuffix,
           projected.x > width * 0.72,
           -18
         );
@@ -35519,7 +35550,8 @@ function requestMobileMockup3dMesh(){
         drawMarker(
           ejectionEvent.point,
           "#7c3aed",
-          "EJECTION  T+" + ejectionTPlusSec.toFixed(3) + " s",
+          "EJECTION  T+" + ejectionTPlusSec.toFixed(3) + " s · " +
+            ejectionEvent.point.altitudeM.toFixed(1) + " m",
           projected.x > width * 0.72,
           28
         );
