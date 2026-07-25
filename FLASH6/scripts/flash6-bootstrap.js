@@ -886,6 +886,10 @@
           replayState.index = 0;
           replayState.lastIndex = -1;
           setActiveDataSource(DATA_SOURCE_REPLAY);
+          // Leave the welcome screen as soon as parsing has succeeded.  The
+          // remaining render/status updates must not strand a valid replay on
+          // the home surface.
+          activateReplayModeAfterSelection();
           setFlashLinkDisplayDataMode(replayDataMode);
           renderReplayAlarmEvents();
           updateReplayModeUi();
@@ -896,7 +900,6 @@
             "success",
             {key:"replay-load"}
           );
-          activateReplayModeAfterSelection();
           setReplayDataPickerVisible(false);
         }catch(err){
           const reason = (err && err.message) ? err.message : String(err || "unknown");

@@ -2504,7 +2504,6 @@
     }
 
     function activateReplayModeAfterSelection(){
-      if(replayUiActive) return;
       if(el.welcomeConnectScreen && !el.welcomeConnectScreen.classList.contains("hidden")){
         welcomeConnectAttempted = true;
         markWelcomeConnectionReady();
@@ -2512,7 +2511,11 @@
         setWelcomeConnectVisible(false);
       }
       try{ ensureDashboardViewForPanels(); }catch(_e){}
-      enterReplayMode();
+      if(!replayUiActive){
+        enterReplayMode();
+      }else{
+        updateReplayModeUi();
+      }
     }
 
     function setReplayDataPickerVisible(visible){
@@ -3975,10 +3978,13 @@
       if(!file) throw new Error("리플레이 BIN 파일이 선택되지 않았습니다.");
       const arrayBuffer = await file.arrayBuffer();
       const protocolMetadata = replayInspectBinProtocol(arrayBuffer);
+      const samples = replayBuildSamplesFromBin(arrayBuffer);
       if(protocolMetadata.candidate && !protocolMetadata.compatible){
-        await showReplayLegacyProtocolNotice(protocolMetadata, file.name);
+        // This is an informational compatibility notice, not a parse gate.
+        // Never keep replay activation waiting behind a hidden/covered modal.
+        void showReplayLegacyProtocolNotice(protocolMetadata, file.name);
       }
-      return replayBuildSamplesFromBin(arrayBuffer);
+      return samples;
     }
 
     function getReplayParserCandidates(file){

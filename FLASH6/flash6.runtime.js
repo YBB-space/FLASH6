@@ -19975,7 +19975,6 @@ function requestMobileMockup3dMesh(){
     }
 
     function activateReplayModeAfterSelection(){
-      if(replayUiActive) return;
       if(el.welcomeConnectScreen && !el.welcomeConnectScreen.classList.contains("hidden")){
         welcomeConnectAttempted = true;
         markWelcomeConnectionReady();
@@ -19983,7 +19982,11 @@ function requestMobileMockup3dMesh(){
         setWelcomeConnectVisible(false);
       }
       try{ ensureDashboardViewForPanels(); }catch(_e){}
-      enterReplayMode();
+      if(!replayUiActive){
+        enterReplayMode();
+      }else{
+        updateReplayModeUi();
+      }
     }
 
     function setReplayDataPickerVisible(visible){
@@ -21446,10 +21449,13 @@ function requestMobileMockup3dMesh(){
       if(!file) throw new Error("리플레이 BIN 파일이 선택되지 않았습니다.");
       const arrayBuffer = await file.arrayBuffer();
       const protocolMetadata = replayInspectBinProtocol(arrayBuffer);
+      const samples = replayBuildSamplesFromBin(arrayBuffer);
       if(protocolMetadata.candidate && !protocolMetadata.compatible){
-        await showReplayLegacyProtocolNotice(protocolMetadata, file.name);
+        // This is an informational compatibility notice, not a parse gate.
+        // Never keep replay activation waiting behind a hidden/covered modal.
+        void showReplayLegacyProtocolNotice(protocolMetadata, file.name);
       }
-      return replayBuildSamplesFromBin(arrayBuffer);
+      return samples;
     }
 
     function getReplayParserCandidates(file){
@@ -35710,6 +35716,10 @@ function requestMobileMockup3dMesh(){
           replayState.index = 0;
           replayState.lastIndex = -1;
           setActiveDataSource(DATA_SOURCE_REPLAY);
+          // Leave the welcome screen as soon as parsing has succeeded.  The
+          // remaining render/status updates must not strand a valid replay on
+          // the home surface.
+          activateReplayModeAfterSelection();
           setFlashLinkDisplayDataMode(replayDataMode);
           renderReplayAlarmEvents();
           updateReplayModeUi();
@@ -35720,7 +35730,6 @@ function requestMobileMockup3dMesh(){
             "success",
             {key:"replay-load"}
           );
-          activateReplayModeAfterSelection();
           setReplayDataPickerVisible(false);
         }catch(err){
           const reason = (err && err.message) ? err.message : String(err || "unknown");

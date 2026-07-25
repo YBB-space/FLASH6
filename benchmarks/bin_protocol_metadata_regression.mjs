@@ -100,4 +100,44 @@ assert.equal(generatedMeta.protocolVersion, 8);
 assert.equal(generatedMeta.sessionId, 12);
 assert.equal(generatedMeta.firmwareBuildNumber, 36);
 
+const parseStart = source.indexOf("async function parseReplayBin");
+const parseEnd = source.indexOf("function getReplayParserCandidates", parseStart);
+const parseSource = source.slice(parseStart, parseEnd);
+assert.ok(parseSource.includes("void showReplayLegacyProtocolNotice"));
+assert.ok(!parseSource.includes("await showReplayLegacyProtocolNotice"));
+vm.runInContext(
+  [
+    "globalThis.replayBuildSamplesFromBin = ()=>[{sample:{}}];",
+    "globalThis.showReplayLegacyProtocolNotice = ()=>new Promise(()=>{});",
+    parseSource,
+    "globalThis.parseBinWithoutModalGate = parseReplayBin;"
+  ].join("\n"),
+  context
+);
+const oldFile = {
+  name:"legacy.bin",
+  arrayBuffer:async()=>makeHeader(0, false, 40)
+};
+const parsedWithoutClick = await Promise.race([
+  context.parseBinWithoutModalGate(oldFile),
+  new Promise((_, reject)=>setTimeout(
+    ()=>reject(new Error("legacy notice blocked replay parsing")),
+    100
+  ))
+]);
+assert.equal(parsedWithoutClick.length, 1);
+
+const bootstrapSource = fs.readFileSync(
+  new URL("../FLASH6/scripts/flash6-bootstrap.js", import.meta.url),
+  "utf8"
+);
+const loaderStart = bootstrapSource.indexOf("replayFileLoader = async");
+const loaderEnd = bootstrapSource.indexOf("const loadReplayFile", loaderStart);
+const loaderSource = bootstrapSource.slice(loaderStart, loaderEnd);
+assert.ok(
+  loaderSource.indexOf("activateReplayModeAfterSelection()") <
+    loaderSource.indexOf("setFlashLinkDisplayDataMode(replayDataMode)"),
+  "successful replay must leave the welcome screen before secondary UI updates"
+);
+
 console.log("BIN protocol metadata regression: PASS (legacy, b7, b8, b9, missing)");

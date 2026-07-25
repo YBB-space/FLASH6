@@ -3,6 +3,18 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 replay activation fix b72 — 2026-07-25
+
+Firmware build: `v6 b36` (unchanged)
+Protocol: `Flash6-Intelligent-b8` (unchanged)
+
+- Changed the legacy BIN notice from a blocking parse gate to an informational
+  modal so a covered or unacknowledged notice can never strand replay on Home.
+- Moved successful replay activation ahead of secondary display updates and
+  made Home dismissal recover from an already-active replay state.
+- Updated the web asset cache key and added a regression assertion that legacy
+  BIN parsing resolves without a modal click.
+
 ## 0.9.6 — v6 b36 — 2026-07-25
 
 Protocol: `Flash6-Intelligent-b8` (ESP-NOW wire version `8`, unchanged)
