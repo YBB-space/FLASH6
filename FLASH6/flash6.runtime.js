@@ -34010,6 +34010,50 @@ function requestMobileMockup3dMesh(){
       const estimated = Number(estimatedSpeedMps);
       return isFinite(estimated) ? Math.max(0, estimated) : NaN;
     }
+    function updateReportVerticalSpeedMps(
+      previousSpeedMps,
+      verticalAccelMps2,
+      barometricSpeedMps,
+      dtSec,
+      options
+    ){
+      const previous = isFinite(Number(previousSpeedMps))
+        ? Number(previousSpeedMps)
+        : 0;
+      const dt = Math.max(0.001, Math.min(0.05, Number(dtSec) || 0.01));
+      const settings = options || {};
+      const powered = !!settings.powered;
+      const coastingAscent = !!settings.coastingAscent && previous > 0;
+      const established = !!settings.established;
+      const accel = clampLocal(Number(verticalAccelMps2) || 0, -30, 30);
+      let candidate = previous + (accel * dt);
+      const barometric = Number(barometricSpeedMps);
+      if(isFinite(barometric)){
+        const target = clampLocal(barometric, -120, 120);
+        const correctionAlpha = 1 - Math.exp(-dt / 0.32);
+        candidate += (target - candidate) * correctionAlpha;
+        if(established){
+          const leadLimitMps = powered ? 5 : 3;
+          candidate = clampLocal(
+            candidate,
+            target - leadLimitMps,
+            target + leadLimitMps
+          );
+        }
+      }
+      if(coastingAscent){
+        // Once burnout is confirmed, positive vertical speed cannot increase
+        // again without another propulsion event.
+        candidate = Math.min(candidate, previous);
+      }
+      const riseRateMps2 = coastingAscent ? 0 : (powered ? 45 : 28);
+      const fallRateMps2 = powered ? 45 : 35;
+      return previous + clampLocal(
+        candidate - previous,
+        -fallRateMps2 * dt,
+        riseRateMps2 * dt
+      );
+    }
     function buildFlightTrajectory3dArtifact(
       rows,
       altitudeValues,
@@ -34389,6 +34433,8 @@ function requestMobileMockup3dMesh(){
             let filteredVerticalSpeed = 0;
             let filteredVerticalAccelMps2 = 0;
             let fusedVerticalSpeedMps = 0;
+            let speedEstimatorBurnout = false;
+            let lowThrustHoldSec = 0;
             rawPoints[0].eastM = 0;
             rawPoints[0].northM = 0;
             rawPoints[0].positionSource = "IMU_LOCAL";
@@ -34422,6 +34468,7 @@ function requestMobileMockup3dMesh(){
               }
               const dynamics = GYRO_LOCAL_PHASE_DYNAMICS[phaseName] ||
                 GYRO_LOCAL_PHASE_DYNAMICS.COASTING;
+              const launchAgeSec = Math.max(0, point.elapsedSec - launchElapsedSec);
 
               let accelX = 0;
               let accelZ = 0;
@@ -34459,6 +34506,20 @@ function requestMobileMockup3dMesh(){
               filteredVerticalAccelMps2 += (
                 verticalAccelMps2 - filteredVerticalAccelMps2
               ) * accelAlpha;
+              if(
+                phaseName === FLIGHT_PHASES.COASTING ||
+                phaseName === FLIGHT_PHASES.DESCENT ||
+                phaseName === FLIGHT_PHASES.LANDED
+              ){
+                speedEstimatorBurnout = true;
+              }else if(!speedEstimatorBurnout && launchAgeSec >= 0.25){
+                if(isFinite(accelNormG) && accelNormG < 1.15){
+                  lowThrustHoldSec += dt;
+                  if(lowThrustHoldSec >= 0.12) speedEstimatorBurnout = true;
+                }else{
+                  lowThrustHoldSec = 0;
+                }
+              }
 
               if(phaseName === FLIGHT_PHASES.PRE_FLIGHT){
                 velocityX = 0;
@@ -34504,27 +34565,19 @@ function requestMobileMockup3dMesh(){
                   velocityZ = 0;
                   fusedVerticalSpeedMps = 0;
                 }else{
-                  fusedVerticalSpeedMps += filteredVerticalAccelMps2 * dt;
                   const barometricVerticalSpeedMps = Number(verticalSpeeds[index]);
-                  if(isFinite(barometricVerticalSpeedMps)){
-                    const baroCorrectionAlpha = 1 - Math.exp(-dt / 0.55);
-                    const barometricTargetMps = clampLocal(
-                      barometricVerticalSpeedMps,
-                      -120,
-                      120
-                    );
-                    fusedVerticalSpeedMps += (
-                      barometricTargetMps - fusedVerticalSpeedMps
-                    ) * baroCorrectionAlpha;
-                    const inertialLeadLimitMps =
-                      phaseName === FLIGHT_PHASES.POWERED_FLIGHT ? 6 :
-                      (phaseName === FLIGHT_PHASES.COASTING ? 4 : 3);
-                    fusedVerticalSpeedMps = clampLocal(
-                      fusedVerticalSpeedMps,
-                      barometricTargetMps - inertialLeadLimitMps,
-                      barometricTargetMps + inertialLeadLimitMps
-                    );
-                  }
+                  fusedVerticalSpeedMps = updateReportVerticalSpeedMps(
+                    fusedVerticalSpeedMps,
+                    filteredVerticalAccelMps2,
+                    barometricVerticalSpeedMps,
+                    dt,
+                    {
+                      powered:!speedEstimatorBurnout &&
+                        phaseName === FLIGHT_PHASES.POWERED_FLIGHT,
+                      coastingAscent:speedEstimatorBurnout,
+                      established:launchAgeSec >= 0.45
+                    }
+                  );
                 }
               }
               point.eastM = positionX;

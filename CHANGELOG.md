@@ -3,6 +3,19 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 fused-speed transient correction b79 — 2026-07-25
+
+Firmware build: `v6 b37` (unchanged)
+Protocol: `Flash6-Intelligent-b8` (unchanged)
+
+- Replaced the hard barometric-speed clamp that caused an instantaneous speed
+  jump at T+ with an acceleration-limited continuous estimator.
+- Added an independent IMU burnout latch for legacy records. Once burnout is
+  sustained, positive ascent speed can no longer form a second propulsion
+  peak from pressure noise or vibration.
+- Kept barometric altitude velocity authoritative while limiting acceleration
+  to short-term phase response and added regressions for both transient cases.
+
 ## FLASH6 replay speed source correction b78 — 2026-07-25
 
 Firmware build: `v6 b37` (unchanged)

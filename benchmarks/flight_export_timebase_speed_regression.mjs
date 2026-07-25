@@ -39,7 +39,8 @@ const context = {
     "DESCENT",
     "LANDED"
   ],
-  currentLang:"ko"
+  currentLang:"ko",
+  clampLocal:(value, min, max)=>Math.max(min, Math.min(max, value))
 };
 vm.createContext(context);
 vm.runInContext(
@@ -60,7 +61,8 @@ assert.ok(
 vm.runInContext(
   reportSource.slice(speedHelperStart, speedHelperEnd) +
   "\nglobalThis.buildScalarSpeed = buildTrajectoryScalarSpeedSeries;" +
-  "\nglobalThis.selectReportSpeed = selectReportScalarSpeedMps;",
+  "\nglobalThis.selectReportSpeed = selectReportScalarSpeedMps;" +
+  "\nglobalThis.updateVerticalSpeed = updateReportVerticalSpeedMps;",
   context
 );
 
@@ -132,6 +134,28 @@ assert.equal(
   context.selectReportSpeed(37.2, 20, true),
   37.2,
   "explicitly stored scalar speed must remain authoritative"
+);
+const initialVerticalStep = context.updateVerticalSpeed(
+  0,
+  30,
+  25,
+  0.01,
+  {powered:true, established:false}
+);
+assert.ok(
+  initialVerticalStep > 0 && initialVerticalStep <= 0.45 + 1e-9,
+  "T+ speed must rise continuously instead of snapping to the barometric slope"
+);
+const coastingVerticalStep = context.updateVerticalSpeed(
+  33,
+  20,
+  48,
+  0.01,
+  {powered:false, coastingAscent:true, established:true}
+);
+assert.ok(
+  coastingVerticalStep <= 33,
+  "burnout-confirmed ascent must not form a second acceleration peak"
 );
 
 assert.match(
