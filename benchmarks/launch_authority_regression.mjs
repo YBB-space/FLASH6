@@ -12,7 +12,7 @@ function runLaunchAuthorityScenario({armAt = null, thrustAt = null, endAt = 2000
   };
 
   for(let nowMs = 0; nowMs <= endAt; nowMs += 5){
-    if(runtime.state === "STANDBY"){
+    if(runtime.state === "STANDBY" && !runtime.validationFault){
       if(armAt != null && nowMs >= armAt &&
          (thrustAt == null || armAt <= thrustAt || nowMs < thrustAt)){
         runtime.state = "TPLUS";
@@ -56,8 +56,19 @@ assert.equal(thrustOnly.tplusMs, null);
 assert.equal(thrustOnly.deploymentAllowed, false);
 assert.equal(thrustOnly.validationFault, true);
 
+const thrustThenLateArm = runLaunchAuthorityScenario({
+  thrustAt:100,
+  armAt:1300,
+  endAt:1800
+});
+assert.equal(thrustThenLateArm.state, "STANDBY");
+assert.equal(thrustThenLateArm.tplusMs, null);
+assert.equal(thrustThenLateArm.deploymentAllowed, false);
+assert.equal(thrustThenLateArm.validationFault, true);
+
 console.table([
   {scenario:"ARM first", tplusMs:armFirst.tplusMs, authority:armFirst.authority, result:"PASS"},
   {scenario:"thrust first + ARM", tplusMs:thrustFirst.tplusMs, authority:thrustFirst.authority, result:"PASS"},
-  {scenario:"thrust only", tplusMs:"discarded", authority:thrustOnly.authority, result:"PASS"}
+  {scenario:"thrust only", tplusMs:"discarded", authority:thrustOnly.authority, result:"PASS"},
+  {scenario:"thrust + late ARM", tplusMs:"discarded", authority:thrustThenLateArm.authority, result:"PASS"}
 ]);

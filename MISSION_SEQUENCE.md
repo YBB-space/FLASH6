@@ -1,6 +1,6 @@
 # FLASH6 Built-in Mission Sequence
 
-Firmware `0.9.6` / build `v6 b36` / protocol `Flash6-Intelligent-b8`
+Firmware `0.9.7` / build `v6 b37` / protocol `Flash6-Intelligent-b8`
 
 ## Sequence authority
 
@@ -17,7 +17,9 @@ mission authority gate:
   mission authority.
 - Without ARM release in that window, all outputs remain off, provisional T+
   is discarded, the board returns to mission standby, and FLASH6 raises a
-  high-risk launch-validation warning.
+  high-risk launch-validation warning. A late ARM edge cannot revive that
+  rejected launch; the operator must inspect the system and explicitly enter
+  mission standby again.
 
 Automatic ignition runs the configured T- countdown and PYRO output. If its
 output ends before stage-1 ARM release, the board enters `WAITING_LAUNCH`. It
@@ -77,6 +79,18 @@ and the same stage-1 ARM release rule starts T+.
 - ABORT is sequence-scoped and repeated across the interstage link for one
   second; both boards shut down local outputs without echoing an event loop.
 - The built-in mission remains locked against UI block-code replacement.
+
+## Legacy replay timebase
+
+- V4/V5 BIN records retain the stored flight-phase state. FLASH6 uses the
+  recorded `POWERED_FLIGHT` transition as the launch detector validator and
+  the adjacent IMU samples to recover the beginning of its 100 ms evidence
+  interval.
+- V1–V3 records do not contain a flight-phase code, so FLASH6 falls back to the
+  stored acceleration vector and applies the same 1.5 G / 100 ms detector.
+- In both paths the role-normalized ARM transition remains the authority gate.
+  Thrust-first replay is rejected after 1000 ms without ARM confirmation;
+  current compatible BIN timebases are never rewritten.
 
 ## Persistent mission settings
 

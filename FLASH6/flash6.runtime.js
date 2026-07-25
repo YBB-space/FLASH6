@@ -20725,6 +20725,12 @@ function requestMobileMockup3dMesh(){
     const REPLAY_BIN_METADATA_MAGIC = 0x32544D48; // "HMT2"
     const REPLAY_PROTOCOL_COMPATIBLE_MIN = 8;
     const REPLAY_PROTOCOL_COMPATIBLE_MAX = 8;
+    const REPLAY_LEGACY_ARM_DEBOUNCE_MS = 50;
+    const REPLAY_LEGACY_THRUST_ACCEL_G = 1.5;
+    const REPLAY_LEGACY_THRUST_HOLD_MS = 100;
+    const REPLAY_LEGACY_ARM_CONFIRM_MS = 1000;
+    const REPLAY_SEQUENCE_STATE_IDLE = 0;
+    const REPLAY_SEQUENCE_STATE_TPLUS = 3;
 
     function replayReadMagicText(dv, offset, len){
       let out = "";
@@ -20783,8 +20789,234 @@ function requestMobileMockup3dMesh(){
       return result;
     }
 
+    function replayLegacyEntryTimeMs(entry, fallbackMs){
+      const entryTs = Number(entry && entry.tsMs);
+      if(isFinite(entryTs) && entryTs >= 0) return entryTs;
+      const sampleTs = Number(entry && entry.sample && entry.sample.ut);
+      if(isFinite(sampleTs) && sampleTs >= 0) return sampleTs;
+      return Math.max(0, Number(fallbackMs) || 0);
+    }
+
+    function replayLegacyArmInstalled(sample){
+      if(!sample || typeof sample !== "object") return null;
+      const physical = sample.sp == null ? NaN : Number(sample.sp);
+      if(isFinite(physical)) return physical !== 0;
+      const effective = sample.s == null ? NaN : Number(sample.s);
+      return isFinite(effective) ? effective !== 0 : null;
+    }
+
+    function replayLegacyAccelMagnitudeG(sample){
+      if(!sample || typeof sample !== "object") return NaN;
+      const storedMagnitude = sample.flight_accel_raw_g == null
+        ? NaN
+        : Number(sample.flight_accel_raw_g);
+      if(isFinite(storedMagnitude) && storedMagnitude >= 0){
+        return storedMagnitude;
+      }
+      const ax = Number(sample.ax);
+      const ay = Number(sample.ay);
+      const az = Number(sample.az);
+      if(!isFinite(ax) || !isFinite(ay) || !isFinite(az)) return NaN;
+      return Math.hypot(ax, ay, az);
+    }
+
+    function replayDetectLegacyLaunchEvidence(samples){
+      let armAtMs = null;
+      let imuThrustAtMs = null;
+      let storedPoweredAtMs = null;
+      let storedPoweredIsBarometer = false;
+      let armRaw = null;
+      let armStable = null;
+      let armRawChangedAtMs = 0;
+      let armInstalledSeen = false;
+      let thrustSinceMs = null;
+      let previousTsMs = null;
+
+      for(let index = 0; index < samples.length; index++){
+        const entry = samples[index];
+        const sample = entry && entry.sample;
+        if(!sample) continue;
+        const tsMs = replayLegacyEntryTimeMs(
+          entry,
+          previousTsMs == null ? 0 : previousTsMs + 5
+        );
+
+        const installed = replayLegacyArmInstalled(sample);
+        if(installed != null && armAtMs == null){
+          if(armRaw == null){
+            armRaw = installed;
+            armStable = installed;
+            armRawChangedAtMs = tsMs;
+            if(installed) armInstalledSeen = true;
+          }else{
+            if(installed !== armRaw){
+              armRaw = installed;
+              armRawChangedAtMs = tsMs;
+            }
+            if(installed !== armStable &&
+               (tsMs - armRawChangedAtMs) >= REPLAY_LEGACY_ARM_DEBOUNCE_MS){
+              const wasInstalled = armStable;
+              armStable = installed;
+              if(installed) armInstalledSeen = true;
+              if(wasInstalled && !installed && armInstalledSeen){
+                // Match the firmware: the debounce confirms the edge, but T+
+                // keeps the first raw transition timestamp.
+                armAtMs = armRawChangedAtMs;
+              }
+            }
+          }
+        }
+
+        const phaseCode = Number(sample.flight_phase_code);
+        const phaseName = String(sample.flight_phase || "").toUpperCase();
+        if(storedPoweredAtMs == null &&
+           (phaseCode === 1 || phaseName === "POWERED_FLIGHT")){
+          storedPoweredAtMs = tsMs;
+          storedPoweredIsBarometer =
+            Number(sample.flight_transition_reason) === 2;
+        }
+
+        if(imuThrustAtMs == null){
+          const accelG = replayLegacyAccelMagnitudeG(sample);
+          const sampleGapMs = previousTsMs == null ? 0 : (tsMs - previousTsMs);
+          if(sampleGapMs > REPLAY_LEGACY_THRUST_HOLD_MS){
+            thrustSinceMs = null;
+          }
+          if(isFinite(accelG) && accelG > REPLAY_LEGACY_THRUST_ACCEL_G){
+            if(thrustSinceMs == null) thrustSinceMs = tsMs;
+            if((tsMs - thrustSinceMs) >= REPLAY_LEGACY_THRUST_HOLD_MS){
+              imuThrustAtMs = thrustSinceMs;
+            }
+          }else{
+            thrustSinceMs = null;
+          }
+        }
+        previousTsMs = tsMs;
+      }
+
+      // V4/V5 records already carry the detected flight phase. Use that
+      // transition as the authoritative validator, while retaining the raw
+      // IMU run start as the exact T+ evidence timestamp. If the old record
+      // has no usable IMU samples, subtract the same 100 ms hold interval from
+      // the first stored POWERED_FLIGHT frame. Barometer-only launch
+      // transitions are not treated as thrust evidence.
+      let thrustAtMs = imuThrustAtMs;
+      let thrustSource = imuThrustAtMs == null ? "NONE" : "IMU_FALLBACK";
+      if(storedPoweredAtMs != null && !storedPoweredIsBarometer){
+        const phaseEvidenceAtMs = Math.max(
+          0,
+          storedPoweredAtMs - REPLAY_LEGACY_THRUST_HOLD_MS
+        );
+        const imuMatchesStoredPhase =
+          imuThrustAtMs != null &&
+          Math.abs(
+            (imuThrustAtMs + REPLAY_LEGACY_THRUST_HOLD_MS) -
+            storedPoweredAtMs
+          ) <= 500;
+        thrustAtMs = imuMatchesStoredPhase ? imuThrustAtMs : phaseEvidenceAtMs;
+        thrustSource = imuMatchesStoredPhase
+          ? "STORED_POWERED_IMU"
+          : "STORED_POWERED_PHASE";
+      }
+      return {
+        armAtMs,
+        thrustAtMs,
+        thrustSource,
+        storedPoweredAtMs
+      };
+    }
+
+    function replayReconstructLegacyLaunchTimebase(samples, metadata){
+      if(!Array.isArray(samples) || !samples.length ||
+         (metadata && metadata.compatible)){
+        return {
+          reconstructed:false,
+          mode:"NATIVE",
+          launchAtMs:null,
+          armAtMs:null,
+          thrustAtMs:null,
+          rejectAtMs:null
+        };
+      }
+
+      const evidence = replayDetectLegacyLaunchEvidence(samples);
+      const armAtMs = evidence.armAtMs;
+      const thrustAtMs = evidence.thrustAtMs;
+      let mode = "INSUFFICIENT";
+      let launchAtMs = null;
+      let rejectAtMs = null;
+
+      if(armAtMs != null && (thrustAtMs == null || armAtMs <= thrustAtMs)){
+        mode = "ARM_FIRST";
+        launchAtMs = armAtMs;
+      }else if(thrustAtMs != null){
+        launchAtMs = thrustAtMs;
+        if(armAtMs != null &&
+           armAtMs <= (thrustAtMs + REPLAY_LEGACY_ARM_CONFIRM_MS)){
+          mode = "THRUST_FIRST_CONFIRMED";
+        }else{
+          mode = "THRUST_REJECTED";
+          rejectAtMs = thrustAtMs + REPLAY_LEGACY_ARM_CONFIRM_MS;
+        }
+      }
+
+      if(launchAtMs == null){
+        return {
+          reconstructed:false,
+          mode,
+          launchAtMs,
+          armAtMs,
+          thrustAtMs,
+          rejectAtMs
+        };
+      }
+
+      samples.forEach((entry)=>{
+        if(!entry || !entry.sample) return;
+        const sample = entry.sample;
+        const tsMs = replayLegacyEntryTimeMs(entry, 0);
+        sample.bin_legacy_original_td = Number(sample.td);
+        sample.bin_legacy_launch_mode = mode;
+        sample.bin_legacy_arm_at_ms = armAtMs;
+        sample.bin_legacy_thrust_at_ms = thrustAtMs;
+        sample.bin_legacy_thrust_source = evidence.thrustSource;
+        sample.bin_legacy_powered_at_ms = evidence.storedPoweredAtMs;
+        sample.bin_legacy_timebase_reconstructed = 1;
+
+        if(tsMs < launchAtMs) return;
+        if(mode === "THRUST_REJECTED" &&
+           rejectAtMs != null && tsMs >= rejectAtMs){
+          sample.td = 0;
+          sample.st = REPLAY_SEQUENCE_STATE_IDLE;
+          sample.uw = 1;
+          sample.bin_legacy_launch_validation_fault = 1;
+          return;
+        }
+        sample.td = Math.max(0, Math.round(tsMs - launchAtMs));
+        sample.st = REPLAY_SEQUENCE_STATE_TPLUS;
+        sample.uw = mode === "THRUST_REJECTED" ? 1 : 0;
+        sample.bin_legacy_launch_validation_fault = 0;
+      });
+
+      return {
+        reconstructed:true,
+        mode,
+        launchAtMs,
+        armAtMs,
+        thrustAtMs,
+        thrustSource:evidence.thrustSource,
+        storedPoweredAtMs:evidence.storedPoweredAtMs,
+        rejectAtMs
+      };
+    }
+
     function replayAttachBinProtocolMetadata(samples, metadata){
       if(!Array.isArray(samples) || !metadata) return samples;
+      const reconstruction = replayReconstructLegacyLaunchTimebase(
+        samples,
+        metadata
+      );
+      metadata.legacyReconstruction = reconstruction;
       samples.forEach((entry)=>{
         if(!entry || !entry.sample) return;
         entry.sample.bin_protocol_version = metadata.protocolVersion || 0;
@@ -20808,7 +21040,7 @@ function requestMobileMockup3dMesh(){
         '<div class="mobile-chart-picker-dialog replay-legacy-protocol-dialog" role="dialog" aria-modal="true" aria-labelledby="replayLegacyProtocolTitle">' +
           '<div class="replay-legacy-protocol-kicker">LEGACY DATA</div>' +
           '<div id="replayLegacyProtocolTitle" class="replay-legacy-protocol-title">이전 데이터 프로토콜</div>' +
-          '<p class="replay-legacy-protocol-copy">이 BIN은 현재 기본 프로토콜 범위 밖의 기록입니다. 이전 데이터 형식으로 해석해 비행 데이터를 추출합니다.</p>' +
+          '<p class="replay-legacy-protocol-copy">이 BIN은 현재 기본 프로토콜 범위 밖의 기록입니다. 이전 형식으로 해석하고 ARM·추력 우선 감지 기준으로 T+ 시간축을 재구성합니다.</p>' +
           '<div class="replay-legacy-protocol-meta">' +
             '<span>감지 버전<strong id="replayLegacyProtocolDetected">정보 없음</strong></span>' +
             '<span>현재 허용<strong id="replayLegacyProtocolRange">b8 ~ b8</strong></span>' +
@@ -22086,7 +22318,7 @@ function requestMobileMockup3dMesh(){
         fw_program:"Altis_Intelligent3_firmware1",
         fw_board:"Altis_Intelligent3_b3",
         fw_protocol:"Flash6-Intelligent-b8",
-        fw_build:"v6 b36"
+        fw_build:"v6 b37"
       };
     }
 

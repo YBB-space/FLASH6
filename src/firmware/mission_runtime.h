@@ -1021,7 +1021,9 @@ void missionLaunchSequenceTick(uint32_t nowMs, bool armReleased, uint32_t armRel
       if (launchMission.thrustLaunchProvisional &&
           armReleasedMs <= launchMission.thrustArmDeadlineMs) {
         missionConfirmThrustLaunchAuthority(armReleasedMs);
-      } else if (missionLaunchStandby && !launchMission.launchLatched) {
+      } else if (missionLaunchStandby &&
+                 !launchMission.launchLatched &&
+                 !launchMission.launchDetectionFault) {
         if (stage1ThrustEvidenceAvailable &&
             flightPhaseRuntime.launchEvidenceAtMs < armReleasedMs) {
           missionLatchTplus(

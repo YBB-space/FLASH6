@@ -3,6 +3,22 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.9.7 — v6 b37 — 2026-07-25
+
+Protocol: `Flash6-Intelligent-b8` (ESP-NOW wire version `8`, unchanged)
+
+- Added legacy BIN timebase reconstruction using the same launch evidence as
+  current firmware: debounced physical ARM release or IMU acceleration above
+  1.5 G for 100 ms, whichever occurs first.
+- Preserved ARM-first authority when thrust evidence is absent, and preserved
+  the original thrust timestamp when ARM confirms within the 1000 ms window.
+- Reconstructs a failed thrust-first launch as provisional T+ followed by
+  `MISSION_STANDBY` when physical ARM never confirms.
+- Prevented a late ARM transition from silently restarting a launch after the
+  1000 ms validation fault; a new operator standby command is now required.
+- Modern protocol-b8 BIN timebases remain byte-for-byte authoritative and are
+  never rewritten by the compatibility decoder.
+
 ## FLASH6 replay activation fix b72 — 2026-07-25
 
 Firmware build: `v6 b36` (unchanged)
