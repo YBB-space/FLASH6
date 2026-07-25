@@ -34187,6 +34187,16 @@ function requestMobileMockup3dMesh(){
         riseRateMps2 * dt
       );
     }
+    function getMetricTrajectoryProjectionScale(horizontalSpanM, altitudeSpanM){
+      const horizontalSpan = Math.max(2, Number(horizontalSpanM) || 0);
+      const altitudeSpan = Math.max(1, Number(altitudeSpanM) || 0);
+      const horizontalFitScale = 720 / (horizontalSpan * 1.42);
+      const altitudeFitScale = 500 / altitudeSpan;
+      // X/Z and altitude must share one metres-to-pixels scale. Fitting each
+      // axis independently makes a 30-40 m drift look almost as wide as a
+      // 140 m ascent, even though the reconstructed coordinates are modest.
+      return Math.min(horizontalFitScale, altitudeFitScale);
+    }
     function buildFlightTrajectory3dArtifact(
       rows,
       altitudeValues,
@@ -35017,8 +35027,12 @@ function requestMobileMockup3dMesh(){
       const yaw = -principalHeading - (11 * DEG_TO_RAD);
       const cosYaw = Math.cos(yaw);
       const sinYaw = Math.sin(yaw);
-      const horizontalScale = 720 / (horizontalSpan * 1.42);
-      const altitudeScale = 500 / altitudeSpan;
+      const metricProjectionScale = getMetricTrajectoryProjectionScale(
+        horizontalSpan,
+        altitudeSpan
+      );
+      const horizontalScale = metricProjectionScale;
+      const altitudeScale = metricProjectionScale;
       const project = (eastM, northM, altitudeM)=>{
         const dx = eastM - centerE;
         const dy = northM - centerN;
@@ -35046,7 +35060,7 @@ function requestMobileMockup3dMesh(){
       ctx.font = "500 18px Arial, sans-serif";
       ctx.fillText(
         positionMode === "IMU_LOCAL"
-          ? "MODEL-CONSTRAINED LOCAL TRAJECTORY / BAROMETRIC ALTITUDE · GPS EXCLUDED"
+          ? "MODEL-CONSTRAINED LOCAL TRAJECTORY / TRUE METRIC SCALE · GPS EXCLUDED"
           : (positionMode === "IMU_GPS_FUSION"
             ? "IMU-ASSISTED EAST / NORTH + GPS / BAROMETRIC ALTITUDE"
             : (gpsAvailable ? "GPS EAST / NORTH / BAROMETRIC ALTITUDE" : "GPS UNAVAILABLE / VERTICAL PROFILE")),
@@ -35176,7 +35190,7 @@ function requestMobileMockup3dMesh(){
       ctx.font = "500 15px Arial, sans-serif";
       ctx.fillText(
         positionMode === "IMU_LOCAL"
-          ? "Local X/Z use IMU and model-rocket dynamics. GPS is reference-only; absolute heading is intentionally omitted."
+          ? "Local X/Z and altitude use one metric scale. GPS is reference-only; absolute heading is intentionally omitted."
           : (positionMode === "IMU_GPS_FUSION"
             ? "Dashed: IMU estimate · dotted: IMU/GPS blend · solid: GPS. Axes are independently scaled."
             : "GPS fixes are time-interpolated. Axes are scaled for readability. Source: TRAJECTORY_3D sheet."),

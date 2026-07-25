@@ -3,6 +3,18 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 metric-scale trajectory rendering b82 — 2026-07-25
+
+Firmware build: `v6 b37` (unchanged)
+Protocol: `Flash6-Intelligent-b8` (unchanged)
+
+- Changed the 3D trajectory renderer to use one shared metres-to-pixels scale
+  for local X/Z and altitude.
+- Removed the visual horizontal exaggeration that made a roughly 36 m ground
+  span look comparable to a roughly 140 m ascent.
+- Kept GPS completely outside the reconstructed path; GPS remains available
+  only in reference columns for post-flight auditing.
+
 ## FLASH6 GPS-free trajectory and ballistic coast b81 — 2026-07-25
 
 Firmware build: `v6 b37` (unchanged)

@@ -75,7 +75,8 @@ vm.runInContext(
   reportSource.slice(speedHelperStart, speedHelperEnd) +
   "\nglobalThis.buildScalarSpeed = buildTrajectoryScalarSpeedSeries;" +
   "\nglobalThis.selectReportSpeed = selectReportScalarSpeedMps;" +
-  "\nglobalThis.updateVerticalSpeed = updateReportVerticalSpeedMps;",
+  "\nglobalThis.updateVerticalSpeed = updateReportVerticalSpeedMps;" +
+  "\nglobalThis.getTrajectoryProjectionScale = getMetricTrajectoryProjectionScale;",
   context
 );
 const horizontalHelperStart = coreSource.indexOf(
@@ -242,6 +243,15 @@ for(let i = 0; i < 100; i++){
 assert.ok(
   ballisticVerticalSpeed < 23.3,
   "delayed barometric rise must not create a post-burnout speed plateau"
+);
+const actualAspectProjectionScale = context.getTrajectoryProjectionScale(36, 139.7);
+assert.ok(
+  Math.abs(actualAspectProjectionScale - (500 / 139.7)) < 1e-9,
+  "a tall model-rocket flight must use altitude as the shared metric-scale constraint"
+);
+assert.ok(
+  (36 * actualAspectProjectionScale) < (139.7 * actualAspectProjectionScale * 0.27),
+  "a 36 m horizontal span must render narrower than a 139.7 m ascent"
 );
 let energyBoundedVerticalSpeed = 0;
 for(let i = 0; i < 160; i++){
