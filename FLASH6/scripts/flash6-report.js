@@ -18,6 +18,22 @@
       const name = String(row.flight_phase || "").trim().toUpperCase();
       return FLIGHT_PHASE_CODE_NAMES.indexOf(name);
     }
+    function flightPhaseTextFromExportRow(row, language){
+      const phaseCode = flightPhaseCodeFromExportRow(row);
+      const phaseName = phaseCode >= 0
+        ? FLIGHT_PHASE_CODE_NAMES[phaseCode]
+        : String((row && row.flight_phase) || "").trim().toUpperCase();
+      if(!phaseName) return "";
+      if(String(language || currentLang || "ko").toLowerCase() !== "ko") return phaseName;
+      const labels = {
+        PRE_FLIGHT:"발사 전",
+        POWERED_FLIGHT:"추력 비행",
+        COASTING:"코스팅",
+        DESCENT:"하강",
+        LANDED:"착지"
+      };
+      return labels[phaseName] || phaseName;
+    }
     function selectFlightRecordWindow(rows){
       const input = Array.isArray(rows) ? rows.filter(row=>row && typeof row === "object") : [];
       if(!input.length){

@@ -33459,6 +33459,22 @@ function requestMobileMockup3dMesh(){
       const name = String(row.flight_phase || "").trim().toUpperCase();
       return FLIGHT_PHASE_CODE_NAMES.indexOf(name);
     }
+    function flightPhaseTextFromExportRow(row, language){
+      const phaseCode = flightPhaseCodeFromExportRow(row);
+      const phaseName = phaseCode >= 0
+        ? FLIGHT_PHASE_CODE_NAMES[phaseCode]
+        : String((row && row.flight_phase) || "").trim().toUpperCase();
+      if(!phaseName) return "";
+      if(String(language || currentLang || "ko").toLowerCase() !== "ko") return phaseName;
+      const labels = {
+        PRE_FLIGHT:"발사 전",
+        POWERED_FLIGHT:"추력 비행",
+        COASTING:"코스팅",
+        DESCENT:"하강",
+        LANDED:"착지"
+      };
+      return labels[phaseName] || phaseName;
+    }
     function selectFlightRecordWindow(rows){
       const input = Array.isArray(rows) ? rows.filter(row=>row && typeof row === "object") : [];
       if(!input.length){
@@ -37919,7 +37935,7 @@ function requestMobileMockup3dMesh(){
             let xDeltaCount = 0;
             let lastXVal = null;
             const flightRows = [[
-              t("hdrElapsedMs"), t("hdrAltitudeM"), "FLIGHT_ACCEL_G", "ALTITUDE_SPEED_MPS",
+              t("hdrElapsedMs"), t("hdrFlightPhase"), t("hdrAltitudeM"), "FLIGHT_ACCEL_G", "ALTITUDE_SPEED_MPS",
               "DESCENT_SPEED_MPS", "TERMINAL_SPEED_MPS", "time_axis",
               "GYRO_X_DPS", "GYRO_Y_DPS", "GYRO_Z_DPS"
             ]];
@@ -38069,6 +38085,7 @@ function requestMobileMockup3dMesh(){
 
               flightRows.push([
                 xNum,
+                flightPhaseTextFromExportRow(row, currentLang),
                 (isFinite(altVal) ? Number(altVal.toFixed(2)) : ""),
                 (isFinite(ascentAccelVal) ? Number(ascentAccelVal.toFixed(3)) : ""),
                 (isFinite(speedVal) ? Number(speedVal.toFixed(2)) : ""),
@@ -38176,19 +38193,19 @@ function requestMobileMockup3dMesh(){
             for(let i = 1; i < flightRows.length; i++){
               const x = Number(flightRows[i][0]);
               if(!isFinite(x)){
-                flightRows[i][6] = "";
+                flightRows[i][7] = "";
                 continue;
               }
               const shouldShow = ((i - 1) % xTickSkip) === 0 || i === (flightRows.length - 1);
               if(!shouldShow){
-                flightRows[i][6] = "";
+                flightRows[i][7] = "";
                 continue;
               }
               if(lastLabelX != null && Math.abs(x - lastLabelX) < (xLabelIntervalSec * 0.5)){
-                flightRows[i][6] = "";
+                flightRows[i][7] = "";
                 continue;
               }
-              flightRows[i][6] = Number(x.toFixed(1));
+              flightRows[i][7] = Number(x.toFixed(1));
               lastLabelX = x;
             }
             const xMax = (xMaxSec != null && isFinite(xMaxSec)) ? Math.max(xMajorUnit, Math.ceil(xMaxSec / xMajorUnit) * xMajorUnit) : null;
@@ -38203,7 +38220,7 @@ function requestMobileMockup3dMesh(){
                   yMin:altAxis.min,
                   yMax:altAxis.max,
                   summaryUnit:" m",
-                  series:[{label:"ALTITUDE", color:"#10b981", values:flightRows.slice(1).map((row)=>row[1])}]
+                  series:[{label:"ALTITUDE", color:"#10b981", values:flightRows.slice(1).map((row)=>row[2])}]
                 },
                 {
                   title:"VERTICAL SPEED",
@@ -38212,7 +38229,7 @@ function requestMobileMockup3dMesh(){
                   yMin:speedAxis.min,
                   yMax:speedAxis.max,
                   summaryUnit:" m/s",
-                  series:[{label:"VERTICAL SPEED", color:"#3b82f6", values:flightRows.slice(1).map((row)=>row[3])}]
+                  series:[{label:"VERTICAL SPEED", color:"#3b82f6", values:flightRows.slice(1).map((row)=>row[4])}]
                 },
                 {
                   title:"FLIGHT ACCELERATION",
@@ -38221,7 +38238,7 @@ function requestMobileMockup3dMesh(){
                   yMin:ascentAccelAxis.min,
                   yMax:ascentAccelAxis.max,
                   summaryUnit:" g",
-                  series:[{label:"ACCELERATION", color:"#f59e0b", values:flightRows.slice(1).map((row)=>row[2])}]
+                  series:[{label:"ACCELERATION", color:"#f59e0b", values:flightRows.slice(1).map((row)=>row[3])}]
                 },
                 {
                   title:"FLIGHT DYNAMICS",
@@ -38229,9 +38246,9 @@ function requestMobileMockup3dMesh(){
                   axisYTitle:"NORMALIZED PROFILE (%)",
                   normalizeSeries:true,
                   series:[
-                    {label:"ALTITUDE", color:"#10b981", values:flightRows.slice(1).map((row)=>row[1])},
-                    {label:"VERTICAL SPEED", color:"#3b82f6", values:flightRows.slice(1).map((row)=>row[3])},
-                    {label:"ACCELERATION", color:"#f59e0b", values:flightRows.slice(1).map((row)=>row[2])}
+                    {label:"ALTITUDE", color:"#10b981", values:flightRows.slice(1).map((row)=>row[2])},
+                    {label:"VERTICAL SPEED", color:"#3b82f6", values:flightRows.slice(1).map((row)=>row[4])},
+                    {label:"ACCELERATION", color:"#f59e0b", values:flightRows.slice(1).map((row)=>row[3])}
                   ]
                 },
                 {
@@ -38241,8 +38258,8 @@ function requestMobileMockup3dMesh(){
                   yMin:Math.max(0, terminalSpeedAxis.min),
                   yMax:terminalSpeedAxis.max,
                   series:[
-                    {label:"DESCENT SPEED", color:"#0ea5e9", values:flightRows.slice(1).map((row)=>row[4])},
-                    {label:"TERMINAL SPEED", color:"#ef4444", dashed:true, values:flightRows.slice(1).map((row)=>row[5])}
+                    {label:"DESCENT SPEED", color:"#0ea5e9", values:flightRows.slice(1).map((row)=>row[5])},
+                    {label:"TERMINAL SPEED", color:"#ef4444", dashed:true, values:flightRows.slice(1).map((row)=>row[6])}
                   ]
                 },
                 {
@@ -38252,9 +38269,9 @@ function requestMobileMockup3dMesh(){
                   yMin:gyroAxis.min,
                   yMax:gyroAxis.max,
                   series:[
-                    {label:"GYRO X", color:"#ef4444", values:flightRows.slice(1).map((row)=>row[7])},
-                    {label:"GYRO Y", color:"#22c55e", values:flightRows.slice(1).map((row)=>row[8])},
-                    {label:"GYRO Z", color:"#3b82f6", values:flightRows.slice(1).map((row)=>row[9])}
+                    {label:"GYRO X", color:"#ef4444", values:flightRows.slice(1).map((row)=>row[8])},
+                    {label:"GYRO Y", color:"#22c55e", values:flightRows.slice(1).map((row)=>row[9])},
+                    {label:"GYRO Z", color:"#3b82f6", values:flightRows.slice(1).map((row)=>row[10])}
                   ]
                 }
               ],
@@ -38277,7 +38294,7 @@ function requestMobileMockup3dMesh(){
               xTickSkip:xTickSkip,
               xMin:(xMax != null ? 0 : null),
               xMax:xMax,
-              xLabelCol:"G",
+              xLabelCol:"H",
               trajectoryImage:trajectory3d.pngBytes,
               chart1:{
                 title:"ALTITUDE PROFILE",
@@ -38286,7 +38303,7 @@ function requestMobileMockup3dMesh(){
                 majorUnit:altUnit,
                 yMin:altAxis.min,
                 yMax:altAxis.max,
-                series:[{col:"B", nameCell:"FLIGHT_RECORD!$B$1", color:"10B981"}]
+                series:[{col:"C", nameCell:"FLIGHT_RECORD!$C$1", color:"10B981"}]
               },
               chart2:{
                 title:"VERTICAL SPEED",
@@ -38295,7 +38312,7 @@ function requestMobileMockup3dMesh(){
                 majorUnit:speedUnit,
                 yMin:speedAxis.min,
                 yMax:speedAxis.max,
-                series:[{col:"D", nameCell:"FLIGHT_RECORD!$D$1", color:"3B82F6"}]
+                series:[{col:"E", nameCell:"FLIGHT_RECORD!$E$1", color:"3B82F6"}]
               },
               chart3:{
                 title:"FLIGHT ACCELERATION",
@@ -38305,7 +38322,7 @@ function requestMobileMockup3dMesh(){
                 yMin:ascentAccelAxis.min,
                 yMax:ascentAccelAxis.max,
                 series:[
-                  {col:"C", nameCell:"FLIGHT_RECORD!$C$1", color:"F59E0B"}
+                  {col:"D", nameCell:"FLIGHT_RECORD!$D$1", color:"F59E0B"}
                 ]
               },
               chart4:{
@@ -38316,9 +38333,9 @@ function requestMobileMockup3dMesh(){
                 yMin:null,
                 yMax:null,
                 series:[
-                  {col:"B", nameCell:"FLIGHT_RECORD!$B$1", color:"10B981"},
-                  {col:"D", nameCell:"FLIGHT_RECORD!$D$1", color:"3B82F6"},
-                  {col:"C", nameCell:"FLIGHT_RECORD!$C$1", color:"F59E0B"}
+                  {col:"C", nameCell:"FLIGHT_RECORD!$C$1", color:"10B981"},
+                  {col:"E", nameCell:"FLIGHT_RECORD!$E$1", color:"3B82F6"},
+                  {col:"D", nameCell:"FLIGHT_RECORD!$D$1", color:"F59E0B"}
                 ]
               },
               chart5:{
@@ -38329,8 +38346,8 @@ function requestMobileMockup3dMesh(){
                 yMin:Math.max(0, terminalSpeedAxis.min),
                 yMax:terminalSpeedAxis.max,
                 series:[
-                  {col:"E", nameCell:"FLIGHT_RECORD!$E$1", color:"0EA5E9"},
-                  {col:"F", nameCell:"FLIGHT_RECORD!$F$1", color:"EF4444"}
+                  {col:"F", nameCell:"FLIGHT_RECORD!$F$1", color:"0EA5E9"},
+                  {col:"G", nameCell:"FLIGHT_RECORD!$G$1", color:"EF4444"}
                 ]
               },
               chart6:{
@@ -38341,9 +38358,9 @@ function requestMobileMockup3dMesh(){
                 yMin:gyroAxis.min,
                 yMax:gyroAxis.max,
                 series:[
-                  {col:"H", nameCell:"FLIGHT_RECORD!$H$1", color:"EF4444"},
-                  {col:"I", nameCell:"FLIGHT_RECORD!$I$1", color:"22C55E"},
-                  {col:"J", nameCell:"FLIGHT_RECORD!$J$1", color:"3B82F6"}
+                  {col:"I", nameCell:"FLIGHT_RECORD!$I$1", color:"EF4444"},
+                  {col:"J", nameCell:"FLIGHT_RECORD!$J$1", color:"22C55E"},
+                  {col:"K", nameCell:"FLIGHT_RECORD!$K$1", color:"3B82F6"}
                 ]
               }
             } : null;

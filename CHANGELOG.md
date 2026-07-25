@@ -3,6 +3,17 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 flight-record phase column b75 — 2026-07-25
+
+Firmware build: `v6 b37` (unchanged)
+Protocol: `Flash6-Intelligent-b8` (unchanged)
+
+- Added a localized flight-state column immediately after elapsed time in the
+  XLSX `FLIGHT_RECORD` sheet.
+- Shifted the sheet's chart source columns and time-label column together so
+  every existing altitude, speed, acceleration, descent, and gyro chart keeps
+  its original data series.
+
 ## FLASH6 replay communication status b74 — 2026-07-25
 
 Firmware build: `v6 b37` (unchanged)
