@@ -17003,6 +17003,11 @@ function requestMobileMockup3dMesh(){
         body = "점화 출력이 끝난 뒤에도 1단 ARM 해제가 확인되지 않았습니다. 발사 여부가 불명확합니다.";
         stageText = "발사체에 접근하지 말고 충분한 안전 대기 시간을 확보하세요.";
         note = "원격 상태와 점화 계통을 먼저 확인한 뒤 현장 안전 절차에 따라 접근하세요.";
+      }else if(mode === "thrust-validation"){
+        title = "추력 감지 검증 실패";
+        body = "추력 비행 감지 후 1초 안에 물리 ARM 해제가 확인되지 않아 미션 대기로 복귀했습니다.";
+        stageText = stagePrefix + " ARM 케이블·커넥터와 IMU 고정 상태를 점검하세요.";
+        note = "발사 여부가 불명확하므로 원격 상태를 확인하고 충분한 안전 대기 후 접근하세요.";
       }
       if(el.missionArmRiskTitle) el.missionArmRiskTitle.textContent = title;
       if(el.missionArmRiskText) el.missionArmRiskText.textContent = body;
@@ -21939,7 +21944,7 @@ function requestMobileMockup3dMesh(){
         fw_program:"Altis_Intelligent3_firmware1",
         fw_board:"Altis_Intelligent3_b3",
         fw_protocol:"Flash6-Intelligent-b8",
-        fw_build:"v6 b34"
+        fw_build:"v6 b35"
       };
     }
 
@@ -23105,6 +23110,8 @@ function requestMobileMockup3dMesh(){
         "ARM contact fault":"ARM 신호 불안정",
         "ARM unsafe":"ARM 해제 상태 감지",
         "Launch detection fault":"발사 감지 비정상",
+        "Launch validation fault":"발사 검증 실패",
+        "ARM authority confirmed":"발사 권한 확인",
         "T+ started":"T+ 시작",
         "Stage separation fault":"단분리 작동 실패",
         "Forced separation":"강제 단분리",
@@ -23134,7 +23141,15 @@ function requestMobileMockup3dMesh(){
       }else if(/^ARM input is unstable\./i.test(message)){
         localizedMessage = "ARM 입력 불안정 감지 · 커넥터·센서·배선을 점검하세요.";
       }else if(/^Stage-1 physical ARM released/i.test(message)){
-        localizedMessage = "1단 물리 ARM 해제 감지 · 미션 제어권을 획득했습니다.";
+        localizedMessage = "1단 물리 ARM 해제 감지 · 해당 시각으로 T+를 확정했습니다.";
+      }else if(/^Thrust flight detected; waiting up to 1 s/i.test(message)){
+        localizedMessage = "추력 비행 감지 시각으로 T+ 시작 · 1초 동안 물리 ARM 해제를 확인합니다.";
+      }else if(/^Thrust flight preceded ARM release/i.test(message)){
+        localizedMessage = "추력 비행이 ARM 해제보다 먼저 감지되어 해당 시각으로 T+를 설정했습니다.";
+      }else if(/^Physical ARM release confirmed the thrust-detected T\+\./i.test(message)){
+        localizedMessage = "물리 ARM 해제를 확인해 추력 감지 T+의 미션 실행 권한을 승인했습니다.";
+      }else if(/^No ARM release within 1 s of thrust/i.test(message)){
+        localizedMessage = "추력 비행 감지 후 1초 안에 물리 ARM 해제가 확인되지 않아 미션 대기로 복귀했습니다.";
       }else if(/^Stage-1 T\+ event received\./i.test(message)){
         localizedMessage = "1단 T+ 이벤트를 수신했습니다.";
       }else if(/^Stage-1 separation event recovered/i.test(message)){
@@ -23169,6 +23184,7 @@ function requestMobileMockup3dMesh(){
           "Mission standby rejected. Physical ARM is released; safety mode enabled.":"물리 ARM 해제 상태로 미션 대기가 거부되었습니다 · 안전 모드를 적용했습니다.",
           "Mission standby rejected. ARM/separation mechanism is released; safety mode enabled.":"ARM 또는 단분리 장치가 해제된 상태라 미션 대기가 거부되었습니다 · 안전 모드를 적용했습니다.",
           "Waiting for stable stage-1 physical ARM release.":"안정적인 1단 물리 ARM 해제를 기다리는 중입니다.",
+          "Waiting for physical ARM release or thrust-flight detection.":"물리 ARM 해제 또는 추력 비행 감지를 기다리는 중입니다.",
           "Remote ARM release received.":"원격 ARM 해제 신호를 수신했습니다.",
           "Local ARM release confirmed.":"로컬 ARM 해제를 확인했습니다.",
           "Hall sensor confirmed magnet departure.":"홀센서에서 자석 이탈을 확인했습니다 · 2단 단분리로 판정합니다.",
@@ -23230,6 +23246,8 @@ function requestMobileMockup3dMesh(){
           showMissionArmRiskWarning(eventStageId ? [eventStageId] : [], contactMode);
         }else if(!isReplaySample && rawTitle === "Launch detection fault"){
           showMissionArmRiskWarning(eventStageId ? [eventStageId] : [1], "launch");
+        }else if(!isReplaySample && rawTitle === "Launch validation fault"){
+          showMissionArmRiskWarning(eventStageId ? [eventStageId] : [1], "thrust-validation");
         }
         showToast(message, "notice", {
           key:"hardware-mission-alarm-" + eventKey,

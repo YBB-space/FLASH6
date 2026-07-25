@@ -3,6 +3,24 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.9.5 — v6 b35 — 2026-07-25
+
+Protocol: `Flash6-Intelligent-b8` (ESP-NOW wire version `8`, unchanged)
+
+- Changed stage-1 launch timing to use the first valid physical ARM release or
+  sustained thrust-flight evidence as the T+ timestamp.
+- Added a 1000 ms physical-ARM authority window for thrust-first launches.
+  Deployment outputs and stage-2 T+ transmission remain blocked until ARM
+  confirms the original thrust timestamp.
+- Added fail-closed recovery for an unconfirmed thrust launch: outputs are
+  cleared, provisional T+ is discarded, mission standby is restored, and
+  FLASH6 displays a localized high-risk validation modal.
+- Decoupled powered-flight detection from the physical ARM input so thrust
+  evidence is preserved even when it arrives before launcher-cable release.
+- Preserved ARM-first operation as the primary safety path: ARM release still
+  establishes an immediately authorized T+ and the mission continues even if
+  thrust detection is unavailable.
+
 ## 0.9.4 — v6 b34 — 2026-07-24
 
 Protocol: `Flash6-Intelligent-b8` (ESP-NOW wire version `8`)

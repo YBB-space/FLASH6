@@ -97,7 +97,7 @@ function runScenario({
     if(phase === "PRE_FLIGHT"){
       const launchCondition = rawAccelG > 1.5;
       launchSinceMs = launchCondition ? (launchSinceMs || nowMs || 1) : 0;
-      if(ignition && armReleased && launchSinceMs && nowMs - launchSinceMs >= 100){
+      if(ignition && launchSinceMs && nowMs - launchSinceMs >= 100){
         phase = "POWERED_FLIGHT";
         phaseEnteredMs = nowMs;
         phaseStartAltitudeM = altitudeM;
@@ -211,6 +211,18 @@ const noIgnition = runScenario({
 });
 assert.equal(noIgnition.phase, "PRE_FLIGHT", "acceleration without ignition must not launch");
 
+const thrustBeforeArm = runScenario({
+  durationMs:500,
+  armReleased:false,
+  accelerationAt:()=>3.0,
+  altitudeAt:ms=>ms * 0.01
+});
+assert.equal(
+  thrustBeforeArm.transitions[0]?.phase,
+  "POWERED_FLIGHT",
+  "armed launch detection must preserve thrust evidence before ARM release"
+);
+
 const pressureSpike = runScenario({
   durationMs:7500,
   accelerationAt:nominalAcceleration,
@@ -233,6 +245,14 @@ console.table([
     scenario:"launch shock only",
     coastMs:"none",
     burnoutDelayMs:"-",
+    descentMs:"none",
+    apogeeDelayMs:"-",
+    result:"PASS"
+  },
+  {
+    scenario:"thrust before ARM",
+    coastMs:"phase detected",
+    burnoutDelayMs:"authority pending",
     descentMs:"none",
     apogeeDelayMs:"-",
     result:"PASS"

@@ -6501,6 +6501,11 @@
         body = "점화 출력이 끝난 뒤에도 1단 ARM 해제가 확인되지 않았습니다. 발사 여부가 불명확합니다.";
         stageText = "발사체에 접근하지 말고 충분한 안전 대기 시간을 확보하세요.";
         note = "원격 상태와 점화 계통을 먼저 확인한 뒤 현장 안전 절차에 따라 접근하세요.";
+      }else if(mode === "thrust-validation"){
+        title = "추력 감지 검증 실패";
+        body = "추력 비행 감지 후 1초 안에 물리 ARM 해제가 확인되지 않아 미션 대기로 복귀했습니다.";
+        stageText = stagePrefix + " ARM 케이블·커넥터와 IMU 고정 상태를 점검하세요.";
+        note = "발사 여부가 불명확하므로 원격 상태를 확인하고 충분한 안전 대기 후 접근하세요.";
       }
       if(el.missionArmRiskTitle) el.missionArmRiskTitle.textContent = title;
       if(el.missionArmRiskText) el.missionArmRiskText.textContent = body;

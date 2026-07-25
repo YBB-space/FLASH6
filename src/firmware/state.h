@@ -1,7 +1,7 @@
 
 constexpr char kFirmwareProgram[] = "Altis_Intelligent3_firmware1";
-constexpr char kFirmwareVersion[] = "0.9.4";
-constexpr char kFirmwareBuildId[] = "v6 b34";
+constexpr char kFirmwareVersion[] = "0.9.5";
+constexpr char kFirmwareBuildId[] = "v6 b35";
 constexpr char kFirmwareBoard[] = "Altis_Intelligent3_b3";
 constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b8";
 constexpr bool kFirmwareMissionLocked = true;
@@ -458,6 +458,7 @@ struct FlightPhaseRuntime {
   uint32_t lastTickUs = 0;
   uint32_t launchAccelSinceMs = 0;
   uint32_t launchSpeedSinceMs = 0;
+  uint32_t launchEvidenceAtMs = 0;
   uint32_t coastSinceMs = 0;
   uint32_t descentSinceMs = 0;
   uint32_t landingSinceMs = 0;

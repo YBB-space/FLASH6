@@ -17,6 +17,8 @@
         "ARM contact fault":"ARM 신호 불안정",
         "ARM unsafe":"ARM 해제 상태 감지",
         "Launch detection fault":"발사 감지 비정상",
+        "Launch validation fault":"발사 검증 실패",
+        "ARM authority confirmed":"발사 권한 확인",
         "T+ started":"T+ 시작",
         "Stage separation fault":"단분리 작동 실패",
         "Forced separation":"강제 단분리",
@@ -46,7 +48,15 @@
       }else if(/^ARM input is unstable\./i.test(message)){
         localizedMessage = "ARM 입력 불안정 감지 · 커넥터·센서·배선을 점검하세요.";
       }else if(/^Stage-1 physical ARM released/i.test(message)){
-        localizedMessage = "1단 물리 ARM 해제 감지 · 미션 제어권을 획득했습니다.";
+        localizedMessage = "1단 물리 ARM 해제 감지 · 해당 시각으로 T+를 확정했습니다.";
+      }else if(/^Thrust flight detected; waiting up to 1 s/i.test(message)){
+        localizedMessage = "추력 비행 감지 시각으로 T+ 시작 · 1초 동안 물리 ARM 해제를 확인합니다.";
+      }else if(/^Thrust flight preceded ARM release/i.test(message)){
+        localizedMessage = "추력 비행이 ARM 해제보다 먼저 감지되어 해당 시각으로 T+를 설정했습니다.";
+      }else if(/^Physical ARM release confirmed the thrust-detected T\+\./i.test(message)){
+        localizedMessage = "물리 ARM 해제를 확인해 추력 감지 T+의 미션 실행 권한을 승인했습니다.";
+      }else if(/^No ARM release within 1 s of thrust/i.test(message)){
+        localizedMessage = "추력 비행 감지 후 1초 안에 물리 ARM 해제가 확인되지 않아 미션 대기로 복귀했습니다.";
       }else if(/^Stage-1 T\+ event received\./i.test(message)){
         localizedMessage = "1단 T+ 이벤트를 수신했습니다.";
       }else if(/^Stage-1 separation event recovered/i.test(message)){
@@ -81,6 +91,7 @@
           "Mission standby rejected. Physical ARM is released; safety mode enabled.":"물리 ARM 해제 상태로 미션 대기가 거부되었습니다 · 안전 모드를 적용했습니다.",
           "Mission standby rejected. ARM/separation mechanism is released; safety mode enabled.":"ARM 또는 단분리 장치가 해제된 상태라 미션 대기가 거부되었습니다 · 안전 모드를 적용했습니다.",
           "Waiting for stable stage-1 physical ARM release.":"안정적인 1단 물리 ARM 해제를 기다리는 중입니다.",
+          "Waiting for physical ARM release or thrust-flight detection.":"물리 ARM 해제 또는 추력 비행 감지를 기다리는 중입니다.",
           "Remote ARM release received.":"원격 ARM 해제 신호를 수신했습니다.",
           "Local ARM release confirmed.":"로컬 ARM 해제를 확인했습니다.",
           "Hall sensor confirmed magnet departure.":"홀센서에서 자석 이탈을 확인했습니다 · 2단 단분리로 판정합니다.",
@@ -142,6 +153,8 @@
           showMissionArmRiskWarning(eventStageId ? [eventStageId] : [], contactMode);
         }else if(!isReplaySample && rawTitle === "Launch detection fault"){
           showMissionArmRiskWarning(eventStageId ? [eventStageId] : [1], "launch");
+        }else if(!isReplaySample && rawTitle === "Launch validation fault"){
+          showMissionArmRiskWarning(eventStageId ? [eventStageId] : [1], "thrust-validation");
         }
         showToast(message, "notice", {
           key:"hardware-mission-alarm-" + eventKey,

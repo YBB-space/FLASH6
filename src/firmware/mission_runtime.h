@@ -87,6 +87,7 @@ MissionAlarmState missionAlarmRemote;
 
 constexpr uint32_t kLaunchArmDebounceMs = 50U;
 constexpr uint32_t kLaunchEarlyCoastMs = 1500U;
+constexpr uint32_t kLaunchThrustArmConfirmMs = 1000U;
 constexpr uint32_t kLaunchArmChatterWindowMs = 1000U;
 constexpr uint8_t kLaunchArmChatterTransitions = 3U;
 constexpr uint32_t kMissionEventRepeatMs = 100U;
@@ -108,6 +109,8 @@ struct LaunchMissionRuntime {
   bool armStableOn = true;
   bool armContactFault = false;
   bool launchLatched = false;
+  bool launchAuthorityConfirmed = false;
+  bool thrustLaunchProvisional = false;
   bool launchDetectionFault = false;
   bool coastSeen = false;
   bool earlyCoast = false;
@@ -127,6 +130,7 @@ struct LaunchMissionRuntime {
   uint32_t standbyStartedMs = 0;
   uint32_t waitingLaunchSinceMs = 0;
   uint32_t launchMs = 0;
+  uint32_t thrustArmDeadlineMs = 0;
   uint32_t ignitionStartMs = 0;
   uint32_t ignitionDelayMs = UINT32_MAX;
   uint32_t primaryCommandMs = 0;
@@ -587,6 +591,7 @@ void missionEnterArmContactFault(uint32_t nowMs) {
   // fault immediately but preserve the already-running flight sequence. In
   // every pre-launch/post-flight state, fail closed as before.
   const bool missionInFlight = launchMission.launchLatched &&
+    launchMission.launchAuthorityConfirmed &&
     launchMission.state != LaunchMissionState::Complete &&
     launchMission.state != LaunchMissionState::Fault;
   if (missionInFlight) {
@@ -615,9 +620,17 @@ void missionEnterArmContactFault(uint32_t nowMs) {
   missionSyncLaunchTelemetry();
 }
 
-void missionLatchTplus(uint32_t launchMs, const char* reason) {
+void missionLatchTplus(
+  uint32_t launchMs,
+  const char* reason,
+  bool authorityConfirmed = true
+) {
   if (launchMission.launchLatched) return;
-  missionLaunchStandby = false;
+  const uint32_t ignitionStartedMs =
+    sequenceState == kSequenceStateFiring && sequenceFiringStartMs != 0U
+      ? sequenceFiringStartMs
+      : launchMission.ignitionStartMs;
+  missionLaunchStandby = !authorityConfirmed;
   sequenceUserWaiting = false;
   sequenceState = kSequenceStateTplus;
   sequenceFiringStartMs = launchMs;
@@ -627,12 +640,78 @@ void missionLatchTplus(uint32_t launchMs, const char* reason) {
   applyPyroOutputs(launchMs);
 
   launchMission.launchLatched = true;
+  launchMission.launchAuthorityConfirmed = authorityConfirmed;
+  launchMission.thrustLaunchProvisional = !authorityConfirmed;
+  if (authorityConfirmed) launchMission.launchDetectionFault = false;
   launchMission.launchMs = launchMs;
+  launchMission.ignitionStartMs = ignitionStartedMs;
+  launchMission.thrustArmDeadlineMs = authorityConfirmed
+    ? 0U
+    : launchMs + kLaunchThrustArmConfirmMs;
   launchMission.state = missionIsStage2Node()
     ? LaunchMissionState::WaitingStage2Arm
     : LaunchMissionState::WaitingCoast;
   missionLastSequenceState = sequenceState;
   missionEmitAlarm(0, "T+ started", reason ? reason : "Stage-1 ARM released.");
+  missionSyncLaunchTelemetry();
+}
+
+void missionConfirmThrustLaunchAuthority(uint32_t armReleasedMs) {
+  if (!launchMission.launchLatched ||
+      !launchMission.thrustLaunchProvisional ||
+      launchMission.launchAuthorityConfirmed) {
+    return;
+  }
+  launchMission.launchAuthorityConfirmed = true;
+  launchMission.thrustLaunchProvisional = false;
+  launchMission.thrustArmDeadlineMs = 0U;
+  launchMission.launchDetectionFault = false;
+  missionLaunchStandby = false;
+  if (launchMission.ignitionStartMs != 0U &&
+      armReleasedMs >= launchMission.ignitionStartMs) {
+    launchMission.ignitionDelayMs =
+      armReleasedMs - launchMission.ignitionStartMs;
+  }
+  missionEmitAlarm(
+    0,
+    "ARM authority confirmed",
+    "Physical ARM release confirmed the thrust-detected T+.");
+  missionSendInterstageEvent(
+    MissionInterstageEventCode::Tplus,
+    launchMission.launchMs,
+    0);
+  missionSyncLaunchTelemetry();
+}
+
+void missionRejectUnconfirmedThrustLaunch(uint32_t nowMs) {
+  if (!launchMission.launchLatched ||
+      !launchMission.thrustLaunchProvisional ||
+      launchMission.launchAuthorityConfirmed) {
+    return;
+  }
+  launchMission.launchLatched = false;
+  launchMission.launchAuthorityConfirmed = false;
+  launchMission.thrustLaunchProvisional = false;
+  launchMission.launchDetectionFault = true;
+  launchMission.launchMs = 0U;
+  launchMission.thrustArmDeadlineMs = 0U;
+  launchMission.state = LaunchMissionState::Standby;
+  launchMission.coastSeen = false;
+  launchMission.earlyCoast = false;
+  launchMission.coastTimeout = false;
+  launchMission.lastTplusEventTxMs = 0U;
+  missionLaunchStandby = true;
+  sequenceUserWaiting = true;
+  sequenceState = kSequenceStateIdle;
+  sequenceFiringStartMs = 0U;
+  sequenceFiringEndMs = 0U;
+  sequenceRelayHoldUntilMs = 0U;
+  sequenceRelayMask = 0U;
+  applyPyroOutputs(nowMs);
+  missionEmitAlarm(
+    0,
+    "Launch validation fault",
+    "No ARM release within 1 s of thrust; standby restored.");
   missionSyncLaunchTelemetry();
 }
 
@@ -793,13 +872,13 @@ MissionStandbyResult startMissionStandbyRuntime(uint32_t nowMs) {
   missionEmitAlarm(
     0,
     "Mission standby",
-    "Waiting for stable stage-1 physical ARM release.");
+    "Waiting for physical ARM release or thrust-flight detection.");
   if (missionIsStage1Node()) {
     missionSendInterstageEvent(MissionInterstageEventCode::Standby, nowMs, 0);
     launchMission.lastStandbyEventTxMs = nowMs;
   }
   missionSyncLaunchTelemetry();
-  Serial.println("[MISSION] standby active ignition=wired launch_gate=stage1_arm_release pyro=off");
+  Serial.println("[MISSION] standby active ignition=wired launch_gate=arm_or_thrust arm_authority=required pyro=off");
   return MissionStandbyResult::Started;
 }
 
@@ -922,15 +1001,45 @@ void missionLaunchSequenceTick(uint32_t nowMs, bool armReleased, uint32_t armRel
     return;
   }
 
+  const bool stage1ThrustEvidenceAvailable =
+    missionIsStage1Node() &&
+    flightPhaseRuntime.phase == FlightPhase::PoweredFlight &&
+    flightPhaseRuntime.launchEvidenceAtMs != 0U &&
+    snap.flightTransitionReason ==
+      static_cast<uint8_t>(FlightTransitionReason::LaunchAcceleration);
+
+  if (missionIsStage1Node() &&
+      launchMission.thrustLaunchProvisional &&
+      launchMission.thrustArmDeadlineMs != 0U &&
+      (int32_t)(nowMs - launchMission.thrustArmDeadlineMs) >= 0 &&
+      (!armReleased || armReleasedMs > launchMission.thrustArmDeadlineMs)) {
+    missionRejectUnconfirmedThrustLaunch(nowMs);
+  }
+
   if (armReleased) {
-    if (missionIsStage1Node() && missionLaunchStandby &&
-        !launchMission.launchLatched) {
-      if (sequenceFiringStartMs != 0U && armReleasedMs >= sequenceFiringStartMs) {
-        launchMission.ignitionStartMs = sequenceFiringStartMs;
-        launchMission.ignitionDelayMs = armReleasedMs - sequenceFiringStartMs;
+    if (missionIsStage1Node()) {
+      if (launchMission.thrustLaunchProvisional &&
+          armReleasedMs <= launchMission.thrustArmDeadlineMs) {
+        missionConfirmThrustLaunchAuthority(armReleasedMs);
+      } else if (missionLaunchStandby && !launchMission.launchLatched) {
+        if (stage1ThrustEvidenceAvailable &&
+            flightPhaseRuntime.launchEvidenceAtMs < armReleasedMs) {
+          missionLatchTplus(
+            flightPhaseRuntime.launchEvidenceAtMs,
+            "Thrust flight preceded ARM release; validating mission authority.",
+            false);
+          missionConfirmThrustLaunchAuthority(armReleasedMs);
+        } else {
+          if (sequenceFiringStartMs != 0U && armReleasedMs >= sequenceFiringStartMs) {
+            launchMission.ignitionStartMs = sequenceFiringStartMs;
+            launchMission.ignitionDelayMs = armReleasedMs - sequenceFiringStartMs;
+          }
+          missionLatchTplus(
+            armReleasedMs,
+            "Stage-1 physical ARM released; T+ established with mission authority.");
+          missionSendInterstageEvent(MissionInterstageEventCode::Tplus, armReleasedMs, 0);
+        }
       }
-      missionLatchTplus(armReleasedMs, "Stage-1 physical ARM released; mission authority acquired.");
-      missionSendInterstageEvent(MissionInterstageEventCode::Tplus, armReleasedMs, 0);
     } else if (missionIsStage2Node() &&
                (missionLaunchStandby || launchMission.launchLatched) &&
                !launchMission.stage2ArmReleased) {
@@ -944,6 +1053,17 @@ void missionLaunchSequenceTick(uint32_t nowMs, bool armReleased, uint32_t armRel
         missionEmitAlarm(0, "Stage-2 separation", "Hall sensor confirmed magnet departure.");
       }
     }
+  }
+
+  if (missionIsStage1Node() &&
+      missionLaunchStandby &&
+      !launchMission.launchLatched &&
+      !launchMission.launchDetectionFault &&
+      stage1ThrustEvidenceAvailable) {
+    missionLatchTplus(
+      flightPhaseRuntime.launchEvidenceAtMs,
+      "Thrust flight detected; waiting up to 1 s for physical ARM release.",
+      false);
   }
 
   if (!launchMission.launchLatched && sequenceState == kSequenceStateWaitingLaunch) {
@@ -977,7 +1097,9 @@ void missionLaunchSequenceTick(uint32_t nowMs, bool armReleased, uint32_t armRel
     }
   }
 
-  if (missionIsStage1Node() && launchMission.launchLatched) {
+  if (missionIsStage1Node() &&
+      launchMission.launchLatched &&
+      launchMission.launchAuthorityConfirmed) {
     const uint32_t elapsedMs = nowMs - launchMission.launchMs;
     if (!launchMission.stage1Separated) {
       const bool coasting =
@@ -1037,6 +1159,7 @@ void missionLaunchSequenceTick(uint32_t nowMs, bool armReleased, uint32_t armRel
   }
 
   if (missionIsStage1Node() && launchMission.launchLatched &&
+      launchMission.launchAuthorityConfirmed &&
       !launchMission.stage1Ejected &&
       (launchMission.lastTplusEventTxMs == 0U ||
        (uint32_t)(nowMs - launchMission.lastTplusEventTxMs) >= kMissionEventRepeatMs)) {

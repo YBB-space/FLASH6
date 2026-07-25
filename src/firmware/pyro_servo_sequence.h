@@ -353,8 +353,9 @@ int32_t sequenceTdMs(uint32_t nowMs) {
   if (st == kSequenceStateFiring || st == kSequenceStateTplus) {
     return (int32_t)((nowMs >= sequenceFiringStartMs) ? (nowMs - sequenceFiringStartMs) : 0U);
   }
-  // Wired-ignition standby has no synthetic countdown. T+ starts only when
-  // the stable stage-1 physical ARM release is confirmed.
+  // Wired-ignition standby has no synthetic countdown. T+ starts from the
+  // first valid ARM-release or thrust-flight evidence; thrust-first T+ remains
+  // provisional until physical ARM authorizes the mission.
   if (missionLaunchStandby) return 0;
   if (sequenceUserWaiting) return -(int32_t)countdownDurationMs;
   return 0;

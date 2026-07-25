@@ -1,13 +1,23 @@
 # FLASH6 Built-in Mission Sequence
 
-Firmware `0.9.4` / build `v6 b34` / protocol `Flash6-Intelligent-b8`
+Firmware `0.9.5` / build `v6 b35` / protocol `Flash6-Intelligent-b8`
 
 ## Sequence authority
 
 Control priority is safety/abort, ignition sequence, mission sequence, then
-manual control. A stable stage-1 physical ARM release is the authoritative
-launch event: it establishes absolute T+0, turns off any remaining ignition
-output, and transfers control to the mission sequence immediately.
+manual control. The first valid stage-1 physical ARM release or sustained
+thrust-flight evidence establishes the T+ timestamp. Physical ARM remains the
+mission authority gate:
+
+- If ARM releases first, its edge establishes confirmed T+ immediately.
+- If thrust is detected first, the beginning of the sustained thrust evidence
+  establishes provisional T+. Separation, ejection, interstage T+ transmission,
+  and every other irreversible mission action remain blocked.
+- ARM release within 1000 ms confirms the original thrust timestamp and grants
+  mission authority.
+- Without ARM release in that window, all outputs remain off, provisional T+
+  is discarded, the board returns to mission standby, and FLASH6 raises a
+  high-risk launch-validation warning.
 
 Automatic ignition runs the configured T- countdown and PYRO output. If its
 output ends before stage-1 ARM release, the board enters `WAITING_LAUNCH`. It
@@ -22,8 +32,11 @@ and the same stage-1 ARM release rule starts T+.
 ## Stage 1
 
 1. Enter standby only while physical ARM is ON and safety/inspection permits.
-2. Stable ARM ON-to-OFF establishes T+ and is repeated to stage 2.
-3. Filtered coasting or the configured T+ backup commands SERVO CH1 to the
+2. Use the first ARM-release or sustained thrust-flight evidence as the T+
+   timestamp. Thrust-first detection must receive physical ARM authorization
+   within 1000 ms; ARM-first detection is authorized immediately.
+3. Only after physical ARM authority is confirmed, filtered coasting or the
+   configured T+ backup commands SERVO CH1 to the
    configured stage-1 separation angle (default 80°).
 4. With a healthy interstage link, wait for stable stage-2 ARM release, then
    wait the configured stage-1 ejection delay and command SERVO CH2 to the
@@ -57,6 +70,8 @@ and the same stage-1 ARM release rule starts T+.
 - Three raw ARM transitions inside one second before T+ are treated as contact
   chatter. Mission authority is revoked and connector/sensor/wiring inspection
   is required.
+- Thrust-first T+ is provisional. No deployment command or stage-2 T+ event is
+  released until the stage-1 physical ARM edge confirms mission authority.
 - ARM bounce cannot return a latched T+ to standby or idle.
 - Interstage mission events are idempotent and retransmitted while relevant.
 - ABORT is sequence-scoped and repeated across the interstage link for one

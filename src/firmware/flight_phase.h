@@ -297,11 +297,6 @@ void flightPhaseTick() {
   flightPhaseUpdateAcceleration(accelG, dtSec);
   const bool baroFresh = snap.baroValid && lastBaroValidMs != 0U &&
     (uint32_t)(nowMs - lastBaroValidMs) <= 250U;
-  // Software ARM lock is an output interlock, not a physical launch signal.
-  // Using the effective value here masks the launcher's real ON -> OFF edge
-  // whenever ARM lock is enabled. Wired-ignition standby therefore observes
-  // the physical input directly.
-  const bool armReleasedFromLauncher = !armSwitchPhysicalOn();
   snap.flightCoastHoldMs = 0U;
   snap.flightDescentHoldMs = 0U;
 
@@ -318,15 +313,22 @@ void flightPhaseTick() {
         baroFresh && rt.fastVerticalSpeedMps > kFlightLaunchSpeedMps,
         kFlightLaunchHoldMs);
       const bool launchDetectionArmed = rt.ignitionSeen || missionLaunchStandby;
-      if (launchDetectionArmed &&
-          armReleasedFromLauncher &&
-          (accelerationLaunch || speedLaunch)) {
+      if (launchDetectionArmed && (accelerationLaunch || speedLaunch)) {
+        const uint32_t launchEvidenceAtMs = accelerationLaunch
+          ? rt.launchAccelSinceMs
+          : rt.launchSpeedSinceMs;
         flightPhaseSet(
           FlightPhase::PoweredFlight,
           nowMs,
           accelerationLaunch
             ? FlightTransitionReason::LaunchAcceleration
             : FlightTransitionReason::LaunchBarometer);
+        // Preserve the beginning of the sustained launch evidence rather than
+        // the later confirmation tick. The mission runtime uses
+        // acceleration-led evidence as the thrust T+ candidate while physical
+        // ARM remains the final authority gate.
+        rt.launchEvidenceAtMs = launchEvidenceAtMs;
+        rt.phaseEnteredMs = launchEvidenceAtMs;
       }
       break;
     }
