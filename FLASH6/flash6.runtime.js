@@ -793,8 +793,17 @@ if (typeof window !== "undefined") {
       speed: 1,
       fileName: "",
       parserLabel: "",
-      dataMode: null
+      dataMode: null,
+      appCommunicationRecorded: false,
+      linkQualityAvailable: false,
+      linkSamples: [],
+      linkSeries: {rssi:[], loss:[], hz:[]},
+      linkDefinitions: null
     };
+    let replayLinkChartMetric = "rssi";
+    let replayLinkStatusOpen = false;
+    let replayLinkChartRaf = 0;
+    let replayLinkChartResizeObserver = null;
     let replaySeekInteracting = false;
     let replaySeekProcessing = false;
     let replaySeekTaskToken = 0;
@@ -19485,10 +19494,302 @@ function requestMobileMockup3dMesh(){
       });
     }
 
+    function prepareReplayLinkQualityData(frames){
+      const list = Array.isArray(frames) ? frames : [];
+      let appRecorded = false;
+      let appCommunicationRecorded = false;
+      const linkSamples = [];
+      list.forEach((frame, index)=>{
+        const sample = frame && frame.sample ? frame.sample : null;
+        if(!sample) return;
+        const isAppSample =
+          Number(sample.app_recorded) === 1 ||
+          String(sample.data_capture_source || "").toLowerCase() === "app";
+        if(isAppSample) appRecorded = true;
+        const origin = String(sample.data_origin || "").trim().toLowerCase();
+        const hasRecordedLinkPayload = Number(sample.app_link_quality_recorded) === 1;
+        if(isAppSample && (
+          origin === "avionics" ||
+          (hasRecordedLinkPayload && Number(sample.fl_remote_valid) === 1)
+        )){
+          appCommunicationRecorded = true;
+        }
+        if(!hasRecordedLinkPayload) return;
+        const rssi = Number(sample.fl_rssi_dbm);
+        const lossPermille = Number(sample.fl_loss_permille);
+        const hz = Number(sample.fl_rx_hz);
+        linkSamples.push({
+          index,
+          time:Number(frame.tsMs),
+          rssi:Number(sample.fl_rssi_valid) && isFinite(rssi) && rssi > -127 ? rssi : null,
+          loss:Number(sample.fl_loss_valid) && isFinite(lossPermille)
+            ? Math.max(0, lossPermille / 10)
+            : null,
+          hz:Number(sample.fl_rx_valid) && isFinite(hz) ? Math.max(0, hz) : null,
+          linked:Number(sample.fl_link) === 1,
+          remoteValid:Number(sample.fl_remote_valid) === 1
+        });
+      });
+      replayState.appCommunicationRecorded = appRecorded && appCommunicationRecorded;
+      replayState.linkSamples = linkSamples;
+      replayState.linkSeries = {
+        rssi:linkSamples.filter((sample)=>sample.rssi != null && isFinite(Number(sample.rssi))),
+        loss:linkSamples.filter((sample)=>sample.loss != null && isFinite(Number(sample.loss))),
+        hz:linkSamples.filter((sample)=>sample.hz != null && isFinite(Number(sample.hz)))
+      };
+      replayState.linkDefinitions = {
+        rssi:getFlashLinkChartDefinition("rssi", replayState.linkSeries.rssi),
+        loss:getFlashLinkChartDefinition("loss", replayState.linkSeries.loss),
+        hz:getFlashLinkChartDefinition("hz", replayState.linkSeries.hz)
+      };
+      replayState.linkQualityAvailable = linkSamples.some((sample)=>(
+        (sample.rssi != null && isFinite(Number(sample.rssi))) ||
+        (sample.loss != null && isFinite(Number(sample.loss))) ||
+        (sample.hz != null && isFinite(Number(sample.hz)))
+      ));
+      updateReplayLinkStatusButton();
+      scheduleReplayLinkStatusRender();
+    }
+
+    function updateReplayLinkStatusButton(){
+      const button = el.replayLinkStatusBtn;
+      if(!button) return;
+      const visible = !!replayUiActive && !!replayState.appCommunicationRecorded;
+      button.classList.toggle("hidden", !visible);
+      button.style.display = visible ? "" : "none";
+      button.setAttribute("aria-hidden", visible ? "false" : "true");
+      button.disabled = !visible;
+      if(el.replayLinkStatusBtnHint){
+        el.replayLinkStatusBtnHint.textContent = replayState.linkQualityAvailable
+          ? "RSSI · 손실률 · 수신 Hz"
+          : "이전 저장 형식 · 품질 데이터 없음";
+      }
+    }
+
+    function updateReplayLinkChartTabs(){
+      const tabs = el.replayLinkChartTabs || [];
+      tabs.forEach((tab)=>{
+        const active = tab.dataset.replayLinkMetric === replayLinkChartMetric;
+        tab.classList.toggle("is-active", active);
+        tab.setAttribute("aria-selected", active ? "true" : "false");
+      });
+    }
+
+    function setReplayLinkChartMetric(metric){
+      replayLinkChartMetric = (metric === "loss" || metric === "hz") ? metric : "rssi";
+      updateReplayLinkChartTabs();
+      scheduleReplayLinkStatusRender();
+    }
+
+    function findReplayLinkSampleAt(index){
+      const samples = replayState.linkSamples || [];
+      if(!samples.length) return null;
+      let lo = 0;
+      let hi = samples.length - 1;
+      let match = 0;
+      while(lo <= hi){
+        const mid = (lo + hi) >>> 1;
+        if(samples[mid].index <= index){
+          match = mid;
+          lo = mid + 1;
+        }else{
+          hi = mid - 1;
+        }
+      }
+      return samples[match] || null;
+    }
+
+    function setReplayLinkStatusVisible(visible){
+      const show =
+        !!visible &&
+        !!replayUiActive &&
+        !!replayState.appCommunicationRecorded;
+      replayLinkStatusOpen = show;
+      if(el.replayLinkStatusOverlay){
+        setOverlayVisible(el.replayLinkStatusOverlay, show);
+      }
+      if(show){
+        setReplayToolsPanelOpen(false);
+        updateReplayLinkChartTabs();
+        scheduleReplayLinkStatusRender();
+        requestAnimationFrame(()=>{
+          if(el.replayLinkStatusCloseBtn){
+            el.replayLinkStatusCloseBtn.focus({preventScroll:true});
+          }
+        });
+      }
+    }
+
+    function scheduleReplayLinkStatusRender(){
+      if(!replayLinkStatusOpen || replayLinkChartRaf) return;
+      replayLinkChartRaf = requestAnimationFrame(()=>{
+        replayLinkChartRaf = 0;
+        drawReplayLinkQualityChart();
+      });
+    }
+
+    function drawReplayLinkQualityChart(){
+      if(!replayLinkStatusOpen) return;
+      const canvas = el.replayLinkQualityChart;
+      if(!canvas) return;
+      const samples = replayState.linkSamples || [];
+      const currentIndex = replayState.lastIndex >= 0
+        ? replayState.lastIndex
+        : Math.max(0, replayState.index - 1);
+      const current = findReplayLinkSampleAt(currentIndex);
+      const definition =
+        replayState.linkDefinitions && replayState.linkDefinitions[replayLinkChartMetric]
+          ? replayState.linkDefinitions[replayLinkChartMetric]
+          : getFlashLinkChartDefinition(replayLinkChartMetric, samples);
+      const currentValue = current && current[definition.key] != null
+        ? Number(current[definition.key])
+        : NaN;
+      const valid =
+        replayState.linkSeries && Array.isArray(replayState.linkSeries[definition.key])
+          ? replayState.linkSeries[definition.key]
+          : [];
+      const hasMetricData = valid.length > 0;
+
+      if(el.replayLinkRateValue){
+        el.replayLinkRateValue.textContent = current && current.hz != null && isFinite(Number(current.hz))
+          ? Number(current.hz).toFixed(Number(current.hz) % 1 ? 1 : 0) + " Hz"
+          : "-- Hz";
+      }
+      if(el.replayLinkLossValue){
+        el.replayLinkLossValue.textContent = current && current.loss != null && isFinite(Number(current.loss))
+          ? Number(current.loss).toFixed(1) + " %"
+          : "-- %";
+      }
+      if(el.replayLinkRssiValue){
+        el.replayLinkRssiValue.textContent = current && current.rssi != null && isFinite(Number(current.rssi))
+          ? Math.round(Number(current.rssi)) + " dBm"
+          : "-- dBm";
+      }
+      if(el.replayLinkStateValue){
+        const linked = !!(current && current.linked);
+        el.replayLinkStateValue.classList.toggle("is-linked", linked);
+        el.replayLinkStateValue.classList.toggle("is-offline", !!current && !linked);
+        const label = current ? (linked ? "LINKED" : "OFFLINE") : "NO DATA";
+        const strong = el.replayLinkStateValue.querySelector("strong");
+        if(strong) strong.textContent = label;
+      }
+      if(el.replayLinkChartValue){
+        el.replayLinkChartValue.textContent = formatFlashLinkChartValue(currentValue, definition);
+        el.replayLinkChartValue.style.color = definition.color;
+      }
+      if(el.replayLinkChartEmpty){
+        el.replayLinkChartEmpty.classList.toggle("hidden", hasMetricData);
+      }
+      if(el.replayLinkRecordSource){
+        el.replayLinkRecordSource.textContent = replayState.linkQualityAvailable
+          ? "APP COMMUNICATION RECORD"
+          : "LEGACY APP RECORD";
+      }
+      if(el.replayLinkRecordTime){
+        const lastFrameIndex = Math.max(0, replayState.samples.length - 1);
+        el.replayLinkRecordTime.textContent =
+          formatReplayMs(replayRelativeMsAt(currentIndex)) +
+          " / " +
+          formatReplayMs(replayRelativeMsAt(lastFrameIndex));
+      }
+
+      const size = ensureCanvasSize(canvas);
+      if(!size) return;
+      const {w:width, h:height, ctx} = size;
+      const plot = {left:44, top:25, right:14, bottom:28};
+      const plotLeft = plot.left;
+      const plotTop = plot.top;
+      const plotRight = width - plot.right;
+      const plotBottom = height - plot.bottom;
+      const plotWidth = Math.max(40, plotRight - plotLeft);
+      const plotHeight = Math.max(40, plotBottom - plotTop);
+      const valueSpan = Math.max(1, definition.max - definition.min);
+      const firstTime = samples.length ? Number(samples[0].time) : 0;
+      const lastTime = samples.length ? Number(samples[samples.length - 1].time) : firstTime + 1;
+      const timeSpan = Math.max(1, lastTime - firstTime);
+      const textColor = "rgba(181,187,198,.72)";
+      const gridColor = "rgba(148,163,184,.15)";
+
+      ctx.clearRect(0, 0, width, height);
+      ctx.save();
+      ctx.font = "10px -apple-system,BlinkMacSystemFont,system-ui,sans-serif";
+      ctx.textBaseline = "middle";
+      ctx.lineWidth = 1;
+      for(let line = 0; line <= 4; line++){
+        const ratio = line / 4;
+        const y = plotTop + (plotHeight * ratio);
+        const value = definition.max - (valueSpan * ratio);
+        ctx.strokeStyle = gridColor;
+        ctx.beginPath();
+        ctx.moveTo(plotLeft, y);
+        ctx.lineTo(plotRight, y);
+        ctx.stroke();
+        ctx.fillStyle = textColor;
+        ctx.textAlign = "right";
+        ctx.fillText(value.toFixed(definition.digits), plotLeft - 7, y);
+      }
+      for(let line = 0; line <= 4; line++){
+        const ratio = line / 4;
+        const x = plotLeft + (plotWidth * ratio);
+        ctx.strokeStyle = gridColor;
+        ctx.beginPath();
+        ctx.moveTo(x, plotTop);
+        ctx.lineTo(x, plotBottom);
+        ctx.stroke();
+        ctx.fillStyle = textColor;
+        ctx.textAlign = line === 0 ? "left" : (line === 4 ? "right" : "center");
+        ctx.fillText(formatReplayMs(timeSpan * ratio), x, plotBottom + 15);
+      }
+
+      if(valid.length >= 2){
+        const maxPoints = Math.max(120, Math.floor(plotWidth * 2));
+        const step = Math.max(1, Math.ceil(valid.length / maxPoints));
+        const xForTime = (time)=>plotLeft + (((Number(time) - firstTime) / timeSpan) * plotWidth);
+        const yForValue = (value)=>{
+          const clamped = Math.max(definition.min, Math.min(definition.max, Number(value)));
+          return plotBottom - (((clamped - definition.min) / valueSpan) * plotHeight);
+        };
+        ctx.strokeStyle = definition.color;
+        ctx.lineWidth = 1.7;
+        ctx.lineJoin = "round";
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        let started = false;
+        for(let index = 0; index < valid.length; index += step){
+          const sample = valid[index];
+          const x = xForTime(sample.time);
+          const y = yForValue(sample[definition.key]);
+          if(!started){
+            ctx.moveTo(x, y);
+            started = true;
+          }else{
+            ctx.lineTo(x, y);
+          }
+        }
+        const last = valid[valid.length - 1];
+        if((valid.length - 1) % step){
+          ctx.lineTo(xForTime(last.time), yForValue(last[definition.key]));
+        }
+        ctx.stroke();
+      }
+
+      if(current){
+        const playheadX = plotLeft + (((Number(current.time) - firstTime) / timeSpan) * plotWidth);
+        ctx.strokeStyle = "rgba(255,255,255,.64)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(playheadX, plotTop);
+        ctx.lineTo(playheadX, plotBottom);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
     function updateReplayModeUi(){
       document.documentElement.classList.toggle("replay-ui-active", !!replayUiActive);
       if(!replayUiActive){
         setReplayToolsPanelOpen(false);
+        setReplayLinkStatusVisible(false);
       }
       if(el.controlsCard){
         el.controlsCard.classList.toggle("replay-mode", replayUiActive);
@@ -19553,6 +19854,7 @@ function requestMobileMockup3dMesh(){
       }
       updateReplaySeekUi();
       updateReplaySpeedUi();
+      updateReplayLinkStatusButton();
       syncReplayAlarmEventActive();
       updateNavActionState();
       updateExportButtonState();
@@ -19634,6 +19936,7 @@ function requestMobileMockup3dMesh(){
         replayState.lastUiUpdateMs = uiNowMs;
         updateReplaySeekUi();
         syncReplayAlarmEventActive();
+        scheduleReplayLinkStatusRender();
       }
       return true;
     }
@@ -20713,10 +21016,12 @@ function requestMobileMockup3dMesh(){
     const REPLAY_BIN_SAMPLE_V3_PAYLOAD_BYTES = 52;
     const REPLAY_BIN_SAMPLE_V4_PAYLOAD_BYTES = 68;
     const REPLAY_BIN_SAMPLE_V5_PAYLOAD_BYTES = 88;
+    const REPLAY_BIN_SAMPLE_APP_V6_PAYLOAD_BYTES = 80;
     const REPLAY_BIN_MISSION_ALARM_PAYLOAD_BYTES = 52;
     const REPLAY_BIN_MISSION_ALARM_V4_PAYLOAD_BYTES = 68;
     const REPLAY_BIN_MISSION_ALARM_V5_PAYLOAD_BYTES = 88;
     const REPLAY_BIN_APP_RECORD_V4_BYTES = REPLAY_BIN_RECORD_HEADER_BYTES + REPLAY_BIN_SAMPLE_V4_PAYLOAD_BYTES;
+    const REPLAY_BIN_APP_RECORD_V6_BYTES = REPLAY_BIN_RECORD_HEADER_BYTES + REPLAY_BIN_SAMPLE_APP_V6_PAYLOAD_BYTES;
     const REPLAY_BIN_RECORD_MARKER = 0xA55A;
     const REPLAY_BIN_RECORD_MARKER_ALT = 0x5AA5;
     const REPLAY_BIN_SCAN_MAX_BYTES = 1024 * 1024;
@@ -21271,7 +21576,7 @@ function requestMobileMockup3dMesh(){
           offset += 1;
           continue;
         }
-        if(recVersion !== 5 && recVersion !== 4 && recVersion !== 3 && recVersion !== 2 && recVersion !== 1 && recVersion !== 0){
+        if(recVersion !== 6 && recVersion !== 5 && recVersion !== 4 && recVersion !== 3 && recVersion !== 2 && recVersion !== 1 && recVersion !== 0){
           if(samples.length > 0){
             offset = nextOffset;
             continue;
@@ -21279,7 +21584,7 @@ function requestMobileMockup3dMesh(){
           offset += 1;
           continue;
         }
-        if((recVersion === 2 || recVersion === 3 || recVersion === 4 || recVersion === 5) &&
+        if((recVersion === 2 || recVersion === 3 || recVersion === 4 || recVersion === 5 || recVersion === 6) &&
             replayCrc16Ccitt(dv, payloadOffset, payloadSize) !== recordFlags){
           offset = nextOffset;
           continue;
@@ -21429,7 +21734,11 @@ function requestMobileMockup3dMesh(){
             ut: headerTsMs
           };
           appendSample(sample, headerTsMs);
-        }else if(recVersion === 4 && recType === 1 && payloadSize >= REPLAY_BIN_SAMPLE_V4_PAYLOAD_BYTES){
+        }else if((recVersion === 4 || recVersion === 6) &&
+                 recType === 1 &&
+                 payloadSize >= (recVersion === 6
+                   ? REPLAY_BIN_SAMPLE_APP_V6_PAYLOAD_BYTES
+                   : REPLAY_BIN_SAMPLE_V4_PAYLOAD_BYTES)){
           const base = payloadOffset;
           const flags = dv.getUint16(base + 34, true);
           const storedFlightPhaseCode = (flags & (1 << 15)) ? ((flags >>> 8) & 0x07) : null;
@@ -21493,6 +21802,27 @@ function requestMobileMockup3dMesh(){
               (((flags >>> 14) & 0x01) << 2),
             ut: headerTsMs
           };
+          if(recVersion === 6){
+            const linkFlags = dv.getUint16(base + 76, true);
+            const rssiDeciDbm = dv.getInt16(base + 72, true);
+            const rssiAgeMs = dv.getUint16(base + 74, true);
+            sample.fl_rx_hz = dv.getUint16(base + 68, true) / 10;
+            sample.fl_loss_permille = dv.getUint16(base + 70, true);
+            sample.fl_rssi_dbm = rssiDeciDbm === -32768
+              ? null
+              : (rssiDeciDbm / 10);
+            sample.fl_rssi_age_ms = rssiAgeMs === 0xFFFF ? null : rssiAgeMs;
+            sample.fl_link = (linkFlags >>> 0) & 1;
+            sample.fl_remote_valid = (linkFlags >>> 1) & 1;
+            sample.fl_stage1 = (linkFlags >>> 2) & 1;
+            sample.fl_stage2 = (linkFlags >>> 3) & 1;
+            sample.fl_role_code = (linkFlags >>> 4) & 1;
+            sample.flash_link_role = sample.fl_role_code ? "ground" : "avionics";
+            sample.fl_rssi_valid = (linkFlags >>> 5) & 1;
+            sample.fl_rx_valid = (linkFlags >>> 6) & 1;
+            sample.fl_loss_valid = (linkFlags >>> 7) & 1;
+            sample.app_link_quality_recorded = 1;
+          }
           appendSample(sample, headerTsMs);
         }else if(recVersion === 3 && recType === 1 && payloadSize >= REPLAY_BIN_SAMPLE_V3_PAYLOAD_BYTES){
           const base = payloadOffset;
@@ -21630,7 +21960,10 @@ function requestMobileMockup3dMesh(){
               if(appSourceTag === REPLAY_BIN_APP_SOURCE_TAG){
                 const origin = appOriginCode === 1 ? "avionics" : "local";
                 parsed.forEach((entry)=>{
-                  if(entry && entry.sample) entry.sample.data_origin = origin;
+                  if(!entry || !entry.sample) return;
+                  entry.sample.data_origin = origin;
+                  entry.sample.data_capture_source = "app";
+                  entry.sample.app_recorded = 1;
                 });
               }
               return replayAttachBinProtocolMetadata(parsed, protocolMetadata);
@@ -25322,13 +25655,13 @@ function requestMobileMockup3dMesh(){
         sampleCount:0,
         chunkCount:0,
         bytes:0,
-        recordBytes:REPLAY_BIN_APP_RECORD_V4_BYTES,
-        recordVersion:4,
+        recordBytes:REPLAY_BIN_APP_RECORD_V6_BYTES,
+        recordVersion:6,
         format:"HWLOGV2",
         protocolVersion:REPLAY_PROTOCOL_COMPATIBLE_MAX,
         missionTimebaseVersion:1,
         metadataFlags:1,
-        firmwareBuildNumber:36,
+        firmwareBuildNumber:37,
         samplePeriodMs:0,
         lastReceivedAt:0
       };
@@ -25388,7 +25721,16 @@ function requestMobileMockup3dMesh(){
         gps_fix:numberOrNull(data && (data.gps_fix ?? data.gpsFix ?? data.fix)),
         gps_seen:numberOrNull(data && (data.gps_seen ?? data.gpsSeen)),
         gps_ready:numberOrNull(data && (data.gps_ready ?? data.gpsReady)),
-        gps_time_valid:numberOrNull(data && (data.gps_time_valid ?? data.gpsTimeValid))
+        gps_time_valid:numberOrNull(data && (data.gps_time_valid ?? data.gpsTimeValid)),
+        fl_link:numberOrNull(data && (data.fl_link ?? data.flash_link_connected)),
+        fl_remote_valid:numberOrNull(data && (data.fl_remote_valid ?? data.flash_link_remote_valid)),
+        fl_rx_hz:numberOrNull(data && (data.fl_rx_hz ?? data.flash_link_rx_hz)),
+        fl_loss_permille:numberOrNull(data && (data.fl_loss_permille ?? data.flash_link_loss_permille)),
+        fl_rssi_dbm:numberOrNull(data && (data.fl_rssi_dbm ?? data.flash_link_rssi_dbm)),
+        fl_rssi_age_ms:numberOrNull(data && (data.fl_rssi_age_ms ?? data.flash_link_rssi_age_ms)),
+        fl_stage1:numberOrNull(data && (data.fl_stage1 ?? data.flash_link_stage1_connected)),
+        fl_stage2:numberOrNull(data && (data.fl_stage2 ?? data.flash_link_stage2_connected)),
+        fl_role_code:numberOrNull(data && data.fl_role_code)
       };
     }
 
@@ -25398,8 +25740,8 @@ function requestMobileMockup3dMesh(){
       return Math.max(lo, Math.min(hi, Math.round(n * scale)));
     }
 
-    function buildAppDataRecordV4(sample, sequence){
-      const record = new Uint8Array(REPLAY_BIN_APP_RECORD_V4_BYTES);
+    function buildAppDataRecordV6(sample, sequence){
+      const record = new Uint8Array(REPLAY_BIN_APP_RECORD_V6_BYTES);
       const dv = new DataView(record.buffer);
       const payloadOffset = 16;
       const p = Number(sample && sample.p);
@@ -25422,9 +25764,9 @@ function requestMobileMockup3dMesh(){
       const hasGpsLatLon = isFinite(gpsLat) && isFinite(gpsLon);
 
       dv.setUint16(0, REPLAY_BIN_RECORD_MARKER, true);
-      dv.setUint8(2, 4);
+      dv.setUint8(2, 6);
       dv.setUint8(3, 1);
-      dv.setUint16(4, REPLAY_BIN_SAMPLE_V4_PAYLOAD_BYTES, true);
+      dv.setUint16(4, REPLAY_BIN_SAMPLE_APP_V6_PAYLOAD_BYTES, true);
       dv.setUint16(6, 0, true);
       dv.setUint32(
         8,
@@ -25526,12 +25868,64 @@ function requestMobileMockup3dMesh(){
       if(isFinite(gpsTimeValid) && gpsTimeValid !== 0) gpsFlags |= 1 << 3;
       dv.setUint16(payloadOffset + 66, gpsFlags, true);
 
+      const rawLinkRxHz = sample && sample.fl_rx_hz;
+      const rawLinkLossPermille = sample && sample.fl_loss_permille;
+      const rawLinkRssiDbm = sample && sample.fl_rssi_dbm;
+      const rawLinkRssiAgeMs = sample && sample.fl_rssi_age_ms;
+      const linkRxHz = Number(rawLinkRxHz);
+      const linkLossPermille = Number(rawLinkLossPermille);
+      const linkRssiDbm = Number(rawLinkRssiDbm);
+      const linkRssiAgeMs = Number(rawLinkRssiAgeMs);
+      const linkRxValid = rawLinkRxHz != null && isFinite(linkRxHz);
+      const linkLossValid = rawLinkLossPermille != null && isFinite(linkLossPermille);
+      const linkRssiValid = rawLinkRssiDbm != null && isFinite(linkRssiDbm) && linkRssiDbm > -127;
+      const linkRssiAgeValid = rawLinkRssiAgeMs != null && isFinite(linkRssiAgeMs);
+      dv.setUint16(
+        payloadOffset + 68,
+        linkRxValid
+          ? Math.max(0, Math.min(65535, Math.round(linkRxHz * 10)))
+          : 0,
+        true
+      );
+      dv.setUint16(
+        payloadOffset + 70,
+        linkLossValid
+          ? Math.max(0, Math.min(65535, Math.round(linkLossPermille)))
+          : 0,
+        true
+      );
+      dv.setInt16(
+        payloadOffset + 72,
+        linkRssiValid
+          ? Math.max(-32767, Math.min(32767, Math.round(linkRssiDbm * 10)))
+          : -32768,
+        true
+      );
+      dv.setUint16(
+        payloadOffset + 74,
+        linkRssiAgeValid
+          ? Math.max(0, Math.min(65534, Math.round(linkRssiAgeMs)))
+          : 0xFFFF,
+        true
+      );
+      let linkFlags = 0;
+      if(Number(sample && sample.fl_link)) linkFlags |= 1 << 0;
+      if(Number(sample && sample.fl_remote_valid)) linkFlags |= 1 << 1;
+      if(Number(sample && sample.fl_stage1)) linkFlags |= 1 << 2;
+      if(Number(sample && sample.fl_stage2)) linkFlags |= 1 << 3;
+      if(Number(sample && sample.fl_role_code)) linkFlags |= 1 << 4;
+      if(linkRssiValid) linkFlags |= 1 << 5;
+      if(linkRxValid) linkFlags |= 1 << 6;
+      if(linkLossValid) linkFlags |= 1 << 7;
+      dv.setUint16(payloadOffset + 76, linkFlags, true);
+      dv.setUint16(payloadOffset + 78, 0, true);
+
       dv.setUint16(
         6,
         replayCrc16Ccitt(
-          new DataView(record.buffer, payloadOffset, REPLAY_BIN_SAMPLE_V4_PAYLOAD_BYTES),
+          new DataView(record.buffer, payloadOffset, REPLAY_BIN_SAMPLE_APP_V6_PAYLOAD_BYTES),
           0,
-          REPLAY_BIN_SAMPLE_V4_PAYLOAD_BYTES
+          REPLAY_BIN_SAMPLE_APP_V6_PAYLOAD_BYTES
         ),
         true
       );
@@ -25540,11 +25934,11 @@ function requestMobileMockup3dMesh(){
 
     function encodeAppDataSamples(samples, firstSequence){
       const list = Array.isArray(samples) ? samples : [];
-      const records = new Uint8Array(list.length * REPLAY_BIN_APP_RECORD_V4_BYTES);
+      const records = new Uint8Array(list.length * REPLAY_BIN_APP_RECORD_V6_BYTES);
       list.forEach((sample, index)=>{
         records.set(
-          buildAppDataRecordV4(sample, Number(firstSequence || 1) + index),
-          index * REPLAY_BIN_APP_RECORD_V4_BYTES
+          buildAppDataRecordV6(sample, Number(firstSequence || 1) + index),
+          index * REPLAY_BIN_APP_RECORD_V6_BYTES
         );
       });
       return records;
@@ -25567,7 +25961,7 @@ function requestMobileMockup3dMesh(){
           id:session.id + ":" + String(chunkIndex).padStart(8, "0"),
           sessionId:session.id,
           index:chunkIndex,
-          format:"HWLOGV2_RECORD_V4",
+          format:"HWLOGV2_RECORD_V6",
           recordCount:samples.length,
           firstSequence,
           data:records.buffer
@@ -35686,8 +36080,25 @@ function requestMobileMockup3dMesh(){
       el.replayToolsPanel = document.getElementById("replayToolsPanel");
       el.replayToolsCloseBtn = document.getElementById("replayToolsCloseBtn");
       el.replayGyroZeroBtn = document.getElementById("replayGyroZeroBtn");
+      el.replayLinkStatusBtn = document.getElementById("replayLinkStatusBtn");
+      el.replayLinkStatusBtnHint = document.getElementById("replayLinkStatusBtnHint");
+      el.replayLinkStatusOverlay = document.getElementById("replayLinkStatusOverlay");
+      el.replayLinkStatusCloseBtn = document.getElementById("replayLinkStatusCloseBtn");
+      el.replayLinkRateValue = document.getElementById("replayLinkRateValue");
+      el.replayLinkLossValue = document.getElementById("replayLinkLossValue");
+      el.replayLinkRssiValue = document.getElementById("replayLinkRssiValue");
+      el.replayLinkStateValue = document.getElementById("replayLinkStateValue");
+      el.replayLinkChartTabs = document.querySelectorAll("[data-replay-link-metric]");
+      el.replayLinkQualityChart = document.getElementById("replayLinkQualityChart");
+      el.replayLinkChartValue = document.getElementById("replayLinkChartValue");
+      el.replayLinkChartEmpty = document.getElementById("replayLinkChartEmpty");
+      el.replayLinkRecordSource = document.getElementById("replayLinkRecordSource");
+      el.replayLinkRecordTime = document.getElementById("replayLinkRecordTime");
       if(el.replayToolsPanel && el.replayToolsPanel.parentNode !== document.body){
         document.body.appendChild(el.replayToolsPanel);
+      }
+      if(el.replayLinkStatusOverlay && el.replayLinkStatusOverlay.parentNode !== document.body){
+        document.body.appendChild(el.replayLinkStatusOverlay);
       }
       el.replayFileInput = document.getElementById("replayFileInput");
       el.replayFileBtn = document.getElementById("replayFileBtn");
@@ -35947,6 +36358,7 @@ function requestMobileMockup3dMesh(){
           replayState.dataMode = replayDataMode;
           replayState.index = 0;
           replayState.lastIndex = -1;
+          prepareReplayLinkQualityData(samples);
           setActiveDataSource(DATA_SOURCE_REPLAY);
           // Leave the welcome screen as soon as parsing has succeeded.  The
           // remaining render/status updates must not strand a valid replay on
@@ -35971,6 +36383,7 @@ function requestMobileMockup3dMesh(){
           replayState.dataMode = null;
           replayState.index = 0;
           replayState.lastIndex = -1;
+          prepareReplayLinkQualityData([]);
           renderReplayAlarmEvents();
           updateReplayModeUi();
           updateExportButtonState();
@@ -37033,6 +37446,36 @@ function requestMobileMockup3dMesh(){
           setReplayToolsPanelOpen(false);
         });
       }
+      if(el.replayLinkStatusBtn){
+        el.replayLinkStatusBtn.addEventListener("click",(ev)=>{
+          ev.preventDefault();
+          ev.stopPropagation();
+          setReplayLinkStatusVisible(true);
+        });
+      }
+      if(el.replayLinkStatusCloseBtn){
+        el.replayLinkStatusCloseBtn.addEventListener("click",()=>{
+          setReplayLinkStatusVisible(false);
+        });
+      }
+      if(el.replayLinkStatusOverlay){
+        el.replayLinkStatusOverlay.addEventListener("click",(ev)=>{
+          if(ev.target === el.replayLinkStatusOverlay) setReplayLinkStatusVisible(false);
+        });
+      }
+      if(el.replayLinkChartTabs && el.replayLinkChartTabs.length){
+        el.replayLinkChartTabs.forEach((tab)=>{
+          tab.addEventListener("click",()=>{
+            setReplayLinkChartMetric(tab.dataset.replayLinkMetric);
+          });
+        });
+      }
+      if(el.replayLinkQualityChart && typeof ResizeObserver === "function"){
+        replayLinkChartResizeObserver = new ResizeObserver(()=>{
+          scheduleReplayLinkStatusRender();
+        });
+        replayLinkChartResizeObserver.observe(el.replayLinkQualityChart);
+      }
       if(el.controlsOverlay){
         el.controlsOverlay.addEventListener("click",(ev)=>{ if(ev.target === el.controlsOverlay) hideControlsModal(); });
       }
@@ -37058,6 +37501,10 @@ function requestMobileMockup3dMesh(){
         hideMobileControlsPanel();
       });
       document.addEventListener("keydown",(ev)=>{
+        if(ev.key === "Escape" && replayLinkStatusOpen){
+          setReplayLinkStatusVisible(false);
+          return;
+        }
         if(ev.key === "Escape" && isDesktopControlDrawerOpen()){
           setDesktopControlDrawerOpen(false);
           return;

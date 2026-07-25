@@ -3,6 +3,21 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 replay communication status b74 — 2026-07-25
+
+Firmware build: `v6 b37` (unchanged)
+Protocol: `Flash6-Intelligent-b8` (unchanged)
+
+- Added a replay control-panel action for app-saved avionics communication
+  recordings, with RSSI, packet-loss, and receive-rate charts synchronized to
+  the replay position.
+- Extended new app recording records to V6 so link quality and link state are
+  stored alongside flight telemetry without changing the external wire
+  protocol.
+- Preserved V4 app-record compatibility. Earlier app recordings still open and
+  show an explicit legacy no-data state because those files never stored link
+  quality samples.
+
 ## 0.9.7 — v6 b37 — 2026-07-25
 
 Protocol: `Flash6-Intelligent-b8` (ESP-NOW wire version `8`, unchanged)

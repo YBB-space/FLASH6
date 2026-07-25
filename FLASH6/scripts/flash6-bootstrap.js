@@ -624,8 +624,25 @@
       el.replayToolsPanel = document.getElementById("replayToolsPanel");
       el.replayToolsCloseBtn = document.getElementById("replayToolsCloseBtn");
       el.replayGyroZeroBtn = document.getElementById("replayGyroZeroBtn");
+      el.replayLinkStatusBtn = document.getElementById("replayLinkStatusBtn");
+      el.replayLinkStatusBtnHint = document.getElementById("replayLinkStatusBtnHint");
+      el.replayLinkStatusOverlay = document.getElementById("replayLinkStatusOverlay");
+      el.replayLinkStatusCloseBtn = document.getElementById("replayLinkStatusCloseBtn");
+      el.replayLinkRateValue = document.getElementById("replayLinkRateValue");
+      el.replayLinkLossValue = document.getElementById("replayLinkLossValue");
+      el.replayLinkRssiValue = document.getElementById("replayLinkRssiValue");
+      el.replayLinkStateValue = document.getElementById("replayLinkStateValue");
+      el.replayLinkChartTabs = document.querySelectorAll("[data-replay-link-metric]");
+      el.replayLinkQualityChart = document.getElementById("replayLinkQualityChart");
+      el.replayLinkChartValue = document.getElementById("replayLinkChartValue");
+      el.replayLinkChartEmpty = document.getElementById("replayLinkChartEmpty");
+      el.replayLinkRecordSource = document.getElementById("replayLinkRecordSource");
+      el.replayLinkRecordTime = document.getElementById("replayLinkRecordTime");
       if(el.replayToolsPanel && el.replayToolsPanel.parentNode !== document.body){
         document.body.appendChild(el.replayToolsPanel);
+      }
+      if(el.replayLinkStatusOverlay && el.replayLinkStatusOverlay.parentNode !== document.body){
+        document.body.appendChild(el.replayLinkStatusOverlay);
       }
       el.replayFileInput = document.getElementById("replayFileInput");
       el.replayFileBtn = document.getElementById("replayFileBtn");
@@ -885,6 +902,7 @@
           replayState.dataMode = replayDataMode;
           replayState.index = 0;
           replayState.lastIndex = -1;
+          prepareReplayLinkQualityData(samples);
           setActiveDataSource(DATA_SOURCE_REPLAY);
           // Leave the welcome screen as soon as parsing has succeeded.  The
           // remaining render/status updates must not strand a valid replay on
@@ -909,6 +927,7 @@
           replayState.dataMode = null;
           replayState.index = 0;
           replayState.lastIndex = -1;
+          prepareReplayLinkQualityData([]);
           renderReplayAlarmEvents();
           updateReplayModeUi();
           updateExportButtonState();
@@ -1971,6 +1990,36 @@
           setReplayToolsPanelOpen(false);
         });
       }
+      if(el.replayLinkStatusBtn){
+        el.replayLinkStatusBtn.addEventListener("click",(ev)=>{
+          ev.preventDefault();
+          ev.stopPropagation();
+          setReplayLinkStatusVisible(true);
+        });
+      }
+      if(el.replayLinkStatusCloseBtn){
+        el.replayLinkStatusCloseBtn.addEventListener("click",()=>{
+          setReplayLinkStatusVisible(false);
+        });
+      }
+      if(el.replayLinkStatusOverlay){
+        el.replayLinkStatusOverlay.addEventListener("click",(ev)=>{
+          if(ev.target === el.replayLinkStatusOverlay) setReplayLinkStatusVisible(false);
+        });
+      }
+      if(el.replayLinkChartTabs && el.replayLinkChartTabs.length){
+        el.replayLinkChartTabs.forEach((tab)=>{
+          tab.addEventListener("click",()=>{
+            setReplayLinkChartMetric(tab.dataset.replayLinkMetric);
+          });
+        });
+      }
+      if(el.replayLinkQualityChart && typeof ResizeObserver === "function"){
+        replayLinkChartResizeObserver = new ResizeObserver(()=>{
+          scheduleReplayLinkStatusRender();
+        });
+        replayLinkChartResizeObserver.observe(el.replayLinkQualityChart);
+      }
       if(el.controlsOverlay){
         el.controlsOverlay.addEventListener("click",(ev)=>{ if(ev.target === el.controlsOverlay) hideControlsModal(); });
       }
@@ -1996,6 +2045,10 @@
         hideMobileControlsPanel();
       });
       document.addEventListener("keydown",(ev)=>{
+        if(ev.key === "Escape" && replayLinkStatusOpen){
+          setReplayLinkStatusVisible(false);
+          return;
+        }
         if(ev.key === "Escape" && isDesktopControlDrawerOpen()){
           setDesktopControlDrawerOpen(false);
           return;

@@ -127,7 +127,7 @@
   <!-- Preload 축소: AP 모드/저메모리 환경에서 동시 요청 버스트를 줄임 -->
   <script>
     (function(){
-    var ASSET_VER = "20260725-legacy-priority-timebase-b73-__FLASH6_DEPLOY_SHA__";
+    var ASSET_VER = "20260725-replay-link-status-b74-__FLASH6_DEPLOY_SHA__";
       window.__flashBoot = window.__flashBoot || {jsReady:false,lastError:"",phase:"static_loader",version:ASSET_VER};
       var isLocalPreview = !!window.__flashBoot.localPreview;
       var beaconEnabled = (window.__flashBoot.beaconEnabled !== false);
@@ -1897,6 +1897,17 @@
                   </span>
                   <span><strong>자이로 영점</strong><small>현재 자세를 기준점으로 설정</small></span>
                 </button>
+                <button id="replayLinkStatusBtn" class="replay-tool-action replay-tool-action--wide hidden" type="button" aria-hidden="true">
+                  <span class="replay-tool-action-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24">
+                      <path d="M5 17.5a10 10 0 0 1 14 0"></path>
+                      <path d="M8 14.5a6 6 0 0 1 8 0"></path>
+                      <path d="M11 11.8a2 2 0 0 1 2 0"></path>
+                      <circle cx="12" cy="19" r="1"></circle>
+                    </svg>
+                  </span>
+                  <span><strong>통신 상태 보기</strong><small id="replayLinkStatusBtnHint">RSSI · 손실률 · 수신 Hz</small></span>
+                </button>
                 <div class="replay-export-row">
                   <button id="replayConvertBtn" class="replay-icon-btn replay-convert-btn" type="button" aria-label="보고서 내보내기" title="보고서 내보내기">
                     <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -1916,6 +1927,56 @@
                   </button>
                 </div>
               </div>
+            </div>
+            <div id="replayLinkStatusOverlay" class="replay-link-status-overlay hidden" style="display:none;" aria-hidden="true">
+              <section class="replay-link-status-dialog" role="dialog" aria-modal="true" aria-labelledby="replayLinkStatusTitle">
+                <header class="replay-link-status-head">
+                  <div>
+                    <div class="replay-link-status-kicker">APP LINK RECORD</div>
+                    <h2 id="replayLinkStatusTitle">통신 상태</h2>
+                    <p>앱이 수신한 A.I LINK 품질 기록</p>
+                  </div>
+                  <button id="replayLinkStatusCloseBtn" class="replay-link-status-close" type="button" aria-label="통신 상태 닫기">×</button>
+                </header>
+                <div class="replay-link-status-body">
+                  <div class="replay-link-status-summary" aria-label="현재 통신 상태">
+                    <div class="replay-link-status-metric">
+                      <span>RX RATE</span>
+                      <strong id="replayLinkRateValue" class="mono">-- Hz</strong>
+                    </div>
+                    <div class="replay-link-status-metric">
+                      <span>PACKET LOSS</span>
+                      <strong id="replayLinkLossValue" class="mono">-- %</strong>
+                    </div>
+                    <div class="replay-link-status-metric">
+                      <span>RSSI</span>
+                      <strong id="replayLinkRssiValue" class="mono">-- dBm</strong>
+                    </div>
+                    <div id="replayLinkStateValue" class="replay-link-status-state">
+                      <span></span><strong>NO DATA</strong>
+                    </div>
+                  </div>
+                  <div class="replay-link-chart-shell">
+                    <div class="replay-link-chart-tabs" role="tablist" aria-label="리플레이 통신 품질 차트">
+                      <button class="replay-link-chart-tab is-active" type="button" role="tab" aria-selected="true" data-replay-link-metric="rssi">RSSI</button>
+                      <button class="replay-link-chart-tab" type="button" role="tab" aria-selected="false" data-replay-link-metric="loss">손실률</button>
+                      <button class="replay-link-chart-tab" type="button" role="tab" aria-selected="false" data-replay-link-metric="hz">수신 Hz</button>
+                    </div>
+                    <div class="replay-link-chart-stage">
+                      <span id="replayLinkChartValue" class="replay-link-chart-value mono">-- dBm</span>
+                      <canvas id="replayLinkQualityChart" aria-label="앱 저장 통신 품질 기록"></canvas>
+                      <div id="replayLinkChartEmpty" class="replay-link-chart-empty hidden">
+                        <strong>통신 품질 데이터가 없습니다.</strong>
+                        <span>이전 앱 저장 형식에는 RSSI·손실률·수신 Hz가 포함되지 않았습니다.</span>
+                      </div>
+                    </div>
+                  </div>
+                  <footer class="replay-link-status-foot">
+                    <span id="replayLinkRecordSource">APP RECORDING</span>
+                    <span id="replayLinkRecordTime" class="mono">00:00.000 / 00:00.000</span>
+                  </footer>
+                </div>
+              </section>
             </div>
             <div id="replayAlarmEventsPanel" class="replay-event-panel hidden" aria-live="polite">
               <div class="replay-event-head">

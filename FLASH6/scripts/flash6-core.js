@@ -792,8 +792,17 @@ if (typeof window !== "undefined") {
       speed: 1,
       fileName: "",
       parserLabel: "",
-      dataMode: null
+      dataMode: null,
+      appCommunicationRecorded: false,
+      linkQualityAvailable: false,
+      linkSamples: [],
+      linkSeries: {rssi:[], loss:[], hz:[]},
+      linkDefinitions: null
     };
+    let replayLinkChartMetric = "rssi";
+    let replayLinkStatusOpen = false;
+    let replayLinkChartRaf = 0;
+    let replayLinkChartResizeObserver = null;
     let replaySeekInteracting = false;
     let replaySeekProcessing = false;
     let replaySeekTaskToken = 0;

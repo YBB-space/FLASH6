@@ -145,13 +145,13 @@
         sampleCount:0,
         chunkCount:0,
         bytes:0,
-        recordBytes:REPLAY_BIN_APP_RECORD_V4_BYTES,
-        recordVersion:4,
+        recordBytes:REPLAY_BIN_APP_RECORD_V6_BYTES,
+        recordVersion:6,
         format:"HWLOGV2",
         protocolVersion:REPLAY_PROTOCOL_COMPATIBLE_MAX,
         missionTimebaseVersion:1,
         metadataFlags:1,
-        firmwareBuildNumber:36,
+        firmwareBuildNumber:37,
         samplePeriodMs:0,
         lastReceivedAt:0
       };
@@ -211,7 +211,16 @@
         gps_fix:numberOrNull(data && (data.gps_fix ?? data.gpsFix ?? data.fix)),
         gps_seen:numberOrNull(data && (data.gps_seen ?? data.gpsSeen)),
         gps_ready:numberOrNull(data && (data.gps_ready ?? data.gpsReady)),
-        gps_time_valid:numberOrNull(data && (data.gps_time_valid ?? data.gpsTimeValid))
+        gps_time_valid:numberOrNull(data && (data.gps_time_valid ?? data.gpsTimeValid)),
+        fl_link:numberOrNull(data && (data.fl_link ?? data.flash_link_connected)),
+        fl_remote_valid:numberOrNull(data && (data.fl_remote_valid ?? data.flash_link_remote_valid)),
+        fl_rx_hz:numberOrNull(data && (data.fl_rx_hz ?? data.flash_link_rx_hz)),
+        fl_loss_permille:numberOrNull(data && (data.fl_loss_permille ?? data.flash_link_loss_permille)),
+        fl_rssi_dbm:numberOrNull(data && (data.fl_rssi_dbm ?? data.flash_link_rssi_dbm)),
+        fl_rssi_age_ms:numberOrNull(data && (data.fl_rssi_age_ms ?? data.flash_link_rssi_age_ms)),
+        fl_stage1:numberOrNull(data && (data.fl_stage1 ?? data.flash_link_stage1_connected)),
+        fl_stage2:numberOrNull(data && (data.fl_stage2 ?? data.flash_link_stage2_connected)),
+        fl_role_code:numberOrNull(data && data.fl_role_code)
       };
     }
 
@@ -221,8 +230,8 @@
       return Math.max(lo, Math.min(hi, Math.round(n * scale)));
     }
 
-    function buildAppDataRecordV4(sample, sequence){
-      const record = new Uint8Array(REPLAY_BIN_APP_RECORD_V4_BYTES);
+    function buildAppDataRecordV6(sample, sequence){
+      const record = new Uint8Array(REPLAY_BIN_APP_RECORD_V6_BYTES);
       const dv = new DataView(record.buffer);
       const payloadOffset = 16;
       const p = Number(sample && sample.p);
@@ -245,9 +254,9 @@
       const hasGpsLatLon = isFinite(gpsLat) && isFinite(gpsLon);
 
       dv.setUint16(0, REPLAY_BIN_RECORD_MARKER, true);
-      dv.setUint8(2, 4);
+      dv.setUint8(2, 6);
       dv.setUint8(3, 1);
-      dv.setUint16(4, REPLAY_BIN_SAMPLE_V4_PAYLOAD_BYTES, true);
+      dv.setUint16(4, REPLAY_BIN_SAMPLE_APP_V6_PAYLOAD_BYTES, true);
       dv.setUint16(6, 0, true);
       dv.setUint32(
         8,
@@ -349,12 +358,64 @@
       if(isFinite(gpsTimeValid) && gpsTimeValid !== 0) gpsFlags |= 1 << 3;
       dv.setUint16(payloadOffset + 66, gpsFlags, true);
 
+      const rawLinkRxHz = sample && sample.fl_rx_hz;
+      const rawLinkLossPermille = sample && sample.fl_loss_permille;
+      const rawLinkRssiDbm = sample && sample.fl_rssi_dbm;
+      const rawLinkRssiAgeMs = sample && sample.fl_rssi_age_ms;
+      const linkRxHz = Number(rawLinkRxHz);
+      const linkLossPermille = Number(rawLinkLossPermille);
+      const linkRssiDbm = Number(rawLinkRssiDbm);
+      const linkRssiAgeMs = Number(rawLinkRssiAgeMs);
+      const linkRxValid = rawLinkRxHz != null && isFinite(linkRxHz);
+      const linkLossValid = rawLinkLossPermille != null && isFinite(linkLossPermille);
+      const linkRssiValid = rawLinkRssiDbm != null && isFinite(linkRssiDbm) && linkRssiDbm > -127;
+      const linkRssiAgeValid = rawLinkRssiAgeMs != null && isFinite(linkRssiAgeMs);
+      dv.setUint16(
+        payloadOffset + 68,
+        linkRxValid
+          ? Math.max(0, Math.min(65535, Math.round(linkRxHz * 10)))
+          : 0,
+        true
+      );
+      dv.setUint16(
+        payloadOffset + 70,
+        linkLossValid
+          ? Math.max(0, Math.min(65535, Math.round(linkLossPermille)))
+          : 0,
+        true
+      );
+      dv.setInt16(
+        payloadOffset + 72,
+        linkRssiValid
+          ? Math.max(-32767, Math.min(32767, Math.round(linkRssiDbm * 10)))
+          : -32768,
+        true
+      );
+      dv.setUint16(
+        payloadOffset + 74,
+        linkRssiAgeValid
+          ? Math.max(0, Math.min(65534, Math.round(linkRssiAgeMs)))
+          : 0xFFFF,
+        true
+      );
+      let linkFlags = 0;
+      if(Number(sample && sample.fl_link)) linkFlags |= 1 << 0;
+      if(Number(sample && sample.fl_remote_valid)) linkFlags |= 1 << 1;
+      if(Number(sample && sample.fl_stage1)) linkFlags |= 1 << 2;
+      if(Number(sample && sample.fl_stage2)) linkFlags |= 1 << 3;
+      if(Number(sample && sample.fl_role_code)) linkFlags |= 1 << 4;
+      if(linkRssiValid) linkFlags |= 1 << 5;
+      if(linkRxValid) linkFlags |= 1 << 6;
+      if(linkLossValid) linkFlags |= 1 << 7;
+      dv.setUint16(payloadOffset + 76, linkFlags, true);
+      dv.setUint16(payloadOffset + 78, 0, true);
+
       dv.setUint16(
         6,
         replayCrc16Ccitt(
-          new DataView(record.buffer, payloadOffset, REPLAY_BIN_SAMPLE_V4_PAYLOAD_BYTES),
+          new DataView(record.buffer, payloadOffset, REPLAY_BIN_SAMPLE_APP_V6_PAYLOAD_BYTES),
           0,
-          REPLAY_BIN_SAMPLE_V4_PAYLOAD_BYTES
+          REPLAY_BIN_SAMPLE_APP_V6_PAYLOAD_BYTES
         ),
         true
       );
@@ -363,11 +424,11 @@
 
     function encodeAppDataSamples(samples, firstSequence){
       const list = Array.isArray(samples) ? samples : [];
-      const records = new Uint8Array(list.length * REPLAY_BIN_APP_RECORD_V4_BYTES);
+      const records = new Uint8Array(list.length * REPLAY_BIN_APP_RECORD_V6_BYTES);
       list.forEach((sample, index)=>{
         records.set(
-          buildAppDataRecordV4(sample, Number(firstSequence || 1) + index),
-          index * REPLAY_BIN_APP_RECORD_V4_BYTES
+          buildAppDataRecordV6(sample, Number(firstSequence || 1) + index),
+          index * REPLAY_BIN_APP_RECORD_V6_BYTES
         );
       });
       return records;
@@ -390,7 +451,7 @@
           id:session.id + ":" + String(chunkIndex).padStart(8, "0"),
           sessionId:session.id,
           index:chunkIndex,
-          format:"HWLOGV2_RECORD_V4",
+          format:"HWLOGV2_RECORD_V6",
           recordCount:samples.length,
           firstSequence,
           data:records.buffer
