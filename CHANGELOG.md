@@ -3,6 +3,20 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 legacy speed spike correction b77 — 2026-07-25
+
+Firmware build: `v6 b37` (unchanged)
+Protocol: `Flash6-Intelligent-b8` (unchanged)
+
+- Removed scalar-speed estimation by differentiating corrected 3D trajectory
+  positions, which amplified GPS/trajectory corrections into false spikes.
+- Legacy BIN reports now use a complementary velocity estimator: gyro-aligned
+  acceleration provides fast vertical/horizontal response and a 600 ms
+  barometric altitude slope corrects vertical integration drift. New app V6
+  records continue to use their explicit scalar-speed field unchanged.
+- Added a regression case with deliberately discontinuous reconstructed
+  positions to ensure coordinate corrections cannot alter the speed chart.
+
 ## FLASH6 flight speed/timebase correction b76 — 2026-07-25
 
 Firmware build: `v6 b37` (unchanged)

@@ -2512,6 +2512,14 @@
               const rate = Number(rateMps);
               return isFinite(rate) ? rate : NaN;
             });
+            const reportFastAltitudeSpeedMps = deriveAltitudeSpeedSeries(
+              reportTimeMsValues,
+              reportAltitudeMValues,
+              600
+            ).map((rateMps)=>{
+              const rate = Number(rateMps);
+              return isFinite(rate) ? rate : NaN;
+            });
             let reportApogeeIndex = -1;
             let reportApogeeAltitudeM = -Infinity;
             reportAltitudeMValues.forEach((altitudeM, index)=>{
@@ -2565,7 +2573,8 @@
               exportRows,
               reportAltitudeMValues,
               launchTimeIso,
-              launchElapsedSec
+              launchElapsedSec,
+              reportFastAltitudeSpeedMps
             );
             const reportActualSpeedMps = exportRows.map((row, index)=>{
               const recordedSpeedMps = rowFiniteOrNaN(

@@ -503,14 +503,36 @@
         return null;
       }
     }
+    function buildTrajectoryScalarSpeedSeries(points, verticalSpeedValues){
+      const sourcePoints = Array.isArray(points) ? points : [];
+      const verticalSpeeds = Array.isArray(verticalSpeedValues) ? verticalSpeedValues : [];
+      return sourcePoints.map((point, index)=>{
+        const horizontalSpeedMps = Number(point && point.horizontalSpeedMps);
+        const fusedVerticalSpeedMps = Number(point && point.verticalSpeedMps);
+        const fallbackVerticalSpeedMps = Number(verticalSpeeds[index]);
+        const verticalSpeedMps = isFinite(fusedVerticalSpeedMps)
+          ? fusedVerticalSpeedMps
+          : fallbackVerticalSpeedMps;
+        const hasHorizontal = isFinite(horizontalSpeedMps) && horizontalSpeedMps >= 0;
+        const hasVertical = isFinite(verticalSpeedMps);
+        if(hasHorizontal && hasVertical){
+          return Math.hypot(horizontalSpeedMps, verticalSpeedMps);
+        }
+        if(hasHorizontal) return horizontalSpeedMps;
+        if(hasVertical) return Math.abs(verticalSpeedMps);
+        return NaN;
+      });
+    }
     function buildFlightTrajectory3dArtifact(
       rows,
       altitudeValues,
       launchTimeIso,
-      launchReferenceElapsedSec
+      launchReferenceElapsedSec,
+      verticalSpeedValues
     ){
       const sourceRows = Array.isArray(rows) ? rows : [];
       const altitudes = Array.isArray(altitudeValues) ? altitudeValues : [];
+      const verticalSpeeds = Array.isArray(verticalSpeedValues) ? verticalSpeedValues : [];
       const rawPoints = [];
       let baseLat = NaN;
       let baseLon = NaN;
@@ -550,7 +572,9 @@
           flightPhaseCode:flightPhaseCodeFromExportRow(row),
           deploymentState:Number(row.deployment_state),
           deploymentFlags:Number(row.deployment_flags) || 0,
-          missionAlarmEvents:Array.isArray(row.mission_alarm_events) ? row.mission_alarm_events : []
+          missionAlarmEvents:Array.isArray(row.mission_alarm_events) ? row.mission_alarm_events : [],
+          horizontalSpeedMps:NaN,
+          verticalSpeedMps:NaN
         });
       }
 
@@ -876,9 +900,13 @@
             let filteredAccelX = 0;
             let filteredAccelZ = 0;
             let filteredVerticalSpeed = 0;
+            let filteredVerticalAccelMps2 = 0;
+            let fusedVerticalSpeedMps = 0;
             rawPoints[0].eastM = 0;
             rawPoints[0].northM = 0;
             rawPoints[0].positionSource = "IMU_LOCAL";
+            rawPoints[0].horizontalSpeedMps = 0;
+            rawPoints[0].verticalSpeedMps = 0;
             for(let index = 1; index < rawPoints.length; index++){
               const point = rawPoints[index];
               const previous = rawPoints[index - 1];
@@ -910,6 +938,7 @@
 
               let accelX = 0;
               let accelZ = 0;
+              let verticalAccelMps2 = 0;
               const accelNormG = Math.hypot(point.ax, point.ay, point.az);
               if(phaseName !== FLIGHT_PHASES.PRE_FLIGHT &&
                  phaseName !== FLIGHT_PHASES.LANDED &&
@@ -922,6 +951,9 @@
                 // so their projections are already gravity-free.
                 accelX = dot3(worldSpecificForceG, horizontalX) * GYRO_IMU_GRAVITY_MPS2;
                 accelZ = dot3(worldSpecificForceG, horizontalZ) * GYRO_IMU_GRAVITY_MPS2;
+                verticalAccelMps2 = (
+                  dot3(worldSpecificForceG, up) - 1
+                ) * GYRO_IMU_GRAVITY_MPS2;
               }
               const accelMagnitude = Math.hypot(accelX, accelZ);
               if(accelMagnitude > GYRO_FUSION_ACCEL_CLAMP_MPS2){
@@ -932,10 +964,19 @@
               const accelAlpha = 1 - Math.exp(-dt / dynamics.accelTau);
               filteredAccelX += (accelX - filteredAccelX) * accelAlpha;
               filteredAccelZ += (accelZ - filteredAccelZ) * accelAlpha;
+              verticalAccelMps2 = clampLocal(
+                verticalAccelMps2,
+                -GYRO_FUSION_ACCEL_CLAMP_MPS2,
+                GYRO_FUSION_ACCEL_CLAMP_MPS2
+              );
+              filteredVerticalAccelMps2 += (
+                verticalAccelMps2 - filteredVerticalAccelMps2
+              ) * accelAlpha;
 
               if(phaseName === FLIGHT_PHASES.PRE_FLIGHT){
                 velocityX = 0;
                 velocityZ = 0;
+                fusedVerticalSpeedMps = 0;
               }else{
                 let horizontalAcceptance = 1;
                 if(phaseName === FLIGHT_PHASES.POWERED_FLIGHT){
@@ -974,45 +1015,40 @@
                 if(phaseName === FLIGHT_PHASES.LANDED){
                   velocityX = 0;
                   velocityZ = 0;
+                  fusedVerticalSpeedMps = 0;
+                }else{
+                  fusedVerticalSpeedMps += filteredVerticalAccelMps2 * dt;
+                  const barometricVerticalSpeedMps = Number(verticalSpeeds[index]);
+                  if(isFinite(barometricVerticalSpeedMps)){
+                    const baroCorrectionAlpha = 1 - Math.exp(-dt / 0.55);
+                    fusedVerticalSpeedMps += (
+                      clampLocal(barometricVerticalSpeedMps, -120, 120) -
+                      fusedVerticalSpeedMps
+                    ) * baroCorrectionAlpha;
+                  }
                 }
               }
               point.eastM = positionX;
               point.northM = positionZ;
               point.positionSource = "IMU_LOCAL";
+              point.horizontalSpeedMps = Math.hypot(velocityX, velocityZ);
+              point.verticalSpeedMps = fusedVerticalSpeedMps;
             }
             positionMode = "IMU_LOCAL";
             imuAssistEndElapsedSec = null;
           }
         }
       }
-      // Estimate scalar vehicle speed from the reconstructed 3D trajectory.
-      // This remains distinct from the signed barometric vertical-speed series.
-      const trajectorySpeedMps = new Array(rawPoints.length).fill(NaN);
-      let smoothedTrajectorySpeedMps = NaN;
-      for(let index=0; index<rawPoints.length; index++){
-        let left = index;
-        let right = index;
-        const centerTime = rawPoints[index].elapsedSec;
-        while(left > 0 && (centerTime - rawPoints[left].elapsedSec) < 0.2) left--;
-        while(right < rawPoints.length - 1 &&
-              (rawPoints[right].elapsedSec - centerTime) < 0.2) right++;
-        if(left === right) continue;
-        const first = rawPoints[left];
-        const last = rawPoints[right];
-        const dtSec = last.elapsedSec - first.elapsedSec;
-        if(!(dtSec > 0)) continue;
-        const distanceM = Math.hypot(
-          last.eastM - first.eastM,
-          last.northM - first.northM,
-          last.altitudeM - first.altitudeM
-        );
-        const measuredSpeedMps = distanceM / dtSec;
-        if(!isFinite(measuredSpeedMps)) continue;
-        smoothedTrajectorySpeedMps = isFinite(smoothedTrajectorySpeedMps)
-          ? (smoothedTrajectorySpeedMps + (measuredSpeedMps - smoothedTrajectorySpeedMps) * 0.35)
-          : measuredSpeedMps;
-        trajectorySpeedMps[index] = Math.max(0, smoothedTrajectorySpeedMps);
-      }
+      // Older BIN records do not contain an explicit scalar-speed field.
+      // Combine the filtered horizontal inertial velocity with a vertical
+      // complementary filter: acceleration supplies fast response, while the
+      // short-window barometric slope removes integration drift. Differentiating the
+      // reconstructed positions here would amplify trajectory corrections
+      // and GPS jitter into non-physical speed spikes.
+      const trajectorySpeedMps = buildTrajectoryScalarSpeedSeries(
+        rawPoints,
+        verticalSpeeds
+      );
       let stageSeparationEvent = null;
       let ejectionEvent = null;
       let previousDeploymentState = NaN;

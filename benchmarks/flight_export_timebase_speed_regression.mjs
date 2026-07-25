@@ -44,6 +44,21 @@ vm.runInContext(
   context
 );
 
+const speedHelperStart = reportSource.indexOf("function buildTrajectoryScalarSpeedSeries");
+const speedHelperEnd = reportSource.indexOf(
+  "function buildFlightTrajectory3dArtifact",
+  speedHelperStart
+);
+assert.ok(
+  speedHelperStart >= 0 && speedHelperEnd > speedHelperStart,
+  "trajectory scalar-speed helper not found"
+);
+vm.runInContext(
+  reportSource.slice(speedHelperStart, speedHelperEnd) +
+  "\nglobalThis.buildScalarSpeed = buildTrajectoryScalarSpeedSeries;",
+  context
+);
+
 function rows({thrustAt, armAt, confirmAt, endAt = 1200}){
   const result = [];
   for(let elapsed = 0; elapsed <= endAt; elapsed += 100){
@@ -85,6 +100,25 @@ const legacyWindow = context.selectWindow(legacyThrustFirst);
 assert.equal(legacyWindow.startReason, "flight_phase");
 assert.equal(legacyWindow.rows[0].elapsed, 200);
 
+const filteredComponentSpeed = Array.from(context.buildScalarSpeed([
+  {eastM:0, northM:0, altitudeM:0, horizontalSpeedMps:0},
+  {
+    eastM:100,
+    northM:-80,
+    altitudeM:50,
+    horizontalSpeedMps:5,
+    verticalSpeedMps:12
+  },
+  {eastM:-120, northM:140, altitudeM:-20, horizontalSpeedMps:7}
+], [20, 18, -10]));
+assert.equal(filteredComponentSpeed[0], 20);
+assert.ok(Math.abs(filteredComponentSpeed[1] - Math.hypot(5, 12)) < 1e-9);
+assert.ok(Math.abs(filteredComponentSpeed[2] - Math.hypot(7, -10)) < 1e-9);
+assert.ok(
+  Math.max(...filteredComponentSpeed) < 25,
+  "reconstructed coordinate corrections must not create scalar-speed spikes"
+);
+
 assert.match(
   bootstrapSource,
   /t\("hdrAltitudeM"\),\s*"FLIGHT_ACCEL_G",\s*"SPEED_MPS"/,
@@ -113,10 +147,21 @@ assert.match(
   /getQuickFlightMetrics\(motionTelemetryData,\s*timeMs\)/,
   "A.I LINK HUD speed must use the active vehicle sample instead of ground-station IMU"
 );
+assert.match(
+  bootstrapSource,
+  /launchElapsedSec,\s*reportFastAltitudeSpeedMps\s*\)/,
+  "legacy trajectory speed must receive the fast barometric correction component"
+);
+assert.doesNotMatch(
+  reportSource,
+  /const measuredSpeedMps = distanceM \/ dtSec/,
+  "scalar speed must not differentiate corrected 3D trajectory positions"
+);
 
 console.table([
   {scenario:"thrust first, ARM confirms later", tplusMs:thrustFirst.launchElapsedMs},
   {scenario:"ARM first", tplusMs:armFirst.launchElapsedMs},
-  {scenario:"legacy phase before ARM", tplusMs:legacyWindow.launchElapsedMs}
+  {scenario:"legacy phase before ARM", tplusMs:legacyWindow.launchElapsedMs},
+  {scenario:"coordinate jitter rejected", maxSpeedMps:Math.max(...filteredComponentSpeed)}
 ]);
 console.log("Flight export timebase/speed regression: PASS");
