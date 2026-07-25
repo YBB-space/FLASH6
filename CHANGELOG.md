@@ -3,6 +3,23 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 pressure-robust flight altitude b84 — 2026-07-25
+
+Firmware build: `v6 b37` (unchanged)
+Protocol: `Flash6-Intelligent-b8` (unchanged)
+
+- Separated raw barometric altitude from the corrected altitude used by flight
+  charts, scalar-speed reconstruction, and the 3D trajectory.
+- Added a 900 ms centered time-median envelope and a single-apogee isotonic
+  flight constraint to reject separation/ejection pressure shocks without
+  shifting or lowering the real apogee.
+- Applied the same corrected altitude to replay HUD charts while retaining the
+  original `alt_m` sample for auditing.
+- Added `BARO_ALTITUDE_RAW_M` and `ALTITUDE_CORRECTED_M` columns to the raw
+  flight export.
+- Added regression coverage for multi-sample pressure shocks, false early
+  apogee rejection, monotonic ascent/descent, and raw-data preservation.
+
 ## FLASH6 range-guarded shared trajectory b83 — 2026-07-25
 
 Firmware build: `v6 b37` (unchanged)

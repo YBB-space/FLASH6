@@ -894,6 +894,9 @@
           const parsed = await parseReplayFileAuto(file);
           const samples = parsed.samples;
           const replayDataMode = inferReplayDataMode(samples) || "flight";
+          if(replayDataMode === "flight"){
+            applyPressureRobustAltitudeToReplayFrames(samples);
+          }
           pauseReplayPlayback({silent:true});
           setActiveDataSource(DATA_SOURCE_LIVE);
           replayState.samples = samples;
@@ -2475,7 +2478,8 @@
             const flightRawRows = [[
               t("hdrTimeIso"), "ORIGIN", "BARO_PRESSURE_MPA",
               t("hdrGpsLat"), t("hdrGpsLon"), t("hdrGpsAlt"),
-              t("hdrAltitudeM"), "SPEED_MPS", "DESCENT_SPEED_MPS", "TERMINAL_SPEED_MPS",
+              "BARO_ALTITUDE_RAW_M", "ALTITUDE_CORRECTED_M",
+              "SPEED_MPS", "DESCENT_SPEED_MPS", "TERMINAL_SPEED_MPS",
               t("hdrAccelX"), t("hdrAccelY"), t("hdrAccelZ"),
               t("hdrGyroX"), t("hdrGyroY"), t("hdrGyroZ"),
               t("hdrLoopMs"), t("hdrElapsedMs"), t("hdrCpuUs"),
@@ -2495,7 +2499,7 @@
               const parsedMs = Date.parse(row && row.time);
               return isFinite(parsedMs) ? parsedMs : (index * 10);
             });
-            const reportAltitudeMValues = exportRows.map((row)=>{
+            const reportRawAltitudeMValues = exportRows.map((row)=>{
               const directAltitudeM = rowFiniteOrNaN(row && row.alt_m);
               if(isFinite(directAltitudeM)) return directAltitudeM;
               const gpsAltitudeM = rowFiniteOrNaN(row && row.gps_alt);
@@ -2503,6 +2507,10 @@
               if(reportGpsAltBase == null) reportGpsAltBase = gpsAltitudeM;
               return gpsAltitudeM - reportGpsAltBase;
             });
+            const reportAltitudeMValues = buildPressureRobustAltitudeSeries(
+              reportTimeMsValues,
+              reportRawAltitudeMValues
+            );
             const reportAltitudeRateMps = deriveAltitudeSpeedSeries(
               reportTimeMsValues,
               reportAltitudeMValues,
@@ -2683,6 +2691,9 @@
                 (row.gps_lat != null && isFinite(Number(row.gps_lat))) ? Number(Number(row.gps_lat).toFixed(7)) : "",
                 (row.gps_lon != null && isFinite(Number(row.gps_lon))) ? Number(Number(row.gps_lon).toFixed(7)) : "",
                 (row.gps_alt != null && isFinite(Number(row.gps_alt))) ? Number(Number(row.gps_alt).toFixed(2)) : "",
+                isFinite(reportRawAltitudeMValues[rowIndex])
+                  ? Number(reportRawAltitudeMValues[rowIndex].toFixed(2))
+                  : "",
                 isFinite(altVal) ? Number(altVal.toFixed(2)) : "",
                 isFinite(speedVal) ? Number(speedVal.toFixed(2)) : "",
                 isFinite(descentSpeedVal) ? Number(descentSpeedVal.toFixed(2)) : "",
@@ -2794,7 +2805,7 @@
               [
                 {
                   title:"ALTITUDE PROFILE",
-                  subtitle:"BAROMETRIC ALTITUDE · FLIGHT TIME",
+                  subtitle:"PRESSURE-ROBUST BAROMETRIC ALTITUDE · FLIGHT TIME",
                   axisYTitle:"ALTITUDE (m)",
                   yMin:altAxis.min,
                   yMax:altAxis.max,
@@ -2877,7 +2888,7 @@
               trajectoryImage:trajectory3d.pngBytes,
               chart1:{
                 title:"ALTITUDE PROFILE",
-                subtitle:"BAROMETRIC ALTITUDE · FLIGHT TIME",
+                subtitle:"PRESSURE-ROBUST BAROMETRIC ALTITUDE · FLIGHT TIME",
                 axisYTitle:"ALTITUDE (m)",
                 majorUnit:altUnit,
                 yMin:altAxis.min,

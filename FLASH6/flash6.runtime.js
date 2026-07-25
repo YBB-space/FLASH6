@@ -13208,6 +13208,7 @@ function requestMobileMockup3dMesh(){
       }
       if(!isFinite(altitudeM) && data && typeof data === "object"){
         const altCandidates = [
+          replaySourceActive ? data.altitude_corrected_m : null,
           data.alt_m, data.altitude_m,
           data.baro_alt_m, data.baroAltitudeM,
           data.altitude, data.alt
@@ -20822,7 +20823,8 @@ function requestMobileMockup3dMesh(){
           "time_iso", "timestamp", "datetime", "time", "times", "timesec", "timesecs", "time_s", "time_sec"
         ]);
         const altIdx = replayFindHeaderIndex(row, [
-          "altitude_m", "altitudem", "altitude", "alt_m", "alt"
+          "altitude_m", "altitudem", "altitude", "alt_m", "alt",
+          "baro_altitude_raw_m", "altitude_corrected_m"
         ]);
         if(thrustIdx >= 0 || pressureIdx >= 0 || timeIdx >= 0 || altIdx >= 0){
           headerRow = i;
@@ -20856,8 +20858,11 @@ function requestMobileMockup3dMesh(){
           "gps_고도_m", "고도_gps_m"
         ]),
         altitudeM: replayFindHeaderIndex(headers, [
-          "altitude_m", "고도_m", "alt_m", "altitude", "alt", "gps_alt",
+          "baro_altitude_raw_m", "altitude_m", "고도_m", "alt_m", "altitude", "alt", "gps_alt",
           "altitude_msl", "altitudem", "고도m", "고도"
+        ]),
+        altitudeCorrectedM: replayFindHeaderIndex(headers, [
+          "altitude_corrected_m", "corrected_altitude_m", "보정고도_m"
         ]),
         speedMps: replayFindHeaderIndex(headers, [
           "speed_mps", "속도_mps", "gps_speed_mps", "ground_speed_mps", "velocity_mps", "speed",
@@ -20955,6 +20960,10 @@ function requestMobileMockup3dMesh(){
         const lonReplay = replayToNumber(col.gpsLon >= 0 ? row[col.gpsLon] : null, NaN);
         const gpsAltReplay = replayToNumber(col.gpsAlt >= 0 ? row[col.gpsAlt] : null, NaN);
         const altReplay = replayToNumber(col.altitudeM >= 0 ? row[col.altitudeM] : null, NaN);
+        const correctedAltReplay = replayToNumber(
+          col.altitudeCorrectedM >= 0 ? row[col.altitudeCorrectedM] : null,
+          NaN
+        );
         const speedReplay = replayToNumber(col.speedMps >= 0 ? row[col.speedMps] : null, NaN);
 
         const accelXVal = replayConvertAccelToG(
@@ -21039,6 +21048,7 @@ function requestMobileMockup3dMesh(){
             gps_lon: isFinite(lonReplay) ? lonReplay : null,
             gps_alt: isFinite(gpsAltReplay) ? gpsAltReplay : null,
             alt_m: isFinite(altReplay) ? altReplay : null,
+            altitude_corrected_m:isFinite(correctedAltReplay) ? correctedAltReplay : null,
             speed_mps: isFinite(speedReplay) ? speedReplay : null,
             actual_speed_recorded:isFinite(speedReplay) ? 1 : 0,
             actual_speed_source:isFinite(speedReplay) ? "IMPORTED" : "",
@@ -22521,6 +22531,170 @@ function requestMobileMockup3dMesh(){
         });
       }
       return out;
+    }
+
+    function isotonicAltitudeRegression(values, increasing){
+      const source = Array.isArray(values) ? values : [];
+      if(!source.length) return [];
+      const direction = increasing ? 1 : -1;
+      const blocks = [];
+      for(let index = 0; index < source.length; index++){
+        const value = Number(source[index]) * direction;
+        blocks.push({start:index, end:index, sum:value, count:1});
+        while(blocks.length > 1){
+          const right = blocks[blocks.length - 1];
+          const left = blocks[blocks.length - 2];
+          if((left.sum / left.count) <= (right.sum / right.count)) break;
+          blocks.splice(blocks.length - 2, 2, {
+            start:left.start,
+            end:right.end,
+            sum:left.sum + right.sum,
+            count:left.count + right.count
+          });
+        }
+      }
+      const result = new Array(source.length);
+      blocks.forEach((block)=>{
+        const value = (block.sum / block.count) * direction;
+        for(let index = block.start; index <= block.end; index++){
+          result[index] = value;
+        }
+      });
+      return result;
+    }
+
+    function buildPressureRobustAltitudeSeries(
+      timeMsValues,
+      altitudeMValues,
+      halfWindowMs = 450
+    ){
+      const count = Math.min(
+        Array.isArray(timeMsValues) ? timeMsValues.length : 0,
+        Array.isArray(altitudeMValues) ? altitudeMValues.length : 0
+      );
+      const empty = new Array(count).fill(NaN);
+      if(count < 3) return empty.map((value, index)=>{
+        const altitudeM = Number(altitudeMValues[index]);
+        return isFinite(altitudeM) ? altitudeM : value;
+      });
+
+      const times = new Float64Array(count);
+      const filled = new Float64Array(count);
+      let firstFiniteIndex = -1;
+      let previousTimeMs = NaN;
+      for(let index = 0; index < count; index++){
+        const rawTimeMs = Number(timeMsValues[index]);
+        const timeMs = isFinite(rawTimeMs)
+          ? rawTimeMs
+          : (isFinite(previousTimeMs) ? previousTimeMs + 10 : index * 10);
+        times[index] = isFinite(previousTimeMs) && timeMs <= previousTimeMs
+          ? previousTimeMs + 0.001
+          : timeMs;
+        previousTimeMs = times[index];
+        if(firstFiniteIndex < 0 && isFinite(Number(altitudeMValues[index]))){
+          firstFiniteIndex = index;
+        }
+      }
+      if(firstFiniteIndex < 0) return empty;
+
+      const firstAltitudeM = Number(altitudeMValues[firstFiniteIndex]);
+      for(let index = 0; index <= firstFiniteIndex; index++) filled[index] = firstAltitudeM;
+      let previousFiniteIndex = firstFiniteIndex;
+      for(let index = firstFiniteIndex + 1; index < count; index++){
+        const altitudeM = Number(altitudeMValues[index]);
+        if(!isFinite(altitudeM)) continue;
+        const previousAltitudeM = filled[previousFiniteIndex];
+        const spanMs = times[index] - times[previousFiniteIndex];
+        for(let fillIndex = previousFiniteIndex + 1; fillIndex <= index; fillIndex++){
+          const ratio = spanMs > 0
+            ? (times[fillIndex] - times[previousFiniteIndex]) / spanMs
+            : 1;
+          filled[fillIndex] = previousAltitudeM + ((altitudeM - previousAltitudeM) * ratio);
+        }
+        previousFiniteIndex = index;
+      }
+      for(let index = previousFiniteIndex + 1; index < count; index++){
+        filled[index] = filled[previousFiniteIndex];
+      }
+
+      // A separation/ejection pressure wave can last hundreds of milliseconds,
+      // so a small sample-count Hampel filter is insufficient. Use a centered
+      // time-domain median to establish the local flight envelope, then replace
+      // only physically impossible innovations. The symmetric edge window
+      // prevents launch/end samples from being pulled inward.
+      const requestedHalfWindowMs = Math.max(120, Number(halfWindowMs) || 450);
+      const robust = new Array(count);
+      for(let index = 0; index < count; index++){
+        const symmetricHalfWindowMs = Math.min(
+          requestedHalfWindowMs,
+          Math.max(0, times[index] - times[0]),
+          Math.max(0, times[count - 1] - times[index])
+        );
+        if(symmetricHalfWindowMs < 20){
+          robust[index] = filled[index];
+          continue;
+        }
+        const fromMs = times[index] - symmetricHalfWindowMs;
+        const toMs = times[index] + symmetricHalfWindowMs;
+        let left = index;
+        let right = index;
+        while(left > 0 && times[left - 1] >= fromMs) left--;
+        while(right + 1 < count && times[right + 1] <= toMs) right++;
+        const local = [];
+        for(let sampleIndex = left; sampleIndex <= right; sampleIndex++){
+          local.push(filled[sampleIndex]);
+        }
+        local.sort((a, b)=>a - b);
+        const medianM = local[Math.floor(local.length * 0.5)];
+        robust[index] = Math.abs(filled[index] - medianM) > 1.5
+          ? medianM
+          : filled[index];
+      }
+
+      let apogeeIndex = 0;
+      for(let index = 1; index < count; index++){
+        if(robust[index] > robust[apogeeIndex]) apogeeIndex = index;
+      }
+      const ascent = isotonicAltitudeRegression(
+        robust.slice(0, apogeeIndex + 1),
+        true
+      );
+      const descent = isotonicAltitudeRegression(
+        robust.slice(apogeeIndex),
+        false
+      );
+      const corrected = ascent.concat(descent.slice(1));
+      return corrected.map((value, index)=>
+        isFinite(Number(altitudeMValues[index])) ? value : NaN
+      );
+    }
+
+    function applyPressureRobustAltitudeToReplayFrames(frames){
+      const source = Array.isArray(frames) ? frames : [];
+      if(source.length < 3) return source;
+      const timeMsValues = source.map((frame, index)=>{
+        const timeMs = Number(frame && frame.tsMs);
+        return isFinite(timeMs) ? timeMs : index * 10;
+      });
+      const altitudeMValues = source.map((frame)=>{
+        const sample = frame && frame.sample;
+        const altitudeM = Number(sample && sample.alt_m);
+        return isFinite(altitudeM) ? altitudeM : NaN;
+      });
+      const finiteAltitudes = altitudeMValues.filter((value)=>isFinite(value));
+      if(finiteAltitudes.length < 3) return source;
+      const corrected = buildPressureRobustAltitudeSeries(
+        timeMsValues,
+        altitudeMValues
+      );
+      source.forEach((frame, index)=>{
+        if(!frame || !frame.sample) return;
+        const altitudeM = Number(corrected[index]);
+        frame.sample.altitude_corrected_m = isFinite(altitudeM)
+          ? altitudeM
+          : null;
+      });
+      return source;
     }
 
     function deriveAltitudeSpeedSeries(timeMsValues, altitudeMValues, windowMs = 700){
@@ -37068,6 +37242,9 @@ function requestMobileMockup3dMesh(){
           const parsed = await parseReplayFileAuto(file);
           const samples = parsed.samples;
           const replayDataMode = inferReplayDataMode(samples) || "flight";
+          if(replayDataMode === "flight"){
+            applyPressureRobustAltitudeToReplayFrames(samples);
+          }
           pauseReplayPlayback({silent:true});
           setActiveDataSource(DATA_SOURCE_LIVE);
           replayState.samples = samples;
@@ -38649,7 +38826,8 @@ function requestMobileMockup3dMesh(){
             const flightRawRows = [[
               t("hdrTimeIso"), "ORIGIN", "BARO_PRESSURE_MPA",
               t("hdrGpsLat"), t("hdrGpsLon"), t("hdrGpsAlt"),
-              t("hdrAltitudeM"), "SPEED_MPS", "DESCENT_SPEED_MPS", "TERMINAL_SPEED_MPS",
+              "BARO_ALTITUDE_RAW_M", "ALTITUDE_CORRECTED_M",
+              "SPEED_MPS", "DESCENT_SPEED_MPS", "TERMINAL_SPEED_MPS",
               t("hdrAccelX"), t("hdrAccelY"), t("hdrAccelZ"),
               t("hdrGyroX"), t("hdrGyroY"), t("hdrGyroZ"),
               t("hdrLoopMs"), t("hdrElapsedMs"), t("hdrCpuUs"),
@@ -38669,7 +38847,7 @@ function requestMobileMockup3dMesh(){
               const parsedMs = Date.parse(row && row.time);
               return isFinite(parsedMs) ? parsedMs : (index * 10);
             });
-            const reportAltitudeMValues = exportRows.map((row)=>{
+            const reportRawAltitudeMValues = exportRows.map((row)=>{
               const directAltitudeM = rowFiniteOrNaN(row && row.alt_m);
               if(isFinite(directAltitudeM)) return directAltitudeM;
               const gpsAltitudeM = rowFiniteOrNaN(row && row.gps_alt);
@@ -38677,6 +38855,10 @@ function requestMobileMockup3dMesh(){
               if(reportGpsAltBase == null) reportGpsAltBase = gpsAltitudeM;
               return gpsAltitudeM - reportGpsAltBase;
             });
+            const reportAltitudeMValues = buildPressureRobustAltitudeSeries(
+              reportTimeMsValues,
+              reportRawAltitudeMValues
+            );
             const reportAltitudeRateMps = deriveAltitudeSpeedSeries(
               reportTimeMsValues,
               reportAltitudeMValues,
@@ -38857,6 +39039,9 @@ function requestMobileMockup3dMesh(){
                 (row.gps_lat != null && isFinite(Number(row.gps_lat))) ? Number(Number(row.gps_lat).toFixed(7)) : "",
                 (row.gps_lon != null && isFinite(Number(row.gps_lon))) ? Number(Number(row.gps_lon).toFixed(7)) : "",
                 (row.gps_alt != null && isFinite(Number(row.gps_alt))) ? Number(Number(row.gps_alt).toFixed(2)) : "",
+                isFinite(reportRawAltitudeMValues[rowIndex])
+                  ? Number(reportRawAltitudeMValues[rowIndex].toFixed(2))
+                  : "",
                 isFinite(altVal) ? Number(altVal.toFixed(2)) : "",
                 isFinite(speedVal) ? Number(speedVal.toFixed(2)) : "",
                 isFinite(descentSpeedVal) ? Number(descentSpeedVal.toFixed(2)) : "",
@@ -38968,7 +39153,7 @@ function requestMobileMockup3dMesh(){
               [
                 {
                   title:"ALTITUDE PROFILE",
-                  subtitle:"BAROMETRIC ALTITUDE · FLIGHT TIME",
+                  subtitle:"PRESSURE-ROBUST BAROMETRIC ALTITUDE · FLIGHT TIME",
                   axisYTitle:"ALTITUDE (m)",
                   yMin:altAxis.min,
                   yMax:altAxis.max,
@@ -39051,7 +39236,7 @@ function requestMobileMockup3dMesh(){
               trajectoryImage:trajectory3d.pngBytes,
               chart1:{
                 title:"ALTITUDE PROFILE",
-                subtitle:"BAROMETRIC ALTITUDE · FLIGHT TIME",
+                subtitle:"PRESSURE-ROBUST BAROMETRIC ALTITUDE · FLIGHT TIME",
                 axisYTitle:"ALTITUDE (m)",
                 majorUnit:altUnit,
                 yMin:altAxis.min,

@@ -2493,6 +2493,7 @@
       }
       if(!isFinite(altitudeM) && data && typeof data === "object"){
         const altCandidates = [
+          replaySourceActive ? data.altitude_corrected_m : null,
           data.alt_m, data.altitude_m,
           data.baro_alt_m, data.baroAltitudeM,
           data.altitude, data.alt

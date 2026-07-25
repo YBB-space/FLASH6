@@ -100,12 +100,14 @@ vm.runInContext(
   context
 );
 const altitudeSpeedHelperStart = replaySource.indexOf(
-  "function deriveAltitudeSpeedSeries"
+  "function isotonicAltitudeRegression"
 );
 assert.ok(altitudeSpeedHelperStart >= 0, "altitude-speed helper not found");
 vm.runInContext(
   replaySource.slice(altitudeSpeedHelperStart) +
-  "\nglobalThis.deriveAltitudeSpeed = deriveAltitudeSpeedSeries;",
+  "\nglobalThis.deriveAltitudeSpeed = deriveAltitudeSpeedSeries;" +
+  "\nglobalThis.correctAltitude = buildPressureRobustAltitudeSeries;" +
+  "\nglobalThis.correctReplayAltitude = applyPressureRobustAltitudeToReplayFrames;",
   context
 );
 context.GYRO_ABSOLUTE_TRAJECTORY_ENABLED = false;
@@ -387,6 +389,69 @@ assert.ok(
   robustAltitudeSpeedMps.every((value)=>!isFinite(value) || Math.abs(value - 20) < 2),
   "an isolated pressure/altitude glitch must not create a speed impulse"
 );
+const pressureShockTimesMs = Array.from({length:401}, (_unused, index)=>index * 25);
+const pressureShockAltitudeM = pressureShockTimesMs.map((timeMs)=>{
+  const timeSec = timeMs / 1000;
+  return timeSec <= 5
+    ? 140 - (5.6 * Math.pow(timeSec - 5, 2))
+    : 140 - (7.0 * Math.pow(timeSec - 5, 2));
+});
+for(let index = 124; index <= 132; index++){
+  pressureShockAltitudeM[index] += 14 * Math.sin(
+    ((index - 124) / 8) * Math.PI
+  );
+}
+for(let index = 133; index <= 141; index++){
+  pressureShockAltitudeM[index] -= 8 * Math.sin(
+    ((index - 133) / 8) * Math.PI
+  );
+}
+const correctedPressureShockAltitudeM = Array.from(context.correctAltitude(
+  pressureShockTimesMs,
+  pressureShockAltitudeM
+));
+const correctedApogeeIndex = correctedPressureShockAltitudeM.reduce(
+  (best, value, index)=>value > correctedPressureShockAltitudeM[best] ? index : best,
+  0
+);
+assert.ok(
+  Math.abs((pressureShockTimesMs[correctedApogeeIndex] / 1000) - 5) < 0.2,
+  "pressure shock must not become a false early apogee"
+);
+assert.ok(
+  Math.abs(correctedPressureShockAltitudeM[correctedApogeeIndex] - 140) < 0.5,
+  "pressure correction must preserve the real apogee altitude"
+);
+for(let index = 1; index <= correctedApogeeIndex; index++){
+  assert.ok(
+    correctedPressureShockAltitudeM[index] >=
+      correctedPressureShockAltitudeM[index - 1] - 1e-9,
+    "corrected ascent altitude must remain physically nondecreasing"
+  );
+}
+for(let index = correctedApogeeIndex + 1;
+    index < correctedPressureShockAltitudeM.length;
+    index++){
+  assert.ok(
+    correctedPressureShockAltitudeM[index] <=
+      correctedPressureShockAltitudeM[index - 1] + 1e-9,
+    "corrected descent altitude must remain physically nonincreasing"
+  );
+}
+const replayPressureFrames = pressureShockTimesMs.map((tsMs, index)=>({
+  tsMs,
+  sample:{alt_m:pressureShockAltitudeM[index]}
+}));
+context.correctReplayAltitude(replayPressureFrames);
+assert.equal(
+  replayPressureFrames[0].sample.alt_m,
+  pressureShockAltitudeM[0],
+  "replay correction must preserve raw barometric altitude"
+);
+assert.ok(
+  isFinite(replayPressureFrames[130].sample.altitude_corrected_m),
+  "replay correction must expose a separate corrected altitude"
+);
 
 const syntheticRows = [];
 const syntheticAltitudes = [];
@@ -493,6 +558,11 @@ assert.match(
   bootstrapSource,
   /t\("hdrAltitudeM"\),\s*"FLIGHT_ACCEL_G",\s*"SPEED_MPS"/,
   "FLIGHT_RECORD must export actual scalar speed"
+);
+assert.match(
+  bootstrapSource,
+  /"BARO_ALTITUDE_RAW_M",\s*"ALTITUDE_CORRECTED_M"/,
+  "RAW flight sheet must keep measured and corrected altitude separate"
 );
 assert.match(
   bootstrapSource,
