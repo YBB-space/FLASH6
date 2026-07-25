@@ -2479,6 +2479,7 @@
       const now = nowMs || Date.now();
       let altitudeM = NaN;
       let speedMps = readTelemetryActualSpeedMps(data);
+      const hasRecordedSpeedMps = isFinite(speedMps);
       const useSimFlightMetrics = !!(simEnabled && !replaySourceActive && simState);
 
       if(useSimFlightMetrics){
@@ -2579,16 +2580,16 @@
         }
       }
 
-      if(!isFinite(speedMps) && isFinite(quickFlightMetrics.speedMps)){
-        speedMps = quickFlightMetrics.speedMps;
-      }
-      if(!isFinite(speedMps) && gyroPathState && gyroPathState.fusionReady){
+      if(!hasRecordedSpeedMps && gyroPathState && gyroPathState.fusionReady){
         const fusionSpeed = Math.hypot(
           Number(gyroPathState.fusionVelX),
           Number(gyroPathState.fusionVelY),
           Number(gyroPathState.fusionVelZ)
         );
         if(isFinite(fusionSpeed)) speedMps = fusionSpeed;
+      }
+      if(!isFinite(speedMps) && isFinite(quickFlightMetrics.speedMps)){
+        speedMps = quickFlightMetrics.speedMps;
       }
       return {altitudeM, speedMps};
     }

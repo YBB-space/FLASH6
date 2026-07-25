@@ -3,6 +3,24 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 model-rocket motion estimator b80 — 2026-07-25
+
+Firmware build: `v6 b37` (unchanged)
+Protocol: `Flash6-Intelligent-b8` (unchanged)
+
+- Replaced unrestricted lateral acceleration integration with one shared
+  model-rocket motion prior for the live gyro preview and exported trajectory.
+  The estimator holds the rocket on the rail, follows the measured attitude
+  gradually during powered flight, and preserves center-of-mass inertia after
+  burnout instead of steering the path with later attitude changes.
+- Made barometric altitude authoritative, bounded ascent speed by the measured
+  apogee energy envelope, and added a Hampel pass so an isolated pressure
+  glitch cannot become a speed spike.
+- Reprocesses app-derived V6 speed values from the original altitude/IMU/GPS
+  samples. Only direct/imported speed remains authoritative.
+- Added horizontal, vertical, scalar-speed, and speed-source diagnostics to the
+  `TRAJECTORY_3D` sheet so trajectory and speed calculations can be audited.
+
 ## FLASH6 fused-speed transient correction b79 — 2026-07-25
 
 Firmware build: `v6 b37` (unchanged)

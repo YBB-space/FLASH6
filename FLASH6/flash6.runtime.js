@@ -477,6 +477,89 @@ if (typeof window !== "undefined") {
       const smooth = (ratio)=>ratio * ratio * (3 - (2 * ratio));
       return Math.min(smooth(timeRatio), smooth(altitudeRatio));
     }
+    function updateModelRocketHorizontalMotion(state, input){
+      const motion = state || {};
+      const sample = input || {};
+      const dt = Math.max(0.001, Math.min(0.05, Number(sample.dtSec) || 0.01));
+      const phase = String(sample.phase || FLIGHT_PHASES.PRE_FLIGHT);
+      let velocityX = isFinite(Number(motion.velocityX)) ? Number(motion.velocityX) : 0;
+      let velocityZ = isFinite(Number(motion.velocityZ)) ? Number(motion.velocityZ) : 0;
+      let positionX = isFinite(Number(motion.positionX)) ? Number(motion.positionX) : 0;
+      let positionZ = isFinite(Number(motion.positionZ)) ? Number(motion.positionZ) : 0;
+
+      if(phase === FLIGHT_PHASES.PRE_FLIGHT || phase === FLIGHT_PHASES.LANDED){
+        velocityX = 0;
+        velocityZ = 0;
+        return {velocityX, velocityZ, positionX, positionZ};
+      }
+
+      const verticalSpeedMps = Number(sample.verticalSpeedMps);
+      const acceptance = clampLocal(Number(sample.horizontalAcceptance) || 0, 0, 1);
+      if(phase === FLIGHT_PHASES.POWERED_FLIGHT){
+        const axisX = Number(sample.axisX) || 0;
+        const axisZ = Number(sample.axisZ) || 0;
+        const axisUp = Number(sample.axisUp);
+        const safeAxisUp = isFinite(axisUp) ? Math.max(0.55, axisUp) : 1;
+        let ratioX = axisX / safeAxisUp;
+        let ratioZ = axisZ / safeAxisUp;
+        const ratioMagnitude = Math.hypot(ratioX, ratioZ);
+        const maxTiltRatio = Math.tan(35 * DEG_TO_RAD);
+        if(ratioMagnitude > maxTiltRatio){
+          const ratioScale = maxTiltRatio / ratioMagnitude;
+          ratioX *= ratioScale;
+          ratioZ *= ratioScale;
+        }
+        const positiveVerticalSpeedMps = Math.max(0, isFinite(verticalSpeedMps)
+          ? verticalSpeedMps
+          : 0);
+        const targetLimitMps = Math.min(
+          16,
+          Math.max(0.75, (positiveVerticalSpeedMps * 0.40) + 0.5)
+        );
+        let targetVelocityX = positiveVerticalSpeedMps * ratioX * acceptance;
+        let targetVelocityZ = positiveVerticalSpeedMps * ratioZ * acceptance;
+        const targetSpeedMps = Math.hypot(targetVelocityX, targetVelocityZ);
+        if(targetSpeedMps > targetLimitMps){
+          const targetScale = targetLimitMps / targetSpeedMps;
+          targetVelocityX *= targetScale;
+          targetVelocityZ *= targetScale;
+        }
+
+        // During powered flight a fin-stabilized model rocket's velocity vector
+        // follows its longitudinal axis. Attitude therefore provides a much
+        // safer horizontal constraint than unrestricted double integration.
+        const steeringAlpha = 1 - Math.exp(-dt / 0.24);
+        velocityX += (targetVelocityX - velocityX) * steeringAlpha;
+        velocityZ += (targetVelocityZ - velocityZ) * steeringAlpha;
+
+        // Retain only a small lateral-IMU correction. This captures genuine
+        // weathercocking while preventing vibration/bias from creating range.
+        velocityX += clampLocal(Number(sample.accelX) || 0, -5, 5) *
+          0.08 * acceptance * dt;
+        velocityZ += clampLocal(Number(sample.accelZ) || 0, -5, 5) *
+          0.08 * acceptance * dt;
+      }
+
+      const dragRate = phase === FLIGHT_PHASES.POWERED_FLIGHT
+        ? 0.035
+        : (phase === FLIGHT_PHASES.COASTING ? 0.055 : 0.22);
+      const dragFactor = Math.exp(-dragRate * dt);
+      velocityX *= dragFactor;
+      velocityZ *= dragFactor;
+
+      const phaseSpeedLimitMps = phase === FLIGHT_PHASES.POWERED_FLIGHT
+        ? 16
+        : (phase === FLIGHT_PHASES.COASTING ? 18 : 10);
+      const horizontalSpeedMps = Math.hypot(velocityX, velocityZ);
+      if(horizontalSpeedMps > phaseSpeedLimitMps){
+        const speedScale = phaseSpeedLimitMps / horizontalSpeedMps;
+        velocityX *= speedScale;
+        velocityZ *= speedScale;
+      }
+      positionX += velocityX * dt;
+      positionZ += velocityZ * dt;
+      return {velocityX, velocityZ, positionX, positionZ};
+    }
     const GYRO_CAPTURE_SPRING = 7.5;
     const GYRO_CAPTURE_DRAG_ACTIVE = 2.6;
     const GYRO_CAPTURE_DRAG_IDLE = 6.5;
@@ -4404,48 +4487,45 @@ function requestMobileMockup3dMesh(){
           gyroPathState.fusionVelX = 0;
           gyroPathState.fusionVelZ = 0;
         }
-        let effectiveAccelX = gyroPathState.fusionAccelX *
-          dynamics.accelGain * poweredHorizontalAcceptance;
-        let effectiveAccelZ = gyroPathState.fusionAccelZ *
-          dynamics.accelGain * poweredHorizontalAcceptance;
-        const effectiveAccelMagnitude = Math.hypot(effectiveAccelX, effectiveAccelZ);
-        if(effectiveAccelMagnitude > dynamics.maxAccel && dynamics.maxAccel > 0){
-          const accelScale = dynamics.maxAccel / effectiveAccelMagnitude;
-          effectiveAccelX *= accelScale;
-          effectiveAccelZ *= accelScale;
-        }
         const steps = Math.max(1, Math.ceil(dtSec / GYRO_FUSION_STEP_SEC));
         const stepDt = dtSec / steps;
         for(let step=0;step<steps;step++){
-          const speedBefore = Math.hypot(
-            gyroPathState.fusionVelX,
-            gyroPathState.fusionVelZ
+          let rocketAxisWorld = gyroAttitudeReady
+            ? quatRotateVector(gyroAttitudeQuat, [0, 1, 0])
+            : [0, 1, 0];
+          if(gyroPathState.fusionImuYawReady){
+            const alignedAxis = rotateGyroFusionHorizontal(
+              rocketAxisWorld[0],
+              rocketAxisWorld[2],
+              gyroPathState.fusionImuYawOffsetRad
+            );
+            rocketAxisWorld = [alignedAxis.x, rocketAxisWorld[1], alignedAxis.z];
+          }
+          const horizontalMotion = updateModelRocketHorizontalMotion(
+            {
+              velocityX:gyroPathState.fusionVelX,
+              velocityZ:gyroPathState.fusionVelZ,
+              positionX:gyroPathState.fusionPosX,
+              positionZ:gyroPathState.fusionPosZ
+            },
+            {
+              dtSec:stepDt,
+              phase,
+              verticalSpeedMps:gyroPathState.fusionVelY,
+              axisX:rocketAxisWorld[0],
+              axisZ:rocketAxisWorld[2],
+              axisUp:rocketAxisWorld[1],
+              accelX:gyroPathState.fusionAccelX,
+              accelZ:gyroPathState.fusionAccelZ,
+              horizontalAcceptance:gyroPathState.fusionRailLocked
+                ? 0
+                : poweredHorizontalAcceptance
+            }
           );
-          const densityRatio = Math.exp(
-            -Math.max(0, gyroPathState.fusionPosY) / 8500
-          );
-          const dragRate = dynamics.linearDrag +
-            (dynamics.quadraticDrag * densityRatio * speedBefore);
-          gyroPathState.fusionPosX +=
-            (gyroPathState.fusionVelX * stepDt) +
-            (0.5 * effectiveAccelX * stepDt * stepDt);
-          gyroPathState.fusionPosZ +=
-            (gyroPathState.fusionVelZ * stepDt) +
-            (0.5 * effectiveAccelZ * stepDt * stepDt);
-          const dragFactor = Math.exp(-dragRate * stepDt);
-          gyroPathState.fusionVelX =
-            (gyroPathState.fusionVelX + (effectiveAccelX * stepDt)) * dragFactor;
-          gyroPathState.fusionVelZ =
-            (gyroPathState.fusionVelZ + (effectiveAccelZ * stepDt)) * dragFactor;
-        }
-        const horizontalSpeed = Math.hypot(
-          gyroPathState.fusionVelX,
-          gyroPathState.fusionVelZ
-        );
-        if(horizontalSpeed > dynamics.maxSpeed && dynamics.maxSpeed > 0){
-          const speedScale = dynamics.maxSpeed / horizontalSpeed;
-          gyroPathState.fusionVelX *= speedScale;
-          gyroPathState.fusionVelZ *= speedScale;
+          gyroPathState.fusionVelX = horizontalMotion.velocityX;
+          gyroPathState.fusionVelZ = horizontalMotion.velocityZ;
+          gyroPathState.fusionPosX = horizontalMotion.positionX;
+          gyroPathState.fusionPosZ = horizontalMotion.positionZ;
         }
         predictGyroFusionCovariance(dtSec, dynamics.processNoise);
         if(phase === FLIGHT_PHASES.LANDED){
@@ -12990,6 +13070,7 @@ function requestMobileMockup3dMesh(){
       const now = nowMs || Date.now();
       let altitudeM = NaN;
       let speedMps = readTelemetryActualSpeedMps(data);
+      const hasRecordedSpeedMps = isFinite(speedMps);
       const useSimFlightMetrics = !!(simEnabled && !replaySourceActive && simState);
 
       if(useSimFlightMetrics){
@@ -13090,16 +13171,16 @@ function requestMobileMockup3dMesh(){
         }
       }
 
-      if(!isFinite(speedMps) && isFinite(quickFlightMetrics.speedMps)){
-        speedMps = quickFlightMetrics.speedMps;
-      }
-      if(!isFinite(speedMps) && gyroPathState && gyroPathState.fusionReady){
+      if(!hasRecordedSpeedMps && gyroPathState && gyroPathState.fusionReady){
         const fusionSpeed = Math.hypot(
           Number(gyroPathState.fusionVelX),
           Number(gyroPathState.fusionVelY),
           Number(gyroPathState.fusionVelZ)
         );
         if(isFinite(fusionSpeed)) speedMps = fusionSpeed;
+      }
+      if(!isFinite(speedMps) && isFinite(quickFlightMetrics.speedMps)){
+        speedMps = quickFlightMetrics.speedMps;
       }
       return {altitudeM, speedMps};
     }
@@ -20836,6 +20917,7 @@ function requestMobileMockup3dMesh(){
             alt_m: isFinite(altReplay) ? altReplay : null,
             speed_mps: isFinite(speedReplay) ? speedReplay : null,
             actual_speed_recorded:isFinite(speedReplay) ? 1 : 0,
+            actual_speed_source:isFinite(speedReplay) ? "IMPORTED" : "",
             vertical_speed_mps: replayToNumber(col.verticalSpeedMps >= 0 ? row[col.verticalSpeedMps] : null, null),
             ax: axOut,
             ay: ayOut,
@@ -21788,6 +21870,7 @@ function requestMobileMockup3dMesh(){
               ? ((encodedActualSpeed & 0x7FFF) / 10)
               : null,
             actual_speed_recorded:(encodedActualSpeed & 0x8000) ? 1 : 0,
+            actual_speed_source:(encodedActualSpeed & 0x8000) ? "APP_DERIVED" : "",
             s: (flags >>> 2) & 1,
             sp: (flags >>> 13) & 1,
             ic: 1,
@@ -22224,6 +22307,7 @@ function requestMobileMockup3dMesh(){
           sample.vertical_speed_mps ?? sample.verticalSpeedMps
         );
         const actualSpeedRecorded = Number(sample.actual_speed_recorded) === 1;
+        const actualSpeedSource = String(sample.actual_speed_source || "").trim().toUpperCase();
         const speedMps = actualSpeedRecorded
           ? (
               asFiniteOrNull(sample.actual_speed_mps) ??
@@ -22258,6 +22342,7 @@ function requestMobileMockup3dMesh(){
           alt_m: altM,
           speed_mps: speedMps,
           actual_speed_recorded:actualSpeedRecorded ? 1 : 0,
+          actual_speed_source:actualSpeedSource,
           vertical_speed_mps: recordedVerticalSpeedMps ?? (
             lastDerivedAltitudeSpeedMps != null && lastChangedAltRelMs != null &&
             (relMs - lastChangedAltRelMs) <= 500
@@ -22332,6 +22417,25 @@ function requestMobileMockup3dMesh(){
         points.push({timeMs:timeMs - timeOriginMs, altitudeM});
       }
       if(points.length < 2 || timeOriginMs == null) return result;
+
+      // A single pressure conversion glitch must not become a large velocity
+      // impulse. A five-sample Hampel pass removes isolated altitude outliers
+      // while preserving the real launch and apogee slopes.
+      const originalAltitude = points.map((point)=>point.altitudeM);
+      for(let i = 0; i < points.length; i++){
+        const from = Math.max(0, i - 2);
+        const to = Math.min(points.length - 1, i + 2);
+        const local = [];
+        for(let j = from; j <= to; j++) local.push(originalAltitude[j]);
+        local.sort((a, b)=>a - b);
+        const median = local[Math.floor(local.length * 0.5)];
+        const deviations = local.map((value)=>Math.abs(value - median)).sort((a, b)=>a - b);
+        const medianDeviation = deviations[Math.floor(deviations.length * 0.5)];
+        const rejectionThresholdM = Math.max(0.65, medianDeviation * 4.5);
+        if(Math.abs(originalAltitude[i] - median) > rejectionThresholdM){
+          points[i].altitudeM = median;
+        }
+      }
 
       const prefixTime = new Float64Array(points.length + 1);
       const prefixAltitude = new Float64Array(points.length + 1);
@@ -33984,7 +34088,10 @@ function requestMobileMockup3dMesh(){
       return sourcePoints.map((point, index)=>{
         const horizontalSpeedMps = Number(point && point.horizontalSpeedMps);
         const fusedVerticalSpeedMps = Number(point && point.verticalSpeedMps);
-        const fallbackVerticalSpeedMps = Number(verticalSpeeds[index]);
+        const sourceIndex = Number(point && point.sourceIndex);
+        const fallbackVerticalSpeedMps = Number(
+          verticalSpeeds[Number.isInteger(sourceIndex) ? sourceIndex : index]
+        );
         const verticalSpeedMps = isFinite(fusedVerticalSpeedMps)
           ? fusedVerticalSpeedMps
           : fallbackVerticalSpeedMps;
@@ -34029,7 +34136,27 @@ function requestMobileMockup3dMesh(){
       let candidate = previous + (accel * dt);
       const barometric = Number(barometricSpeedMps);
       if(isFinite(barometric)){
-        const target = clampLocal(barometric, -120, 120);
+        let target = clampLocal(barometric, -120, 120);
+        const currentAltitudeM = Number(settings.currentAltitudeM);
+        const apogeeAltitudeM = Number(settings.apogeeAltitudeM);
+        if(
+          settings.hasFutureApogee &&
+          target > 0 &&
+          isFinite(currentAltitudeM) &&
+          isFinite(apogeeAltitudeM) &&
+          apogeeAltitudeM > currentAltitudeM
+        ){
+          // A model rocket cannot retain more vertical kinetic energy than its
+          // remaining climb can absorb. The margin covers aerodynamic drag,
+          // pressure lag, and thrust that is still active.
+          const remainingHeightM = Math.max(0, apogeeAltitudeM - currentAltitudeM);
+          const energyFactor = powered ? 1.30 : 1.18;
+          const energyMarginMps = powered ? 4.0 : 1.5;
+          const energyLimitMps =
+            (Math.sqrt(2 * GYRO_IMU_GRAVITY_MPS2 * remainingHeightM) * energyFactor) +
+            energyMarginMps;
+          target = Math.min(target, energyLimitMps);
+        }
         const correctionAlpha = 1 - Math.exp(-dt / 0.32);
         candidate += (target - candidate) * correctionAlpha;
         if(established){
@@ -34088,6 +34215,7 @@ function requestMobileMockup3dMesh(){
           : elapsedSec;
         rawPoints.push({
           pointIndex:rawPoints.length,
+          sourceIndex:index,
           elapsedSec,
           altitudeM,
           lat:validGps ? lat : NaN,
@@ -34179,6 +34307,50 @@ function requestMobileMockup3dMesh(){
 
       const gpsAvailable = isFinite(baseLat) && isFinite(baseLon);
       const metersPerLon = gpsAvailable ? 111320 * Math.cos(baseLat * DEG_TO_RAD) : 1;
+      let sharedApogeePointIndex = 0;
+      let sharedApogeeAltitudeM = -Infinity;
+      rawPoints.forEach((point, index)=>{
+        if(point.altitudeM > sharedApogeeAltitudeM){
+          sharedApogeeAltitudeM = point.altitudeM;
+          sharedApogeePointIndex = index;
+        }
+      });
+      let sharedVerticalSpeedMps = 0;
+      rawPoints.forEach((point, index)=>{
+        if(index === 0){
+          point.verticalSpeedMps = 0;
+          return;
+        }
+        const previous = rawPoints[index - 1];
+        const dt = Math.max(0.001, Math.min(0.05, point.elapsedSec - previous.elapsedSec));
+        const sourceVerticalSpeedMps = Number(verticalSpeeds[point.sourceIndex]);
+        let phaseName = FLIGHT_PHASE_CODE_NAMES[point.flightPhaseCode] || "";
+        if(!phaseName){
+          const launchAgeSec = point.elapsedSec - rawPoints[0].elapsedSec;
+          phaseName = launchAgeSec < 2.2
+            ? FLIGHT_PHASES.POWERED_FLIGHT
+            : (index < sharedApogeePointIndex
+              ? FLIGHT_PHASES.COASTING
+              : FLIGHT_PHASES.DESCENT);
+        }
+        sharedVerticalSpeedMps = updateReportVerticalSpeedMps(
+          sharedVerticalSpeedMps,
+          0,
+          sourceVerticalSpeedMps,
+          dt,
+          {
+            powered:phaseName === FLIGHT_PHASES.POWERED_FLIGHT,
+            coastingAscent:phaseName === FLIGHT_PHASES.COASTING,
+            established:index >= 4,
+            currentAltitudeM:point.altitudeM,
+            apogeeAltitudeM:sharedApogeeAltitudeM,
+            hasFutureApogee:index < sharedApogeePointIndex
+          }
+        );
+        point.verticalSpeedMps = phaseName === FLIGHT_PHASES.LANDED
+          ? 0
+          : sharedVerticalSpeedMps;
+      });
       rawPoints.forEach((point)=>{
         point.eastM = gpsAvailable && isFinite(point.lon) ? (point.lon - baseLon) * metersPerLon : 0;
         point.northM = gpsAvailable && isFinite(point.lat) ? (point.lat - baseLat) * 111320 : 0;
@@ -34186,6 +34358,55 @@ function requestMobileMockup3dMesh(){
         point.gpsNorthM = point.northM;
         point.positionSource = gpsAvailable ? "GPS" : "VERTICAL_ONLY";
       });
+      if(gpsAvailable && gpsFixes.length >= 2){
+        const fixVelocity = new Array(gpsFixes.length).fill(null);
+        let filteredVelocityEastMps = 0;
+        let filteredVelocityNorthMps = 0;
+        let velocityReady = false;
+        for(let fixIndex = 0; fixIndex < gpsFixes.length; fixIndex++){
+          const leftIndex = Math.max(0, fixIndex - 1);
+          const rightIndex = Math.min(gpsFixes.length - 1, fixIndex + 1);
+          const left = gpsFixes[leftIndex];
+          const right = gpsFixes[rightIndex];
+          const dtSec = right.elapsedSec - left.elapsedSec;
+          let velocityEastMps = 0;
+          let velocityNorthMps = 0;
+          if(dtSec >= 0.18){
+            velocityEastMps = ((right.lon - left.lon) * metersPerLon) / dtSec;
+            velocityNorthMps = ((right.lat - left.lat) * 111320) / dtSec;
+          }
+          const rawSpeedMps = Math.hypot(velocityEastMps, velocityNorthMps);
+          if(!isFinite(rawSpeedMps) || rawSpeedMps > 160){
+            velocityEastMps = velocityReady ? filteredVelocityEastMps : 0;
+            velocityNorthMps = velocityReady ? filteredVelocityNorthMps : 0;
+          }
+          if(!velocityReady){
+            filteredVelocityEastMps = velocityEastMps;
+            filteredVelocityNorthMps = velocityNorthMps;
+            velocityReady = true;
+          }else{
+            filteredVelocityEastMps += (velocityEastMps - filteredVelocityEastMps) * 0.42;
+            filteredVelocityNorthMps += (velocityNorthMps - filteredVelocityNorthMps) * 0.42;
+          }
+          fixVelocity[fixIndex] = {
+            eastMps:filteredVelocityEastMps,
+            northMps:filteredVelocityNorthMps
+          };
+        }
+        let activeFixIndex = 0;
+        rawPoints.forEach((point)=>{
+          while(
+            activeFixIndex + 1 < gpsFixes.length &&
+            gpsFixes[activeFixIndex + 1].index <= point.pointIndex
+          ){
+            activeFixIndex++;
+          }
+          const velocity = fixVelocity[activeFixIndex];
+          point.horizontalSpeedMps = velocity
+            ? Math.hypot(velocity.eastMps, velocity.northMps)
+            : 0;
+        });
+      }
       let positionMode = gpsAvailable ? "GPS" : "VERTICAL_ONLY";
       let imuAssistEndElapsedSec = null;
       if(GYRO_ABSOLUTE_TRAJECTORY_ENABLED && gpsAvailable && rawPoints.length > 20 && gpsFixes.length > 1){
@@ -34367,9 +34588,9 @@ function requestMobileMockup3dMesh(){
         }
       }
 
-      // Absolute heading is unavailable, so the report uses a launch-relative
-      // IMU frame. GPS remains in the source columns for reference only.
-      if(rawPoints.length > 1){
+      // Without usable GPS, absolute heading is unavailable and the report
+      // falls back to a launch-relative model-rocket frame.
+      if(rawPoints.length > 1 && (!gpsAvailable || gpsFixes.length < 2)){
         const normalize3 = (vector)=>{
           const magnitude = Math.hypot(vector[0], vector[1], vector[2]);
           return magnitude > 1e-9
@@ -34435,6 +34656,14 @@ function requestMobileMockup3dMesh(){
             let fusedVerticalSpeedMps = 0;
             let speedEstimatorBurnout = false;
             let lowThrustHoldSec = 0;
+            let apogeePointIndex = 0;
+            let apogeeAltitudeM = -Infinity;
+            rawPoints.forEach((candidatePoint, candidateIndex)=>{
+              if(candidatePoint.altitudeM > apogeeAltitudeM){
+                apogeeAltitudeM = candidatePoint.altitudeM;
+                apogeePointIndex = candidateIndex;
+              }
+            });
             rawPoints[0].eastM = 0;
             rawPoints[0].northM = 0;
             rawPoints[0].positionSource = "IMU_LOCAL";
@@ -34534,38 +34763,14 @@ function requestMobileMockup3dMesh(){
                     Math.max(0, point.altitudeM - launchAltitudeM)
                   );
                 }
-                let effectiveAccelX = filteredAccelX *
-                  dynamics.accelGain * horizontalAcceptance;
-                let effectiveAccelZ = filteredAccelZ *
-                  dynamics.accelGain * horizontalAcceptance;
-                const effectiveAccelMagnitude = Math.hypot(effectiveAccelX, effectiveAccelZ);
-                if(effectiveAccelMagnitude > dynamics.maxAccel && dynamics.maxAccel > 0){
-                  const accelScale = dynamics.maxAccel / effectiveAccelMagnitude;
-                  effectiveAccelX *= accelScale;
-                  effectiveAccelZ *= accelScale;
-                }
-                const speedBefore = Math.hypot(velocityX, velocityZ);
-                const densityRatio = Math.exp(-Math.max(0, point.altitudeM) / 8500);
-                const dragRate = dynamics.linearDrag +
-                  (dynamics.quadraticDrag * densityRatio * speedBefore);
-                positionX += (velocityX * dt) + (0.5 * effectiveAccelX * dt * dt);
-                positionZ += (velocityZ * dt) + (0.5 * effectiveAccelZ * dt * dt);
-                const dragFactor = Math.exp(-dragRate * dt);
-                velocityX = (velocityX + (effectiveAccelX * dt)) * dragFactor;
-                velocityZ = (velocityZ + (effectiveAccelZ * dt)) * dragFactor;
-                const speed = Math.hypot(velocityX, velocityZ);
-                const speedLimit = dynamics.maxSpeed;
-                if(speed > speedLimit && speedLimit > 0){
-                  const speedScale = speedLimit / speed;
-                  velocityX *= speedScale;
-                  velocityZ *= speedScale;
-                }
                 if(phaseName === FLIGHT_PHASES.LANDED){
                   velocityX = 0;
                   velocityZ = 0;
                   fusedVerticalSpeedMps = 0;
                 }else{
-                  const barometricVerticalSpeedMps = Number(verticalSpeeds[index]);
+                  const barometricVerticalSpeedMps = Number(
+                    verticalSpeeds[point.sourceIndex]
+                  );
                   fusedVerticalSpeedMps = updateReportVerticalSpeedMps(
                     fusedVerticalSpeedMps,
                     filteredVerticalAccelMps2,
@@ -34575,10 +34780,33 @@ function requestMobileMockup3dMesh(){
                       powered:!speedEstimatorBurnout &&
                         phaseName === FLIGHT_PHASES.POWERED_FLIGHT,
                       coastingAscent:speedEstimatorBurnout,
-                      established:launchAgeSec >= 0.45
+                      established:launchAgeSec >= 0.45,
+                      currentAltitudeM:point.altitudeM,
+                      apogeeAltitudeM,
+                      hasFutureApogee:index < apogeePointIndex
                     }
                   );
                 }
+
+                const rocketAxisWorld = normalize3(rotateByQuat(quat, up)) || up;
+                const horizontalMotion = updateModelRocketHorizontalMotion(
+                  {velocityX, velocityZ, positionX, positionZ},
+                  {
+                    dtSec:dt,
+                    phase:phaseName,
+                    verticalSpeedMps:fusedVerticalSpeedMps,
+                    axisX:dot3(rocketAxisWorld, horizontalX),
+                    axisZ:dot3(rocketAxisWorld, horizontalZ),
+                    axisUp:dot3(rocketAxisWorld, up),
+                    accelX:filteredAccelX,
+                    accelZ:filteredAccelZ,
+                    horizontalAcceptance
+                  }
+                );
+                velocityX = horizontalMotion.velocityX;
+                velocityZ = horizontalMotion.velocityZ;
+                positionX = horizontalMotion.positionX;
+                positionZ = horizontalMotion.positionZ;
               }
               point.eastM = positionX;
               point.northM = positionZ;
@@ -34597,10 +34825,14 @@ function requestMobileMockup3dMesh(){
       // short-window barometric slope removes integration drift. Differentiating the
       // reconstructed positions here would amplify trajectory corrections
       // and GPS jitter into non-physical speed spikes.
-      const trajectorySpeedMps = buildTrajectoryScalarSpeedSeries(
+      const rawTrajectorySpeedMps = buildTrajectoryScalarSpeedSeries(
         rawPoints,
         verticalSpeeds
       );
+      const trajectorySpeedMps = new Array(sourceRows.length).fill(NaN);
+      rawPoints.forEach((point, index)=>{
+        trajectorySpeedMps[point.sourceIndex] = rawTrajectorySpeedMps[index];
+      });
       let stageSeparationEvent = null;
       let ejectionEvent = null;
       let previousDeploymentState = NaN;
@@ -34664,10 +34896,13 @@ function requestMobileMockup3dMesh(){
       const dataRows = [[
         "ELAPSED_S", "LOCAL_X_M", "LOCAL_Z_M", "ALTITUDE_M",
         "GPS_LAT_REFERENCE", "GPS_LON_REFERENCE", "POSITION_SOURCE",
-        "GPS_EAST_M_REFERENCE", "GPS_NORTH_M_REFERENCE", "EVENT"
+        "GPS_EAST_M_REFERENCE", "GPS_NORTH_M_REFERENCE",
+        "HORIZONTAL_SPEED_MPS", "VERTICAL_SPEED_MPS",
+        "ESTIMATED_SPEED_MPS", "SPEED_SOURCE", "EVENT"
       ]];
       points.forEach((point)=>{
         const pointIndex = point.pointIndex;
+        const estimatedSpeedMps = Number(rawTrajectorySpeedMps[pointIndex]);
         const eventLabels = [];
         if(stageSeparationEvent && pointIndex === stageSeparationEvent.index) eventLabels.push("STAGE_SEPARATION_CH1");
         if(ejectionEvent && pointIndex === ejectionEvent.index) eventLabels.push("EJECTION_CH2");
@@ -34681,6 +34916,18 @@ function requestMobileMockup3dMesh(){
           point.positionSource,
           Number(point.gpsEastM.toFixed(3)),
           Number(point.gpsNorthM.toFixed(3)),
+          isFinite(point.horizontalSpeedMps)
+            ? Number(point.horizontalSpeedMps.toFixed(3))
+            : "",
+          isFinite(point.verticalSpeedMps)
+            ? Number(point.verticalSpeedMps.toFixed(3))
+            : "",
+          isFinite(estimatedSpeedMps)
+            ? Number(estimatedSpeedMps.toFixed(3))
+            : "",
+          gpsAvailable && gpsFixes.length >= 2
+            ? "GPS + BARO"
+            : "MODEL ROCKET FUSION",
           eventLabels.join(" + ")
         ]);
       });
@@ -34780,7 +35027,7 @@ function requestMobileMockup3dMesh(){
       ctx.font = "500 18px Arial, sans-serif";
       ctx.fillText(
         positionMode === "IMU_LOCAL"
-          ? "LOCAL IMU TRAJECTORY / BAROMETRIC ALTITUDE · NO ABSOLUTE HEADING"
+          ? "MODEL-CONSTRAINED LOCAL TRAJECTORY / BAROMETRIC ALTITUDE · NO ABSOLUTE HEADING"
           : (positionMode === "IMU_GPS_FUSION"
             ? "IMU-ASSISTED EAST / NORTH + GPS / BAROMETRIC ALTITUDE"
             : (gpsAvailable ? "GPS EAST / NORTH / BAROMETRIC ALTITUDE" : "GPS UNAVAILABLE / VERTICAL PROFILE")),
@@ -38301,9 +38548,14 @@ function requestMobileMockup3dMesh(){
               reportFastAltitudeSpeedMps
             );
             const reportActualSpeedMps = exportRows.map((row, index)=>{
+              const recordedSpeedSource = String(
+                row && row.actual_speed_source || ""
+              ).trim().toUpperCase();
               const recordedSpeedIsTrusted =
                 !usingReplayExport ||
-                Number(row && row.actual_speed_recorded) === 1;
+                recordedSpeedSource === "IMPORTED" ||
+                recordedSpeedSource === "SENSOR" ||
+                recordedSpeedSource === "GPS";
               const recordedSpeedMps = recordedSpeedIsTrusted
                 ? rowFiniteOrNaN(row && (row.actual_speed_mps ?? row.speed_mps))
                 : NaN;
@@ -38522,7 +38774,7 @@ function requestMobileMockup3dMesh(){
                 },
                 {
                   title:"VEHICLE SPEED",
-                  subtitle:"ALTITUDE + IMU FUSED SPEED",
+                  subtitle:"MODEL-CONSTRAINED BARO + IMU SPEED",
                   axisYTitle:"SPEED (m/s)",
                   yMin:speedAxis.min,
                   yMax:speedAxis.max,
@@ -38605,7 +38857,7 @@ function requestMobileMockup3dMesh(){
               },
               chart2:{
                 title:"VEHICLE SPEED",
-                subtitle:"ALTITUDE + IMU FUSED SPEED",
+                subtitle:"MODEL-CONSTRAINED BARO + IMU SPEED",
                 axisYTitle:"SPEED (m/s)",
                 majorUnit:speedUnit,
                 yMin:speedAxis.min,

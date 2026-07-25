@@ -2577,9 +2577,14 @@
               reportFastAltitudeSpeedMps
             );
             const reportActualSpeedMps = exportRows.map((row, index)=>{
+              const recordedSpeedSource = String(
+                row && row.actual_speed_source || ""
+              ).trim().toUpperCase();
               const recordedSpeedIsTrusted =
                 !usingReplayExport ||
-                Number(row && row.actual_speed_recorded) === 1;
+                recordedSpeedSource === "IMPORTED" ||
+                recordedSpeedSource === "SENSOR" ||
+                recordedSpeedSource === "GPS";
               const recordedSpeedMps = recordedSpeedIsTrusted
                 ? rowFiniteOrNaN(row && (row.actual_speed_mps ?? row.speed_mps))
                 : NaN;
@@ -2798,7 +2803,7 @@
                 },
                 {
                   title:"VEHICLE SPEED",
-                  subtitle:"ALTITUDE + IMU FUSED SPEED",
+                  subtitle:"MODEL-CONSTRAINED BARO + IMU SPEED",
                   axisYTitle:"SPEED (m/s)",
                   yMin:speedAxis.min,
                   yMax:speedAxis.max,
@@ -2881,7 +2886,7 @@
               },
               chart2:{
                 title:"VEHICLE SPEED",
-                subtitle:"ALTITUDE + IMU FUSED SPEED",
+                subtitle:"MODEL-CONSTRAINED BARO + IMU SPEED",
                 axisYTitle:"SPEED (m/s)",
                 majorUnit:speedUnit,
                 yMin:speedAxis.min,

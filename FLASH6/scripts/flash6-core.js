@@ -476,6 +476,89 @@ if (typeof window !== "undefined") {
       const smooth = (ratio)=>ratio * ratio * (3 - (2 * ratio));
       return Math.min(smooth(timeRatio), smooth(altitudeRatio));
     }
+    function updateModelRocketHorizontalMotion(state, input){
+      const motion = state || {};
+      const sample = input || {};
+      const dt = Math.max(0.001, Math.min(0.05, Number(sample.dtSec) || 0.01));
+      const phase = String(sample.phase || FLIGHT_PHASES.PRE_FLIGHT);
+      let velocityX = isFinite(Number(motion.velocityX)) ? Number(motion.velocityX) : 0;
+      let velocityZ = isFinite(Number(motion.velocityZ)) ? Number(motion.velocityZ) : 0;
+      let positionX = isFinite(Number(motion.positionX)) ? Number(motion.positionX) : 0;
+      let positionZ = isFinite(Number(motion.positionZ)) ? Number(motion.positionZ) : 0;
+
+      if(phase === FLIGHT_PHASES.PRE_FLIGHT || phase === FLIGHT_PHASES.LANDED){
+        velocityX = 0;
+        velocityZ = 0;
+        return {velocityX, velocityZ, positionX, positionZ};
+      }
+
+      const verticalSpeedMps = Number(sample.verticalSpeedMps);
+      const acceptance = clampLocal(Number(sample.horizontalAcceptance) || 0, 0, 1);
+      if(phase === FLIGHT_PHASES.POWERED_FLIGHT){
+        const axisX = Number(sample.axisX) || 0;
+        const axisZ = Number(sample.axisZ) || 0;
+        const axisUp = Number(sample.axisUp);
+        const safeAxisUp = isFinite(axisUp) ? Math.max(0.55, axisUp) : 1;
+        let ratioX = axisX / safeAxisUp;
+        let ratioZ = axisZ / safeAxisUp;
+        const ratioMagnitude = Math.hypot(ratioX, ratioZ);
+        const maxTiltRatio = Math.tan(35 * DEG_TO_RAD);
+        if(ratioMagnitude > maxTiltRatio){
+          const ratioScale = maxTiltRatio / ratioMagnitude;
+          ratioX *= ratioScale;
+          ratioZ *= ratioScale;
+        }
+        const positiveVerticalSpeedMps = Math.max(0, isFinite(verticalSpeedMps)
+          ? verticalSpeedMps
+          : 0);
+        const targetLimitMps = Math.min(
+          16,
+          Math.max(0.75, (positiveVerticalSpeedMps * 0.40) + 0.5)
+        );
+        let targetVelocityX = positiveVerticalSpeedMps * ratioX * acceptance;
+        let targetVelocityZ = positiveVerticalSpeedMps * ratioZ * acceptance;
+        const targetSpeedMps = Math.hypot(targetVelocityX, targetVelocityZ);
+        if(targetSpeedMps > targetLimitMps){
+          const targetScale = targetLimitMps / targetSpeedMps;
+          targetVelocityX *= targetScale;
+          targetVelocityZ *= targetScale;
+        }
+
+        // During powered flight a fin-stabilized model rocket's velocity vector
+        // follows its longitudinal axis. Attitude therefore provides a much
+        // safer horizontal constraint than unrestricted double integration.
+        const steeringAlpha = 1 - Math.exp(-dt / 0.24);
+        velocityX += (targetVelocityX - velocityX) * steeringAlpha;
+        velocityZ += (targetVelocityZ - velocityZ) * steeringAlpha;
+
+        // Retain only a small lateral-IMU correction. This captures genuine
+        // weathercocking while preventing vibration/bias from creating range.
+        velocityX += clampLocal(Number(sample.accelX) || 0, -5, 5) *
+          0.08 * acceptance * dt;
+        velocityZ += clampLocal(Number(sample.accelZ) || 0, -5, 5) *
+          0.08 * acceptance * dt;
+      }
+
+      const dragRate = phase === FLIGHT_PHASES.POWERED_FLIGHT
+        ? 0.035
+        : (phase === FLIGHT_PHASES.COASTING ? 0.055 : 0.22);
+      const dragFactor = Math.exp(-dragRate * dt);
+      velocityX *= dragFactor;
+      velocityZ *= dragFactor;
+
+      const phaseSpeedLimitMps = phase === FLIGHT_PHASES.POWERED_FLIGHT
+        ? 16
+        : (phase === FLIGHT_PHASES.COASTING ? 18 : 10);
+      const horizontalSpeedMps = Math.hypot(velocityX, velocityZ);
+      if(horizontalSpeedMps > phaseSpeedLimitMps){
+        const speedScale = phaseSpeedLimitMps / horizontalSpeedMps;
+        velocityX *= speedScale;
+        velocityZ *= speedScale;
+      }
+      positionX += velocityX * dt;
+      positionZ += velocityZ * dt;
+      return {velocityX, velocityZ, positionX, positionZ};
+    }
     const GYRO_CAPTURE_SPRING = 7.5;
     const GYRO_CAPTURE_DRAG_ACTIVE = 2.6;
     const GYRO_CAPTURE_DRAG_IDLE = 6.5;
@@ -4403,48 +4486,45 @@ function requestMobileMockup3dMesh(){
           gyroPathState.fusionVelX = 0;
           gyroPathState.fusionVelZ = 0;
         }
-        let effectiveAccelX = gyroPathState.fusionAccelX *
-          dynamics.accelGain * poweredHorizontalAcceptance;
-        let effectiveAccelZ = gyroPathState.fusionAccelZ *
-          dynamics.accelGain * poweredHorizontalAcceptance;
-        const effectiveAccelMagnitude = Math.hypot(effectiveAccelX, effectiveAccelZ);
-        if(effectiveAccelMagnitude > dynamics.maxAccel && dynamics.maxAccel > 0){
-          const accelScale = dynamics.maxAccel / effectiveAccelMagnitude;
-          effectiveAccelX *= accelScale;
-          effectiveAccelZ *= accelScale;
-        }
         const steps = Math.max(1, Math.ceil(dtSec / GYRO_FUSION_STEP_SEC));
         const stepDt = dtSec / steps;
         for(let step=0;step<steps;step++){
-          const speedBefore = Math.hypot(
-            gyroPathState.fusionVelX,
-            gyroPathState.fusionVelZ
+          let rocketAxisWorld = gyroAttitudeReady
+            ? quatRotateVector(gyroAttitudeQuat, [0, 1, 0])
+            : [0, 1, 0];
+          if(gyroPathState.fusionImuYawReady){
+            const alignedAxis = rotateGyroFusionHorizontal(
+              rocketAxisWorld[0],
+              rocketAxisWorld[2],
+              gyroPathState.fusionImuYawOffsetRad
+            );
+            rocketAxisWorld = [alignedAxis.x, rocketAxisWorld[1], alignedAxis.z];
+          }
+          const horizontalMotion = updateModelRocketHorizontalMotion(
+            {
+              velocityX:gyroPathState.fusionVelX,
+              velocityZ:gyroPathState.fusionVelZ,
+              positionX:gyroPathState.fusionPosX,
+              positionZ:gyroPathState.fusionPosZ
+            },
+            {
+              dtSec:stepDt,
+              phase,
+              verticalSpeedMps:gyroPathState.fusionVelY,
+              axisX:rocketAxisWorld[0],
+              axisZ:rocketAxisWorld[2],
+              axisUp:rocketAxisWorld[1],
+              accelX:gyroPathState.fusionAccelX,
+              accelZ:gyroPathState.fusionAccelZ,
+              horizontalAcceptance:gyroPathState.fusionRailLocked
+                ? 0
+                : poweredHorizontalAcceptance
+            }
           );
-          const densityRatio = Math.exp(
-            -Math.max(0, gyroPathState.fusionPosY) / 8500
-          );
-          const dragRate = dynamics.linearDrag +
-            (dynamics.quadraticDrag * densityRatio * speedBefore);
-          gyroPathState.fusionPosX +=
-            (gyroPathState.fusionVelX * stepDt) +
-            (0.5 * effectiveAccelX * stepDt * stepDt);
-          gyroPathState.fusionPosZ +=
-            (gyroPathState.fusionVelZ * stepDt) +
-            (0.5 * effectiveAccelZ * stepDt * stepDt);
-          const dragFactor = Math.exp(-dragRate * stepDt);
-          gyroPathState.fusionVelX =
-            (gyroPathState.fusionVelX + (effectiveAccelX * stepDt)) * dragFactor;
-          gyroPathState.fusionVelZ =
-            (gyroPathState.fusionVelZ + (effectiveAccelZ * stepDt)) * dragFactor;
-        }
-        const horizontalSpeed = Math.hypot(
-          gyroPathState.fusionVelX,
-          gyroPathState.fusionVelZ
-        );
-        if(horizontalSpeed > dynamics.maxSpeed && dynamics.maxSpeed > 0){
-          const speedScale = dynamics.maxSpeed / horizontalSpeed;
-          gyroPathState.fusionVelX *= speedScale;
-          gyroPathState.fusionVelZ *= speedScale;
+          gyroPathState.fusionVelX = horizontalMotion.velocityX;
+          gyroPathState.fusionVelZ = horizontalMotion.velocityZ;
+          gyroPathState.fusionPosX = horizontalMotion.positionX;
+          gyroPathState.fusionPosZ = horizontalMotion.positionZ;
         }
         predictGyroFusionCovariance(dtSec, dynamics.processNoise);
         if(phase === FLIGHT_PHASES.LANDED){

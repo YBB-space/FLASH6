@@ -509,7 +509,10 @@
       return sourcePoints.map((point, index)=>{
         const horizontalSpeedMps = Number(point && point.horizontalSpeedMps);
         const fusedVerticalSpeedMps = Number(point && point.verticalSpeedMps);
-        const fallbackVerticalSpeedMps = Number(verticalSpeeds[index]);
+        const sourceIndex = Number(point && point.sourceIndex);
+        const fallbackVerticalSpeedMps = Number(
+          verticalSpeeds[Number.isInteger(sourceIndex) ? sourceIndex : index]
+        );
         const verticalSpeedMps = isFinite(fusedVerticalSpeedMps)
           ? fusedVerticalSpeedMps
           : fallbackVerticalSpeedMps;
@@ -554,7 +557,27 @@
       let candidate = previous + (accel * dt);
       const barometric = Number(barometricSpeedMps);
       if(isFinite(barometric)){
-        const target = clampLocal(barometric, -120, 120);
+        let target = clampLocal(barometric, -120, 120);
+        const currentAltitudeM = Number(settings.currentAltitudeM);
+        const apogeeAltitudeM = Number(settings.apogeeAltitudeM);
+        if(
+          settings.hasFutureApogee &&
+          target > 0 &&
+          isFinite(currentAltitudeM) &&
+          isFinite(apogeeAltitudeM) &&
+          apogeeAltitudeM > currentAltitudeM
+        ){
+          // A model rocket cannot retain more vertical kinetic energy than its
+          // remaining climb can absorb. The margin covers aerodynamic drag,
+          // pressure lag, and thrust that is still active.
+          const remainingHeightM = Math.max(0, apogeeAltitudeM - currentAltitudeM);
+          const energyFactor = powered ? 1.30 : 1.18;
+          const energyMarginMps = powered ? 4.0 : 1.5;
+          const energyLimitMps =
+            (Math.sqrt(2 * GYRO_IMU_GRAVITY_MPS2 * remainingHeightM) * energyFactor) +
+            energyMarginMps;
+          target = Math.min(target, energyLimitMps);
+        }
         const correctionAlpha = 1 - Math.exp(-dt / 0.32);
         candidate += (target - candidate) * correctionAlpha;
         if(established){
@@ -613,6 +636,7 @@
           : elapsedSec;
         rawPoints.push({
           pointIndex:rawPoints.length,
+          sourceIndex:index,
           elapsedSec,
           altitudeM,
           lat:validGps ? lat : NaN,
@@ -704,6 +728,50 @@
 
       const gpsAvailable = isFinite(baseLat) && isFinite(baseLon);
       const metersPerLon = gpsAvailable ? 111320 * Math.cos(baseLat * DEG_TO_RAD) : 1;
+      let sharedApogeePointIndex = 0;
+      let sharedApogeeAltitudeM = -Infinity;
+      rawPoints.forEach((point, index)=>{
+        if(point.altitudeM > sharedApogeeAltitudeM){
+          sharedApogeeAltitudeM = point.altitudeM;
+          sharedApogeePointIndex = index;
+        }
+      });
+      let sharedVerticalSpeedMps = 0;
+      rawPoints.forEach((point, index)=>{
+        if(index === 0){
+          point.verticalSpeedMps = 0;
+          return;
+        }
+        const previous = rawPoints[index - 1];
+        const dt = Math.max(0.001, Math.min(0.05, point.elapsedSec - previous.elapsedSec));
+        const sourceVerticalSpeedMps = Number(verticalSpeeds[point.sourceIndex]);
+        let phaseName = FLIGHT_PHASE_CODE_NAMES[point.flightPhaseCode] || "";
+        if(!phaseName){
+          const launchAgeSec = point.elapsedSec - rawPoints[0].elapsedSec;
+          phaseName = launchAgeSec < 2.2
+            ? FLIGHT_PHASES.POWERED_FLIGHT
+            : (index < sharedApogeePointIndex
+              ? FLIGHT_PHASES.COASTING
+              : FLIGHT_PHASES.DESCENT);
+        }
+        sharedVerticalSpeedMps = updateReportVerticalSpeedMps(
+          sharedVerticalSpeedMps,
+          0,
+          sourceVerticalSpeedMps,
+          dt,
+          {
+            powered:phaseName === FLIGHT_PHASES.POWERED_FLIGHT,
+            coastingAscent:phaseName === FLIGHT_PHASES.COASTING,
+            established:index >= 4,
+            currentAltitudeM:point.altitudeM,
+            apogeeAltitudeM:sharedApogeeAltitudeM,
+            hasFutureApogee:index < sharedApogeePointIndex
+          }
+        );
+        point.verticalSpeedMps = phaseName === FLIGHT_PHASES.LANDED
+          ? 0
+          : sharedVerticalSpeedMps;
+      });
       rawPoints.forEach((point)=>{
         point.eastM = gpsAvailable && isFinite(point.lon) ? (point.lon - baseLon) * metersPerLon : 0;
         point.northM = gpsAvailable && isFinite(point.lat) ? (point.lat - baseLat) * 111320 : 0;
@@ -711,6 +779,55 @@
         point.gpsNorthM = point.northM;
         point.positionSource = gpsAvailable ? "GPS" : "VERTICAL_ONLY";
       });
+      if(gpsAvailable && gpsFixes.length >= 2){
+        const fixVelocity = new Array(gpsFixes.length).fill(null);
+        let filteredVelocityEastMps = 0;
+        let filteredVelocityNorthMps = 0;
+        let velocityReady = false;
+        for(let fixIndex = 0; fixIndex < gpsFixes.length; fixIndex++){
+          const leftIndex = Math.max(0, fixIndex - 1);
+          const rightIndex = Math.min(gpsFixes.length - 1, fixIndex + 1);
+          const left = gpsFixes[leftIndex];
+          const right = gpsFixes[rightIndex];
+          const dtSec = right.elapsedSec - left.elapsedSec;
+          let velocityEastMps = 0;
+          let velocityNorthMps = 0;
+          if(dtSec >= 0.18){
+            velocityEastMps = ((right.lon - left.lon) * metersPerLon) / dtSec;
+            velocityNorthMps = ((right.lat - left.lat) * 111320) / dtSec;
+          }
+          const rawSpeedMps = Math.hypot(velocityEastMps, velocityNorthMps);
+          if(!isFinite(rawSpeedMps) || rawSpeedMps > 160){
+            velocityEastMps = velocityReady ? filteredVelocityEastMps : 0;
+            velocityNorthMps = velocityReady ? filteredVelocityNorthMps : 0;
+          }
+          if(!velocityReady){
+            filteredVelocityEastMps = velocityEastMps;
+            filteredVelocityNorthMps = velocityNorthMps;
+            velocityReady = true;
+          }else{
+            filteredVelocityEastMps += (velocityEastMps - filteredVelocityEastMps) * 0.42;
+            filteredVelocityNorthMps += (velocityNorthMps - filteredVelocityNorthMps) * 0.42;
+          }
+          fixVelocity[fixIndex] = {
+            eastMps:filteredVelocityEastMps,
+            northMps:filteredVelocityNorthMps
+          };
+        }
+        let activeFixIndex = 0;
+        rawPoints.forEach((point)=>{
+          while(
+            activeFixIndex + 1 < gpsFixes.length &&
+            gpsFixes[activeFixIndex + 1].index <= point.pointIndex
+          ){
+            activeFixIndex++;
+          }
+          const velocity = fixVelocity[activeFixIndex];
+          point.horizontalSpeedMps = velocity
+            ? Math.hypot(velocity.eastMps, velocity.northMps)
+            : 0;
+        });
+      }
       let positionMode = gpsAvailable ? "GPS" : "VERTICAL_ONLY";
       let imuAssistEndElapsedSec = null;
       if(GYRO_ABSOLUTE_TRAJECTORY_ENABLED && gpsAvailable && rawPoints.length > 20 && gpsFixes.length > 1){
@@ -892,9 +1009,9 @@
         }
       }
 
-      // Absolute heading is unavailable, so the report uses a launch-relative
-      // IMU frame. GPS remains in the source columns for reference only.
-      if(rawPoints.length > 1){
+      // Without usable GPS, absolute heading is unavailable and the report
+      // falls back to a launch-relative model-rocket frame.
+      if(rawPoints.length > 1 && (!gpsAvailable || gpsFixes.length < 2)){
         const normalize3 = (vector)=>{
           const magnitude = Math.hypot(vector[0], vector[1], vector[2]);
           return magnitude > 1e-9
@@ -960,6 +1077,14 @@
             let fusedVerticalSpeedMps = 0;
             let speedEstimatorBurnout = false;
             let lowThrustHoldSec = 0;
+            let apogeePointIndex = 0;
+            let apogeeAltitudeM = -Infinity;
+            rawPoints.forEach((candidatePoint, candidateIndex)=>{
+              if(candidatePoint.altitudeM > apogeeAltitudeM){
+                apogeeAltitudeM = candidatePoint.altitudeM;
+                apogeePointIndex = candidateIndex;
+              }
+            });
             rawPoints[0].eastM = 0;
             rawPoints[0].northM = 0;
             rawPoints[0].positionSource = "IMU_LOCAL";
@@ -1059,38 +1184,14 @@
                     Math.max(0, point.altitudeM - launchAltitudeM)
                   );
                 }
-                let effectiveAccelX = filteredAccelX *
-                  dynamics.accelGain * horizontalAcceptance;
-                let effectiveAccelZ = filteredAccelZ *
-                  dynamics.accelGain * horizontalAcceptance;
-                const effectiveAccelMagnitude = Math.hypot(effectiveAccelX, effectiveAccelZ);
-                if(effectiveAccelMagnitude > dynamics.maxAccel && dynamics.maxAccel > 0){
-                  const accelScale = dynamics.maxAccel / effectiveAccelMagnitude;
-                  effectiveAccelX *= accelScale;
-                  effectiveAccelZ *= accelScale;
-                }
-                const speedBefore = Math.hypot(velocityX, velocityZ);
-                const densityRatio = Math.exp(-Math.max(0, point.altitudeM) / 8500);
-                const dragRate = dynamics.linearDrag +
-                  (dynamics.quadraticDrag * densityRatio * speedBefore);
-                positionX += (velocityX * dt) + (0.5 * effectiveAccelX * dt * dt);
-                positionZ += (velocityZ * dt) + (0.5 * effectiveAccelZ * dt * dt);
-                const dragFactor = Math.exp(-dragRate * dt);
-                velocityX = (velocityX + (effectiveAccelX * dt)) * dragFactor;
-                velocityZ = (velocityZ + (effectiveAccelZ * dt)) * dragFactor;
-                const speed = Math.hypot(velocityX, velocityZ);
-                const speedLimit = dynamics.maxSpeed;
-                if(speed > speedLimit && speedLimit > 0){
-                  const speedScale = speedLimit / speed;
-                  velocityX *= speedScale;
-                  velocityZ *= speedScale;
-                }
                 if(phaseName === FLIGHT_PHASES.LANDED){
                   velocityX = 0;
                   velocityZ = 0;
                   fusedVerticalSpeedMps = 0;
                 }else{
-                  const barometricVerticalSpeedMps = Number(verticalSpeeds[index]);
+                  const barometricVerticalSpeedMps = Number(
+                    verticalSpeeds[point.sourceIndex]
+                  );
                   fusedVerticalSpeedMps = updateReportVerticalSpeedMps(
                     fusedVerticalSpeedMps,
                     filteredVerticalAccelMps2,
@@ -1100,10 +1201,33 @@
                       powered:!speedEstimatorBurnout &&
                         phaseName === FLIGHT_PHASES.POWERED_FLIGHT,
                       coastingAscent:speedEstimatorBurnout,
-                      established:launchAgeSec >= 0.45
+                      established:launchAgeSec >= 0.45,
+                      currentAltitudeM:point.altitudeM,
+                      apogeeAltitudeM,
+                      hasFutureApogee:index < apogeePointIndex
                     }
                   );
                 }
+
+                const rocketAxisWorld = normalize3(rotateByQuat(quat, up)) || up;
+                const horizontalMotion = updateModelRocketHorizontalMotion(
+                  {velocityX, velocityZ, positionX, positionZ},
+                  {
+                    dtSec:dt,
+                    phase:phaseName,
+                    verticalSpeedMps:fusedVerticalSpeedMps,
+                    axisX:dot3(rocketAxisWorld, horizontalX),
+                    axisZ:dot3(rocketAxisWorld, horizontalZ),
+                    axisUp:dot3(rocketAxisWorld, up),
+                    accelX:filteredAccelX,
+                    accelZ:filteredAccelZ,
+                    horizontalAcceptance
+                  }
+                );
+                velocityX = horizontalMotion.velocityX;
+                velocityZ = horizontalMotion.velocityZ;
+                positionX = horizontalMotion.positionX;
+                positionZ = horizontalMotion.positionZ;
               }
               point.eastM = positionX;
               point.northM = positionZ;
@@ -1122,10 +1246,14 @@
       // short-window barometric slope removes integration drift. Differentiating the
       // reconstructed positions here would amplify trajectory corrections
       // and GPS jitter into non-physical speed spikes.
-      const trajectorySpeedMps = buildTrajectoryScalarSpeedSeries(
+      const rawTrajectorySpeedMps = buildTrajectoryScalarSpeedSeries(
         rawPoints,
         verticalSpeeds
       );
+      const trajectorySpeedMps = new Array(sourceRows.length).fill(NaN);
+      rawPoints.forEach((point, index)=>{
+        trajectorySpeedMps[point.sourceIndex] = rawTrajectorySpeedMps[index];
+      });
       let stageSeparationEvent = null;
       let ejectionEvent = null;
       let previousDeploymentState = NaN;
@@ -1189,10 +1317,13 @@
       const dataRows = [[
         "ELAPSED_S", "LOCAL_X_M", "LOCAL_Z_M", "ALTITUDE_M",
         "GPS_LAT_REFERENCE", "GPS_LON_REFERENCE", "POSITION_SOURCE",
-        "GPS_EAST_M_REFERENCE", "GPS_NORTH_M_REFERENCE", "EVENT"
+        "GPS_EAST_M_REFERENCE", "GPS_NORTH_M_REFERENCE",
+        "HORIZONTAL_SPEED_MPS", "VERTICAL_SPEED_MPS",
+        "ESTIMATED_SPEED_MPS", "SPEED_SOURCE", "EVENT"
       ]];
       points.forEach((point)=>{
         const pointIndex = point.pointIndex;
+        const estimatedSpeedMps = Number(rawTrajectorySpeedMps[pointIndex]);
         const eventLabels = [];
         if(stageSeparationEvent && pointIndex === stageSeparationEvent.index) eventLabels.push("STAGE_SEPARATION_CH1");
         if(ejectionEvent && pointIndex === ejectionEvent.index) eventLabels.push("EJECTION_CH2");
@@ -1206,6 +1337,18 @@
           point.positionSource,
           Number(point.gpsEastM.toFixed(3)),
           Number(point.gpsNorthM.toFixed(3)),
+          isFinite(point.horizontalSpeedMps)
+            ? Number(point.horizontalSpeedMps.toFixed(3))
+            : "",
+          isFinite(point.verticalSpeedMps)
+            ? Number(point.verticalSpeedMps.toFixed(3))
+            : "",
+          isFinite(estimatedSpeedMps)
+            ? Number(estimatedSpeedMps.toFixed(3))
+            : "",
+          gpsAvailable && gpsFixes.length >= 2
+            ? "GPS + BARO"
+            : "MODEL ROCKET FUSION",
           eventLabels.join(" + ")
         ]);
       });
@@ -1305,7 +1448,7 @@
       ctx.font = "500 18px Arial, sans-serif";
       ctx.fillText(
         positionMode === "IMU_LOCAL"
-          ? "LOCAL IMU TRAJECTORY / BAROMETRIC ALTITUDE · NO ABSOLUTE HEADING"
+          ? "MODEL-CONSTRAINED LOCAL TRAJECTORY / BAROMETRIC ALTITUDE · NO ABSOLUTE HEADING"
           : (positionMode === "IMU_GPS_FUSION"
             ? "IMU-ASSISTED EAST / NORTH + GPS / BAROMETRIC ALTITUDE"
             : (gpsAvailable ? "GPS EAST / NORTH / BAROMETRIC ALTITUDE" : "GPS UNAVAILABLE / VERTICAL PROFILE")),

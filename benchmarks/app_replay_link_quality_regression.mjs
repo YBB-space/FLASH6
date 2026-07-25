@@ -75,6 +75,11 @@ assert.match(
 );
 assert.match(
   replaySource,
+  /actual_speed_source:\(encodedActualSpeed & 0x8000\) \? "APP_DERIVED" : ""/,
+  "app V6 stored speed must be marked as a derived estimate"
+);
+assert.match(
+  replaySource,
   /const actualSpeedRecorded = Number\(sample\.actual_speed_recorded\) === 1/,
   "replay export must reject derived speed fields from legacy app recordings"
 );

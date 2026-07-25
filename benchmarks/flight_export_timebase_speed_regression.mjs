@@ -6,6 +6,10 @@ const reportSource = fs.readFileSync(
   new URL("../FLASH6/scripts/flash6-report.js", import.meta.url),
   "utf8"
 );
+const coreSource = fs.readFileSync(
+  new URL("../FLASH6/scripts/flash6-core.js", import.meta.url),
+  "utf8"
+);
 const bootstrapSource = fs.readFileSync(
   new URL("../FLASH6/scripts/flash6-bootstrap.js", import.meta.url),
   "utf8"
@@ -39,6 +43,15 @@ const context = {
     "DESCENT",
     "LANDED"
   ],
+  FLIGHT_PHASES:{
+    PRE_FLIGHT:"PRE_FLIGHT",
+    POWERED_FLIGHT:"POWERED_FLIGHT",
+    COASTING:"COASTING",
+    DESCENT:"DESCENT",
+    LANDED:"LANDED"
+  },
+  DEG_TO_RAD:Math.PI / 180,
+  GYRO_IMU_GRAVITY_MPS2:9.80665,
   currentLang:"ko",
   clampLocal:(value, min, max)=>Math.max(min, Math.min(max, value))
 };
@@ -63,6 +76,65 @@ vm.runInContext(
   "\nglobalThis.buildScalarSpeed = buildTrajectoryScalarSpeedSeries;" +
   "\nglobalThis.selectReportSpeed = selectReportScalarSpeedMps;" +
   "\nglobalThis.updateVerticalSpeed = updateReportVerticalSpeedMps;",
+  context
+);
+const horizontalHelperStart = coreSource.indexOf(
+  "function updateModelRocketHorizontalMotion"
+);
+const horizontalHelperEnd = coreSource.indexOf(
+  "const GYRO_CAPTURE_SPRING",
+  horizontalHelperStart
+);
+assert.ok(
+  horizontalHelperStart >= 0 && horizontalHelperEnd > horizontalHelperStart,
+  "model-rocket horizontal-motion helper not found"
+);
+vm.runInContext(
+  coreSource.slice(horizontalHelperStart, horizontalHelperEnd) +
+  "\nglobalThis.updateHorizontalMotion = updateModelRocketHorizontalMotion;",
+  context
+);
+const altitudeSpeedHelperStart = replaySource.indexOf(
+  "function deriveAltitudeSpeedSeries"
+);
+assert.ok(altitudeSpeedHelperStart >= 0, "altitude-speed helper not found");
+vm.runInContext(
+  replaySource.slice(altitudeSpeedHelperStart) +
+  "\nglobalThis.deriveAltitudeSpeed = deriveAltitudeSpeedSeries;",
+  context
+);
+context.GYRO_ABSOLUTE_TRAJECTORY_ENABLED = false;
+context.GYRO_FUSION_ACCEL_CLAMP_MPS2 = 220;
+context.GYRO_LOCAL_PHASE_DYNAMICS = {
+  PRE_FLIGHT:{accelTau:0.45},
+  POWERED_FLIGHT:{accelTau:0.15},
+  COASTING:{accelTau:0.22},
+  DESCENT:{accelTau:0.28},
+  LANDED:{accelTau:0.35}
+};
+context.getModelRocketLaunchHorizontalAcceptance = (ageSec, altitudeM)=>{
+  const timeRatio = Math.max(0, Math.min(1, (ageSec - 0.18) / 0.5));
+  const altitudeRatio = Math.max(0, Math.min(1, (altitudeM - 1.2) / 5.8));
+  const smooth = (ratio)=>ratio * ratio * (3 - (2 * ratio));
+  return Math.min(smooth(timeRatio), smooth(altitudeRatio));
+};
+context.flightPhaseCodeFromExportRow = (row)=>Number(row && row.flight_phase_code);
+context.missionAlarmSignalsPrimaryDeployment = ()=>false;
+context.missionAlarmSignalsSecondaryDeployment = ()=>false;
+const trajectoryHelperStart = reportSource.indexOf(
+  "function buildFlightTrajectory3dArtifact"
+);
+const trajectoryHelperEnd = reportSource.indexOf(
+  "function buildFlightTelemetryChartImages",
+  trajectoryHelperStart
+);
+assert.ok(
+  trajectoryHelperStart >= 0 && trajectoryHelperEnd > trajectoryHelperStart,
+  "trajectory artifact helper not found"
+);
+vm.runInContext(
+  reportSource.slice(trajectoryHelperStart, trajectoryHelperEnd) +
+  "\nglobalThis.buildTrajectoryArtifact = buildFlightTrajectory3dArtifact;",
   context
 );
 
@@ -157,6 +229,162 @@ assert.ok(
   coastingVerticalStep <= 33,
   "burnout-confirmed ascent must not form a second acceleration peak"
 );
+let energyBoundedVerticalSpeed = 0;
+for(let i = 0; i < 160; i++){
+  energyBoundedVerticalSpeed = context.updateVerticalSpeed(
+    energyBoundedVerticalSpeed,
+    30,
+    84,
+    0.01,
+    {
+      powered:true,
+      established:i >= 45,
+      currentAltitudeM:10,
+      apogeeAltitudeM:107,
+      hasFutureApogee:true
+    }
+  );
+}
+assert.ok(
+  energyBoundedVerticalSpeed < 66,
+  "barometric spikes must respect the measured apogee energy envelope"
+);
+
+let horizontalMotion = {
+  velocityX:0,
+  velocityZ:0,
+  positionX:0,
+  positionZ:0
+};
+for(let i = 0; i < 40; i++){
+  horizontalMotion = context.updateHorizontalMotion(horizontalMotion, {
+    dtSec:0.01,
+    phase:"POWERED_FLIGHT",
+    verticalSpeedMps:35,
+    axisX:0.22,
+    axisZ:0,
+    axisUp:0.976,
+    horizontalAcceptance:0
+  });
+}
+assert.equal(
+  horizontalMotion.positionX,
+  0,
+  "rail-constrained launch must not create horizontal travel"
+);
+for(let i = 0; i < 100; i++){
+  horizontalMotion = context.updateHorizontalMotion(horizontalMotion, {
+    dtSec:0.01,
+    phase:"POWERED_FLIGHT",
+    verticalSpeedMps:35,
+    axisX:0.22,
+    axisZ:0,
+    axisUp:0.976,
+    horizontalAcceptance:1
+  });
+}
+assert.ok(
+  horizontalMotion.positionX > 2 && horizontalMotion.positionX < 10,
+  "post-rail attitude must produce gradual, bounded horizontal curvature"
+);
+const coastVelocityBefore = horizontalMotion.velocityX;
+for(let i = 0; i < 100; i++){
+  horizontalMotion = context.updateHorizontalMotion(horizontalMotion, {
+    dtSec:0.01,
+    phase:"COASTING",
+    verticalSpeedMps:20,
+    axisX:-0.8,
+    axisZ:0,
+    axisUp:0.6,
+    horizontalAcceptance:1
+  });
+}
+assert.ok(
+  horizontalMotion.velocityX > 0 &&
+  horizontalMotion.velocityX < coastVelocityBefore,
+  "coasting attitude changes must not reverse the center-of-mass trajectory"
+);
+const altitudeTimesMs = Array.from({length:101}, (_unused, index)=>index * 10);
+const altitudeRampM = altitudeTimesMs.map((timeMs)=>timeMs * 0.02);
+altitudeRampM[50] += 40;
+const robustAltitudeSpeedMps = Array.from(
+  context.deriveAltitudeSpeed(altitudeTimesMs, altitudeRampM, 600)
+);
+assert.ok(
+  robustAltitudeSpeedMps.every((value)=>!isFinite(value) || Math.abs(value - 20) < 2),
+  "an isolated pressure/altitude glitch must not create a speed impulse"
+);
+
+const syntheticRows = [];
+const syntheticAltitudes = [];
+const syntheticVerticalSpeeds = [];
+let syntheticAltitudeM = 0;
+let syntheticVerticalSpeedMps = 0;
+for(let index = 0; index <= 1200; index++){
+  const elapsedSec = index * 0.01;
+  let phaseCode = 3;
+  let netAccelMps2 = 0;
+  if(elapsedSec <= 1.3){
+    phaseCode = 1;
+    netAccelMps2 = 30;
+  }else if(syntheticVerticalSpeedMps > 0){
+    phaseCode = 2;
+    netAccelMps2 = -9.80665;
+  }else{
+    phaseCode = 3;
+    syntheticVerticalSpeedMps += (-10 - syntheticVerticalSpeedMps) * 0.025;
+  }
+  if(phaseCode !== 3) syntheticVerticalSpeedMps += netAccelMps2 * 0.01;
+  syntheticAltitudeM = Math.max(
+    0,
+    syntheticAltitudeM + (syntheticVerticalSpeedMps * 0.01)
+  );
+  const vibration = phaseCode === 1
+    ? 0.08 * Math.sin(index * 0.73)
+    : 0.015 * Math.sin(index * 0.19);
+  syntheticRows.push({
+    elapsed:index * 10,
+    time:new Date(1_800_000_000_000 + (index * 10)).toISOString(),
+    alt_m:syntheticAltitudeM,
+    ax:vibration,
+    ay:vibration * 0.4,
+    az:phaseCode === 1
+      ? 1 + (30 / 9.80665) + vibration
+      : 0.05 + vibration,
+    gx:0,
+    gy:phaseCode === 1 && elapsedSec > 0.35 ? 4.5 : 0,
+    gz:0,
+    flight_phase_code:phaseCode,
+    deployment_state:0,
+    deployment_flags:0
+  });
+  syntheticAltitudes.push(syntheticAltitudeM);
+  syntheticVerticalSpeeds.push(syntheticVerticalSpeedMps);
+}
+const syntheticTrajectory = context.buildTrajectoryArtifact(
+  syntheticRows,
+  syntheticAltitudes,
+  "",
+  0,
+  syntheticVerticalSpeeds
+);
+const finiteSyntheticSpeeds = Array.from(syntheticTrajectory.actualSpeedMps)
+  .filter((value)=>isFinite(value));
+assert.equal(finiteSyntheticSpeeds[0], 0);
+assert.ok(
+  Math.max(...finiteSyntheticSpeeds) > 35 &&
+  Math.max(...finiteSyntheticSpeeds) < 60,
+  "nominal 100 m model-rocket flight must have a smooth, plausible peak speed"
+);
+const trajectoryHeader = Array.from(syntheticTrajectory.rows[0]);
+assert.ok(trajectoryHeader.includes("ESTIMATED_SPEED_MPS"));
+const earlyTrajectoryRow = syntheticTrajectory.rows.find((row)=>
+  Number(row[0]) >= 0.18
+);
+assert.ok(
+  earlyTrajectoryRow && Math.hypot(Number(earlyTrajectoryRow[1]), Number(earlyTrajectoryRow[2])) < 0.15,
+  "trajectory must remain nearly vertical while rail constrained"
+);
 
 assert.match(
   bootstrapSource,
@@ -193,8 +421,13 @@ assert.doesNotMatch(
 );
 assert.match(
   bootstrapSource,
-  /Number\(row && row\.actual_speed_recorded\) === 1/,
-  "replay export must trust only speed values explicitly present in the source file"
+  /recordedSpeedSource === "IMPORTED"/,
+  "replay export must re-estimate app-derived speed and trust only direct/imported speed"
+);
+assert.match(
+  replaySource,
+  /actual_speed_source:\(encodedActualSpeed & 0x8000\) \? "APP_DERIVED" : ""/,
+  "app V6 stored speed must retain derived provenance"
 );
 assert.doesNotMatch(
   replaySource.slice(
@@ -214,11 +447,19 @@ assert.doesNotMatch(
   /const measuredSpeedMps = distanceM \/ dtSec/,
   "scalar speed must not differentiate corrected 3D trajectory positions"
 );
+assert.match(
+  coreSource,
+  /updateModelRocketHorizontalMotion\(/,
+  "live gyro trajectory and report trajectory must share the model-rocket motion prior"
+);
 
 console.table([
   {scenario:"thrust first, ARM confirms later", tplusMs:thrustFirst.launchElapsedMs},
   {scenario:"ARM first", tplusMs:armFirst.launchElapsedMs},
   {scenario:"legacy phase before ARM", tplusMs:legacyWindow.launchElapsedMs},
-  {scenario:"coordinate jitter rejected", maxSpeedMps:Math.max(...filteredComponentSpeed)}
+  {scenario:"coordinate jitter rejected", maxSpeedMps:Math.max(...filteredComponentSpeed)},
+  {scenario:"energy-bounded vertical speed", maxSpeedMps:energyBoundedVerticalSpeed},
+  {scenario:"gradual horizontal curvature", rangeM:horizontalMotion.positionX},
+  {scenario:"synthetic 100 m flight", maxSpeedMps:Math.max(...finiteSyntheticSpeeds)}
 ]);
 console.log("Flight export timebase/speed regression: PASS");

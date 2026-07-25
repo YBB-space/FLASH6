@@ -3361,6 +3361,7 @@
             alt_m: isFinite(altReplay) ? altReplay : null,
             speed_mps: isFinite(speedReplay) ? speedReplay : null,
             actual_speed_recorded:isFinite(speedReplay) ? 1 : 0,
+            actual_speed_source:isFinite(speedReplay) ? "IMPORTED" : "",
             vertical_speed_mps: replayToNumber(col.verticalSpeedMps >= 0 ? row[col.verticalSpeedMps] : null, null),
             ax: axOut,
             ay: ayOut,
@@ -4313,6 +4314,7 @@
               ? ((encodedActualSpeed & 0x7FFF) / 10)
               : null,
             actual_speed_recorded:(encodedActualSpeed & 0x8000) ? 1 : 0,
+            actual_speed_source:(encodedActualSpeed & 0x8000) ? "APP_DERIVED" : "",
             s: (flags >>> 2) & 1,
             sp: (flags >>> 13) & 1,
             ic: 1,
@@ -4749,6 +4751,7 @@
           sample.vertical_speed_mps ?? sample.verticalSpeedMps
         );
         const actualSpeedRecorded = Number(sample.actual_speed_recorded) === 1;
+        const actualSpeedSource = String(sample.actual_speed_source || "").trim().toUpperCase();
         const speedMps = actualSpeedRecorded
           ? (
               asFiniteOrNull(sample.actual_speed_mps) ??
@@ -4783,6 +4786,7 @@
           alt_m: altM,
           speed_mps: speedMps,
           actual_speed_recorded:actualSpeedRecorded ? 1 : 0,
+          actual_speed_source:actualSpeedSource,
           vertical_speed_mps: recordedVerticalSpeedMps ?? (
             lastDerivedAltitudeSpeedMps != null && lastChangedAltRelMs != null &&
             (relMs - lastChangedAltRelMs) <= 500
@@ -4857,6 +4861,25 @@
         points.push({timeMs:timeMs - timeOriginMs, altitudeM});
       }
       if(points.length < 2 || timeOriginMs == null) return result;
+
+      // A single pressure conversion glitch must not become a large velocity
+      // impulse. A five-sample Hampel pass removes isolated altitude outliers
+      // while preserving the real launch and apogee slopes.
+      const originalAltitude = points.map((point)=>point.altitudeM);
+      for(let i = 0; i < points.length; i++){
+        const from = Math.max(0, i - 2);
+        const to = Math.min(points.length - 1, i + 2);
+        const local = [];
+        for(let j = from; j <= to; j++) local.push(originalAltitude[j]);
+        local.sort((a, b)=>a - b);
+        const median = local[Math.floor(local.length * 0.5)];
+        const deviations = local.map((value)=>Math.abs(value - median)).sort((a, b)=>a - b);
+        const medianDeviation = deviations[Math.floor(deviations.length * 0.5)];
+        const rejectionThresholdM = Math.max(0.65, medianDeviation * 4.5);
+        if(Math.abs(originalAltitude[i] - median) > rejectionThresholdM){
+          points[i].altitudeM = median;
+        }
+      }
 
       const prefixTime = new Float64Array(points.length + 1);
       const prefixAltitude = new Float64Array(points.length + 1);
