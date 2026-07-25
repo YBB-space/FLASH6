@@ -3,6 +3,21 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 GPS-free trajectory and ballistic coast b81 — 2026-07-25
+
+Firmware build: `v6 b37` (unchanged)
+Protocol: `Flash6-Intelligent-b8` (unchanged)
+
+- Removed GPS position and GPS-derived velocity from trajectory and scalar-speed
+  reconstruction. GPS latitude/longitude and local offsets remain only as
+  reference columns for auditing.
+- Enforced immediate ballistic deceleration after IMU-confirmed burnout so a
+  delayed barometric rise cannot hold the vehicle at a false constant speed.
+- Kept the measured-apogee energy envelope in powered flight only, preventing
+  ejection pressure transients from collapsing the coasting speed estimate.
+- Added regressions proving that noisy GPS cannot change trajectory mode and
+  that coast speed drops by at least gravity rather than forming a plateau.
+
 ## FLASH6 model-rocket motion estimator b80 — 2026-07-25
 
 Firmware build: `v6 b37` (unchanged)

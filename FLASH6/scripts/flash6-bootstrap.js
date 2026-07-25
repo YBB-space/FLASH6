@@ -2957,11 +2957,11 @@
               {cells:["포함 샘플: " + exportRows.length], style:3},
               {cells:["최대 고도 (m): " + exportMetricText(infoMaxAltitude)], style:3},
               {cells:["최대 실제 속도 (m/s): " + exportMetricText(infoMaxSpeed)], style:3},
-              {cells:["속도 계산: 저장된 실제 속도 우선 · 없으면 3D 궤적 변위 기반 추정"], style:3},
+              {cells:["속도 계산: 저장된 센서 속도 우선 · 없으면 IMU/기압 기반 모델 로켓 동역학 추정"], style:3},
               {cells:["종단 속도 (최대 하강 속력, m/s): " + exportMetricText(terminalSpeedMps)], style:3},
               {cells:["3D 비행 궤적: " + (
                 trajectory3d.positionMode === "IMU_LOCAL"
-                  ? "자이로·가속도 로컬 추정 + 기압 고도"
+                  ? "자이로·가속도 로컬 추정 + 기압 고도 · GPS 계산 제외"
                   : (trajectory3d.positionMode === "IMU_GPS_FUSION"
                   ? "초기 IMU 추정 + GPS 결합 + 기압 고도"
                   : (trajectory3d.gpsAvailable ? "GPS + 고도" : "GPS 없음 · 수직 고도 프로파일"))

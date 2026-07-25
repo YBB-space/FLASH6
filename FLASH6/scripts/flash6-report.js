@@ -562,6 +562,7 @@
         const apogeeAltitudeM = Number(settings.apogeeAltitudeM);
         if(
           settings.hasFutureApogee &&
+          powered &&
           target > 0 &&
           isFinite(currentAltitudeM) &&
           isFinite(apogeeAltitudeM) &&
@@ -571,8 +572,8 @@
           // remaining climb can absorb. The margin covers aerodynamic drag,
           // pressure lag, and thrust that is still active.
           const remainingHeightM = Math.max(0, apogeeAltitudeM - currentAltitudeM);
-          const energyFactor = powered ? 1.30 : 1.18;
-          const energyMarginMps = powered ? 4.0 : 1.5;
+          const energyFactor = 1.30;
+          const energyMarginMps = 4.0;
           const energyLimitMps =
             (Math.sqrt(2 * GYRO_IMU_GRAVITY_MPS2 * remainingHeightM) * energyFactor) +
             energyMarginMps;
@@ -590,9 +591,14 @@
         }
       }
       if(coastingAscent){
-        // Once burnout is confirmed, positive vertical speed cannot increase
-        // again without another propulsion event.
-        candidate = Math.min(candidate, previous);
+        // After burnout the upward component must lose at least gravity every
+        // second; aerodynamic drag only increases that deceleration. This
+        // prevents a delayed/noisy barometric rise from freezing the estimate
+        // at burnout speed.
+        candidate = Math.min(
+          candidate,
+          previous - (GYRO_IMU_GRAVITY_MPS2 * dt)
+        );
       }
       const riseRateMps2 = coastingAscent ? 0 : (powered ? 45 : 28);
       const fallRateMps2 = powered ? 45 : 35;
@@ -727,6 +733,11 @@
       }
 
       const gpsAvailable = isFinite(baseLat) && isFinite(baseLon);
+      // GPS is kept strictly as an audit reference. Model-rocket trajectory
+      // reconstruction never consumes GPS position or velocity: typical
+      // 1 Hz fixes and multipath jumps produce visually smooth but physically
+      // false loops when interpolated across a short flight.
+      const useGpsForTrajectory = false;
       const metersPerLon = gpsAvailable ? 111320 * Math.cos(baseLat * DEG_TO_RAD) : 1;
       let sharedApogeePointIndex = 0;
       let sharedApogeeAltitudeM = -Infinity;
@@ -773,13 +784,17 @@
           : sharedVerticalSpeedMps;
       });
       rawPoints.forEach((point)=>{
-        point.eastM = gpsAvailable && isFinite(point.lon) ? (point.lon - baseLon) * metersPerLon : 0;
-        point.northM = gpsAvailable && isFinite(point.lat) ? (point.lat - baseLat) * 111320 : 0;
-        point.gpsEastM = point.eastM;
-        point.gpsNorthM = point.northM;
-        point.positionSource = gpsAvailable ? "GPS" : "VERTICAL_ONLY";
+        point.gpsEastM = gpsAvailable && isFinite(point.lon)
+          ? (point.lon - baseLon) * metersPerLon
+          : 0;
+        point.gpsNorthM = gpsAvailable && isFinite(point.lat)
+          ? (point.lat - baseLat) * 111320
+          : 0;
+        point.eastM = 0;
+        point.northM = 0;
+        point.positionSource = "VERTICAL_ONLY";
       });
-      if(gpsAvailable && gpsFixes.length >= 2){
+      if(useGpsForTrajectory && gpsAvailable && gpsFixes.length >= 2){
         const fixVelocity = new Array(gpsFixes.length).fill(null);
         let filteredVelocityEastMps = 0;
         let filteredVelocityNorthMps = 0;
@@ -828,9 +843,15 @@
             : 0;
         });
       }
-      let positionMode = gpsAvailable ? "GPS" : "VERTICAL_ONLY";
+      let positionMode = "VERTICAL_ONLY";
       let imuAssistEndElapsedSec = null;
-      if(GYRO_ABSOLUTE_TRAJECTORY_ENABLED && gpsAvailable && rawPoints.length > 20 && gpsFixes.length > 1){
+      if(
+        useGpsForTrajectory &&
+        GYRO_ABSOLUTE_TRAJECTORY_ENABLED &&
+        gpsAvailable &&
+        rawPoints.length > 20 &&
+        gpsFixes.length > 1
+      ){
         const gpsFixMetric = (fix)=>({
           fix,
           eastM:(fix.lon - baseLon) * metersPerLon,
@@ -1009,9 +1030,9 @@
         }
       }
 
-      // Without usable GPS, absolute heading is unavailable and the report
-      // falls back to a launch-relative model-rocket frame.
-      if(rawPoints.length > 1 && (!gpsAvailable || gpsFixes.length < 2)){
+      // Absolute heading is intentionally omitted. Every report uses the same
+      // launch-relative model-rocket frame regardless of GPS availability.
+      if(rawPoints.length > 1){
         const normalize3 = (vector)=>{
           const magnitude = Math.hypot(vector[0], vector[1], vector[2]);
           return magnitude > 1e-9
@@ -1346,9 +1367,7 @@
           isFinite(estimatedSpeedMps)
             ? Number(estimatedSpeedMps.toFixed(3))
             : "",
-          gpsAvailable && gpsFixes.length >= 2
-            ? "GPS + BARO"
-            : "MODEL ROCKET FUSION",
+          "MODEL ROCKET FUSION",
           eventLabels.join(" + ")
         ]);
       });
@@ -1448,7 +1467,7 @@
       ctx.font = "500 18px Arial, sans-serif";
       ctx.fillText(
         positionMode === "IMU_LOCAL"
-          ? "MODEL-CONSTRAINED LOCAL TRAJECTORY / BAROMETRIC ALTITUDE · NO ABSOLUTE HEADING"
+          ? "MODEL-CONSTRAINED LOCAL TRAJECTORY / BAROMETRIC ALTITUDE · GPS EXCLUDED"
           : (positionMode === "IMU_GPS_FUSION"
             ? "IMU-ASSISTED EAST / NORTH + GPS / BAROMETRIC ALTITUDE"
             : (gpsAvailable ? "GPS EAST / NORTH / BAROMETRIC ALTITUDE" : "GPS UNAVAILABLE / VERTICAL PROFILE")),
@@ -1578,7 +1597,7 @@
       ctx.font = "500 15px Arial, sans-serif";
       ctx.fillText(
         positionMode === "IMU_LOCAL"
-          ? "Local X/Z are IMU estimates with phase-specific dynamics. Absolute direction is intentionally omitted."
+          ? "Local X/Z use IMU and model-rocket dynamics. GPS is reference-only; absolute heading is intentionally omitted."
           : (positionMode === "IMU_GPS_FUSION"
             ? "Dashed: IMU estimate · dotted: IMU/GPS blend · solid: GPS. Axes are independently scaled."
             : "GPS fixes are time-interpolated. Axes are scaled for readability. Source: TRAJECTORY_3D sheet."),

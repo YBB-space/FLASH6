@@ -226,8 +226,22 @@ const coastingVerticalStep = context.updateVerticalSpeed(
   {powered:false, coastingAscent:true, established:true}
 );
 assert.ok(
-  coastingVerticalStep <= 33,
-  "burnout-confirmed ascent must not form a second acceleration peak"
+  coastingVerticalStep <= 33 - (9.80665 * 0.01) + 1e-9,
+  "burnout-confirmed ascent must begin ballistic deceleration immediately"
+);
+let ballisticVerticalSpeed = 33;
+for(let i = 0; i < 100; i++){
+  ballisticVerticalSpeed = context.updateVerticalSpeed(
+    ballisticVerticalSpeed,
+    20,
+    48,
+    0.01,
+    {powered:false, coastingAscent:true, established:true}
+  );
+}
+assert.ok(
+  ballisticVerticalSpeed < 23.3,
+  "delayed barometric rise must not create a post-burnout speed plateau"
 );
 let energyBoundedVerticalSpeed = 0;
 for(let i = 0; i < 160; i++){
@@ -384,6 +398,29 @@ const earlyTrajectoryRow = syntheticTrajectory.rows.find((row)=>
 assert.ok(
   earlyTrajectoryRow && Math.hypot(Number(earlyTrajectoryRow[1]), Number(earlyTrajectoryRow[2])) < 0.15,
   "trajectory must remain nearly vertical while rail constrained"
+);
+const gpsPollutedRows = syntheticRows.map((row, index)=>Object.assign({}, row, {
+  gps_lat:34.6 + (index * 0.000002),
+  gps_lon:127.2 + (Math.sin(index * 0.025) * 0.00025),
+  gps_fix:1
+}));
+const gpsExcludedTrajectory = context.buildTrajectoryArtifact(
+  gpsPollutedRows,
+  syntheticAltitudes,
+  "",
+  0,
+  syntheticVerticalSpeeds
+);
+assert.equal(
+  gpsExcludedTrajectory.positionMode,
+  "IMU_LOCAL",
+  "GPS availability must not change trajectory reconstruction mode"
+);
+assert.ok(
+  gpsExcludedTrajectory.rows.slice(1).every((row)=>
+    row[6] === "IMU_LOCAL" && row[12] === "MODEL ROCKET FUSION"
+  ),
+  "GPS coordinates must remain reference-only in trajectory exports"
 );
 
 assert.match(
