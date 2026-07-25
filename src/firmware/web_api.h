@@ -1318,18 +1318,36 @@ void sendStorageChunkResponse(AsyncWebServerRequest* request, uint32_t offset, u
     return;
   }
 
-  StorageBinHeaderV1 hdr{};
-  memcpy(hdr.magic, "HWLOGV2", 7);
-  hdr.magic[7] = '\0';
-  hdr.version = 2;
-  hdr.headerSize = sizeof(StorageBinHeaderV1);
-  hdr.dataBytes = dataBytes;
-  hdr.recordCount = storageCountRecordsInRange(offset, dataBytes);
-  hdr.exportedAtMs = millis() - bootMs;
-  hdr.samplePeriodMs = 1000UL / kStorageRecordHz;
-  hdr.recordMarker = kStorageRecordMarker;
+  StorageSessionInfo sourceSession{};
+  const bool hasSessionMetadata =
+    storageGetSessionInfoForRange(offset, dataBytes, sourceSession) &&
+    (sourceSession.metadataFlags & kStorageMetadataFlagValid) != 0U &&
+    sourceSession.protocolVersion != 0U;
 
-  const size_t headerBytes = withHeader ? sizeof(StorageBinHeaderV1) : 0U;
+  StorageBinHeaderV2 hdr{};
+  memcpy(hdr.base.magic, "HWLOGV2", 7);
+  hdr.base.magic[7] = '\0';
+  hdr.base.version = 3;
+  hdr.base.headerSize = sizeof(StorageBinHeaderV2);
+  hdr.base.dataBytes = dataBytes;
+  hdr.base.recordCount = storageCountRecordsInRange(offset, dataBytes);
+  hdr.base.exportedAtMs = millis() - bootMs;
+  hdr.base.samplePeriodMs = 1000UL / kStorageRecordHz;
+  hdr.base.recordMarker = kStorageRecordMarker;
+  hdr.metadataMagic = kStorageBinMetadataMagic;
+  hdr.metadataVersion = kStorageBinMetadataVersion;
+  hdr.metadataFlags = hasSessionMetadata ? kStorageMetadataFlagValid : 0U;
+  hdr.sessionId = hasSessionMetadata ? sourceSession.id : 0U;
+  hdr.protocolVersion =
+    hasSessionMetadata ? sourceSession.protocolVersion : 0U;
+  hdr.firmwareBuildNumber =
+    hasSessionMetadata ? sourceSession.firmwareBuildNumber : 0U;
+  hdr.missionTimebaseVersion =
+    hasSessionMetadata ? sourceSession.missionTimebaseVersion : 0U;
+  hdr.compatibleProtocolMin = kStorageProtocolCompatibleMin;
+  hdr.compatibleProtocolMax = kStorageProtocolCompatibleMax;
+
+  const size_t headerBytes = withHeader ? sizeof(StorageBinHeaderV2) : 0U;
   AsyncWebServerResponse* response = request->beginChunkedResponse(
     "application/octet-stream",
     [hdr, headerBytes, offset, dataBytes, generation](
@@ -1476,7 +1494,13 @@ String remoteStorageListJson() {
         json += String(item.records);
         json += ",\"current\":";
         json += item.current ? "1" : "0";
-        json += ",\"started_at_ms\":0,\"remote\":1}";
+        json += ",\"protocol\":";
+        json += String(item.protocolVersion);
+        json += ",\"timebase\":";
+        json += String(item.missionTimebaseVersion);
+        json += ",\"meta\":";
+        json += String(item.metadataFlags);
+        json += ",\"build\":0,\"started_at_ms\":0,\"remote\":1}";
       }
     }
   }

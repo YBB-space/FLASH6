@@ -3,6 +3,23 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.9.6 — v6 b36 — 2026-07-25
+
+Protocol: `Flash6-Intelligent-b8` (ESP-NOW wire version `8`, unchanged)
+
+- Added protocol, mission-timebase, and firmware-build metadata to each newly
+  created NOR flight-data session without changing existing V1–V3 sectors.
+- Extended exported `HWLOGV2` BIN headers from the stable 40-byte prefix to a
+  64-byte v3 header that records the source session protocol and compatibility
+  range.
+- Reused the three reserved storage-list bytes for protocol metadata, keeping
+  the A.I LINK packet size and external command interfaces unchanged.
+- Added an explicit replay decoder compatibility range (`b8` through `b8`).
+  Missing or out-of-range metadata is opened through the legacy decoder only
+  after FLASH6 displays an earlier-data-protocol notice.
+- Preserved old BIN and raw-record decoding, including sessions written before
+  protocol metadata was introduced.
+
 ## 0.9.5 — v6 b35 — 2026-07-25
 
 Protocol: `Flash6-Intelligent-b8` (ESP-NOW wire version `8`, unchanged)

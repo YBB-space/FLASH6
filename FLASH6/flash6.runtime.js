@@ -20718,6 +20718,10 @@ function requestMobileMockup3dMesh(){
     const REPLAY_BIN_RECORD_MARKER_ALT = 0x5AA5;
     const REPLAY_BIN_SCAN_MAX_BYTES = 1024 * 1024;
     const REPLAY_BIN_APP_SOURCE_TAG = 0x31505041; // "APP1"
+    const REPLAY_BIN_METADATA_BYTES = 64;
+    const REPLAY_BIN_METADATA_MAGIC = 0x32544D48; // "HMT2"
+    const REPLAY_PROTOCOL_COMPATIBLE_MIN = 8;
+    const REPLAY_PROTOCOL_COMPATIBLE_MAX = 8;
 
     function replayReadMagicText(dv, offset, len){
       let out = "";
@@ -20727,6 +20731,127 @@ function requestMobileMockup3dMesh(){
         out += String.fromCharCode(c);
       }
       return out;
+    }
+
+    function replayInspectBinProtocol(arrayBuffer){
+      const result = {
+        candidate:false,
+        hasMetadata:false,
+        compatible:false,
+        protocolVersion:0,
+        missionTimebaseVersion:0,
+        firmwareBuildNumber:0,
+        sessionId:0,
+        reason:"missing"
+      };
+      if(!(arrayBuffer instanceof ArrayBuffer) || arrayBuffer.byteLength < 2){
+        return result;
+      }
+      const dv = new DataView(arrayBuffer);
+      const magic = arrayBuffer.byteLength >= 8
+        ? replayReadMagicText(dv, 0, 8).replace(/\0+$/g, "")
+        : "";
+      const headerCandidate = magic.toUpperCase().indexOf("HWLOGV") === 0;
+      const rawCandidate =
+        dv.getUint16(0, true) === REPLAY_BIN_RECORD_MARKER ||
+        dv.getUint16(0, true) === REPLAY_BIN_RECORD_MARKER_ALT;
+      result.candidate = headerCandidate || rawCandidate;
+      if(!headerCandidate || arrayBuffer.byteLength < REPLAY_BIN_METADATA_BYTES){
+        return result;
+      }
+      const headerSize = dv.getUint16(10, true);
+      if(headerSize < REPLAY_BIN_METADATA_BYTES ||
+         dv.getUint32(40, true) !== REPLAY_BIN_METADATA_MAGIC ||
+         dv.getUint16(44, true) !== 1){
+        return result;
+      }
+      const metadataFlags = dv.getUint16(46, true);
+      const protocolVersion = dv.getUint16(52, true);
+      result.sessionId = dv.getUint32(48, true);
+      result.protocolVersion = protocolVersion;
+      result.firmwareBuildNumber = dv.getUint16(54, true);
+      result.missionTimebaseVersion = dv.getUint8(56);
+      result.hasMetadata = (metadataFlags & 1) !== 0 && protocolVersion > 0;
+      if(!result.hasMetadata) return result;
+      result.compatible =
+        protocolVersion >= REPLAY_PROTOCOL_COMPATIBLE_MIN &&
+        protocolVersion <= REPLAY_PROTOCOL_COMPATIBLE_MAX;
+      result.reason = result.compatible ? "native" : "outside-range";
+      return result;
+    }
+
+    function replayAttachBinProtocolMetadata(samples, metadata){
+      if(!Array.isArray(samples) || !metadata) return samples;
+      samples.forEach((entry)=>{
+        if(!entry || !entry.sample) return;
+        entry.sample.bin_protocol_version = metadata.protocolVersion || 0;
+        entry.sample.bin_protocol_legacy = metadata.compatible ? 0 : 1;
+        entry.sample.bin_mission_timebase_version =
+          metadata.missionTimebaseVersion || 0;
+        entry.sample.bin_firmware_build = metadata.firmwareBuildNumber || 0;
+      });
+      return samples;
+    }
+
+    function ensureReplayLegacyProtocolOverlay(){
+      let overlay = document.getElementById("replayLegacyProtocolOverlay");
+      if(overlay) return overlay;
+      overlay = document.createElement("div");
+      overlay.id = "replayLegacyProtocolOverlay";
+      overlay.className = "mobile-chart-picker-overlay hidden";
+      overlay.style.display = "none";
+      overlay.setAttribute("aria-hidden", "true");
+      overlay.innerHTML =
+        '<div class="mobile-chart-picker-dialog replay-legacy-protocol-dialog" role="dialog" aria-modal="true" aria-labelledby="replayLegacyProtocolTitle">' +
+          '<div class="replay-legacy-protocol-kicker">LEGACY DATA</div>' +
+          '<div id="replayLegacyProtocolTitle" class="replay-legacy-protocol-title">이전 데이터 프로토콜</div>' +
+          '<p class="replay-legacy-protocol-copy">이 BIN은 현재 기본 프로토콜 범위 밖의 기록입니다. 이전 데이터 형식으로 해석해 비행 데이터를 추출합니다.</p>' +
+          '<div class="replay-legacy-protocol-meta">' +
+            '<span>감지 버전<strong id="replayLegacyProtocolDetected">정보 없음</strong></span>' +
+            '<span>현재 허용<strong id="replayLegacyProtocolRange">b8 ~ b8</strong></span>' +
+          '</div>' +
+          '<p id="replayLegacyProtocolFile" class="replay-legacy-protocol-file"></p>' +
+          '<button id="replayLegacyProtocolContinue" class="replay-legacy-protocol-continue" type="button">이전 형식으로 열기</button>' +
+        '</div>';
+      document.body.appendChild(overlay);
+      return overlay;
+    }
+
+    function showReplayLegacyProtocolNotice(metadata, fileName){
+      const overlay = ensureReplayLegacyProtocolOverlay();
+      const detected = overlay.querySelector("#replayLegacyProtocolDetected");
+      const range = overlay.querySelector("#replayLegacyProtocolRange");
+      const file = overlay.querySelector("#replayLegacyProtocolFile");
+      const button = overlay.querySelector("#replayLegacyProtocolContinue");
+      if(detected){
+        detected.textContent = metadata && metadata.protocolVersion > 0
+          ? ("b" + metadata.protocolVersion)
+          : "버전 정보 없음";
+      }
+      if(range){
+        range.textContent =
+          "b" + REPLAY_PROTOCOL_COMPATIBLE_MIN +
+          " ~ b" + REPLAY_PROTOCOL_COMPATIBLE_MAX;
+      }
+      if(file) file.textContent = String(fileName || "BIN flight data");
+      overlay.classList.remove("hidden");
+      overlay.style.display = "flex";
+      overlay.setAttribute("aria-hidden", "false");
+      return new Promise((resolve)=>{
+        const close = ()=>{
+          overlay.classList.add("hidden");
+          overlay.style.display = "none";
+          overlay.setAttribute("aria-hidden", "true");
+          if(button) button.removeEventListener("click", close);
+          resolve();
+        };
+        if(button){
+          button.addEventListener("click", close, {once:true});
+          requestAnimationFrame(()=>button.focus());
+        }else{
+          close();
+        }
+      });
     }
 
     function replayReadUtf8Text(dv, offset, len){
@@ -21240,6 +21365,7 @@ function requestMobileMockup3dMesh(){
       }
 
       const dv = new DataView(arrayBuffer);
+      const protocolMetadata = replayInspectBinProtocol(arrayBuffer);
       const magic = replayReadMagicText(dv, 0, 8).replace(/\0+$/g, "");
       let headerErr = null;
       if(magic.toUpperCase().indexOf("HWLOGV") === 0){
@@ -21272,7 +21398,7 @@ function requestMobileMockup3dMesh(){
                   if(entry && entry.sample) entry.sample.data_origin = origin;
                 });
               }
-              return parsed;
+              return replayAttachBinProtocolMetadata(parsed, protocolMetadata);
             }catch(err){
               lastErr = err;
             }
@@ -21287,7 +21413,10 @@ function requestMobileMockup3dMesh(){
       const markers = replayResolveRecordMarkers(REPLAY_BIN_RECORD_MARKER);
       for(const marker of markers){
         if(replayIsLikelyRawRecordStream(dv, 0, arrayBuffer.byteLength, marker)){
-          return replayParseBinRecordRange(dv, 0, arrayBuffer.byteLength, marker);
+          return replayAttachBinProtocolMetadata(
+            replayParseBinRecordRange(dv, 0, arrayBuffer.byteLength, marker),
+            protocolMetadata
+          );
         }
       }
 
@@ -21296,7 +21425,10 @@ function requestMobileMockup3dMesh(){
         const mk = dv.getUint16(i, true);
         if(mk !== REPLAY_BIN_RECORD_MARKER && mk !== REPLAY_BIN_RECORD_MARKER_ALT) continue;
         if(replayIsLikelyRawRecordStream(dv, i, arrayBuffer.byteLength, mk)){
-          return replayParseBinRecordRange(dv, i, arrayBuffer.byteLength, mk);
+          return replayAttachBinProtocolMetadata(
+            replayParseBinRecordRange(dv, i, arrayBuffer.byteLength, mk),
+            protocolMetadata
+          );
         }
       }
 
@@ -21313,6 +21445,10 @@ function requestMobileMockup3dMesh(){
     async function parseReplayBin(file){
       if(!file) throw new Error("리플레이 BIN 파일이 선택되지 않았습니다.");
       const arrayBuffer = await file.arrayBuffer();
+      const protocolMetadata = replayInspectBinProtocol(arrayBuffer);
+      if(protocolMetadata.candidate && !protocolMetadata.compatible){
+        await showReplayLegacyProtocolNotice(protocolMetadata, file.name);
+      }
       return replayBuildSamplesFromBin(arrayBuffer);
     }
 
@@ -21944,7 +22080,7 @@ function requestMobileMockup3dMesh(){
         fw_program:"Altis_Intelligent3_firmware1",
         fw_board:"Altis_Intelligent3_b3",
         fw_protocol:"Flash6-Intelligent-b8",
-        fw_build:"v6 b35"
+        fw_build:"v6 b36"
       };
     }
 
@@ -24951,6 +25087,10 @@ function requestMobileMockup3dMesh(){
         recordBytes:REPLAY_BIN_APP_RECORD_V4_BYTES,
         recordVersion:4,
         format:"HWLOGV2",
+        protocolVersion:REPLAY_PROTOCOL_COMPATIBLE_MAX,
+        missionTimebaseVersion:1,
+        metadataFlags:1,
+        firmwareBuildNumber:36,
         samplePeriodMs:0,
         lastReceivedAt:0
       };
@@ -25298,7 +25438,11 @@ function requestMobileMockup3dMesh(){
                 )
               ),
         data_origin_code:String(session.origin || "").toLowerCase() === "avionics" ? 1 : 0,
-        app_source_tag:REPLAY_BIN_APP_SOURCE_TAG
+        app_source_tag:REPLAY_BIN_APP_SOURCE_TAG,
+        protocol:Math.max(0, Number(session.protocolVersion || 0)),
+        timebase:Math.max(0, Number(session.missionTimebaseVersion || 0)),
+        meta:Math.max(0, Number(session.metadataFlags || 0)),
+        build:Math.max(0, Number(session.firmwareBuildNumber || 0))
       });
       const started = new Date(Number(session.startedAt || Date.now()));
       const stamp = started.toISOString().replace(/[-:]/g, "").replace(/\..+$/, "");
@@ -26731,6 +26875,10 @@ function requestMobileMockup3dMesh(){
           records:Math.max(0, Math.floor(num("records", 0))),
           session_id:Math.max(0, Math.floor(num("session", 0))),
           current:num("current", 0) ? 1 : 0,
+          protocol:Math.max(0, Math.floor(num("protocol", 0))),
+          timebase:Math.max(0, Math.floor(num("timebase", 0))),
+          meta:Math.max(0, Math.floor(num("meta", 0))),
+          build:Math.max(0, Math.floor(num("build", 0))),
           started_at_ms:Math.max(0, Math.floor(num("started", 0)))
         }
       };
@@ -26772,6 +26920,10 @@ function requestMobileMockup3dMesh(){
           records:Math.max(0, Math.floor(num("records", 0))),
           session_id:Math.max(0, Math.floor(num("session", 0))),
           current:num("current", 0) ? 1 : 0,
+          protocol:Math.max(0, Math.floor(num("protocol", 0))),
+          timebase:Math.max(0, Math.floor(num("timebase", 0))),
+          meta:Math.max(0, Math.floor(num("meta", 0))),
+          build:Math.max(0, Math.floor(num("build", 0))),
           started_at_ms:Math.max(0, Math.floor(num("started", 0))),
           remote:true
         }
@@ -26891,7 +27043,7 @@ function requestMobileMockup3dMesh(){
     }
 
     function buildSpiFlashBinHeader(info){
-      const headerSize = 40;
+      const headerSize = 64;
       const dataBytes = Math.max(0, Number(info && info.used_bytes || 0)) >>> 0;
       const recordCount = Math.max(0, Number(info && info.record_count || 0)) >>> 0;
       let samplePeriodMs = Math.max(
@@ -26909,7 +27061,7 @@ function requestMobileMockup3dMesh(){
       const magic = "HWLOGV2";
       for(let i=0;i<magic.length;i++) header[i] = magic.charCodeAt(i);
       header[7] = 0;
-      dv.setUint16(8, 2, true); // mixed fixed-record stream: v1 legacy + v2/v3 compact
+      dv.setUint16(8, 3, true); // v3 adds protocol/session metadata after the stable 40-byte prefix
       dv.setUint16(10, headerSize, true);
       dv.setUint32(12, dataBytes, true);
       dv.setUint32(16, recordCount, true);
@@ -26918,6 +27070,41 @@ function requestMobileMockup3dMesh(){
       dv.setUint32(28, (REPLAY_BIN_RECORD_MARKER >>> 0), true);
       dv.setUint32(32, Math.max(0, Number(info && info.data_origin_code || 0)) >>> 0, true);
       dv.setUint32(36, Math.max(0, Number(info && info.app_source_tag || 0)) >>> 0, true);
+      const protocolVersion = Math.max(
+        0,
+        Math.min(65535, Math.floor(Number(info && (info.protocol ?? info.protocol_version) || 0)))
+      );
+      const metadataFlags = Math.max(
+        0,
+        Math.min(65535, Math.floor(Number(info && (info.meta ?? info.metadata_flags) || 0)))
+      );
+      const metadataValid = protocolVersion > 0 && (metadataFlags & 1) !== 0;
+      dv.setUint32(40, 0x32544D48, true); // HMT2
+      dv.setUint16(44, 1, true);
+      dv.setUint16(46, metadataValid ? 1 : 0, true);
+      dv.setUint32(
+        48,
+        metadataValid
+          ? (Math.max(0, Number(info && (info.session_id ?? info.sessionId) || 0)) >>> 0)
+          : 0,
+        true
+      );
+      dv.setUint16(52, metadataValid ? protocolVersion : 0, true);
+      dv.setUint16(
+        54,
+        metadataValid
+          ? Math.max(0, Math.min(65535, Math.floor(Number(info && info.build || 0))))
+          : 0,
+        true
+      );
+      dv.setUint8(
+        56,
+        metadataValid
+          ? Math.max(0, Math.min(255, Math.floor(Number(info && info.timebase || 0))))
+          : 0
+      );
+      dv.setUint8(57, REPLAY_PROTOCOL_COMPATIBLE_MIN);
+      dv.setUint8(58, REPLAY_PROTOCOL_COMPATIBLE_MAX);
       return header;
     }
 
@@ -27042,7 +27229,12 @@ function requestMobileMockup3dMesh(){
       const baseOffset = Math.max(0, Number(selectedItem && selectedItem.offset || 0));
       const recordCount = Math.max(0, Number(selectedItem && selectedItem.records || 0));
       if(!dataBytes) throw new Error("EMPTY_DATA");
-      const header = buildSpiFlashBinHeader(Object.assign({}, info, {used_bytes:dataBytes, record_count:recordCount}));
+      const header = buildSpiFlashBinHeader(Object.assign(
+        {},
+        info,
+        selectedItem || {},
+        {used_bytes:dataBytes, record_count:recordCount}
+      ));
       const fileBytes = new Uint8Array(header.byteLength + dataBytes);
       fileBytes.set(header, 0);
       let off = 0;
@@ -27129,6 +27321,7 @@ function requestMobileMockup3dMesh(){
       const header = buildSpiFlashBinHeader(Object.assign(
         {},
         latestAvionicsStorageInfo || {},
+        selectedItem || {},
         {
           used_bytes:dataBytes,
           record_count:recordCount,

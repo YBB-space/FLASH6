@@ -148,6 +148,10 @@
         recordBytes:REPLAY_BIN_APP_RECORD_V4_BYTES,
         recordVersion:4,
         format:"HWLOGV2",
+        protocolVersion:REPLAY_PROTOCOL_COMPATIBLE_MAX,
+        missionTimebaseVersion:1,
+        metadataFlags:1,
+        firmwareBuildNumber:36,
         samplePeriodMs:0,
         lastReceivedAt:0
       };
@@ -495,7 +499,11 @@
                 )
               ),
         data_origin_code:String(session.origin || "").toLowerCase() === "avionics" ? 1 : 0,
-        app_source_tag:REPLAY_BIN_APP_SOURCE_TAG
+        app_source_tag:REPLAY_BIN_APP_SOURCE_TAG,
+        protocol:Math.max(0, Number(session.protocolVersion || 0)),
+        timebase:Math.max(0, Number(session.missionTimebaseVersion || 0)),
+        meta:Math.max(0, Number(session.metadataFlags || 0)),
+        build:Math.max(0, Number(session.firmwareBuildNumber || 0))
       });
       const started = new Date(Number(session.startedAt || Date.now()));
       const stamp = started.toISOString().replace(/[-:]/g, "").replace(/\..+$/, "");
@@ -1928,6 +1936,10 @@
           records:Math.max(0, Math.floor(num("records", 0))),
           session_id:Math.max(0, Math.floor(num("session", 0))),
           current:num("current", 0) ? 1 : 0,
+          protocol:Math.max(0, Math.floor(num("protocol", 0))),
+          timebase:Math.max(0, Math.floor(num("timebase", 0))),
+          meta:Math.max(0, Math.floor(num("meta", 0))),
+          build:Math.max(0, Math.floor(num("build", 0))),
           started_at_ms:Math.max(0, Math.floor(num("started", 0)))
         }
       };
@@ -1969,6 +1981,10 @@
           records:Math.max(0, Math.floor(num("records", 0))),
           session_id:Math.max(0, Math.floor(num("session", 0))),
           current:num("current", 0) ? 1 : 0,
+          protocol:Math.max(0, Math.floor(num("protocol", 0))),
+          timebase:Math.max(0, Math.floor(num("timebase", 0))),
+          meta:Math.max(0, Math.floor(num("meta", 0))),
+          build:Math.max(0, Math.floor(num("build", 0))),
           started_at_ms:Math.max(0, Math.floor(num("started", 0))),
           remote:true
         }
@@ -2088,7 +2104,7 @@
     }
 
     function buildSpiFlashBinHeader(info){
-      const headerSize = 40;
+      const headerSize = 64;
       const dataBytes = Math.max(0, Number(info && info.used_bytes || 0)) >>> 0;
       const recordCount = Math.max(0, Number(info && info.record_count || 0)) >>> 0;
       let samplePeriodMs = Math.max(
@@ -2106,7 +2122,7 @@
       const magic = "HWLOGV2";
       for(let i=0;i<magic.length;i++) header[i] = magic.charCodeAt(i);
       header[7] = 0;
-      dv.setUint16(8, 2, true); // mixed fixed-record stream: v1 legacy + v2/v3 compact
+      dv.setUint16(8, 3, true); // v3 adds protocol/session metadata after the stable 40-byte prefix
       dv.setUint16(10, headerSize, true);
       dv.setUint32(12, dataBytes, true);
       dv.setUint32(16, recordCount, true);
@@ -2115,6 +2131,41 @@
       dv.setUint32(28, (REPLAY_BIN_RECORD_MARKER >>> 0), true);
       dv.setUint32(32, Math.max(0, Number(info && info.data_origin_code || 0)) >>> 0, true);
       dv.setUint32(36, Math.max(0, Number(info && info.app_source_tag || 0)) >>> 0, true);
+      const protocolVersion = Math.max(
+        0,
+        Math.min(65535, Math.floor(Number(info && (info.protocol ?? info.protocol_version) || 0)))
+      );
+      const metadataFlags = Math.max(
+        0,
+        Math.min(65535, Math.floor(Number(info && (info.meta ?? info.metadata_flags) || 0)))
+      );
+      const metadataValid = protocolVersion > 0 && (metadataFlags & 1) !== 0;
+      dv.setUint32(40, 0x32544D48, true); // HMT2
+      dv.setUint16(44, 1, true);
+      dv.setUint16(46, metadataValid ? 1 : 0, true);
+      dv.setUint32(
+        48,
+        metadataValid
+          ? (Math.max(0, Number(info && (info.session_id ?? info.sessionId) || 0)) >>> 0)
+          : 0,
+        true
+      );
+      dv.setUint16(52, metadataValid ? protocolVersion : 0, true);
+      dv.setUint16(
+        54,
+        metadataValid
+          ? Math.max(0, Math.min(65535, Math.floor(Number(info && info.build || 0))))
+          : 0,
+        true
+      );
+      dv.setUint8(
+        56,
+        metadataValid
+          ? Math.max(0, Math.min(255, Math.floor(Number(info && info.timebase || 0))))
+          : 0
+      );
+      dv.setUint8(57, REPLAY_PROTOCOL_COMPATIBLE_MIN);
+      dv.setUint8(58, REPLAY_PROTOCOL_COMPATIBLE_MAX);
       return header;
     }
 
@@ -2239,7 +2290,12 @@
       const baseOffset = Math.max(0, Number(selectedItem && selectedItem.offset || 0));
       const recordCount = Math.max(0, Number(selectedItem && selectedItem.records || 0));
       if(!dataBytes) throw new Error("EMPTY_DATA");
-      const header = buildSpiFlashBinHeader(Object.assign({}, info, {used_bytes:dataBytes, record_count:recordCount}));
+      const header = buildSpiFlashBinHeader(Object.assign(
+        {},
+        info,
+        selectedItem || {},
+        {used_bytes:dataBytes, record_count:recordCount}
+      ));
       const fileBytes = new Uint8Array(header.byteLength + dataBytes);
       fileBytes.set(header, 0);
       let off = 0;
@@ -2326,6 +2382,7 @@
       const header = buildSpiFlashBinHeader(Object.assign(
         {},
         latestAvionicsStorageInfo || {},
+        selectedItem || {},
         {
           used_bytes:dataBytes,
           record_count:recordCount,

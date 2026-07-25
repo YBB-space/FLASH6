@@ -2598,6 +2598,9 @@ void flashLinkHandlePacket(FlashLinkRxSlot& slot) {
             item.bytes = info.bytes;
             item.records = info.records;
             item.current = info.id == storageCurrentSessionId ? 1U : 0U;
+            item.protocolVersion = info.protocolVersion;
+            item.missionTimebaseVersion = info.missionTimebaseVersion;
+            item.metadataFlags = info.metadataFlags;
           }
         }
       }

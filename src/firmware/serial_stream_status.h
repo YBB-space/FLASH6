@@ -63,7 +63,8 @@ void serialPrintStorageItem(uint32_t idx) {
   }
   char name[32];
   storageSessionName(item.id, name, sizeof(name));
-  Serial.printf("ACK SPI_FLASH_ITEM count=%lu idx=%lu name=%s session=%lu off=%lu bytes=%lu records=%lu current=%u started=0\n",
+  Serial.printf("ACK SPI_FLASH_ITEM count=%lu idx=%lu name=%s session=%lu off=%lu bytes=%lu records=%lu current=%u "
+                "protocol=%u timebase=%u meta=%u build=%u started=0\n",
                 (unsigned long)storageState.sessionCount,
                 (unsigned long)idx,
                 name,
@@ -71,7 +72,11 @@ void serialPrintStorageItem(uint32_t idx) {
                 (unsigned long)item.offsetBytes,
                 (unsigned long)item.bytes,
                 (unsigned long)item.records,
-                item.id == storageCurrentSessionId ? 1U : 0U);
+                item.id == storageCurrentSessionId ? 1U : 0U,
+                (unsigned)item.protocolVersion,
+                (unsigned)item.missionTimebaseVersion,
+                (unsigned)item.metadataFlags,
+                (unsigned)item.firmwareBuildNumber);
 }
 
 void serialPrintStorageChunk(uint32_t offset, uint32_t len) {
@@ -166,7 +171,7 @@ void serialPrintRemoteStorageItem(uint32_t idx) {
   storageSessionName(item.sessionId, name, sizeof(name));
   Serial.printf(
     "ACK SPI_FLASH_REMOTE_ITEM count=%u idx=%lu name=%s session=%lu off=%lu bytes=%lu records=%lu current=%u started=0 "
-    "ready=%u capacity=%lu used=%lu total_records=%lu record_hz=%lu\n",
+    "protocol=%u timebase=%u meta=%u ready=%u capacity=%lu used=%lu total_records=%lu record_hz=%lu\n",
     (unsigned)response.totalSessions,
     (unsigned long)idx,
     name,
@@ -175,6 +180,9 @@ void serialPrintRemoteStorageItem(uint32_t idx) {
     (unsigned long)item.bytes,
     (unsigned long)item.records,
     item.current ? 1U : 0U,
+    (unsigned)item.protocolVersion,
+    (unsigned)item.missionTimebaseVersion,
+    (unsigned)item.metadataFlags,
     capacity > 0U ? 1U : 0U,
     (unsigned long)capacity,
     (unsigned long)used,

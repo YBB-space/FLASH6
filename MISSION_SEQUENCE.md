@@ -1,6 +1,6 @@
 # FLASH6 Built-in Mission Sequence
 
-Firmware `0.9.5` / build `v6 b35` / protocol `Flash6-Intelligent-b8`
+Firmware `0.9.6` / build `v6 b36` / protocol `Flash6-Intelligent-b8`
 
 ## Sequence authority
 

@@ -196,8 +196,16 @@ bool norWriteMetadata(uint8_t slot, uint32_t generation) {
 
 bool norReadSectorInfo(uint16_t sectorIndex, uint32_t generation,
                        uint8_t& headerSize, uint32_t& sessionId,
-                       uint8_t& recordVersion) {
-  NorSectorHeaderV3 header{};
+                       uint8_t& recordVersion,
+                       uint8_t* protocolVersion = nullptr,
+                       uint8_t* missionTimebaseVersion = nullptr,
+                       uint8_t* metadataFlags = nullptr,
+                       uint16_t* firmwareBuildNumber = nullptr) {
+  if (protocolVersion) *protocolVersion = 0;
+  if (missionTimebaseVersion) *missionTimebaseVersion = 0;
+  if (metadataFlags) *metadataFlags = 0;
+  if (firmwareBuildNumber) *firmwareBuildNumber = 0;
+  NorSectorHeaderV4 header{};
   if (!norRead(norSectorAddress(sectorIndex), &header, sizeof(header))) return false;
   if (header.magic != kNorSectorMagic ||
       header.generation != generation ||
@@ -236,6 +244,26 @@ bool norReadSectorInfo(uint16_t sectorIndex, uint32_t generation,
     headerSize = sizeof(NorSectorHeaderV3);
     sessionId = header.sessionId;
     recordVersion = header.recordVersion;
+    return true;
+  }
+  if (header.version == kNorProtocolSectorVersion &&
+      header.headerSize == sizeof(NorSectorHeaderV4) &&
+      header.sessionId != 0U &&
+      header.sessionId <= UINT16_MAX &&
+      header.recordType == kStorageRecordTypeSampleV1 &&
+      header.recordVersion == kStorageRecordVersionV5 &&
+      header.recordSize == sizeof(StorageRecordV5)) {
+    headerSize = sizeof(NorSectorHeaderV4);
+    sessionId = header.sessionId;
+    recordVersion = header.recordVersion;
+    if (protocolVersion) *protocolVersion = header.protocolVersion;
+    if (missionTimebaseVersion) {
+      *missionTimebaseVersion = header.missionTimebaseVersion;
+    }
+    if (metadataFlags) *metadataFlags = header.metadataFlags;
+    if (firmwareBuildNumber) {
+      *firmwareBuildNumber = header.firmwareBuildNumber;
+    }
     return true;
   }
   return false;
@@ -456,20 +484,24 @@ bool norStartNewSector() {
   const uint32_t address = norSectorAddress(sectorIndex);
   if (!norEraseSector(address)) return false;
 
-  NorSectorHeaderV3 header{};
+  NorSectorHeaderV4 header{};
   header.magic = kNorSectorMagic;
-  header.version = kNorCompactSectorVersion;
-  header.headerSize = sizeof(NorSectorHeaderV3);
+  header.version = kNorProtocolSectorVersion;
+  header.headerSize = sizeof(NorSectorHeaderV4);
   header.generation = storageState.generation;
   header.sectorIndex = sectorIndex;
   header.sessionId = storageCurrentSessionId;
   header.recordVersion = kStorageRecordVersionV5;
   header.recordType = kStorageRecordTypeSampleV1;
   header.recordSize = sizeof(StorageRecordV5);
+  header.protocolVersion = kStorageProtocolVersion;
+  header.missionTimebaseVersion = kMissionTimebaseVersion;
+  header.metadataFlags = kStorageMetadataFlagValid;
+  header.firmwareBuildNumber = kFirmwareBuildNumber;
   if (!norProgram(address, &header, sizeof(header))) return false;
 
   storageSectorRecordCounts[sectorIndex] = 0;
-  storageSectorHeaderSizes[sectorIndex] = sizeof(NorSectorHeaderV3);
+  storageSectorHeaderSizes[sectorIndex] = sizeof(NorSectorHeaderV4);
   storageSectorRecordVersions[sectorIndex] = kStorageRecordVersionV5;
   storageSectorSessionIds[sectorIndex] = storageCurrentSessionId;
   storageSectorPrefix[sectorIndex + 1U] = storageSectorPrefix[sectorIndex];
@@ -1173,10 +1205,41 @@ bool storageGetSessionInfo(uint32_t ordinal, StorageSessionInfo& out) {
       out.bytes = storageSectorBytePrefix[endSector] - storageSectorBytePrefix[firstSector];
       out.firstSector = firstSector;
       out.sectorCount = (uint16_t)(endSector - firstSector);
+      uint8_t headerSize = 0;
+      uint32_t storedSessionId = 0;
+      uint8_t recordVersion = 0;
+      (void)norReadSectorInfo(
+        firstSector,
+        storageState.generation,
+        headerSize,
+        storedSessionId,
+        recordVersion,
+        &out.protocolVersion,
+        &out.missionTimebaseVersion,
+        &out.metadataFlags,
+        &out.firmwareBuildNumber);
       return true;
     }
     currentOrdinal++;
     firstSector = endSector;
+  }
+  return false;
+}
+
+bool storageGetSessionInfoForRange(uint32_t offset, uint32_t len,
+                                   StorageSessionInfo& out) {
+  StorageLock lock;
+  if (!lock || len == 0U || offset >= storageState.usedBytes) return false;
+  const uint64_t requestedEnd = (uint64_t)offset + (uint64_t)len;
+  for (uint32_t ordinal = 0; ordinal < storageState.sessionCount; ++ordinal) {
+    StorageSessionInfo candidate{};
+    if (!storageGetSessionInfo(ordinal, candidate)) continue;
+    const uint64_t sessionStart = candidate.offsetBytes;
+    const uint64_t sessionEnd = sessionStart + candidate.bytes;
+    if ((uint64_t)offset >= sessionStart && requestedEnd <= sessionEnd) {
+      out = candidate;
+      return true;
+    }
   }
   return false;
 }
@@ -1315,6 +1378,14 @@ String storageListJson() {
       json += String(item.records);
       json += ",\"current\":";
       json += item.id == storageCurrentSessionId ? "1" : "0";
+      json += ",\"protocol\":";
+      json += String(item.protocolVersion);
+      json += ",\"timebase\":";
+      json += String(item.missionTimebaseVersion);
+      json += ",\"meta\":";
+      json += String(item.metadataFlags);
+      json += ",\"build\":";
+      json += String(item.firmwareBuildNumber);
       json += ",\"started_at_ms\":0}";
     }
   }

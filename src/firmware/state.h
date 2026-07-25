@@ -1,9 +1,16 @@
 
 constexpr char kFirmwareProgram[] = "Altis_Intelligent3_firmware1";
-constexpr char kFirmwareVersion[] = "0.9.5";
-constexpr char kFirmwareBuildId[] = "v6 b35";
+constexpr char kFirmwareVersion[] = "0.9.6";
+constexpr char kFirmwareBuildId[] = "v6 b36";
+constexpr uint16_t kFirmwareBuildNumber = 36;
 constexpr char kFirmwareBoard[] = "Altis_Intelligent3_b3";
 constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b8";
+constexpr uint8_t kStorageProtocolVersion = 8;
+// Only formats explicitly verified by this build are decoded as native.
+// Expand this range only after replay compatibility has been validated.
+constexpr uint8_t kStorageProtocolCompatibleMin = 8;
+constexpr uint8_t kStorageProtocolCompatibleMax = 8;
+constexpr uint8_t kMissionTimebaseVersion = 1;  // THRUST_ARM_V1
 constexpr bool kFirmwareMissionLocked = true;
 constexpr char kFirmwareMissionSource[] = "builtin_launch_sequence";
 constexpr char kFirmwareMissionLockReason[] = "BUILTIN_MISSION";
@@ -124,9 +131,13 @@ constexpr uint32_t kNorDataStartAddress = kNorSectorBytes * kNorMetadataSlotCoun
 constexpr uint32_t kNorMetadataMagic = 0x364D5748UL;  // HWM6
 constexpr uint32_t kNorSectorMagic = 0x36535748UL;    // HWS6
 constexpr uint32_t kNorFooterMagic = 0x36465748UL;    // HWF6
+constexpr uint32_t kStorageBinMetadataMagic = 0x32544D48UL;  // HMT2
 constexpr uint16_t kNorFormatVersion = 1;
 constexpr uint16_t kNorSessionSectorVersion = 2;
 constexpr uint16_t kNorCompactSectorVersion = 3;
+constexpr uint16_t kNorProtocolSectorVersion = 4;
+constexpr uint16_t kStorageBinMetadataVersion = 1;
+constexpr uint16_t kStorageMetadataFlagValid = 1U << 0;
 constexpr uint32_t kNorFooterOffset = kNorSectorBytes - 16U;
 constexpr uint16_t kStorageHttpListMaxItems = 32;
 
@@ -761,7 +772,9 @@ struct FlashLinkStorageListItemV1 {
   uint32_t bytes;
   uint32_t records;
   uint8_t current;
-  uint8_t reserved[3];
+  uint8_t protocolVersion;
+  uint8_t missionTimebaseVersion;
+  uint8_t metadataFlags;
 };
 
 struct FlashLinkStorageListResponseV1 {
@@ -1070,6 +1083,24 @@ struct StorageBinHeaderV1 {
   uint32_t reserved1;
 };
 
+// HWLOGV2 keeps StorageBinHeaderV1 as its stable 40-byte prefix.  Readers that
+// only understand the old header can still skip headerSize, while current
+// readers get the exact protocol that produced the session.
+struct StorageBinHeaderV2 {
+  StorageBinHeaderV1 base;
+  uint32_t metadataMagic;
+  uint16_t metadataVersion;
+  uint16_t metadataFlags;
+  uint32_t sessionId;
+  uint16_t protocolVersion;
+  uint16_t firmwareBuildNumber;
+  uint8_t missionTimebaseVersion;
+  uint8_t compatibleProtocolMin;
+  uint8_t compatibleProtocolMax;
+  uint8_t reserved;
+  uint32_t metadataCrcReserved;
+};
+
 struct NorMetadataV1 {
   uint32_t magic;
   uint16_t version;
@@ -1105,6 +1136,24 @@ struct NorSectorHeaderV3 {
   uint8_t recordVersion;
   uint8_t recordType;
   uint16_t recordSize;
+};
+
+struct NorSectorHeaderV4 {
+  uint32_t magic;
+  uint16_t version;
+  uint16_t headerSize;
+  uint32_t generation;
+  uint32_t sectorIndex;
+  uint32_t sessionId;
+  uint8_t recordVersion;
+  uint8_t recordType;
+  uint16_t recordSize;
+  uint8_t protocolVersion;
+  uint8_t missionTimebaseVersion;
+  uint8_t metadataFlags;
+  uint8_t reserved0;
+  uint16_t firmwareBuildNumber;
+  uint16_t reserved1;
 };
 
 struct NorSectorFooterV1 {
@@ -1435,10 +1484,12 @@ static_assert(sizeof(StorageMissionAlarmRecordV2) == 84, "StorageMissionAlarmRec
 static_assert(sizeof(StorageMissionAlarmPayloadV3) == 88, "StorageMissionAlarmPayloadV3 size mismatch");
 static_assert(sizeof(StorageMissionAlarmRecordV3) == 104, "StorageMissionAlarmRecordV3 size mismatch");
 static_assert(sizeof(StorageBinHeaderV1) == 40, "StorageBinHeaderV1 size mismatch");
+static_assert(sizeof(StorageBinHeaderV2) == 64, "StorageBinHeaderV2 size mismatch");
 static_assert(sizeof(NorMetadataV1) == 16, "NorMetadataV1 size mismatch");
 static_assert(sizeof(NorSectorHeaderV1) == 16, "NorSectorHeaderV1 size mismatch");
 static_assert(sizeof(NorSectorHeaderV2) == 20, "NorSectorHeaderV2 size mismatch");
 static_assert(sizeof(NorSectorHeaderV3) == 24, "NorSectorHeaderV3 size mismatch");
+static_assert(sizeof(NorSectorHeaderV4) == 32, "NorSectorHeaderV4 size mismatch");
 static_assert(sizeof(NorSectorFooterV1) == 16, "NorSectorFooterV1 size mismatch");
 
 constexpr uint16_t kNorRecordsPerSectorV1 =
@@ -1450,7 +1501,7 @@ constexpr uint16_t kNorRecordsPerSectorV3 =
 constexpr uint16_t kNorRecordsPerSectorV4 =
   (kNorFooterOffset - sizeof(NorSectorHeaderV3)) / sizeof(StorageRecordV4);
 constexpr uint16_t kNorRecordsPerSectorV5 =
-  (kNorFooterOffset - sizeof(NorSectorHeaderV3)) / sizeof(StorageRecordV5);
+  (kNorFooterOffset - sizeof(NorSectorHeaderV4)) / sizeof(StorageRecordV5);
 constexpr uint16_t kNorMaxRecordsPerSector12 =
   kNorRecordsPerSectorV2 > kNorRecordsPerSectorV1
     ? kNorRecordsPerSectorV2
@@ -1511,6 +1562,10 @@ struct StorageSessionInfo {
   uint32_t records = 0;
   uint16_t firstSector = 0;
   uint16_t sectorCount = 0;
+  uint8_t protocolVersion = 0;
+  uint8_t missionTimebaseVersion = 0;
+  uint8_t metadataFlags = 0;
+  uint16_t firmwareBuildNumber = 0;
 };
 
 StorageRuntime storageState;
