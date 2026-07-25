@@ -37,7 +37,6 @@
           ? FLIGHT_PHASE_CODE_NAMES[phaseCode]
           : null,
         vertical_speed_mps:finiteOrNull(16),
-        speed_mps:finiteOrNull(16) != null ? Math.abs(finiteOrNull(16)) : null,
         deployment_state:finiteOrNull(17) ?? 0,
         deployment_flags:finiteOrNull(18) ?? 0,
         r:finiteOrNull(19) ?? 0,

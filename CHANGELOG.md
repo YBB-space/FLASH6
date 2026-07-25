@@ -3,6 +3,22 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 flight speed/timebase correction b76 — 2026-07-25
+
+Firmware build: `v6 b37` (unchanged)
+Protocol: `Flash6-Intelligent-b8` (unchanged)
+
+- Stopped aliasing barometric vertical speed as vehicle speed in relayed
+  telemetry and HUD/replay fallbacks. Actual speed now comes from an explicit
+  sample, GPS/3D motion, or the inertial trajectory estimator.
+- Stored actual scalar speed in the reserved tail word of new app V6 records
+  with an in-band validity bit, preserving older V6 and V4 compatibility.
+- Changed XLSX `FLIGHT_RECORD` speed to scalar vehicle speed while keeping
+  descent/terminal-speed calculations on the separate vertical-speed series.
+- Made the firmware `st=3`/`td` mission timebase authoritative for report T+.
+  Thrust-first records now retain their original thrust timestamp even when
+  physical ARM confirms mission authority later.
+
 ## FLASH6 flight-record phase column b75 — 2026-07-25
 
 Firmware build: `v6 b37` (unchanged)

@@ -4268,6 +4268,9 @@
           const gpsLonE7 = dv.getInt32(base + 56, true);
           const gpsAltCm = dv.getInt32(base + 60, true);
           const gpsFlags = dv.getUint16(base + 66, true);
+          const encodedActualSpeed = recVersion === 6
+            ? dv.getUint16(base + 78, true)
+            : 0;
           const sample = {
             t: thrustMilliKgf === -2147483648 ? 0 : (thrustMilliKgf / 1000),
             p: dv.getFloat32(base + 0, true),
@@ -4305,6 +4308,9 @@
             gps_seen: (gpsFlags >>> 1) & 1,
             gps_ready: (gpsFlags >>> 2) & 1,
             gps_time_valid: (gpsFlags >>> 3) & 1,
+            speed_mps:(encodedActualSpeed & 0x8000)
+              ? ((encodedActualSpeed & 0x7FFF) / 10)
+              : null,
             s: (flags >>> 2) & 1,
             sp: (flags >>> 13) & 1,
             ic: 1,
@@ -4741,10 +4747,11 @@
           sample.vertical_speed_mps ?? sample.verticalSpeedMps
         );
         let speedMps =
+          asFiniteOrNull(sample.actual_speed_mps) ??
+          asFiniteOrNull(sample.actualSpeedMps) ??
           asFiniteOrNull(sample.speed_mps) ??
           asFiniteOrNull(sample.speedMps) ??
-          asFiniteOrNull(sample.speed) ??
-          recordedVerticalSpeedMps;
+          asFiniteOrNull(sample.speed);
         if(altM != null){
           if(lastChangedAltM == null || lastChangedAltRelMs == null){
             lastChangedAltM = altM;
@@ -4762,17 +4769,6 @@
             }
           }
         }
-        if(speedMps == null){
-          if(lastDerivedAltitudeSpeedMps != null && lastChangedAltRelMs != null){
-            // Barometer samples update more slowly than stored IMU rows. Hold the
-            // latest altitude rate instead of emitting false zeroes between updates.
-            speedMps = (relMs - lastChangedAltRelMs) <= 500
-              ? lastDerivedAltitudeSpeedMps
-              : 0;
-          }else if(altM != null){
-            speedMps = 0;
-          }
-        }
         out.push({
           time: isFinite(absMs) ? new Date(absMs).toISOString() : "",
           origin: normalizeDataOrigin(sample),
@@ -4780,7 +4776,12 @@
           p: pressure,
           alt_m: altM,
           speed_mps: speedMps,
-          vertical_speed_mps: recordedVerticalSpeedMps ?? speedMps,
+          vertical_speed_mps: recordedVerticalSpeedMps ?? (
+            lastDerivedAltitudeSpeedMps != null && lastChangedAltRelMs != null &&
+            (relMs - lastChangedAltRelMs) <= 500
+              ? lastDerivedAltitudeSpeedMps
+              : null
+          ),
           gps_lat: asFiniteOrNull(sample.gps_lat ?? sample.gpsLat ?? sample.gpsLatitude ?? sample.nav_lat ?? sample.lat ?? sample.latitude ?? sample.glat),
           gps_lon: asFiniteOrNull(sample.gps_lon ?? sample.gps_lng ?? sample.gpsLon ?? sample.gpsLng ?? sample.gpsLongitude ?? sample.nav_lon ?? sample.nav_lng ?? sample.lon ?? sample.lng ?? sample.longitude ?? sample.glon),
           gps_alt: gpsAlt,

@@ -162,6 +162,14 @@
         const n = Number(value);
         return isFinite(n) ? n : null;
       };
+      let actualSpeedMps = readTelemetryActualSpeedMps(data);
+      if(!isFinite(actualSpeedMps) && gyroPathState && gyroPathState.fusionReady){
+        actualSpeedMps = Math.hypot(
+          Number(gyroPathState.fusionVelX),
+          Number(gyroPathState.fusionVelY),
+          Number(gyroPathState.fusionVelZ)
+        );
+      }
       return {
         received_at:receivedAt,
         origin,
@@ -187,6 +195,7 @@
         td:numberOrNull(data && data.td),
         flight_phase:data && data.flight_phase ? String(data.flight_phase) : null,
         flight_phase_code:numberOrNull(data && data.flight_phase_code),
+        speed_mps:isFinite(actualSpeedMps) ? Math.max(0, actualSpeedMps) : null,
         vertical_speed_mps:numberOrNull(data && (data.vertical_speed_mps ?? data.verticalSpeedMps)),
         relay:numberOrNull(data && data.r),
         safety:numberOrNull(data && data.sm),
@@ -408,7 +417,15 @@
       if(linkRxValid) linkFlags |= 1 << 6;
       if(linkLossValid) linkFlags |= 1 << 7;
       dv.setUint16(payloadOffset + 76, linkFlags, true);
-      dv.setUint16(payloadOffset + 78, 0, true);
+      const actualSpeedMps = Number(sample && sample.speed_mps);
+      const encodedActualSpeed = isFinite(actualSpeedMps)
+        ? Math.max(0, Math.min(0x7FFE, Math.round(actualSpeedMps * 10)))
+        : null;
+      dv.setUint16(
+        payloadOffset + 78,
+        encodedActualSpeed == null ? 0 : (0x8000 | encodedActualSpeed),
+        true
+      );
 
       dv.setUint16(
         6,

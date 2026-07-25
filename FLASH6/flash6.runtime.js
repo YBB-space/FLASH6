@@ -12968,6 +12968,7 @@ function requestMobileMockup3dMesh(){
       }
 
       const totalSpeedCandidates = [
+        data.actual_speed_mps, data.actualSpeedMps,
         data.speed_mps, data.speedMps,
         data.speed, data.spd, data.vel, data.v
       ];
@@ -12983,8 +12984,6 @@ function requestMobileMockup3dMesh(){
     function readQuickTelemetrySpeedMps(data){
       const actualSpeedMps = readTelemetryActualSpeedMps(data);
       if(isFinite(actualSpeedMps)) return actualSpeedMps;
-      const verticalSpeedMps = readTelemetryVerticalSpeedMps(data);
-      if(isFinite(verticalSpeedMps)) return Math.abs(verticalSpeedMps);
       return NaN;
     }
     function getQuickFlightMetrics(data, nowMs){
@@ -13101,10 +13100,6 @@ function requestMobileMockup3dMesh(){
           Number(gyroPathState.fusionVelZ)
         );
         if(isFinite(fusionSpeed)) speedMps = fusionSpeed;
-      }
-      if(!isFinite(speedMps)){
-        const verticalSpeedMps = readTelemetryVerticalSpeedMps(data);
-        if(isFinite(verticalSpeedMps)) speedMps = Math.abs(verticalSpeedMps);
       }
       return {altitudeM, speedMps};
     }
@@ -21748,6 +21743,9 @@ function requestMobileMockup3dMesh(){
           const gpsLonE7 = dv.getInt32(base + 56, true);
           const gpsAltCm = dv.getInt32(base + 60, true);
           const gpsFlags = dv.getUint16(base + 66, true);
+          const encodedActualSpeed = recVersion === 6
+            ? dv.getUint16(base + 78, true)
+            : 0;
           const sample = {
             t: thrustMilliKgf === -2147483648 ? 0 : (thrustMilliKgf / 1000),
             p: dv.getFloat32(base + 0, true),
@@ -21785,6 +21783,9 @@ function requestMobileMockup3dMesh(){
             gps_seen: (gpsFlags >>> 1) & 1,
             gps_ready: (gpsFlags >>> 2) & 1,
             gps_time_valid: (gpsFlags >>> 3) & 1,
+            speed_mps:(encodedActualSpeed & 0x8000)
+              ? ((encodedActualSpeed & 0x7FFF) / 10)
+              : null,
             s: (flags >>> 2) & 1,
             sp: (flags >>> 13) & 1,
             ic: 1,
@@ -22221,10 +22222,11 @@ function requestMobileMockup3dMesh(){
           sample.vertical_speed_mps ?? sample.verticalSpeedMps
         );
         let speedMps =
+          asFiniteOrNull(sample.actual_speed_mps) ??
+          asFiniteOrNull(sample.actualSpeedMps) ??
           asFiniteOrNull(sample.speed_mps) ??
           asFiniteOrNull(sample.speedMps) ??
-          asFiniteOrNull(sample.speed) ??
-          recordedVerticalSpeedMps;
+          asFiniteOrNull(sample.speed);
         if(altM != null){
           if(lastChangedAltM == null || lastChangedAltRelMs == null){
             lastChangedAltM = altM;
@@ -22242,17 +22244,6 @@ function requestMobileMockup3dMesh(){
             }
           }
         }
-        if(speedMps == null){
-          if(lastDerivedAltitudeSpeedMps != null && lastChangedAltRelMs != null){
-            // Barometer samples update more slowly than stored IMU rows. Hold the
-            // latest altitude rate instead of emitting false zeroes between updates.
-            speedMps = (relMs - lastChangedAltRelMs) <= 500
-              ? lastDerivedAltitudeSpeedMps
-              : 0;
-          }else if(altM != null){
-            speedMps = 0;
-          }
-        }
         out.push({
           time: isFinite(absMs) ? new Date(absMs).toISOString() : "",
           origin: normalizeDataOrigin(sample),
@@ -22260,7 +22251,12 @@ function requestMobileMockup3dMesh(){
           p: pressure,
           alt_m: altM,
           speed_mps: speedMps,
-          vertical_speed_mps: recordedVerticalSpeedMps ?? speedMps,
+          vertical_speed_mps: recordedVerticalSpeedMps ?? (
+            lastDerivedAltitudeSpeedMps != null && lastChangedAltRelMs != null &&
+            (relMs - lastChangedAltRelMs) <= 500
+              ? lastDerivedAltitudeSpeedMps
+              : null
+          ),
           gps_lat: asFiniteOrNull(sample.gps_lat ?? sample.gpsLat ?? sample.gpsLatitude ?? sample.nav_lat ?? sample.lat ?? sample.latitude ?? sample.glat),
           gps_lon: asFiniteOrNull(sample.gps_lon ?? sample.gps_lng ?? sample.gpsLon ?? sample.gpsLng ?? sample.gpsLongitude ?? sample.nav_lon ?? sample.nav_lng ?? sample.lon ?? sample.lng ?? sample.longitude ?? sample.glon),
           gps_alt: gpsAlt,
@@ -22454,7 +22450,6 @@ function requestMobileMockup3dMesh(){
           ? FLIGHT_PHASE_CODE_NAMES[phaseCode]
           : null,
         vertical_speed_mps:finiteOrNull(16),
-        speed_mps:finiteOrNull(16) != null ? Math.abs(finiteOrNull(16)) : null,
         deployment_state:finiteOrNull(17) ?? 0,
         deployment_flags:finiteOrNull(18) ?? 0,
         r:finiteOrNull(19) ?? 0,
@@ -24167,10 +24162,6 @@ function requestMobileMockup3dMesh(){
           processSequenceStorageGuardUpdate({notifyCritical:!isReplaySample});
         }
       }
-      if(!isFastReplaySeek){
-        recordIncomingSampleToApp(data, src, isReplaySample);
-      }
-
       // HTTP fallback로만 살아난 상황에서는 WS를 다시 붙여준다.
       if(src === "WIFI" && !wsConnected && !wsRetryTimer){
         const socketState = wsSocket ? wsSocket.readyState : WebSocket.CLOSED;
@@ -24628,25 +24619,41 @@ function requestMobileMockup3dMesh(){
         data.attitude_q ?? data.attitudeQuat ?? null))){
         updateGyroAttitudeEstimate(ax, ay, az, gx, gy, gz, timeMs);
       }
-      const quickFlight = getQuickFlightMetrics(data, timeMs);
+      const motionTelemetryData = stageTelemetryModeActive
+        ? (getActiveGyroTelemetryData(data) || data)
+        : data;
+      const motionAx = Number(motionTelemetryData && motionTelemetryData.ax);
+      const motionAy = Number(motionTelemetryData && motionTelemetryData.ay);
+      const motionAz = Number(motionTelemetryData && motionTelemetryData.az);
+      const quickFlight = getQuickFlightMetrics(motionTelemetryData, timeMs);
       const quickAltitudeM = isFinite(quickFlight.altitudeM)
         ? ((Math.abs(quickFlight.altitudeM) < 0.05) ? 0 : quickFlight.altitudeM)
         : NaN;
       const quickSpeedMps = isFinite(quickFlight.speedMps) ? Math.max(0, quickFlight.speedMps) : NaN;
-      const ascentAccelG = calcAscentAccelG(ax, ay, az);
-      const quickTotalAccelG = calcTotalAccelG(ax, ay, az);
-      const firmwareFlightPhaseInfo = readFirmwareFlightPhase(data);
+      if(isFinite(quickSpeedMps)){
+        data.actual_speed_mps = quickSpeedMps;
+        if(motionTelemetryData && motionTelemetryData !== data){
+          const activeStageState = stageTelemetryStore[cameraHudActiveStageId];
+          if(activeStageState) activeStageState.speedMps = quickSpeedMps;
+        }
+      }
+      if(!isFastReplaySeek){
+        recordIncomingSampleToApp(data, src, isReplaySample);
+      }
+      const ascentAccelG = calcAscentAccelG(motionAx, motionAy, motionAz);
+      const quickTotalAccelG = calcTotalAccelG(motionAx, motionAy, motionAz);
+      const firmwareFlightPhaseInfo = readFirmwareFlightPhase(motionTelemetryData);
       const flightPhaseInfo = isFlightModeUi()
         ? (firmwareFlightPhaseInfo ||
           updateDerivedFlightPhase(quickAltitudeM, quickSpeedMps, quickTotalAccelG, timeMs))
         : null;
-      const telemetryAltitudeRateMps = readTelemetryVerticalSpeedMps(data);
+      const telemetryAltitudeRateMps = readTelemetryVerticalSpeedMps(motionTelemetryData);
       let quickAltitudeRateMps = isFinite(telemetryAltitudeRateMps)
         ? telemetryAltitudeRateMps
         : Number(flightPhaseInfo && flightPhaseInfo.verticalSpeedMps);
       if(!isFinite(quickAltitudeRateMps)) quickAltitudeRateMps = 0;
       if(Math.abs(quickAltitudeRateMps) < 0.05) quickAltitudeRateMps = 0;
-      updateGyroPathFromTelemetry(data, timeMs, {
+      updateGyroPathFromTelemetry(motionTelemetryData, timeMs, {
         altitudeM:quickAltitudeM,
         verticalSpeedMps:quickAltitudeRateMps,
         phase:flightPhaseInfo && flightPhaseInfo.phase
@@ -25672,6 +25679,14 @@ function requestMobileMockup3dMesh(){
         const n = Number(value);
         return isFinite(n) ? n : null;
       };
+      let actualSpeedMps = readTelemetryActualSpeedMps(data);
+      if(!isFinite(actualSpeedMps) && gyroPathState && gyroPathState.fusionReady){
+        actualSpeedMps = Math.hypot(
+          Number(gyroPathState.fusionVelX),
+          Number(gyroPathState.fusionVelY),
+          Number(gyroPathState.fusionVelZ)
+        );
+      }
       return {
         received_at:receivedAt,
         origin,
@@ -25697,6 +25712,7 @@ function requestMobileMockup3dMesh(){
         td:numberOrNull(data && data.td),
         flight_phase:data && data.flight_phase ? String(data.flight_phase) : null,
         flight_phase_code:numberOrNull(data && data.flight_phase_code),
+        speed_mps:isFinite(actualSpeedMps) ? Math.max(0, actualSpeedMps) : null,
         vertical_speed_mps:numberOrNull(data && (data.vertical_speed_mps ?? data.verticalSpeedMps)),
         relay:numberOrNull(data && data.r),
         safety:numberOrNull(data && data.sm),
@@ -25918,7 +25934,15 @@ function requestMobileMockup3dMesh(){
       if(linkRxValid) linkFlags |= 1 << 6;
       if(linkLossValid) linkFlags |= 1 << 7;
       dv.setUint16(payloadOffset + 76, linkFlags, true);
-      dv.setUint16(payloadOffset + 78, 0, true);
+      const actualSpeedMps = Number(sample && sample.speed_mps);
+      const encodedActualSpeed = isFinite(actualSpeedMps)
+        ? Math.max(0, Math.min(0x7FFE, Math.round(actualSpeedMps * 10)))
+        : null;
+      dv.setUint16(
+        payloadOffset + 78,
+        encodedActualSpeed == null ? 0 : (0x8000 | encodedActualSpeed),
+        true
+      );
 
       dv.setUint16(
         6,
@@ -33478,7 +33502,10 @@ function requestMobileMockup3dMesh(){
     function selectFlightRecordWindow(rows){
       const input = Array.isArray(rows) ? rows.filter(row=>row && typeof row === "object") : [];
       if(!input.length){
-        return {rows:[], startIndex:-1, endIndex:-1, startReason:"none", landed:false};
+        return {
+          rows:[], startIndex:-1, endIndex:-1, startReason:"none", landed:false,
+          launchElapsedMs:null, launchTimeMs:null
+        };
       }
       const finiteBinary = (value)=>{
         if(value == null || value === "") return null;
@@ -33499,6 +33526,20 @@ function requestMobileMockup3dMesh(){
 
       const physicalArmOffIndex = findFallingEdge("sp", false);
       const effectiveArmOffIndex = findFallingEdge("s", true);
+      let missionTplusIndex = -1;
+      let missionLaunchElapsedMs = NaN;
+      let missionLaunchTimeMs = NaN;
+      for(let index=0; index<input.length; index++){
+        const sequenceState = Number(input[index].st);
+        const tdMs = Number(input[index].td);
+        if(sequenceState !== 3 || !Number.isFinite(tdMs) || tdMs < 0) continue;
+        const elapsedMs = Number(input[index].elapsed);
+        const timeMs = Date.parse(input[index].time);
+        missionTplusIndex = index;
+        if(Number.isFinite(elapsedMs)) missionLaunchElapsedMs = elapsedMs - tdMs;
+        if(Number.isFinite(timeMs)) missionLaunchTimeMs = timeMs - tdMs;
+        break;
+      }
       let phaseStartIndex = -1;
       for(let index=0; index<input.length; index++){
         const phaseCode = flightPhaseCodeFromExportRow(input[index]);
@@ -33509,19 +33550,57 @@ function requestMobileMockup3dMesh(){
         }
       }
 
-      let startIndex = physicalArmOffIndex;
-      let startReason = "physical_arm_off";
-      if(startIndex < 0){
-        startIndex = effectiveArmOffIndex;
-        startReason = "arm_off";
+      let startIndex = -1;
+      let startReason = "not_detected";
+      if(missionTplusIndex >= 0){
+        startIndex = missionTplusIndex;
+        startReason = "mission_tplus";
+        if(Number.isFinite(missionLaunchElapsedMs)){
+          for(let index=0; index<input.length; index++){
+            const elapsedMs = Number(input[index].elapsed);
+            if(Number.isFinite(elapsedMs) && elapsedMs >= missionLaunchElapsedMs){
+              startIndex = index;
+              break;
+            }
+          }
+        }else if(Number.isFinite(missionLaunchTimeMs)){
+          for(let index=0; index<input.length; index++){
+            const timeMs = Date.parse(input[index].time);
+            if(Number.isFinite(timeMs) && timeMs >= missionLaunchTimeMs){
+              startIndex = index;
+              break;
+            }
+          }
+        }
       }
       if(startIndex < 0){
-        startIndex = phaseStartIndex;
-        startReason = "flight_phase";
+        const fallbackCandidates = [
+          {index:physicalArmOffIndex, reason:"physical_arm_off"},
+          {index:effectiveArmOffIndex, reason:"arm_off"},
+          {index:phaseStartIndex, reason:"flight_phase"}
+        ].filter((candidate)=>candidate.index >= 0);
+        fallbackCandidates.sort((a, b)=>a.index - b.index);
+        if(fallbackCandidates.length){
+          startIndex = fallbackCandidates[0].index;
+          startReason = fallbackCandidates[0].reason;
+        }
       }
       if(startIndex < 0){
-        return {rows:[], startIndex:-1, endIndex:-1, startReason:"not_detected", landed:false};
+        return {
+          rows:[], startIndex:-1, endIndex:-1, startReason:"not_detected", landed:false,
+          launchElapsedMs:null, launchTimeMs:null
+        };
       }
+
+      const fallbackLaunchRow = input[startIndex] || {};
+      const fallbackLaunchElapsedMs = Number(fallbackLaunchRow.elapsed);
+      const fallbackLaunchTimeMs = Date.parse(fallbackLaunchRow.time);
+      const launchElapsedMs = Number.isFinite(missionLaunchElapsedMs)
+        ? missionLaunchElapsedMs
+        : (Number.isFinite(fallbackLaunchElapsedMs) ? fallbackLaunchElapsedMs : null);
+      const launchTimeMs = Number.isFinite(missionLaunchTimeMs)
+        ? missionLaunchTimeMs
+        : (Number.isFinite(fallbackLaunchTimeMs) ? fallbackLaunchTimeMs : null);
 
       let endIndex = input.length - 1;
       let landed = false;
@@ -33537,7 +33616,9 @@ function requestMobileMockup3dMesh(){
         startIndex,
         endIndex,
         startReason,
-        landed
+        landed,
+        launchElapsedMs,
+        launchTimeMs
       };
     }
     function buildStoredFlightEventRows(sourceRows, flightWindow){
@@ -33547,8 +33628,18 @@ function requestMobileMockup3dMesh(){
       const startIndex = Math.max(0, flightWindow.startIndex);
       const endIndex = Math.min(source.length - 1, flightWindow.endIndex);
       const launchRow = source[startIndex] || {};
-      const launchElapsedMs = Number(launchRow.elapsed);
-      const launchTimeMs = Date.parse(launchRow.time);
+      const windowLaunchElapsedMs = flightWindow.launchElapsedMs != null
+        ? Number(flightWindow.launchElapsedMs)
+        : NaN;
+      const windowLaunchTimeMs = flightWindow.launchTimeMs != null
+        ? Number(flightWindow.launchTimeMs)
+        : NaN;
+      const launchElapsedMs = isFinite(windowLaunchElapsedMs)
+        ? windowLaunchElapsedMs
+        : Number(launchRow.elapsed);
+      const launchTimeMs = isFinite(windowLaunchTimeMs)
+        ? windowLaunchTimeMs
+        : Date.parse(launchRow.time);
       const phaseLabels = {
         PRE_FLIGHT:"발사 전",
         POWERED_FLIGHT:"추력 비행",
@@ -33877,7 +33968,12 @@ function requestMobileMockup3dMesh(){
         return null;
       }
     }
-    function buildFlightTrajectory3dArtifact(rows, altitudeValues, launchTimeIso){
+    function buildFlightTrajectory3dArtifact(
+      rows,
+      altitudeValues,
+      launchTimeIso,
+      launchReferenceElapsedSec
+    ){
       const sourceRows = Array.isArray(rows) ? rows : [];
       const altitudes = Array.isArray(altitudeValues) ? altitudeValues : [];
       const rawPoints = [];
@@ -34354,6 +34450,34 @@ function requestMobileMockup3dMesh(){
           }
         }
       }
+      // Estimate scalar vehicle speed from the reconstructed 3D trajectory.
+      // This remains distinct from the signed barometric vertical-speed series.
+      const trajectorySpeedMps = new Array(rawPoints.length).fill(NaN);
+      let smoothedTrajectorySpeedMps = NaN;
+      for(let index=0; index<rawPoints.length; index++){
+        let left = index;
+        let right = index;
+        const centerTime = rawPoints[index].elapsedSec;
+        while(left > 0 && (centerTime - rawPoints[left].elapsedSec) < 0.2) left--;
+        while(right < rawPoints.length - 1 &&
+              (rawPoints[right].elapsedSec - centerTime) < 0.2) right++;
+        if(left === right) continue;
+        const first = rawPoints[left];
+        const last = rawPoints[right];
+        const dtSec = last.elapsedSec - first.elapsedSec;
+        if(!(dtSec > 0)) continue;
+        const distanceM = Math.hypot(
+          last.eastM - first.eastM,
+          last.northM - first.northM,
+          last.altitudeM - first.altitudeM
+        );
+        const measuredSpeedMps = distanceM / dtSec;
+        if(!isFinite(measuredSpeedMps)) continue;
+        smoothedTrajectorySpeedMps = isFinite(smoothedTrajectorySpeedMps)
+          ? (smoothedTrajectorySpeedMps + (measuredSpeedMps - smoothedTrajectorySpeedMps) * 0.35)
+          : measuredSpeedMps;
+        trajectorySpeedMps[index] = Math.max(0, smoothedTrajectorySpeedMps);
+      }
       let stageSeparationEvent = null;
       let ejectionEvent = null;
       let previousDeploymentState = NaN;
@@ -34397,7 +34521,9 @@ function requestMobileMockup3dMesh(){
           inferred:true
         };
       }
-      const trajectoryStartElapsedSec = rawPoints.length ? rawPoints[0].elapsedSec : 0;
+      const trajectoryStartElapsedSec = isFinite(Number(launchReferenceElapsedSec))
+        ? Number(launchReferenceElapsedSec)
+        : (rawPoints.length ? rawPoints[0].elapsedSec : 0);
       const eventTPlusSec = (event)=>event && event.point
         ? Math.max(0, event.point.elapsedSec - trajectoryStartElapsedSec)
         : null;
@@ -34442,6 +34568,7 @@ function requestMobileMockup3dMesh(){
           gpsAvailable,
           positionMode,
           imuAssistEndElapsedSec,
+          actualSpeedMps:trajectorySpeedMps,
           stageSeparationTPlusSec,
           ejectionTPlusSec
         };
@@ -34460,6 +34587,7 @@ function requestMobileMockup3dMesh(){
           gpsAvailable,
           positionMode,
           imuAssistEndElapsedSec,
+          actualSpeedMps:trajectorySpeedMps,
           stageSeparationTPlusSec,
           ejectionTPlusSec
         };
@@ -34672,6 +34800,7 @@ function requestMobileMockup3dMesh(){
         gpsAvailable,
         positionMode,
         imuAssistEndElapsedSec,
+        actualSpeedMps:trajectorySpeedMps,
         stageSeparationTPlusSec,
         ejectionTPlusSec
       };
@@ -37764,9 +37893,14 @@ function requestMobileMockup3dMesh(){
           }
           const exportStartMs = Date.parse(exportRows[0].time);
           const exportEndMs = Date.parse(exportRows[exportRows.length - 1].time);
+          const detectedLaunchTimeMs = flightExportMode &&
+            flightRecordWindow.launchTimeMs != null &&
+            isFinite(Number(flightRecordWindow.launchTimeMs))
+            ? Number(flightRecordWindow.launchTimeMs)
+            : exportStartMs;
           const hasRecordedCalendarTime = isFinite(exportStartMs);
           const reportReferenceDate = flightExportMode && hasRecordedCalendarTime
-            ? new Date(exportStartMs)
+            ? new Date(detectedLaunchTimeMs)
             : now;
           const fnameSuffix = flightExportMode && !hasRecordedCalendarTime
             ? "NO_DATE"
@@ -37929,13 +38063,12 @@ function requestMobileMockup3dMesh(){
             let gyroMax = -Infinity;
             let maxAltitude = null;
             let maxSpeed = null;
-            let baseElapsedSec = null;
             let xMaxSec = null;
             let xDeltaSum = 0;
             let xDeltaCount = 0;
             let lastXVal = null;
             const flightRows = [[
-              t("hdrElapsedMs"), t("hdrFlightPhase"), t("hdrAltitudeM"), "FLIGHT_ACCEL_G", "ALTITUDE_SPEED_MPS",
+              t("hdrElapsedMs"), t("hdrFlightPhase"), t("hdrAltitudeM"), "FLIGHT_ACCEL_G", "SPEED_MPS",
               "DESCENT_SPEED_MPS", "TERMINAL_SPEED_MPS", "time_axis",
               "GYRO_X_DPS", "GYRO_Y_DPS", "GYRO_Z_DPS"
             ]];
@@ -37943,7 +38076,7 @@ function requestMobileMockup3dMesh(){
             const flightRawRows = [[
               t("hdrTimeIso"), "ORIGIN", "BARO_PRESSURE_MPA",
               t("hdrGpsLat"), t("hdrGpsLon"), t("hdrGpsAlt"),
-              t("hdrAltitudeM"), "ALTITUDE_SPEED_MPS", "DESCENT_SPEED_MPS", "TERMINAL_SPEED_MPS",
+              t("hdrAltitudeM"), "SPEED_MPS", "DESCENT_SPEED_MPS", "TERMINAL_SPEED_MPS",
               t("hdrAccelX"), t("hdrAccelY"), t("hdrAccelZ"),
               t("hdrGyroX"), t("hdrGyroY"), t("hdrGyroZ"),
               t("hdrLoopMs"), t("hdrElapsedMs"), t("hdrCpuUs"),
@@ -38019,15 +38152,41 @@ function requestMobileMockup3dMesh(){
             const reportTerminalSpeedMps = reportDescentSpeedMps.map((speedMps)=>
               isFinite(Number(speedMps)) && terminalSpeedMps > 0 ? terminalSpeedMps : NaN
             );
-            const launchTimeIso = hasRecordedCalendarTime ? new Date(exportStartMs).toISOString() : "";
-            const trajectory3d = buildFlightTrajectory3dArtifact(exportRows, reportAltitudeMValues, launchTimeIso);
+            const launchElapsedSec = flightRecordWindow.launchElapsedMs != null &&
+              isFinite(Number(flightRecordWindow.launchElapsedMs))
+              ? (Number(flightRecordWindow.launchElapsedMs) / 1000)
+              : null;
+            const firstExportElapsedSec = exportRows[0] && isFinite(Number(exportRows[0].elapsed))
+              ? (Number(exportRows[0].elapsed) / 1000)
+              : null;
+            const launchTimeIso = hasRecordedCalendarTime && isFinite(detectedLaunchTimeMs)
+              ? new Date(detectedLaunchTimeMs).toISOString()
+              : "";
+            const trajectory3d = buildFlightTrajectory3dArtifact(
+              exportRows,
+              reportAltitudeMValues,
+              launchTimeIso,
+              launchElapsedSec
+            );
+            const reportActualSpeedMps = exportRows.map((row, index)=>{
+              const recordedSpeedMps = rowFiniteOrNaN(
+                row && (row.actual_speed_mps ?? row.speed_mps)
+              );
+              if(isFinite(recordedSpeedMps)) return Math.max(0, recordedSpeedMps);
+              const trajectorySpeedMps = rowFiniteOrNaN(
+                trajectory3d && Array.isArray(trajectory3d.actualSpeedMps)
+                  ? trajectory3d.actualSpeedMps[index]
+                  : NaN
+              );
+              return isFinite(trajectorySpeedMps) ? Math.max(0, trajectorySpeedMps) : NaN;
+            });
 
             for(let rowIndex = 0; rowIndex < exportRows.length; rowIndex++){
               const row = exportRows[rowIndex];
               const ms = Date.parse(row.time);
               const rel = rowRelSeconds(row, ms);
               const altVal = reportAltitudeMValues[rowIndex];
-              const speedVal = reportAltitudeSpeedMps[rowIndex];
+              const speedVal = reportActualSpeedMps[rowIndex];
               const descentSpeedVal = reportDescentSpeedMps[rowIndex];
               const terminalSpeedVal = reportTerminalSpeedMps[rowIndex];
               const axVal = rowFiniteOrNaN(row.ax);
@@ -38042,10 +38201,11 @@ function requestMobileMockup3dMesh(){
               let xVal = "";
               if(row.elapsed != null && isFinite(Number(row.elapsed))){
                 const elapsedSec = Number(row.elapsed) / 1000;
-                if(baseElapsedSec == null) baseElapsedSec = elapsedSec;
-                xVal = elapsedSec - baseElapsedSec;
-              }else if(isFinite(ms) && isFinite(exportStartMs)){
-                xVal = (ms - exportStartMs) / 1000;
+                xVal = launchElapsedSec != null
+                  ? (elapsedSec - launchElapsedSec)
+                  : (firstExportElapsedSec != null ? (elapsedSec - firstExportElapsedSec) : "");
+              }else if(isFinite(ms) && isFinite(detectedLaunchTimeMs)){
+                xVal = (ms - detectedLaunchTimeMs) / 1000;
               }
               if(xVal !== "" && isFinite(xVal)){
                 if(lastXVal != null){
@@ -38223,13 +38383,13 @@ function requestMobileMockup3dMesh(){
                   series:[{label:"ALTITUDE", color:"#10b981", values:flightRows.slice(1).map((row)=>row[2])}]
                 },
                 {
-                  title:"VERTICAL SPEED",
-                  subtitle:"ALTITUDE-DERIVED RATE · POSITIVE UP / NEGATIVE DOWN",
-                  axisYTitle:"VERTICAL SPEED (m/s)",
+                  title:"VEHICLE SPEED",
+                  subtitle:"3D TRAJECTORY SPEED MAGNITUDE",
+                  axisYTitle:"SPEED (m/s)",
                   yMin:speedAxis.min,
                   yMax:speedAxis.max,
                   summaryUnit:" m/s",
-                  series:[{label:"VERTICAL SPEED", color:"#3b82f6", values:flightRows.slice(1).map((row)=>row[4])}]
+                  series:[{label:"SPEED", color:"#3b82f6", values:flightRows.slice(1).map((row)=>row[4])}]
                 },
                 {
                   title:"FLIGHT ACCELERATION",
@@ -38242,12 +38402,12 @@ function requestMobileMockup3dMesh(){
                 },
                 {
                   title:"FLIGHT DYNAMICS",
-                  subtitle:"ALTITUDE / VERTICAL SPEED / ACCELERATION",
+                  subtitle:"ALTITUDE / SPEED / ACCELERATION",
                   axisYTitle:"NORMALIZED PROFILE (%)",
                   normalizeSeries:true,
                   series:[
                     {label:"ALTITUDE", color:"#10b981", values:flightRows.slice(1).map((row)=>row[2])},
-                    {label:"VERTICAL SPEED", color:"#3b82f6", values:flightRows.slice(1).map((row)=>row[4])},
+                    {label:"SPEED", color:"#3b82f6", values:flightRows.slice(1).map((row)=>row[4])},
                     {label:"ACCELERATION", color:"#f59e0b", values:flightRows.slice(1).map((row)=>row[3])}
                   ]
                 },
@@ -38306,9 +38466,9 @@ function requestMobileMockup3dMesh(){
                 series:[{col:"C", nameCell:"FLIGHT_RECORD!$C$1", color:"10B981"}]
               },
               chart2:{
-                title:"VERTICAL SPEED",
-                subtitle:"ALTITUDE-DERIVED RATE · POSITIVE UP / NEGATIVE DOWN",
-                axisYTitle:"VERTICAL SPEED (m/s)",
+                title:"VEHICLE SPEED",
+                subtitle:"3D TRAJECTORY SPEED MAGNITUDE",
+                axisYTitle:"SPEED (m/s)",
                 majorUnit:speedUnit,
                 yMin:speedAxis.min,
                 yMax:speedAxis.max,
@@ -38327,7 +38487,7 @@ function requestMobileMockup3dMesh(){
               },
               chart4:{
                 title:"FLIGHT DYNAMICS",
-                subtitle:"ALTITUDE / VERTICAL SPEED / ACCELERATION",
+                subtitle:"ALTITUDE / SPEED / ACCELERATION",
                 axisYTitle:"VALUE",
                 majorUnit:null,
                 yMin:null,
@@ -38373,12 +38533,12 @@ function requestMobileMockup3dMesh(){
               {cells:["FLIGHT RECORD"], style:2},
               {cells:["운용 모드: AVIONICS"], style:3},
               {cells:["실험 회차: " + ((el.missionTestCount && el.missionTestCount.value) ? el.missionTestCount.value.trim() : "-")], style:3},
-              {cells:["기록 범위: ARM OFF → " + (flightRecordWindow.landed ? "LANDED" : "LAST SAMPLE")], style:3},
+              {cells:["기록 범위: T+0 → " + (flightRecordWindow.landed ? "LANDED" : "LAST SAMPLE")], style:3},
               {cells:["시작 판정: " + flightRecordWindow.startReason], style:3},
               {cells:["포함 샘플: " + exportRows.length], style:3},
               {cells:["최대 고도 (m): " + exportMetricText(infoMaxAltitude)], style:3},
-              {cells:["최대 고도 속도 (m/s): " + exportMetricText(infoMaxSpeed)], style:3},
-              {cells:["고도 속도 계산: 고도 기반 2.4초 추세 미분"], style:3},
+              {cells:["최대 실제 속도 (m/s): " + exportMetricText(infoMaxSpeed)], style:3},
+              {cells:["속도 계산: 저장된 실제 속도 우선 · 없으면 3D 궤적 변위 기반 추정"], style:3},
               {cells:["종단 속도 (최대 하강 속력, m/s): " + exportMetricText(terminalSpeedMps)], style:3},
               {cells:["3D 비행 궤적: " + (
                 trajectory3d.positionMode === "IMU_LOCAL"
@@ -38399,7 +38559,7 @@ function requestMobileMockup3dMesh(){
               {cells:["단분리 시점 (서보 CH1): " + formatInfoEventTPlus(trajectory3d.stageSeparationTPlusSec)], style:3},
               {cells:["사출 시점 (서보 CH2): " + formatInfoEventTPlus(trajectory3d.ejectionTPlusSec)], style:3},
               {cells:["이벤트 원본: BIN/텔레메트리 저장 레코드"], style:3},
-              {cells:["발사 시각 (ARM OFF): " + (launchTimeIso || "절대 날짜 미기록 · T+ 기준")], style:3}
+              {cells:["발사 시각 (우선 감지 T+0): " + (launchTimeIso || "절대 날짜 미기록 · T+ 기준")], style:3}
             ];
             if(requestedReportFormat === "docx"){
               const reportDateText = reportReferenceDate.getFullYear() + "-" +

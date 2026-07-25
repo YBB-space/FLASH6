@@ -52,7 +52,8 @@ const record = context.buildRecord({
   fl_remote_valid:1,
   fl_stage1:1,
   fl_stage2:0,
-  fl_role_code:1
+  fl_role_code:1,
+  speed_mps:37.2
 }, 7);
 assert.equal(record.byteLength, 96);
 const dv = new DataView(record.buffer, record.byteOffset, record.byteLength);
@@ -63,6 +64,7 @@ assert.equal(dv.getUint16(16 + 70, true), 12);
 assert.equal(dv.getInt16(16 + 72, true), -763);
 assert.equal(dv.getUint16(16 + 74, true), 25);
 assert.equal(dv.getUint16(16 + 76, true), 0b11110111);
+assert.equal(dv.getUint16(16 + 78, true), 0x8000 | 372);
 
 assert.match(replaySource, /recVersion === 4 \|\| recVersion === 6/);
 assert.match(replaySource, /sample\.app_link_quality_recorded = 1/);
@@ -70,4 +72,4 @@ assert.match(replaySource, /function prepareReplayLinkQualityData/);
 assert.match(htmlSource, /id="replayLinkStatusBtn"/);
 assert.match(htmlSource, /id="replayLinkQualityChart"/);
 
-console.log("App replay link-quality regression: PASS (V4 compatible, V6 metrics)");
+console.log("App replay link-quality regression: PASS (V4 compatible, V6 link + actual speed)");

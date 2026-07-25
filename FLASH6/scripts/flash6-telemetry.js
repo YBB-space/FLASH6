@@ -367,10 +367,6 @@
           processSequenceStorageGuardUpdate({notifyCritical:!isReplaySample});
         }
       }
-      if(!isFastReplaySeek){
-        recordIncomingSampleToApp(data, src, isReplaySample);
-      }
-
       // HTTP fallback로만 살아난 상황에서는 WS를 다시 붙여준다.
       if(src === "WIFI" && !wsConnected && !wsRetryTimer){
         const socketState = wsSocket ? wsSocket.readyState : WebSocket.CLOSED;
@@ -828,25 +824,41 @@
         data.attitude_q ?? data.attitudeQuat ?? null))){
         updateGyroAttitudeEstimate(ax, ay, az, gx, gy, gz, timeMs);
       }
-      const quickFlight = getQuickFlightMetrics(data, timeMs);
+      const motionTelemetryData = stageTelemetryModeActive
+        ? (getActiveGyroTelemetryData(data) || data)
+        : data;
+      const motionAx = Number(motionTelemetryData && motionTelemetryData.ax);
+      const motionAy = Number(motionTelemetryData && motionTelemetryData.ay);
+      const motionAz = Number(motionTelemetryData && motionTelemetryData.az);
+      const quickFlight = getQuickFlightMetrics(motionTelemetryData, timeMs);
       const quickAltitudeM = isFinite(quickFlight.altitudeM)
         ? ((Math.abs(quickFlight.altitudeM) < 0.05) ? 0 : quickFlight.altitudeM)
         : NaN;
       const quickSpeedMps = isFinite(quickFlight.speedMps) ? Math.max(0, quickFlight.speedMps) : NaN;
-      const ascentAccelG = calcAscentAccelG(ax, ay, az);
-      const quickTotalAccelG = calcTotalAccelG(ax, ay, az);
-      const firmwareFlightPhaseInfo = readFirmwareFlightPhase(data);
+      if(isFinite(quickSpeedMps)){
+        data.actual_speed_mps = quickSpeedMps;
+        if(motionTelemetryData && motionTelemetryData !== data){
+          const activeStageState = stageTelemetryStore[cameraHudActiveStageId];
+          if(activeStageState) activeStageState.speedMps = quickSpeedMps;
+        }
+      }
+      if(!isFastReplaySeek){
+        recordIncomingSampleToApp(data, src, isReplaySample);
+      }
+      const ascentAccelG = calcAscentAccelG(motionAx, motionAy, motionAz);
+      const quickTotalAccelG = calcTotalAccelG(motionAx, motionAy, motionAz);
+      const firmwareFlightPhaseInfo = readFirmwareFlightPhase(motionTelemetryData);
       const flightPhaseInfo = isFlightModeUi()
         ? (firmwareFlightPhaseInfo ||
           updateDerivedFlightPhase(quickAltitudeM, quickSpeedMps, quickTotalAccelG, timeMs))
         : null;
-      const telemetryAltitudeRateMps = readTelemetryVerticalSpeedMps(data);
+      const telemetryAltitudeRateMps = readTelemetryVerticalSpeedMps(motionTelemetryData);
       let quickAltitudeRateMps = isFinite(telemetryAltitudeRateMps)
         ? telemetryAltitudeRateMps
         : Number(flightPhaseInfo && flightPhaseInfo.verticalSpeedMps);
       if(!isFinite(quickAltitudeRateMps)) quickAltitudeRateMps = 0;
       if(Math.abs(quickAltitudeRateMps) < 0.05) quickAltitudeRateMps = 0;
-      updateGyroPathFromTelemetry(data, timeMs, {
+      updateGyroPathFromTelemetry(motionTelemetryData, timeMs, {
         altitudeM:quickAltitudeM,
         verticalSpeedMps:quickAltitudeRateMps,
         phase:flightPhaseInfo && flightPhaseInfo.phase

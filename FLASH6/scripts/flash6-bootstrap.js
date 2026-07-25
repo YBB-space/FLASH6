@@ -2292,9 +2292,14 @@
           }
           const exportStartMs = Date.parse(exportRows[0].time);
           const exportEndMs = Date.parse(exportRows[exportRows.length - 1].time);
+          const detectedLaunchTimeMs = flightExportMode &&
+            flightRecordWindow.launchTimeMs != null &&
+            isFinite(Number(flightRecordWindow.launchTimeMs))
+            ? Number(flightRecordWindow.launchTimeMs)
+            : exportStartMs;
           const hasRecordedCalendarTime = isFinite(exportStartMs);
           const reportReferenceDate = flightExportMode && hasRecordedCalendarTime
-            ? new Date(exportStartMs)
+            ? new Date(detectedLaunchTimeMs)
             : now;
           const fnameSuffix = flightExportMode && !hasRecordedCalendarTime
             ? "NO_DATE"
@@ -2457,13 +2462,12 @@
             let gyroMax = -Infinity;
             let maxAltitude = null;
             let maxSpeed = null;
-            let baseElapsedSec = null;
             let xMaxSec = null;
             let xDeltaSum = 0;
             let xDeltaCount = 0;
             let lastXVal = null;
             const flightRows = [[
-              t("hdrElapsedMs"), t("hdrFlightPhase"), t("hdrAltitudeM"), "FLIGHT_ACCEL_G", "ALTITUDE_SPEED_MPS",
+              t("hdrElapsedMs"), t("hdrFlightPhase"), t("hdrAltitudeM"), "FLIGHT_ACCEL_G", "SPEED_MPS",
               "DESCENT_SPEED_MPS", "TERMINAL_SPEED_MPS", "time_axis",
               "GYRO_X_DPS", "GYRO_Y_DPS", "GYRO_Z_DPS"
             ]];
@@ -2471,7 +2475,7 @@
             const flightRawRows = [[
               t("hdrTimeIso"), "ORIGIN", "BARO_PRESSURE_MPA",
               t("hdrGpsLat"), t("hdrGpsLon"), t("hdrGpsAlt"),
-              t("hdrAltitudeM"), "ALTITUDE_SPEED_MPS", "DESCENT_SPEED_MPS", "TERMINAL_SPEED_MPS",
+              t("hdrAltitudeM"), "SPEED_MPS", "DESCENT_SPEED_MPS", "TERMINAL_SPEED_MPS",
               t("hdrAccelX"), t("hdrAccelY"), t("hdrAccelZ"),
               t("hdrGyroX"), t("hdrGyroY"), t("hdrGyroZ"),
               t("hdrLoopMs"), t("hdrElapsedMs"), t("hdrCpuUs"),
@@ -2547,15 +2551,41 @@
             const reportTerminalSpeedMps = reportDescentSpeedMps.map((speedMps)=>
               isFinite(Number(speedMps)) && terminalSpeedMps > 0 ? terminalSpeedMps : NaN
             );
-            const launchTimeIso = hasRecordedCalendarTime ? new Date(exportStartMs).toISOString() : "";
-            const trajectory3d = buildFlightTrajectory3dArtifact(exportRows, reportAltitudeMValues, launchTimeIso);
+            const launchElapsedSec = flightRecordWindow.launchElapsedMs != null &&
+              isFinite(Number(flightRecordWindow.launchElapsedMs))
+              ? (Number(flightRecordWindow.launchElapsedMs) / 1000)
+              : null;
+            const firstExportElapsedSec = exportRows[0] && isFinite(Number(exportRows[0].elapsed))
+              ? (Number(exportRows[0].elapsed) / 1000)
+              : null;
+            const launchTimeIso = hasRecordedCalendarTime && isFinite(detectedLaunchTimeMs)
+              ? new Date(detectedLaunchTimeMs).toISOString()
+              : "";
+            const trajectory3d = buildFlightTrajectory3dArtifact(
+              exportRows,
+              reportAltitudeMValues,
+              launchTimeIso,
+              launchElapsedSec
+            );
+            const reportActualSpeedMps = exportRows.map((row, index)=>{
+              const recordedSpeedMps = rowFiniteOrNaN(
+                row && (row.actual_speed_mps ?? row.speed_mps)
+              );
+              if(isFinite(recordedSpeedMps)) return Math.max(0, recordedSpeedMps);
+              const trajectorySpeedMps = rowFiniteOrNaN(
+                trajectory3d && Array.isArray(trajectory3d.actualSpeedMps)
+                  ? trajectory3d.actualSpeedMps[index]
+                  : NaN
+              );
+              return isFinite(trajectorySpeedMps) ? Math.max(0, trajectorySpeedMps) : NaN;
+            });
 
             for(let rowIndex = 0; rowIndex < exportRows.length; rowIndex++){
               const row = exportRows[rowIndex];
               const ms = Date.parse(row.time);
               const rel = rowRelSeconds(row, ms);
               const altVal = reportAltitudeMValues[rowIndex];
-              const speedVal = reportAltitudeSpeedMps[rowIndex];
+              const speedVal = reportActualSpeedMps[rowIndex];
               const descentSpeedVal = reportDescentSpeedMps[rowIndex];
               const terminalSpeedVal = reportTerminalSpeedMps[rowIndex];
               const axVal = rowFiniteOrNaN(row.ax);
@@ -2570,10 +2600,11 @@
               let xVal = "";
               if(row.elapsed != null && isFinite(Number(row.elapsed))){
                 const elapsedSec = Number(row.elapsed) / 1000;
-                if(baseElapsedSec == null) baseElapsedSec = elapsedSec;
-                xVal = elapsedSec - baseElapsedSec;
-              }else if(isFinite(ms) && isFinite(exportStartMs)){
-                xVal = (ms - exportStartMs) / 1000;
+                xVal = launchElapsedSec != null
+                  ? (elapsedSec - launchElapsedSec)
+                  : (firstExportElapsedSec != null ? (elapsedSec - firstExportElapsedSec) : "");
+              }else if(isFinite(ms) && isFinite(detectedLaunchTimeMs)){
+                xVal = (ms - detectedLaunchTimeMs) / 1000;
               }
               if(xVal !== "" && isFinite(xVal)){
                 if(lastXVal != null){
@@ -2751,13 +2782,13 @@
                   series:[{label:"ALTITUDE", color:"#10b981", values:flightRows.slice(1).map((row)=>row[2])}]
                 },
                 {
-                  title:"VERTICAL SPEED",
-                  subtitle:"ALTITUDE-DERIVED RATE · POSITIVE UP / NEGATIVE DOWN",
-                  axisYTitle:"VERTICAL SPEED (m/s)",
+                  title:"VEHICLE SPEED",
+                  subtitle:"3D TRAJECTORY SPEED MAGNITUDE",
+                  axisYTitle:"SPEED (m/s)",
                   yMin:speedAxis.min,
                   yMax:speedAxis.max,
                   summaryUnit:" m/s",
-                  series:[{label:"VERTICAL SPEED", color:"#3b82f6", values:flightRows.slice(1).map((row)=>row[4])}]
+                  series:[{label:"SPEED", color:"#3b82f6", values:flightRows.slice(1).map((row)=>row[4])}]
                 },
                 {
                   title:"FLIGHT ACCELERATION",
@@ -2770,12 +2801,12 @@
                 },
                 {
                   title:"FLIGHT DYNAMICS",
-                  subtitle:"ALTITUDE / VERTICAL SPEED / ACCELERATION",
+                  subtitle:"ALTITUDE / SPEED / ACCELERATION",
                   axisYTitle:"NORMALIZED PROFILE (%)",
                   normalizeSeries:true,
                   series:[
                     {label:"ALTITUDE", color:"#10b981", values:flightRows.slice(1).map((row)=>row[2])},
-                    {label:"VERTICAL SPEED", color:"#3b82f6", values:flightRows.slice(1).map((row)=>row[4])},
+                    {label:"SPEED", color:"#3b82f6", values:flightRows.slice(1).map((row)=>row[4])},
                     {label:"ACCELERATION", color:"#f59e0b", values:flightRows.slice(1).map((row)=>row[3])}
                   ]
                 },
@@ -2834,9 +2865,9 @@
                 series:[{col:"C", nameCell:"FLIGHT_RECORD!$C$1", color:"10B981"}]
               },
               chart2:{
-                title:"VERTICAL SPEED",
-                subtitle:"ALTITUDE-DERIVED RATE · POSITIVE UP / NEGATIVE DOWN",
-                axisYTitle:"VERTICAL SPEED (m/s)",
+                title:"VEHICLE SPEED",
+                subtitle:"3D TRAJECTORY SPEED MAGNITUDE",
+                axisYTitle:"SPEED (m/s)",
                 majorUnit:speedUnit,
                 yMin:speedAxis.min,
                 yMax:speedAxis.max,
@@ -2855,7 +2886,7 @@
               },
               chart4:{
                 title:"FLIGHT DYNAMICS",
-                subtitle:"ALTITUDE / VERTICAL SPEED / ACCELERATION",
+                subtitle:"ALTITUDE / SPEED / ACCELERATION",
                 axisYTitle:"VALUE",
                 majorUnit:null,
                 yMin:null,
@@ -2901,12 +2932,12 @@
               {cells:["FLIGHT RECORD"], style:2},
               {cells:["운용 모드: AVIONICS"], style:3},
               {cells:["실험 회차: " + ((el.missionTestCount && el.missionTestCount.value) ? el.missionTestCount.value.trim() : "-")], style:3},
-              {cells:["기록 범위: ARM OFF → " + (flightRecordWindow.landed ? "LANDED" : "LAST SAMPLE")], style:3},
+              {cells:["기록 범위: T+0 → " + (flightRecordWindow.landed ? "LANDED" : "LAST SAMPLE")], style:3},
               {cells:["시작 판정: " + flightRecordWindow.startReason], style:3},
               {cells:["포함 샘플: " + exportRows.length], style:3},
               {cells:["최대 고도 (m): " + exportMetricText(infoMaxAltitude)], style:3},
-              {cells:["최대 고도 속도 (m/s): " + exportMetricText(infoMaxSpeed)], style:3},
-              {cells:["고도 속도 계산: 고도 기반 2.4초 추세 미분"], style:3},
+              {cells:["최대 실제 속도 (m/s): " + exportMetricText(infoMaxSpeed)], style:3},
+              {cells:["속도 계산: 저장된 실제 속도 우선 · 없으면 3D 궤적 변위 기반 추정"], style:3},
               {cells:["종단 속도 (최대 하강 속력, m/s): " + exportMetricText(terminalSpeedMps)], style:3},
               {cells:["3D 비행 궤적: " + (
                 trajectory3d.positionMode === "IMU_LOCAL"
@@ -2927,7 +2958,7 @@
               {cells:["단분리 시점 (서보 CH1): " + formatInfoEventTPlus(trajectory3d.stageSeparationTPlusSec)], style:3},
               {cells:["사출 시점 (서보 CH2): " + formatInfoEventTPlus(trajectory3d.ejectionTPlusSec)], style:3},
               {cells:["이벤트 원본: BIN/텔레메트리 저장 레코드"], style:3},
-              {cells:["발사 시각 (ARM OFF): " + (launchTimeIso || "절대 날짜 미기록 · T+ 기준")], style:3}
+              {cells:["발사 시각 (우선 감지 T+0): " + (launchTimeIso || "절대 날짜 미기록 · T+ 기준")], style:3}
             ];
             if(requestedReportFormat === "docx"){
               const reportDateText = reportReferenceDate.getFullYear() + "-" +

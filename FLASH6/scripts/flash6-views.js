@@ -2457,6 +2457,7 @@
       }
 
       const totalSpeedCandidates = [
+        data.actual_speed_mps, data.actualSpeedMps,
         data.speed_mps, data.speedMps,
         data.speed, data.spd, data.vel, data.v
       ];
@@ -2472,8 +2473,6 @@
     function readQuickTelemetrySpeedMps(data){
       const actualSpeedMps = readTelemetryActualSpeedMps(data);
       if(isFinite(actualSpeedMps)) return actualSpeedMps;
-      const verticalSpeedMps = readTelemetryVerticalSpeedMps(data);
-      if(isFinite(verticalSpeedMps)) return Math.abs(verticalSpeedMps);
       return NaN;
     }
     function getQuickFlightMetrics(data, nowMs){
@@ -2590,10 +2589,6 @@
           Number(gyroPathState.fusionVelZ)
         );
         if(isFinite(fusionSpeed)) speedMps = fusionSpeed;
-      }
-      if(!isFinite(speedMps)){
-        const verticalSpeedMps = readTelemetryVerticalSpeedMps(data);
-        if(isFinite(verticalSpeedMps)) speedMps = Math.abs(verticalSpeedMps);
       }
       return {altitudeM, speedMps};
     }

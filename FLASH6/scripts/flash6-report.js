@@ -37,7 +37,10 @@
     function selectFlightRecordWindow(rows){
       const input = Array.isArray(rows) ? rows.filter(row=>row && typeof row === "object") : [];
       if(!input.length){
-        return {rows:[], startIndex:-1, endIndex:-1, startReason:"none", landed:false};
+        return {
+          rows:[], startIndex:-1, endIndex:-1, startReason:"none", landed:false,
+          launchElapsedMs:null, launchTimeMs:null
+        };
       }
       const finiteBinary = (value)=>{
         if(value == null || value === "") return null;
@@ -58,6 +61,20 @@
 
       const physicalArmOffIndex = findFallingEdge("sp", false);
       const effectiveArmOffIndex = findFallingEdge("s", true);
+      let missionTplusIndex = -1;
+      let missionLaunchElapsedMs = NaN;
+      let missionLaunchTimeMs = NaN;
+      for(let index=0; index<input.length; index++){
+        const sequenceState = Number(input[index].st);
+        const tdMs = Number(input[index].td);
+        if(sequenceState !== 3 || !Number.isFinite(tdMs) || tdMs < 0) continue;
+        const elapsedMs = Number(input[index].elapsed);
+        const timeMs = Date.parse(input[index].time);
+        missionTplusIndex = index;
+        if(Number.isFinite(elapsedMs)) missionLaunchElapsedMs = elapsedMs - tdMs;
+        if(Number.isFinite(timeMs)) missionLaunchTimeMs = timeMs - tdMs;
+        break;
+      }
       let phaseStartIndex = -1;
       for(let index=0; index<input.length; index++){
         const phaseCode = flightPhaseCodeFromExportRow(input[index]);
@@ -68,19 +85,57 @@
         }
       }
 
-      let startIndex = physicalArmOffIndex;
-      let startReason = "physical_arm_off";
-      if(startIndex < 0){
-        startIndex = effectiveArmOffIndex;
-        startReason = "arm_off";
+      let startIndex = -1;
+      let startReason = "not_detected";
+      if(missionTplusIndex >= 0){
+        startIndex = missionTplusIndex;
+        startReason = "mission_tplus";
+        if(Number.isFinite(missionLaunchElapsedMs)){
+          for(let index=0; index<input.length; index++){
+            const elapsedMs = Number(input[index].elapsed);
+            if(Number.isFinite(elapsedMs) && elapsedMs >= missionLaunchElapsedMs){
+              startIndex = index;
+              break;
+            }
+          }
+        }else if(Number.isFinite(missionLaunchTimeMs)){
+          for(let index=0; index<input.length; index++){
+            const timeMs = Date.parse(input[index].time);
+            if(Number.isFinite(timeMs) && timeMs >= missionLaunchTimeMs){
+              startIndex = index;
+              break;
+            }
+          }
+        }
       }
       if(startIndex < 0){
-        startIndex = phaseStartIndex;
-        startReason = "flight_phase";
+        const fallbackCandidates = [
+          {index:physicalArmOffIndex, reason:"physical_arm_off"},
+          {index:effectiveArmOffIndex, reason:"arm_off"},
+          {index:phaseStartIndex, reason:"flight_phase"}
+        ].filter((candidate)=>candidate.index >= 0);
+        fallbackCandidates.sort((a, b)=>a.index - b.index);
+        if(fallbackCandidates.length){
+          startIndex = fallbackCandidates[0].index;
+          startReason = fallbackCandidates[0].reason;
+        }
       }
       if(startIndex < 0){
-        return {rows:[], startIndex:-1, endIndex:-1, startReason:"not_detected", landed:false};
+        return {
+          rows:[], startIndex:-1, endIndex:-1, startReason:"not_detected", landed:false,
+          launchElapsedMs:null, launchTimeMs:null
+        };
       }
+
+      const fallbackLaunchRow = input[startIndex] || {};
+      const fallbackLaunchElapsedMs = Number(fallbackLaunchRow.elapsed);
+      const fallbackLaunchTimeMs = Date.parse(fallbackLaunchRow.time);
+      const launchElapsedMs = Number.isFinite(missionLaunchElapsedMs)
+        ? missionLaunchElapsedMs
+        : (Number.isFinite(fallbackLaunchElapsedMs) ? fallbackLaunchElapsedMs : null);
+      const launchTimeMs = Number.isFinite(missionLaunchTimeMs)
+        ? missionLaunchTimeMs
+        : (Number.isFinite(fallbackLaunchTimeMs) ? fallbackLaunchTimeMs : null);
 
       let endIndex = input.length - 1;
       let landed = false;
@@ -96,7 +151,9 @@
         startIndex,
         endIndex,
         startReason,
-        landed
+        landed,
+        launchElapsedMs,
+        launchTimeMs
       };
     }
     function buildStoredFlightEventRows(sourceRows, flightWindow){
@@ -106,8 +163,18 @@
       const startIndex = Math.max(0, flightWindow.startIndex);
       const endIndex = Math.min(source.length - 1, flightWindow.endIndex);
       const launchRow = source[startIndex] || {};
-      const launchElapsedMs = Number(launchRow.elapsed);
-      const launchTimeMs = Date.parse(launchRow.time);
+      const windowLaunchElapsedMs = flightWindow.launchElapsedMs != null
+        ? Number(flightWindow.launchElapsedMs)
+        : NaN;
+      const windowLaunchTimeMs = flightWindow.launchTimeMs != null
+        ? Number(flightWindow.launchTimeMs)
+        : NaN;
+      const launchElapsedMs = isFinite(windowLaunchElapsedMs)
+        ? windowLaunchElapsedMs
+        : Number(launchRow.elapsed);
+      const launchTimeMs = isFinite(windowLaunchTimeMs)
+        ? windowLaunchTimeMs
+        : Date.parse(launchRow.time);
       const phaseLabels = {
         PRE_FLIGHT:"발사 전",
         POWERED_FLIGHT:"추력 비행",
@@ -436,7 +503,12 @@
         return null;
       }
     }
-    function buildFlightTrajectory3dArtifact(rows, altitudeValues, launchTimeIso){
+    function buildFlightTrajectory3dArtifact(
+      rows,
+      altitudeValues,
+      launchTimeIso,
+      launchReferenceElapsedSec
+    ){
       const sourceRows = Array.isArray(rows) ? rows : [];
       const altitudes = Array.isArray(altitudeValues) ? altitudeValues : [];
       const rawPoints = [];
@@ -913,6 +985,34 @@
           }
         }
       }
+      // Estimate scalar vehicle speed from the reconstructed 3D trajectory.
+      // This remains distinct from the signed barometric vertical-speed series.
+      const trajectorySpeedMps = new Array(rawPoints.length).fill(NaN);
+      let smoothedTrajectorySpeedMps = NaN;
+      for(let index=0; index<rawPoints.length; index++){
+        let left = index;
+        let right = index;
+        const centerTime = rawPoints[index].elapsedSec;
+        while(left > 0 && (centerTime - rawPoints[left].elapsedSec) < 0.2) left--;
+        while(right < rawPoints.length - 1 &&
+              (rawPoints[right].elapsedSec - centerTime) < 0.2) right++;
+        if(left === right) continue;
+        const first = rawPoints[left];
+        const last = rawPoints[right];
+        const dtSec = last.elapsedSec - first.elapsedSec;
+        if(!(dtSec > 0)) continue;
+        const distanceM = Math.hypot(
+          last.eastM - first.eastM,
+          last.northM - first.northM,
+          last.altitudeM - first.altitudeM
+        );
+        const measuredSpeedMps = distanceM / dtSec;
+        if(!isFinite(measuredSpeedMps)) continue;
+        smoothedTrajectorySpeedMps = isFinite(smoothedTrajectorySpeedMps)
+          ? (smoothedTrajectorySpeedMps + (measuredSpeedMps - smoothedTrajectorySpeedMps) * 0.35)
+          : measuredSpeedMps;
+        trajectorySpeedMps[index] = Math.max(0, smoothedTrajectorySpeedMps);
+      }
       let stageSeparationEvent = null;
       let ejectionEvent = null;
       let previousDeploymentState = NaN;
@@ -956,7 +1056,9 @@
           inferred:true
         };
       }
-      const trajectoryStartElapsedSec = rawPoints.length ? rawPoints[0].elapsedSec : 0;
+      const trajectoryStartElapsedSec = isFinite(Number(launchReferenceElapsedSec))
+        ? Number(launchReferenceElapsedSec)
+        : (rawPoints.length ? rawPoints[0].elapsedSec : 0);
       const eventTPlusSec = (event)=>event && event.point
         ? Math.max(0, event.point.elapsedSec - trajectoryStartElapsedSec)
         : null;
@@ -1001,6 +1103,7 @@
           gpsAvailable,
           positionMode,
           imuAssistEndElapsedSec,
+          actualSpeedMps:trajectorySpeedMps,
           stageSeparationTPlusSec,
           ejectionTPlusSec
         };
@@ -1019,6 +1122,7 @@
           gpsAvailable,
           positionMode,
           imuAssistEndElapsedSec,
+          actualSpeedMps:trajectorySpeedMps,
           stageSeparationTPlusSec,
           ejectionTPlusSec
         };
@@ -1231,6 +1335,7 @@
         gpsAvailable,
         positionMode,
         imuAssistEndElapsedSec,
+        actualSpeedMps:trajectorySpeedMps,
         stageSeparationTPlusSec,
         ejectionTPlusSec
       };
