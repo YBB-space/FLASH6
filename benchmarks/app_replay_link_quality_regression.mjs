@@ -68,6 +68,16 @@ assert.equal(dv.getUint16(16 + 78, true), 0x8000 | 372);
 
 assert.match(replaySource, /recVersion === 4 \|\| recVersion === 6/);
 assert.match(replaySource, /sample\.app_link_quality_recorded = 1/);
+assert.match(
+  replaySource,
+  /actual_speed_recorded:\(encodedActualSpeed & 0x8000\) \? 1 : 0/,
+  "only the V6 in-band validity marker may authorize recorded scalar speed"
+);
+assert.match(
+  replaySource,
+  /const actualSpeedRecorded = Number\(sample\.actual_speed_recorded\) === 1/,
+  "replay export must reject derived speed fields from legacy app recordings"
+);
 assert.match(replaySource, /function prepareReplayLinkQualityData/);
 assert.match(htmlSource, /id="replayLinkStatusBtn"/);
 assert.match(htmlSource, /id="replayLinkQualityChart"/);

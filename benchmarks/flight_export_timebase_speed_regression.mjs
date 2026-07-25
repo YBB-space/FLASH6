@@ -22,6 +22,10 @@ const telemetrySource = fs.readFileSync(
   new URL("../FLASH6/scripts/flash6-telemetry.js", import.meta.url),
   "utf8"
 );
+const replaySource = fs.readFileSync(
+  new URL("../FLASH6/scripts/flash6-charts-replay.js", import.meta.url),
+  "utf8"
+);
 
 const helperStart = reportSource.indexOf("function flightPhaseCodeFromExportRow");
 const helperEnd = reportSource.indexOf("function buildStoredFlightEventRows", helperStart);
@@ -55,7 +59,8 @@ assert.ok(
 );
 vm.runInContext(
   reportSource.slice(speedHelperStart, speedHelperEnd) +
-  "\nglobalThis.buildScalarSpeed = buildTrajectoryScalarSpeedSeries;",
+  "\nglobalThis.buildScalarSpeed = buildTrajectoryScalarSpeedSeries;" +
+  "\nglobalThis.selectReportSpeed = selectReportScalarSpeedMps;",
   context
 );
 
@@ -118,6 +123,16 @@ assert.ok(
   Math.max(...filteredComponentSpeed) < 25,
   "reconstructed coordinate corrections must not create scalar-speed spikes"
 );
+assert.equal(
+  context.selectReportSpeed(84, 20, false),
+  20,
+  "legacy replay-derived speed must not override the fused estimator"
+);
+assert.equal(
+  context.selectReportSpeed(37.2, 20, true),
+  37.2,
+  "explicitly stored scalar speed must remain authoritative"
+);
 
 assert.match(
   bootstrapSource,
@@ -146,6 +161,24 @@ assert.match(
   telemetrySource,
   /getQuickFlightMetrics\(motionTelemetryData,\s*timeMs\)/,
   "A.I LINK HUD speed must use the active vehicle sample instead of ground-station IMU"
+);
+assert.doesNotMatch(
+  telemetrySource,
+  /if\(isFinite\(quickSpeedMps\)\)\{\s*data\.actual_speed_mps/,
+  "replay must not mutate a derived display speed into a recorded source field"
+);
+assert.match(
+  bootstrapSource,
+  /Number\(row && row\.actual_speed_recorded\) === 1/,
+  "replay export must trust only speed values explicitly present in the source file"
+);
+assert.doesNotMatch(
+  replaySource.slice(
+    replaySource.indexOf("speedMps: replayFindHeaderIndex"),
+    replaySource.indexOf("verticalSpeedMps: replayFindHeaderIndex")
+  ),
+  /verticalvelocity|velocityzms/,
+  "imported vertical-speed columns must not be treated as scalar vehicle speed"
 );
 assert.match(
   bootstrapSource,

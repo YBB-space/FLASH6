@@ -2577,16 +2577,22 @@
               reportFastAltitudeSpeedMps
             );
             const reportActualSpeedMps = exportRows.map((row, index)=>{
-              const recordedSpeedMps = rowFiniteOrNaN(
-                row && (row.actual_speed_mps ?? row.speed_mps)
-              );
-              if(isFinite(recordedSpeedMps)) return Math.max(0, recordedSpeedMps);
+              const recordedSpeedIsTrusted =
+                !usingReplayExport ||
+                Number(row && row.actual_speed_recorded) === 1;
+              const recordedSpeedMps = recordedSpeedIsTrusted
+                ? rowFiniteOrNaN(row && (row.actual_speed_mps ?? row.speed_mps))
+                : NaN;
               const trajectorySpeedMps = rowFiniteOrNaN(
                 trajectory3d && Array.isArray(trajectory3d.actualSpeedMps)
                   ? trajectory3d.actualSpeedMps[index]
                   : NaN
               );
-              return isFinite(trajectorySpeedMps) ? Math.max(0, trajectorySpeedMps) : NaN;
+              return selectReportScalarSpeedMps(
+                recordedSpeedMps,
+                trajectorySpeedMps,
+                recordedSpeedIsTrusted
+              );
             });
 
             for(let rowIndex = 0; rowIndex < exportRows.length; rowIndex++){
@@ -2792,7 +2798,7 @@
                 },
                 {
                   title:"VEHICLE SPEED",
-                  subtitle:"3D TRAJECTORY SPEED MAGNITUDE",
+                  subtitle:"ALTITUDE + IMU FUSED SPEED",
                   axisYTitle:"SPEED (m/s)",
                   yMin:speedAxis.min,
                   yMax:speedAxis.max,
@@ -2875,7 +2881,7 @@
               },
               chart2:{
                 title:"VEHICLE SPEED",
-                subtitle:"3D TRAJECTORY SPEED MAGNITUDE",
+                subtitle:"ALTITUDE + IMU FUSED SPEED",
                 axisYTitle:"SPEED (m/s)",
                 majorUnit:speedUnit,
                 yMin:speedAxis.min,

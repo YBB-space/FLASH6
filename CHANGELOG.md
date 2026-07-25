@@ -3,6 +3,19 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 replay speed source correction b78 — 2026-07-25
+
+Firmware build: `v6 b37` (unchanged)
+Protocol: `Flash6-Intelligent-b8` (unchanged)
+
+- Prevented replay rendering from writing a UI-derived temporary speed back
+  into the source sample as if that value had existed in the BIN.
+- Added explicit actual-speed provenance. Reports trust replay speed only when
+  the app V6 in-band validity marker or an imported speed column confirms it;
+  legacy BIN files always use the altitude/IMU fused estimator.
+- Bounded acceleration lead around the robust barometric velocity estimate so
+  launch vibration cannot accumulate into a non-physical speed spike.
+
 ## FLASH6 legacy speed spike correction b77 — 2026-07-25
 
 Firmware build: `v6 b37` (unchanged)

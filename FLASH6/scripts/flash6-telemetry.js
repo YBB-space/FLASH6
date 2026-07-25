@@ -836,7 +836,10 @@
         : NaN;
       const quickSpeedMps = isFinite(quickFlight.speedMps) ? Math.max(0, quickFlight.speedMps) : NaN;
       if(isFinite(quickSpeedMps)){
-        data.actual_speed_mps = quickSpeedMps;
+        // Replay-derived speed is display state, not a field that existed in
+        // the source recording. Do not mutate legacy replay samples into
+        // looking like they contain a trustworthy recorded scalar speed.
+        if(!isReplaySample) data.actual_speed_mps = quickSpeedMps;
         if(motionTelemetryData && motionTelemetryData !== data){
           const activeStageState = stageTelemetryStore[cameraHudActiveStageId];
           if(activeStageState) activeStageState.speedMps = quickSpeedMps;

@@ -20656,11 +20656,11 @@ function requestMobileMockup3dMesh(){
         ]),
         speedMps: replayFindHeaderIndex(headers, [
           "speed_mps", "속도_mps", "gps_speed_mps", "ground_speed_mps", "velocity_mps", "speed",
-          "velocity", "speedms", "speedmps", "verticalvelocity", "verticalvelocityms", "totalvelocityms",
-          "velocityzms", "속도"
+          "velocity", "speedms", "speedmps", "totalvelocityms", "속도"
         ]),
         verticalSpeedMps: replayFindHeaderIndex(headers, [
           "vertical_speed_mps", "verticalspeedmps", "altitude_speed_mps", "altitudespeedmps",
+          "verticalvelocity", "verticalvelocityms", "velocityzms",
           "climb_rate_mps", "climbratemps", "상승속도_mps", "고도속도_mps"
         ]),
         accelX: replayFindHeaderIndex(headers, [
@@ -20835,6 +20835,7 @@ function requestMobileMockup3dMesh(){
             gps_alt: isFinite(gpsAltReplay) ? gpsAltReplay : null,
             alt_m: isFinite(altReplay) ? altReplay : null,
             speed_mps: isFinite(speedReplay) ? speedReplay : null,
+            actual_speed_recorded:isFinite(speedReplay) ? 1 : 0,
             vertical_speed_mps: replayToNumber(col.verticalSpeedMps >= 0 ? row[col.verticalSpeedMps] : null, null),
             ax: axOut,
             ay: ayOut,
@@ -21786,6 +21787,7 @@ function requestMobileMockup3dMesh(){
             speed_mps:(encodedActualSpeed & 0x8000)
               ? ((encodedActualSpeed & 0x7FFF) / 10)
               : null,
+            actual_speed_recorded:(encodedActualSpeed & 0x8000) ? 1 : 0,
             s: (flags >>> 2) & 1,
             sp: (flags >>> 13) & 1,
             ic: 1,
@@ -22221,12 +22223,16 @@ function requestMobileMockup3dMesh(){
         const recordedVerticalSpeedMps = asFiniteOrNull(
           sample.vertical_speed_mps ?? sample.verticalSpeedMps
         );
-        let speedMps =
-          asFiniteOrNull(sample.actual_speed_mps) ??
-          asFiniteOrNull(sample.actualSpeedMps) ??
-          asFiniteOrNull(sample.speed_mps) ??
-          asFiniteOrNull(sample.speedMps) ??
-          asFiniteOrNull(sample.speed);
+        const actualSpeedRecorded = Number(sample.actual_speed_recorded) === 1;
+        const speedMps = actualSpeedRecorded
+          ? (
+              asFiniteOrNull(sample.actual_speed_mps) ??
+              asFiniteOrNull(sample.actualSpeedMps) ??
+              asFiniteOrNull(sample.speed_mps) ??
+              asFiniteOrNull(sample.speedMps) ??
+              asFiniteOrNull(sample.speed)
+            )
+          : null;
         if(altM != null){
           if(lastChangedAltM == null || lastChangedAltRelMs == null){
             lastChangedAltM = altM;
@@ -22251,6 +22257,7 @@ function requestMobileMockup3dMesh(){
           p: pressure,
           alt_m: altM,
           speed_mps: speedMps,
+          actual_speed_recorded:actualSpeedRecorded ? 1 : 0,
           vertical_speed_mps: recordedVerticalSpeedMps ?? (
             lastDerivedAltitudeSpeedMps != null && lastChangedAltRelMs != null &&
             (relMs - lastChangedAltRelMs) <= 500
@@ -24631,7 +24638,10 @@ function requestMobileMockup3dMesh(){
         : NaN;
       const quickSpeedMps = isFinite(quickFlight.speedMps) ? Math.max(0, quickFlight.speedMps) : NaN;
       if(isFinite(quickSpeedMps)){
-        data.actual_speed_mps = quickSpeedMps;
+        // Replay-derived speed is display state, not a field that existed in
+        // the source recording. Do not mutate legacy replay samples into
+        // looking like they contain a trustworthy recorded scalar speed.
+        if(!isReplaySample) data.actual_speed_mps = quickSpeedMps;
         if(motionTelemetryData && motionTelemetryData !== data){
           const activeStageState = stageTelemetryStore[cameraHudActiveStageId];
           if(activeStageState) activeStageState.speedMps = quickSpeedMps;
@@ -33988,6 +33998,18 @@ function requestMobileMockup3dMesh(){
         return NaN;
       });
     }
+    function selectReportScalarSpeedMps(
+      recordedSpeedMps,
+      estimatedSpeedMps,
+      recordedSpeedIsTrusted
+    ){
+      const recorded = Number(recordedSpeedMps);
+      if(recordedSpeedIsTrusted && isFinite(recorded)){
+        return Math.max(0, recorded);
+      }
+      const estimated = Number(estimatedSpeedMps);
+      return isFinite(estimated) ? Math.max(0, estimated) : NaN;
+    }
     function buildFlightTrajectory3dArtifact(
       rows,
       altitudeValues,
@@ -34431,8 +34453,8 @@ function requestMobileMockup3dMesh(){
               filteredAccelZ += (accelZ - filteredAccelZ) * accelAlpha;
               verticalAccelMps2 = clampLocal(
                 verticalAccelMps2,
-                -GYRO_FUSION_ACCEL_CLAMP_MPS2,
-                GYRO_FUSION_ACCEL_CLAMP_MPS2
+                -Math.min(30, GYRO_FUSION_ACCEL_CLAMP_MPS2),
+                Math.min(30, GYRO_FUSION_ACCEL_CLAMP_MPS2)
               );
               filteredVerticalAccelMps2 += (
                 verticalAccelMps2 - filteredVerticalAccelMps2
@@ -34486,10 +34508,22 @@ function requestMobileMockup3dMesh(){
                   const barometricVerticalSpeedMps = Number(verticalSpeeds[index]);
                   if(isFinite(barometricVerticalSpeedMps)){
                     const baroCorrectionAlpha = 1 - Math.exp(-dt / 0.55);
+                    const barometricTargetMps = clampLocal(
+                      barometricVerticalSpeedMps,
+                      -120,
+                      120
+                    );
                     fusedVerticalSpeedMps += (
-                      clampLocal(barometricVerticalSpeedMps, -120, 120) -
-                      fusedVerticalSpeedMps
+                      barometricTargetMps - fusedVerticalSpeedMps
                     ) * baroCorrectionAlpha;
+                    const inertialLeadLimitMps =
+                      phaseName === FLIGHT_PHASES.POWERED_FLIGHT ? 6 :
+                      (phaseName === FLIGHT_PHASES.COASTING ? 4 : 3);
+                    fusedVerticalSpeedMps = clampLocal(
+                      fusedVerticalSpeedMps,
+                      barometricTargetMps - inertialLeadLimitMps,
+                      barometricTargetMps + inertialLeadLimitMps
+                    );
                   }
                 }
               }
@@ -38214,16 +38248,22 @@ function requestMobileMockup3dMesh(){
               reportFastAltitudeSpeedMps
             );
             const reportActualSpeedMps = exportRows.map((row, index)=>{
-              const recordedSpeedMps = rowFiniteOrNaN(
-                row && (row.actual_speed_mps ?? row.speed_mps)
-              );
-              if(isFinite(recordedSpeedMps)) return Math.max(0, recordedSpeedMps);
+              const recordedSpeedIsTrusted =
+                !usingReplayExport ||
+                Number(row && row.actual_speed_recorded) === 1;
+              const recordedSpeedMps = recordedSpeedIsTrusted
+                ? rowFiniteOrNaN(row && (row.actual_speed_mps ?? row.speed_mps))
+                : NaN;
               const trajectorySpeedMps = rowFiniteOrNaN(
                 trajectory3d && Array.isArray(trajectory3d.actualSpeedMps)
                   ? trajectory3d.actualSpeedMps[index]
                   : NaN
               );
-              return isFinite(trajectorySpeedMps) ? Math.max(0, trajectorySpeedMps) : NaN;
+              return selectReportScalarSpeedMps(
+                recordedSpeedMps,
+                trajectorySpeedMps,
+                recordedSpeedIsTrusted
+              );
             });
 
             for(let rowIndex = 0; rowIndex < exportRows.length; rowIndex++){
@@ -38429,7 +38469,7 @@ function requestMobileMockup3dMesh(){
                 },
                 {
                   title:"VEHICLE SPEED",
-                  subtitle:"3D TRAJECTORY SPEED MAGNITUDE",
+                  subtitle:"ALTITUDE + IMU FUSED SPEED",
                   axisYTitle:"SPEED (m/s)",
                   yMin:speedAxis.min,
                   yMax:speedAxis.max,
@@ -38512,7 +38552,7 @@ function requestMobileMockup3dMesh(){
               },
               chart2:{
                 title:"VEHICLE SPEED",
-                subtitle:"3D TRAJECTORY SPEED MAGNITUDE",
+                subtitle:"ALTITUDE + IMU FUSED SPEED",
                 axisYTitle:"SPEED (m/s)",
                 majorUnit:speedUnit,
                 yMin:speedAxis.min,

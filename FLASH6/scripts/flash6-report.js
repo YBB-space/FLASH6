@@ -523,6 +523,18 @@
         return NaN;
       });
     }
+    function selectReportScalarSpeedMps(
+      recordedSpeedMps,
+      estimatedSpeedMps,
+      recordedSpeedIsTrusted
+    ){
+      const recorded = Number(recordedSpeedMps);
+      if(recordedSpeedIsTrusted && isFinite(recorded)){
+        return Math.max(0, recorded);
+      }
+      const estimated = Number(estimatedSpeedMps);
+      return isFinite(estimated) ? Math.max(0, estimated) : NaN;
+    }
     function buildFlightTrajectory3dArtifact(
       rows,
       altitudeValues,
@@ -966,8 +978,8 @@
               filteredAccelZ += (accelZ - filteredAccelZ) * accelAlpha;
               verticalAccelMps2 = clampLocal(
                 verticalAccelMps2,
-                -GYRO_FUSION_ACCEL_CLAMP_MPS2,
-                GYRO_FUSION_ACCEL_CLAMP_MPS2
+                -Math.min(30, GYRO_FUSION_ACCEL_CLAMP_MPS2),
+                Math.min(30, GYRO_FUSION_ACCEL_CLAMP_MPS2)
               );
               filteredVerticalAccelMps2 += (
                 verticalAccelMps2 - filteredVerticalAccelMps2
@@ -1021,10 +1033,22 @@
                   const barometricVerticalSpeedMps = Number(verticalSpeeds[index]);
                   if(isFinite(barometricVerticalSpeedMps)){
                     const baroCorrectionAlpha = 1 - Math.exp(-dt / 0.55);
+                    const barometricTargetMps = clampLocal(
+                      barometricVerticalSpeedMps,
+                      -120,
+                      120
+                    );
                     fusedVerticalSpeedMps += (
-                      clampLocal(barometricVerticalSpeedMps, -120, 120) -
-                      fusedVerticalSpeedMps
+                      barometricTargetMps - fusedVerticalSpeedMps
                     ) * baroCorrectionAlpha;
+                    const inertialLeadLimitMps =
+                      phaseName === FLIGHT_PHASES.POWERED_FLIGHT ? 6 :
+                      (phaseName === FLIGHT_PHASES.COASTING ? 4 : 3);
+                    fusedVerticalSpeedMps = clampLocal(
+                      fusedVerticalSpeedMps,
+                      barometricTargetMps - inertialLeadLimitMps,
+                      barometricTargetMps + inertialLeadLimitMps
+                    );
                   }
                 }
               }

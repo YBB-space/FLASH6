@@ -3181,11 +3181,11 @@
         ]),
         speedMps: replayFindHeaderIndex(headers, [
           "speed_mps", "속도_mps", "gps_speed_mps", "ground_speed_mps", "velocity_mps", "speed",
-          "velocity", "speedms", "speedmps", "verticalvelocity", "verticalvelocityms", "totalvelocityms",
-          "velocityzms", "속도"
+          "velocity", "speedms", "speedmps", "totalvelocityms", "속도"
         ]),
         verticalSpeedMps: replayFindHeaderIndex(headers, [
           "vertical_speed_mps", "verticalspeedmps", "altitude_speed_mps", "altitudespeedmps",
+          "verticalvelocity", "verticalvelocityms", "velocityzms",
           "climb_rate_mps", "climbratemps", "상승속도_mps", "고도속도_mps"
         ]),
         accelX: replayFindHeaderIndex(headers, [
@@ -3360,6 +3360,7 @@
             gps_alt: isFinite(gpsAltReplay) ? gpsAltReplay : null,
             alt_m: isFinite(altReplay) ? altReplay : null,
             speed_mps: isFinite(speedReplay) ? speedReplay : null,
+            actual_speed_recorded:isFinite(speedReplay) ? 1 : 0,
             vertical_speed_mps: replayToNumber(col.verticalSpeedMps >= 0 ? row[col.verticalSpeedMps] : null, null),
             ax: axOut,
             ay: ayOut,
@@ -4311,6 +4312,7 @@
             speed_mps:(encodedActualSpeed & 0x8000)
               ? ((encodedActualSpeed & 0x7FFF) / 10)
               : null,
+            actual_speed_recorded:(encodedActualSpeed & 0x8000) ? 1 : 0,
             s: (flags >>> 2) & 1,
             sp: (flags >>> 13) & 1,
             ic: 1,
@@ -4746,12 +4748,16 @@
         const recordedVerticalSpeedMps = asFiniteOrNull(
           sample.vertical_speed_mps ?? sample.verticalSpeedMps
         );
-        let speedMps =
-          asFiniteOrNull(sample.actual_speed_mps) ??
-          asFiniteOrNull(sample.actualSpeedMps) ??
-          asFiniteOrNull(sample.speed_mps) ??
-          asFiniteOrNull(sample.speedMps) ??
-          asFiniteOrNull(sample.speed);
+        const actualSpeedRecorded = Number(sample.actual_speed_recorded) === 1;
+        const speedMps = actualSpeedRecorded
+          ? (
+              asFiniteOrNull(sample.actual_speed_mps) ??
+              asFiniteOrNull(sample.actualSpeedMps) ??
+              asFiniteOrNull(sample.speed_mps) ??
+              asFiniteOrNull(sample.speedMps) ??
+              asFiniteOrNull(sample.speed)
+            )
+          : null;
         if(altM != null){
           if(lastChangedAltM == null || lastChangedAltRelMs == null){
             lastChangedAltM = altM;
@@ -4776,6 +4782,7 @@
           p: pressure,
           alt_m: altM,
           speed_mps: speedMps,
+          actual_speed_recorded:actualSpeedRecorded ? 1 : 0,
           vertical_speed_mps: recordedVerticalSpeedMps ?? (
             lastDerivedAltitudeSpeedMps != null && lastChangedAltRelMs != null &&
             (relMs - lastChangedAltRelMs) <= 500
