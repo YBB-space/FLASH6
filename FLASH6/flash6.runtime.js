@@ -327,11 +327,10 @@ if (typeof window !== "undefined") {
     const GYRO_TRAIL_MAX_POINTS = 6000;
     const GYRO_TRAIL_RENDER_MAX_POINTS = 1600;
     const GYRO_TRAIL_BASE_METERS_PER_UNIT = 4.2;
-    // The report trajectory auto-fits horizontal and altitude axes separately.
-    // Apply a display-only horizontal scale in the gyro preview so the same
-    // model-rocket curve has the same readable shape. Physics, GPS distance,
-    // exported coordinates and landing range remain in unscaled meters.
-    const GYRO_TRAIL_HORIZONTAL_EXAGGERATION = 2.8;
+    // Preserve true metric proportions in both the live preview and reports.
+    // Earlier builds widened the UI trail by 2.8x for readability, which made
+    // a modest model-rocket drift look like a long-range ballistic flight.
+    const GYRO_TRAIL_HORIZONTAL_EXAGGERATION = 1.0;
     const GYRO_PREVIEW_ASCENT_VERTICAL_HOLD_M = 7;
     const GYRO_PREVIEW_ASCENT_CURVE_FULL_M = 28;
     const GYRO_PREVIEW_ASCENT_MIN_HORIZONTAL_BLEND = 0.12;
@@ -477,6 +476,41 @@ if (typeof window !== "undefined") {
       const smooth = (ratio)=>ratio * ratio * (3 - (2 * ratio));
       return Math.min(smooth(timeRatio), smooth(altitudeRatio));
     }
+    function getModelRocketHorizontalRangeLimitM(input){
+      const sample = input || {};
+      const phase = String(sample.phase || FLIGHT_PHASES.PRE_FLIGHT);
+      const altitudeM = Math.max(0, Number(sample.altitudeM) || 0);
+      const apogeeAltitudeM = Math.max(
+        altitudeM,
+        Number(sample.apogeeAltitudeM) || 0
+      );
+      const timeSinceApogeeSec = Math.max(
+        0,
+        Number(sample.timeSinceApogeeSec) || 0
+      );
+      // A rail-launched, fin-stabilized model rocket should stay close to the
+      // pad during ascent. Descent gets a separate wind-drift allowance.
+      const ascentLimitM = Math.max(2.5, 1.5 + (apogeeAltitudeM * 0.11));
+      const modelLimitM = (
+        phase === FLIGHT_PHASES.DESCENT ||
+        phase === FLIGHT_PHASES.LANDED
+      )
+        ? ascentLimitM + (timeSinceApogeeSec * 2.2)
+        : Math.max(2.5, 1.5 + (altitudeM * 0.11));
+      const gpsRangeEnvelopeM = Number(sample.gpsRangeEnvelopeM);
+      if(!isFinite(gpsRangeEnvelopeM) || gpsRangeEnvelopeM < 0){
+        return modelLimitM;
+      }
+      const gpsAccuracyM = clampLocal(
+        Number(sample.gpsAccuracyM) || GYRO_FUSION_GPS_DEFAULT_ACCURACY_M,
+        GYRO_FUSION_GPS_MIN_ACCURACY_M,
+        GYRO_FUSION_GPS_MAX_ACCURACY_M
+      );
+      // GPS supplies only a scalar envelope. Its heading and interpolated
+      // coordinate shape never enter the reconstructed local trajectory.
+      const gpsLimitM = gpsRangeEnvelopeM + Math.max(2.5, gpsAccuracyM * 1.25);
+      return Math.max(2.5, Math.min(modelLimitM, gpsLimitM));
+    }
     function updateModelRocketHorizontalMotion(state, input){
       const motion = state || {};
       const sample = input || {};
@@ -503,7 +537,7 @@ if (typeof window !== "undefined") {
         let ratioX = axisX / safeAxisUp;
         let ratioZ = axisZ / safeAxisUp;
         const ratioMagnitude = Math.hypot(ratioX, ratioZ);
-        const maxTiltRatio = Math.tan(35 * DEG_TO_RAD);
+        const maxTiltRatio = Math.tan(18 * DEG_TO_RAD);
         if(ratioMagnitude > maxTiltRatio){
           const ratioScale = maxTiltRatio / ratioMagnitude;
           ratioX *= ratioScale;
@@ -513,8 +547,8 @@ if (typeof window !== "undefined") {
           ? verticalSpeedMps
           : 0);
         const targetLimitMps = Math.min(
-          16,
-          Math.max(0.75, (positiveVerticalSpeedMps * 0.40) + 0.5)
+          8,
+          Math.max(0.55, (positiveVerticalSpeedMps * 0.22) + 0.35)
         );
         let targetVelocityX = positiveVerticalSpeedMps * ratioX * acceptance;
         let targetVelocityZ = positiveVerticalSpeedMps * ratioZ * acceptance;
@@ -541,15 +575,15 @@ if (typeof window !== "undefined") {
       }
 
       const dragRate = phase === FLIGHT_PHASES.POWERED_FLIGHT
-        ? 0.035
-        : (phase === FLIGHT_PHASES.COASTING ? 0.055 : 0.22);
+        ? 0.055
+        : (phase === FLIGHT_PHASES.COASTING ? 0.09 : 0.32);
       const dragFactor = Math.exp(-dragRate * dt);
       velocityX *= dragFactor;
       velocityZ *= dragFactor;
 
       const phaseSpeedLimitMps = phase === FLIGHT_PHASES.POWERED_FLIGHT
-        ? 16
-        : (phase === FLIGHT_PHASES.COASTING ? 18 : 10);
+        ? 8
+        : (phase === FLIGHT_PHASES.COASTING ? 10 : 8);
       const horizontalSpeedMps = Math.hypot(velocityX, velocityZ);
       if(horizontalSpeedMps > phaseSpeedLimitMps){
         const speedScale = phaseSpeedLimitMps / horizontalSpeedMps;
@@ -558,6 +592,42 @@ if (typeof window !== "undefined") {
       }
       positionX += velocityX * dt;
       positionZ += velocityZ * dt;
+      const rangeLimitM = Number(sample.horizontalRangeLimitM);
+      const anchorX = isFinite(Number(sample.anchorX)) ? Number(sample.anchorX) : 0;
+      const anchorZ = isFinite(Number(sample.anchorZ)) ? Number(sample.anchorZ) : 0;
+      let relativeX = positionX - anchorX;
+      let relativeZ = positionZ - anchorZ;
+      let horizontalRangeM = Math.hypot(relativeX, relativeZ);
+      if(isFinite(rangeLimitM) && rangeLimitM > 0 && horizontalRangeM > rangeLimitM){
+        const nx = relativeX / horizontalRangeM;
+        const nz = relativeZ / horizontalRangeM;
+        positionX = anchorX + (nx * rangeLimitM);
+        positionZ = anchorZ + (nz * rangeLimitM);
+        const outwardSpeedMps = (velocityX * nx) + (velocityZ * nz);
+        if(outwardSpeedMps > 0){
+          velocityX -= outwardSpeedMps * nx;
+          velocityZ -= outwardSpeedMps * nz;
+        }
+        relativeX = positionX - anchorX;
+        relativeZ = positionZ - anchorZ;
+        horizontalRangeM = rangeLimitM;
+      }
+      const rangeTargetM = Number(sample.horizontalRangeTargetM);
+      if(isFinite(rangeTargetM) && rangeTargetM >= 0 && horizontalRangeM > 0.02){
+        const boundedTargetM = isFinite(rangeLimitM) && rangeLimitM > 0
+          ? Math.min(rangeTargetM, rangeLimitM)
+          : rangeTargetM;
+        const correctionAlpha = clampLocal(
+          Number(sample.rangeCorrectionAlpha) || 0,
+          0,
+          0.2
+        );
+        const correctedRangeM = horizontalRangeM +
+          ((boundedTargetM - horizontalRangeM) * correctionAlpha);
+        const rangeScale = correctedRangeM / horizontalRangeM;
+        positionX = anchorX + (relativeX * rangeScale);
+        positionZ = anchorZ + (relativeZ * rangeScale);
+      }
       return {velocityX, velocityZ, positionX, positionZ};
     }
     const GYRO_CAPTURE_SPRING = 7.5;
@@ -845,6 +915,7 @@ if (typeof window !== "undefined") {
       fusionGpsValidMs: 0,
       fusionGpsAccuracyM: GYRO_FUSION_GPS_DEFAULT_ACCURACY_M,
       fusionGpsRejectCount: 0,
+      fusionGpsRangeEnvelopeM: NaN,
       fusionCovP00: 16,
       fusionCovP01: 0,
       fusionCovP11: 25,
@@ -857,7 +928,9 @@ if (typeof window !== "undefined") {
       fusionBaroLastM: NaN,
       fusionBaroLastMs: 0,
       fusionBaroVelMps: 0,
-      fusionBaroValidMs: 0
+      fusionBaroValidMs: 0,
+      fusionApogeeAltitudeM: 0,
+      fusionApogeeMs: 0
     };
     const DATA_SOURCE_LIVE = "live";
     const DATA_SOURCE_REPLAY = "replay";
@@ -3466,6 +3539,7 @@ function requestMobileMockup3dMesh(){
       gyroPathState.fusionGpsValidMs = 0;
       gyroPathState.fusionGpsAccuracyM = GYRO_FUSION_GPS_DEFAULT_ACCURACY_M;
       gyroPathState.fusionGpsRejectCount = 0;
+      gyroPathState.fusionGpsRangeEnvelopeM = NaN;
       gyroPathState.fusionCovP00 = 16;
       gyroPathState.fusionCovP01 = 0;
       gyroPathState.fusionCovP11 = 25;
@@ -3479,6 +3553,8 @@ function requestMobileMockup3dMesh(){
       gyroPathState.fusionBaroLastMs = 0;
       gyroPathState.fusionBaroVelMps = 0;
       gyroPathState.fusionBaroValidMs = 0;
+      gyroPathState.fusionApogeeAltitudeM = 0;
+      gyroPathState.fusionApogeeMs = 0;
       if(gyroGl){
         setTimeout(()=>{
           ensureGyroTerrainForGeo(getGyroTerrainReferenceGeo());
@@ -4088,6 +4164,19 @@ function requestMobileMockup3dMesh(){
       gyroPathState.fusionGpsValidMs = Date.now();
       gyroPathState.fusionGpsAccuracyM = accuracyM;
       gyroPathState.fusionGpsRejectCount = 0;
+      if(phase !== FLIGHT_PHASES.PRE_FLIGHT){
+        const rangeFromLaunchM = Math.hypot(
+          gpsX - gyroPathState.fusionLaunchAnchorX,
+          gpsZ - gyroPathState.fusionLaunchAnchorZ
+        );
+        if(isFinite(rangeFromLaunchM)){
+          gyroPathState.fusionGpsRangeEnvelopeM = isFinite(
+            gyroPathState.fusionGpsRangeEnvelopeM
+          )
+            ? Math.max(gyroPathState.fusionGpsRangeEnvelopeM, rangeFromLaunchM)
+            : rangeFromLaunchM;
+        }
+      }
       if(!gyroPathState.fusionReady){
         gyroPathState.fusionPosX = gpsX;
         gyroPathState.fusionPosZ = gpsZ;
@@ -4096,6 +4185,12 @@ function requestMobileMockup3dMesh(){
       if(gyroPathState.fusionStationaryLocked){
         gyroPathState.fusionGpsVelX = 0;
         gyroPathState.fusionGpsVelZ = 0;
+        return true;
+      }
+      if(!GYRO_ABSOLUTE_TRAJECTORY_ENABLED){
+        // Keep only the accepted scalar range envelope. Without an absolute
+        // heading source, GPS east/north must not rotate or bend the local
+        // model-rocket path shown in the UI.
         return true;
       }
 
@@ -4480,7 +4575,31 @@ function requestMobileMockup3dMesh(){
         gyroPathState.fusionVelY = 0;
         gyroPathState.fusionBaroVelMps = 0;
         gyroPathState.filteredY = 0;
+        gyroPathState.fusionApogeeAltitudeM = 0;
+        gyroPathState.fusionApogeeMs = 0;
+        gyroPathState.fusionGpsRangeEnvelopeM = NaN;
       }else if(dtSec > 0){
+        if(
+          !isFinite(gyroPathState.fusionApogeeAltitudeM) ||
+          gyroPathState.fusionPosY >= gyroPathState.fusionApogeeAltitudeM
+        ){
+          gyroPathState.fusionApogeeAltitudeM = Math.max(
+            0,
+            gyroPathState.fusionPosY
+          );
+          gyroPathState.fusionApogeeMs = now;
+        }
+        const timeSinceApogeeSec = gyroPathState.fusionApogeeMs > 0
+          ? Math.max(0, (now - gyroPathState.fusionApogeeMs) / 1000)
+          : 0;
+        const horizontalRangeLimitM = getModelRocketHorizontalRangeLimitM({
+          phase,
+          altitudeM:Math.max(0, gyroPathState.fusionPosY),
+          apogeeAltitudeM:gyroPathState.fusionApogeeAltitudeM,
+          timeSinceApogeeSec,
+          gpsRangeEnvelopeM:gyroPathState.fusionGpsRangeEnvelopeM,
+          gpsAccuracyM:gyroPathState.fusionGpsAccuracyM
+        });
         if(gyroPathState.fusionRailLocked){
           gyroPathState.fusionPosX = gyroPathState.fusionLaunchAnchorX;
           gyroPathState.fusionPosZ = gyroPathState.fusionLaunchAnchorZ;
@@ -4519,7 +4638,12 @@ function requestMobileMockup3dMesh(){
               accelZ:gyroPathState.fusionAccelZ,
               horizontalAcceptance:gyroPathState.fusionRailLocked
                 ? 0
-                : poweredHorizontalAcceptance
+                : poweredHorizontalAcceptance,
+              horizontalRangeLimitM,
+              horizontalRangeTargetM:gyroPathState.fusionGpsRangeEnvelopeM,
+              rangeCorrectionAlpha:1 - Math.exp(-stepDt / 0.9),
+              anchorX:gyroPathState.fusionLaunchAnchorX,
+              anchorZ:gyroPathState.fusionLaunchAnchorZ
             }
           );
           gyroPathState.fusionVelX = horizontalMotion.velocityX;
@@ -34238,6 +34362,10 @@ function requestMobileMockup3dMesh(){
           lon:validGps ? lon : NaN,
           gpsAgeMs:isFinite(gpsAgeMs) ? gpsAgeMs : NaN,
           gpsMeasurementElapsedSec,
+          gpsAccuracyM:Number(
+            row.gps_accuracy_m ?? row.gpsAccuracyM ??
+            (isFinite(Number(row.gps_hdop)) ? Number(row.gps_hdop) * 2.4 : NaN)
+          ),
           ax:Number(row.ax),
           ay:Number(row.ay),
           az:Number(row.az),
@@ -34322,10 +34450,10 @@ function requestMobileMockup3dMesh(){
       }
 
       const gpsAvailable = isFinite(baseLat) && isFinite(baseLon);
-      // GPS is kept strictly as an audit reference. Model-rocket trajectory
-      // reconstruction never consumes GPS position or velocity: typical
-      // 1 Hz fixes and multipath jumps produce visually smooth but physically
-      // false loops when interpolated across a short flight.
+      // GPS east/north coordinates never define the path shape or heading:
+      // typical 1 Hz fixes and multipath jumps create false loops when
+      // interpolated across a short flight. Only the accepted scalar distance
+      // envelope is used later as a sanity observation for local IMU range.
       const useGpsForTrajectory = false;
       const metersPerLon = gpsAvailable ? 111320 * Math.cos(baseLat * DEG_TO_RAD) : 1;
       let sharedApogeePointIndex = 0;
@@ -34382,6 +34510,20 @@ function requestMobileMockup3dMesh(){
         point.eastM = 0;
         point.northM = 0;
         point.positionSource = "VERTICAL_ONLY";
+      });
+      let gpsRangeEnvelopeM = NaN;
+      rawPoints.forEach((point)=>{
+        const gpsRangeM = gpsAvailable
+          ? Math.hypot(point.gpsEastM, point.gpsNorthM)
+          : NaN;
+        if(isFinite(gpsRangeM)){
+          gpsRangeEnvelopeM = isFinite(gpsRangeEnvelopeM)
+            ? Math.max(gpsRangeEnvelopeM, gpsRangeM)
+            : gpsRangeM;
+        }
+        point.gpsRangeM = gpsRangeM;
+        point.gpsRangeEnvelopeM = gpsRangeEnvelopeM;
+        point.horizontalRangeLimitM = NaN;
       });
       if(useGpsForTrajectory && gpsAvailable && gpsFixes.length >= 2){
         const fixVelocity = new Array(gpsFixes.length).fill(null);
@@ -34781,6 +34923,7 @@ function requestMobileMockup3dMesh(){
                 }
               }
 
+              let horizontalRangeLimitM = NaN;
               if(phaseName === FLIGHT_PHASES.PRE_FLIGHT){
                 velocityX = 0;
                 velocityZ = 0;
@@ -34820,6 +34963,20 @@ function requestMobileMockup3dMesh(){
                 }
 
                 const rocketAxisWorld = normalize3(rotateByQuat(quat, up)) || up;
+                const timeSinceApogeeSec = index > apogeePointIndex
+                  ? Math.max(
+                    0,
+                    point.elapsedSec - rawPoints[apogeePointIndex].elapsedSec
+                  )
+                  : 0;
+                horizontalRangeLimitM = getModelRocketHorizontalRangeLimitM({
+                  phase:phaseName,
+                  altitudeM:Math.max(0, point.altitudeM - launchAltitudeM),
+                  apogeeAltitudeM:Math.max(0, apogeeAltitudeM - launchAltitudeM),
+                  timeSinceApogeeSec,
+                  gpsRangeEnvelopeM:point.gpsRangeEnvelopeM,
+                  gpsAccuracyM:point.gpsAccuracyM
+                });
                 const horizontalMotion = updateModelRocketHorizontalMotion(
                   {velocityX, velocityZ, positionX, positionZ},
                   {
@@ -34831,7 +34988,12 @@ function requestMobileMockup3dMesh(){
                     axisUp:dot3(rocketAxisWorld, up),
                     accelX:filteredAccelX,
                     accelZ:filteredAccelZ,
-                    horizontalAcceptance
+                    horizontalAcceptance,
+                    horizontalRangeLimitM,
+                    horizontalRangeTargetM:point.gpsRangeEnvelopeM,
+                    rangeCorrectionAlpha:1 - Math.exp(-dt / 0.9),
+                    anchorX:0,
+                    anchorZ:0
                   }
                 );
                 velocityX = horizontalMotion.velocityX;
@@ -34844,6 +35006,7 @@ function requestMobileMockup3dMesh(){
               point.positionSource = "IMU_LOCAL";
               point.horizontalSpeedMps = Math.hypot(velocityX, velocityZ);
               point.verticalSpeedMps = fusedVerticalSpeedMps;
+              point.horizontalRangeLimitM = horizontalRangeLimitM;
             }
             positionMode = "IMU_LOCAL";
             imuAssistEndElapsedSec = null;
@@ -34929,7 +35092,8 @@ function requestMobileMockup3dMesh(){
         "GPS_LAT_REFERENCE", "GPS_LON_REFERENCE", "POSITION_SOURCE",
         "GPS_EAST_M_REFERENCE", "GPS_NORTH_M_REFERENCE",
         "HORIZONTAL_SPEED_MPS", "VERTICAL_SPEED_MPS",
-        "ESTIMATED_SPEED_MPS", "SPEED_SOURCE", "EVENT"
+        "ESTIMATED_SPEED_MPS", "SPEED_SOURCE",
+        "GPS_RANGE_ENVELOPE_M", "MODEL_RANGE_LIMIT_M", "EVENT"
       ]];
       points.forEach((point)=>{
         const pointIndex = point.pointIndex;
@@ -34957,6 +35121,12 @@ function requestMobileMockup3dMesh(){
             ? Number(estimatedSpeedMps.toFixed(3))
             : "",
           "MODEL ROCKET FUSION",
+          isFinite(point.gpsRangeEnvelopeM)
+            ? Number(point.gpsRangeEnvelopeM.toFixed(3))
+            : "",
+          isFinite(point.horizontalRangeLimitM)
+            ? Number(point.horizontalRangeLimitM.toFixed(3))
+            : "",
           eventLabels.join(" + ")
         ]);
       });
@@ -35060,7 +35230,7 @@ function requestMobileMockup3dMesh(){
       ctx.font = "500 18px Arial, sans-serif";
       ctx.fillText(
         positionMode === "IMU_LOCAL"
-          ? "MODEL-CONSTRAINED LOCAL TRAJECTORY / TRUE METRIC SCALE · GPS EXCLUDED"
+          ? "MODEL-CONSTRAINED LOCAL TRAJECTORY / GPS SHAPE EXCLUDED · RANGE GUARDED"
           : (positionMode === "IMU_GPS_FUSION"
             ? "IMU-ASSISTED EAST / NORTH + GPS / BAROMETRIC ALTITUDE"
             : (gpsAvailable ? "GPS EAST / NORTH / BAROMETRIC ALTITUDE" : "GPS UNAVAILABLE / VERTICAL PROFILE")),
@@ -35190,7 +35360,7 @@ function requestMobileMockup3dMesh(){
       ctx.font = "500 15px Arial, sans-serif";
       ctx.fillText(
         positionMode === "IMU_LOCAL"
-          ? "Local X/Z and altitude use one metric scale. GPS is reference-only; absolute heading is intentionally omitted."
+          ? "Local X/Z use model dynamics; GPS constrains range only, never path shape or heading. Axes share one metric scale."
           : (positionMode === "IMU_GPS_FUSION"
             ? "Dashed: IMU estimate · dotted: IMU/GPS blend · solid: GPS. Axes are independently scaled."
             : "GPS fixes are time-interpolated. Axes are scaled for readability. Source: TRAJECTORY_3D sheet."),
@@ -38965,20 +39135,20 @@ function requestMobileMockup3dMesh(){
               {cells:["종단 속도 (최대 하강 속력, m/s): " + exportMetricText(terminalSpeedMps)], style:3},
               {cells:["3D 비행 궤적: " + (
                 trajectory3d.positionMode === "IMU_LOCAL"
-                  ? "자이로·가속도 로컬 추정 + 기압 고도 · GPS 계산 제외"
+                  ? "자이로·가속도 로컬 추정 + 기압 고도 · GPS는 거리 범위 검증에만 사용"
                   : (trajectory3d.positionMode === "IMU_GPS_FUSION"
                   ? "초기 IMU 추정 + GPS 결합 + 기압 고도"
                   : (trajectory3d.gpsAvailable ? "GPS + 고도" : "GPS 없음 · 수직 고도 프로파일"))
               )], style:3},
               {cells:["초기 수평 궤적: " + (
                 trajectory3d.positionMode === "IMU_LOCAL"
-                  ? "발사 자세 기준 로컬 X/Z · 절대 방위 미사용"
+                  ? "발사 자세 기준 로컬 X/Z · GPS 경로/절대 방위 미사용"
                   : (trajectory3d.positionMode === "IMU_GPS_FUSION"
                   ? ("IMU 추정 후 T+" + Number(trajectory3d.imuAssistEndElapsedSec || 0).toFixed(3) + "초부터 GPS에 점진 수렴")
                   : "GPS 좌표 사용")
               )], style:3},
               {cells:["궤적 기울기 판정: 발사 자세 대비 3° 초과부터 횡가속도 반영"], style:3},
-              {cells:["궤적 동기화: 기압 고도를 시간축 기준으로 사용 · GPS는 원본 참고값만 보존"], style:3},
+              {cells:["궤적 동기화: 기압 고도를 시간축 기준으로 사용 · GPS는 좌표 형상이 아닌 수평 이동거리 범위만 검증"], style:3},
               {cells:["단분리 시점 (서보 CH1): " + formatInfoEventTPlus(trajectory3d.stageSeparationTPlusSec)], style:3},
               {cells:["사출 시점 (서보 CH2): " + formatInfoEventTPlus(trajectory3d.ejectionTPlusSec)], style:3},
               {cells:["이벤트 원본: BIN/텔레메트리 저장 레코드"], style:3},

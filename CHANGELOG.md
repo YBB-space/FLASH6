@@ -3,6 +3,23 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 range-guarded shared trajectory b83 — 2026-07-25
+
+Firmware build: `v6 b37` (unchanged)
+Protocol: `Flash6-Intelligent-b8` (unchanged)
+
+- Applied the same conservative model-rocket horizontal-motion model to the
+  exported trajectory and live/replay gyro preview.
+- Reduced the powered-flight tilt prior from 35° to 18°, lowered horizontal
+  speed limits, and increased coast/descent damping to reject IMU integration
+  drift.
+- Kept GPS east/north coordinates out of the path shape and absolute heading,
+  while using only the accepted scalar GPS distance envelope to keep estimated
+  range consistent with observed flight extent.
+- Removed the remaining 2.8x horizontal visual exaggeration from the UI gyro
+  trail and kept X/Z/altitude at one metric scale.
+- Added GPS range-envelope and model range-limit diagnostics to `TRAJECTORY_3D`.
+
 ## FLASH6 metric-scale trajectory rendering b82 — 2026-07-25
 
 Firmware build: `v6 b37` (unchanged)

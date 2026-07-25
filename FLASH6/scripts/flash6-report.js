@@ -659,6 +659,10 @@
           lon:validGps ? lon : NaN,
           gpsAgeMs:isFinite(gpsAgeMs) ? gpsAgeMs : NaN,
           gpsMeasurementElapsedSec,
+          gpsAccuracyM:Number(
+            row.gps_accuracy_m ?? row.gpsAccuracyM ??
+            (isFinite(Number(row.gps_hdop)) ? Number(row.gps_hdop) * 2.4 : NaN)
+          ),
           ax:Number(row.ax),
           ay:Number(row.ay),
           az:Number(row.az),
@@ -743,10 +747,10 @@
       }
 
       const gpsAvailable = isFinite(baseLat) && isFinite(baseLon);
-      // GPS is kept strictly as an audit reference. Model-rocket trajectory
-      // reconstruction never consumes GPS position or velocity: typical
-      // 1 Hz fixes and multipath jumps produce visually smooth but physically
-      // false loops when interpolated across a short flight.
+      // GPS east/north coordinates never define the path shape or heading:
+      // typical 1 Hz fixes and multipath jumps create false loops when
+      // interpolated across a short flight. Only the accepted scalar distance
+      // envelope is used later as a sanity observation for local IMU range.
       const useGpsForTrajectory = false;
       const metersPerLon = gpsAvailable ? 111320 * Math.cos(baseLat * DEG_TO_RAD) : 1;
       let sharedApogeePointIndex = 0;
@@ -803,6 +807,20 @@
         point.eastM = 0;
         point.northM = 0;
         point.positionSource = "VERTICAL_ONLY";
+      });
+      let gpsRangeEnvelopeM = NaN;
+      rawPoints.forEach((point)=>{
+        const gpsRangeM = gpsAvailable
+          ? Math.hypot(point.gpsEastM, point.gpsNorthM)
+          : NaN;
+        if(isFinite(gpsRangeM)){
+          gpsRangeEnvelopeM = isFinite(gpsRangeEnvelopeM)
+            ? Math.max(gpsRangeEnvelopeM, gpsRangeM)
+            : gpsRangeM;
+        }
+        point.gpsRangeM = gpsRangeM;
+        point.gpsRangeEnvelopeM = gpsRangeEnvelopeM;
+        point.horizontalRangeLimitM = NaN;
       });
       if(useGpsForTrajectory && gpsAvailable && gpsFixes.length >= 2){
         const fixVelocity = new Array(gpsFixes.length).fill(null);
@@ -1202,6 +1220,7 @@
                 }
               }
 
+              let horizontalRangeLimitM = NaN;
               if(phaseName === FLIGHT_PHASES.PRE_FLIGHT){
                 velocityX = 0;
                 velocityZ = 0;
@@ -1241,6 +1260,20 @@
                 }
 
                 const rocketAxisWorld = normalize3(rotateByQuat(quat, up)) || up;
+                const timeSinceApogeeSec = index > apogeePointIndex
+                  ? Math.max(
+                    0,
+                    point.elapsedSec - rawPoints[apogeePointIndex].elapsedSec
+                  )
+                  : 0;
+                horizontalRangeLimitM = getModelRocketHorizontalRangeLimitM({
+                  phase:phaseName,
+                  altitudeM:Math.max(0, point.altitudeM - launchAltitudeM),
+                  apogeeAltitudeM:Math.max(0, apogeeAltitudeM - launchAltitudeM),
+                  timeSinceApogeeSec,
+                  gpsRangeEnvelopeM:point.gpsRangeEnvelopeM,
+                  gpsAccuracyM:point.gpsAccuracyM
+                });
                 const horizontalMotion = updateModelRocketHorizontalMotion(
                   {velocityX, velocityZ, positionX, positionZ},
                   {
@@ -1252,7 +1285,12 @@
                     axisUp:dot3(rocketAxisWorld, up),
                     accelX:filteredAccelX,
                     accelZ:filteredAccelZ,
-                    horizontalAcceptance
+                    horizontalAcceptance,
+                    horizontalRangeLimitM,
+                    horizontalRangeTargetM:point.gpsRangeEnvelopeM,
+                    rangeCorrectionAlpha:1 - Math.exp(-dt / 0.9),
+                    anchorX:0,
+                    anchorZ:0
                   }
                 );
                 velocityX = horizontalMotion.velocityX;
@@ -1265,6 +1303,7 @@
               point.positionSource = "IMU_LOCAL";
               point.horizontalSpeedMps = Math.hypot(velocityX, velocityZ);
               point.verticalSpeedMps = fusedVerticalSpeedMps;
+              point.horizontalRangeLimitM = horizontalRangeLimitM;
             }
             positionMode = "IMU_LOCAL";
             imuAssistEndElapsedSec = null;
@@ -1350,7 +1389,8 @@
         "GPS_LAT_REFERENCE", "GPS_LON_REFERENCE", "POSITION_SOURCE",
         "GPS_EAST_M_REFERENCE", "GPS_NORTH_M_REFERENCE",
         "HORIZONTAL_SPEED_MPS", "VERTICAL_SPEED_MPS",
-        "ESTIMATED_SPEED_MPS", "SPEED_SOURCE", "EVENT"
+        "ESTIMATED_SPEED_MPS", "SPEED_SOURCE",
+        "GPS_RANGE_ENVELOPE_M", "MODEL_RANGE_LIMIT_M", "EVENT"
       ]];
       points.forEach((point)=>{
         const pointIndex = point.pointIndex;
@@ -1378,6 +1418,12 @@
             ? Number(estimatedSpeedMps.toFixed(3))
             : "",
           "MODEL ROCKET FUSION",
+          isFinite(point.gpsRangeEnvelopeM)
+            ? Number(point.gpsRangeEnvelopeM.toFixed(3))
+            : "",
+          isFinite(point.horizontalRangeLimitM)
+            ? Number(point.horizontalRangeLimitM.toFixed(3))
+            : "",
           eventLabels.join(" + ")
         ]);
       });
@@ -1481,7 +1527,7 @@
       ctx.font = "500 18px Arial, sans-serif";
       ctx.fillText(
         positionMode === "IMU_LOCAL"
-          ? "MODEL-CONSTRAINED LOCAL TRAJECTORY / TRUE METRIC SCALE · GPS EXCLUDED"
+          ? "MODEL-CONSTRAINED LOCAL TRAJECTORY / GPS SHAPE EXCLUDED · RANGE GUARDED"
           : (positionMode === "IMU_GPS_FUSION"
             ? "IMU-ASSISTED EAST / NORTH + GPS / BAROMETRIC ALTITUDE"
             : (gpsAvailable ? "GPS EAST / NORTH / BAROMETRIC ALTITUDE" : "GPS UNAVAILABLE / VERTICAL PROFILE")),
@@ -1611,7 +1657,7 @@
       ctx.font = "500 15px Arial, sans-serif";
       ctx.fillText(
         positionMode === "IMU_LOCAL"
-          ? "Local X/Z and altitude use one metric scale. GPS is reference-only; absolute heading is intentionally omitted."
+          ? "Local X/Z use model dynamics; GPS constrains range only, never path shape or heading. Axes share one metric scale."
           : (positionMode === "IMU_GPS_FUSION"
             ? "Dashed: IMU estimate · dotted: IMU/GPS blend · solid: GPS. Axes are independently scaled."
             : "GPS fixes are time-interpolated. Axes are scaled for readability. Source: TRAJECTORY_3D sheet."),

@@ -2961,20 +2961,20 @@
               {cells:["종단 속도 (최대 하강 속력, m/s): " + exportMetricText(terminalSpeedMps)], style:3},
               {cells:["3D 비행 궤적: " + (
                 trajectory3d.positionMode === "IMU_LOCAL"
-                  ? "자이로·가속도 로컬 추정 + 기압 고도 · GPS 계산 제외"
+                  ? "자이로·가속도 로컬 추정 + 기압 고도 · GPS는 거리 범위 검증에만 사용"
                   : (trajectory3d.positionMode === "IMU_GPS_FUSION"
                   ? "초기 IMU 추정 + GPS 결합 + 기압 고도"
                   : (trajectory3d.gpsAvailable ? "GPS + 고도" : "GPS 없음 · 수직 고도 프로파일"))
               )], style:3},
               {cells:["초기 수평 궤적: " + (
                 trajectory3d.positionMode === "IMU_LOCAL"
-                  ? "발사 자세 기준 로컬 X/Z · 절대 방위 미사용"
+                  ? "발사 자세 기준 로컬 X/Z · GPS 경로/절대 방위 미사용"
                   : (trajectory3d.positionMode === "IMU_GPS_FUSION"
                   ? ("IMU 추정 후 T+" + Number(trajectory3d.imuAssistEndElapsedSec || 0).toFixed(3) + "초부터 GPS에 점진 수렴")
                   : "GPS 좌표 사용")
               )], style:3},
               {cells:["궤적 기울기 판정: 발사 자세 대비 3° 초과부터 횡가속도 반영"], style:3},
-              {cells:["궤적 동기화: 기압 고도를 시간축 기준으로 사용 · GPS는 원본 참고값만 보존"], style:3},
+              {cells:["궤적 동기화: 기압 고도를 시간축 기준으로 사용 · GPS는 좌표 형상이 아닌 수평 이동거리 범위만 검증"], style:3},
               {cells:["단분리 시점 (서보 CH1): " + formatInfoEventTPlus(trajectory3d.stageSeparationTPlusSec)], style:3},
               {cells:["사출 시점 (서보 CH2): " + formatInfoEventTPlus(trajectory3d.ejectionTPlusSec)], style:3},
               {cells:["이벤트 원본: BIN/텔레메트리 저장 레코드"], style:3},

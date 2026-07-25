@@ -52,6 +52,9 @@ const context = {
   },
   DEG_TO_RAD:Math.PI / 180,
   GYRO_IMU_GRAVITY_MPS2:9.80665,
+  GYRO_FUSION_GPS_DEFAULT_ACCURACY_M:3.5,
+  GYRO_FUSION_GPS_MIN_ACCURACY_M:0.18,
+  GYRO_FUSION_GPS_MAX_ACCURACY_M:35,
   currentLang:"ko",
   clampLocal:(value, min, max)=>Math.max(min, Math.min(max, value))
 };
@@ -80,7 +83,7 @@ vm.runInContext(
   context
 );
 const horizontalHelperStart = coreSource.indexOf(
-  "function updateModelRocketHorizontalMotion"
+  "function getModelRocketHorizontalRangeLimitM"
 );
 const horizontalHelperEnd = coreSource.indexOf(
   "const GYRO_CAPTURE_SPRING",
@@ -92,7 +95,8 @@ assert.ok(
 );
 vm.runInContext(
   coreSource.slice(horizontalHelperStart, horizontalHelperEnd) +
-  "\nglobalThis.updateHorizontalMotion = updateModelRocketHorizontalMotion;",
+  "\nglobalThis.updateHorizontalMotion = updateModelRocketHorizontalMotion;" +
+  "\nglobalThis.getHorizontalRangeLimit = getModelRocketHorizontalRangeLimitM;",
   context
 );
 const altitudeSpeedHelperStart = replaySource.indexOf(
@@ -311,6 +315,51 @@ assert.ok(
   horizontalMotion.positionX > 2 && horizontalMotion.positionX < 10,
   "post-rail attitude must produce gradual, bounded horizontal curvature"
 );
+const apogeeRangeLimitM = context.getHorizontalRangeLimit({
+  phase:"COASTING",
+  altitudeM:139.7,
+  apogeeAltitudeM:139.7,
+  gpsRangeEnvelopeM:11.38,
+  gpsAccuracyM:3.5
+});
+assert.ok(
+  apogeeRangeLimitM >= 15 && apogeeRangeLimitM <= 16,
+  "GPS may constrain scalar range but must retain an accuracy margin"
+);
+let rangeGuardedMotion = {
+  velocityX:20,
+  velocityZ:0,
+  positionX:4.95,
+  positionZ:0
+};
+rangeGuardedMotion = context.updateHorizontalMotion(rangeGuardedMotion, {
+  dtSec:0.05,
+  phase:"COASTING",
+  verticalSpeedMps:15,
+  horizontalRangeLimitM:5
+});
+assert.ok(
+  Math.hypot(rangeGuardedMotion.positionX, rangeGuardedMotion.positionZ) <= 5 + 1e-9 &&
+  rangeGuardedMotion.velocityX <= 1e-9,
+  "range guard must stop outward drift without changing the path heading"
+);
+const rangeObservedMotion = context.updateHorizontalMotion({
+  velocityX:0,
+  velocityZ:0,
+  positionX:3,
+  positionZ:4
+}, {
+  dtSec:0.01,
+  phase:"COASTING",
+  horizontalRangeLimitM:15,
+  horizontalRangeTargetM:10,
+  rangeCorrectionAlpha:0.2
+});
+assert.ok(
+  Math.abs((3 * rangeObservedMotion.positionZ) - (4 * rangeObservedMotion.positionX)) < 1e-9 &&
+  Math.hypot(rangeObservedMotion.positionX, rangeObservedMotion.positionZ) > 5,
+  "GPS scalar range observation must preserve the local IMU path direction"
+);
 const coastVelocityBefore = horizontalMotion.velocityX;
 for(let i = 0; i < 100; i++){
   horizontalMotion = context.updateHorizontalMotion(horizontalMotion, {
@@ -402,6 +451,8 @@ assert.ok(
 );
 const trajectoryHeader = Array.from(syntheticTrajectory.rows[0]);
 assert.ok(trajectoryHeader.includes("ESTIMATED_SPEED_MPS"));
+assert.ok(trajectoryHeader.includes("GPS_RANGE_ENVELOPE_M"));
+assert.ok(trajectoryHeader.includes("MODEL_RANGE_LIMIT_M"));
 const earlyTrajectoryRow = syntheticTrajectory.rows.find((row)=>
   Number(row[0]) >= 0.18
 );
@@ -431,6 +482,11 @@ assert.ok(
     row[6] === "IMU_LOCAL" && row[12] === "MODEL ROCKET FUSION"
   ),
   "GPS coordinates must remain reference-only in trajectory exports"
+);
+assert.match(
+  coreSource,
+  /const GYRO_TRAIL_HORIZONTAL_EXAGGERATION = 1\.0;/,
+  "live gyro trajectory must preserve the same metric proportions as reports"
 );
 
 assert.match(
