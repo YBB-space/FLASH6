@@ -1003,6 +1003,69 @@
       }
       scheduleFlashLinkChartRender();
     }
+    function updateDashboardStageLinkChartTabs(stageId){
+      const id = Number(stageId) === 2 ? 2 : 1;
+      const metric = dashboardStageLinkChartMetrics[id];
+      (el.dashboardStageLinkMetricButtons || []).forEach((tab)=>{
+        if(Number(tab.dataset.stageId) !== id) return;
+        const active = tab.dataset.dashboardStageLinkMetric === metric;
+        tab.classList.toggle("is-active", active);
+        tab.setAttribute("aria-selected", active ? "true" : "false");
+      });
+    }
+    function setDashboardStageLinkChartMetric(stageId, metric){
+      const id = Number(stageId) === 2 ? 2 : 1;
+      dashboardStageLinkChartMetrics[id] =
+        (metric === "loss" || metric === "hz") ? metric : "rssi";
+      updateDashboardStageLinkChartTabs(id);
+      scheduleFlashLinkChartRender();
+    }
+    function readFirstFiniteLinkMetric(){
+      for(let index = 0; index < arguments.length; index++){
+        const raw = arguments[index];
+        if(raw == null || raw === "") continue;
+        const value = Number(raw);
+        if(isFinite(value)) return value;
+      }
+      return NaN;
+    }
+    function recordDashboardStageLinkChartSample(stageId, sample){
+      const id = Number(stageId);
+      if(id !== 1 && id !== 2) return;
+      const now = Date.now();
+      if(dashboardStageLinkChartLastSampleMs[id] > 0 &&
+         (now - dashboardStageLinkChartLastSampleMs[id]) < FLASH_LINK_CHART_SAMPLE_MS){
+        return;
+      }
+      dashboardStageLinkChartLastSampleMs[id] = now;
+      const source = sample || {};
+      const rssi = readFirstFiniteLinkMetric(
+        source.stage_rssi_dbm, source.fl_rssi_dbm, source.flash_link_rssi_dbm
+      );
+      const rssiAgeMs = readFirstFiniteLinkMetric(
+        source.stage_rssi_age_ms, source.fl_rssi_age_ms, source.flash_link_rssi_age_ms
+      );
+      const lossPermille = readFirstFiniteLinkMetric(
+        source.stage_loss_permille, source.fl_loss_permille, source.flash_link_loss_permille
+      );
+      const rxHz = readFirstFiniteLinkMetric(
+        source.stage_rx_hz, source.fl_rx_hz, source.flash_link_rx_hz
+      );
+      const samples = dashboardStageLinkChartSamples[id];
+      samples.push({
+        time:now,
+        rssi:isFinite(rssi) && rssi > -126 &&
+          (!isFinite(rssiAgeMs) || rssiAgeMs <= 6000) ? rssi : null,
+        loss:isFinite(lossPermille) ? Math.max(0, lossPermille) / 10 : null,
+        hz:isFinite(rxHz) ? Math.max(0, rxHz) : null
+      });
+      const cutoff = now - FLASH_LINK_CHART_WINDOW_MS - 1000;
+      while(samples.length && samples[0].time < cutoff) samples.shift();
+      if(samples.length > FLASH_LINK_CHART_MAX_POINTS){
+        samples.splice(0, samples.length - FLASH_LINK_CHART_MAX_POINTS);
+      }
+      scheduleFlashLinkChartRender();
+    }
     function recordFlashLinkChartSample(sample){
       const now = Date.now();
       if(flashLinkChartLastSampleMs > 0 &&
@@ -1155,13 +1218,25 @@
         definition,
         now
       );
-      drawFlashLinkQualityChartTarget(
-        el.dashboardLinkQualityChart,
-        el.dashboardLinkChartValue,
-        samples,
-        definition,
-        now
-      );
+      [1, 2].forEach((stageId)=>{
+        const stageSamples = dashboardStageLinkChartSamples[stageId]
+          .filter((sample)=>sample.time >= cutoff);
+        const stageDefinition = getFlashLinkChartDefinition(
+          dashboardStageLinkChartMetrics[stageId],
+          stageSamples
+        );
+        drawFlashLinkQualityChartTarget(
+          stageId === 1
+            ? el.dashboardStage1LinkQualityChart
+            : el.dashboardStage2LinkQualityChart,
+          stageId === 1
+            ? el.dashboardStage1LinkChartValue
+            : el.dashboardStage2LinkChartValue,
+          stageSamples,
+          stageDefinition,
+          now
+        );
+      });
     }
     function initFlashLinkQualityChart(){
       try{
@@ -1181,13 +1256,30 @@
           setDashboardSectionView(tab.dataset.dashboardSection);
         });
       });
+      (el.dashboardStageLinkMetricButtons || []).forEach((tab)=>{
+        tab.addEventListener("click",()=>{
+          setDashboardStageLinkChartMetric(
+            Number(tab.dataset.stageId),
+            tab.dataset.dashboardStageLinkMetric
+          );
+        });
+      });
+      updateDashboardStageLinkChartTabs(1);
+      updateDashboardStageLinkChartTabs(2);
       updateDashboardSectionTabs();
       if(window.ResizeObserver &&
-         (el.flashLinkQualityChart || el.dashboardLinkQualityChart) &&
+         (el.flashLinkQualityChart ||
+          el.dashboardStage1LinkQualityChart ||
+          el.dashboardStage2LinkQualityChart) &&
          !flashLinkChartResizeObserver){
         flashLinkChartResizeObserver = new ResizeObserver(()=>scheduleFlashLinkChartRender());
         if(el.flashLinkQualityChart) flashLinkChartResizeObserver.observe(el.flashLinkQualityChart);
-        if(el.dashboardLinkQualityChart) flashLinkChartResizeObserver.observe(el.dashboardLinkQualityChart);
+        if(el.dashboardStage1LinkQualityChart){
+          flashLinkChartResizeObserver.observe(el.dashboardStage1LinkQualityChart);
+        }
+        if(el.dashboardStage2LinkQualityChart){
+          flashLinkChartResizeObserver.observe(el.dashboardStage2LinkQualityChart);
+        }
       }
       scheduleFlashLinkChartRender();
     }
@@ -1733,6 +1825,73 @@
         }
       });
     }
+    function getDashboardStageLinkSnapshot(stageId){
+      const id = Number(stageId) === 2 ? 2 : 1;
+      const state = stageTelemetryStore[id];
+      const data = state && state.data ? state.data : {};
+      let rxHz = readFirstFiniteLinkMetric(
+        data.stage_rx_hz, data.fl_rx_hz, data.flash_link_rx_hz
+      );
+      let lossPermille = readFirstFiniteLinkMetric(
+        data.stage_loss_permille, data.fl_loss_permille, data.flash_link_loss_permille
+      );
+      let rssiDbm = readFirstFiniteLinkMetric(
+        data.stage_rssi_dbm, data.fl_rssi_dbm, data.flash_link_rssi_dbm
+      );
+      let rssiAgeMs = readFirstFiniteLinkMetric(
+        data.stage_rssi_age_ms, data.fl_rssi_age_ms, data.flash_link_rssi_age_ms
+      );
+      if(flashLinkUiTargetNodeId === id){
+        if(!isFinite(rxHz)) rxHz = flashLinkUiRxHz;
+        if(!isFinite(lossPermille)) lossPermille = flashLinkUiLossPermille;
+        if(!isFinite(rssiDbm) || rssiDbm <= -126){
+          rssiDbm = flashLinkUiRssiDbm;
+          rssiAgeMs = flashLinkUiRssiValid ? 0 : 4294967295;
+        }
+      }
+      const available = !!(
+        (state && state.valid) ||
+        (flashLinkUiTargetNodeId === id && flashLinkUiHasStatus)
+      );
+      return {
+        available,
+        rxHz:isFinite(rxHz) ? Math.max(0, rxHz) : NaN,
+        lossPermille:isFinite(lossPermille) ? Math.max(0, lossPermille) : NaN,
+        rssiDbm,
+        rssiValid:available && isFinite(rssiDbm) && rssiDbm > -126 &&
+          (!isFinite(rssiAgeMs) || rssiAgeMs <= 6000)
+      };
+    }
+    function syncDashboardStageLinkMetrics(stageId, enabled){
+      const id = Number(stageId) === 2 ? 2 : 1;
+      const snapshot = enabled
+        ? getDashboardStageLinkSnapshot(id)
+        : {available:false, rxHz:NaN, lossPermille:NaN, rssiDbm:NaN, rssiValid:false};
+      const rssiEl = id === 1
+        ? el.dashboardStage1CommunicationRssi
+        : el.dashboardStage2CommunicationRssi;
+      const lossEl = id === 1
+        ? el.dashboardStage1CommunicationLoss
+        : el.dashboardStage2CommunicationLoss;
+      const rateEl = id === 1
+        ? el.dashboardStage1CommunicationRate
+        : el.dashboardStage2CommunicationRate;
+      if(rssiEl){
+        rssiEl.textContent = snapshot.rssiValid
+          ? String(Math.round(snapshot.rssiDbm))
+          : "--";
+      }
+      if(lossEl){
+        lossEl.textContent = snapshot.available && isFinite(snapshot.lossPermille)
+          ? (snapshot.lossPermille / 10).toFixed(1)
+          : "--";
+      }
+      if(rateEl){
+        rateEl.textContent = snapshot.available && isFinite(snapshot.rxHz)
+          ? String(Math.round(snapshot.rxHz))
+          : "--";
+      }
+    }
     function syncDashboardCommunicationUi(){
       if(!el.dashboardCommunicationCard) return;
       const flashLinkEnabled = getSettingsOperationModeValue() === "flash_link";
@@ -1758,6 +1917,7 @@
       const stage2Online = flashLinkEnabled && stage2ModeEnabled && connectedStage2;
       const directRoute = stage2Online && flashLinkStage2Route === "direct";
       const relayRoute = stage2Online && !directRoute && stage1Online;
+      const directRouteAvailable = stage2Online;
       const groundOnline = transportOnline;
       const mobileOnline = groundOnline && mobileClient && !serialConnected;
       const pcOnline = groundOnline && (!mobileClient || serialConnected);
@@ -1777,7 +1937,10 @@
       setDashboardCommunicationNodeState("pc", pcOnline ? "online" : "standby", pcOnline ? "CONNECTED" : "STANDBY", currentClient === "pc");
 
       setDashboardCommunicationLinkState("stage2-stage1", relayRoute ? "online" : (stage2ModeEnabled ? "standby" : "offline"));
-      setDashboardCommunicationLinkState("stage2-ground", directRoute ? "online" : (stage2ModeEnabled ? "standby" : "offline"));
+      setDashboardCommunicationLinkState(
+        "stage2-ground",
+        directRoute ? "online" : (directRouteAvailable ? "standby" : "offline")
+      );
       setDashboardCommunicationLinkState("stage1-ground", stage1Online && groundOnline ? "online" : "offline");
       setDashboardCommunicationLinkState("ground-mobile", mobileOnline ? "online" : "standby");
       setDashboardCommunicationLinkState("ground-pc", pcOnline ? "online" : "standby");
@@ -1790,21 +1953,8 @@
       if(el.dashboardCommunicationPeer){
         el.dashboardCommunicationPeer.textContent = "PEER  " + (flashLinkUiPeer || "--");
       }
-      if(el.dashboardCommunicationRssi){
-        el.dashboardCommunicationRssi.textContent = flashLinkUiRssiValid
-          ? String(Math.round(flashLinkUiRssiDbm))
-          : "--";
-      }
-      if(el.dashboardCommunicationLoss){
-        el.dashboardCommunicationLoss.textContent = flashLinkUiHasStatus
-          ? (flashLinkUiLossPermille / 10).toFixed(1)
-          : "--";
-      }
-      if(el.dashboardCommunicationRate){
-        el.dashboardCommunicationRate.textContent = flashLinkUiHasStatus
-          ? String(Math.round(flashLinkUiRxHz))
-          : "--";
-      }
+      syncDashboardStageLinkMetrics(1, true);
+      syncDashboardStageLinkMetrics(2, stage2ModeEnabled);
 
       const activeClientOnline = currentClient === "mobile" ? mobileOnline : pcOnline;
       const allOnline = stage1Online && (!stage2ModeEnabled || stage2Online) &&
@@ -2062,6 +2212,10 @@
           loss:isFinite(lossPermille) ? (Math.max(0, lossPermille) / 10) : null,
           hz:isFinite(rxHz) ? Math.max(0, rxHz) : null
         });
+        recordDashboardStageLinkChartSample(
+          flashLinkUiRole === "ground" ? targetNodeId : nodeId,
+          src
+        );
       }
       recordFlashLinkReportSample({
         role:flashLinkUiRole,

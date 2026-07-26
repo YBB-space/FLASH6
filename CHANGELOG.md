@@ -3,6 +3,20 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.9.8 — v6 b38 / FLASH6 per-stage link quality b88 — 2026-07-26
+
+Protocol: `Flash6-Intelligent-b8` (ESP-NOW/storage wire version `8`, unchanged)
+
+- Extended the backward-compatible Ground-to-FLASH6 stage snapshot tail with
+  per-stage receive loss, RSSI, and RSSI age. Existing snapshot indexes and
+  the radio/storage wire formats remain unchanged.
+- Split the Dashboard communication quality view into independent Stage 1 and
+  Stage 2 metric panels and 30-second chart buffers.
+- Increased the topology workspace height to align with the two stacked
+  quality panels and remove the unused lower area.
+- Kept the Stage 2 direct Ground backup route green while it remains available
+  behind the preferred Stage 1 relay route.
+
 ## FLASH6 visible stage-2 direct-backup route b87 — 2026-07-26
 
 Firmware build: `v6 b37` (unchanged)

@@ -70,6 +70,9 @@
           ? "BROWNOUT"
           : (finiteOrNull(36) === 23 ? "POWER_GLITCH" : null),
         boot_session:finiteOrNull(37),
+        stage_loss_permille:finiteOrNull(38),
+        stage_rssi_dbm:finiteOrNull(39),
+        stage_rssi_age_ms:finiteOrNull(40),
         data_origin:"avionics"
       };
     }
@@ -233,6 +236,6 @@
         fw_program:"Altis_Intelligent3_firmware1",
         fw_board:"Altis_Intelligent3_b3",
         fw_protocol:"Flash6-Intelligent-b8",
-        fw_build:"v6 b37"
+        fw_build:"v6 b38"
       };
     }

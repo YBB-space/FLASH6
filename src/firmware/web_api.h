@@ -604,8 +604,9 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
   //  qw,qx,qy,qz,flight_phase,vertical_speed,deployment_state,
   //  deployment_flags,relay,state,td,arm,arm_physical,ign_delay_valid,
   //  ign_delay_ms,alarm_seq,alarm_block,alarm_title,alarm_message,rx_seq,
-  //  rx_hz,chip_temp,chip_temp_valid,loop_ms,cpu_us,reset_code,boot_session]
-  char stageSnapshots[2][512];
+  //  rx_hz,chip_temp,chip_temp_valid,loop_ms,cpu_us,reset_code,boot_session,
+  //  rx_loss_permille,rssi_dbm,rssi_age_ms]
+  char stageSnapshots[2][576];
   for (uint8_t i = 0; i < 2; ++i) {
     if (!remoteOutput || !flashLinkStage2Enabled) {
       strlcpy(stageSnapshots[i], "null", sizeof(stageSnapshots[i]));
@@ -618,6 +619,9 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
     const uint32_t ageMs = peer.lastTelemetryRxMs != 0U
       ? (uint32_t)(nowMs - peer.lastTelemetryRxMs)
       : UINT32_MAX;
+    const uint32_t rssiAgeMs = peer.lastRssiMs != 0U
+      ? (uint32_t)(nowMs - peer.lastRssiMs)
+      : UINT32_MAX;
     const bool ignitionDelayValid =
       (peer.snap.deploymentFlags & 1U) != 0U && peer.snap.ignitionDelayMs != UINT32_MAX;
     char stageAlarmTitle[52];
@@ -629,7 +633,8 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
       sizeof(stageSnapshots[i]),
       "[%u,%u,%u,%lu,%.2f,%.3f,%.3f,%.3f,%.2f,%.2f,%.2f,"
       "%.6f,%.6f,%.6f,%.6f,%u,%.2f,%u,%u,%u,%u,%ld,%u,%u,"
-      "%u,%lu,%lu,%u,\"%s\",\"%s\",%lu,%u,%.1f,%u,%.3f,%u,%u,%lu]",
+      "%u,%lu,%lu,%u,\"%s\",\"%s\",%lu,%u,%.1f,%u,%.3f,%u,%u,%lu,"
+      "%u,%d,%lu]",
       (unsigned)(i + kFlashLinkNodeIdStage1),
       connected ? 1U : 0U,
       valid ? 1U : 0U,
@@ -667,7 +672,10 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
       peer.snap.lt,
       (unsigned)peer.snap.ct,
       (unsigned)peer.state.resetReason,
-      (unsigned long)peer.session);
+      (unsigned long)peer.session,
+      (unsigned)peer.rxLossPermille,
+      (int)peer.rssiDbm,
+      (unsigned long)rssiAgeMs);
     if (stageLen <= 0 || (size_t)stageLen >= sizeof(stageSnapshots[i])) {
       strlcpy(stageSnapshots[i], "null", sizeof(stageSnapshots[i]));
     }

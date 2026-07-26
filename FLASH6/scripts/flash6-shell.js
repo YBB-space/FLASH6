@@ -886,6 +886,7 @@
       trimStageTelemetryHistory(state.altitudeHistory);
       trimStageTelemetryHistory(state.speedHistory);
       trimStageTelemetryHistory(state.gforceHistory);
+      recordDashboardStageLinkChartSample(stageId, state.data);
 
       if(stageId === 1 && flashLinkUiStage2Mode){
         const deploymentState = Number(sample.deployment_state) || 0;
