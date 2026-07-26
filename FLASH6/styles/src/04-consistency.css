@@ -2233,17 +2233,17 @@ body.dashboard-view-active #dashboardView .dashboard-communication-card.hidden{
 }
 
 @media (min-width:1101px) and (pointer:fine){
-  body.dashboard-view-active.dashboard-communication-active .page-wrap{
+  body:not(.camera-view-active).dashboard-view-active.dashboard-communication-active .page-wrap{
     min-height:0 !important;
     overflow-y:hidden !important;
   }
-  body.dashboard-view-active.dashboard-communication-active #dashboardView{
+  body:not(.camera-view-active).dashboard-view-active.dashboard-communication-active #dashboardView{
     display:flex;
     flex:1 1 0 !important;
     min-height:0 !important;
     overflow:hidden;
   }
-  body.dashboard-view-active.dashboard-communication-active #dashboardView > .shell{
+  body:not(.camera-view-active).dashboard-view-active.dashboard-communication-active #dashboardView > .shell{
     display:flex !important;
     flex:1 1 0;
     min-height:0 !important;
@@ -2251,10 +2251,10 @@ body.dashboard-view-active #dashboardView .dashboard-communication-card.hidden{
     flex-direction:column;
     align-content:normal;
   }
-  body.dashboard-view-active.dashboard-communication-active #dashboardView .dashboard-section-tabs{
+  body:not(.camera-view-active).dashboard-view-active.dashboard-communication-active #dashboardView .dashboard-section-tabs{
     flex:0 0 auto;
   }
-  body.dashboard-view-active.dashboard-communication-active #dashboardView .dashboard-communication-card{
+  body:not(.camera-view-active).dashboard-view-active.dashboard-communication-active #dashboardView .dashboard-communication-card{
     flex:1 1 0;
     align-self:stretch;
     min-height:0 !important;
@@ -2692,7 +2692,7 @@ body.dashboard-view-active #dashboardView .dashboard-communication-card.hidden{
 }
 
 @media (min-width:768px) and (pointer:fine){
-  body.dashboard-view-active.dashboard-communication-active .page-wrap{
+  body:not(.camera-view-active).dashboard-view-active.dashboard-communication-active .page-wrap{
     display:flex !important;
     height:100dvh !important;
     min-height:0 !important;
@@ -2702,10 +2702,10 @@ body.dashboard-view-active #dashboardView .dashboard-communication-card.hidden{
     gap:12px !important;
     padding-bottom:12px !important;
   }
-  body.dashboard-view-active.dashboard-communication-active .top-bar{
+  body:not(.camera-view-active).dashboard-view-active.dashboard-communication-active .top-bar{
     flex:0 0 auto !important;
   }
-  body.dashboard-view-active.dashboard-communication-active #dashboardView{
+  body:not(.camera-view-active).dashboard-view-active.dashboard-communication-active #dashboardView{
     display:flex !important;
     flex:1 1 0 !important;
     height:auto !important;
@@ -2713,7 +2713,7 @@ body.dashboard-view-active #dashboardView .dashboard-communication-card.hidden{
     min-height:0 !important;
     overflow:hidden !important;
   }
-  body.dashboard-view-active.dashboard-communication-active #dashboardView > .shell{
+  body:not(.camera-view-active).dashboard-view-active.dashboard-communication-active #dashboardView > .shell{
     display:flex !important;
     flex:1 1 0 !important;
     width:100% !important;
@@ -2724,10 +2724,10 @@ body.dashboard-view-active #dashboardView .dashboard-communication-card.hidden{
     gap:12px !important;
     overflow:hidden !important;
   }
-  body.dashboard-view-active.dashboard-communication-active #dashboardView .dashboard-section-tabs{
+  body:not(.camera-view-active).dashboard-view-active.dashboard-communication-active #dashboardView .dashboard-section-tabs{
     flex:0 0 auto !important;
   }
-  body.dashboard-view-active.dashboard-communication-active #dashboardView .comm-v3-screen{
+  body:not(.camera-view-active).dashboard-view-active.dashboard-communication-active #dashboardView .comm-v3-screen{
     flex:1 1 0 !important;
     height:auto !important;
     max-height:100% !important;
@@ -2736,48 +2736,13 @@ body.dashboard-view-active #dashboardView .dashboard-communication-card.hidden{
 }
 
 @media (min-width:901px) and (pointer:fine){
-  body.camera-view-active.dashboard-view-active.dashboard-communication-active #dashboardView{
-    width:auto !important;
-    height:auto !important;
-    max-height:none !important;
-  }
-  body.camera-view-active.dashboard-view-active.dashboard-communication-active #dashboardView > .shell{
-    display:grid !important;
-    width:100% !important;
-    height:100% !important;
-    max-height:100% !important;
-    padding:68px clamp(16px,1.5vw,26px) 0 !important;
-    box-sizing:border-box !important;
-    grid-template-rows:64px minmax(0,1fr) !important;
-    align-content:stretch !important;
-    gap:12px !important;
-    overflow:hidden !important;
-  }
-  body.camera-view-active.dashboard-view-active.dashboard-communication-active #dashboardView .dashboard-section-tabs{
-    min-height:0 !important;
-  }
-  body.camera-view-active.dashboard-view-active.dashboard-communication-active #dashboardView .comm-v3-screen{
-    width:100% !important;
-    height:100% !important;
-    max-height:none !important;
-    min-height:0 !important;
-  }
-  body.camera-view-active.dashboard-view-active.dashboard-communication-active.dashboard-drawer-open :is(.camera-hud,.camera-sequence-dock){
-    visibility:hidden !important;
-  }
-}
-
-/* Keep the telemetry workspace inside the same fixed dashboard drawer.
-   The old fixed card heights exceeded short desktop viewports and made the
-   drawer shell scroll even though both rows could shrink cleanly. */
-@media (min-width:901px) and (pointer:fine){
-  body.camera-view-active.dashboard-view-active:not(.dashboard-communication-active) #dashboardView{
+  body.camera-view-active.dashboard-view-active #dashboardView{
     width:auto !important;
     height:auto !important;
     max-height:none !important;
     overflow:hidden !important;
   }
-  body.camera-view-active.dashboard-view-active:not(.dashboard-communication-active) #dashboardView > .shell{
+  body.camera-view-active.dashboard-view-active #dashboardView > .shell{
     display:grid !important;
     width:100% !important;
     height:100% !important;
@@ -2785,13 +2750,24 @@ body.dashboard-view-active #dashboardView .dashboard-communication-card.hidden{
     min-height:0 !important;
     padding:68px clamp(16px,1.5vw,26px) 16px !important;
     box-sizing:border-box !important;
-    grid-template-rows:64px minmax(0,2fr) minmax(0,3fr) !important;
     align-content:stretch !important;
     gap:12px !important;
     overflow:hidden !important;
   }
-  body.camera-view-active.dashboard-view-active:not(.dashboard-communication-active) #dashboardView .dashboard-section-tabs{
+  body.camera-view-active.dashboard-view-active #dashboardView .dashboard-section-tabs{
     min-height:0 !important;
+  }
+  body.camera-view-active.dashboard-view-active.dashboard-communication-active #dashboardView > .shell{
+    grid-template-rows:64px minmax(0,1fr) !important;
+  }
+  body.camera-view-active.dashboard-view-active.dashboard-communication-active #dashboardView .comm-v3-screen{
+    width:100% !important;
+    height:100% !important;
+    max-height:none !important;
+    min-height:0 !important;
+  }
+  body.camera-view-active.dashboard-view-active:not(.dashboard-communication-active) #dashboardView > .shell{
+    grid-template-rows:64px minmax(0,2fr) minmax(0,3fr) !important;
   }
   body.camera-view-active.dashboard-view-active:not(.dashboard-communication-active) #dashboardView :is(.row-top,.row-bottom){
     width:100% !important;

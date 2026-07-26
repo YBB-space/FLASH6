@@ -3,6 +3,16 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 unified dashboard geometry b104 — 2026-07-26
+
+Firmware build: `v6 b38` (unchanged)
+Protocol: `Flash6-Intelligent-b8` (unchanged)
+
+- Replaced communication-only desktop drawer exceptions with one shared
+  dashboard geometry for both telemetry and communication tabs.
+- Both tabs now use identical drawer bounds, padding, gap, tab height, and
+  clipping; only their content-row definitions differ.
+
 ## FLASH6 communication bottom cleanup b103 — 2026-07-26
 
 Firmware build: `v6 b38` (unchanged)
