@@ -3,6 +3,16 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 communication viewport fit b89 — 2026-07-26
+
+Firmware build: `v6 b38` (unchanged)
+Protocol: `Flash6-Intelligent-b8` (unchanged)
+
+- Made the two per-stage link-quality panels and topology scale together with
+  the available desktop viewport height so the Stage 2 chart is not clipped.
+- Removed the zero-dBm artifact caused by treating missing chart samples as
+  numeric zero; missing RSSI samples now render as gaps or a waiting state.
+
 ## 0.9.8 — v6 b38 / FLASH6 per-stage link quality b88 — 2026-07-26
 
 Protocol: `Flash6-Intelligent-b8` (ESP-NOW/storage wire version `8`, unchanged)

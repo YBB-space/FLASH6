@@ -926,7 +926,7 @@
       if(metric === "loss"){
         let observedMax = 0;
         list.forEach((sample)=>{
-          const value = Number(sample && sample.loss);
+          const value = readFirstFiniteLinkMetric(sample && sample.loss);
           if(isFinite(value)) observedMax = Math.max(observedMax, value);
         });
         let max = 5;
@@ -939,7 +939,7 @@
       if(metric === "hz"){
         let observedMax = 0;
         list.forEach((sample)=>{
-          const value = Number(sample && sample.hz);
+          const value = readFirstFiniteLinkMetric(sample && sample.hz);
           if(isFinite(value)) observedMax = Math.max(observedMax, value);
         });
         return {
@@ -1073,11 +1073,14 @@
         return;
       }
       flashLinkChartLastSampleMs = now;
+      const rssi = readFirstFiniteLinkMetric(sample && sample.rssi);
+      const loss = readFirstFiniteLinkMetric(sample && sample.loss);
+      const hz = readFirstFiniteLinkMetric(sample && sample.hz);
       flashLinkChartSamples.push({
         time:now,
-        rssi:isFinite(Number(sample && sample.rssi)) ? Number(sample.rssi) : null,
-        loss:isFinite(Number(sample && sample.loss)) ? Math.max(0, Number(sample.loss)) : null,
-        hz:isFinite(Number(sample && sample.hz)) ? Math.max(0, Number(sample.hz)) : null
+        rssi:isFinite(rssi) ? rssi : null,
+        loss:isFinite(loss) ? Math.max(0, loss) : null,
+        hz:isFinite(hz) ? Math.max(0, hz) : null
       });
       const cutoff = now - FLASH_LINK_CHART_WINDOW_MS - 1000;
       while(flashLinkChartSamples.length && flashLinkChartSamples[0].time < cutoff){
@@ -1148,7 +1151,9 @@
 
       let latestValue = NaN;
       for(let index = samples.length - 1; index >= 0; index--){
-        const value = Number(samples[index] && samples[index][definition.key]);
+        const value = readFirstFiniteLinkMetric(
+          samples[index] && samples[index][definition.key]
+        );
         if(isFinite(value)){
           latestValue = value;
           break;
@@ -1160,7 +1165,9 @@
       }
 
       const validCount = samples.reduce((count, sample)=>(
-        isFinite(Number(sample && sample[definition.key])) ? count + 1 : count
+        isFinite(readFirstFiniteLinkMetric(sample && sample[definition.key]))
+          ? count + 1
+          : count
       ), 0);
       if(validCount < 2){
         ctx.fillStyle = textColor;
@@ -1185,7 +1192,7 @@
       let drawing = false;
       let lastPoint = null;
       samples.forEach((sample)=>{
-        const value = Number(sample && sample[definition.key]);
+        const value = readFirstFiniteLinkMetric(sample && sample[definition.key]);
         if(!isFinite(value)){
           drawing = false;
           return;
