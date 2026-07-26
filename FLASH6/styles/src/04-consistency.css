@@ -2764,6 +2764,65 @@ body.dashboard-view-active #dashboardView .dashboard-communication-card.hidden{
   }
 }
 
+/* Keep the telemetry workspace inside the same fixed dashboard drawer.
+   The old fixed card heights exceeded short desktop viewports and made the
+   drawer shell scroll even though both rows could shrink cleanly. */
+@media (min-width:901px) and (pointer:fine){
+  body.camera-view-active.dashboard-view-active:not(.dashboard-communication-active) #dashboardView{
+    width:auto !important;
+    height:auto !important;
+    max-height:none !important;
+    overflow:hidden !important;
+  }
+  body.camera-view-active.dashboard-view-active:not(.dashboard-communication-active) #dashboardView > .shell{
+    display:grid !important;
+    width:100% !important;
+    height:100% !important;
+    max-height:100% !important;
+    min-height:0 !important;
+    padding:68px clamp(16px,1.5vw,26px) 16px !important;
+    box-sizing:border-box !important;
+    grid-template-rows:64px minmax(0,2fr) minmax(0,3fr) !important;
+    align-content:stretch !important;
+    gap:12px !important;
+    overflow:hidden !important;
+  }
+  body.camera-view-active.dashboard-view-active:not(.dashboard-communication-active) #dashboardView .dashboard-section-tabs{
+    min-height:0 !important;
+  }
+  body.camera-view-active.dashboard-view-active:not(.dashboard-communication-active) #dashboardView :is(.row-top,.row-bottom){
+    width:100% !important;
+    height:100% !important;
+    min-height:0 !important;
+    max-height:none !important;
+    align-items:stretch !important;
+    overflow:hidden !important;
+  }
+  body.camera-view-active.dashboard-view-active:not(.dashboard-communication-active) #dashboardView :is(.row-top,.row-bottom) > .card-base{
+    height:100% !important;
+    min-height:0 !important;
+    max-height:none !important;
+    overflow:hidden !important;
+  }
+  body.camera-view-active.dashboard-view-active:not(.dashboard-communication-active) #dashboardView .main-card.status-card.status-map-only,
+  body.camera-view-active.dashboard-view-active:not(.dashboard-communication-active) #dashboardView .main-card.status-card.status-map-only .status-map-layout,
+  body.camera-view-active.dashboard-view-active:not(.dashboard-communication-active) #dashboardView .main-card.status-card.status-map-only :is(.status-map-panel,.status-flight-preview){
+    height:100% !important;
+    min-height:0 !important;
+    max-height:none !important;
+  }
+  body.camera-view-active.dashboard-view-active:not(.dashboard-communication-active) #dashboardView .charts-card{
+    display:grid !important;
+    grid-template-rows:auto minmax(0,1fr) !important;
+  }
+  body.camera-view-active.dashboard-view-active:not(.dashboard-communication-active) #dashboardView .chart-row,
+  body.camera-view-active.dashboard-view-active:not(.dashboard-communication-active) #dashboardView .chart-box,
+  body.camera-view-active.dashboard-view-active:not(.dashboard-communication-active) #dashboardView .chart-canvas-stage{
+    min-height:0 !important;
+    overflow:hidden !important;
+  }
+}
+
 @media (min-width:768px) and (pointer:fine) and (max-height:760px){
   .comm-v3-topology{
     padding:10px 14px 8px;

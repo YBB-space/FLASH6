@@ -3,6 +3,16 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 telemetry drawer fit b100 — 2026-07-26
+
+Firmware build: `v6 b38` (unchanged)
+Protocol: `Flash6-Intelligent-b8` (unchanged)
+
+- Converted the desktop telemetry drawer into a fixed three-row workspace for
+  the section tabs, telemetry overview, and trend charts.
+- Removed inherited fixed card heights and drawer scrolling; the overview and
+  chart rows now share the available viewport height and shrink responsively.
+
 ## FLASH6 communication drawer fit b99 — 2026-07-26
 
 Firmware build: `v6 b38` (unchanged)
