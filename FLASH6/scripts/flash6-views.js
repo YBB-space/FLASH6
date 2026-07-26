@@ -973,6 +973,7 @@
         tab.setAttribute("aria-selected", active ? "true" : "false");
       });
       const communicationActive = dashboardSectionView === "communication";
+      document.body.classList.toggle("dashboard-communication-active", communicationActive);
       (el.dashboardTelemetryRows || []).forEach((row)=>{
         row.classList.toggle("hidden", communicationActive);
       });

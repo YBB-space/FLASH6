@@ -1939,10 +1939,10 @@ body.dashboard-view-active #dashboardView .dashboard-communication-card.hidden{
 }
 .dashboard-communication-body{
   display:grid;
-  flex:0 0 auto;
+  flex:1 1 0;
   grid-template-columns:minmax(0,1.35fr) minmax(360px,.9fr);
   align-items:stretch;
-  height:calc(100dvh - 104px);
+  height:auto;
   min-width:0;
   min-height:0;
 }
@@ -2230,6 +2230,35 @@ body.dashboard-view-active #dashboardView .dashboard-communication-card.hidden{
   font-size:10px;
   font-weight:600;
   pointer-events:none;
+}
+
+@media (min-width:1101px) and (pointer:fine){
+  body.dashboard-view-active.dashboard-communication-active .page-wrap{
+    min-height:0 !important;
+    overflow-y:hidden !important;
+  }
+  body.dashboard-view-active.dashboard-communication-active #dashboardView{
+    display:flex;
+    flex:1 1 0 !important;
+    min-height:0 !important;
+    overflow:hidden;
+  }
+  body.dashboard-view-active.dashboard-communication-active #dashboardView > .shell{
+    display:flex !important;
+    flex:1 1 0;
+    min-height:0 !important;
+    height:auto !important;
+    flex-direction:column;
+    align-content:normal;
+  }
+  body.dashboard-view-active.dashboard-communication-active #dashboardView .dashboard-section-tabs{
+    flex:0 0 auto;
+  }
+  body.dashboard-view-active.dashboard-communication-active #dashboardView .dashboard-communication-card{
+    flex:1 1 0;
+    align-self:stretch;
+    min-height:0 !important;
+  }
 }
 
 @media (max-width:767px){

@@ -3,6 +3,19 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 communication viewport flex b94 — 2026-07-26
+
+Firmware build: `v6 b38` (unchanged)
+Protocol: `Flash6-Intelligent-b8` (unchanged)
+
+- Replaced the communication view's viewport subtraction with a parent-driven
+  flex layout so browser zoom, tab height, and dashboard padding cannot create
+  page overflow.
+- The communication card now consumes only the height actually left below the
+  dashboard tabs; both per-stage charts divide that remaining space equally.
+- Disabled the dashboard page scroll owner only while the desktop communication
+  section is active.
+
 ## FLASH6 communication viewport balance b93 — 2026-07-26
 
 Firmware build: `v6 b38` (unchanged)
