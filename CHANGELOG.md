@@ -3,6 +3,17 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 communication drawer fit b99 — 2026-07-26
+
+Firmware build: `v6 b38` (unchanged)
+Protocol: `Flash6-Intelligent-b8` (unchanged)
+
+- Removed the communication view's forced full width, which overrode the
+  camera dashboard drawer's reserved right-side navigation clearance.
+- Converted the desktop camera drawer interior to fixed header, section-tab,
+  and responsive content rows so the communication workspace stays entirely
+  inside the drawer without covering the navigation.
+
 ## FLASH6 responsive communication visibility b98 — 2026-07-26
 
 Firmware build: `v6 b38` (unchanged)
