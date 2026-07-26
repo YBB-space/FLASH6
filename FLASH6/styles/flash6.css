@@ -32511,11 +32511,44 @@ body.dashboard-view-active #dashboardView .dashboard-communication-card.hidden{
 }
 .dashboard-network-links path.is-wireless{stroke-dasharray:6 6}
 .dashboard-network-links path.is-online{stroke:#6d9b84;opacity:1}
-.dashboard-network-links path.is-standby{stroke:#454950;opacity:.72}
+.dashboard-network-links path.is-standby{stroke:#6a7079;opacity:.88}
 .dashboard-network-links path.is-offline{stroke:#33363b;opacity:.42}
+.dashboard-network-route-label{
+  position:absolute;
+  z-index:2;
+  min-height:18px;
+  padding:0 6px;
+  display:inline-flex;
+  align-items:center;
+  border:1px solid #3a3d43;
+  border-radius:4px;
+  background:#151619;
+  color:#787e87;
+  font-size:6px;
+  line-height:1;
+  font-weight:700;
+  letter-spacing:.08em;
+  white-space:nowrap;
+  transform:translate(-50%,-50%);
+  pointer-events:none;
+}
+.dashboard-network-route-label.is-online{
+  border-color:#4a5b52;
+  color:#8cc7a5;
+}
+.dashboard-network-route-label.is-standby{
+  border-color:#4b4f56;
+  color:#a0a5ad;
+}
+.dashboard-network-route-label.is-offline{
+  opacity:.34;
+}
+.dashboard-network-route-label.is-stage2-relay{left:12%;top:50%}
+.dashboard-network-route-label.is-stage2-direct{left:33%;top:34%}
+.dashboard-network-route-label.is-stage1-uplink{left:33%;top:67%}
 .dashboard-network-node{
   position:absolute;
-  z-index:1;
+  z-index:3;
   display:flex;
   width:20%;
   min-width:92px;

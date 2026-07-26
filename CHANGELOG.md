@@ -3,6 +3,16 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 visible stage-2 direct-backup route b87 — 2026-07-26
+
+Firmware build: `v6 b37` (unchanged)
+Protocol: `Flash6-Intelligent-b8` (unchanged)
+
+- Increased the contrast of standby communication paths so the stage 2 to
+  Ground direct-backup capability remains visible while relay is active.
+- Added compact live route labels for relay, direct backup, and the stage 1
+  primary uplink, including active and standby states.
+
 ## FLASH6 dashboard communication workspace b86 — 2026-07-26
 
 Firmware build: `v6 b37` (unchanged)

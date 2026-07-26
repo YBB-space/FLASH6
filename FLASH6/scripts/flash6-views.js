@@ -1719,9 +1719,18 @@
     }
     function setDashboardCommunicationLinkState(name, state){
       if(!el.dashboardCommunicationCard) return;
-      el.dashboardCommunicationCard.querySelectorAll('[data-dashboard-link="' + name + '"]').forEach((link)=>{
+      el.dashboardCommunicationCard.querySelectorAll(
+        '[data-dashboard-link="' + name + '"],[data-dashboard-link-label="' + name + '"]'
+      ).forEach((link)=>{
         link.classList.remove("is-online", "is-offline", "is-standby");
         link.classList.add("is-" + state);
+        if(link.dataset.dashboardLinkLabel){
+          if(state === "online" && link.dataset.labelOnline){
+            link.textContent = link.dataset.labelOnline;
+          }else if(state === "standby" && link.dataset.labelStandby){
+            link.textContent = link.dataset.labelStandby;
+          }
+        }
       });
     }
     function syncDashboardCommunicationUi(){
