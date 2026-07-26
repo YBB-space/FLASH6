@@ -3,6 +3,19 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 responsive communication workspace b97 — 2026-07-26
+
+Firmware build: `v6 b38` (unchanged)
+Protocol: `Flash6-Intelligent-b8` (unchanged)
+
+- Removed JavaScript viewport-height injection from the dashboard communication
+  workspace. The page, dashboard, shell, and communication card now divide the
+  actual remaining height through a parent-driven responsive flex chain.
+- Added compact height and width breakpoints so topology nodes, metrics, and
+  both stage charts remain inside the card without page or inner scrolling.
+- Kept brief RSSI reception gaps visually continuous while retaining a break
+  for interruptions longer than six seconds.
+
 ## FLASH6 communication workspace fit b96 — 2026-07-26
 
 Firmware build: `v6 b38` (unchanged)

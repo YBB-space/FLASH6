@@ -966,57 +966,6 @@
         tab.setAttribute("aria-selected", active ? "true" : "false");
       });
     }
-    function fitDashboardCommunicationViewport(){
-      if(!el.dashboardCommunicationCard) return;
-      const desktopLayout = window.matchMedia &&
-        window.matchMedia("(min-width: 768px) and (pointer: fine)").matches;
-      const communicationActive =
-        dashboardSectionView === "communication" &&
-        document.body.classList.contains("dashboard-view-active");
-      if(!desktopLayout || !communicationActive){
-        el.dashboardCommunicationCard.style.removeProperty("--comm-v3-height");
-        return;
-      }
-      const viewport = window.visualViewport;
-      const viewportBottom = viewport
-        ? viewport.offsetTop + viewport.height
-        : window.innerHeight;
-      const cardRect = el.dashboardCommunicationCard.getBoundingClientRect();
-      const pageWrap = el.dashboardCommunicationCard.closest(".page-wrap");
-      const pageStyle = pageWrap ? getComputedStyle(pageWrap) : null;
-      const bottomPadding = pageStyle
-        ? (parseFloat(pageStyle.paddingBottom) || 0)
-        : 0;
-      const safeBottomInset = Math.max(24, bottomPadding + 12);
-      const available = Math.floor(viewportBottom - cardRect.top - safeBottomInset);
-      if(available <= 0) return;
-      el.dashboardCommunicationCard.style.setProperty(
-        "--comm-v3-height",
-        Math.max(1, available) + "px"
-      );
-      scheduleFlashLinkChartRender();
-    }
-    function scheduleDashboardCommunicationViewportFit(){
-      if(dashboardCommunicationLayoutRaf){
-        cancelAnimationFrame(dashboardCommunicationLayoutRaf);
-      }
-      dashboardCommunicationLayoutRaf = requestAnimationFrame(()=>{
-        dashboardCommunicationLayoutRaf = 0;
-        fitDashboardCommunicationViewport();
-      });
-    }
-    function bindDashboardCommunicationViewportFit(){
-      if(dashboardCommunicationLayoutBound) return;
-      dashboardCommunicationLayoutBound = true;
-      window.addEventListener("resize", scheduleDashboardCommunicationViewportFit, {passive:true});
-      if(window.visualViewport){
-        window.visualViewport.addEventListener(
-          "resize",
-          scheduleDashboardCommunicationViewportFit,
-          {passive:true}
-        );
-      }
-    }
     function updateDashboardSectionTabs(){
       (el.dashboardSectionTabs || []).forEach((tab)=>{
         const active = tab.dataset.dashboardSection === dashboardSectionView;
@@ -1031,7 +980,7 @@
       if(el.dashboardCommunicationCard){
         el.dashboardCommunicationCard.classList.toggle("hidden", !communicationActive);
       }
-      scheduleDashboardCommunicationViewportFit();
+      scheduleFlashLinkChartRender();
     }
     function setDashboardSectionView(view){
       dashboardSectionView = view === "communication" ? "communication" : "telemetry";
@@ -1040,7 +989,6 @@
         setDesktopControlDrawerOpen(false);
         syncDashboardCommunicationUi();
         requestAnimationFrame(()=>{
-          fitDashboardCommunicationViewport();
           scheduleFlashLinkChartRender();
         });
       }else{
@@ -1248,7 +1196,7 @@
       let drawing = false;
       let lastPoint = null;
       let lastValidTime = 0;
-      const visibleGapLimitMs = Math.max(1400, FLASH_LINK_CHART_SAMPLE_MS * 7);
+      const visibleGapLimitMs = Math.max(6000, FLASH_LINK_CHART_SAMPLE_MS * 20);
       samples.forEach((sample)=>{
         const value = readFirstFiniteLinkMetric(sample && sample[definition.key]);
         if(!isFinite(value)){
@@ -1335,7 +1283,6 @@
       });
       updateDashboardStageLinkChartTabs(1);
       updateDashboardStageLinkChartTabs(2);
-      bindDashboardCommunicationViewportFit();
       updateDashboardSectionTabs();
       if(window.ResizeObserver &&
          (el.flashLinkQualityChart ||

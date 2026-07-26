@@ -32770,15 +32770,16 @@ body.dashboard-view-active #dashboardView .dashboard-communication-card.hidden{
 
 /*
  * Communication workspace v3
- * Isolated from the legacy dashboard card geometry. The desktop height is
- * measured from the card's actual top edge to the visible viewport bottom.
+ * Isolated from the legacy dashboard card geometry. Every desktop layer uses
+ * the remaining parent height; no viewport measurement is written by JS.
  */
 .comm-v3-screen{
   display:block;
   width:100%;
-  height:var(--comm-v3-height,calc(100dvh - 150px));
+  height:auto;
   min-width:0;
   min-height:0;
+  flex:1 1 0;
   overflow:hidden;
   box-sizing:border-box;
   border:1px solid var(--ui-border);
@@ -33155,7 +33156,11 @@ body.dashboard-view-active #dashboardView .dashboard-communication-card.hidden{
 
 @media (min-width:768px) and (pointer:fine){
   body.dashboard-view-active.dashboard-communication-active .page-wrap{
+    display:flex !important;
+    height:100dvh !important;
     min-height:0 !important;
+    box-sizing:border-box !important;
+    flex-direction:column !important;
     overflow:hidden !important;
     gap:12px !important;
     padding-bottom:12px !important;
@@ -33166,24 +33171,57 @@ body.dashboard-view-active #dashboardView .dashboard-communication-card.hidden{
   body.dashboard-view-active.dashboard-communication-active #dashboardView{
     display:flex !important;
     flex:1 1 0 !important;
-    height:auto !important;
+    width:100% !important;
+    height:0 !important;
     min-height:0 !important;
     overflow:hidden !important;
   }
   body.dashboard-view-active.dashboard-communication-active #dashboardView > .shell{
     display:flex !important;
     flex:1 1 0 !important;
-    height:100% !important;
+    width:100% !important;
+    height:auto !important;
     min-height:0 !important;
     flex-direction:column !important;
     align-content:normal !important;
+    gap:12px !important;
     overflow:hidden !important;
   }
   body.dashboard-view-active.dashboard-communication-active #dashboardView .dashboard-section-tabs{
     flex:0 0 auto !important;
   }
   body.dashboard-view-active.dashboard-communication-active #dashboardView .comm-v3-screen{
-    flex:0 0 var(--comm-v3-height,calc(100dvh - 150px));
+    flex:1 1 0 !important;
+    height:0 !important;
+    min-height:0 !important;
+  }
+}
+
+@media (min-width:768px) and (pointer:fine) and (max-height:760px){
+  .comm-v3-topology{
+    padding:10px 14px 8px;
+    grid-template-rows:24px minmax(0,1fr) 22px;
+  }
+  .comm-v3-quality-stage{
+    padding:10px 12px 7px;
+    grid-template-rows:24px 48px minmax(0,1fr);
+  }
+  .comm-v3-node{
+    height:50px;
+    padding-top:6px;
+    padding-bottom:6px;
+  }
+  .comm-v3-node.is-ground{
+    top:calc(50% - 25px);
+  }
+}
+
+@media (min-width:768px) and (pointer:fine) and (max-width:1120px){
+  .comm-v3-layout{
+    grid-template-columns:minmax(0,1.18fr) minmax(320px,.92fr);
+  }
+  .comm-v3-node{
+    min-width:82px;
   }
 }
 
