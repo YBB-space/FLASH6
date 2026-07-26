@@ -2740,6 +2740,9 @@ body.dashboard-view-active #dashboardView .dashboard-communication-card.hidden{
     width:auto !important;
     height:auto !important;
     max-height:none !important;
+    bottom:0 !important;
+    border-bottom-left-radius:0 !important;
+    border-bottom-right-radius:0 !important;
   }
   body.camera-view-active.dashboard-view-active.dashboard-communication-active #dashboardView > .shell{
     display:grid !important;
