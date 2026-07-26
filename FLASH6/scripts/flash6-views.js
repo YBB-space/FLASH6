@@ -1962,25 +1962,6 @@
       }
       syncDashboardStageLinkMetrics(1, true);
       syncDashboardStageLinkMetrics(2, stage2ModeEnabled);
-
-      const activeClientOnline = currentClient === "mobile" ? mobileOnline : pcOnline;
-      const allOnline = stage1Online && (!stage2ModeEnabled || stage2Online) &&
-        groundOnline && activeClientOnline;
-      const overall = el.dashboardCommunicationOverall;
-      if(overall){
-        overall.classList.remove("is-online", "is-degraded", "is-offline");
-        overall.classList.add(allOnline ? "is-online" : (groundOnline ? "is-degraded" : "is-offline"));
-        const label = overall.querySelector("strong");
-        if(label){
-          label.textContent = allOnline
-            ? (stage2ModeEnabled ? "ALL LINKS NOMINAL" : "STAGE 1 LINKED")
-            : stage1Online && groundOnline
-            ? "STAGE 2 OFFLINE"
-            : groundOnline
-            ? "GROUND ONLINE"
-            : "WAITING FOR LINK";
-        }
-      }
     }
     function setFlashTopologyNodeState(name, online, statusText, current){
       if(!el.flashLinkTopologyOverlay) return;

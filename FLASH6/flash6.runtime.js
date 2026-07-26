@@ -12682,25 +12682,6 @@ function requestMobileMockup3dMesh(){
       }
       syncDashboardStageLinkMetrics(1, true);
       syncDashboardStageLinkMetrics(2, stage2ModeEnabled);
-
-      const activeClientOnline = currentClient === "mobile" ? mobileOnline : pcOnline;
-      const allOnline = stage1Online && (!stage2ModeEnabled || stage2Online) &&
-        groundOnline && activeClientOnline;
-      const overall = el.dashboardCommunicationOverall;
-      if(overall){
-        overall.classList.remove("is-online", "is-degraded", "is-offline");
-        overall.classList.add(allOnline ? "is-online" : (groundOnline ? "is-degraded" : "is-offline"));
-        const label = overall.querySelector("strong");
-        if(label){
-          label.textContent = allOnline
-            ? (stage2ModeEnabled ? "ALL LINKS NOMINAL" : "STAGE 1 LINKED")
-            : stage1Online && groundOnline
-            ? "STAGE 2 OFFLINE"
-            : groundOnline
-            ? "GROUND ONLINE"
-            : "WAITING FOR LINK";
-        }
-      }
     }
     function setFlashTopologyNodeState(name, online, statusText, current){
       if(!el.flashLinkTopologyOverlay) return;
@@ -36892,7 +36873,6 @@ function requestMobileMockup3dMesh(){
         ? el.dashboardView.querySelectorAll(":scope > .shell > .row-top, :scope > .shell > .row-bottom")
         : [];
       el.dashboardCommunicationCard = document.getElementById("dashboardCommunicationCard");
-      el.dashboardCommunicationOverall = document.getElementById("dashboardCommunicationOverall");
       el.dashboardCommunicationRoute = document.getElementById("dashboardCommunicationRoute");
       el.dashboardCommunicationPeer = document.getElementById("dashboardCommunicationPeer");
       el.dashboardCommunicationTopology = document.getElementById("dashboardCommunicationTopology");

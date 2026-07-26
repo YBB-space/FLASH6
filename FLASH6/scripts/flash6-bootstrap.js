@@ -170,7 +170,6 @@
         ? el.dashboardView.querySelectorAll(":scope > .shell > .row-top, :scope > .shell > .row-bottom")
         : [];
       el.dashboardCommunicationCard = document.getElementById("dashboardCommunicationCard");
-      el.dashboardCommunicationOverall = document.getElementById("dashboardCommunicationOverall");
       el.dashboardCommunicationRoute = document.getElementById("dashboardCommunicationRoute");
       el.dashboardCommunicationPeer = document.getElementById("dashboardCommunicationPeer");
       el.dashboardCommunicationTopology = document.getElementById("dashboardCommunicationTopology");

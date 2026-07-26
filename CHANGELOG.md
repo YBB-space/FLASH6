@@ -3,6 +3,16 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 communication header removal b90 — 2026-07-26
+
+Firmware build: `v6 b38` (unchanged)
+Protocol: `Flash6-Intelligent-b8` (unchanged)
+
+- Removed the redundant Network/Communication title bar and overall-link badge
+  so the communication topology and per-stage quality panels begin directly
+  below the dashboard section switcher.
+- Removed the corresponding inactive DOM update and styling code.
+
 ## FLASH6 communication viewport fit b89 — 2026-07-26
 
 Firmware build: `v6 b38` (unchanged)
