@@ -3,6 +3,16 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 communication card fill b91 — 2026-07-26
+
+Firmware build: `v6 b38` (unchanged)
+Protocol: `Flash6-Intelligent-b8` (unchanged)
+
+- Removed viewport-based chart compression and restored the original minimum
+  chart height for both Stage 1 and Stage 2 quality panels.
+- Made the topology and both quality charts flex into the communication card's
+  remaining height so the lower empty area is used instead of left blank.
+
 ## FLASH6 communication header removal b90 — 2026-07-26
 
 Firmware build: `v6 b38` (unchanged)

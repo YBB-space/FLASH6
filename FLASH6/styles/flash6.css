@@ -32338,6 +32338,8 @@ html.replay-ui-active body .side-nav-mobile .js-controls-open{
 
 /* Dashboard communication switcher and live network state. */
 body.dashboard-view-active #dashboardView .dashboard-communication-card{
+  display:flex;
+  flex-direction:column;
   min-width:0;
   padding:0 !important;
   overflow:hidden;
@@ -32395,24 +32397,32 @@ body.dashboard-view-active #dashboardView .dashboard-communication-card.hidden{
   color:#121315;
 }
 .dashboard-communication-body{
-  --dashboard-link-chart-height:clamp(112px,16vh,174px);
   display:grid;
+  flex:1 1 auto;
   grid-template-columns:minmax(0,1.35fr) minmax(360px,.9fr);
+  align-items:stretch;
   min-width:0;
+  min-height:607px;
 }
 .dashboard-network-section,
 .dashboard-link-quality-section{
   min-width:0;
   padding:16px 18px 14px;
 }
+.dashboard-network-section{
+  display:flex;
+  flex-direction:column;
+}
 .dashboard-link-quality-stack{
   display:grid;
   min-width:0;
-  grid-template-rows:repeat(2,auto);
-  align-content:start;
+  grid-template-rows:repeat(2,minmax(303px,1fr));
+  align-content:stretch;
   border-left:1px solid var(--ui-divider);
 }
 .dashboard-link-quality-section{
+  display:flex;
+  flex-direction:column;
   height:auto !important;
   min-height:0;
 }
@@ -32450,7 +32460,9 @@ body.dashboard-view-active #dashboardView .dashboard-communication-card.hidden{
 }
 .dashboard-network-map{
   position:relative;
-  height:clamp(397px,calc(32vh + 173px),521px);
+  flex:1 1 auto;
+  height:auto;
+  min-height:521px;
   min-width:0;
   margin-top:2px;
 }
@@ -32658,7 +32670,9 @@ body.dashboard-view-active #dashboardView .dashboard-communication-card.hidden{
 }
 .dashboard-link-chart-stage{
   position:relative;
-  height:var(--dashboard-link-chart-height);
+  flex:1 1 auto;
+  height:auto;
+  min-height:174px;
 }
 .dashboard-link-chart-stage canvas{
   display:block;
@@ -32691,6 +32705,7 @@ body.dashboard-view-active #dashboardView .dashboard-communication-card.hidden{
   }
   body.dashboard-view-active #dashboardView .dashboard-network-map{
     height:360px;
+    min-height:360px;
   }
 }
 
