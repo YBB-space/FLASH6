@@ -3,6 +3,18 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 link quality sample merge b105 — 2026-07-26
+
+Firmware build: `v6 b38` (unchanged)
+Protocol: `Flash6-Intelligent-b8` (unchanged)
+
+- Merged parallel stage-telemetry and A.I LINK status metrics within each
+  200 ms chart slot instead of discarding the later source.
+- Prevented an empty relay snapshot from blocking a valid RSSI sample while
+  the current metric cards still showed a healthy link value.
+- Rendered the first valid sample immediately as a point instead of showing
+  the waiting message until a second sample arrived.
+
 ## FLASH6 unified dashboard geometry b104 — 2026-07-26
 
 Firmware build: `v6 b38` (unchanged)

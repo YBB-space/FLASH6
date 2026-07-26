@@ -11757,11 +11757,6 @@ function requestMobileMockup3dMesh(){
       const id = Number(stageId);
       if(id !== 1 && id !== 2) return;
       const now = Date.now();
-      if(dashboardStageLinkChartLastSampleMs[id] > 0 &&
-         (now - dashboardStageLinkChartLastSampleMs[id]) < FLASH_LINK_CHART_SAMPLE_MS){
-        return;
-      }
-      dashboardStageLinkChartLastSampleMs[id] = now;
       const source = sample || {};
       const rssi = readFirstFiniteLinkMetric(
         source.stage_rssi_dbm, source.fl_rssi_dbm, source.flash_link_rssi_dbm
@@ -11776,13 +11771,34 @@ function requestMobileMockup3dMesh(){
         source.stage_rx_hz, source.fl_rx_hz, source.flash_link_rx_hz
       );
       const samples = dashboardStageLinkChartSamples[id];
-      samples.push({
+      const nextSample = {
         time:now,
         rssi:isFinite(rssi) && rssi > -126 &&
           (!isFinite(rssiAgeMs) || rssiAgeMs <= 6000) ? rssi : null,
         loss:isFinite(lossPermille) ? Math.max(0, lossPermille) / 10 : null,
         hz:isFinite(rxHz) ? Math.max(0, rxHz) : null
-      });
+      };
+      if(dashboardStageLinkChartLastSampleMs[id] > 0 &&
+         (now - dashboardStageLinkChartLastSampleMs[id]) < FLASH_LINK_CHART_SAMPLE_MS){
+        // Stage telemetry and the A.I LINK status can describe the same radio
+        // interval through separate transports. Merge them into one slot so
+        // an earlier empty relay snapshot cannot suppress a later valid RSSI.
+        const current = samples[samples.length - 1];
+        let changed = false;
+        if(current){
+          ["rssi", "loss", "hz"].forEach((key)=>{
+            if(nextSample[key] != null && isFinite(Number(nextSample[key])) &&
+               current[key] !== nextSample[key]){
+              current[key] = nextSample[key];
+              changed = true;
+            }
+          });
+          if(changed) scheduleFlashLinkChartRender();
+          return;
+        }
+      }
+      dashboardStageLinkChartLastSampleMs[id] = now;
+      samples.push(nextSample);
       const cutoff = now - FLASH_LINK_CHART_WINDOW_MS - 1000;
       while(samples.length && samples[0].time < cutoff) samples.shift();
       if(samples.length > FLASH_LINK_CHART_MAX_POINTS){
@@ -11893,7 +11909,7 @@ function requestMobileMockup3dMesh(){
           ? count + 1
           : count
       ), 0);
-      if(validCount < 2){
+      if(validCount === 0){
         ctx.fillStyle = textColor;
         ctx.font = "12px -apple-system,BlinkMacSystemFont,system-ui,sans-serif";
         ctx.textAlign = "center";
