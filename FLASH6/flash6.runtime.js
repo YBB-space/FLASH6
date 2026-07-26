@@ -11915,23 +11915,16 @@ function requestMobileMockup3dMesh(){
       ctx.beginPath();
       let drawing = false;
       let lastPoint = null;
-      let lastValidTime = 0;
-      const visibleGapLimitMs = Math.max(6000, FLASH_LINK_CHART_SAMPLE_MS * 20);
       samples.forEach((sample)=>{
         const value = readFirstFiniteLinkMetric(sample && sample[definition.key]);
         if(!isFinite(value)){
           return;
-        }
-        if(drawing && lastValidTime > 0 &&
-           (sample.time - lastValidTime) > visibleGapLimitMs){
-          drawing = false;
         }
         const x = xForTime(sample.time);
         const y = yForValue(value);
         if(!drawing) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
         drawing = true;
-        lastValidTime = sample.time;
         lastPoint = {x, y};
       });
       ctx.stroke();

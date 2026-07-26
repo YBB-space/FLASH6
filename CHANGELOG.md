@@ -3,6 +3,16 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 continuous communication chart b101 — 2026-07-26
+
+Firmware build: `v6 b38` (unchanged)
+Protocol: `Flash6-Intelligent-b8` (unchanged)
+
+- Removed the renderer's six-second RSSI gap split that could break a healthy
+  link chart into disconnected line fragments.
+- The communication chart now connects all valid samples in the visible
+  30-second window while link availability remains visible in the node state.
+
 ## FLASH6 telemetry drawer fit b100 — 2026-07-26
 
 Firmware build: `v6 b38` (unchanged)
