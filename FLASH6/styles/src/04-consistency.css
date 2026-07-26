@@ -1877,6 +1877,10 @@ html.replay-ui-active body .side-nav-mobile .js-controls-open{
 body.dashboard-view-active #dashboardView .dashboard-communication-card{
   display:flex;
   flex-direction:column;
+  width:100%;
+  height:auto !important;
+  min-height:0 !important;
+  align-self:flex-start;
   min-width:0;
   padding:0 !important;
   overflow:hidden;
@@ -1935,11 +1939,12 @@ body.dashboard-view-active #dashboardView .dashboard-communication-card.hidden{
 }
 .dashboard-communication-body{
   display:grid;
-  flex:1 1 auto;
+  flex:0 0 auto;
   grid-template-columns:minmax(0,1.35fr) minmax(360px,.9fr);
   align-items:stretch;
+  height:max(698px,calc(100dvh - 170px));
   min-width:0;
-  min-height:607px;
+  min-height:698px;
 }
 .dashboard-network-section,
 .dashboard-link-quality-section{
@@ -1952,8 +1957,9 @@ body.dashboard-view-active #dashboardView .dashboard-communication-card.hidden{
 }
 .dashboard-link-quality-stack{
   display:grid;
+  height:100%;
   min-width:0;
-  grid-template-rows:repeat(2,minmax(303px,1fr));
+  grid-template-rows:repeat(2,minmax(349px,1fr));
   align-content:stretch;
   border-left:1px solid var(--ui-divider);
 }
@@ -1999,7 +2005,7 @@ body.dashboard-view-active #dashboardView .dashboard-communication-card.hidden{
   position:relative;
   flex:1 1 auto;
   height:auto;
-  min-height:521px;
+  min-height:612px;
   min-width:0;
   margin-top:2px;
 }
@@ -2209,7 +2215,7 @@ body.dashboard-view-active #dashboardView .dashboard-communication-card.hidden{
   position:relative;
   flex:1 1 auto;
   height:auto;
-  min-height:174px;
+  min-height:220px;
 }
 .dashboard-link-chart-stage canvas{
   display:block;
@@ -2235,8 +2241,12 @@ body.dashboard-view-active #dashboardView .dashboard-communication-card.hidden{
   }
   body.dashboard-view-active #dashboardView .dashboard-communication-body{
     grid-template-columns:minmax(0,1fr);
+    height:auto;
+    min-height:0;
   }
   body.dashboard-view-active #dashboardView .dashboard-link-quality-stack{
+    height:auto;
+    grid-template-rows:repeat(2,minmax(303px,auto));
     border-top:1px solid var(--ui-divider);
     border-left:0;
   }
@@ -2244,14 +2254,24 @@ body.dashboard-view-active #dashboardView .dashboard-communication-card.hidden{
     height:360px;
     min-height:360px;
   }
+  body.dashboard-view-active #dashboardView .dashboard-link-chart-stage{
+    min-height:174px;
+  }
 }
 
 @media (min-width:768px) and (max-width:1100px){
   body.dashboard-view-active #dashboardView .dashboard-communication-body{
     grid-template-columns:minmax(0,1fr);
+    height:auto;
+    min-height:0;
   }
   body.dashboard-view-active #dashboardView .dashboard-link-quality-stack{
+    height:auto;
+    grid-template-rows:repeat(2,minmax(303px,auto));
     border-top:1px solid var(--ui-divider);
     border-left:0;
+  }
+  body.dashboard-view-active #dashboardView .dashboard-link-chart-stage{
+    min-height:174px;
   }
 }

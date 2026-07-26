@@ -3,6 +3,18 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 communication natural-height layout b92 — 2026-07-26
+
+Firmware build: `v6 b38` (unchanged)
+Protocol: `Flash6-Intelligent-b8` (unchanged)
+
+- Made the communication card itself grow to the normal two-chart content
+  height instead of forcing both quality panels into a shorter clipped box.
+- Reserved a 220 px minimum plot height per stage and uses additional viewport
+  height for both plots; short desktops scroll the dashboard instead of
+  compressing or clipping Stage 2.
+- Kept the topology height synchronized with the combined quality column.
+
 ## FLASH6 communication card fill b91 — 2026-07-26
 
 Firmware build: `v6 b38` (unchanged)
