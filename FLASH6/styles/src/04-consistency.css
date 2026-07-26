@@ -2709,7 +2709,8 @@ body.dashboard-view-active #dashboardView .dashboard-communication-card.hidden{
     display:flex !important;
     flex:1 1 0 !important;
     width:100% !important;
-    height:0 !important;
+    height:auto !important;
+    max-height:100% !important;
     min-height:0 !important;
     overflow:hidden !important;
   }
@@ -2729,7 +2730,8 @@ body.dashboard-view-active #dashboardView .dashboard-communication-card.hidden{
   }
   body.dashboard-view-active.dashboard-communication-active #dashboardView .comm-v3-screen{
     flex:1 1 0 !important;
-    height:0 !important;
+    height:auto !important;
+    max-height:100% !important;
     min-height:0 !important;
   }
 }

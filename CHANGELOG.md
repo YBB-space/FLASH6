@@ -3,6 +3,16 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 responsive communication visibility b98 — 2026-07-26
+
+Firmware build: `v6 b38` (unchanged)
+Protocol: `Flash6-Intelligent-b8` (unchanged)
+
+- Removed the zero-height flex basis that could collapse the complete dashboard
+  when the communication tab was selected.
+- Kept parent-driven responsive sizing with shrinkable auto heights and an
+  explicit parent-height ceiling.
+
 ## FLASH6 responsive communication workspace b97 — 2026-07-26
 
 Firmware build: `v6 b38` (unchanged)
