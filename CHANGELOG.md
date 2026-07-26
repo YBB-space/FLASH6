@@ -3,6 +3,21 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 communication workspace v3 b95 — 2026-07-26
+
+Firmware build: `v6 b38` (unchanged)
+Protocol: `Flash6-Intelligent-b8` (unchanged)
+
+- Rebuilt the dashboard communication section with isolated markup and styles
+  instead of inheriting the telemetry card's accumulated height constraints.
+- Added an exact visible-viewport measurement so the communication workspace
+  ends above the dashboard's lower padding without page or inner scrolling.
+- Rebalanced the topology and two independent stage-quality plots into a
+  single fixed two-column workspace; both charts now share the available
+  height and remain visible together.
+- Preserved all live link-state, per-stage metric selection, and chart data
+  interfaces while replacing only the presentation structure.
+
 ## FLASH6 communication viewport flex b94 — 2026-07-26
 
 Firmware build: `v6 b38` (unchanged)

@@ -6441,6 +6441,8 @@ function requestMobileMockup3dMesh(){
     const dashboardStageLinkChartMetrics = {1:"rssi", 2:"rssi"};
     const dashboardStageLinkChartLastSampleMs = {1:0, 2:0};
     let dashboardSectionView = "telemetry";
+    let dashboardCommunicationLayoutRaf = 0;
+    let dashboardCommunicationLayoutBound = false;
     let flashLinkChartLastSampleMs = 0;
     let flashLinkChartRaf = 0;
     let flashLinkChartResizeObserver = null;
@@ -11686,6 +11688,56 @@ function requestMobileMockup3dMesh(){
         tab.setAttribute("aria-selected", active ? "true" : "false");
       });
     }
+    function fitDashboardCommunicationViewport(){
+      if(!el.dashboardCommunicationCard) return;
+      const desktopLayout = window.matchMedia &&
+        window.matchMedia("(min-width: 768px) and (pointer: fine)").matches;
+      const communicationActive =
+        dashboardSectionView === "communication" &&
+        document.body.classList.contains("dashboard-view-active");
+      if(!desktopLayout || !communicationActive){
+        el.dashboardCommunicationCard.style.removeProperty("--comm-v3-height");
+        return;
+      }
+      const viewport = window.visualViewport;
+      const viewportBottom = viewport
+        ? viewport.offsetTop + viewport.height
+        : window.innerHeight;
+      const cardRect = el.dashboardCommunicationCard.getBoundingClientRect();
+      const pageWrap = el.dashboardCommunicationCard.closest(".page-wrap");
+      const pageStyle = pageWrap ? getComputedStyle(pageWrap) : null;
+      const bottomPadding = pageStyle
+        ? (parseFloat(pageStyle.paddingBottom) || 0)
+        : 0;
+      const available = Math.floor(viewportBottom - cardRect.top - bottomPadding);
+      if(available <= 0) return;
+      el.dashboardCommunicationCard.style.setProperty(
+        "--comm-v3-height",
+        Math.max(1, available) + "px"
+      );
+      scheduleFlashLinkChartRender();
+    }
+    function scheduleDashboardCommunicationViewportFit(){
+      if(dashboardCommunicationLayoutRaf){
+        cancelAnimationFrame(dashboardCommunicationLayoutRaf);
+      }
+      dashboardCommunicationLayoutRaf = requestAnimationFrame(()=>{
+        dashboardCommunicationLayoutRaf = 0;
+        fitDashboardCommunicationViewport();
+      });
+    }
+    function bindDashboardCommunicationViewportFit(){
+      if(dashboardCommunicationLayoutBound) return;
+      dashboardCommunicationLayoutBound = true;
+      window.addEventListener("resize", scheduleDashboardCommunicationViewportFit, {passive:true});
+      if(window.visualViewport){
+        window.visualViewport.addEventListener(
+          "resize",
+          scheduleDashboardCommunicationViewportFit,
+          {passive:true}
+        );
+      }
+    }
     function updateDashboardSectionTabs(){
       (el.dashboardSectionTabs || []).forEach((tab)=>{
         const active = tab.dataset.dashboardSection === dashboardSectionView;
@@ -11700,6 +11752,7 @@ function requestMobileMockup3dMesh(){
       if(el.dashboardCommunicationCard){
         el.dashboardCommunicationCard.classList.toggle("hidden", !communicationActive);
       }
+      scheduleDashboardCommunicationViewportFit();
     }
     function setDashboardSectionView(view){
       dashboardSectionView = view === "communication" ? "communication" : "telemetry";
@@ -11707,7 +11760,10 @@ function requestMobileMockup3dMesh(){
       if(dashboardSectionView === "communication"){
         setDesktopControlDrawerOpen(false);
         syncDashboardCommunicationUi();
-        requestAnimationFrame(()=>scheduleFlashLinkChartRender());
+        requestAnimationFrame(()=>{
+          fitDashboardCommunicationViewport();
+          scheduleFlashLinkChartRender();
+        });
       }else{
         requestAnimationFrame(()=>{
           refreshChartLayout();
@@ -11994,6 +12050,7 @@ function requestMobileMockup3dMesh(){
       });
       updateDashboardStageLinkChartTabs(1);
       updateDashboardStageLinkChartTabs(2);
+      bindDashboardCommunicationViewportFit();
       updateDashboardSectionTabs();
       if(window.ResizeObserver &&
          (el.flashLinkQualityChart ||

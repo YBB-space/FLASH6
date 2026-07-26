@@ -6440,6 +6440,8 @@ function requestMobileMockup3dMesh(){
     const dashboardStageLinkChartMetrics = {1:"rssi", 2:"rssi"};
     const dashboardStageLinkChartLastSampleMs = {1:0, 2:0};
     let dashboardSectionView = "telemetry";
+    let dashboardCommunicationLayoutRaf = 0;
+    let dashboardCommunicationLayoutBound = false;
     let flashLinkChartLastSampleMs = 0;
     let flashLinkChartRaf = 0;
     let flashLinkChartResizeObserver = null;

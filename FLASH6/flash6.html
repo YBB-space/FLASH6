@@ -127,7 +127,7 @@
   <!-- Preload 축소: AP 모드/저메모리 환경에서 동시 요청 버스트를 줄임 -->
   <script>
     (function(){
-    var ASSET_VER = "20260726-dashboard-link-viewport-flex-b94-__FLASH6_DEPLOY_SHA__";
+    var ASSET_VER = "20260726-communication-workspace-v3-b95-__FLASH6_DEPLOY_SHA__";
       window.__flashBoot = window.__flashBoot || {jsReady:false,lastError:"",phase:"static_loader",version:ASSET_VER};
       var isLocalPreview = !!window.__flashBoot.localPreview;
       var beaconEnabled = (window.__flashBoot.beaconEnabled !== false);
@@ -365,7 +365,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="styles/flash6.css?v=20260726-dashboard-link-viewport-flex-b94-__FLASH6_DEPLOY_SHA__">
+  <link rel="stylesheet" href="styles/flash6.css?v=20260726-communication-workspace-v3-b95-__FLASH6_DEPLOY_SHA__">
 </head>
 <body>
   <!-- ✅ LOCKOUT 배경 오버레이 -->
@@ -1625,106 +1625,97 @@
         </section>
       </div>
 
-      <section id="dashboardCommunicationCard" class="card-base dashboard-communication-card hidden" aria-label="통신">
-        <div class="dashboard-communication-body">
-          <section id="dashboardCommunicationTopology" class="dashboard-network-section" aria-label="통신 연결 현황">
-            <div class="dashboard-communication-section-head">
+      <section id="dashboardCommunicationCard" class="comm-v3-screen hidden" aria-label="통신">
+        <div class="comm-v3-layout">
+          <section id="dashboardCommunicationTopology" class="comm-v3-topology" aria-label="통신 연결 현황">
+            <header class="comm-v3-panel-head">
               <div>
                 <span>LINK ROUTE</span>
                 <strong>통신 현황</strong>
               </div>
               <em id="dashboardCommunicationRoute">1단 전용 · 100 Hz</em>
-            </div>
+            </header>
 
-            <div class="dashboard-network-map">
-              <svg class="dashboard-network-links" viewBox="0 0 720 486" preserveAspectRatio="none" aria-hidden="true">
-                <path data-dashboard-link="stage2-stage1" class="is-wireless" d="M88 70V416"></path>
-                <path data-dashboard-link="stage2-ground" class="is-wireless" d="M160 43L318 243"></path>
-                <path data-dashboard-link="stage1-ground" class="is-wireless" d="M160 443L318 243"></path>
-                <path data-dashboard-link="ground-mobile" class="is-wireless" d="M438 243L554 43"></path>
-                <path data-dashboard-link="ground-pc" class="is-wired" d="M438 243L554 443"></path>
+            <div class="comm-v3-map">
+              <svg class="comm-v3-links" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                <path data-dashboard-link="stage2-stage1" class="is-wireless" d="M14 17V83"></path>
+                <path data-dashboard-link="stage2-ground" class="is-wireless" d="M24 14L50 50"></path>
+                <path data-dashboard-link="stage1-ground" class="is-wireless" d="M24 86L50 50"></path>
+                <path data-dashboard-link="ground-mobile" class="is-wireless" d="M60 50L76 14"></path>
+                <path data-dashboard-link="ground-pc" class="is-wired" d="M60 50L76 86"></path>
               </svg>
-              <span class="dashboard-network-route-label is-stage2-relay" data-dashboard-link-label="stage2-stage1" data-label-online="RELAY ACTIVE" data-label-standby="RELAY STANDBY">RELAY ACTIVE</span>
-              <span class="dashboard-network-route-label is-stage2-direct" data-dashboard-link-label="stage2-ground" data-label-online="DIRECT ACTIVE" data-label-standby="DIRECT BACKUP">DIRECT BACKUP</span>
-              <span class="dashboard-network-route-label is-stage1-uplink" data-dashboard-link-label="stage1-ground" data-label-online="UPLINK ACTIVE" data-label-standby="UPLINK STANDBY">PRIMARY UPLINK</span>
 
-              <article class="dashboard-network-node is-stage2 is-disabled" data-dashboard-node="stage2">
+              <span class="comm-v3-route-label is-stage2-relay" data-dashboard-link-label="stage2-stage1" data-label-online="RELAY ACTIVE" data-label-standby="RELAY STANDBY">RELAY ACTIVE</span>
+              <span class="comm-v3-route-label is-stage2-direct" data-dashboard-link-label="stage2-ground" data-label-online="DIRECT ACTIVE" data-label-standby="DIRECT BACKUP">DIRECT BACKUP</span>
+              <span class="comm-v3-route-label is-stage1-uplink" data-dashboard-link-label="stage1-ground" data-label-online="UPLINK ACTIVE" data-label-standby="UPLINK STANDBY">UPLINK ACTIVE</span>
+
+              <article class="comm-v3-node is-stage2 is-disabled" data-dashboard-node="stage2">
                 <span>VEHICLE 02</span>
                 <strong>STAGE 2</strong>
                 <em data-dashboard-node-status="stage2">DISABLED</em>
               </article>
-              <article class="dashboard-network-node is-stage1 is-offline" data-dashboard-node="stage1">
+              <article class="comm-v3-node is-stage1 is-offline" data-dashboard-node="stage1">
                 <span>VEHICLE 01</span>
                 <strong>STAGE 1</strong>
                 <em data-dashboard-node-status="stage1">OFFLINE</em>
               </article>
-              <article class="dashboard-network-node is-ground is-offline" data-dashboard-node="ground">
+              <article class="comm-v3-node is-ground is-offline" data-dashboard-node="ground">
                 <span>BASE NODE</span>
                 <strong>GROUND</strong>
                 <em data-dashboard-node-status="ground">WAITING</em>
               </article>
-              <article class="dashboard-network-node is-mobile is-standby" data-dashboard-node="mobile">
+              <article class="comm-v3-node is-mobile is-standby" data-dashboard-node="mobile">
                 <span>WIRELESS CLIENT</span>
                 <strong>MOBILE</strong>
                 <em data-dashboard-node-status="mobile">STANDBY</em>
               </article>
-              <article class="dashboard-network-node is-pc is-standby" data-dashboard-node="pc">
+              <article class="comm-v3-node is-pc is-standby" data-dashboard-node="pc">
                 <span>LOCAL CLIENT</span>
                 <strong>PC</strong>
                 <em data-dashboard-node-status="pc">STANDBY</em>
               </article>
             </div>
 
-            <div class="dashboard-network-legend" aria-label="연결 종류">
+            <footer class="comm-v3-legend" aria-label="연결 종류">
               <span><i class="is-wireless"></i>무선</span>
               <span><i class="is-wired"></i>유선</span>
               <b id="dashboardCommunicationPeer">PEER&nbsp;&nbsp;--</b>
-            </div>
+            </footer>
           </section>
 
-          <div id="dashboardCommunicationQuality" class="dashboard-link-quality-stack" aria-label="단별 통신 품질">
-            <section class="dashboard-link-quality-section" data-dashboard-quality-stage="1" aria-label="1단 링크 품질">
-              <div class="dashboard-communication-section-head">
-                <div>
-                  <span>STAGE 1</span>
-                  <strong>링크 품질</strong>
-                </div>
+          <aside id="dashboardCommunicationQuality" class="comm-v3-quality" aria-label="단별 통신 품질">
+            <section class="comm-v3-quality-stage" data-dashboard-quality-stage="1" aria-label="1단 링크 품질">
+              <header class="comm-v3-panel-head">
+                <div><span>STAGE 1</span><strong>링크 품질</strong></div>
                 <em>최근 30초</em>
-              </div>
-
-              <div class="dashboard-link-metrics" aria-label="1단 현재 링크 수치">
+              </header>
+              <div class="comm-v3-metrics" aria-label="1단 현재 링크 수치">
                 <button class="is-active" type="button" data-dashboard-stage-link-metric="rssi" data-stage-id="1"><small>RSSI</small><strong id="dashboardStage1CommunicationRssi">--</strong><i>dBm</i></button>
                 <button type="button" data-dashboard-stage-link-metric="loss" data-stage-id="1"><small>LOSS</small><strong id="dashboardStage1CommunicationLoss">--</strong><i>%</i></button>
                 <button type="button" data-dashboard-stage-link-metric="hz" data-stage-id="1"><small>RX RATE</small><strong id="dashboardStage1CommunicationRate">--</strong><i>Hz</i></button>
               </div>
-
-              <div class="dashboard-link-chart-stage">
-                <span id="dashboardStage1LinkChartValue" class="dashboard-link-chart-value mono">-- dBm</span>
+              <div class="comm-v3-chart">
+                <span id="dashboardStage1LinkChartValue" class="comm-v3-chart-value mono">-- dBm</span>
                 <canvas id="dashboardStage1LinkQualityChart" aria-label="1단 통신 품질 추이"></canvas>
               </div>
             </section>
 
-            <section class="dashboard-link-quality-section" data-dashboard-quality-stage="2" aria-label="2단 링크 품질">
-              <div class="dashboard-communication-section-head">
-                <div>
-                  <span>STAGE 2</span>
-                  <strong>링크 품질</strong>
-                </div>
+            <section class="comm-v3-quality-stage" data-dashboard-quality-stage="2" aria-label="2단 링크 품질">
+              <header class="comm-v3-panel-head">
+                <div><span>STAGE 2</span><strong>링크 품질</strong></div>
                 <em>최근 30초</em>
-              </div>
-
-              <div class="dashboard-link-metrics" aria-label="2단 현재 링크 수치">
+              </header>
+              <div class="comm-v3-metrics" aria-label="2단 현재 링크 수치">
                 <button class="is-active" type="button" data-dashboard-stage-link-metric="rssi" data-stage-id="2"><small>RSSI</small><strong id="dashboardStage2CommunicationRssi">--</strong><i>dBm</i></button>
                 <button type="button" data-dashboard-stage-link-metric="loss" data-stage-id="2"><small>LOSS</small><strong id="dashboardStage2CommunicationLoss">--</strong><i>%</i></button>
                 <button type="button" data-dashboard-stage-link-metric="hz" data-stage-id="2"><small>RX RATE</small><strong id="dashboardStage2CommunicationRate">--</strong><i>Hz</i></button>
               </div>
-
-              <div class="dashboard-link-chart-stage">
-                <span id="dashboardStage2LinkChartValue" class="dashboard-link-chart-value mono">-- dBm</span>
+              <div class="comm-v3-chart">
+                <span id="dashboardStage2LinkChartValue" class="comm-v3-chart-value mono">-- dBm</span>
                 <canvas id="dashboardStage2LinkQualityChart" aria-label="2단 통신 품질 추이"></canvas>
               </div>
             </section>
-          </div>
+          </aside>
         </div>
       </section>
 
