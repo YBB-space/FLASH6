@@ -3,6 +3,18 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 communication viewport balance b93 — 2026-07-26
+
+Firmware build: `v6 b38` (unchanged)
+Protocol: `Flash6-Intelligent-b8` (unchanged)
+
+- Removed the oversized minimum communication height that forced desktop
+  scrolling on scaled or shorter displays.
+- Compacted the duplicated per-stage headers, metric strips, and padding while
+  preserving the chart area; both stages now fit inside the available viewport.
+- Sized the communication body from the actual dynamic viewport and leaves a
+  small lower margin instead of clipping or adding internal empty space.
+
 ## FLASH6 communication natural-height layout b92 — 2026-07-26
 
 Firmware build: `v6 b38` (unchanged)
