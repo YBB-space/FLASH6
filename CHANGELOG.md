@@ -3,6 +3,16 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 communication bottom cleanup b103 — 2026-07-26
+
+Firmware build: `v6 b38` (unchanged)
+Protocol: `Flash6-Intelligent-b8` (unchanged)
+
+- Restored the communication drawer's original viewport height instead of
+  extending the drawer to the bottom edge.
+- Removed only the drawer's unused inner bottom padding and suppressed the
+  covered camera HUD while the communication dashboard is open.
+
 ## FLASH6 communication drawer bottom fit b102 — 2026-07-26
 
 Firmware build: `v6 b38` (unchanged)
