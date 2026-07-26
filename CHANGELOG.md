@@ -3,6 +3,22 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 dashboard communication workspace b86 — 2026-07-26
+
+Firmware build: `v6 b37` (unchanged)
+Protocol: `Flash6-Intelligent-b8` (unchanged)
+
+- Added top-level Telemetry and Communication dashboard sections with a
+  segmented switch that replaces the dashboard body instead of stacking it.
+- Added a dedicated Communication workspace containing live topology plus
+  switchable RSSI, packet-loss, and receive-rate history.
+- Added live stage 1, stage 2, Ground, PC, and mobile link-route states using
+  the existing A.I LINK telemetry and transport status.
+- Reused the existing 30-second communication sample buffer and chart renderer
+  for both Settings and Dashboard without duplicating telemetry collection.
+- Kept the new workspace aligned with the restrained FLASH6 dark surface,
+  typography, borders, and segmented-control language.
+
 ## FLASH6 trajectory ground plane and event labels b85 — 2026-07-25
 
 Firmware build: `v6 b37` (unchanged)

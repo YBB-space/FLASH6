@@ -127,7 +127,7 @@
   <!-- Preload 축소: AP 모드/저메모리 환경에서 동시 요청 버스트를 줄임 -->
   <script>
     (function(){
-    var ASSET_VER = "20260725-trajectory-ground-labels-b85-__FLASH6_DEPLOY_SHA__";
+    var ASSET_VER = "20260726-dashboard-communication-b86-__FLASH6_DEPLOY_SHA__";
       window.__flashBoot = window.__flashBoot || {jsReady:false,lastError:"",phase:"static_loader",version:ASSET_VER};
       var isLocalPreview = !!window.__flashBoot.localPreview;
       var beaconEnabled = (window.__flashBoot.beaconEnabled !== false);
@@ -365,7 +365,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="styles/flash6.css?v=20260724-mission-servo-angles-b71-__FLASH6_DEPLOY_SHA__">
+  <link rel="stylesheet" href="styles/flash6.css?v=20260726-dashboard-communication-b86-__FLASH6_DEPLOY_SHA__">
 </head>
 <body>
   <!-- ✅ LOCKOUT 배경 오버레이 -->
@@ -1155,6 +1155,10 @@
       </button>
     </header>
     <main class="shell">
+      <nav class="dashboard-section-tabs" role="tablist" aria-label="대시보드 섹션">
+        <button class="dashboard-section-tab is-active" type="button" role="tab" aria-selected="true" data-dashboard-section="telemetry">텔레메트리</button>
+        <button class="dashboard-section-tab" type="button" role="tab" aria-selected="false" data-dashboard-section="communication">통신</button>
+      </nav>
       <div class="gyro-hidden" aria-hidden="true">
         <canvas id="gyroGl" width="240" height="240"></canvas>
         <canvas id="navBall" width="240" height="240" data-fixed-width="240" data-fixed-height="240"></canvas>
@@ -1620,6 +1624,94 @@
           </div>
         </section>
       </div>
+
+      <section id="dashboardCommunicationCard" class="card-base dashboard-communication-card hidden" aria-labelledby="dashboardCommunicationTitle">
+        <header class="dashboard-communication-header">
+          <div class="dashboard-communication-heading">
+            <span>NETWORK</span>
+            <h2 id="dashboardCommunicationTitle">COMMUNICATION</h2>
+          </div>
+          <div id="dashboardCommunicationOverall" class="dashboard-communication-overall is-offline" role="status">
+            <span aria-hidden="true"></span>
+            <strong>WAITING FOR LINK</strong>
+          </div>
+        </header>
+
+        <div class="dashboard-communication-body">
+          <section id="dashboardCommunicationTopology" class="dashboard-network-section" aria-label="통신 연결 현황">
+            <div class="dashboard-communication-section-head">
+              <div>
+                <span>LINK ROUTE</span>
+                <strong>통신 현황</strong>
+              </div>
+              <em id="dashboardCommunicationRoute">1단 전용 · 100 Hz</em>
+            </div>
+
+            <div class="dashboard-network-map">
+              <svg class="dashboard-network-links" viewBox="0 0 720 210" preserveAspectRatio="none" aria-hidden="true">
+                <path data-dashboard-link="stage2-stage1" class="is-wireless" d="M88 70V140"></path>
+                <path data-dashboard-link="stage2-ground" class="is-wireless" d="M160 43L318 105"></path>
+                <path data-dashboard-link="stage1-ground" class="is-wireless" d="M160 167L318 105"></path>
+                <path data-dashboard-link="ground-mobile" class="is-wireless" d="M438 105L554 43"></path>
+                <path data-dashboard-link="ground-pc" class="is-wired" d="M438 105L554 167"></path>
+              </svg>
+
+              <article class="dashboard-network-node is-stage2 is-disabled" data-dashboard-node="stage2">
+                <span>VEHICLE 02</span>
+                <strong>STAGE 2</strong>
+                <em data-dashboard-node-status="stage2">DISABLED</em>
+              </article>
+              <article class="dashboard-network-node is-stage1 is-offline" data-dashboard-node="stage1">
+                <span>VEHICLE 01</span>
+                <strong>STAGE 1</strong>
+                <em data-dashboard-node-status="stage1">OFFLINE</em>
+              </article>
+              <article class="dashboard-network-node is-ground is-offline" data-dashboard-node="ground">
+                <span>BASE NODE</span>
+                <strong>GROUND</strong>
+                <em data-dashboard-node-status="ground">WAITING</em>
+              </article>
+              <article class="dashboard-network-node is-mobile is-standby" data-dashboard-node="mobile">
+                <span>WIRELESS CLIENT</span>
+                <strong>MOBILE</strong>
+                <em data-dashboard-node-status="mobile">STANDBY</em>
+              </article>
+              <article class="dashboard-network-node is-pc is-standby" data-dashboard-node="pc">
+                <span>LOCAL CLIENT</span>
+                <strong>PC</strong>
+                <em data-dashboard-node-status="pc">STANDBY</em>
+              </article>
+            </div>
+
+            <div class="dashboard-network-legend" aria-label="연결 종류">
+              <span><i class="is-wireless"></i>무선</span>
+              <span><i class="is-wired"></i>유선</span>
+              <b id="dashboardCommunicationPeer">PEER&nbsp;&nbsp;--</b>
+            </div>
+          </section>
+
+          <section id="dashboardCommunicationQuality" class="dashboard-link-quality-section" aria-label="통신 품질">
+            <div class="dashboard-communication-section-head">
+              <div>
+                <span>RECEIVE QUALITY</span>
+                <strong>링크 품질</strong>
+              </div>
+              <em>최근 30초</em>
+            </div>
+
+            <div class="dashboard-link-metrics" aria-label="현재 링크 수치">
+              <button class="is-active" type="button" data-fl-chart-metric="rssi"><small>RSSI</small><strong id="dashboardCommunicationRssi">--</strong><i>dBm</i></button>
+              <button type="button" data-fl-chart-metric="loss"><small>LOSS</small><strong id="dashboardCommunicationLoss">--</strong><i>%</i></button>
+              <button type="button" data-fl-chart-metric="hz"><small>RX RATE</small><strong id="dashboardCommunicationRate">--</strong><i>Hz</i></button>
+            </div>
+
+            <div class="dashboard-link-chart-stage">
+              <span id="dashboardLinkChartValue" class="dashboard-link-chart-value mono">-- dBm</span>
+              <canvas id="dashboardLinkQualityChart" aria-label="대시보드 통신 품질 추이"></canvas>
+            </div>
+          </section>
+        </div>
+      </section>
 
       <div class="row-bottom">
         <section class="card-base charts-card status-frame">

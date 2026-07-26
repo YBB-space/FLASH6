@@ -6436,6 +6436,7 @@ function requestMobileMockup3dMesh(){
     const FLASH_LINK_CHART_STORAGE_KEY = "flash6_flash_link_chart_metric";
     let flashLinkChartSamples = [];
     let flashLinkChartMetric = "rssi";
+    let dashboardSectionView = "telemetry";
     let flashLinkChartLastSampleMs = 0;
     let flashLinkChartRaf = 0;
     let flashLinkChartResizeObserver = null;

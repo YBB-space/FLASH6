@@ -966,6 +966,34 @@
         tab.setAttribute("aria-selected", active ? "true" : "false");
       });
     }
+    function updateDashboardSectionTabs(){
+      (el.dashboardSectionTabs || []).forEach((tab)=>{
+        const active = tab.dataset.dashboardSection === dashboardSectionView;
+        tab.classList.toggle("is-active", active);
+        tab.setAttribute("aria-selected", active ? "true" : "false");
+      });
+      const communicationActive = dashboardSectionView === "communication";
+      (el.dashboardTelemetryRows || []).forEach((row)=>{
+        row.classList.toggle("hidden", communicationActive);
+      });
+      if(el.dashboardCommunicationCard){
+        el.dashboardCommunicationCard.classList.toggle("hidden", !communicationActive);
+      }
+    }
+    function setDashboardSectionView(view){
+      dashboardSectionView = view === "communication" ? "communication" : "telemetry";
+      updateDashboardSectionTabs();
+      if(dashboardSectionView === "communication"){
+        setDesktopControlDrawerOpen(false);
+        syncDashboardCommunicationUi();
+        requestAnimationFrame(()=>scheduleFlashLinkChartRender());
+      }else{
+        requestAnimationFrame(()=>{
+          refreshChartLayout();
+          redrawCharts();
+        });
+      }
+    }
     function setFlashLinkChartMetric(metric, persist){
       const next = (metric === "loss" || metric === "hz") ? metric : "rssi";
       flashLinkChartMetric = next;
@@ -1004,16 +1032,12 @@
         drawFlashLinkQualityChart();
       });
     }
-    function drawFlashLinkQualityChart(){
-      const canvas = el.flashLinkQualityChart;
+    function drawFlashLinkQualityChartTarget(canvas, valueTarget, samples, definition, now){
       if(!canvas) return;
       const size = ensureCanvasSize(canvas);
       if(!size) return;
       const {w:width, h:height, ctx} = size;
-      const now = Date.now();
       const cutoff = now - FLASH_LINK_CHART_WINDOW_MS;
-      const samples = flashLinkChartSamples.filter((sample)=>sample.time >= cutoff);
-      const definition = getFlashLinkChartDefinition(flashLinkChartMetric, samples);
       const dark = document.documentElement.dataset.theme === "dark";
       const textColor = dark ? "rgba(203,213,225,0.72)" : "rgba(71,85,105,0.72)";
       const gridColor = dark ? "rgba(148,163,184,0.15)" : "rgba(100,116,139,0.15)";
@@ -1067,9 +1091,9 @@
           break;
         }
       }
-      if(el.flashLinkChartValue){
-        el.flashLinkChartValue.textContent = formatFlashLinkChartValue(latestValue, definition);
-        el.flashLinkChartValue.style.color = definition.color;
+      if(valueTarget){
+        valueTarget.textContent = formatFlashLinkChartValue(latestValue, definition);
+        valueTarget.style.color = definition.color;
       }
 
       const validCount = samples.reduce((count, sample)=>(
@@ -1119,6 +1143,26 @@
       }
       ctx.restore();
     }
+    function drawFlashLinkQualityChart(){
+      const now = Date.now();
+      const cutoff = now - FLASH_LINK_CHART_WINDOW_MS;
+      const samples = flashLinkChartSamples.filter((sample)=>sample.time >= cutoff);
+      const definition = getFlashLinkChartDefinition(flashLinkChartMetric, samples);
+      drawFlashLinkQualityChartTarget(
+        el.flashLinkQualityChart,
+        el.flashLinkChartValue,
+        samples,
+        definition,
+        now
+      );
+      drawFlashLinkQualityChartTarget(
+        el.dashboardLinkQualityChart,
+        el.dashboardLinkChartValue,
+        samples,
+        definition,
+        now
+      );
+    }
     function initFlashLinkQualityChart(){
       try{
         const saved = localStorage.getItem(FLASH_LINK_CHART_STORAGE_KEY);
@@ -1132,9 +1176,18 @@
           setFlashLinkChartMetric(tab.dataset.flChartMetric, true);
         });
       });
-      if(window.ResizeObserver && el.flashLinkQualityChart && !flashLinkChartResizeObserver){
+      (el.dashboardSectionTabs || []).forEach((tab)=>{
+        tab.addEventListener("click",()=>{
+          setDashboardSectionView(tab.dataset.dashboardSection);
+        });
+      });
+      updateDashboardSectionTabs();
+      if(window.ResizeObserver &&
+         (el.flashLinkQualityChart || el.dashboardLinkQualityChart) &&
+         !flashLinkChartResizeObserver){
         flashLinkChartResizeObserver = new ResizeObserver(()=>scheduleFlashLinkChartRender());
-        flashLinkChartResizeObserver.observe(el.flashLinkQualityChart);
+        if(el.flashLinkQualityChart) flashLinkChartResizeObserver.observe(el.flashLinkQualityChart);
+        if(el.dashboardLinkQualityChart) flashLinkChartResizeObserver.observe(el.dashboardLinkQualityChart);
       }
       scheduleFlashLinkChartRender();
     }
@@ -1653,6 +1706,116 @@
       addLogLine("ALTIS INTELLIGENT LINK1 communication report XLSX export: " + filename, "INFO");
       showToast(currentLang === "ko" ? "통신 보고서 내보내기 완료" : "Communication report exported as XLSX.", "success", {key:"flash-link-report"});
     }
+    function setDashboardCommunicationNodeState(name, state, statusText, current){
+      if(!el.dashboardCommunicationCard) return;
+      const node = el.dashboardCommunicationCard.querySelector('[data-dashboard-node="' + name + '"]');
+      const status = el.dashboardCommunicationCard.querySelector('[data-dashboard-node-status="' + name + '"]');
+      if(node){
+        node.classList.remove("is-online", "is-offline", "is-standby", "is-disabled", "is-current");
+        node.classList.add("is-" + state);
+        node.classList.toggle("is-current", !!current);
+      }
+      if(status) status.textContent = statusText;
+    }
+    function setDashboardCommunicationLinkState(name, state){
+      if(!el.dashboardCommunicationCard) return;
+      el.dashboardCommunicationCard.querySelectorAll('[data-dashboard-link="' + name + '"]').forEach((link)=>{
+        link.classList.remove("is-online", "is-offline", "is-standby");
+        link.classList.add("is-" + state);
+      });
+    }
+    function syncDashboardCommunicationUi(){
+      if(!el.dashboardCommunicationCard) return;
+      const flashLinkEnabled = getSettingsOperationModeValue() === "flash_link";
+      const transportOnline = !!(connOk || wsConnected || serialConnected);
+      const mobileClient = !!(
+        isMobileLayout() ||
+        (window.matchMedia && window.matchMedia("(max-width: 700px) and (pointer: coarse)").matches)
+      );
+      const roleNode1 = flashLinkUiRole === "avionics" && flashLinkUiNodeId === 1;
+      const roleNode2 = flashLinkUiRole === "avionics" && flashLinkUiNodeId === 2;
+      const stage2ModeEnabled = flashLinkUiHasStatus
+        ? !!flashLinkUiStage2Mode
+        : !!(uiSettings && uiSettings.flashLinkStage2Mode);
+      const groundLinked = flashLinkUiRole === "ground" && flashLinkUiLinked;
+      const stage1Online = flashLinkEnabled && (
+        flashLinkStage1Connected ||
+        (roleNode1 && (flashLinkUiLinked || transportOnline)) ||
+        (groundLinked && flashLinkUiTargetNodeId === 1)
+      );
+      const connectedStage2 = flashLinkStage2Connected ||
+        (roleNode2 && flashLinkUiLinked) ||
+        (flashLinkUiRole === "ground" && flashLinkUiTargetNodeId === 2 && flashLinkUiRemoteValid);
+      const stage2Online = flashLinkEnabled && stage2ModeEnabled && connectedStage2;
+      const directRoute = stage2Online && flashLinkStage2Route === "direct";
+      const relayRoute = stage2Online && !directRoute && stage1Online;
+      const groundOnline = transportOnline;
+      const mobileOnline = groundOnline && mobileClient && !serialConnected;
+      const pcOnline = groundOnline && (!mobileClient || serialConnected);
+      const currentClient = mobileClient && !serialConnected ? "mobile" : "pc";
+
+      setDashboardCommunicationNodeState(
+        "stage2",
+        !stage2ModeEnabled ? "disabled" : (stage2Online ? "online" : "offline"),
+        !stage2ModeEnabled
+          ? "DISABLED"
+          : (stage2Online ? (directRoute ? "DIRECT" : "RELAY") : "OFFLINE"),
+        false
+      );
+      setDashboardCommunicationNodeState("stage1", stage1Online ? "online" : "offline", stage1Online ? "LINKED" : "OFFLINE", false);
+      setDashboardCommunicationNodeState("ground", groundOnline ? "online" : "offline", groundOnline ? "ONLINE" : "WAITING", false);
+      setDashboardCommunicationNodeState("mobile", mobileOnline ? "online" : "standby", mobileOnline ? "CONNECTED" : "STANDBY", currentClient === "mobile");
+      setDashboardCommunicationNodeState("pc", pcOnline ? "online" : "standby", pcOnline ? "CONNECTED" : "STANDBY", currentClient === "pc");
+
+      setDashboardCommunicationLinkState("stage2-stage1", relayRoute ? "online" : (stage2ModeEnabled ? "standby" : "offline"));
+      setDashboardCommunicationLinkState("stage2-ground", directRoute ? "online" : (stage2ModeEnabled ? "standby" : "offline"));
+      setDashboardCommunicationLinkState("stage1-ground", stage1Online && groundOnline ? "online" : "offline");
+      setDashboardCommunicationLinkState("ground-mobile", mobileOnline ? "online" : "standby");
+      setDashboardCommunicationLinkState("ground-pc", pcOnline ? "online" : "standby");
+
+      if(el.dashboardCommunicationRoute){
+        el.dashboardCommunicationRoute.textContent = stage2ModeEnabled
+          ? (directRoute ? "2단 직통 백업 경로" : "1단 중계 우선 경로")
+          : "1단 전용 · 100 Hz";
+      }
+      if(el.dashboardCommunicationPeer){
+        el.dashboardCommunicationPeer.textContent = "PEER  " + (flashLinkUiPeer || "--");
+      }
+      if(el.dashboardCommunicationRssi){
+        el.dashboardCommunicationRssi.textContent = flashLinkUiRssiValid
+          ? String(Math.round(flashLinkUiRssiDbm))
+          : "--";
+      }
+      if(el.dashboardCommunicationLoss){
+        el.dashboardCommunicationLoss.textContent = flashLinkUiHasStatus
+          ? (flashLinkUiLossPermille / 10).toFixed(1)
+          : "--";
+      }
+      if(el.dashboardCommunicationRate){
+        el.dashboardCommunicationRate.textContent = flashLinkUiHasStatus
+          ? String(Math.round(flashLinkUiRxHz))
+          : "--";
+      }
+
+      const activeClientOnline = currentClient === "mobile" ? mobileOnline : pcOnline;
+      const allOnline = stage1Online && (!stage2ModeEnabled || stage2Online) &&
+        groundOnline && activeClientOnline;
+      const overall = el.dashboardCommunicationOverall;
+      if(overall){
+        overall.classList.remove("is-online", "is-degraded", "is-offline");
+        overall.classList.add(allOnline ? "is-online" : (groundOnline ? "is-degraded" : "is-offline"));
+        const label = overall.querySelector("strong");
+        if(label){
+          label.textContent = allOnline
+            ? (stage2ModeEnabled ? "ALL LINKS NOMINAL" : "STAGE 1 LINKED")
+            : stage1Online && groundOnline
+            ? "STAGE 2 OFFLINE"
+            : groundOnline
+            ? "GROUND ONLINE"
+            : "WAITING FOR LINK";
+        }
+      }
+    }
     function setFlashTopologyNodeState(name, online, statusText, current){
       if(!el.flashLinkTopologyOverlay) return;
       const node = el.flashLinkTopologyOverlay.querySelector('[data-topology-node="' + name + '"]');
@@ -1672,6 +1835,7 @@
       });
     }
     function syncFlashLinkTopologyUi(){
+      syncDashboardCommunicationUi();
       if(!el.flashLinkTopologyOverlay) return;
       const flashLinkEnabled = getSettingsOperationModeValue() === "flash_link";
       const transportOnline = !!(connOk || wsConnected || serialConnected);

@@ -165,6 +165,21 @@
       el.cameraHud = el.cameraView ? el.cameraView.querySelector(".camera-hud") : null;
       el.cameraGyroPlusStage = document.getElementById("cameraGyroPlusStage");
       el.dashboardView = document.getElementById("dashboardView");
+      el.dashboardSectionTabs = document.querySelectorAll("[data-dashboard-section]");
+      el.dashboardTelemetryRows = el.dashboardView
+        ? el.dashboardView.querySelectorAll(":scope > .shell > .row-top, :scope > .shell > .row-bottom")
+        : [];
+      el.dashboardCommunicationCard = document.getElementById("dashboardCommunicationCard");
+      el.dashboardCommunicationOverall = document.getElementById("dashboardCommunicationOverall");
+      el.dashboardCommunicationRoute = document.getElementById("dashboardCommunicationRoute");
+      el.dashboardCommunicationPeer = document.getElementById("dashboardCommunicationPeer");
+      el.dashboardCommunicationTopology = document.getElementById("dashboardCommunicationTopology");
+      el.dashboardCommunicationQuality = document.getElementById("dashboardCommunicationQuality");
+      el.dashboardCommunicationRssi = document.getElementById("dashboardCommunicationRssi");
+      el.dashboardCommunicationLoss = document.getElementById("dashboardCommunicationLoss");
+      el.dashboardCommunicationRate = document.getElementById("dashboardCommunicationRate");
+      el.dashboardLinkQualityChart = document.getElementById("dashboardLinkQualityChart");
+      el.dashboardLinkChartValue = document.getElementById("dashboardLinkChartValue");
       el.terminalView = document.getElementById("terminalView");
       el.hardwareView = document.getElementById("hardwareView");
       el.gyroView = document.getElementById("gyroView");
