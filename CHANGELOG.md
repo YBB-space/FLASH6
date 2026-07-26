@@ -3,6 +3,16 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 communication workspace fit b96 — 2026-07-26
+
+Firmware build: `v6 b38` (unchanged)
+Protocol: `Flash6-Intelligent-b8` (unchanged)
+
+- Reserved a fixed visible lower inset when fitting the communication
+  workspace so its border, chart axes, and labels remain inside the viewport.
+- Joined brief missing RSSI samples into one readable trend while preserving a
+  visible break for actual link interruptions longer than 1.4 seconds.
+
 ## FLASH6 communication workspace v3 b95 — 2026-07-26
 
 Firmware build: `v6 b38` (unchanged)

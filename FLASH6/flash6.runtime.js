@@ -11709,7 +11709,8 @@ function requestMobileMockup3dMesh(){
       const bottomPadding = pageStyle
         ? (parseFloat(pageStyle.paddingBottom) || 0)
         : 0;
-      const available = Math.floor(viewportBottom - cardRect.top - bottomPadding);
+      const safeBottomInset = Math.max(24, bottomPadding + 12);
+      const available = Math.floor(viewportBottom - cardRect.top - safeBottomInset);
       if(available <= 0) return;
       el.dashboardCommunicationCard.style.setProperty(
         "--comm-v3-height",
@@ -11968,17 +11969,23 @@ function requestMobileMockup3dMesh(){
       ctx.beginPath();
       let drawing = false;
       let lastPoint = null;
+      let lastValidTime = 0;
+      const visibleGapLimitMs = Math.max(1400, FLASH_LINK_CHART_SAMPLE_MS * 7);
       samples.forEach((sample)=>{
         const value = readFirstFiniteLinkMetric(sample && sample[definition.key]);
         if(!isFinite(value)){
-          drawing = false;
           return;
+        }
+        if(drawing && lastValidTime > 0 &&
+           (sample.time - lastValidTime) > visibleGapLimitMs){
+          drawing = false;
         }
         const x = xForTime(sample.time);
         const y = yForValue(value);
         if(!drawing) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
         drawing = true;
+        lastValidTime = sample.time;
         lastPoint = {x, y};
       });
       ctx.stroke();
