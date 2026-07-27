@@ -38,6 +38,7 @@
       gap:28px;
       pointer-events:none;
       text-shadow:0 3px 14px rgba(0,0,0,.66);
+      transition:opacity .38s ease,filter .38s ease;
     }
     .source-pill{
       justify-self:start;
@@ -127,6 +128,7 @@
       align-items:end;
       gap:clamp(26px,3vw,62px);
       pointer-events:none;
+      transition:opacity .38s ease,filter .38s ease;
     }
     .hud-bottom::before{
       content:"";
@@ -324,6 +326,81 @@
       transition:opacity .2s ease;
     }
     body.is-offline .offline-note{opacity:1}
+    .hud-preroll{
+      --preroll-progress:0%;
+      position:fixed;
+      inset:0;
+      z-index:6;
+      display:grid;
+      place-items:center;
+      padding:8vh 8vw;
+      opacity:0;
+      visibility:hidden;
+      pointer-events:none;
+      transform:scale(.985);
+      transition:opacity .34s ease,transform .42s cubic-bezier(.2,.8,.2,1),visibility 0s linear .42s;
+      text-align:center;
+      text-shadow:0 5px 28px rgba(0,0,0,.72);
+    }
+    .hud-preroll-content{
+      width:min(760px,78vw);
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+    }
+    .hud-preroll-kicker{
+      color:rgba(255,255,255,.48);
+      font:650 clamp(10px,.8vw,14px)/1 var(--mono);
+      letter-spacing:.26em;
+    }
+    .hud-preroll-title{
+      margin-top:clamp(17px,2.2vh,28px);
+      color:#fff;
+      font:620 clamp(46px,5.4vw,92px)/.95 var(--sans);
+      letter-spacing:.16em;
+      text-indent:.16em;
+    }
+    .hud-preroll-value{
+      margin-top:clamp(24px,4.5vh,52px);
+      color:#fff;
+      font:180 clamp(102px,13vw,220px)/.78 var(--sans);
+      font-variant-numeric:tabular-nums;
+      letter-spacing:-.07em;
+    }
+    .hud-preroll-rule{
+      width:100%;
+      height:1px;
+      margin-top:clamp(36px,6vh,72px);
+      overflow:hidden;
+      background:rgba(255,255,255,.18);
+    }
+    .hud-preroll-rule::after{
+      content:"";
+      display:block;
+      width:var(--preroll-progress);
+      height:100%;
+      background:#fff;
+      box-shadow:0 0 12px rgba(255,255,255,.3);
+      transition:width .14s linear;
+    }
+    .hud-preroll-caption{
+      margin-top:14px;
+      color:rgba(255,255,255,.47);
+      font:600 clamp(9px,.7vw,12px)/1 var(--mono);
+      letter-spacing:.18em;
+    }
+    body.is-preroll .hud-preroll{
+      opacity:1;
+      visibility:visible;
+      transform:none;
+      transition:opacity .34s ease,transform .42s cubic-bezier(.2,.8,.2,1),visibility 0s;
+    }
+    body.is-preroll .hud-top,
+    body.is-preroll .hud-bottom{
+      opacity:0;
+      filter:blur(5px);
+    }
+    body.is-preroll .offline-note{opacity:0}
     @media(max-width:1100px){
       .hud-top{
         grid-template-columns:1fr 1fr;
@@ -406,6 +483,15 @@
       </article>
     </section>
   </main>
+  <section id="hudPreroll" class="hud-preroll" aria-hidden="true">
+    <div class="hud-preroll-content">
+      <span class="hud-preroll-kicker">BROADCAST OUTPUT</span>
+      <strong class="hud-preroll-title">HUD LIVE</strong>
+      <span id="hudPrerollValue" class="hud-preroll-value">T−15</span>
+      <i class="hud-preroll-rule"></i>
+      <span class="hud-preroll-caption">PRE-ROLL · ABSOLUTE SEQUENCE</span>
+    </div>
+  </section>
   <div class="offline-note">HUD LIVE · WAITING FOR MAIN CONSOLE OR AVIONICS</div>
 
   <script>
@@ -424,7 +510,8 @@
         timelineRail:$("timelineRail"),
         timelineItems:Array.from(document.querySelectorAll(".timeline-item")),
         arm:$("armValue"), ignitionDelay:$("ignitionDelayValue"),
-        pyro:$("pyroValue"), storage:$("storageValue")
+        pyro:$("pyroValue"), storage:$("storageValue"),
+        preroll:$("hudPreroll"), prerollValue:$("hudPrerollValue")
       };
       const configuredMission = String(params.get("mission") || "FLASH6 MISSION").trim();
       let lastMessageAt = 0;
@@ -478,6 +565,38 @@
           return {tag:(state === 1 || td < 0) ? "T-" : "T+", body:formatTimerBody(td)};
         }
         return {tag:"T-", body:"--:--"};
+      }
+      function timerBodySeconds(body){
+        const parts = String(body || "")
+          .trim()
+          .replace(",",".")
+          .split(":")
+          .map((part)=>finite(part));
+        if(!parts.length || parts.some((part)=>!Number.isFinite(part))) return NaN;
+        if(parts.length >= 3){
+          return parts[parts.length - 3] * 60 +
+            parts[parts.length - 2] +
+            parts[parts.length - 1] / 100;
+        }
+        if(parts.length === 2) return parts[0] * 60 + parts[1];
+        return parts[0];
+      }
+      function updatePreroll(data,timer){
+        let remaining = NaN;
+        const td = finite(pick(data,["td","tdMs"],NaN));
+        if(Number.isFinite(td) && td < 0){
+          remaining = Math.abs(td) / 1000;
+        }else if(timer && timer.tag === "T-"){
+          remaining = timerBodySeconds(timer.body);
+        }
+        const active = Number.isFinite(remaining) && remaining > 10 && remaining <= 15.5;
+        document.body.classList.toggle("is-preroll",active);
+        if(nodes.preroll) nodes.preroll.setAttribute("aria-hidden",active ? "false" : "true");
+        if(!active) return;
+        const displaySecond = Math.max(10,Math.min(15,Math.ceil(remaining)));
+        setText(nodes.prerollValue,"T−" + displaySecond);
+        const progress = Math.max(0,Math.min(1,(15 - remaining) / 5));
+        nodes.preroll.style.setProperty("--preroll-progress",(progress * 100).toFixed(1) + "%");
       }
       function stateInfo(data){
         const explicit = String(pick(data, ["stateText","phaseLabel"], "") || "").trim();
@@ -561,6 +680,7 @@
         const timer = timerParts(data);
         setText(nodes.clockTag,timer.tag);
         setText(nodes.clockTime,timer.body);
+        updatePreroll(data,timer);
 
         const speed = rawSpeed(data);
         const gforce = rawGforce(data);

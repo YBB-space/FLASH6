@@ -3,6 +3,17 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 replay HUD pre-roll b114 — 2026-07-27
+
+Firmware build unchanged, protocol unchanged.
+
+- Changed the replay `QUICK` action from T-10 to T-15 relative to the detected
+  launch point.
+- Added a five-second HUD LIVE pre-roll presentation from T-15 through T-10,
+  with a large absolute-sequence countdown before the normal flight HUD fades
+  back in.
+- Kept playback, seeking, and viewpoint control in the main replay interface.
+
 ## FLASH6 replay HUD LIVE b113 — 2026-07-27
 
 Firmware build unchanged, protocol unchanged.

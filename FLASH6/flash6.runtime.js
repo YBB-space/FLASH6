@@ -20626,8 +20626,10 @@ function requestMobileMockup3dMesh(){
         el.replayEndBtn.setAttribute("title", "끝으로");
         el.replayEndBtn.disabled = !hasSamples || controlsDisabled;
       }
-      if(el.replayTminus10Btn){
-        el.replayTminus10Btn.disabled = !hasSamples || controlsDisabled;
+      if(el.replayQuickBtn){
+        el.replayQuickBtn.disabled = !hasSamples || controlsDisabled;
+        el.replayQuickBtn.setAttribute("aria-label", "발사 15초 전으로 이동");
+        el.replayQuickBtn.setAttribute("title", "발사 15초 전으로 이동");
       }
       if(el.replayConvertBtn){
         el.replayConvertBtn.setAttribute("aria-label", "Excel 보고서 내보내기");
@@ -21027,21 +21029,21 @@ function requestMobileMockup3dMesh(){
       return nearest;
     }
 
-    function seekReplayToTminus10(){
+    function seekReplayToQuickStart(){
       if(!replayState.samples.length){
         showToast("리플레이 파일을 먼저 선택하세요.", "notice", {key:"replay-no-file"});
         return;
       }
-      const idx = findReplayTminusIndex(-10000);
+      const idx = findReplayTminusIndex(-15000);
       if(idx < 0){
-        setReplayStatus("T-10 지점 없음");
-        showToast("T-10 지점을 찾지 못했습니다.", "notice", {key:"replay-tminus-missing"});
+        setReplayStatus("T-15 지점 없음");
+        showToast("T-15 지점을 찾지 못했습니다.", "notice", {key:"replay-tminus-missing"});
         return;
       }
       const resume = replayState.playing;
       seekReplayToIndex(idx, resume);
-      setReplayStatus("T-10 지점 이동");
-      showToast("T-10 지점으로 이동", "info", {key:"replay-tminus10"});
+      setReplayStatus("T-15 프리롤 시작");
+      showToast("발사 15초 전으로 이동", "info", {key:"replay-quick-start"});
     }
 
     function enterReplayMode(){
@@ -37687,7 +37689,7 @@ function requestMobileMockup3dMesh(){
       el.replayStartBtn = document.getElementById("replayStartBtn");
       el.replayRestartBtn = document.getElementById("replayRestartBtn");
       el.replayEndBtn = document.getElementById("replayEndBtn");
-      el.replayTminus10Btn = document.getElementById("replayTminus10Btn");
+      el.replayQuickBtn = document.getElementById("replayQuickBtn");
       el.replayConvertBtn = document.getElementById("replayConvertBtn");
       el.replayDocxBtn = document.getElementById("replayDocxBtn");
       el.replaySeekRange = document.getElementById("replaySeekRange");
@@ -38065,8 +38067,8 @@ function requestMobileMockup3dMesh(){
           setReplayStatus("끝 지점으로 이동했습니다.");
         });
       }
-      if(el.replayTminus10Btn){
-        el.replayTminus10Btn.addEventListener("click",()=>seekReplayToTminus10());
+      if(el.replayQuickBtn){
+        el.replayQuickBtn.addEventListener("click",()=>seekReplayToQuickStart());
       }
       if(el.replayAlarmEventsList){
         el.replayAlarmEventsList.addEventListener("click",(ev)=>{

@@ -692,7 +692,7 @@
       el.replayStartBtn = document.getElementById("replayStartBtn");
       el.replayRestartBtn = document.getElementById("replayRestartBtn");
       el.replayEndBtn = document.getElementById("replayEndBtn");
-      el.replayTminus10Btn = document.getElementById("replayTminus10Btn");
+      el.replayQuickBtn = document.getElementById("replayQuickBtn");
       el.replayConvertBtn = document.getElementById("replayConvertBtn");
       el.replayDocxBtn = document.getElementById("replayDocxBtn");
       el.replaySeekRange = document.getElementById("replaySeekRange");
@@ -1070,8 +1070,8 @@
           setReplayStatus("끝 지점으로 이동했습니다.");
         });
       }
-      if(el.replayTminus10Btn){
-        el.replayTminus10Btn.addEventListener("click",()=>seekReplayToTminus10());
+      if(el.replayQuickBtn){
+        el.replayQuickBtn.addEventListener("click",()=>seekReplayToQuickStart());
       }
       if(el.replayAlarmEventsList){
         el.replayAlarmEventsList.addEventListener("click",(ev)=>{
