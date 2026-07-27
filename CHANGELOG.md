@@ -3,6 +3,15 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 dashboard quick-data header b108 — 2026-07-27
+
+Firmware build: `v6 b39` (unchanged)
+Protocol: `Flash6-Intelligent-b8` (unchanged)
+
+- Removed the redundant Quick Data title row while the dual-stage telemetry
+  selector is active and allowed its metrics to use the reclaimed height.
+- Preserved the connection-status header for direct single-board operation.
+
 ## FLASH6 dashboard stage selector b107 — 2026-07-27
 
 Firmware build: `v6 b39` (unchanged)

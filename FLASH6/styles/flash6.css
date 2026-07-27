@@ -22213,8 +22213,11 @@ body.dashboard-view-active .stage-overview-panel:has(> .stage-telemetry-deck.hid
     grid-column:2 !important;
     grid-row:1 !important;
   }
-  body.dashboard-view-active:has(#stageTelemetryDeck:not(.hidden)) .motor-card .quick-data-header .status-bar{
+  body.dashboard-view-active:has(#stageTelemetryDeck:not(.hidden)) .motor-card > .quick-data-header{
     display:none !important;
+  }
+  body.dashboard-view-active:has(#stageTelemetryDeck:not(.hidden)) .motor-card > .quick-data-body{
+    flex:1 1 auto;
   }
   body.dashboard-view-active .stage-telemetry-health{
     display:grid;
