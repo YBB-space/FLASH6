@@ -822,8 +822,8 @@
       updateNumValue(el.quickMetricDelay, delayText, "S");
       updateNumValue(el.motorDelay, delayText, "S");
 
+      const phase = data ? stageTelemetryPhaseLabel(data) : "NO DATA";
       if(el.quickState){
-        const phase = data ? stageTelemetryPhaseLabel(data) : "NO DATA";
         el.quickState.innerHTML = `<span class="num">${String(phase).replace(/_/g, "<br>")}</span>`;
         setQuickItemStatus(el.quickState, state && state.connected ? "ok" : (state && state.valid ? "warn" : null));
       }
@@ -876,6 +876,23 @@
       setQuickItemStatus(el.quickRelay2, null);
       setQuickItemStatus(el.motorBurn, null);
       setQuickItemStatus(el.quickNullValue, null);
+
+      // Desktop dual-stage dashboard uses a dedicated, flat telemetry surface.
+      // Keep the legacy Quick Data updates above for mobile and direct-board UI.
+      setStageTelemetryClass(el.stageSelectedTelemetry, "is-offline", !(state && state.connected));
+      if(el.stageSelectedTelemetry){
+        el.stageSelectedTelemetry.dataset.stage = String(dashboardTelemetryStageId);
+      }
+      setStageTelemetryText(el.stageSelectedAltitude, isFinite(altitudeM) ? altitudeM.toFixed(1) : "--");
+      setStageTelemetryText(el.stageSelectedSpeed, isFinite(speedMps) ? Math.max(0, speedMps).toFixed(1) : "--");
+      setStageTelemetryText(el.stageSelectedState, phase);
+      setStageTelemetryText(el.stageSelectedStorage, storageKnown ? (storageReady ? "READY" : "NOT READY") : "--");
+      setStageTelemetryText(el.stageSelectedDelay, delayText);
+      setStageTelemetryText(el.stageSelectedArm, armKnown ? (armOn ? "ON" : "OFF") : "--");
+      setStageTelemetryText(el.stageSelectedPyro, pyroText);
+      setStageTelemetryText(el.stageSelectedGyroX, isFinite(roll) ? roll.toFixed(1) : "--");
+      setStageTelemetryText(el.stageSelectedGyroY, isFinite(pitch) ? pitch.toFixed(1) : "--");
+      setStageTelemetryText(el.stageSelectedGyroZ, isFinite(yaw) ? yaw.toFixed(1) : "--");
     }
 
     function setAutomaticActiveStage(stageId, reason){

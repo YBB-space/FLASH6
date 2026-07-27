@@ -41,6 +41,10 @@ html[data-theme="dark"] body :is(
   box-shadow:none !important;
 }
 
+.stage-selected-telemetry{
+  display:none;
+}
+
 @media (min-width:901px){
   /* Dashboard geometry and surface hierarchy. */
   body.dashboard-view-active #dashboardView > .shell{
@@ -120,117 +124,124 @@ html[data-theme="dark"] body :is(
   }
 
   /*
-   * Dual-stage telemetry uses one instrument-panel language: the vehicle
-   * cards and selected-stage details share the same surface, while internal
-   * values are separated by quiet rules instead of nested rounded boxes.
+   * Selected-stage telemetry is a dedicated desktop component. The legacy
+   * Quick Data DOM remains intact for mobile and direct-board operation.
    */
   body.dashboard-view-active:has(#stageTelemetryDeck:not(.hidden)) #dashboardView .motor-card{
     overflow:hidden !important;
   }
   body.dashboard-view-active:has(#stageTelemetryDeck:not(.hidden)) #dashboardView .motor-card > .quick-data-body{
-    display:flex !important;
-    gap:0 !important;
-    padding:0 !important;
-  }
-  body.dashboard-view-active:has(#stageTelemetryDeck:not(.hidden)) #dashboardView .quick-data-body .quick-metrics{
-    display:grid !important;
-    flex:0 0 23% !important;
-    grid-template-columns:1fr !important;
-    grid-template-rows:repeat(2,minmax(0,1fr)) !important;
-    gap:0 !important;
-    height:100% !important;
-    border-right:1px solid var(--ui-divider) !important;
-  }
-  body.dashboard-view-active:has(#stageTelemetryDeck:not(.hidden)) #dashboardView .quick-data-body .quick-metrics .status-metric{
-    display:flex !important;
-    flex-direction:column !important;
-    justify-content:center !important;
-    min-height:0 !important;
-    padding:14px 20px !important;
-    border:0 !important;
-    border-radius:0 !important;
-    background:transparent !important;
-  }
-  body.dashboard-view-active:has(#stageTelemetryDeck:not(.hidden)) #dashboardView .quick-data-body .quick-metrics .status-metric + .status-metric{
-    border-top:1px solid var(--ui-divider) !important;
-  }
-  body.dashboard-view-active:has(#stageTelemetryDeck:not(.hidden)) #dashboardView .quick-data-body .item-grid{
-    display:grid !important;
-    flex:1 1 auto !important;
-    grid-template-columns:repeat(4,minmax(0,1fr)) !important;
-    grid-template-rows:repeat(2,minmax(0,1fr)) !important;
-    gap:0 !important;
-    height:100% !important;
-  }
-  body.dashboard-view-active:has(#stageTelemetryDeck:not(.hidden)) #dashboardView .motor-card .item{
-    display:flex !important;
-    min-width:0 !important;
-    min-height:0 !important;
-    padding:0 16px !important;
-    border:0 !important;
-    border-left:1px solid var(--ui-divider) !important;
-    border-radius:0 !important;
-    background:transparent !important;
-  }
-  body.dashboard-view-active:has(#stageTelemetryDeck:not(.hidden)) #dashboardView .motor-card .item:nth-child(n+5){
-    border-top:1px solid var(--ui-divider) !important;
-  }
-  body.dashboard-view-active:has(#stageTelemetryDeck:not(.hidden)) #dashboardView .motor-card .item:nth-child(4n+1){
-    border-left:0 !important;
-  }
-  body.dashboard-view-active:has(#stageTelemetryDeck:not(.hidden)) #dashboardView .motor-card .item:has(#quick-null-2-value),
-  body.dashboard-view-active:has(#stageTelemetryDeck:not(.hidden)) #dashboardView .motor-card .item:has(#quick-null-3-value){
     display:none !important;
   }
-  body.dashboard-view-active:has(#stageTelemetryDeck:not(.hidden)) #dashboardView .motor-card :is(.label,.value){
-    min-width:0 !important;
+  body.dashboard-view-active:has(#stageTelemetryDeck:not(.hidden)) #dashboardView .motor-card > .stage-selected-telemetry{
+    display:grid !important;
+    flex:1 1 auto;
+    grid-template-columns:minmax(156px,23%) minmax(0,1fr);
+    min-width:0;
+    min-height:0;
+    height:100%;
+    background:#151618;
   }
-  body.dashboard-view-active:has(#stageTelemetryDeck:not(.hidden)) #dashboardView .motor-card .label{
-    color:#aeb3bc !important;
-    font-size:10px !important;
-    font-weight:560 !important;
-    letter-spacing:.035em !important;
+  body.dashboard-view-active #dashboardView .stage-selected-primary{
+    display:grid;
+    grid-template-rows:repeat(2,minmax(0,1fr));
+    min-width:0;
+    min-height:0;
+    border-right:1px solid var(--ui-divider);
+    background:#17181b;
   }
-  body.dashboard-view-active:has(#stageTelemetryDeck:not(.hidden)) #dashboardView .motor-card .value .num{
-    color:#f1f2f4 !important;
-    font-size:12px !important;
-    font-weight:560 !important;
+  body.dashboard-view-active #dashboardView .stage-selected-primary-item{
+    display:flex;
+    position:relative;
+    flex-direction:column;
+    justify-content:center;
+    min-width:0;
+    min-height:0;
+    padding:16px 22px;
   }
-  body.dashboard-view-active:has(#stageTelemetryDeck:not(.hidden)) #dashboardView .stage-overview-panel .stage-telemetry-card{
-    padding:18px 20px 16px !important;
-    border-color:var(--ui-border) !important;
-    background:#15171a !important;
+  body.dashboard-view-active #dashboardView .stage-selected-primary-item + .stage-selected-primary-item{
+    border-top:1px solid var(--ui-divider);
   }
-  body.dashboard-view-active:has(#stageTelemetryDeck:not(.hidden)) #dashboardView .stage-overview-panel .stage-telemetry-card.is-selected{
-    border-color:#555a63 !important;
-    background:#181b1f !important;
+  body.dashboard-view-active #dashboardView .stage-selected-primary-item > span,
+  body.dashboard-view-active #dashboardView .stage-selected-detail > span{
+    color:#858b95;
+    font-size:9px;
+    font-weight:650;
+    line-height:1;
+    letter-spacing:.08em;
+    text-transform:uppercase;
   }
-  body.dashboard-view-active:has(#stageTelemetryDeck:not(.hidden)) #dashboardView .stage-telemetry-phase{
-    margin-top:10px !important;
-    color:#9299a4 !important;
+  body.dashboard-view-active #dashboardView .stage-selected-primary-value{
+    display:flex;
+    align-items:baseline;
+    justify-content:flex-end;
+    gap:7px;
+    margin-top:8px;
+    min-width:0;
+    white-space:nowrap;
   }
-  body.dashboard-view-active:has(#stageTelemetryDeck:not(.hidden)) #dashboardView .stage-telemetry-metrics{
-    gap:0 !important;
-    margin-top:10px !important;
-    padding-top:9px !important;
-    border-top:1px solid var(--ui-divider) !important;
+  body.dashboard-view-active #dashboardView .stage-selected-primary-value strong{
+    overflow:hidden;
+    color:#f2f3f5;
+    font-size:24px;
+    font-weight:570;
+    line-height:1;
+    letter-spacing:-.035em;
+    text-overflow:ellipsis;
   }
-  body.dashboard-view-active:has(#stageTelemetryDeck:not(.hidden)) #dashboardView .stage-telemetry-metrics > span{
-    padding:0 12px !important;
-    border-top:0 !important;
-    border-left:1px solid var(--ui-divider) !important;
+  body.dashboard-view-active #dashboardView .stage-selected-primary-value i,
+  body.dashboard-view-active #dashboardView .stage-selected-detail-value i{
+    color:#8f959e;
+    font-size:9px;
+    font-style:normal;
+    font-weight:560;
+    letter-spacing:.04em;
   }
-  body.dashboard-view-active:has(#stageTelemetryDeck:not(.hidden)) #dashboardView .stage-telemetry-metrics > span:first-child{
-    padding-left:0 !important;
-    border-left:0 !important;
+  body.dashboard-view-active #dashboardView .stage-selected-details{
+    display:grid;
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    grid-template-rows:repeat(2,minmax(0,1fr));
+    min-width:0;
+    min-height:0;
+    padding:0 20px;
   }
-  body.dashboard-view-active:has(#stageTelemetryDeck:not(.hidden)) #dashboardView .stage-telemetry-health{
-    margin-top:12px !important;
-    padding-top:11px !important;
+  body.dashboard-view-active #dashboardView .stage-selected-detail{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    min-width:0;
+    min-height:0;
+    padding:0 14px;
   }
-  body.dashboard-view-active:has(#stageTelemetryDeck:not(.hidden)) #dashboardView .stage-telemetry-card footer{
-    margin-top:11px !important;
-    padding-top:9px !important;
+  body.dashboard-view-active #dashboardView .stage-selected-detail:nth-child(n+5){
+    border-top:1px solid var(--ui-divider);
+  }
+  body.dashboard-view-active #dashboardView .stage-selected-detail-value{
+    display:flex;
+    align-items:baseline;
+    justify-content:flex-end;
+    gap:5px;
+    min-width:0;
+    white-space:nowrap;
+  }
+  body.dashboard-view-active #dashboardView .stage-selected-detail-value strong{
+    overflow:hidden;
+    color:#e3e5e8;
+    font-size:12px;
+    font-weight:590;
+    line-height:1.15;
+    text-align:right;
+    text-overflow:ellipsis;
+  }
+  body.dashboard-view-active #dashboardView .stage-selected-detail-value strong[data-stage-selected="state"]{
+    white-space:normal;
+  }
+  body.dashboard-view-active #dashboardView .stage-selected-telemetry.is-offline :is(
+    .stage-selected-primary-value strong,
+    .stage-selected-detail-value strong
+  ){
+    color:#8a9099;
   }
 
   /* Charts keep the data prominent and remove unnecessary badge-shaped chrome. */

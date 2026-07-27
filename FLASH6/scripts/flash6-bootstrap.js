@@ -310,6 +310,17 @@
       el.quickMetricPrimaryLabel = document.getElementById("quickMetricPrimaryLabel");
       el.quickMetricSecondaryLabel = document.getElementById("quickMetricSecondaryLabel");
       el.stageTelemetryDeck = document.getElementById("stageTelemetryDeck");
+      el.stageSelectedTelemetry = document.getElementById("stageSelectedTelemetry");
+      el.stageSelectedAltitude = document.getElementById("stageSelectedAltitude");
+      el.stageSelectedSpeed = document.getElementById("stageSelectedSpeed");
+      el.stageSelectedState = document.getElementById("stageSelectedState");
+      el.stageSelectedStorage = document.getElementById("stageSelectedStorage");
+      el.stageSelectedDelay = document.getElementById("stageSelectedDelay");
+      el.stageSelectedArm = document.getElementById("stageSelectedArm");
+      el.stageSelectedPyro = document.getElementById("stageSelectedPyro");
+      el.stageSelectedGyroX = document.getElementById("stageSelectedGyroX");
+      el.stageSelectedGyroY = document.getElementById("stageSelectedGyroY");
+      el.stageSelectedGyroZ = document.getElementById("stageSelectedGyroZ");
       ensureHardwareServoChannelUi();
       el.hardwareServoQuickCh1Btn = document.getElementById("hardwareServoQuickCh1Btn");
       el.hardwareServoQuickCh2Btn = document.getElementById("hardwareServoQuickCh2Btn");

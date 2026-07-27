@@ -3,17 +3,17 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
-## FLASH6 dashboard telemetry surface b109 — 2026-07-27
+## FLASH6 dashboard telemetry rebuild b110 — 2026-07-27
 
 Firmware build: `v6 b39` (unchanged)
 Protocol: `Flash6-Intelligent-b8` (unchanged)
 
-- Unified the Stage 1, Stage 2, and selected-stage data panels around the same
-  flat surface, border, spacing, and typographic hierarchy.
-- Replaced the Quick Data collection of rounded sub-cards with a compact
-  divider-based instrument grid and removed unused NULL cells.
-- Simplified the stage-card metric separators while retaining mission phase,
-  health, and last-event information.
+- Preserved the original Stage 1 / Stage 2 / selected telemetry geometry and
+  rebuilt only the selected-stage panel as a dedicated desktop component.
+- Removed the desktop layout overrides that repurposed mobile Quick Data
+  elements and caused compressed, overlapping telemetry values.
+- Kept mobile and direct-board Quick Data independent while synchronizing the
+  new panel with the selected vehicle, charts, storage, ARM, pyro, and gyro.
 
 ## FLASH6 dashboard quick-data header b108 — 2026-07-27
 

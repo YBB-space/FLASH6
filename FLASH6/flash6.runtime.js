@@ -7529,8 +7529,8 @@ function requestMobileMockup3dMesh(){
       updateNumValue(el.quickMetricDelay, delayText, "S");
       updateNumValue(el.motorDelay, delayText, "S");
 
+      const phase = data ? stageTelemetryPhaseLabel(data) : "NO DATA";
       if(el.quickState){
-        const phase = data ? stageTelemetryPhaseLabel(data) : "NO DATA";
         el.quickState.innerHTML = `<span class="num">${String(phase).replace(/_/g, "<br>")}</span>`;
         setQuickItemStatus(el.quickState, state && state.connected ? "ok" : (state && state.valid ? "warn" : null));
       }
@@ -7583,6 +7583,23 @@ function requestMobileMockup3dMesh(){
       setQuickItemStatus(el.quickRelay2, null);
       setQuickItemStatus(el.motorBurn, null);
       setQuickItemStatus(el.quickNullValue, null);
+
+      // Desktop dual-stage dashboard uses a dedicated, flat telemetry surface.
+      // Keep the legacy Quick Data updates above for mobile and direct-board UI.
+      setStageTelemetryClass(el.stageSelectedTelemetry, "is-offline", !(state && state.connected));
+      if(el.stageSelectedTelemetry){
+        el.stageSelectedTelemetry.dataset.stage = String(dashboardTelemetryStageId);
+      }
+      setStageTelemetryText(el.stageSelectedAltitude, isFinite(altitudeM) ? altitudeM.toFixed(1) : "--");
+      setStageTelemetryText(el.stageSelectedSpeed, isFinite(speedMps) ? Math.max(0, speedMps).toFixed(1) : "--");
+      setStageTelemetryText(el.stageSelectedState, phase);
+      setStageTelemetryText(el.stageSelectedStorage, storageKnown ? (storageReady ? "READY" : "NOT READY") : "--");
+      setStageTelemetryText(el.stageSelectedDelay, delayText);
+      setStageTelemetryText(el.stageSelectedArm, armKnown ? (armOn ? "ON" : "OFF") : "--");
+      setStageTelemetryText(el.stageSelectedPyro, pyroText);
+      setStageTelemetryText(el.stageSelectedGyroX, isFinite(roll) ? roll.toFixed(1) : "--");
+      setStageTelemetryText(el.stageSelectedGyroY, isFinite(pitch) ? pitch.toFixed(1) : "--");
+      setStageTelemetryText(el.stageSelectedGyroZ, isFinite(yaw) ? yaw.toFixed(1) : "--");
     }
 
     function setAutomaticActiveStage(stageId, reason){
@@ -37200,6 +37217,17 @@ function requestMobileMockup3dMesh(){
       el.quickMetricPrimaryLabel = document.getElementById("quickMetricPrimaryLabel");
       el.quickMetricSecondaryLabel = document.getElementById("quickMetricSecondaryLabel");
       el.stageTelemetryDeck = document.getElementById("stageTelemetryDeck");
+      el.stageSelectedTelemetry = document.getElementById("stageSelectedTelemetry");
+      el.stageSelectedAltitude = document.getElementById("stageSelectedAltitude");
+      el.stageSelectedSpeed = document.getElementById("stageSelectedSpeed");
+      el.stageSelectedState = document.getElementById("stageSelectedState");
+      el.stageSelectedStorage = document.getElementById("stageSelectedStorage");
+      el.stageSelectedDelay = document.getElementById("stageSelectedDelay");
+      el.stageSelectedArm = document.getElementById("stageSelectedArm");
+      el.stageSelectedPyro = document.getElementById("stageSelectedPyro");
+      el.stageSelectedGyroX = document.getElementById("stageSelectedGyroX");
+      el.stageSelectedGyroY = document.getElementById("stageSelectedGyroY");
+      el.stageSelectedGyroZ = document.getElementById("stageSelectedGyroZ");
       ensureHardwareServoChannelUi();
       el.hardwareServoQuickCh1Btn = document.getElementById("hardwareServoQuickCh1Btn");
       el.hardwareServoQuickCh2Btn = document.getElementById("hardwareServoQuickCh2Btn");
