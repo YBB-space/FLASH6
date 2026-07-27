@@ -3,6 +3,19 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.9.10 — v6 b40 / FLASH6 mission backup b112 — 2026-07-27
+
+Protocol: `Flash6-Intelligent-b8` (unchanged)
+
+- Increased the Stage 1 separation backup default from T+2.0 s to T+2.5 s,
+  preserving additional confirmation margin after the theoretical 1.7 s
+  motor burn.
+- Migrated only the legacy persisted 2000 ms factory setting to 2500 ms;
+  explicitly configured alternative timings remain unchanged.
+- Gave confirmed coasting priority when coasting and the backup deadline are
+  observed in the same mission tick.
+- Updated FLASH6 mission-setting defaults and firmware build metadata.
+
 ## FLASH6 dashboard telemetry refinement b111 — 2026-07-27
 
 Firmware build unchanged, protocol unchanged.

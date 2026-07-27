@@ -1,8 +1,8 @@
 
 constexpr char kFirmwareProgram[] = "Altis_Intelligent3_firmware1";
-constexpr char kFirmwareVersion[] = "0.9.9";
-constexpr char kFirmwareBuildId[] = "v6 b39";
-constexpr uint16_t kFirmwareBuildNumber = 39;
+constexpr char kFirmwareVersion[] = "0.9.10";
+constexpr char kFirmwareBuildId[] = "v6 b40";
+constexpr uint16_t kFirmwareBuildNumber = 40;
 constexpr char kFirmwareBoard[] = "Altis_Intelligent3_b3";
 constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b8";
 constexpr uint8_t kStorageProtocolVersion = 8;
@@ -11,6 +11,8 @@ constexpr uint8_t kStorageProtocolVersion = 8;
 constexpr uint8_t kStorageProtocolCompatibleMin = 8;
 constexpr uint8_t kStorageProtocolCompatibleMax = 8;
 constexpr uint8_t kMissionTimebaseVersion = 1;  // THRUST_ARM_V1
+constexpr uint8_t kMissionTimingSettingsVersion = 2;
+constexpr uint32_t kDefaultMissionStage1SeparationBackupMs = 2500U;
 constexpr bool kFirmwareMissionLocked = true;
 constexpr char kFirmwareMissionSource[] = "builtin_launch_sequence";
 constexpr char kFirmwareMissionLockReason[] = "BUILTIN_MISSION";
@@ -324,7 +326,8 @@ volatile bool sequenceUserWaiting = false;
 volatile bool missionLaunchStandby = false;
 // Built-in dual-stage mission timing. Values are persisted in the settings
 // namespace and are intentionally separate from the UI's display smoothing.
-uint32_t missionStage1SeparationBackupMs = 2000U;
+uint32_t missionStage1SeparationBackupMs =
+  kDefaultMissionStage1SeparationBackupMs;
 uint32_t missionStage1EjectionDelayMs = 1000U;
 uint32_t missionStage2EjectionDelayMs = 5000U;
 uint32_t missionLaunchDetectionGraceMs = 5000U;
@@ -1321,7 +1324,8 @@ struct FlashLinkRemoteState {
   uint16_t countdownMs = kDefaultCountdownMs;
   uint8_t pyroChannel = 1;
   uint8_t resetReason = static_cast<uint8_t>(ESP_RST_UNKNOWN);
-  uint32_t missionStage1SeparationBackupMs = 2000U;
+  uint32_t missionStage1SeparationBackupMs =
+    kDefaultMissionStage1SeparationBackupMs;
   uint32_t missionStage1EjectionDelayMs = 1000U;
   uint32_t missionStage2EjectionDelayMs = 5000U;
   uint32_t missionLaunchDetectionGraceMs = 5000U;

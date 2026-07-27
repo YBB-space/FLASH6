@@ -166,7 +166,7 @@
         ignDurationMs:1000,
         countdownSec:10,
         daqSequencePyroChannel:1,
-        missionStage1SeparationBackupMs:2000,
+        missionStage1SeparationBackupMs:2500,
         missionStage1EjectionDelayMs:1000,
         missionStage2EjectionDelayMs:5000,
         missionLaunchGraceMs:5000,
@@ -220,7 +220,12 @@
         const cd = Number(uiSettings.countdownSec);
         uiSettings.countdownSec = (isFinite(cd) ? Math.max(3, Math.min(60, Math.round(cd))) : 10);
         uiSettings.daqSequencePyroChannel = normalizePyroChannel(uiSettings.daqSequencePyroChannel, 1);
-        uiSettings.missionStage1SeparationBackupMs = Math.max(500, Math.min(15000, Math.round(Number(uiSettings.missionStage1SeparationBackupMs) || 2000)));
+        if((Number(uiSettings.missionTimingSettingsVersion) || 0) < 2 &&
+            Number(uiSettings.missionStage1SeparationBackupMs) === 2000){
+          uiSettings.missionStage1SeparationBackupMs = 2500;
+        }
+        uiSettings.missionTimingSettingsVersion = 2;
+        uiSettings.missionStage1SeparationBackupMs = Math.max(500, Math.min(15000, Math.round(Number(uiSettings.missionStage1SeparationBackupMs) || 2500)));
         uiSettings.missionStage1EjectionDelayMs = Math.max(100, Math.min(10000, Math.round(Number(uiSettings.missionStage1EjectionDelayMs) || 1000)));
         uiSettings.missionStage2EjectionDelayMs = Math.max(500, Math.min(30000, Math.round(Number(uiSettings.missionStage2EjectionDelayMs) || 5000)));
         uiSettings.missionLaunchGraceMs = Math.max(1000, Math.min(30000, Math.round(Number(uiSettings.missionLaunchGraceMs) || 5000)));

@@ -5015,7 +5015,7 @@
           const value = isFinite(parsed) ? Math.round(parsed) : fallback;
           return Math.max(min, Math.min(max, value));
         };
-        const s1Sep = missionSettingInt(el.missionS1SeparationMs, 500, 15000, 2000);
+        const s1Sep = missionSettingInt(el.missionS1SeparationMs, 500, 15000, 2500);
         const s1Eject = missionSettingInt(el.missionS1EjectionMs, 100, 10000, 1000);
         const s2Eject = missionSettingInt(el.missionS2EjectionMs, 500, 30000, 5000);
         const launchGrace = missionSettingInt(el.missionLaunchGraceMs, 1000, 30000, 5000);

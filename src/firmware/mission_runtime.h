@@ -895,7 +895,10 @@ void missionHandleInterstageEvent(
     if (code == MissionInterstageEventCode::Standby) {
       if (launchMission.launchLatched) return;
       const uint32_t nextStage1SeparationMs = clampU32(
-        (long)event.stage1SeparationBackupMs, 500, 15000, 2000U);
+        (long)event.stage1SeparationBackupMs,
+        500,
+        15000,
+        kDefaultMissionStage1SeparationBackupMs);
       const uint32_t nextStage1EjectionMs = clampU32(
         (long)event.stage1EjectionDelayMs, 100, 10000, 1000U);
       const uint32_t nextStage2EjectionMs = clampU32(
@@ -1106,12 +1109,12 @@ void missionLaunchSequenceTick(uint32_t nowMs, bool armReleased, uint32_t armRel
     if (!launchMission.stage1Separated) {
       const bool coasting =
         snap.flightPhase == static_cast<uint8_t>(FlightPhase::Coasting);
-      if (elapsedMs >= missionStage1SeparationBackupMs) {
-        if (!launchMission.coastSeen) launchMission.coastTimeout = true;
-        missionCommandPrimaryDeployment(nowMs);
-      } else if (coasting && !launchMission.coastSeen) {
+      if (coasting && !launchMission.coastSeen) {
         launchMission.coastSeen = true;
         launchMission.earlyCoast = elapsedMs <= kLaunchEarlyCoastMs;
+        missionCommandPrimaryDeployment(nowMs);
+      } else if (elapsedMs >= missionStage1SeparationBackupMs) {
+        if (!launchMission.coastSeen) launchMission.coastTimeout = true;
         missionCommandPrimaryDeployment(nowMs);
       }
     }

@@ -174,6 +174,10 @@ void saveSequenceSettings() {
   if (settingsPrefs.getUInt("m_s1_sep", 0U) != missionStage1SeparationBackupMs) {
     settingsPrefs.putUInt("m_s1_sep", missionStage1SeparationBackupMs);
   }
+  if (settingsPrefs.getUChar("m_timing_v", 0U) !=
+      kMissionTimingSettingsVersion) {
+    settingsPrefs.putUChar("m_timing_v", kMissionTimingSettingsVersion);
+  }
   if (settingsPrefs.getUInt("m_s1_ej", 0U) != missionStage1EjectionDelayMs) {
     settingsPrefs.putUInt("m_s1_ej", missionStage1EjectionDelayMs);
   }
@@ -232,8 +236,23 @@ void loadSequenceSettings() {
   if (!settingsPrefsReady) return;
   ignitionDurationMs = clampU32((long)settingsPrefs.getUInt("ign_ms", kDefaultIgnitionMs), 100, 3000, kDefaultIgnitionMs);
   countdownDurationMs = clampU32((long)settingsPrefs.getUInt("cd_ms", kDefaultCountdownMs), 3000, 60000, kDefaultCountdownMs);
+  const uint8_t missionTimingSettingsVersion =
+    settingsPrefs.getUChar("m_timing_v", 0U);
+  uint32_t storedStage1SeparationBackupMs = settingsPrefs.getUInt(
+    "m_s1_sep",
+    kDefaultMissionStage1SeparationBackupMs);
+  // Version 1 used 2000 ms as its factory value. Migrate only that exact
+  // legacy default; explicitly configured alternatives remain untouched.
+  if (missionTimingSettingsVersion < kMissionTimingSettingsVersion &&
+      storedStage1SeparationBackupMs == 2000U) {
+    storedStage1SeparationBackupMs =
+      kDefaultMissionStage1SeparationBackupMs;
+  }
   missionStage1SeparationBackupMs = clampU32(
-    (long)settingsPrefs.getUInt("m_s1_sep", 2000U), 500, 15000, 2000U);
+    (long)storedStage1SeparationBackupMs,
+    500,
+    15000,
+    kDefaultMissionStage1SeparationBackupMs);
   missionStage1EjectionDelayMs = clampU32(
     (long)settingsPrefs.getUInt("m_s1_ej", 1000U), 100, 10000, 1000U);
   missionStage2EjectionDelayMs = clampU32(
@@ -280,6 +299,9 @@ void loadSequenceSettings() {
     saveSequenceSettings();
   }
   applyDeveloperModeSerialPolicy();
+  if (missionTimingSettingsVersion < kMissionTimingSettingsVersion) {
+    saveSequenceSettings();
+  }
 }
 
 void setIgnitionDurationMs(long ms) {
@@ -304,7 +326,11 @@ void setDaqSequencePyroChannel(long channel) {
 }
 
 void setMissionStage1SeparationBackupMs(long ms) {
-  missionStage1SeparationBackupMs = clampU32(ms, 500, 15000, 2000U);
+  missionStage1SeparationBackupMs = clampU32(
+    ms,
+    500,
+    15000,
+    kDefaultMissionStage1SeparationBackupMs);
   saveSequenceSettings();
 }
 
