@@ -3,6 +3,19 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.9.9 — v6 b39 / FLASH6 stage-2 link quality b106 — 2026-07-27
+
+Protocol: `Flash6-Intelligent-b8` (unchanged)
+
+- Kept the relayed stage-2 route RSSI synchronized with the physical
+  stage-1-to-ground hop, including the discovery-order race that previously
+  left stage 2 at the invalid `-127 dBm` sentinel.
+- Added a route-aware FLASH6 fallback for older ground builds: while stage 2
+  is using the relay route, its chart uses the fresh relay-hop RSSI instead of
+  remaining empty despite a healthy stage-2 RX rate.
+- Fed the resolved per-stage metrics back into each dashboard history buffer,
+  so the stage-2 value card and chart are sourced from the same snapshot.
+
 ## FLASH6 link quality sample merge b105 — 2026-07-26
 
 Firmware build: `v6 b38` (unchanged)

@@ -105,6 +105,21 @@ void flashLinkHoldStorageTransfer(uint32_t nowMs) {
 
 void flashLinkGroundChooseRoute(FlashLinkGroundPeer& peer) {
   const uint32_t nowMs = millis();
+  // A relayed stage-2 frame reaches the ground over stage 1's radio. Keep the
+  // virtual stage-2 route RSSI synchronized with that physical hop even when
+  // the promiscuous callback ran just before the relay peer was discovered.
+  // Without this refresh stage 2 can report a healthy RX rate indefinitely
+  // while its RSSI remains at the uninitialized -127 dBm sentinel.
+  if (peer.nodeId == kFlashLinkNodeIdStage2 && peer.relayReady) {
+    FlashLinkGroundPeer* stage1 =
+      flashLinkGroundPeerForNode(kFlashLinkNodeIdStage1);
+    if (stage1 && stage1->lastDirectRssiMs != 0U &&
+        (peer.lastRelayRssiMs == 0U ||
+         (int32_t)(stage1->lastDirectRssiMs - peer.lastRelayRssiMs) >= 0)) {
+      peer.relayRssiDbm = stage1->directRssiDbm;
+      peer.lastRelayRssiMs = stage1->lastDirectRssiMs;
+    }
+  }
   const bool directUsable = peer.directReady &&
     (peer.lastDirectRxMs == 0U ||
      flashLinkRouteFresh(peer.lastDirectRxMs, kFlashLinkPeerTimeoutMs));

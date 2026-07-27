@@ -12595,6 +12595,21 @@ function requestMobileMockup3dMesh(){
           rssiAgeMs = flashLinkUiRssiValid ? 0 : 4294967295;
         }
       }
+      // Stage 2 normally reaches the ground through stage 1. Older ground
+      // builds can expose the relayed stage-2 RX rate before they populate the
+      // stage-2 RSSI tail fields. In that route the ground-facing physical hop
+      // is the same stage-1 link, so use its fresh RSSI rather than leaving the
+      // entire stage-2 chart blank. Direct stage-2 operation never uses this
+      // fallback.
+      if(id === 2 && flashLinkStage2Route === "relay" &&
+         (!isFinite(rssiDbm) || rssiDbm <= -126 ||
+          (isFinite(rssiAgeMs) && rssiAgeMs > 6000))){
+        const relayRoute = getDashboardStageLinkSnapshot(1);
+        if(relayRoute.rssiValid){
+          rssiDbm = relayRoute.rssiDbm;
+          rssiAgeMs = 0;
+        }
+      }
       const available = !!(
         (state && state.valid) ||
         (flashLinkUiTargetNodeId === id && flashLinkUiHasStatus)
@@ -12613,6 +12628,14 @@ function requestMobileMockup3dMesh(){
       const snapshot = enabled
         ? getDashboardStageLinkSnapshot(id)
         : {available:false, rxHz:NaN, lossPermille:NaN, rssiDbm:NaN, rssiValid:false};
+      if(enabled && snapshot.available){
+        recordDashboardStageLinkChartSample(id, {
+          stage_rssi_dbm:snapshot.rssiValid ? snapshot.rssiDbm : null,
+          stage_rssi_age_ms:snapshot.rssiValid ? 0 : null,
+          stage_loss_permille:snapshot.lossPermille,
+          stage_rx_hz:snapshot.rxHz
+        });
+      }
       const rssiEl = id === 1
         ? el.dashboardStage1CommunicationRssi
         : el.dashboardStage2CommunicationRssi;
@@ -23397,7 +23420,7 @@ function requestMobileMockup3dMesh(){
         fw_program:"Altis_Intelligent3_firmware1",
         fw_board:"Altis_Intelligent3_b3",
         fw_protocol:"Flash6-Intelligent-b8",
-        fw_build:"v6 b38"
+        fw_build:"v6 b39"
       };
     }
 
