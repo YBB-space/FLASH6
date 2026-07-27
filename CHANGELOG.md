@@ -12,6 +12,10 @@ Firmware build unchanged, protocol unchanged.
 - Added a five-second HUD LIVE pre-roll presentation from T-15 through T-10,
   with a large absolute-sequence countdown before the normal flight HUD fades
   back in.
+- Aligned the OBS overlay with the main HUD coordinate system and anchored the
+  lower state/timeline group to the exact viewport center.
+- Moved the stage link indicator to the upper-left and added a lightweight
+  sync-record poll so embedded HUD LIVE telemetry updates without reloading.
 - Kept playback, seeking, and viewpoint control in the main replay interface.
 
 ## FLASH6 replay HUD LIVE b113 — 2026-07-27
