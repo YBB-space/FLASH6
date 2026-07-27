@@ -657,6 +657,13 @@
       el.replayGyroZeroBtn = document.getElementById("replayGyroZeroBtn");
       el.replayLinkStatusBtn = document.getElementById("replayLinkStatusBtn");
       el.replayLinkStatusBtnHint = document.getElementById("replayLinkStatusBtnHint");
+      el.replayHudLiveBtn = document.getElementById("replayHudLiveBtn");
+      el.replayHudLiveOverlay = document.getElementById("replayHudLiveOverlay");
+      el.replayHudLiveCloseBtn = document.getElementById("replayHudLiveCloseBtn");
+      el.replayHudLiveUrl = document.getElementById("replayHudLiveUrl");
+      el.replayHudLiveCopyBtn = document.getElementById("replayHudLiveCopyBtn");
+      el.replayHudLiveCopyActionBtn = document.getElementById("replayHudLiveCopyActionBtn");
+      el.replayHudLivePreviewBtn = document.getElementById("replayHudLivePreviewBtn");
       el.replayLinkStatusOverlay = document.getElementById("replayLinkStatusOverlay");
       el.replayLinkStatusCloseBtn = document.getElementById("replayLinkStatusCloseBtn");
       el.replayLinkRateValue = document.getElementById("replayLinkRateValue");
@@ -674,6 +681,9 @@
       }
       if(el.replayLinkStatusOverlay && el.replayLinkStatusOverlay.parentNode !== document.body){
         document.body.appendChild(el.replayLinkStatusOverlay);
+      }
+      if(el.replayHudLiveOverlay && el.replayHudLiveOverlay.parentNode !== document.body){
+        document.body.appendChild(el.replayHudLiveOverlay);
       }
       el.replayFileInput = document.getElementById("replayFileInput");
       el.replayFileBtn = document.getElementById("replayFileBtn");
@@ -2041,6 +2051,31 @@
           if(ev.target === el.replayLinkStatusOverlay) setReplayLinkStatusVisible(false);
         });
       }
+      if(el.replayHudLiveBtn){
+        el.replayHudLiveBtn.addEventListener("click",(ev)=>{
+          ev.preventDefault();
+          ev.stopPropagation();
+          setReplayHudLiveVisible(true);
+        });
+      }
+      if(el.replayHudLiveCloseBtn){
+        el.replayHudLiveCloseBtn.addEventListener("click",()=>{
+          setReplayHudLiveVisible(false);
+        });
+      }
+      if(el.replayHudLiveOverlay){
+        el.replayHudLiveOverlay.addEventListener("click",(ev)=>{
+          if(ev.target === el.replayHudLiveOverlay) setReplayHudLiveVisible(false);
+        });
+      }
+      [el.replayHudLiveCopyBtn, el.replayHudLiveCopyActionBtn].forEach((button)=>{
+        if(button) button.addEventListener("click",()=>{ copyReplayHudLiveUrl(); });
+      });
+      if(el.replayHudLivePreviewBtn){
+        el.replayHudLivePreviewBtn.addEventListener("click",()=>{
+          window.open(buildReplayHudLiveUrl(), "_blank", "noopener,noreferrer");
+        });
+      }
       if(el.replayLinkChartTabs && el.replayLinkChartTabs.length){
         el.replayLinkChartTabs.forEach((tab)=>{
           tab.addEventListener("click",()=>{
@@ -2079,6 +2114,14 @@
         hideMobileControlsPanel();
       });
       document.addEventListener("keydown",(ev)=>{
+        if(
+          ev.key === "Escape" &&
+          el.replayHudLiveOverlay &&
+          el.replayHudLiveOverlay.getAttribute("aria-hidden") !== "true"
+        ){
+          setReplayHudLiveVisible(false);
+          return;
+        }
         if(ev.key === "Escape" && replayLinkStatusOpen){
           setReplayLinkStatusVisible(false);
           return;

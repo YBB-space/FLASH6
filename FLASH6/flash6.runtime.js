@@ -20346,6 +20346,67 @@ function requestMobileMockup3dMesh(){
       }
     }
 
+    function buildReplayHudLiveUrl(){
+      const url = new URL("overlay.html", window.location.href);
+      url.search = "";
+      url.hash = "";
+      const mission = String(
+        (el.missionName && el.missionName.value) ||
+        selectedMotorName ||
+        DEFAULT_MISSION_NAME ||
+        "FLASH6 MISSION"
+      ).trim();
+      if(mission) url.searchParams.set("mission", mission);
+      try{
+        const bases = (typeof getApiBaseCandidates === "function")
+          ? getApiBaseCandidates().filter((base)=>!!base)
+          : [];
+        if(bases[0]) url.searchParams.set("source", bases[0]);
+      }catch(_error){}
+      return url.href;
+    }
+
+    function setReplayHudLiveVisible(visible){
+      const show = !!visible && !!replayUiActive;
+      if(el.replayHudLiveOverlay){
+        setOverlayVisible(el.replayHudLiveOverlay, show);
+      }
+      if(!show) return;
+      setReplayToolsPanelOpen(false);
+      const url = buildReplayHudLiveUrl();
+      if(el.replayHudLiveUrl) el.replayHudLiveUrl.value = url;
+      requestAnimationFrame(()=>{
+        if(el.replayHudLiveCopyBtn){
+          el.replayHudLiveCopyBtn.focus({preventScroll:true});
+        }
+      });
+    }
+
+    async function copyReplayHudLiveUrl(){
+      const url = buildReplayHudLiveUrl();
+      if(el.replayHudLiveUrl) el.replayHudLiveUrl.value = url;
+      let copied = false;
+      try{
+        if(navigator.clipboard && typeof navigator.clipboard.writeText === "function"){
+          await navigator.clipboard.writeText(url);
+          copied = true;
+        }
+      }catch(_error){}
+      if(!copied && el.replayHudLiveUrl){
+        try{
+          el.replayHudLiveUrl.focus({preventScroll:true});
+          el.replayHudLiveUrl.select();
+          copied = document.execCommand("copy");
+        }catch(_error){}
+      }
+      showToast(
+        copied ? "HUD LIVE 링크를 복사했습니다." : "주소를 선택해 직접 복사해 주세요.",
+        copied ? "success" : "warn",
+        {key:"replay-hud-live-copy"}
+      );
+      return copied;
+    }
+
     function scheduleReplayLinkStatusRender(){
       if(!replayLinkStatusOpen || replayLinkChartRaf) return;
       replayLinkChartRaf = requestAnimationFrame(()=>{
@@ -21122,6 +21183,7 @@ function requestMobileMockup3dMesh(){
 
     function exitReplayMode(options){
       const opts = options || {};
+      setReplayHudLiveVisible(false);
       cancelReplaySeekProcessing();
       replayUiActive = false;
       pauseReplayPlayback({silent:true});
@@ -25305,10 +25367,6 @@ function requestMobileMockup3dMesh(){
         handleWsBackpressureSignal(wsQueueDropCount);
       }
 
-      if(!isFastReplaySeek){
-        publishOverlaySample({ t: thrustVal, p, st, td, ab, ts: Date.now() });
-      }
-
       // ✅ LOCKOUT 필드 매칭(펌웨어: rf/rm 우선)
       const lko = Number(data.lko ?? data.lockout ?? data.rf ?? 0);
       const rm  = Number(data.rm  ?? data.rmask   ?? data.rm ?? 0);
@@ -26364,7 +26422,32 @@ function requestMobileMockup3dMesh(){
           missionAlarmTitle:data.mission_alarm_title,
           missionAlarmMessage:data.mission_alarm_message
         };
-        syncCameraHud(buildCameraHudStageValues(cameraHudFallbackValues));
+        const cameraHudValues = buildCameraHudStageValues(cameraHudFallbackValues);
+        if(!isFastReplaySeek){
+          let storagePercent = NaN;
+          try{
+            storagePercent = getSpiFlashUsedPercent(getActiveStoragePreviewInfo());
+          }catch(_error){}
+          publishOverlaySample(Object.assign({}, cameraHudValues, {
+            t:thrustVal,
+            p,
+            ab,
+            ts:Date.now(),
+            countdown:el.countdown ? el.countdown.textContent : "",
+            mission:String(
+              (el.missionName && el.missionName.value) ||
+              selectedMotorName ||
+              DEFAULT_MISSION_NAME ||
+              "FLASH6 MISSION"
+            ).trim(),
+            connected:cameraHudValues.connected == null
+              ? !!(connOk || wsConnected || serialConnected || simEnabled || isReplaySample)
+              : !!cameraHudValues.connected,
+            pyroChannel:normalizePyroChannel(uiSettings && uiSettings.daqSequencePyroChannel, 1),
+            storagePercent:isFinite(storagePercent) ? storagePercent : null
+          }));
+        }
+        syncCameraHud(cameraHudValues);
         updateHomeUI();
         if(statusCode!==lastStatusCode){
           if(statusCode===1){
@@ -37569,6 +37652,13 @@ function requestMobileMockup3dMesh(){
       el.replayGyroZeroBtn = document.getElementById("replayGyroZeroBtn");
       el.replayLinkStatusBtn = document.getElementById("replayLinkStatusBtn");
       el.replayLinkStatusBtnHint = document.getElementById("replayLinkStatusBtnHint");
+      el.replayHudLiveBtn = document.getElementById("replayHudLiveBtn");
+      el.replayHudLiveOverlay = document.getElementById("replayHudLiveOverlay");
+      el.replayHudLiveCloseBtn = document.getElementById("replayHudLiveCloseBtn");
+      el.replayHudLiveUrl = document.getElementById("replayHudLiveUrl");
+      el.replayHudLiveCopyBtn = document.getElementById("replayHudLiveCopyBtn");
+      el.replayHudLiveCopyActionBtn = document.getElementById("replayHudLiveCopyActionBtn");
+      el.replayHudLivePreviewBtn = document.getElementById("replayHudLivePreviewBtn");
       el.replayLinkStatusOverlay = document.getElementById("replayLinkStatusOverlay");
       el.replayLinkStatusCloseBtn = document.getElementById("replayLinkStatusCloseBtn");
       el.replayLinkRateValue = document.getElementById("replayLinkRateValue");
@@ -37586,6 +37676,9 @@ function requestMobileMockup3dMesh(){
       }
       if(el.replayLinkStatusOverlay && el.replayLinkStatusOverlay.parentNode !== document.body){
         document.body.appendChild(el.replayLinkStatusOverlay);
+      }
+      if(el.replayHudLiveOverlay && el.replayHudLiveOverlay.parentNode !== document.body){
+        document.body.appendChild(el.replayHudLiveOverlay);
       }
       el.replayFileInput = document.getElementById("replayFileInput");
       el.replayFileBtn = document.getElementById("replayFileBtn");
@@ -38953,6 +39046,31 @@ function requestMobileMockup3dMesh(){
           if(ev.target === el.replayLinkStatusOverlay) setReplayLinkStatusVisible(false);
         });
       }
+      if(el.replayHudLiveBtn){
+        el.replayHudLiveBtn.addEventListener("click",(ev)=>{
+          ev.preventDefault();
+          ev.stopPropagation();
+          setReplayHudLiveVisible(true);
+        });
+      }
+      if(el.replayHudLiveCloseBtn){
+        el.replayHudLiveCloseBtn.addEventListener("click",()=>{
+          setReplayHudLiveVisible(false);
+        });
+      }
+      if(el.replayHudLiveOverlay){
+        el.replayHudLiveOverlay.addEventListener("click",(ev)=>{
+          if(ev.target === el.replayHudLiveOverlay) setReplayHudLiveVisible(false);
+        });
+      }
+      [el.replayHudLiveCopyBtn, el.replayHudLiveCopyActionBtn].forEach((button)=>{
+        if(button) button.addEventListener("click",()=>{ copyReplayHudLiveUrl(); });
+      });
+      if(el.replayHudLivePreviewBtn){
+        el.replayHudLivePreviewBtn.addEventListener("click",()=>{
+          window.open(buildReplayHudLiveUrl(), "_blank", "noopener,noreferrer");
+        });
+      }
       if(el.replayLinkChartTabs && el.replayLinkChartTabs.length){
         el.replayLinkChartTabs.forEach((tab)=>{
           tab.addEventListener("click",()=>{
@@ -38991,6 +39109,14 @@ function requestMobileMockup3dMesh(){
         hideMobileControlsPanel();
       });
       document.addEventListener("keydown",(ev)=>{
+        if(
+          ev.key === "Escape" &&
+          el.replayHudLiveOverlay &&
+          el.replayHudLiveOverlay.getAttribute("aria-hidden") !== "true"
+        ){
+          setReplayHudLiveVisible(false);
+          return;
+        }
         if(ev.key === "Escape" && replayLinkStatusOpen){
           setReplayLinkStatusVisible(false);
           return;

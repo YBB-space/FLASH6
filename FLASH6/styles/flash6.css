@@ -31796,6 +31796,224 @@ html:not(.phone-landscape-layout) body #hardwareServoDialog .hardware-servo-pres
 .replay-link-status-overlay.hidden{
   display:none !important;
 }
+.replay-hud-live-overlay{
+  position:fixed;
+  inset:0;
+  z-index:2147483646;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:24px;
+  background:rgba(4,6,9,.76);
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+}
+.replay-hud-live-overlay.hidden{
+  display:none !important;
+}
+.replay-hud-live-dialog{
+  width:min(760px,calc(100vw - 48px));
+  max-height:calc(100dvh - 48px);
+  overflow:auto;
+  border:1px solid #3a3e46;
+  border-radius:11px;
+  background:#15171b;
+  color:#eceef1;
+  box-shadow:0 30px 90px rgba(0,0,0,.58);
+}
+.replay-hud-live-head{
+  min-height:102px;
+  padding:22px 24px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:24px;
+  border-bottom:1px solid #30343b;
+  background:#181a1e;
+}
+.replay-hud-live-kicker{
+  margin-bottom:7px;
+  color:#7f8792;
+  font:650 9px/1.2 var(--font-mono,ui-monospace,monospace);
+  letter-spacing:.16em;
+}
+.replay-hud-live-head h2{
+  margin:0;
+  color:#f2f3f5;
+  font-size:25px;
+  line-height:1.05;
+  font-weight:680;
+  letter-spacing:.08em;
+}
+.replay-hud-live-head p{
+  margin:8px 0 0;
+  color:#9197a1;
+  font-size:12px;
+  line-height:1.55;
+  font-weight:500;
+}
+.replay-hud-live-close{
+  width:38px;
+  height:38px;
+  flex:0 0 38px;
+  padding:0;
+  display:grid;
+  place-items:center;
+  border:1px solid #3b3f47;
+  border-radius:7px;
+  background:#202329;
+  color:#aeb3bc;
+  font-size:26px;
+  line-height:1;
+  font-weight:250;
+}
+.replay-hud-live-close:hover{
+  border-color:#555b65;
+  background:#272a30;
+  color:#fff;
+}
+.replay-hud-live-body{
+  padding:22px 24px 24px;
+}
+.replay-hud-live-status{
+  min-height:46px;
+  padding:0 15px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+  border:1px solid #30343b;
+  border-radius:7px;
+  background:#1b1e23;
+  color:#8d949e;
+  font:650 10px/1 var(--font-mono,ui-monospace,monospace);
+  letter-spacing:.1em;
+}
+.replay-hud-live-status span{
+  display:inline-flex;
+  align-items:center;
+  gap:9px;
+  color:#d9dde3;
+}
+.replay-hud-live-status i{
+  width:8px;
+  height:8px;
+  border-radius:50%;
+  background:#35d47a;
+  box-shadow:0 0 0 4px rgba(53,212,122,.1);
+}
+.replay-hud-live-status strong{
+  font:inherit;
+  color:#777e88;
+}
+.replay-hud-live-url-field{
+  display:block;
+  margin-top:19px;
+}
+.replay-hud-live-url-field > span{
+  display:block;
+  margin:0 0 8px 2px;
+  color:#858c97;
+  font:650 9px/1.2 var(--font-mono,ui-monospace,monospace);
+  letter-spacing:.13em;
+}
+.replay-hud-live-url-field > div{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 112px;
+  gap:8px;
+}
+.replay-hud-live-url-field input{
+  width:100%;
+  height:48px;
+  min-width:0;
+  padding:0 14px;
+  border:1px solid #353941;
+  border-radius:7px;
+  outline:none;
+  background:#101216;
+  color:#cfd3d9;
+  font:550 11px/1 var(--font-mono,ui-monospace,monospace);
+}
+.replay-hud-live-url-field input:focus{
+  border-color:#5b626e;
+}
+.replay-hud-live-url-field button{
+  border:1px solid #d8dadd;
+  border-radius:7px;
+  background:#e6e7e9;
+  color:#15171a;
+  font-size:11px;
+  font-weight:720;
+}
+.replay-hud-live-steps{
+  margin-top:20px;
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  border-top:1px solid #30343b;
+  border-bottom:1px solid #30343b;
+}
+.replay-hud-live-steps article{
+  min-height:116px;
+  padding:19px 18px 18px 0;
+  display:grid;
+  grid-template-columns:38px minmax(0,1fr);
+  gap:11px;
+}
+.replay-hud-live-steps article + article{
+  padding-left:20px;
+  border-left:1px solid #30343b;
+}
+.replay-hud-live-steps article > span{
+  color:#747b86;
+  font:650 10px/1.4 var(--font-mono,ui-monospace,monospace);
+  letter-spacing:.1em;
+}
+.replay-hud-live-steps strong{
+  display:block;
+  color:#e6e8eb;
+  font-size:12px;
+  line-height:1.35;
+  font-weight:680;
+}
+.replay-hud-live-steps p{
+  margin:7px 0 0;
+  color:#888f99;
+  font-size:11px;
+  line-height:1.55;
+  font-weight:480;
+}
+.replay-hud-live-note{
+  margin:17px 2px 0;
+  color:#8b929c;
+  font-size:11px;
+  line-height:1.55;
+  font-weight:500;
+}
+.replay-hud-live-actions{
+  margin-top:19px;
+  display:grid;
+  grid-template-columns:1fr 1.35fr;
+  gap:8px;
+}
+.replay-hud-live-actions button{
+  min-height:48px;
+  border-radius:7px;
+  font-size:11px;
+  font-weight:700;
+}
+.replay-hud-live-actions .is-secondary{
+  border:1px solid #3b3f47;
+  background:#202329;
+  color:#c3c7ce;
+}
+.replay-hud-live-actions .is-primary{
+  border:1px solid #dfe1e4;
+  background:#e7e8ea;
+  color:#15171a;
+}
+.replay-hud-live-actions button:hover{
+  filter:brightness(1.08);
+}
 .replay-link-status-dialog{
   width:min(820px,calc(100vw - 48px));
   max-height:calc(100dvh - 48px);
@@ -32340,6 +32558,51 @@ html.replay-ui-active body .side-nav-mobile .js-controls-open{
   }
   .replay-link-status-overlay{
     padding:12px;
+  }
+  .replay-hud-live-overlay{
+    padding:12px;
+  }
+  .replay-hud-live-dialog{
+    width:calc(100vw - 24px);
+    max-height:calc(100dvh - 24px);
+  }
+  .replay-hud-live-head{
+    min-height:82px;
+    padding:16px 17px;
+  }
+  .replay-hud-live-head h2{
+    font-size:21px;
+  }
+  .replay-hud-live-head p{
+    display:none;
+  }
+  .replay-hud-live-body{
+    padding:16px;
+  }
+  .replay-hud-live-status{
+    align-items:flex-start;
+    flex-direction:column;
+    justify-content:center;
+    gap:6px;
+    padding:11px 13px;
+  }
+  .replay-hud-live-url-field > div{
+    grid-template-columns:1fr;
+  }
+  .replay-hud-live-steps{
+    grid-template-columns:1fr;
+  }
+  .replay-hud-live-steps article{
+    min-height:0;
+    padding:16px 0;
+  }
+  .replay-hud-live-steps article + article{
+    padding-left:0;
+    border-top:1px solid #30343b;
+    border-left:0;
+  }
+  .replay-hud-live-actions{
+    grid-template-columns:1fr;
   }
   .replay-link-status-dialog{
     width:calc(100vw - 24px);

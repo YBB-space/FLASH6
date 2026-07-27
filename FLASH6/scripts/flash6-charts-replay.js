@@ -2165,6 +2165,67 @@
       }
     }
 
+    function buildReplayHudLiveUrl(){
+      const url = new URL("overlay.html", window.location.href);
+      url.search = "";
+      url.hash = "";
+      const mission = String(
+        (el.missionName && el.missionName.value) ||
+        selectedMotorName ||
+        DEFAULT_MISSION_NAME ||
+        "FLASH6 MISSION"
+      ).trim();
+      if(mission) url.searchParams.set("mission", mission);
+      try{
+        const bases = (typeof getApiBaseCandidates === "function")
+          ? getApiBaseCandidates().filter((base)=>!!base)
+          : [];
+        if(bases[0]) url.searchParams.set("source", bases[0]);
+      }catch(_error){}
+      return url.href;
+    }
+
+    function setReplayHudLiveVisible(visible){
+      const show = !!visible && !!replayUiActive;
+      if(el.replayHudLiveOverlay){
+        setOverlayVisible(el.replayHudLiveOverlay, show);
+      }
+      if(!show) return;
+      setReplayToolsPanelOpen(false);
+      const url = buildReplayHudLiveUrl();
+      if(el.replayHudLiveUrl) el.replayHudLiveUrl.value = url;
+      requestAnimationFrame(()=>{
+        if(el.replayHudLiveCopyBtn){
+          el.replayHudLiveCopyBtn.focus({preventScroll:true});
+        }
+      });
+    }
+
+    async function copyReplayHudLiveUrl(){
+      const url = buildReplayHudLiveUrl();
+      if(el.replayHudLiveUrl) el.replayHudLiveUrl.value = url;
+      let copied = false;
+      try{
+        if(navigator.clipboard && typeof navigator.clipboard.writeText === "function"){
+          await navigator.clipboard.writeText(url);
+          copied = true;
+        }
+      }catch(_error){}
+      if(!copied && el.replayHudLiveUrl){
+        try{
+          el.replayHudLiveUrl.focus({preventScroll:true});
+          el.replayHudLiveUrl.select();
+          copied = document.execCommand("copy");
+        }catch(_error){}
+      }
+      showToast(
+        copied ? "HUD LIVE 링크를 복사했습니다." : "주소를 선택해 직접 복사해 주세요.",
+        copied ? "success" : "warn",
+        {key:"replay-hud-live-copy"}
+      );
+      return copied;
+    }
+
     function scheduleReplayLinkStatusRender(){
       if(!replayLinkStatusOpen || replayLinkChartRaf) return;
       replayLinkChartRaf = requestAnimationFrame(()=>{
@@ -2941,6 +3002,7 @@
 
     function exitReplayMode(options){
       const opts = options || {};
+      setReplayHudLiveVisible(false);
       cancelReplaySeekProcessing();
       replayUiActive = false;
       pauseReplayPlayback({silent:true});

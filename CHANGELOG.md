@@ -3,6 +3,19 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 replay HUD LIVE b113 — 2026-07-27
+
+Firmware build unchanged, protocol unchanged.
+
+- Rebuilt `overlay.html` as a transparent, display-only OBS HUD using the
+  current FLASH6 flight HUD visual language without menus or camera controls.
+- Added a replay Control Panel action that generates and copies the OBS
+  Browser Source URL, with a dedicated setup guide and preview action.
+- Synchronized the selected stage, replay time, mission state, speed, G-force,
+  altitude, ARM, pyro, and storage status from the main console to HUD LIVE.
+- Kept replay, stage selection, and 3D viewpoint control exclusively in the
+  main FLASH6 interface.
+
 ## 0.9.10 — v6 b40 / FLASH6 mission backup b112 — 2026-07-27
 
 Protocol: `Flash6-Intelligent-b8` (unchanged)

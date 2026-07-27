@@ -573,10 +573,6 @@
         handleWsBackpressureSignal(wsQueueDropCount);
       }
 
-      if(!isFastReplaySeek){
-        publishOverlaySample({ t: thrustVal, p, st, td, ab, ts: Date.now() });
-      }
-
       // ✅ LOCKOUT 필드 매칭(펌웨어: rf/rm 우선)
       const lko = Number(data.lko ?? data.lockout ?? data.rf ?? 0);
       const rm  = Number(data.rm  ?? data.rmask   ?? data.rm ?? 0);
@@ -1632,7 +1628,32 @@
           missionAlarmTitle:data.mission_alarm_title,
           missionAlarmMessage:data.mission_alarm_message
         };
-        syncCameraHud(buildCameraHudStageValues(cameraHudFallbackValues));
+        const cameraHudValues = buildCameraHudStageValues(cameraHudFallbackValues);
+        if(!isFastReplaySeek){
+          let storagePercent = NaN;
+          try{
+            storagePercent = getSpiFlashUsedPercent(getActiveStoragePreviewInfo());
+          }catch(_error){}
+          publishOverlaySample(Object.assign({}, cameraHudValues, {
+            t:thrustVal,
+            p,
+            ab,
+            ts:Date.now(),
+            countdown:el.countdown ? el.countdown.textContent : "",
+            mission:String(
+              (el.missionName && el.missionName.value) ||
+              selectedMotorName ||
+              DEFAULT_MISSION_NAME ||
+              "FLASH6 MISSION"
+            ).trim(),
+            connected:cameraHudValues.connected == null
+              ? !!(connOk || wsConnected || serialConnected || simEnabled || isReplaySample)
+              : !!cameraHudValues.connected,
+            pyroChannel:normalizePyroChannel(uiSettings && uiSettings.daqSequencePyroChannel, 1),
+            storagePercent:isFinite(storagePercent) ? storagePercent : null
+          }));
+        }
+        syncCameraHud(cameraHudValues);
         updateHomeUI();
         if(statusCode!==lastStatusCode){
           if(statusCode===1){
