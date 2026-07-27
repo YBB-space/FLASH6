@@ -58,9 +58,11 @@
     const SETTINGS_KEY = "hanwool_tms_settings_v3";
     const OVERLAY_CHANNEL = "hanwool_overlay_sync";
     const OVERLAY_SYNC_KEY = "hanwool_overlay_latest";
-    const OVERLAY_SYNC_MIN_MS = 150;
+    const OVERLAY_SYNC_MIN_MS = 80;
     let overlayChannel = null;
     let lastOverlaySyncMs = 0;
+    let lastOverlayStateText = "--";
+    let lastOverlayStateStatus = null;
     let uiSettings = null;
 
     function normalizeDecimalDigits(value, fallback){
@@ -272,14 +274,17 @@
       }
     }catch(e){}
 
-    function publishOverlaySample(sample){
-      if(!sample) return;
-      if(overlayChannel) overlayChannel.postMessage(sample);
+    function publishOverlaySample(sampleOrFactory){
       const now = Date.now();
-      if(now - lastOverlaySyncMs >= OVERLAY_SYNC_MIN_MS){
-        lastOverlaySyncMs = now;
-        try{ localStorage.setItem(OVERLAY_SYNC_KEY, JSON.stringify(sample)); }catch(e){}
-      }
+      if(now - lastOverlaySyncMs < OVERLAY_SYNC_MIN_MS) return false;
+      const sample = typeof sampleOrFactory === "function"
+        ? sampleOrFactory()
+        : sampleOrFactory;
+      if(!sample) return;
+      lastOverlaySyncMs = now;
+      if(overlayChannel) overlayChannel.postMessage(sample);
+      try{ localStorage.setItem(OVERLAY_SYNC_KEY, JSON.stringify(sample)); }catch(e){}
+      return true;
     }
 
     function setWebcamPanelVisible(visible){

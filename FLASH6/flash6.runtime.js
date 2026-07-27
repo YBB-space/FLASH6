@@ -6765,9 +6765,11 @@ function requestMobileMockup3dMesh(){
     const SETTINGS_KEY = "hanwool_tms_settings_v3";
     const OVERLAY_CHANNEL = "hanwool_overlay_sync";
     const OVERLAY_SYNC_KEY = "hanwool_overlay_latest";
-    const OVERLAY_SYNC_MIN_MS = 150;
+    const OVERLAY_SYNC_MIN_MS = 80;
     let overlayChannel = null;
     let lastOverlaySyncMs = 0;
+    let lastOverlayStateText = "--";
+    let lastOverlayStateStatus = null;
     let uiSettings = null;
 
     function normalizeDecimalDigits(value, fallback){
@@ -6979,14 +6981,17 @@ function requestMobileMockup3dMesh(){
       }
     }catch(e){}
 
-    function publishOverlaySample(sample){
-      if(!sample) return;
-      if(overlayChannel) overlayChannel.postMessage(sample);
+    function publishOverlaySample(sampleOrFactory){
       const now = Date.now();
-      if(now - lastOverlaySyncMs >= OVERLAY_SYNC_MIN_MS){
-        lastOverlaySyncMs = now;
-        try{ localStorage.setItem(OVERLAY_SYNC_KEY, JSON.stringify(sample)); }catch(e){}
-      }
+      if(now - lastOverlaySyncMs < OVERLAY_SYNC_MIN_MS) return false;
+      const sample = typeof sampleOrFactory === "function"
+        ? sampleOrFactory()
+        : sampleOrFactory;
+      if(!sample) return;
+      lastOverlaySyncMs = now;
+      if(overlayChannel) overlayChannel.postMessage(sample);
+      try{ localStorage.setItem(OVERLAY_SYNC_KEY, JSON.stringify(sample)); }catch(e){}
+      return true;
     }
 
     function setWebcamPanelVisible(visible){
@@ -26321,6 +26326,8 @@ function requestMobileMockup3dMesh(){
           }
           cameraStateLabel = String(stateLabel || "--").replace(/\s+/g, " ").trim() || "--";
           cameraStateStatus = stateStatus;
+          lastOverlayStateText = cameraStateLabel;
+          lastOverlayStateStatus = cameraStateStatus;
         }
 
         if(el.igswitch) el.igswitch.checked=!!gs;
@@ -26425,30 +26432,6 @@ function requestMobileMockup3dMesh(){
           missionAlarmMessage:data.mission_alarm_message
         };
         const cameraHudValues = buildCameraHudStageValues(cameraHudFallbackValues);
-        if(!isFastReplaySeek){
-          let storagePercent = NaN;
-          try{
-            storagePercent = getSpiFlashUsedPercent(getActiveStoragePreviewInfo());
-          }catch(_error){}
-          publishOverlaySample(Object.assign({}, cameraHudValues, {
-            t:thrustVal,
-            p,
-            ab,
-            ts:Date.now(),
-            countdown:el.countdown ? el.countdown.textContent : "",
-            mission:String(
-              (el.missionName && el.missionName.value) ||
-              selectedMotorName ||
-              DEFAULT_MISSION_NAME ||
-              "FLASH6 MISSION"
-            ).trim(),
-            connected:cameraHudValues.connected == null
-              ? !!(connOk || wsConnected || serialConnected || simEnabled || isReplaySample)
-              : !!cameraHudValues.connected,
-            pyroChannel:normalizePyroChannel(uiSettings && uiSettings.daqSequencePyroChannel, 1),
-            storagePercent:isFinite(storagePercent) ? storagePercent : null
-          }));
-        }
         syncCameraHud(cameraHudValues);
         updateHomeUI();
         if(statusCode!==lastStatusCode){
@@ -26510,6 +26493,70 @@ function requestMobileMockup3dMesh(){
           redrawCharts();
           lastChartRedraw=nowPerf;
         }
+      }
+
+      // OBS HUD is a telemetry consumer, not part of the dashboard render loop.
+      // Publish it from the sample pipeline so ordinary sensor frames keep
+      // moving even when no event/state transition causes a DOM refresh.
+      if(!isFastReplaySeek){
+        publishOverlaySample(()=>{
+          const fallbackStateText = String(
+            (flightPhaseInfo && flightPhaseInfo.label) ||
+            lastOverlayStateText ||
+            "--"
+          ).replace(/\s+/g, " ").trim() || "--";
+          const fallbackStateStatus =
+            (flightPhaseInfo && flightPhaseInfo.status) ||
+            lastOverlayStateStatus;
+          const liveHudValues = buildCameraHudStageValues({
+            stateText:fallbackStateText,
+            stateStatus:fallbackStateStatus,
+            st,
+            td,
+            countdownTotalMs:Math.max(
+              3000,
+              Math.min(60000, Number((uiSettings && uiSettings.countdownSec) || 10) * 1000)
+            ),
+            altitudeM:quickAltitudeM,
+            altitudeRateMps:quickAltitudeRateMps,
+            speedMps:quickSpeedMps,
+            gforceG:quickTotalAccelG,
+            swOn,
+            icOn,
+            ignitionDelayMs:data.ignition_delay_ms,
+            ignitionDelayValid:data.ignition_delay_valid,
+            deploymentState:data.deployment_state,
+            deploymentFlags:data.deployment_flags,
+            flightPhaseCode:data.flight_phase_code,
+            missionAlarmEvents:data.mission_alarm_events,
+            missionAlarmTitle:data.mission_alarm_title,
+            missionAlarmMessage:data.mission_alarm_message
+          });
+          let storagePercent = NaN;
+          try{
+            storagePercent = getSpiFlashUsedPercent(getActiveStoragePreviewInfo());
+          }catch(_error){}
+          return Object.assign({}, liveHudValues, {
+            t:thrustVal,
+            p,
+            ab,
+            ts:Date.now(),
+            mission:String(
+              (el.missionName && el.missionName.value) ||
+              selectedMotorName ||
+              DEFAULT_MISSION_NAME ||
+              "FLASH6 MISSION"
+            ).trim(),
+            connected:liveHudValues.connected == null
+              ? !!(connOk || wsConnected || serialConnected || simEnabled || isReplaySample)
+              : !!liveHudValues.connected,
+            pyroChannel:normalizePyroChannel(
+              uiSettings && uiSettings.daqSequencePyroChannel,
+              1
+            ),
+            storagePercent:isFinite(storagePercent) ? storagePercent : null
+          });
+        });
       }
 
       if(!isFastReplaySeek && typeof window !== "undefined" &&

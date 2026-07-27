@@ -3,6 +3,14 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 HUD LIVE streaming b115 — 2026-07-27
+
+Firmware build unchanged, protocol unchanged.
+
+- OBS HUD 텔레메트리 송신을 대시보드 DOM 렌더링 조건에서 분리했습니다.
+- 일반 센서 샘플에서도 80ms 주기로 고도·속도·가속도·T+ 상태를 연속 발행합니다.
+- 이벤트가 발생할 때만 HUD 값이 갱신되던 현상을 수정했습니다.
+
 ## FLASH6 replay HUD pre-roll b114 — 2026-07-27
 
 Firmware build unchanged, protocol unchanged.
