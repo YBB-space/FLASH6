@@ -130,25 +130,33 @@
       return {min:safeMin - pad, max:safeMax + pad};
     }
 
-    function getChartTimeMeta(dataLength, indices){
-      if(chartTimeHistory.length !== dataLength) return null;
-      if(indices.start < 0 || indices.end >= chartTimeHistory.length || indices.end <= indices.start) return null;
-      const originMs = isFinite(Number(firstSampleMs)) ? Number(firstSampleMs) : Number(chartTimeHistory[0] || 0);
-      const firstMs = Number(chartTimeHistory[indices.start]);
-      const lastMs = Number(chartTimeHistory[indices.end]);
+    function getChartTimeMeta(dataLength, indices, timeData){
+      const timeline = Array.isArray(timeData) && timeData.length === dataLength
+        ? timeData
+        : chartTimeHistory;
+      if(timeline.length !== dataLength) return null;
+      if(indices.start < 0 || indices.end >= timeline.length || indices.end <= indices.start) return null;
+      const usingStageTimeline = timeline !== chartTimeHistory;
+      const originMs = usingStageTimeline
+        ? Number(timeline[0] || 0)
+        : (isFinite(Number(firstSampleMs)) ? Number(firstSampleMs) : Number(timeline[0] || 0));
+      const firstMs = Number(timeline[indices.start]);
+      const lastMs = Number(timeline[indices.end]);
       if(!isFinite(firstMs) || !isFinite(lastMs)) return null;
       const min = (firstMs - originMs) / 1000;
       const max = (lastMs - originMs) / 1000;
       return {
         originMs,
         min,
-        max: (max > min) ? max : (min + 1)
+        max: (max > min) ? max : (min + 1),
+        timeline
       };
     }
 
     function chartTimeValueSec(timeMeta, absoluteIndex, fallbackIndex){
       if(!timeMeta) return fallbackIndex;
-      const ms = Number(chartTimeHistory[absoluteIndex]);
+      const timeline = timeMeta.timeline || chartTimeHistory;
+      const ms = Number(timeline[absoluteIndex]);
       if(!isFinite(ms)) return fallbackIndex;
       return (ms - timeMeta.originMs) / 1000;
     }
@@ -247,7 +255,7 @@
         ctx.restore();
         return;
       }
-      const indices=getViewIndices(data,view);
+      const indices=getViewIndices(data,view,opts.timeData);
       if(indices.end<indices.start) return;
 
       const count = indices.end - indices.start + 1;
@@ -255,7 +263,7 @@
       const valueAt = (typeof opts.valueMap === "function")
         ? (index)=>opts.valueMap(data[index], index)
         : (index)=>data[index];
-      const timeMeta = getChartTimeMeta(data.length, indices);
+      const timeMeta = getChartTimeMeta(data.length, indices, opts.timeData);
       const plotBox = getChartPlotBox(width, height);
       const plotLeft = plotBox.left;
       const plotTop = plotBox.top;
@@ -287,7 +295,7 @@
       const yMax = yAxis.max;
       const ySpan = (yMax - yMin) || 1;
       const xMin = timeMeta ? timeMeta.min : 0;
-      const xMax = timeMeta ? timeMeta.max : Math.max(1, slice.length - 1);
+      const xMax = timeMeta ? timeMeta.max : Math.max(1, count - 1);
       const xSpan = (xMax - xMin) || 1;
       const xAxis = buildNiceTicks(xMin, xMax, width < 260 ? 3 : (width < 420 ? 4 : 5));
       const xTicks = xAxis.ticks.map((value)=>{
@@ -496,9 +504,10 @@
       });
     }
 
-    function drawChartDualAxis(canvasId, leftData, rightData, leftColor, rightColor, view){
+    function drawChartDualAxis(canvasId, leftData, rightData, leftColor, rightColor, view, options){
       const canvas = document.getElementById(canvasId);
       if(!canvas) return;
+      const opts = options || {};
       const size = ensureCanvasSize(canvas);
       if(!size) return;
       const {w:width, h:height, ctx} = size;
@@ -514,7 +523,7 @@
         ctx.restore();
         return;
       }
-      const indices = getViewIndices(base, view);
+      const indices = getViewIndices(base, view, opts.timeData);
       if(indices.end < indices.start) return;
       const rangeFor = (data)=>{
         let min = Infinity, max = -Infinity;
@@ -533,7 +542,7 @@
       const rightAxis = buildNiceTicks(rightRange.min, rightRange.max, height < 220 ? 4 : 5);
       const leftSpan = (leftAxis.max - leftAxis.min) || 1;
       const rightSpan = (rightAxis.max - rightAxis.min) || 1;
-      const timeMeta = getChartTimeMeta(base.length, indices);
+      const timeMeta = getChartTimeMeta(base.length, indices, opts.timeData);
       const xMin = timeMeta ? timeMeta.min : 0;
       const xMax = timeMeta ? timeMeta.max : Math.max(1, indices.end - indices.start);
       const xSpan = (xMax - xMin) || 1;
@@ -616,21 +625,37 @@
     }
 
     function redrawCharts(){
+      const selectedStage = stageTelemetryModeActive
+        ? stageTelemetryStore[dashboardTelemetryStageId]
+        : null;
+      const selectedStageHasData = !!(selectedStage && selectedStage.valid);
+      const flightAltitudeHistory = selectedStageHasData
+        ? selectedStage.altitudeHistory
+        : (selectedStage ? [] : quickAltitudeHistory);
+      const flightAccelHistory = selectedStageHasData
+        ? selectedStage.ascentAccelHistory
+        : (selectedStage ? [] : ascentAccelHistory);
+      const flightTimeHistory = selectedStageHasData
+        ? selectedStage.timeHistory
+        : null;
       drawChart("thrustChart", thrustBaseHistory, "#ef4444", chartView, {valueMap: convertThrustForDisplay});
       drawChart("pressureChart", pressureBaseHistory, "#3b82f6", chartView);
       drawChart("accelChart", accelMagHistory, "#f59e0b", chartView);
-      drawChart("accelChartFlight", quickAltitudeHistory, "#16a34a", chartView);
+      drawChart("accelChartFlight", flightAltitudeHistory, "#16a34a", chartView, {
+        timeData:flightTimeHistory
+      });
       drawChartMulti("accelXYZChart",
         [accelXHistory, accelYHistory, accelZHistory],
         ["#ef4444", "#22c55e", "#3b82f6"],
         chartView);
       drawChartDualAxis(
         "accelXYZChartFlight",
-        ascentAccelHistory,
-        quickAltitudeHistory,
+        flightAccelHistory,
+        flightAltitudeHistory,
         "#f59e0b",
         "#16a34a",
-        chartView
+        chartView,
+        {timeData:flightTimeHistory}
       );
       renderMobileChartPreview();
     }

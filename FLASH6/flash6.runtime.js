@@ -6120,9 +6120,11 @@ function requestMobileMockup3dMesh(){
         speedMps:NaN,
         gforceG:NaN,
         lastEvent:"--",
+        timeHistory:[],
         altitudeHistory:[],
         speedHistory:[],
-        gforceHistory:[]
+        gforceHistory:[],
+        ascentAccelHistory:[]
       };
     }
     const stageTelemetryStore = {
@@ -6130,6 +6132,7 @@ function requestMobileMockup3dMesh(){
       2:createStageTelemetryState(2)
     };
     let stageTelemetryModeActive = false;
+    let dashboardTelemetryStageId = 1;
     let cameraHudActiveStageId = 1;
     let cameraHudStageSwitchLatched = false;
     let lastMissionStandbyAckKey = "";
@@ -7411,6 +7414,13 @@ function requestMobileMockup3dMesh(){
       motorCard:null,
       stages:Object.create(null)
     };
+    function setDashboardTelemetryStage(stageId){
+      const next = Number(stageId) === 2 ? 2 : 1;
+      dashboardTelemetryStageId = next;
+      updateStageTelemetryDashboard();
+      syncDashboardSelectedStageTelemetry();
+      if(typeof redrawCharts === "function") redrawCharts();
+    }
     function getStageTelemetryDashboardNodes(){
       const root = el.stageTelemetryDeck;
       if(!root) return null;
@@ -7424,6 +7434,15 @@ function requestMobileMockup3dMesh(){
         const values = Object.create(null);
         ["link", "phase", "altitude", "speed", "gforce", "rate", "chip", "perf", "power", "event"].forEach((key)=>{
           values[key] = card.querySelector('[data-stage-value="' + key + '"]');
+        });
+        card.setAttribute("role", "button");
+        card.setAttribute("tabindex", "0");
+        card.setAttribute("aria-label", "STAGE " + stageId + " 텔레메트리 보기");
+        card.addEventListener("click", ()=>setDashboardTelemetryStage(stageId));
+        card.addEventListener("keydown", (event)=>{
+          if(event.key !== "Enter" && event.key !== " ") return;
+          event.preventDefault();
+          setDashboardTelemetryStage(stageId);
         });
         stageTelemetryDashboardCache.stages[stageId] = {card, values};
       });
@@ -7468,7 +7487,8 @@ function requestMobileMockup3dMesh(){
         // explicit OFFLINE / NO DATA card while second-stage operation is off.
         setStageTelemetryClass(nodes.card, "hidden", false);
         setStageTelemetryClass(nodes.card, "is-linked", !!state.connected);
-        setStageTelemetryClass(nodes.card, "is-active-hud", cameraHudActiveStageId === stageId);
+        setStageTelemetryClass(nodes.card, "is-selected", dashboardTelemetryStageId === stageId);
+        nodes.card.setAttribute("aria-pressed", dashboardTelemetryStageId === stageId ? "true" : "false");
         const stageData = state.data || null;
         const stageRate = Number(stageData && (stageData.stage_rx_hz ?? stageData.rx_hz ?? stageData.fl_rx_hz));
         const stageChip = Number(stageData && (stageData.chip_temp_c ?? stageData.ctemp ?? stageData.chip_temp));
@@ -7485,6 +7505,84 @@ function requestMobileMockup3dMesh(){
         setStageTelemetryText(nodes.values.power, state.valid ? stageTelemetryPowerText(stageData) : "N");
         setStageTelemetryText(nodes.values.event, state.lastEvent || "--");
       });
+    }
+
+    function syncDashboardSelectedStageTelemetry(){
+      if(!stageTelemetryModeActive || !isFlightModeUi()) return;
+      const state = stageTelemetryStore[dashboardTelemetryStageId];
+      const data = state && state.valid ? state.data : null;
+      const altitudeM = data && isFinite(state.altitudeM) ? state.altitudeM : NaN;
+      const speedMps = data && isFinite(state.speedMps) ? state.speedMps : NaN;
+      if(el.thrust){
+        el.thrust.innerHTML = isFinite(altitudeM)
+          ? `<span class="num">${altitudeM.toFixed(1)}</span><span class="unit">m</span>`
+          : `<span class="num">--</span><span class="unit">m</span>`;
+      }
+      if(el.pressure){
+        el.pressure.innerHTML = isFinite(speedMps)
+          ? `<span class="num">${Math.max(0, speedMps).toFixed(1)}</span><span class="unit">m/s</span>`
+          : `<span class="num">--</span><span class="unit">m/s</span>`;
+      }
+
+      const delayMs = Number(data && (data.ignition_delay_ms ?? data.ignitionDelayMs));
+      const delayText = isFinite(delayMs) && delayMs >= 0 ? (delayMs / 1000).toFixed(2) : "--";
+      updateNumValue(el.quickMetricDelay, delayText, "S");
+      updateNumValue(el.motorDelay, delayText, "S");
+
+      if(el.quickState){
+        const phase = data ? stageTelemetryPhaseLabel(data) : "NO DATA";
+        el.quickState.innerHTML = `<span class="num">${String(phase).replace(/_/g, "<br>")}</span>`;
+        setQuickItemStatus(el.quickState, state && state.connected ? "ok" : (state && state.valid ? "warn" : null));
+      }
+
+      const storageRaw = data && (
+        data.storage_ready ?? data.spi_flash_ready ?? data.sd_ready ?? data.sr
+      );
+      const storageKnown = storageRaw != null && isFinite(Number(storageRaw));
+      const storageReady = storageKnown && Number(storageRaw) !== 0;
+      updateNumValue(el.quickHxHz, storageKnown ? (storageReady ? "READY" : "NOT READY") : "--");
+      setQuickItemStatus(el.quickHxHz, storageKnown ? (storageReady ? "ok" : "warn") : null);
+
+      const armRaw = data && (data.sp ?? data.physical_arm ?? data.s);
+      const armKnown = armRaw != null && isFinite(Number(armRaw));
+      const armOn = armKnown && Number(armRaw) !== 0;
+      updateNumValue(el.quickSw, armKnown ? (armOn ? "ON" : "OFF") : "--");
+      if(el.quickSw){
+        let lockLabel = el.quickSw.querySelector(".quick-arm-lock");
+        const lockOn = !!(data && Number(data.al ?? data.arm_lock ?? 0));
+        if(!lockLabel){
+          lockLabel = document.createElement("span");
+          lockLabel.className = "quick-arm-lock";
+          lockLabel.textContent = "(LOCK ON)";
+          el.quickSw.appendChild(lockLabel);
+        }
+        lockLabel.hidden = !lockOn;
+        setQuickItemStatus(el.quickSw, armKnown ? (armOn ? "ok" : "warn") : null);
+      }
+
+      const relayRaw = data && (data.r ?? data.rly);
+      const relayKnown = relayRaw != null && isFinite(Number(relayRaw));
+      const relayMask = relayKnown ? Math.max(0, Number(relayRaw) | 0) : 0;
+      const activePyro = [];
+      if(relayKnown){
+        for(let channel=1; channel<=4; channel++){
+          if((relayMask & (1 << (channel - 1))) !== 0) activePyro.push("CH" + channel);
+        }
+      }
+      const pyroText = relayKnown ? (activePyro.length ? activePyro.join(",") : "ALL OFF") : "--";
+      updateNumValue(el.quickRelay1, pyroText);
+      updateNumValue(el.quickMetricPyro, pyroText);
+      setQuickItemStatus(el.quickRelay1, relayKnown ? (activePyro.length ? "ok" : "warn") : null);
+
+      const roll = Number(data && (data.gr ?? data.gyro_roll_deg ?? data.roll_deg));
+      const pitch = Number(data && (data.gp ?? data.gyro_pitch_deg ?? data.pitch_deg));
+      const yaw = Number(data && (data.gyw ?? data.gyro_yaw_deg ?? data.yaw_deg));
+      updateNumValue(el.quickRelay2, isFinite(roll) ? roll.toFixed(1) : "--", "deg");
+      updateNumValue(el.motorBurn, isFinite(pitch) ? pitch.toFixed(1) : "--", "deg");
+      updateNumValue(el.quickNullValue, isFinite(yaw) ? yaw.toFixed(1) : "--", "deg");
+      setQuickItemStatus(el.quickRelay2, null);
+      setQuickItemStatus(el.motorBurn, null);
+      setQuickItemStatus(el.quickNullValue, null);
     }
 
     function setAutomaticActiveStage(stageId, reason){
@@ -7562,6 +7660,13 @@ function requestMobileMockup3dMesh(){
         // attitude; that makes the gyro bounce backward and forward.
         return;
       }
+      if(sequenceReset){
+        state.timeHistory.length = 0;
+        state.altitudeHistory.length = 0;
+        state.speedHistory.length = 0;
+        state.gforceHistory.length = 0;
+        state.ascentAccelHistory.length = 0;
+      }
       if(recordOptions.reuseSample){
         sample.stage_node_id = stageId;
         sample.data_origin = "avionics";
@@ -7579,17 +7684,25 @@ function requestMobileMockup3dMesh(){
       const altitudeM = Number(sample.alt_m);
       const speedMps = readQuickTelemetrySpeedMps(sample);
       const gforceG = calcTotalAccelG(Number(sample.ax) || 0, Number(sample.ay) || 0, Number(sample.az) || 0);
+      const ascentAccelG = calcAscentAccelG(Number(sample.ax), Number(sample.ay), Number(sample.az));
       if(isFinite(altitudeM)) state.altitudeM = Math.abs(altitudeM) < .05 ? 0 : altitudeM;
       if(isFinite(speedMps)) state.speedMps = Math.max(0, speedMps);
       if(isFinite(gforceG)) state.gforceG = Math.max(0, gforceG);
       const alarmTitle = String(sample.mission_alarm_title || "").trim();
       if(alarmTitle) state.lastEvent = localizeFirmwareMissionAlarm(alarmTitle, sample.mission_alarm_message).title;
+      const stageTimeMs = Number(
+        sample._replayTsMs ?? sample.ut ?? sample.uptime_ms ?? state.updatedAt
+      );
+      state.timeHistory.push(isFinite(stageTimeMs) ? stageTimeMs : state.updatedAt);
       state.altitudeHistory.push(isFinite(state.altitudeM) ? state.altitudeM : 0);
       state.speedHistory.push(isFinite(state.speedMps) ? state.speedMps : 0);
       state.gforceHistory.push(isFinite(state.gforceG) ? state.gforceG : 1);
+      state.ascentAccelHistory.push(isFinite(ascentAccelG) ? ascentAccelG : 0);
+      trimStageTelemetryHistory(state.timeHistory);
       trimStageTelemetryHistory(state.altitudeHistory);
       trimStageTelemetryHistory(state.speedHistory);
       trimStageTelemetryHistory(state.gforceHistory);
+      trimStageTelemetryHistory(state.ascentAccelHistory);
       recordDashboardStageLinkChartSample(stageId, state.data);
 
       if(stageId === 1 && flashLinkUiStage2Mode){
@@ -18002,23 +18115,26 @@ function requestMobileMockup3dMesh(){
       return lo;
     }
 
-    function getViewIndices(data, view){
+    function getViewIndices(data, view, timeData){
       const len=data.length;
       if(len===0) return {start:0,end:-1};
+      const timeline = Array.isArray(timeData) && timeData.length === len
+        ? timeData
+        : chartTimeHistory;
 
-      if(view && view.windowMs && chartTimeHistory.length === len){
+      if(view && view.windowMs && timeline.length === len){
         let windowMs = view.windowMs;
         const allowSmallWindow = !!view.allowSmallWindow;
         if(windowMs < CHART_WINDOW_MS_MIN) windowMs = allowSmallWindow ? Math.max(1000, windowMs) : CHART_WINDOW_MS_MIN;
         if(windowMs > CHART_WINDOW_MS_MAX) windowMs = CHART_WINDOW_MS_MAX;
 
-        const lastTime = chartTimeHistory[len - 1] || 0;
+        const lastTime = timeline[len - 1] || 0;
         let startMs = view.startMs;
-        if(startMs == null) startMs = lastTime - windowMs;
+        if(startMs == null || timeline !== chartTimeHistory) startMs = lastTime - windowMs;
         const endMs = startMs + windowMs;
 
-        const start = Math.min(len - 1, lowerBoundNumber(chartTimeHistory, startMs));
-        const end = Math.max(start, Math.min(len - 1, upperBoundNumber(chartTimeHistory, endMs) - 1));
+        const start = Math.min(len - 1, lowerBoundNumber(timeline, startMs));
+        const end = Math.max(start, Math.min(len - 1, upperBoundNumber(timeline, endMs) - 1));
         return {start, end};
       }
 
@@ -18173,25 +18289,33 @@ function requestMobileMockup3dMesh(){
       return {min:safeMin - pad, max:safeMax + pad};
     }
 
-    function getChartTimeMeta(dataLength, indices){
-      if(chartTimeHistory.length !== dataLength) return null;
-      if(indices.start < 0 || indices.end >= chartTimeHistory.length || indices.end <= indices.start) return null;
-      const originMs = isFinite(Number(firstSampleMs)) ? Number(firstSampleMs) : Number(chartTimeHistory[0] || 0);
-      const firstMs = Number(chartTimeHistory[indices.start]);
-      const lastMs = Number(chartTimeHistory[indices.end]);
+    function getChartTimeMeta(dataLength, indices, timeData){
+      const timeline = Array.isArray(timeData) && timeData.length === dataLength
+        ? timeData
+        : chartTimeHistory;
+      if(timeline.length !== dataLength) return null;
+      if(indices.start < 0 || indices.end >= timeline.length || indices.end <= indices.start) return null;
+      const usingStageTimeline = timeline !== chartTimeHistory;
+      const originMs = usingStageTimeline
+        ? Number(timeline[0] || 0)
+        : (isFinite(Number(firstSampleMs)) ? Number(firstSampleMs) : Number(timeline[0] || 0));
+      const firstMs = Number(timeline[indices.start]);
+      const lastMs = Number(timeline[indices.end]);
       if(!isFinite(firstMs) || !isFinite(lastMs)) return null;
       const min = (firstMs - originMs) / 1000;
       const max = (lastMs - originMs) / 1000;
       return {
         originMs,
         min,
-        max: (max > min) ? max : (min + 1)
+        max: (max > min) ? max : (min + 1),
+        timeline
       };
     }
 
     function chartTimeValueSec(timeMeta, absoluteIndex, fallbackIndex){
       if(!timeMeta) return fallbackIndex;
-      const ms = Number(chartTimeHistory[absoluteIndex]);
+      const timeline = timeMeta.timeline || chartTimeHistory;
+      const ms = Number(timeline[absoluteIndex]);
       if(!isFinite(ms)) return fallbackIndex;
       return (ms - timeMeta.originMs) / 1000;
     }
@@ -18290,7 +18414,7 @@ function requestMobileMockup3dMesh(){
         ctx.restore();
         return;
       }
-      const indices=getViewIndices(data,view);
+      const indices=getViewIndices(data,view,opts.timeData);
       if(indices.end<indices.start) return;
 
       const count = indices.end - indices.start + 1;
@@ -18298,7 +18422,7 @@ function requestMobileMockup3dMesh(){
       const valueAt = (typeof opts.valueMap === "function")
         ? (index)=>opts.valueMap(data[index], index)
         : (index)=>data[index];
-      const timeMeta = getChartTimeMeta(data.length, indices);
+      const timeMeta = getChartTimeMeta(data.length, indices, opts.timeData);
       const plotBox = getChartPlotBox(width, height);
       const plotLeft = plotBox.left;
       const plotTop = plotBox.top;
@@ -18330,7 +18454,7 @@ function requestMobileMockup3dMesh(){
       const yMax = yAxis.max;
       const ySpan = (yMax - yMin) || 1;
       const xMin = timeMeta ? timeMeta.min : 0;
-      const xMax = timeMeta ? timeMeta.max : Math.max(1, slice.length - 1);
+      const xMax = timeMeta ? timeMeta.max : Math.max(1, count - 1);
       const xSpan = (xMax - xMin) || 1;
       const xAxis = buildNiceTicks(xMin, xMax, width < 260 ? 3 : (width < 420 ? 4 : 5));
       const xTicks = xAxis.ticks.map((value)=>{
@@ -18539,9 +18663,10 @@ function requestMobileMockup3dMesh(){
       });
     }
 
-    function drawChartDualAxis(canvasId, leftData, rightData, leftColor, rightColor, view){
+    function drawChartDualAxis(canvasId, leftData, rightData, leftColor, rightColor, view, options){
       const canvas = document.getElementById(canvasId);
       if(!canvas) return;
+      const opts = options || {};
       const size = ensureCanvasSize(canvas);
       if(!size) return;
       const {w:width, h:height, ctx} = size;
@@ -18557,7 +18682,7 @@ function requestMobileMockup3dMesh(){
         ctx.restore();
         return;
       }
-      const indices = getViewIndices(base, view);
+      const indices = getViewIndices(base, view, opts.timeData);
       if(indices.end < indices.start) return;
       const rangeFor = (data)=>{
         let min = Infinity, max = -Infinity;
@@ -18576,7 +18701,7 @@ function requestMobileMockup3dMesh(){
       const rightAxis = buildNiceTicks(rightRange.min, rightRange.max, height < 220 ? 4 : 5);
       const leftSpan = (leftAxis.max - leftAxis.min) || 1;
       const rightSpan = (rightAxis.max - rightAxis.min) || 1;
-      const timeMeta = getChartTimeMeta(base.length, indices);
+      const timeMeta = getChartTimeMeta(base.length, indices, opts.timeData);
       const xMin = timeMeta ? timeMeta.min : 0;
       const xMax = timeMeta ? timeMeta.max : Math.max(1, indices.end - indices.start);
       const xSpan = (xMax - xMin) || 1;
@@ -18659,21 +18784,37 @@ function requestMobileMockup3dMesh(){
     }
 
     function redrawCharts(){
+      const selectedStage = stageTelemetryModeActive
+        ? stageTelemetryStore[dashboardTelemetryStageId]
+        : null;
+      const selectedStageHasData = !!(selectedStage && selectedStage.valid);
+      const flightAltitudeHistory = selectedStageHasData
+        ? selectedStage.altitudeHistory
+        : (selectedStage ? [] : quickAltitudeHistory);
+      const flightAccelHistory = selectedStageHasData
+        ? selectedStage.ascentAccelHistory
+        : (selectedStage ? [] : ascentAccelHistory);
+      const flightTimeHistory = selectedStageHasData
+        ? selectedStage.timeHistory
+        : null;
       drawChart("thrustChart", thrustBaseHistory, "#ef4444", chartView, {valueMap: convertThrustForDisplay});
       drawChart("pressureChart", pressureBaseHistory, "#3b82f6", chartView);
       drawChart("accelChart", accelMagHistory, "#f59e0b", chartView);
-      drawChart("accelChartFlight", quickAltitudeHistory, "#16a34a", chartView);
+      drawChart("accelChartFlight", flightAltitudeHistory, "#16a34a", chartView, {
+        timeData:flightTimeHistory
+      });
       drawChartMulti("accelXYZChart",
         [accelXHistory, accelYHistory, accelZHistory],
         ["#ef4444", "#22c55e", "#3b82f6"],
         chartView);
       drawChartDualAxis(
         "accelXYZChartFlight",
-        ascentAccelHistory,
-        quickAltitudeHistory,
+        flightAccelHistory,
+        flightAltitudeHistory,
         "#f59e0b",
         "#16a34a",
-        chartView
+        chartView,
+        {timeData:flightTimeHistory}
       );
       renderMobileChartPreview();
     }
@@ -26251,6 +26392,10 @@ function requestMobileMockup3dMesh(){
           chartView.windowMs = windowMs;
           chartView.allowSmallWindow = false;
           chartView.startMs = lastTime - windowMs;
+        }
+
+        if(stageTelemetryModeActive){
+          syncDashboardSelectedStageTelemetry();
         }
 
         const nowPerf=(typeof performance!=="undefined" && performance.now) ? performance.now() : Date.now();

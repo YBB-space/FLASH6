@@ -3,6 +3,19 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 dashboard stage selector b107 — 2026-07-27
+
+Firmware build: `v6 b39` (unchanged)
+Protocol: `Flash6-Intelligent-b8` (unchanged)
+
+- Turned the Stage 1 and Stage 2 overview cards into accessible telemetry
+  selectors without changing the active HUD or vehicle-control target.
+- Switched Quick Data, flight altitude, and acceleration/altitude charts to
+  the selected vehicle immediately, including an explicit no-data state for
+  an unavailable stage.
+- Added independent per-stage chart timelines and acceleration histories so
+  relayed Stage 2 samples no longer reuse Stage 1 chart data.
+
 ## 0.9.9 — v6 b39 / FLASH6 stage-2 link quality b106 — 2026-07-27
 
 Protocol: `Flash6-Intelligent-b8` (unchanged)

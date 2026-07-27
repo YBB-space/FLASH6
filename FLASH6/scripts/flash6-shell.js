@@ -707,6 +707,13 @@
       motorCard:null,
       stages:Object.create(null)
     };
+    function setDashboardTelemetryStage(stageId){
+      const next = Number(stageId) === 2 ? 2 : 1;
+      dashboardTelemetryStageId = next;
+      updateStageTelemetryDashboard();
+      syncDashboardSelectedStageTelemetry();
+      if(typeof redrawCharts === "function") redrawCharts();
+    }
     function getStageTelemetryDashboardNodes(){
       const root = el.stageTelemetryDeck;
       if(!root) return null;
@@ -720,6 +727,15 @@
         const values = Object.create(null);
         ["link", "phase", "altitude", "speed", "gforce", "rate", "chip", "perf", "power", "event"].forEach((key)=>{
           values[key] = card.querySelector('[data-stage-value="' + key + '"]');
+        });
+        card.setAttribute("role", "button");
+        card.setAttribute("tabindex", "0");
+        card.setAttribute("aria-label", "STAGE " + stageId + " 텔레메트리 보기");
+        card.addEventListener("click", ()=>setDashboardTelemetryStage(stageId));
+        card.addEventListener("keydown", (event)=>{
+          if(event.key !== "Enter" && event.key !== " ") return;
+          event.preventDefault();
+          setDashboardTelemetryStage(stageId);
         });
         stageTelemetryDashboardCache.stages[stageId] = {card, values};
       });
@@ -764,7 +780,8 @@
         // explicit OFFLINE / NO DATA card while second-stage operation is off.
         setStageTelemetryClass(nodes.card, "hidden", false);
         setStageTelemetryClass(nodes.card, "is-linked", !!state.connected);
-        setStageTelemetryClass(nodes.card, "is-active-hud", cameraHudActiveStageId === stageId);
+        setStageTelemetryClass(nodes.card, "is-selected", dashboardTelemetryStageId === stageId);
+        nodes.card.setAttribute("aria-pressed", dashboardTelemetryStageId === stageId ? "true" : "false");
         const stageData = state.data || null;
         const stageRate = Number(stageData && (stageData.stage_rx_hz ?? stageData.rx_hz ?? stageData.fl_rx_hz));
         const stageChip = Number(stageData && (stageData.chip_temp_c ?? stageData.ctemp ?? stageData.chip_temp));
@@ -781,6 +798,84 @@
         setStageTelemetryText(nodes.values.power, state.valid ? stageTelemetryPowerText(stageData) : "N");
         setStageTelemetryText(nodes.values.event, state.lastEvent || "--");
       });
+    }
+
+    function syncDashboardSelectedStageTelemetry(){
+      if(!stageTelemetryModeActive || !isFlightModeUi()) return;
+      const state = stageTelemetryStore[dashboardTelemetryStageId];
+      const data = state && state.valid ? state.data : null;
+      const altitudeM = data && isFinite(state.altitudeM) ? state.altitudeM : NaN;
+      const speedMps = data && isFinite(state.speedMps) ? state.speedMps : NaN;
+      if(el.thrust){
+        el.thrust.innerHTML = isFinite(altitudeM)
+          ? `<span class="num">${altitudeM.toFixed(1)}</span><span class="unit">m</span>`
+          : `<span class="num">--</span><span class="unit">m</span>`;
+      }
+      if(el.pressure){
+        el.pressure.innerHTML = isFinite(speedMps)
+          ? `<span class="num">${Math.max(0, speedMps).toFixed(1)}</span><span class="unit">m/s</span>`
+          : `<span class="num">--</span><span class="unit">m/s</span>`;
+      }
+
+      const delayMs = Number(data && (data.ignition_delay_ms ?? data.ignitionDelayMs));
+      const delayText = isFinite(delayMs) && delayMs >= 0 ? (delayMs / 1000).toFixed(2) : "--";
+      updateNumValue(el.quickMetricDelay, delayText, "S");
+      updateNumValue(el.motorDelay, delayText, "S");
+
+      if(el.quickState){
+        const phase = data ? stageTelemetryPhaseLabel(data) : "NO DATA";
+        el.quickState.innerHTML = `<span class="num">${String(phase).replace(/_/g, "<br>")}</span>`;
+        setQuickItemStatus(el.quickState, state && state.connected ? "ok" : (state && state.valid ? "warn" : null));
+      }
+
+      const storageRaw = data && (
+        data.storage_ready ?? data.spi_flash_ready ?? data.sd_ready ?? data.sr
+      );
+      const storageKnown = storageRaw != null && isFinite(Number(storageRaw));
+      const storageReady = storageKnown && Number(storageRaw) !== 0;
+      updateNumValue(el.quickHxHz, storageKnown ? (storageReady ? "READY" : "NOT READY") : "--");
+      setQuickItemStatus(el.quickHxHz, storageKnown ? (storageReady ? "ok" : "warn") : null);
+
+      const armRaw = data && (data.sp ?? data.physical_arm ?? data.s);
+      const armKnown = armRaw != null && isFinite(Number(armRaw));
+      const armOn = armKnown && Number(armRaw) !== 0;
+      updateNumValue(el.quickSw, armKnown ? (armOn ? "ON" : "OFF") : "--");
+      if(el.quickSw){
+        let lockLabel = el.quickSw.querySelector(".quick-arm-lock");
+        const lockOn = !!(data && Number(data.al ?? data.arm_lock ?? 0));
+        if(!lockLabel){
+          lockLabel = document.createElement("span");
+          lockLabel.className = "quick-arm-lock";
+          lockLabel.textContent = "(LOCK ON)";
+          el.quickSw.appendChild(lockLabel);
+        }
+        lockLabel.hidden = !lockOn;
+        setQuickItemStatus(el.quickSw, armKnown ? (armOn ? "ok" : "warn") : null);
+      }
+
+      const relayRaw = data && (data.r ?? data.rly);
+      const relayKnown = relayRaw != null && isFinite(Number(relayRaw));
+      const relayMask = relayKnown ? Math.max(0, Number(relayRaw) | 0) : 0;
+      const activePyro = [];
+      if(relayKnown){
+        for(let channel=1; channel<=4; channel++){
+          if((relayMask & (1 << (channel - 1))) !== 0) activePyro.push("CH" + channel);
+        }
+      }
+      const pyroText = relayKnown ? (activePyro.length ? activePyro.join(",") : "ALL OFF") : "--";
+      updateNumValue(el.quickRelay1, pyroText);
+      updateNumValue(el.quickMetricPyro, pyroText);
+      setQuickItemStatus(el.quickRelay1, relayKnown ? (activePyro.length ? "ok" : "warn") : null);
+
+      const roll = Number(data && (data.gr ?? data.gyro_roll_deg ?? data.roll_deg));
+      const pitch = Number(data && (data.gp ?? data.gyro_pitch_deg ?? data.pitch_deg));
+      const yaw = Number(data && (data.gyw ?? data.gyro_yaw_deg ?? data.yaw_deg));
+      updateNumValue(el.quickRelay2, isFinite(roll) ? roll.toFixed(1) : "--", "deg");
+      updateNumValue(el.motorBurn, isFinite(pitch) ? pitch.toFixed(1) : "--", "deg");
+      updateNumValue(el.quickNullValue, isFinite(yaw) ? yaw.toFixed(1) : "--", "deg");
+      setQuickItemStatus(el.quickRelay2, null);
+      setQuickItemStatus(el.motorBurn, null);
+      setQuickItemStatus(el.quickNullValue, null);
     }
 
     function setAutomaticActiveStage(stageId, reason){
@@ -858,6 +953,13 @@
         // attitude; that makes the gyro bounce backward and forward.
         return;
       }
+      if(sequenceReset){
+        state.timeHistory.length = 0;
+        state.altitudeHistory.length = 0;
+        state.speedHistory.length = 0;
+        state.gforceHistory.length = 0;
+        state.ascentAccelHistory.length = 0;
+      }
       if(recordOptions.reuseSample){
         sample.stage_node_id = stageId;
         sample.data_origin = "avionics";
@@ -875,17 +977,25 @@
       const altitudeM = Number(sample.alt_m);
       const speedMps = readQuickTelemetrySpeedMps(sample);
       const gforceG = calcTotalAccelG(Number(sample.ax) || 0, Number(sample.ay) || 0, Number(sample.az) || 0);
+      const ascentAccelG = calcAscentAccelG(Number(sample.ax), Number(sample.ay), Number(sample.az));
       if(isFinite(altitudeM)) state.altitudeM = Math.abs(altitudeM) < .05 ? 0 : altitudeM;
       if(isFinite(speedMps)) state.speedMps = Math.max(0, speedMps);
       if(isFinite(gforceG)) state.gforceG = Math.max(0, gforceG);
       const alarmTitle = String(sample.mission_alarm_title || "").trim();
       if(alarmTitle) state.lastEvent = localizeFirmwareMissionAlarm(alarmTitle, sample.mission_alarm_message).title;
+      const stageTimeMs = Number(
+        sample._replayTsMs ?? sample.ut ?? sample.uptime_ms ?? state.updatedAt
+      );
+      state.timeHistory.push(isFinite(stageTimeMs) ? stageTimeMs : state.updatedAt);
       state.altitudeHistory.push(isFinite(state.altitudeM) ? state.altitudeM : 0);
       state.speedHistory.push(isFinite(state.speedMps) ? state.speedMps : 0);
       state.gforceHistory.push(isFinite(state.gforceG) ? state.gforceG : 1);
+      state.ascentAccelHistory.push(isFinite(ascentAccelG) ? ascentAccelG : 0);
+      trimStageTelemetryHistory(state.timeHistory);
       trimStageTelemetryHistory(state.altitudeHistory);
       trimStageTelemetryHistory(state.speedHistory);
       trimStageTelemetryHistory(state.gforceHistory);
+      trimStageTelemetryHistory(state.ascentAccelHistory);
       recordDashboardStageLinkChartSample(stageId, state.data);
 
       if(stageId === 1 && flashLinkUiStage2Mode){

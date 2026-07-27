@@ -1684,6 +1684,10 @@
           chartView.startMs = lastTime - windowMs;
         }
 
+        if(stageTelemetryModeActive){
+          syncDashboardSelectedStageTelemetry();
+        }
+
         const nowPerf=(typeof performance!=="undefined" && performance.now) ? performance.now() : Date.now();
         if(forceReplayUi || nowPerf-lastChartRedraw>=CHART_MIN_INTERVAL){
           redrawCharts();

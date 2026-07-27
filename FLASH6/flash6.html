@@ -127,7 +127,7 @@
   <!-- Preload 축소: AP 모드/저메모리 환경에서 동시 요청 버스트를 줄임 -->
   <script>
     (function(){
-    var ASSET_VER = "20260727-stage2-link-quality-b106-__FLASH6_DEPLOY_SHA__";
+    var ASSET_VER = "20260727-dashboard-stage-selector-b107-__FLASH6_DEPLOY_SHA__";
       window.__flashBoot = window.__flashBoot || {jsReady:false,lastError:"",phase:"static_loader",version:ASSET_VER};
       var isLocalPreview = !!window.__flashBoot.localPreview;
       var beaconEnabled = (window.__flashBoot.beaconEnabled !== false);
@@ -365,7 +365,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="styles/flash6.css?v=20260727-stage2-link-quality-b106-__FLASH6_DEPLOY_SHA__">
+  <link rel="stylesheet" href="styles/flash6.css?v=20260727-dashboard-stage-selector-b107-__FLASH6_DEPLOY_SHA__">
 </head>
 <body>
   <!-- ✅ LOCKOUT 배경 오버레이 -->
@@ -1168,7 +1168,7 @@
         <div class="status-map-layout">
           <aside class="stage-overview-panel">
             <div id="stageTelemetryDeck" class="stage-telemetry-deck hidden" aria-label="1단 및 2단 텔레메트리">
-              <article class="stage-telemetry-card" data-stage-card="1">
+              <article class="stage-telemetry-card is-selected" data-stage-card="1" role="button" tabindex="0" aria-pressed="true" aria-label="STAGE 1 텔레메트리 보기">
                 <header>
                   <div><span>VEHICLE</span><strong>STAGE 1</strong></div>
                   <em data-stage-value="link">OFFLINE</em>
@@ -1187,7 +1187,7 @@
                 </div>
                 <footer><span>LAST EVENT</span><b data-stage-value="event">--</b></footer>
               </article>
-              <article class="stage-telemetry-card" data-stage-card="2">
+              <article class="stage-telemetry-card" data-stage-card="2" role="button" tabindex="0" aria-pressed="false" aria-label="STAGE 2 텔레메트리 보기">
                 <header>
                   <div><span>VEHICLE</span><strong>STAGE 2</strong></div>
                   <em data-stage-value="link">OFFLINE</em>

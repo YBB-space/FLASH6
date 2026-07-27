@@ -110,8 +110,9 @@ html[data-theme="dark"] body :is(
     background:var(--ui-surface) !important;
     box-shadow:none !important;
   }
-  body.dashboard-view-active #dashboardView .stage-overview-panel .stage-telemetry-card.is-active-hud{
-    border-color:#45484f !important;
+  body.dashboard-view-active #dashboardView .stage-overview-panel .stage-telemetry-card.is-selected{
+    border-color:#555a63 !important;
+    background:#15181d !important;
   }
   body.dashboard-view-active #dashboardView .stage-telemetry-metrics > span,
   body.dashboard-view-active #dashboardView :is(.stage-telemetry-health,.stage-telemetry-card footer){

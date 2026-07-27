@@ -7282,23 +7282,26 @@
       return lo;
     }
 
-    function getViewIndices(data, view){
+    function getViewIndices(data, view, timeData){
       const len=data.length;
       if(len===0) return {start:0,end:-1};
+      const timeline = Array.isArray(timeData) && timeData.length === len
+        ? timeData
+        : chartTimeHistory;
 
-      if(view && view.windowMs && chartTimeHistory.length === len){
+      if(view && view.windowMs && timeline.length === len){
         let windowMs = view.windowMs;
         const allowSmallWindow = !!view.allowSmallWindow;
         if(windowMs < CHART_WINDOW_MS_MIN) windowMs = allowSmallWindow ? Math.max(1000, windowMs) : CHART_WINDOW_MS_MIN;
         if(windowMs > CHART_WINDOW_MS_MAX) windowMs = CHART_WINDOW_MS_MAX;
 
-        const lastTime = chartTimeHistory[len - 1] || 0;
+        const lastTime = timeline[len - 1] || 0;
         let startMs = view.startMs;
-        if(startMs == null) startMs = lastTime - windowMs;
+        if(startMs == null || timeline !== chartTimeHistory) startMs = lastTime - windowMs;
         const endMs = startMs + windowMs;
 
-        const start = Math.min(len - 1, lowerBoundNumber(chartTimeHistory, startMs));
-        const end = Math.max(start, Math.min(len - 1, upperBoundNumber(chartTimeHistory, endMs) - 1));
+        const start = Math.min(len - 1, lowerBoundNumber(timeline, startMs));
+        const end = Math.max(start, Math.min(len - 1, upperBoundNumber(timeline, endMs) - 1));
         return {start, end};
       }
 

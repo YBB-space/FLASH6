@@ -6119,9 +6119,11 @@ function requestMobileMockup3dMesh(){
         speedMps:NaN,
         gforceG:NaN,
         lastEvent:"--",
+        timeHistory:[],
         altitudeHistory:[],
         speedHistory:[],
-        gforceHistory:[]
+        gforceHistory:[],
+        ascentAccelHistory:[]
       };
     }
     const stageTelemetryStore = {
@@ -6129,6 +6131,7 @@ function requestMobileMockup3dMesh(){
       2:createStageTelemetryState(2)
     };
     let stageTelemetryModeActive = false;
+    let dashboardTelemetryStageId = 1;
     let cameraHudActiveStageId = 1;
     let cameraHudStageSwitchLatched = false;
     let lastMissionStandbyAckKey = "";
