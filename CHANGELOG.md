@@ -3,6 +3,14 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 dashboard telemetry refinement b111 — 2026-07-27
+
+Firmware build unchanged, protocol unchanged.
+
+- Kept the established dashboard geometry while rebuilding the selected-stage readout hierarchy.
+- Changed secondary telemetry from squeezed inline rows to compact label-over-value instruments.
+- Increased primary value presence and prevented state, delay, and attitude values from being visually truncated.
+
 ## FLASH6 dashboard telemetry rebuild b110 — 2026-07-27
 
 Firmware build: `v6 b39` (unchanged)
