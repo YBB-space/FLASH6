@@ -1938,6 +1938,7 @@
       const body = overlay.querySelector("#dataListBody");
       if(!body) return;
       const selectedView = getDataListView(overlay._originFilter);
+      const detailsOpen = !!overlay._dataListDetailsOpen || !!overlay._downloadSelectMode;
       let boardItems = (Array.isArray(overlay._boardItems) ? overlay._boardItems : [])
         .filter((item)=>selectedView === "avionics" && String(item && item.origin || "").toLowerCase() === "avionics");
       const stageNodes = remoteStorageStageNodes();
@@ -1950,16 +1951,46 @@
           normalizeStorageStageNode(item.storageStage || item.stage_node) === selectedStage
         );
       }
-      const appItems = (Array.isArray(overlay._appItems) ? overlay._appItems : [])
+      let appItems = (Array.isArray(overlay._appItems) ? overlay._appItems : [])
         .filter(()=>selectedView === "app");
+      const defaultGroup = selectedView === "app"
+        ? "app"
+        : ("board-stage-" + String(selectedStage || 1));
+      const expandedGroup = detailsOpen
+        ? String(overlay._dataListExpandedGroup || defaultGroup)
+        : "";
+      if(detailsOpen){
+        overlay._dataListExpandedGroup = expandedGroup;
+        if(expandedGroup === "app"){
+          boardItems = [];
+        }else{
+          appItems = [];
+          const groupStageMatch = expandedGroup.match(/^board-stage-([12])$/);
+          const groupStage = groupStageMatch
+            ? normalizeStorageStageNode(groupStageMatch[1])
+            : 0;
+          if(groupStage){
+            boardItems = boardItems.filter((item)=>{
+              const itemStage = normalizeStorageStageNode(item.storageStage || item.stage_node);
+              return itemStage === groupStage || (!itemStage && stageNodes.length === 1);
+            });
+          }
+        }
+      }
       const visibleItems = boardItems.concat(appItems);
       overlay._dataItems = visibleItems;
-      const detailsOpen = !!overlay._dataListDetailsOpen || !!overlay._downloadSelectMode;
       const previewLimit = 3;
       overlay.classList.toggle("is-data-list-expanded", detailsOpen);
       const title = overlay.querySelector("#dataListTitle");
       const back = overlay.querySelector("#dataListBackBtn");
-      if(title) title.textContent = detailsOpen ? "전체 비행 데이터" : "저장공간";
+      if(title){
+        const expandedStageMatch = expandedGroup.match(/^board-stage-([12])$/);
+        title.textContent = !detailsOpen
+          ? "저장공간"
+          : (expandedGroup === "app"
+              ? "APP 비행 데이터"
+              : ("STAGE " + String(expandedStageMatch ? expandedStageMatch[1] : selectedStage || 1) + " 비행 데이터"));
+      }
       if(back) back.hidden = !detailsOpen;
 
       const escapeHtml = (text)=>String(text).replace(/[&<>"']/g, (ch)=>({
@@ -2078,6 +2109,7 @@
         stopDataListLiveStatus();
         overlay._downloadSelectMode = false;
         overlay._dataListDetailsOpen = false;
+        overlay._dataListExpandedGroup = "";
         overlay.classList.remove("is-data-list-expanded");
         overlay.classList.remove("is-open");
         setTimeout(()=>{
@@ -2093,6 +2125,7 @@
         backBtn.addEventListener("click", ()=>{
           overlay._downloadSelectMode = false;
           overlay._dataListDetailsOpen = false;
+          overlay._dataListExpandedGroup = "";
           const download = overlay.querySelector("#dataStorageDownloadBtn");
           if(download) download.textContent = "다운로드";
           renderDataListSummary(
@@ -2114,6 +2147,7 @@
               : "app";
           overlay._downloadSelectMode = false;
           overlay._dataListDetailsOpen = false;
+          overlay._dataListExpandedGroup = "";
           const download = overlay.querySelector("#dataStorageDownloadBtn");
           if(download) download.textContent = "다운로드";
           renderDataListSummary(
@@ -2136,6 +2170,7 @@
           overlay._selectedStorageStage = stageNode;
           overlay._downloadSelectMode = false;
           overlay._dataListDetailsOpen = false;
+          overlay._dataListExpandedGroup = "";
           const download = overlay.querySelector("#dataStorageDownloadBtn");
           if(download) download.textContent = "다운로드";
           renderDataListSummary(
@@ -2161,6 +2196,9 @@
           stopDataListLiveStatus();
           overlay._downloadSelectMode = true;
           overlay._dataListDetailsOpen = true;
+          overlay._dataListExpandedGroup = getDataListView(overlay._originFilter) === "app"
+            ? "app"
+            : ("board-stage-" + String(selectedRemoteStorageStage(overlay) || 1));
           renderDataListItems(overlay);
           downloadBtn.textContent = "저장 기록을 선택하세요";
           const summary = overlay.querySelector("#dataListSummary");
@@ -2174,6 +2212,9 @@
           const moreBtn = ev.target && ev.target.closest ? ev.target.closest("[data-data-list-more]") : null;
           if(moreBtn){
             overlay._dataListDetailsOpen = true;
+            overlay._dataListExpandedGroup = String(
+              moreBtn.getAttribute("data-data-list-more") || ""
+            );
             renderDataListItems(overlay);
             const listBody = overlay.querySelector("#dataListBody");
             if(listBody) listBody.scrollTop = 0;
@@ -2340,6 +2381,7 @@
       overlay._appSessions = appSessions;
       overlay._downloadSelectMode = false;
       overlay._dataListDetailsOpen = false;
+      overlay._dataListExpandedGroup = "";
       overlay.classList.remove("is-data-list-expanded");
       renderDataListSummary(
         summary,
