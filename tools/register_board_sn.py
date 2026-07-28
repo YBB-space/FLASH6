@@ -308,12 +308,18 @@ def query_board_identity(preferred_port: str, timeout_s: float = 12.0) -> tuple[
     raise RuntimeError(last_error)
 
 
-def register_after_upload(source, target, build_env) -> None:
-    project_dir = Path(build_env.subst("$PROJECT_DIR"))
+def register_after_upload(target, source, env) -> None:
+    """SCons post-upload callback.
+
+    SCons invokes Python actions with the keyword arguments ``target``,
+    ``source`` and ``env``.  Keep these exact parameter names so a successful
+    firmware upload is not reported as failed while running the registry hook.
+    """
+    project_dir = Path(env.subst("$PROJECT_DIR"))
     registry = project_dir / REGISTRY_NAME
     if not registry.exists():
         write_registry(registry, [])
-    preferred_port = build_env.subst("$UPLOAD_PORT")
+    preferred_port = env.subst("$UPLOAD_PORT")
     try:
         serial_number, actual_port = query_board_identity(preferred_port)
         append_serial(project_dir, serial_number, actual_port)
