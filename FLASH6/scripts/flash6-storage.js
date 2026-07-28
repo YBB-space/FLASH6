@@ -994,6 +994,38 @@
       return [selected || 1];
     }
 
+    function selectedRemoteStorageStage(overlay){
+      const stageNodes = remoteStorageStageNodes();
+      const current = normalizeStorageStageNode(
+        overlay && overlay._selectedStorageStage
+      );
+      const selected = stageNodes.indexOf(current) >= 0
+        ? current
+        : (stageNodes[0] || 1);
+      if(overlay) overlay._selectedStorageStage = selected;
+      return selected;
+    }
+
+    function syncRemoteStorageStageSelector(overlay){
+      if(!overlay) return;
+      const selector = overlay.querySelector("[data-storage-stage-selector]");
+      const stageNodes = remoteStorageStageNodes();
+      const boardView = getDataListView(overlay._originFilter) === "avionics";
+      const visible = boardView &&
+        isFlashLinkGroundStorageUi() &&
+        stageNodes.length > 1;
+      if(selector) selector.hidden = !visible;
+      const selected = selectedRemoteStorageStage(overlay);
+      overlay.querySelectorAll("[data-storage-stage]").forEach((button)=>{
+        const stageNode = normalizeStorageStageNode(
+          button.getAttribute("data-storage-stage")
+        );
+        const active = visible && stageNode === selected;
+        button.classList.toggle("is-active", active);
+        button.setAttribute("aria-selected", active ? "true" : "false");
+      });
+    }
+
     function updateRemoteSpiFlashInfo(info, requestedNodeId){
       const normalized = normalizeRemoteSpiFlashInfo(info);
       if(!normalized) return null;
@@ -1229,14 +1261,14 @@
       if(isFlashLinkGroundStorageUi() && stageNodes.length > 1){
         const infos = remoteStageInfo || {};
         const errors = remoteStageError || {};
-        summary.innerHTML =
-          '<div class="data-storage-stage-grid">' +
-            stageNodes.map((stageNode)=>renderStorageStageSummary(
-              stageNode,
-              infos[stageNode] || latestAvionicsStorageByStage[stageNode],
-              errors[stageNode]
-            )).join("") +
-          '</div>';
+        const overlay = summary.closest("#dataListOverlay");
+        const stageNode = selectedRemoteStorageStage(overlay);
+        summary.innerHTML = renderStorageStageSummary(
+          stageNode,
+          infos[stageNode] || latestAvionicsStorageByStage[stageNode],
+          errors[stageNode]
+        );
+        syncRemoteStorageStageSelector(overlay);
         return;
       }
       const remoteInfo = isFlashLinkGroundStorageUi()
@@ -1873,8 +1905,18 @@
       const body = overlay.querySelector("#dataListBody");
       if(!body) return;
       const selectedView = getDataListView(overlay._originFilter);
-      const boardItems = (Array.isArray(overlay._boardItems) ? overlay._boardItems : [])
+      let boardItems = (Array.isArray(overlay._boardItems) ? overlay._boardItems : [])
         .filter((item)=>selectedView === "avionics" && String(item && item.origin || "").toLowerCase() === "avionics");
+      const stageNodes = remoteStorageStageNodes();
+      const stageSelectionActive =
+        isFlashLinkGroundStorageUi() &&
+        stageNodes.length > 1;
+      const selectedStage = selectedRemoteStorageStage(overlay);
+      if(stageSelectionActive){
+        boardItems = boardItems.filter((item)=>
+          normalizeStorageStageNode(item.storageStage || item.stage_node) === selectedStage
+        );
+      }
       const appItems = (Array.isArray(overlay._appItems) ? overlay._appItems : [])
         .filter(()=>selectedView === "app");
       const visibleItems = boardItems.concat(appItems);
@@ -1923,18 +1965,12 @@
         }).join("") +
           renderMoreButton(Math.max(0, items.length - previewLimit), "board-stage-" + String(stageNode || 0));
       };
-      const stageNodes = remoteStorageStageNodes();
-      const boardHtml = isFlashLinkGroundStorageUi() && stageNodes.length > 1
-        ? stageNodes.map((stageNode)=>{
-            const stageItems = boardItems.filter((item)=>
-              normalizeStorageStageNode(item.storageStage || item.stage_node) === stageNode
-            );
-            return '<section class="data-storage-record-group">' +
-              '<div class="data-storage-record-group-head"><strong>STAGE ' + stageNode + '</strong><span>' +
-                stageItems.length.toLocaleString("ko-KR") + ' RECORDS</span></div>' +
-              renderBoardRows(stageItems, stageNode) +
-            '</section>';
-          }).join("")
+      const boardHtml = stageSelectionActive
+        ? '<section class="data-storage-record-group">' +
+            '<div class="data-storage-record-group-head"><strong>STAGE ' + selectedStage + '</strong><span>' +
+              boardItems.length.toLocaleString("ko-KR") + ' RECORDS</span></div>' +
+            renderBoardRows(boardItems, selectedStage) +
+          '</section>'
         : renderBoardRows(boardItems, 0);
       const appHtml = appItems.length
         ? appItems.slice(0, detailsOpen ? appItems.length : previewLimit).map((item)=>{
@@ -1961,6 +1997,7 @@
         button.classList.toggle("is-active", active);
         button.setAttribute("aria-selected", active ? "true" : "false");
       });
+      syncRemoteStorageStageSelector(overlay);
       syncDataStorageActionButtons();
     }
 
@@ -1989,6 +2026,10 @@
               '<div class="data-storage-surface-head">' +
                 '<div><strong>저장공간 상태</strong><span>STORAGE STATUS</span></div>' +
                 '<span class="data-storage-live">OVERVIEW</span>' +
+              '</div>' +
+              '<div class="data-storage-stage-selector" data-storage-stage-selector role="tablist" aria-label="에비오닉스 단 선택" hidden>' +
+                '<button class="is-active" type="button" role="tab" aria-selected="true" data-storage-stage="1">STAGE 1</button>' +
+                '<button type="button" role="tab" aria-selected="false" data-storage-stage="2">STAGE 2</button>' +
               '</div>' +
               '<div id="dataListSummary" class="agent-help-summary">저장공간 목록을 불러오는 중…</div>' +
               '<div class="data-storage-list-head"><strong>저장 기록</strong><span>항목을 선택하면 다운로드합니다.</span></div>' +
@@ -2020,6 +2061,28 @@
             button.getAttribute("data-data-origin-filter") === "avionics"
               ? "avionics"
               : "app";
+          overlay._downloadSelectMode = false;
+          overlay._dataListDetailsOpen = false;
+          const download = overlay.querySelector("#dataStorageDownloadBtn");
+          if(download) download.textContent = "다운로드";
+          renderDataListSummary(
+            overlay.querySelector("#dataListSummary"),
+            overlay._boardInfo || {},
+            Array.isArray(overlay._appSessions) ? overlay._appSessions : [],
+            overlay._originFilter,
+            overlay._remoteStageInfo,
+            overlay._remoteStageError
+          );
+          renderDataListItems(overlay);
+        });
+      });
+      overlay.querySelectorAll("[data-storage-stage]").forEach((button)=>{
+        button.addEventListener("click", ()=>{
+          const stageNode = normalizeStorageStageNode(
+            button.getAttribute("data-storage-stage")
+          );
+          if(!stageNode || stageNode === selectedRemoteStorageStage(overlay)) return;
+          overlay._selectedStorageStage = stageNode;
           overlay._downloadSelectMode = false;
           overlay._dataListDetailsOpen = false;
           const download = overlay.querySelector("#dataStorageDownloadBtn");
@@ -2138,6 +2201,16 @@
       const shouldLoadRemoteBoard = !appOnly && isFlashLinkGroundStorageUi();
       const shouldLoadLocalBoard = !appOnly && !shouldLoadRemoteBoard;
       const remoteNodes = shouldLoadRemoteBoard ? remoteStorageStageNodes() : [];
+      const requestedStage = normalizeStorageStageNode(options.stage);
+      if(remoteNodes.length > 1){
+        const currentStage = normalizeStorageStageNode(overlay._selectedStorageStage);
+        overlay._selectedStorageStage =
+          remoteNodes.indexOf(requestedStage) >= 0
+            ? requestedStage
+            : (remoteNodes.indexOf(currentStage) >= 0 ? currentStage : remoteNodes[0]);
+      }else if(remoteNodes.length === 1){
+        overlay._selectedStorageStage = remoteNodes[0];
+      }
       const remoteResultsPromise = (async()=>{
         const stageResults = {};
         for(const stageNode of remoteNodes){
