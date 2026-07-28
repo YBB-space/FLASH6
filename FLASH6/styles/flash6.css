@@ -23875,6 +23875,16 @@ body:has(#welcomeConnectScreen:not(.hidden)) #replayDataPickerOverlay.replay-dat
 .replay-data-picker-file.is-dragover .replay-data-picker-file-copy strong{
   color:#dce9ff;
 }
+.replay-data-picker-file.is-dual-stage{
+  background:#15181c;
+}
+.replay-data-picker-file.is-dual-stage .replay-data-picker-file-icon{
+  color:#aab7cb;
+}
+.replay-data-picker-file.is-dual-stage:hover{
+  border-color:#566274;
+  background:#1b2027;
+}
 .replay-data-picker-item:active,
 .replay-data-picker-file:active{
   transform:translateY(1px);

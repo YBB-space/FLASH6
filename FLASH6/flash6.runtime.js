@@ -986,6 +986,7 @@ if (typeof window !== "undefined") {
     let replayPickerTab = "flight";
     let replayPickerSessions = [];
     let replayRecentFileSelections = [];
+    let replayFileSelectionMode = "single";
     const REPLAY_SEEK_REBUILD_CHUNK = 900;
     const REPLAY_MIN_FRAME_DELAY_MS = 1;
     const REPLAY_MAX_FRAME_DELAY_MS = 120;
@@ -37897,6 +37898,7 @@ function requestMobileMockup3dMesh(){
       el.replayRecentSelectedTab = document.getElementById("replayRecentSelectedTab");
       el.replayDataSummary = document.getElementById("replayDataSummary");
       el.replayBrowseFileBtn = document.getElementById("replayBrowseFileBtn");
+      el.replayBrowseDualStageBtn = document.getElementById("replayBrowseDualStageBtn");
       el.replayProceedBtn = document.getElementById("replayProceedBtn");
       initMobilePreviewCarousel();
       initMobileChartPicker();
@@ -38850,8 +38852,34 @@ function requestMobileMockup3dMesh(){
           if(event.target === el.replayDataPickerOverlay) setReplayDataPickerVisible(false);
         });
       }
+      const openReplayFileSelection = (mode)=>{
+        if(!el.replayFileInput) return;
+        replayFileSelectionMode = mode === "dual" ? "dual" : "single";
+        el.replayFileInput.multiple = replayFileSelectionMode === "dual";
+        el.replayFileInput.value = "";
+        el.replayFileInput.click();
+      };
+      const validateReplayFileSelection = (files, mode)=>{
+        const selected = Array.isArray(files) ? files : [];
+        if(mode === "dual" && selected.length !== 2){
+          showToast(
+            "2단부 운용 리플레이는 1단과 2단 비행 데이터 2개를 함께 선택해야 합니다.",
+            "notice",
+            {key:"replay-dual-file-count"}
+          );
+          return false;
+        }
+        if(mode === "single" && selected.length !== 1){
+          showToast("단일 비행 데이터 1개를 선택하세요.", "notice", {key:"replay-single-file-count"});
+          return false;
+        }
+        return true;
+      };
       if(el.replayBrowseFileBtn && el.replayFileInput){
-        el.replayBrowseFileBtn.addEventListener("click",()=>el.replayFileInput.click());
+        el.replayBrowseFileBtn.addEventListener("click",()=>openReplayFileSelection("single"));
+      }
+      if(el.replayBrowseDualStageBtn && el.replayFileInput){
+        el.replayBrowseDualStageBtn.addEventListener("click",()=>openReplayFileSelection("dual"));
       }
       if(el.replayProceedBtn){
         el.replayProceedBtn.addEventListener("click",()=>proceedWithSelectedReplay());
@@ -38865,7 +38893,7 @@ function requestMobileMockup3dMesh(){
       if(el.replayFileBtn && el.replayFileInput){
         el.replayFileBtn.addEventListener("click",()=>showReplayDataPicker());
       }
-      const bindReplayFileDropTarget = (target)=>{
+      const bindReplayFileDropTarget = (target, mode)=>{
         if(!target) return;
         const hasDraggedFiles = (ev)=>{
           const transfer = ev && ev.dataTransfer;
@@ -38900,17 +38928,23 @@ function requestMobileMockup3dMesh(){
           const files = ev.dataTransfer && ev.dataTransfer.files
             ? Array.from(ev.dataTransfer.files)
             : [];
-          if(files.length) loadReplayFile(files);
+          const selectionMode = mode === "dual" ? "dual" : (mode === "single" ? "single" : "auto");
+          if(files.length &&
+             (selectionMode === "auto" || validateReplayFileSelection(files, selectionMode))){
+            loadReplayFile(files);
+          }
         });
       };
-      bindReplayFileDropTarget(el.replayFileBtn);
-      bindReplayFileDropTarget(el.replayBrowseFileBtn);
+      bindReplayFileDropTarget(el.replayFileBtn, "auto");
+      bindReplayFileDropTarget(el.replayBrowseFileBtn, "single");
+      bindReplayFileDropTarget(el.replayBrowseDualStageBtn, "dual");
       if(el.replayFileInput){
         el.replayFileInput.addEventListener("change", async ()=>{
           const files = el.replayFileInput.files
             ? Array.from(el.replayFileInput.files)
             : [];
           if(!files.length) return;
+          if(!validateReplayFileSelection(files, replayFileSelectionMode)) return;
           await loadReplayFile(files);
         });
       }

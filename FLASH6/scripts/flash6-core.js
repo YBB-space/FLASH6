@@ -985,6 +985,7 @@ if (typeof window !== "undefined") {
     let replayPickerTab = "flight";
     let replayPickerSessions = [];
     let replayRecentFileSelections = [];
+    let replayFileSelectionMode = "single";
     const REPLAY_SEEK_REBUILD_CHUNK = 900;
     const REPLAY_MIN_FRAME_DELAY_MS = 1;
     const REPLAY_MAX_FRAME_DELAY_MS = 120;

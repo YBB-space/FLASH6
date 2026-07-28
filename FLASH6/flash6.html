@@ -127,7 +127,7 @@
   <!-- Preload 축소: AP 모드/저메모리 환경에서 동시 요청 버스트를 줄임 -->
   <script>
     (function(){
-    var ASSET_VER = "20260728-replay-list-b126-__FLASH6_DEPLOY_SHA__";
+    var ASSET_VER = "20260728-dual-replay-picker-b127-__FLASH6_DEPLOY_SHA__";
       window.__flashBoot = window.__flashBoot || {jsReady:false,lastError:"",phase:"static_loader",version:ASSET_VER};
       var isLocalPreview = !!window.__flashBoot.localPreview;
       var beaconEnabled = (window.__flashBoot.beaconEnabled !== false);
@@ -365,7 +365,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="styles/flash6.css?v=20260728-replay-list-b126-__FLASH6_DEPLOY_SHA__">
+  <link rel="stylesheet" href="styles/flash6.css?v=20260728-dual-replay-picker-b127-__FLASH6_DEPLOY_SHA__">
 </head>
 <body>
   <!-- ✅ LOCKOUT 배경 오버레이 -->
@@ -3383,7 +3383,17 @@
               </span>
               <span class="replay-data-picker-file-copy">
                 <strong>비행 데이터 선택</strong>
-                <small>BIN, CSV, XLSX · 1·2단 파일 동시 선택 가능</small>
+                <small>BIN, CSV, XLSX · 단일 비행 기록</small>
+              </span>
+              <span class="replay-data-picker-file-arrow" aria-hidden="true">›</span>
+            </button>
+            <button id="replayBrowseDualStageBtn" class="replay-data-picker-file is-dual-stage" type="button" aria-label="1단과 2단 리플레이 파일 두 개 선택 또는 드래그 앤 드롭">
+              <span class="replay-data-picker-file-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><rect x="5" y="4" width="11" height="7" rx="1"></rect><rect x="8" y="13" width="11" height="7" rx="1"></rect><path d="M16 7.5h3v4"></path></svg>
+              </span>
+              <span class="replay-data-picker-file-copy">
+                <strong>2단부 운용 리플레이</strong>
+                <small>1단·2단 비행 데이터 2개 선택 · 자동 동기화</small>
               </span>
               <span class="replay-data-picker-file-arrow" aria-hidden="true">›</span>
             </button>
