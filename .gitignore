@@ -16,6 +16,8 @@
 main.d
 result.json
 *.o
+__pycache__/
+*.py[cod]
 
 # JavaScript dependencies and generated native bundles
 node_modules/

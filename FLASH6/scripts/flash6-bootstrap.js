@@ -564,6 +564,11 @@
       el.flashLinkStageStatus = document.getElementById("flashLinkStageStatus");
       el.flashLinkDataModeRow = document.getElementById("flashLinkDataModeRow");
       el.flashLinkDataModeSelect = document.getElementById("flashLinkDataModeSelect");
+      el.flashLinkBindingSection = document.getElementById("flashLinkBindingSection");
+      el.flashLinkScanBtn = document.getElementById("flashLinkScanBtn");
+      el.flashLinkGroundSerial = document.getElementById("flashLinkGroundSerial");
+      el.flashLinkBindingSlots = document.getElementById("flashLinkBindingSlots");
+      el.flashLinkDeviceList = document.getElementById("flashLinkDeviceList");
       el.flashLinkStatus = document.getElementById("flashLinkStatus");
       el.flashLinkStatusText = document.getElementById("flashLinkStatusText");
       el.flashLinkRate = document.getElementById("flashLinkRate");
@@ -5340,6 +5345,11 @@
           );
         });
       }
+      if(el.flashLinkScanBtn){
+        el.flashLinkScanBtn.addEventListener("click", ()=>{
+          void refreshFlashLinkDevices(true);
+        });
+      }
       if(el.flashLinkRoleSelect){
         el.flashLinkRoleSelect.addEventListener("change",()=>{
           if(!uiSettings) return;
@@ -5353,6 +5363,9 @@
               ? t("flashLinkRoleGround")
               : t("flashLinkRoleAvionics");
             showToast("ALTIS INTELLIGENT LINK1: " + roleLabel, "info");
+            if(uiSettings.flashLinkRole === "ground"){
+              setTimeout(()=>{ void refreshFlashLinkDevices(false); }, 700);
+            }
           }
         });
       }

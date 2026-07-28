@@ -3,6 +3,28 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.10.0 — v6 b48 — 2026-07-28
+
+Protocol: `Flash6-Intelligent-b11`
+
+Storage record protocol unchanged: `HWLOGV2` version `9`
+
+- 각 보드가 최초 부팅 시 무작위 64비트 S/N을 한 번 생성하고 별도 NVS
+  영역에 영구 저장합니다. 일반 초기화와 이후 펌웨어 업데이트에서는
+  S/N을 다시 만들지 않습니다.
+- A.I LINK 검색 패킷의 기기 식별자를 영구 S/N으로 전환하고, 지상국은
+  STAGE 1·2 바인드 슬롯에 등록된 S/N과 일치하는 에비오닉스만 암호화
+  피어로 연결합니다. 빈 바인드 슬롯은 검색만 허용합니다.
+- 설정의 통신 화면에 지상국 S/N, STAGE 1·2 등록 상태, 주변 기기 S/N
+  검색, 등록 및 삭제 UI를 추가했습니다. 바인드는 최대 2대로 제한하며
+  같은 S/N을 두 슬롯에 중복 등록할 수 없습니다.
+- HTTP와 USB 시리얼에 기기 식별·검색·바인드 API를 추가하고, 바인드가
+  바뀌면 기존 피어와 대기 명령을 즉시 정리한 뒤 새 기기만 연결합니다.
+- PlatformIO 업로드가 성공하면 보드의 `/identity` 응답을 읽어 프로젝트
+  루트의 `BOARD_SERIAL_REGISTRY.xlsx`에 업로드 순서대로 자동 기록합니다.
+  이미 존재하는 S/N은 추가하지 않고 건너뜁니다.
+- FLASH6 UI 자산 버전을 `b141`로 갱신했습니다.
+
 ## 0.9.17 — v6 b47 — 2026-07-28
 
 Protocol unchanged: `Flash6-Intelligent-b10`

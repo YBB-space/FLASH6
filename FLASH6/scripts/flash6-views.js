@@ -921,6 +921,196 @@
       const path = "/set?flash_link_data_mode=" + dataMode;
       sendCommand({http:path, ser:path}, !!logIt);
     }
+    let flashLinkDeviceState = null;
+    let flashLinkDeviceRequestBusy = false;
+    function parseFlashLinkDevicePayload(raw){
+      if(raw && typeof raw === "object") return raw;
+      const text = String(raw || "").trim();
+      const begin = text.indexOf("{");
+      if(begin < 0) return null;
+      try{
+        return JSON.parse(text.slice(begin));
+      }catch(_e){
+        return null;
+      }
+    }
+    async function requestFlashLinkDeviceApi(path, serialAckPrefix){
+      if(serialConnected && serialWriter){
+        const prefix = String(serialAckPrefix || "").toUpperCase();
+        const reply = await requestSerialCommandAck(
+          path,
+          (evt)=>String(evt.message || "").toUpperCase().indexOf(prefix) === 0,
+          {timeoutMs:1800, writeTimeoutMs:900}
+        );
+        if(!reply || !reply.ok){
+          throw new Error((reply && (reply.message || reply.kind)) || "SERIAL_NO_REPLY");
+        }
+        return parseFlashLinkDevicePayload(reply.message);
+      }
+      const API_BASE = getApiBaseForCommands();
+      const controller = createAbortControllerSafe();
+      const timer = controller ? setTimeout(()=>{
+        try{ controller.abort(); }catch(_e){}
+      }, 2400) : null;
+      try{
+        const response = await fetch((API_BASE || "") + path, Object.assign(
+          {cache:"no-cache"},
+          controller ? {signal:controller.signal} : {}
+        ));
+        const text = await response.text();
+        if(!response.ok) throw new Error(text || ("HTTP " + response.status));
+        return parseFlashLinkDevicePayload(text);
+      }finally{
+        if(timer) clearTimeout(timer);
+      }
+    }
+    function createFlashLinkBindingButton(label, className, onClick){
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = className;
+      button.textContent = label;
+      button.addEventListener("click", onClick);
+      return button;
+    }
+    function renderFlashLinkDevices(payload){
+      if(!payload || Number(payload.ok) === 0) return;
+      flashLinkDeviceState = payload;
+      if(el.flashLinkGroundSerial){
+        el.flashLinkGroundSerial.textContent = "GROUND S/N · " + String(payload.board_sn || "--");
+      }
+      const bindings = Array.isArray(payload.bindings) ? payload.bindings : [];
+      if(el.flashLinkBindingSlots){
+        el.flashLinkBindingSlots.replaceChildren();
+        [1, 2].forEach((nodeId)=>{
+          const binding = bindings.find((item)=>Number(item && item.node) === nodeId) || {};
+          const row = document.createElement("div");
+          row.className = "flash-link-binding-row" + (Number(binding.bound) ? "" : " is-empty");
+          row.dataset.bindingNode = String(nodeId);
+          const stage = document.createElement("span");
+          stage.className = "flash-link-binding-stage";
+          stage.textContent = "STAGE " + nodeId;
+          const serial = document.createElement("span");
+          serial.className = "flash-link-binding-sn mono";
+          serial.textContent = Number(binding.bound) ? String(binding.sn || "--") : "등록되지 않음";
+          const status = document.createElement("span");
+          status.className = "flash-link-binding-state" + (Number(binding.connected) ? " is-online" : "");
+          status.textContent = Number(binding.bound)
+            ? (Number(binding.connected) ? "LINKED" : "STANDBY")
+            : "EMPTY";
+          row.append(stage, serial, status);
+          if(Number(binding.bound)){
+            row.append(createFlashLinkBindingButton("삭제", "flash-link-binding-remove", ()=>{
+              void changeFlashLinkBinding("unbind", nodeId, "");
+            }));
+          }
+          el.flashLinkBindingSlots.append(row);
+        });
+      }
+      if(!el.flashLinkDeviceList) return;
+      el.flashLinkDeviceList.replaceChildren();
+      const devices = Array.isArray(payload.devices) ? payload.devices : [];
+      if(!devices.length){
+        const empty = document.createElement("div");
+        empty.className = "flash-link-device-empty";
+        empty.textContent = "검색된 에비오닉스가 없습니다. 보드의 A.I LINK 상태를 확인하세요.";
+        el.flashLinkDeviceList.append(empty);
+        return;
+      }
+      devices.forEach((device)=>{
+        const nodeId = Number(device && device.node) === 2 ? 2 : 1;
+        const row = document.createElement("div");
+        row.className = "flash-link-device-row";
+        const meta = document.createElement("div");
+        meta.className = "flash-link-device-meta";
+        const title = document.createElement("strong");
+        title.textContent = "STAGE " + nodeId;
+        const serial = document.createElement("span");
+        serial.className = "mono";
+        serial.textContent = String(device.sn || "--");
+        const detail = document.createElement("small");
+        detail.textContent = (Number(device.relayed) ? "RELAY" : "DIRECT") +
+          " · " + Math.max(0, Math.round(Number(device.hz) || 0)) + " Hz";
+        meta.append(title, serial, detail);
+        row.append(meta);
+        row.append(createFlashLinkBindingButton(
+          Number(device.bound) ? "등록됨" : "등록",
+          "flash-link-device-bind" + (Number(device.bound) ? " is-bound" : ""),
+          ()=>{
+            if(!Number(device.bound)){
+              void changeFlashLinkBinding("bind", nodeId, String(device.sn || ""));
+            }
+          }
+        ));
+        el.flashLinkDeviceList.append(row);
+      });
+    }
+    async function refreshFlashLinkDevices(showFeedback){
+      if(flashLinkDeviceRequestBusy) return false;
+      flashLinkDeviceRequestBusy = true;
+      if(el.flashLinkScanBtn){
+        el.flashLinkScanBtn.disabled = true;
+        el.flashLinkScanBtn.textContent = "검색 중…";
+      }
+      try{
+        const payload = await requestFlashLinkDeviceApi(
+          "/flash_link/devices",
+          "FLASH_LINK_DEVICES"
+        );
+        if(!payload) throw new Error("INVALID_DEVICE_LIST");
+        renderFlashLinkDevices(payload);
+        if(showFeedback) showToast("주변 A.I LINK 기기 목록을 갱신했습니다.", "success");
+        return true;
+      }catch(err){
+        if(showFeedback){
+          showToast("주변 기기를 찾지 못했습니다. (" +
+            String((err && err.message) || "NO_RESPONSE") + ")", "error");
+        }
+        return false;
+      }finally{
+        flashLinkDeviceRequestBusy = false;
+        if(el.flashLinkScanBtn){
+          el.flashLinkScanBtn.disabled = false;
+          el.flashLinkScanBtn.textContent = "주변 기기 찾기";
+        }
+      }
+    }
+    async function changeFlashLinkBinding(action, nodeId, serial){
+      if(flashLinkDeviceRequestBusy) return false;
+      const path = action === "bind"
+        ? ("/flash_link/bind?node=" + nodeId + "&sn=" + encodeURIComponent(serial))
+        : ("/flash_link/unbind?node=" + nodeId);
+      flashLinkDeviceRequestBusy = true;
+      try{
+        if(serialConnected && serialWriter){
+          const prefix = action === "bind" ? "FLASH_LINK_BIND" : "FLASH_LINK_UNBIND";
+          const reply = await requestSerialCommandAck(
+            path,
+            (evt)=>String(evt.message || "").toUpperCase().indexOf(prefix) === 0,
+            {timeoutMs:1800, writeTimeoutMs:900}
+          );
+          if(!reply || !reply.ok){
+            throw new Error((reply && (reply.message || reply.kind)) || "SERIAL_NO_REPLY");
+          }
+        }else{
+          const API_BASE = getApiBaseForCommands();
+          const response = await fetch((API_BASE || "") + path, {cache:"no-cache"});
+          const text = await response.text();
+          if(!response.ok) throw new Error(text || ("HTTP " + response.status));
+        }
+        showToast(
+          "STAGE " + nodeId + (action === "bind" ? " 기기를 등록했습니다." : " 바인드를 삭제했습니다."),
+          "success"
+        );
+        flashLinkDeviceRequestBusy = false;
+        return await refreshFlashLinkDevices(false);
+      }catch(err){
+        showToast("기기 바인드 변경 실패 · " +
+          String((err && err.message) || "NO_RESPONSE"), "error");
+        return false;
+      }finally{
+        flashLinkDeviceRequestBusy = false;
+      }
+    }
     function getFlashLinkChartDefinition(metric, samples){
       const list = Array.isArray(samples) ? samples : [];
       if(metric === "loss"){

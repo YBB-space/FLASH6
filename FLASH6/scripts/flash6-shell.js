@@ -2074,6 +2074,7 @@
         if(el.flashLinkRoleSelect) el.flashLinkRoleSelect.disabled = operationModeChangeBusy || !flashLinkEnabled;
         if(el.flashLinkNodeRow) el.flashLinkNodeRow.hidden = role !== "avionics";
         if(el.flashLinkTargetRow) el.flashLinkTargetRow.hidden = role !== "ground";
+        if(el.flashLinkBindingSection) el.flashLinkBindingSection.hidden = role !== "ground";
         if(el.flashLinkNodeSelect) el.flashLinkNodeSelect.disabled = operationModeChangeBusy || !flashLinkEnabled || role !== "avionics";
         if(el.flashLinkNodeSelect){
           const stage2Option = el.flashLinkNodeSelect.querySelector('option[value="2"]');

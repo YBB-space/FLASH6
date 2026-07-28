@@ -353,7 +353,7 @@ void handleSerialLine(const char* line) {
   cmd.trim();
 
   if (cmd == "help" || cmd == "/help") {
-    Serial.println("ACK GYRO_BARO_GPS_FLASH commands: /set?stream=0|1&storage_logging=0|1&ign_ms=1000&cd_ms=10000&daq_seq_pyro=1, /settings, /rates, /gps, /baro, /loadcell|zero|cal|reset, /servo?ch=1&deg=90 or SERVO 1 90, /storage/spi_flash/status|list|read|init, /storage/spi_flash/remote/list|read, /mission_profile_begin|chunk|end|cancel, /countdown_start, /mission_standby, /mission_force_timed, /abort, /reset");
+    Serial.println("ACK GYRO_BARO_GPS_FLASH commands: /set?stream=0|1&storage_logging=0|1&ign_ms=1000&cd_ms=10000&daq_seq_pyro=1, /settings, /rates, /identity, /flash_link/devices, /flash_link/bind?node=1&sn=F6-XXXX-XXXX-XXXX-XXXX, /flash_link/unbind?node=1, /gps, /baro, /loadcell|zero|cal|reset, /servo?ch=1&deg=90 or SERVO 1 90, /storage/spi_flash/status|list|read|init, /storage/spi_flash/remote/list|read, /mission_profile_begin|chunk|end|cancel, /countdown_start, /mission_standby, /mission_force_timed, /abort, /reset");
     return;
   }
 
@@ -419,6 +419,64 @@ void handleSerialLine(const char* line) {
                   (unsigned long)flashLinkTelemetryHz(),
                   kFirmwareMissionLocked ? 1U : 0U,
                   kFirmwareMissionSource);
+    return;
+  }
+
+  if (cmd == "/identity") {
+    char serialText[28];
+    flashLinkFormatSerial(boardSerialNumber, serialText, sizeof(serialText));
+    Serial.printf(
+      "ACK IDENTITY board_sn=%s persistent=1 firmware=%s build=%s protocol=%s\n",
+      serialText,
+      kFirmwareVersion,
+      kFirmwareBuildId,
+      kFirmwareProtocol);
+    return;
+  }
+
+  if (cmd == "/flash_link/devices") {
+    Serial.print("ACK FLASH_LINK_DEVICES ");
+    Serial.println(flashLinkDevicesJson());
+    return;
+  }
+
+  if (cmd.startsWith("/flash_link/bind")) {
+    String nodeRaw;
+    String serialRaw;
+    const uint8_t nodeId = getQueryValue(cmd, "node", nodeRaw)
+      ? (uint8_t)nodeRaw.toInt()
+      : 0U;
+    uint64_t serial = 0U;
+    if (!flashLinkGroundRole()) {
+      Serial.println("ERR FLASH_LINK_BIND GROUND_ROLE_REQUIRED");
+    } else if (!getQueryValue(cmd, "sn", serialRaw) ||
+               !flashLinkParseSerial(serialRaw, serial)) {
+      Serial.println("ERR FLASH_LINK_BIND INVALID_SN");
+    } else if (!flashLinkBindDevice(nodeId, serial)) {
+      Serial.println("ERR FLASH_LINK_BIND BIND_REJECTED");
+    } else {
+      char serialText[28];
+      flashLinkFormatSerial(serial, serialText, sizeof(serialText));
+      Serial.printf(
+        "ACK FLASH_LINK_BIND node=%u sn=%s\n",
+        (unsigned)nodeId,
+        serialText);
+    }
+    return;
+  }
+
+  if (cmd.startsWith("/flash_link/unbind")) {
+    String nodeRaw;
+    const uint8_t nodeId = getQueryValue(cmd, "node", nodeRaw)
+      ? (uint8_t)nodeRaw.toInt()
+      : 0U;
+    if (!flashLinkGroundRole()) {
+      Serial.println("ERR FLASH_LINK_UNBIND GROUND_ROLE_REQUIRED");
+    } else if (!flashLinkUnbindDevice(nodeId)) {
+      Serial.println("ERR FLASH_LINK_UNBIND INVALID_NODE");
+    } else {
+      Serial.printf("ACK FLASH_LINK_UNBIND node=%u\n", (unsigned)nodeId);
+    }
     return;
   }
 

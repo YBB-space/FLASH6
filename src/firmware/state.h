@@ -1,10 +1,10 @@
 
 constexpr char kFirmwareProgram[] = "Altis_Intelligent3_firmware1";
-constexpr char kFirmwareVersion[] = "0.9.17";
-constexpr char kFirmwareBuildId[] = "v6 b47";
-constexpr uint16_t kFirmwareBuildNumber = 47;
+constexpr char kFirmwareVersion[] = "0.10.0";
+constexpr char kFirmwareBuildId[] = "v6 b48";
+constexpr uint16_t kFirmwareBuildNumber = 48;
 constexpr char kFirmwareBoard[] = "Altis_Intelligent3_b3";
-constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b10";
+constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b11";
 constexpr uint8_t kStorageProtocolVersion = 9;
 // Only formats explicitly verified by this build are decoded as native.
 // Expand this range only after replay compatibility has been validated.
@@ -149,9 +149,11 @@ constexpr uint8_t kWifiChannel = 6;
 constexpr uint8_t kWifiMaxClients = 2;
 constexpr char kWifiPass[] = "12345678";
 constexpr uint32_t kFlashLinkMagic = 0x314B4C46UL;  // FLK1
-constexpr uint8_t kFlashLinkVersion = 9;
+constexpr uint8_t kFlashLinkVersion = 10;
 constexpr uint8_t kFlashLinkChannel = 6;
 constexpr uint8_t kFlashLinkVehicleNodeCount = 2;
+constexpr uint8_t kFlashLinkDiscoveryCacheSize = 8;
+constexpr uint32_t kFlashLinkDiscoveryVisibleMs = 15000;
 constexpr uint8_t kFlashLinkNodeIdGround = 0;
 constexpr uint8_t kFlashLinkNodeIdStage1 = 1;
 constexpr uint8_t kFlashLinkNodeIdStage2 = 2;
@@ -289,6 +291,8 @@ Preferences baroPrefs;
 Preferences buzzerPrefs;
 Preferences settingsPrefs;
 Preferences loadcellPrefs;
+Preferences identityPrefs;
+Preferences bindingPrefs;
 #if defined(CONFIG_IDF_TARGET_ESP32S3)
 SPIClass storageSpi(FSPI);
 #elif defined(HSPI)
@@ -306,6 +310,9 @@ bool baroPrefsReady = false;
 bool buzzerPrefsReady = false;
 bool settingsPrefsReady = false;
 bool loadcellPrefsReady = false;
+bool identityPrefsReady = false;
+bool bindingPrefsReady = false;
+uint64_t boardSerialNumber = 0;
 uint8_t imuAddr = 0x00;
 uint8_t baroAddr = 0x00;
 
@@ -1242,6 +1249,22 @@ struct FlashLinkRxSlot {
   uint8_t data[kFlashLinkMaxPacketBytes];
 };
 
+struct FlashLinkBindingSlot {
+  bool occupied = false;
+  uint64_t deviceId = 0;
+};
+
+struct FlashLinkDiscoveredDevice {
+  bool occupied = false;
+  bool relayed = false;
+  uint8_t nodeId = 0;
+  uint8_t mac[ESP_NOW_ETH_ALEN] = {};
+  uint64_t deviceId = 0;
+  uint32_t lastSeenMs = 0;
+  uint16_t telemetryHz = 0;
+  uint8_t capabilities = 0;
+};
+
 struct FlashLinkRuntime {
   bool initialized = false;
   bool peerReady = false;
@@ -1388,6 +1411,7 @@ struct FlashLinkGroundPeer {
   bool relayLinked = false;
   bool telemetryDegraded = false;
   uint8_t nodeId = 0;
+  uint64_t deviceId = 0;
   uint8_t mac[ESP_NOW_ETH_ALEN] = {};
   uint8_t directMac[ESP_NOW_ETH_ALEN] = {};
   uint8_t relayMac[ESP_NOW_ETH_ALEN] = {};
@@ -1479,6 +1503,9 @@ FlashLinkStorageReadTx
   flashLinkStorageReadTxQueue[kFlashLinkStorageResponseQueueDepth];
 FlashLinkRemoteState flashLinkRemoteState;
 FlashLinkGroundPeer flashLinkGroundPeers[kFlashLinkVehicleNodeCount];
+FlashLinkBindingSlot flashLinkBindings[kFlashLinkVehicleNodeCount];
+FlashLinkDiscoveredDevice
+  flashLinkDiscoveredDevices[kFlashLinkDiscoveryCacheSize];
 FlashLinkRelayRuntime flashLinkRelay;
 FlashLinkDirectGroundRuntime flashLinkDirectGround;
 FlashLinkRelayTxSlot flashLinkRelayTxQueue[kFlashLinkRelayTxQueueDepth];
@@ -1855,6 +1882,24 @@ void flashLinkHoldStorageTransfer(uint32_t nowMs);
 void flashLinkGroundChooseRoute(FlashLinkGroundPeer& peer);
 void flashLinkGroundAutoSelectTarget(uint32_t nowMs);
 void flashLinkSetStage2Mode(bool enabled, bool persist = true);
+void flashLinkBindingChanged(uint8_t nodeId);
+void flashLinkResetGroundPeer(FlashLinkGroundPeer& peer);
+void loadBoardIdentityAndBindings();
+void flashLinkFormatSerial(uint64_t serial, char* out, size_t outLen);
+bool flashLinkParseSerial(const String& text, uint64_t& serial);
+uint64_t flashLinkBoundSerial(uint8_t nodeId);
+bool flashLinkBindingAllows(uint8_t nodeId, uint64_t serial);
+bool flashLinkBindDevice(uint8_t nodeId, uint64_t serial);
+bool flashLinkUnbindDevice(uint8_t nodeId);
+void flashLinkRecordDiscoveredDevice(
+  uint64_t serial,
+  uint8_t nodeId,
+  const uint8_t* mac,
+  bool relayed,
+  uint16_t telemetryHz,
+  uint8_t capabilities,
+  uint32_t nowMs);
+String flashLinkDevicesJson();
 bool flashLinkStage2RelayActive(uint32_t nowMs);
 bool flashLinkStage2DirectGroundActive(uint32_t nowMs);
 void saveSequenceSettings();

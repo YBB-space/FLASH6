@@ -8365,6 +8365,137 @@ body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-steps b{
 .flash-link-settings-group .pill-toggle{
   min-width:58px;
 }
+.flash-link-section-heading{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:18px;
+  padding-bottom:10px;
+}
+.flash-link-section-heading .flash-link-section-title{margin-bottom:5px}
+.flash-link-section-heading .hint-mini{margin:0}
+.flash-link-section-heading .settings-btn{
+  min-width:112px;
+  min-height:34px;
+  flex:0 0 auto;
+}
+.flash-link-ground-serial{
+  padding:10px 2px 8px;
+  border-top:1px solid rgba(148,163,184,.18);
+  color:#747b86;
+  font-size:9px;
+  letter-spacing:.08em;
+}
+.flash-link-binding-slots{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  border-top:1px solid rgba(148,163,184,.16);
+  border-bottom:1px solid rgba(148,163,184,.16);
+}
+.flash-link-binding-row{
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto auto;
+  align-items:center;
+  gap:10px;
+  min-width:0;
+  min-height:48px;
+  padding:8px 12px;
+}
+.flash-link-binding-row:first-child{
+  padding-left:2px;
+  border-right:1px solid rgba(148,163,184,.15);
+}
+.flash-link-binding-stage{
+  color:#d9dce1;
+  font-size:10px;
+  font-weight:700;
+  letter-spacing:.08em;
+}
+.flash-link-binding-sn{
+  overflow:hidden;
+  color:#a9afb8;
+  font-size:9px;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.flash-link-binding-state{
+  color:#777e88;
+  font-size:8px;
+  font-weight:700;
+  letter-spacing:.08em;
+}
+.flash-link-binding-state.is-online{color:#4dd486}
+.flash-link-binding-remove{
+  padding:5px 7px;
+  border:0;
+  background:transparent;
+  color:#8b919a;
+  font-size:9px;
+  font-weight:650;
+}
+.flash-link-binding-remove:hover{color:#ff818e}
+.flash-link-device-list{margin-top:8px}
+.flash-link-device-empty{
+  min-height:48px;
+  padding:16px 2px;
+  color:#777e88;
+  font-size:10px;
+}
+.flash-link-device-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  min-height:54px;
+  padding:8px 2px;
+  border-bottom:1px solid rgba(148,163,184,.13);
+}
+.flash-link-device-meta{
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr);
+  align-items:center;
+  gap:3px 12px;
+  min-width:0;
+}
+.flash-link-device-meta strong{
+  color:#d9dce1;
+  font-size:11px;
+  letter-spacing:.06em;
+}
+.flash-link-device-meta span{
+  overflow:hidden;
+  color:#aeb3bc;
+  font-size:10px;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.flash-link-device-meta small{
+  grid-column:2;
+  color:#737a84;
+  font-size:8px;
+  letter-spacing:.08em;
+}
+.flash-link-device-bind{
+  min-width:64px;
+  min-height:32px;
+  padding:0 12px;
+  border:1px solid #3b3f46;
+  border-radius:6px;
+  background:#22252a;
+  color:#e3e5e8;
+  font-size:10px;
+  font-weight:700;
+}
+.flash-link-device-bind:hover{
+  border-color:#5a606a;
+  background:#2a2e34;
+}
+.flash-link-device-bind.is-bound{
+  border-color:rgba(77,212,134,.34);
+  background:rgba(77,212,134,.08);
+  color:#65d996;
+  pointer-events:none;
+}
 .flash-link-metrics{
   display:grid;
   grid-template-columns:repeat(3,minmax(0,1fr));
@@ -8522,6 +8653,19 @@ body:has(#welcomeConnectScreen:not(.hidden)) .welcome-connect-steps b{
   }
   html:not(.phone-landscape-layout) body #settingsOverlay .flash-link-metric .settings-desc{
     font-size:12px !important;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .flash-link-section-heading{
+    align-items:flex-start;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .flash-link-binding-slots{
+    grid-template-columns:minmax(0,1fr);
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .flash-link-binding-row{
+    padding:9px 0;
+  }
+  html:not(.phone-landscape-layout) body #settingsOverlay .flash-link-binding-row:first-child{
+    border-right:0;
+    border-bottom:1px solid rgba(148,163,184,.13);
   }
   html:not(.phone-landscape-layout) body #settingsOverlay .flash-link-chart-stage{
     height:165px;

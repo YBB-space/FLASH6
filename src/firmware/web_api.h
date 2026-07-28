@@ -1699,7 +1699,8 @@ void setupRoutes() {
              "\"topology\":\"stage2-stage1-ground-primary+stage2-ground-backup\","
              "\"channel\":6,\"rate\":\"%s\",\"telemetry_hz\":%lu,"
              "\"single_stage_hz\":%lu,\"dual_stage_hz\":%lu,\"stage2_mode\":%u,"
-             "\"pairing\":\"automatic\",\"unicast_encrypted\":1,\"ack_interval\":%u,"
+             "\"pairing\":\"persistent-sn-whitelist\",\"max_bound_devices\":2,"
+             "\"unicast_encrypted\":1,\"ack_interval\":%u,"
              "\"command_ack\":1,\"command_retry_ms\":%lu,\"command_max_attempts\":%u,"
              "\"rx_queue_depth\":%u,\"relay_queue_depth\":%u,\"telemetry_coalescing\":1,"
              "\"route_policy\":\"relay-primary-direct-fallback\","
@@ -2153,6 +2154,72 @@ void setupRoutes() {
     sendText(request, 200, "application/json", settingsJson());
   });
 
+  server.on("/identity", HTTP_GET, [](AsyncWebServerRequest* request) {
+    char serialText[28];
+    char json[224];
+    flashLinkFormatSerial(boardSerialNumber, serialText, sizeof(serialText));
+    snprintf(
+      json,
+      sizeof(json),
+      "{\"ok\":1,\"board_sn\":\"%s\",\"persistent\":1,"
+      "\"firmware\":\"%s\",\"build\":\"%s\",\"protocol\":\"%s\"}",
+      serialText,
+      kFirmwareVersion,
+      kFirmwareBuildId,
+      kFirmwareProtocol);
+    sendText(request, 200, "application/json", json);
+  });
+
+  server.on("/flash_link/devices", HTTP_GET, [](AsyncWebServerRequest* request) {
+    sendText(request, 200, "application/json", flashLinkDevicesJson());
+  });
+
+  server.on("/flash_link/bind", HTTP_GET, [](AsyncWebServerRequest* request) {
+    if (!flashLinkGroundRole()) {
+      sendText(request, 409, "application/json",
+               "{\"ok\":0,\"err\":\"GROUND_ROLE_REQUIRED\"}");
+      return;
+    }
+    if (!request->hasParam("node") || !request->hasParam("sn")) {
+      sendText(request, 400, "application/json",
+               "{\"ok\":0,\"err\":\"NODE_AND_SN_REQUIRED\"}");
+      return;
+    }
+    const uint8_t nodeId = (uint8_t)request->getParam("node")->value().toInt();
+    uint64_t serial = 0U;
+    if (!flashLinkParseSerial(request->getParam("sn")->value(), serial)) {
+      sendText(request, 400, "application/json",
+               "{\"ok\":0,\"err\":\"INVALID_SN\"}");
+      return;
+    }
+    if (!flashLinkBindDevice(nodeId, serial)) {
+      sendText(request, 409, "application/json",
+               "{\"ok\":0,\"err\":\"BIND_REJECTED\"}");
+      return;
+    }
+    sendText(request, 200, "application/json", flashLinkDevicesJson());
+  });
+
+  server.on("/flash_link/unbind", HTTP_GET, [](AsyncWebServerRequest* request) {
+    if (!flashLinkGroundRole()) {
+      sendText(request, 409, "application/json",
+               "{\"ok\":0,\"err\":\"GROUND_ROLE_REQUIRED\"}");
+      return;
+    }
+    if (!request->hasParam("node")) {
+      sendText(request, 400, "application/json",
+               "{\"ok\":0,\"err\":\"NODE_REQUIRED\"}");
+      return;
+    }
+    const uint8_t nodeId = (uint8_t)request->getParam("node")->value().toInt();
+    if (!flashLinkUnbindDevice(nodeId)) {
+      sendText(request, 400, "application/json",
+               "{\"ok\":0,\"err\":\"INVALID_NODE\"}");
+      return;
+    }
+    sendText(request, 200, "application/json", flashLinkDevicesJson());
+  });
+
   server.on("/chip_temp", HTTP_GET, [](AsyncWebServerRequest* request) {
     char json[144];
     const bool valid = isfinite(snap.chipTempC);
@@ -2476,6 +2543,10 @@ void setupRoutes() {
   server.on("/health", HTTP_OPTIONS, options);
   server.on("/rates", HTTP_OPTIONS, options);
   server.on("/settings", HTTP_OPTIONS, options);
+  server.on("/identity", HTTP_OPTIONS, options);
+  server.on("/flash_link/devices", HTTP_OPTIONS, options);
+  server.on("/flash_link/bind", HTTP_OPTIONS, options);
+  server.on("/flash_link/unbind", HTTP_OPTIONS, options);
   server.on("/chip_temp", HTTP_OPTIONS, options);
   server.on("/baro", HTTP_OPTIONS, options);
   server.on("/gps", HTTP_OPTIONS, options);

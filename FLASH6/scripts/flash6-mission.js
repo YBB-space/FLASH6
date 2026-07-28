@@ -20,7 +20,12 @@
       });
       const title = document.getElementById("settingsTitle");
       if(title && titleText) title.textContent = titleText;
-      if(target === "communication") scheduleFlashLinkChartRender();
+      if(target === "communication"){
+        scheduleFlashLinkChartRender();
+        if(normalizeFlashLinkRole(uiSettings && uiSettings.flashLinkRole) === "ground"){
+          setTimeout(()=>{ void refreshFlashLinkDevices(false); }, 80);
+        }
+      }
     }
     function syncSettingsCommunicationOnlyUi(){
       if(el.settingsOverlay){

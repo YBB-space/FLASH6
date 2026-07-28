@@ -25,6 +25,7 @@ namespace {
 
 #include "firmware/state.h"
 #include "firmware/common.h"
+#include "firmware/flash_link_identity.h"
 #include "firmware/loadcell.h"
 #include "firmware/control_modes_buzzer_button.h"
 #include "firmware/pyro_servo_sequence.h"
@@ -67,6 +68,7 @@ void setup() {
     serialStream ? kSerialTxBufferActiveBytes : kSerialTxBufferIdleBytes);
 #endif
   delay(200);
+  loadBoardIdentityAndBindings();
   Serial.printf("[BOOT] %s version=%s board=%s protocol=%s build=%s\n",
                 kFirmwareProgram,
                 kFirmwareVersion,

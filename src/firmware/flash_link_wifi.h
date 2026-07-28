@@ -1436,6 +1436,30 @@ void flashLinkResetPeer() {
   }
 }
 
+void flashLinkBindingChanged(uint8_t nodeId) {
+  if (!flashLinkGroundRole() ||
+      nodeId < kFlashLinkNodeIdStage1 ||
+      nodeId > kFlashLinkNodeIdStage2) {
+    return;
+  }
+  FlashLinkGroundPeer* peer = flashLinkGroundPeerForNode(nodeId);
+  if (peer) flashLinkResetGroundPeer(*peer);
+  if (flashLinkTargetNodeId == nodeId &&
+      flashLinkBoundSerial(nodeId) == 0U) {
+    flashLinkTargetNodeId = kFlashLinkNodeIdStage1;
+  }
+  flashLinkGroundRefreshSelectedPeer();
+  char serialText[28];
+  flashLinkFormatSerial(
+    flashLinkBoundSerial(nodeId),
+    serialText,
+    sizeof(serialText));
+  Serial.printf(
+    "[FLASH_LINK] stage %u binding changed sn=%s\n",
+    (unsigned)nodeId,
+    serialText);
+}
+
 void flashLinkResetGroundPeer(FlashLinkGroundPeer& peer) {
   const uint8_t nodeId = peer.nodeId;
   if (peer.directReady && esp_now_is_peer_exist(peer.directMac)) {
@@ -1843,7 +1867,7 @@ bool flashLinkDrainRelayTxQueue() {
 
 bool flashLinkSendDiscovery(FlashLinkPacketType type) {
   FlashLinkDiscoveryV1 discovery{};
-  discovery.deviceId = ESP.getEfuseMac();
+  discovery.deviceId = boardSerialNumber;
   discovery.telemetryHz = (uint16_t)flashLinkTelemetryHz();
   discovery.channel = kFlashLinkChannel;
   // bit 4: stage-1 relay, bit 5: stage-2 direct-ground standby,
@@ -2334,6 +2358,9 @@ void flashLinkHandlePacket(FlashLinkRxSlot& slot) {
   if (type == FlashLinkPacketType::Discover) {
     if (header->payloadBytes != sizeof(FlashLinkDiscoveryV1)) return;
     if (flashLinkGroundRole()) {
+      const FlashLinkDiscoveryV1& discovery =
+        *reinterpret_cast<const FlashLinkDiscoveryV1*>(
+          slot.data + sizeof(FlashLinkHeaderV1));
       const bool directStage1 = incomingNodeId == kFlashLinkNodeIdStage1 &&
         !relayedPacket && header->role == static_cast<uint8_t>(FlashLinkRole::Avionics);
       const bool directStage2 = incomingNodeId == kFlashLinkNodeIdStage2 &&
@@ -2342,6 +2369,19 @@ void flashLinkHandlePacket(FlashLinkRxSlot& slot) {
       const bool relayedStage2 = incomingNodeId == kFlashLinkNodeIdStage2 &&
         flashLinkStage2Enabled && relayedPacket &&
         header->role == static_cast<uint8_t>(FlashLinkRole::Avionics);
+      if (directStage1 || directStage2 || relayedStage2) {
+        flashLinkRecordDiscoveredDevice(
+          discovery.deviceId,
+          incomingNodeId,
+          slot.mac,
+          relayedStage2,
+          discovery.telemetryHz,
+          discovery.capabilities,
+          nowMs);
+      }
+      if (!flashLinkBindingAllows(incomingNodeId, discovery.deviceId)) {
+        return;
+      }
       if (directStage1 || directStage2) {
         if (!flashLinkEnsurePeer(slot.mac, incomingNodeId)) return;
       } else if (relayedStage2) {
@@ -2351,6 +2391,7 @@ void flashLinkHandlePacket(FlashLinkRxSlot& slot) {
       }
       groundPeer = flashLinkGroundPeerForNode(incomingNodeId);
       if (!groundPeer) return;
+      groundPeer->deviceId = discovery.deviceId;
       if (groundPeer->session != 0U && groundPeer->session != header->session) {
         Serial.printf("[FLASH_LINK] stage %u reboot session=%lu->%lu\n",
                       (unsigned)incomingNodeId,
