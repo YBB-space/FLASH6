@@ -29304,7 +29304,6 @@ function requestMobileMockup3dMesh(){
           '</div>' +
           '<div class="mobile-chart-picker-body data-storage-dialog-body">' +
             '<div class="data-storage-selector">' +
-              '<div class="settings-label">저장 위치</div>' +
               '<div class="data-origin-filter" role="tablist" aria-label="저장공간 출처">' +
                 '<button type="button" role="tab" aria-selected="false" data-data-origin-filter="app">APP</button>' +
                 '<button class="is-active" type="button" role="tab" aria-selected="true" data-data-origin-filter="avionics">에비오닉스</button>' +
