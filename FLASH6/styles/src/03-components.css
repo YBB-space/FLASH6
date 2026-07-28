@@ -6233,6 +6233,34 @@ html body #pyroControlOverlay > #pyroControlDialog > .settings-header{
   box-shadow:none !important;
   text-align:left !important;
 }
+
+/* Storage stays fixed-height until the user explicitly opens the complete list. */
+html body #dataListOverlay > .data-storage-dialog,
+html body #dataListOverlay .data-storage-dialog-body{
+  overflow:hidden !important;
+  overscroll-behavior:none !important;
+}
+html body #dataListOverlay #dataListBody{
+  overflow:hidden !important;
+  overscroll-behavior:none !important;
+  scrollbar-width:none;
+}
+html body #dataListOverlay #dataListBody::-webkit-scrollbar{
+  width:0;
+  height:0;
+}
+html body #dataListOverlay.is-data-list-expanded #dataListBody{
+  overflow-y:auto !important;
+  overscroll-behavior:contain !important;
+  scrollbar-width:thin;
+}
+html body #dataListOverlay.is-data-list-expanded #dataListBody::-webkit-scrollbar{
+  width:7px;
+}
+html body #dataListOverlay.is-data-list-expanded #dataListBody::-webkit-scrollbar-thumb{
+  border-radius:999px;
+  background:#555961;
+}
 html body #pyroControlOverlay > #pyroControlDialog > .settings-header > .settings-title{
   display:inline-block !important;
   width:auto !important;

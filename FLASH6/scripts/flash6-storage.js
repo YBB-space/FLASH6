@@ -1922,7 +1922,8 @@
       const visibleItems = boardItems.concat(appItems);
       overlay._dataItems = visibleItems;
       const detailsOpen = !!overlay._dataListDetailsOpen || !!overlay._downloadSelectMode;
-      const previewLimit = 5;
+      const previewLimit = 3;
+      overlay.classList.toggle("is-data-list-expanded", detailsOpen);
 
       const escapeHtml = (text)=>String(text).replace(/[&<>"']/g, (ch)=>({
         "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"
@@ -1930,7 +1931,7 @@
       const renderMoreButton = (hiddenCount, group)=>{
         if(detailsOpen || hiddenCount <= 0) return "";
         return '<button class="data-list-more" type="button" data-data-list-more="' + escapeHtml(group) + '">' +
-          '자세히 보기 · ' + hiddenCount.toLocaleString("ko-KR") + '개 더 보기' +
+          '데이터 전체 보기' +
         '</button>';
       };
       const boardEmptyTextFor = (stageNode)=>{
@@ -2116,6 +2117,8 @@
           if(moreBtn){
             overlay._dataListDetailsOpen = true;
             renderDataListItems(overlay);
+            const listBody = overlay.querySelector("#dataListBody");
+            if(listBody) listBody.scrollTop = 0;
             return;
           }
           const row = ev.target && ev.target.closest ? ev.target.closest(".data-list-item") : null;
@@ -2279,6 +2282,7 @@
       overlay._appSessions = appSessions;
       overlay._downloadSelectMode = false;
       overlay._dataListDetailsOpen = false;
+      overlay.classList.remove("is-data-list-expanded");
       renderDataListSummary(
         summary,
         info,
