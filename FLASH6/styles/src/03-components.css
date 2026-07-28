@@ -1760,9 +1760,15 @@ body:has(#welcomeConnectScreen:not(.hidden)) #replayDataPickerOverlay.replay-dat
   display:flex;
   flex-direction:column;
   gap:7px;
-  max-height:min(360px, 44dvh);
-  overflow:auto;
+  max-height:277px;
+  overflow-x:hidden;
+  overflow-y:auto;
   scrollbar-width:thin;
+}
+.replay-data-picker-list .replay-data-picker-item{
+  height:64px;
+  min-height:64px;
+  flex:0 0 64px;
 }
 .replay-data-summary{
   min-width:0;
@@ -2049,9 +2055,6 @@ body:has(#welcomeConnectScreen:not(.hidden)) #replayDataPickerOverlay.replay-dat
   }
   .replay-data-summary-card{
     min-height:150px;
-  }
-  .replay-data-picker-list{
-    max-height:42dvh;
   }
 }
 body.camera-view-active .mobile-board-header{display:none !important}
