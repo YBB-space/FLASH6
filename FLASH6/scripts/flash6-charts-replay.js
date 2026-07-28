@@ -2166,10 +2166,16 @@
     }
 
     function buildReplayHudLiveUrl(){
-      const url = new URL("overlay.html", window.location.href);
+      const relayOrigin = typeof OVERLAY_LOCAL_RELAY_ORIGIN === "string"
+        ? OVERLAY_LOCAL_RELAY_ORIGIN
+        : "http://127.0.0.1:4177";
+      // Serve the OBS page from the relay itself. This avoids cross-profile
+      // storage, mixed-content, Live Preview lifetime, and stale OBS cache
+      // dependencies in one place.
+      const url = new URL(relayOrigin + "/overlay.html");
       url.search = "";
       url.hash = "";
-      url.searchParams.set("v", "20260728-obs-hud-sync-b119");
+      url.searchParams.set("v", "20260728-obs-local-relay-b120");
       const mission = String(
         (el.missionName && el.missionName.value) ||
         selectedMotorName ||
@@ -2178,6 +2184,10 @@
       ).trim();
       if(mission) url.searchParams.set("mission", mission);
       url.searchParams.set("mode", "replay");
+      url.searchParams.set(
+        "sse",
+        relayOrigin + "/hud-stream"
+      );
       try{
         const activeWsUrl =
           (wsSocket && typeof wsSocket.url === "string" && wsSocket.url)
@@ -2203,6 +2213,42 @@
       return url.href;
     }
 
+    async function refreshReplayHudRelayState(){
+      const node = el.replayHudRelayState;
+      if(!node) return false;
+      node.classList.remove("is-offline");
+      node.lastChild.textContent = " LOCAL RELAY CHECKING";
+      const controller = typeof AbortController === "function"
+        ? new AbortController()
+        : null;
+      const timer = controller
+        ? setTimeout(()=>controller.abort(), 900)
+        : 0;
+      try{
+        const response = await fetch(
+          (typeof OVERLAY_LOCAL_RELAY_ORIGIN === "string"
+            ? OVERLAY_LOCAL_RELAY_ORIGIN
+            : "http://127.0.0.1:4177") + "/health?_=" + Date.now(),
+          {
+            cache:"no-store",
+            credentials:"omit",
+            signal:controller ? controller.signal : undefined
+          }
+        );
+        if(!response.ok) throw new Error("HUD relay unavailable");
+        const status = await response.json();
+        if(!status || Number(status.ok) !== 1) throw new Error("HUD relay invalid");
+        node.lastChild.textContent = " LOCAL RELAY ONLINE";
+        return true;
+      }catch(_error){
+        node.classList.add("is-offline");
+        node.lastChild.textContent = " LOCAL RELAY OFFLINE";
+        return false;
+      }finally{
+        if(timer) clearTimeout(timer);
+      }
+    }
+
     function setReplayHudLiveVisible(visible){
       const show = !!visible && !!replayUiActive;
       if(el.replayHudLiveOverlay){
@@ -2212,6 +2258,7 @@
       setReplayToolsPanelOpen(false);
       const url = buildReplayHudLiveUrl();
       if(el.replayHudLiveUrl) el.replayHudLiveUrl.value = url;
+      refreshReplayHudRelayState();
       requestAnimationFrame(()=>{
         if(el.replayHudLiveCopyBtn){
           el.replayHudLiveCopyBtn.focus({preventScroll:true});

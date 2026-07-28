@@ -1413,12 +1413,19 @@ html:not(.phone-landscape-layout) body #hardwareServoDialog .hardware-servo-pres
   gap:9px;
   color:#d9dde3;
 }
+.replay-hud-live-status span.is-offline{
+  color:#a7adb6;
+}
 .replay-hud-live-status i{
   width:8px;
   height:8px;
   border-radius:50%;
   background:#35d47a;
   box-shadow:0 0 0 4px rgba(53,212,122,.1);
+}
+.replay-hud-live-status span.is-offline i{
+  background:#737b87;
+  box-shadow:none;
 }
 .replay-hud-live-status strong{
   font:inherit;

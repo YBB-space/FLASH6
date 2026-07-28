@@ -6770,6 +6770,8 @@ function requestMobileMockup3dMesh(){
     const OVERLAY_SYNC_KEY = "hanwool_overlay_latest";
     const OVERLAY_SYNC_MIN_MS = 20;
     const OVERLAY_STORAGE_MIN_MS = 100;
+    const OVERLAY_LOCAL_RELAY_ORIGIN = "http://127.0.0.1:4177";
+    const OVERLAY_LOCAL_RELAY_POST_URL = OVERLAY_LOCAL_RELAY_ORIGIN + "/hud";
     let overlayChannel = null;
     let lastOverlaySyncMs = 0;
     let lastOverlayStorageMs = 0;
@@ -6778,6 +6780,9 @@ function requestMobileMockup3dMesh(){
     let overlayRelaySocket = null;
     let overlayRelayUrl = "";
     let overlayRelayPendingText = "";
+    let overlayLocalRelayPendingText = "";
+    let overlayLocalRelayPostBusy = false;
+    let overlayLocalRelayBackoffUntil = 0;
     let uiSettings = null;
 
     function normalizeDecimalDigits(value, fallback){
@@ -7007,11 +7012,55 @@ function requestMobileMockup3dMesh(){
       try{ socket.send(payload); }catch(_error){}
     }
 
+    function flushOverlayLocalRelaySample(){
+      if(overlayLocalRelayPostBusy || !overlayLocalRelayPendingText) return;
+      if(Date.now() < overlayLocalRelayBackoffUntil) return;
+      const payload = overlayLocalRelayPendingText;
+      overlayLocalRelayPendingText = "";
+      overlayLocalRelayPostBusy = true;
+      fetch(OVERLAY_LOCAL_RELAY_POST_URL, {
+        method: "POST",
+        mode: "cors",
+        cache: "no-store",
+        credentials: "omit",
+        headers: {"Content-Type":"text/plain;charset=UTF-8"},
+        body: payload
+      }).then((response)=>{
+        if(!response || !response.ok) throw new Error("HUD relay HTTP error");
+        overlayLocalRelayBackoffUntil = 0;
+      }).catch(()=>{
+        // The relay is optional. Retain the newest frame and retry without
+        // flooding localhost while VS Code/OBS is starting.
+        overlayLocalRelayPendingText = overlayLocalRelayPendingText || payload;
+        overlayLocalRelayBackoffUntil = Date.now() + 1500;
+      }).finally(()=>{
+        overlayLocalRelayPostBusy = false;
+        if(overlayLocalRelayPendingText && Date.now() >= overlayLocalRelayBackoffUntil){
+          flushOverlayLocalRelaySample();
+        }
+      });
+    }
+
+    function publishOverlayLocalRelaySample(serializedSample){
+      if(!replaySourceActive){
+        overlayLocalRelayPendingText = "";
+        return;
+      }
+      overlayLocalRelayPendingText = serializedSample;
+      flushOverlayLocalRelaySample();
+    }
+
     function publishOverlayRelaySample(serializedSample){
       if(!replaySourceActive){
         if(overlayRelaySocket) closeOverlayRelaySocket();
+        overlayLocalRelayPendingText = "";
         return;
       }
+      // OBS runs in its own Chromium profile, so BroadcastChannel and
+      // localStorage cannot cross the process boundary. Publish every replay
+      // frame to the loopback HUD relay and keep the board WebSocket relay as
+      // an independent fallback.
+      publishOverlayLocalRelaySample(serializedSample);
       let url = "";
       try{
         url = typeof getWsUrl === "function" ? String(getWsUrl() || "") : "";
@@ -20429,10 +20478,16 @@ function requestMobileMockup3dMesh(){
     }
 
     function buildReplayHudLiveUrl(){
-      const url = new URL("overlay.html", window.location.href);
+      const relayOrigin = typeof OVERLAY_LOCAL_RELAY_ORIGIN === "string"
+        ? OVERLAY_LOCAL_RELAY_ORIGIN
+        : "http://127.0.0.1:4177";
+      // Serve the OBS page from the relay itself. This avoids cross-profile
+      // storage, mixed-content, Live Preview lifetime, and stale OBS cache
+      // dependencies in one place.
+      const url = new URL(relayOrigin + "/overlay.html");
       url.search = "";
       url.hash = "";
-      url.searchParams.set("v", "20260728-obs-hud-sync-b119");
+      url.searchParams.set("v", "20260728-obs-local-relay-b120");
       const mission = String(
         (el.missionName && el.missionName.value) ||
         selectedMotorName ||
@@ -20441,6 +20496,10 @@ function requestMobileMockup3dMesh(){
       ).trim();
       if(mission) url.searchParams.set("mission", mission);
       url.searchParams.set("mode", "replay");
+      url.searchParams.set(
+        "sse",
+        relayOrigin + "/hud-stream"
+      );
       try{
         const activeWsUrl =
           (wsSocket && typeof wsSocket.url === "string" && wsSocket.url)
@@ -20466,6 +20525,42 @@ function requestMobileMockup3dMesh(){
       return url.href;
     }
 
+    async function refreshReplayHudRelayState(){
+      const node = el.replayHudRelayState;
+      if(!node) return false;
+      node.classList.remove("is-offline");
+      node.lastChild.textContent = " LOCAL RELAY CHECKING";
+      const controller = typeof AbortController === "function"
+        ? new AbortController()
+        : null;
+      const timer = controller
+        ? setTimeout(()=>controller.abort(), 900)
+        : 0;
+      try{
+        const response = await fetch(
+          (typeof OVERLAY_LOCAL_RELAY_ORIGIN === "string"
+            ? OVERLAY_LOCAL_RELAY_ORIGIN
+            : "http://127.0.0.1:4177") + "/health?_=" + Date.now(),
+          {
+            cache:"no-store",
+            credentials:"omit",
+            signal:controller ? controller.signal : undefined
+          }
+        );
+        if(!response.ok) throw new Error("HUD relay unavailable");
+        const status = await response.json();
+        if(!status || Number(status.ok) !== 1) throw new Error("HUD relay invalid");
+        node.lastChild.textContent = " LOCAL RELAY ONLINE";
+        return true;
+      }catch(_error){
+        node.classList.add("is-offline");
+        node.lastChild.textContent = " LOCAL RELAY OFFLINE";
+        return false;
+      }finally{
+        if(timer) clearTimeout(timer);
+      }
+    }
+
     function setReplayHudLiveVisible(visible){
       const show = !!visible && !!replayUiActive;
       if(el.replayHudLiveOverlay){
@@ -20475,6 +20570,7 @@ function requestMobileMockup3dMesh(){
       setReplayToolsPanelOpen(false);
       const url = buildReplayHudLiveUrl();
       if(el.replayHudLiveUrl) el.replayHudLiveUrl.value = url;
+      refreshReplayHudRelayState();
       requestAnimationFrame(()=>{
         if(el.replayHudLiveCopyBtn){
           el.replayHudLiveCopyBtn.focus({preventScroll:true});
@@ -37799,6 +37895,7 @@ function requestMobileMockup3dMesh(){
       el.replayHudLiveBtn = document.getElementById("replayHudLiveBtn");
       el.replayHudLiveOverlay = document.getElementById("replayHudLiveOverlay");
       el.replayHudLiveCloseBtn = document.getElementById("replayHudLiveCloseBtn");
+      el.replayHudRelayState = document.getElementById("replayHudRelayState");
       el.replayHudLiveUrl = document.getElementById("replayHudLiveUrl");
       el.replayHudLiveCopyBtn = document.getElementById("replayHudLiveCopyBtn");
       el.replayHudLiveCopyActionBtn = document.getElementById("replayHudLiveCopyActionBtn");

@@ -3,6 +3,25 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 OBS local HUD relay b120 — 2026-07-28
+
+Firmware build unchanged: `0.9.12` (`v6 b42`)
+
+Protocol unchanged: `Flash6-Intelligent-b8`
+
+- OBS와 메인 콘솔이 서로 다른 Chromium 프로필을 사용해
+  `BroadcastChannel`·`localStorage`를 공유하지 못하던 구조를
+  제거했습니다.
+- 의존성 없는 loopback 전용 HUD 중계를 추가했습니다. 메인 리플레이가
+  최신 표시 프레임을 `127.0.0.1:4177`에 전송하고 OBS는 SSE로 즉시
+  수신합니다.
+- 로컬 중계와 기존 지상국 `/hud_ws` 중계를 동시에 유지해, 어느 한
+  경로가 준비되지 않아도 다른 경로로 자동 복구합니다.
+- VS Code 폴더 자동 실행 태스크와 macOS용
+  `FLASH6/start-hud-live.command` 실행기를 추가했습니다.
+- HUD LIVE 안내에서 로컬 중계의 실제 ONLINE/OFFLINE 상태를
+  확인하도록 했으며 OBS URL 캐시 키를 `b120`으로 갱신했습니다.
+
 ## FLASH6 HUD display-clock sync b119 — 2026-07-28
 
 Firmware build unchanged: `0.9.12` (`v6 b42`)

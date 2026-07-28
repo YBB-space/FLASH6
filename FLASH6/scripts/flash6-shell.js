@@ -60,6 +60,8 @@
     const OVERLAY_SYNC_KEY = "hanwool_overlay_latest";
     const OVERLAY_SYNC_MIN_MS = 20;
     const OVERLAY_STORAGE_MIN_MS = 100;
+    const OVERLAY_LOCAL_RELAY_ORIGIN = "http://127.0.0.1:4177";
+    const OVERLAY_LOCAL_RELAY_POST_URL = OVERLAY_LOCAL_RELAY_ORIGIN + "/hud";
     let overlayChannel = null;
     let lastOverlaySyncMs = 0;
     let lastOverlayStorageMs = 0;
@@ -68,6 +70,9 @@
     let overlayRelaySocket = null;
     let overlayRelayUrl = "";
     let overlayRelayPendingText = "";
+    let overlayLocalRelayPendingText = "";
+    let overlayLocalRelayPostBusy = false;
+    let overlayLocalRelayBackoffUntil = 0;
     let uiSettings = null;
 
     function normalizeDecimalDigits(value, fallback){
@@ -297,11 +302,55 @@
       try{ socket.send(payload); }catch(_error){}
     }
 
+    function flushOverlayLocalRelaySample(){
+      if(overlayLocalRelayPostBusy || !overlayLocalRelayPendingText) return;
+      if(Date.now() < overlayLocalRelayBackoffUntil) return;
+      const payload = overlayLocalRelayPendingText;
+      overlayLocalRelayPendingText = "";
+      overlayLocalRelayPostBusy = true;
+      fetch(OVERLAY_LOCAL_RELAY_POST_URL, {
+        method: "POST",
+        mode: "cors",
+        cache: "no-store",
+        credentials: "omit",
+        headers: {"Content-Type":"text/plain;charset=UTF-8"},
+        body: payload
+      }).then((response)=>{
+        if(!response || !response.ok) throw new Error("HUD relay HTTP error");
+        overlayLocalRelayBackoffUntil = 0;
+      }).catch(()=>{
+        // The relay is optional. Retain the newest frame and retry without
+        // flooding localhost while VS Code/OBS is starting.
+        overlayLocalRelayPendingText = overlayLocalRelayPendingText || payload;
+        overlayLocalRelayBackoffUntil = Date.now() + 1500;
+      }).finally(()=>{
+        overlayLocalRelayPostBusy = false;
+        if(overlayLocalRelayPendingText && Date.now() >= overlayLocalRelayBackoffUntil){
+          flushOverlayLocalRelaySample();
+        }
+      });
+    }
+
+    function publishOverlayLocalRelaySample(serializedSample){
+      if(!replaySourceActive){
+        overlayLocalRelayPendingText = "";
+        return;
+      }
+      overlayLocalRelayPendingText = serializedSample;
+      flushOverlayLocalRelaySample();
+    }
+
     function publishOverlayRelaySample(serializedSample){
       if(!replaySourceActive){
         if(overlayRelaySocket) closeOverlayRelaySocket();
+        overlayLocalRelayPendingText = "";
         return;
       }
+      // OBS runs in its own Chromium profile, so BroadcastChannel and
+      // localStorage cannot cross the process boundary. Publish every replay
+      // frame to the loopback HUD relay and keep the board WebSocket relay as
+      // an independent fallback.
+      publishOverlayLocalRelaySample(serializedSample);
       let url = "";
       try{
         url = typeof getWsUrl === "function" ? String(getWsUrl() || "") : "";

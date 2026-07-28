@@ -660,6 +660,7 @@
       el.replayHudLiveBtn = document.getElementById("replayHudLiveBtn");
       el.replayHudLiveOverlay = document.getElementById("replayHudLiveOverlay");
       el.replayHudLiveCloseBtn = document.getElementById("replayHudLiveCloseBtn");
+      el.replayHudRelayState = document.getElementById("replayHudRelayState");
       el.replayHudLiveUrl = document.getElementById("replayHudLiveUrl");
       el.replayHudLiveCopyBtn = document.getElementById("replayHudLiveCopyBtn");
       el.replayHudLiveCopyActionBtn = document.getElementById("replayHudLiveCopyActionBtn");

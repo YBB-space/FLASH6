@@ -560,6 +560,7 @@
       let lastSample = null;
       let socket = null;
       let reconnectTimer = 0;
+      let eventSource = null;
       let lastSyncPayload = "";
 
       function finite(value){
@@ -846,6 +847,30 @@
           reconnectTimer = setTimeout(connectSocket,1600);
         }
       }
+      function eventSourceUrl(){
+        const explicit = String(params.get("sse") || "").trim();
+        if(explicit) return explicit;
+        return replayRelayMode ? "http://127.0.0.1:4177/hud-stream" : "";
+      }
+      function connectEventSource(){
+        const url = eventSourceUrl();
+        if(!url || !("EventSource" in window) || eventSource) return;
+        try{
+          eventSource = new EventSource(url);
+          eventSource.onmessage = (event)=>{
+            try{
+              const data = JSON.parse(event.data);
+              scheduleSocketSample({hud_live:1,data});
+            }catch(_error){}
+          };
+          eventSource.onerror = ()=>{
+            // EventSource performs its own bounded reconnect. Keep the board
+            // WebSocket connected at the same time as an automatic fallback.
+          };
+        }catch(_error){
+          eventSource = null;
+        }
+      }
       try{
         if("BroadcastChannel" in window){
           const channel = new BroadcastChannel(CHANNEL_NAME);
@@ -886,6 +911,7 @@
           setText(nodes.source,"STAGE " + stage + " OFFLINE");
         }
       },500);
+      connectEventSource();
       connectSocket();
     })();
   </script>
