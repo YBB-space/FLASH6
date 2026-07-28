@@ -30823,6 +30823,135 @@ body #missionStandbyReviewOverlay .loadcell-primary{
     margin:18px auto 0 !important;
   }
 }
+
+/*
+ * Storage modal view states
+ * - Overview: the complete modal is fixed; no ancestor or list can scroll.
+ * - Records: summary controls disappear and the record list becomes the only
+ *   scroll container inside an expanded dialog.
+ */
+html body #dataListOverlay.mobile-chart-picker-overlay{
+  overflow:hidden !important;
+  overscroll-behavior:none !important;
+}
+html body #dataListOverlay > .data-storage-dialog{
+  display:flex !important;
+  flex-direction:column !important;
+  overflow:hidden !important;
+  overscroll-behavior:none !important;
+}
+html body #dataListOverlay .mobile-chart-picker-head{
+  position:relative !important;
+  flex:0 0 auto !important;
+}
+html body #dataListOverlay .data-storage-dialog-body{
+  min-height:0 !important;
+  overflow:hidden !important;
+  overscroll-behavior:none !important;
+}
+html body #dataListOverlay:not(.is-data-list-expanded) #dataListBody{
+  overflow:hidden !important;
+  overscroll-behavior:none !important;
+  touch-action:none !important;
+  scrollbar-width:none !important;
+}
+html body #dataListOverlay:not(.is-data-list-expanded) #dataListBody::-webkit-scrollbar{
+  display:none !important;
+}
+html body #dataListOverlay .data-list-back{
+  position:absolute !important;
+  top:50% !important;
+  left:14px !important;
+  z-index:2 !important;
+  width:34px !important;
+  height:34px !important;
+  margin:0 !important;
+  padding:0 0 3px !important;
+  transform:translateY(-50%) !important;
+  display:grid !important;
+  place-items:center !important;
+  border:1px solid #35383e !important;
+  border-radius:6px !important;
+  background:#202226 !important;
+  color:#d8dbe0 !important;
+  font-size:28px !important;
+  line-height:1 !important;
+  box-shadow:none !important;
+}
+html body #dataListOverlay .data-list-back[hidden]{
+  display:none !important;
+}
+html body #dataListOverlay.is-data-list-expanded .mobile-chart-picker-title{
+  padding-left:42px !important;
+}
+html body #dataListOverlay.is-data-list-expanded > .data-storage-dialog{
+  width:min(920px, calc(100vw - 48px)) !important;
+  max-width:920px !important;
+  height:min(820px, calc(100dvh - 48px)) !important;
+  max-height:calc(100dvh - 48px) !important;
+}
+html body #dataListOverlay.is-data-list-expanded .data-storage-dialog-body{
+  display:flex !important;
+  flex:1 1 auto !important;
+  min-height:0 !important;
+  padding:0 !important;
+}
+html body #dataListOverlay.is-data-list-expanded .data-storage-selector,
+html body #dataListOverlay.is-data-list-expanded .data-storage-stage-selector,
+html body #dataListOverlay.is-data-list-expanded #dataListSummary,
+html body #dataListOverlay.is-data-list-expanded .data-storage-actions{
+  display:none !important;
+}
+html body #dataListOverlay.is-data-list-expanded .data-storage-surface{
+  display:flex !important;
+  flex:1 1 auto !important;
+  min-width:0 !important;
+  min-height:0 !important;
+  margin:0 !important;
+  padding:0 !important;
+  overflow:hidden !important;
+  border:0 !important;
+  border-radius:0 !important;
+  background:#151618 !important;
+}
+html body #dataListOverlay.is-data-list-expanded #dataListBody{
+  display:block !important;
+  flex:1 1 auto !important;
+  width:100% !important;
+  min-width:0 !important;
+  min-height:0 !important;
+  max-height:none !important;
+  margin:0 !important;
+  padding:8px 0 18px !important;
+  overflow-x:hidden !important;
+  overflow-y:auto !important;
+  overscroll-behavior:contain !important;
+  touch-action:pan-y !important;
+  scrollbar-width:thin !important;
+  scrollbar-color:#555961 transparent !important;
+}
+html body #dataListOverlay.is-data-list-expanded #dataListBody::-webkit-scrollbar{
+  display:block !important;
+  width:7px !important;
+}
+html body #dataListOverlay.is-data-list-expanded #dataListBody::-webkit-scrollbar-track{
+  background:transparent !important;
+}
+html body #dataListOverlay.is-data-list-expanded #dataListBody::-webkit-scrollbar-thumb{
+  border-radius:999px !important;
+  background:#555961 !important;
+}
+@media (max-width:900px){
+  html body #dataListOverlay.mobile-chart-picker-overlay{
+    padding:10px !important;
+  }
+  html body #dataListOverlay.is-data-list-expanded > .data-storage-dialog{
+    width:100% !important;
+    max-width:none !important;
+    height:calc(100dvh - 20px) !important;
+    max-height:calc(100dvh - 20px) !important;
+  }
+}
 /*
  * FLASH6 interface consistency layer.
  * One restrained visual language for the dashboard and desktop dialogs while

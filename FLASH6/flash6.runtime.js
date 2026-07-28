@@ -29178,6 +29178,10 @@ function requestMobileMockup3dMesh(){
       const detailsOpen = !!overlay._dataListDetailsOpen || !!overlay._downloadSelectMode;
       const previewLimit = 3;
       overlay.classList.toggle("is-data-list-expanded", detailsOpen);
+      const title = overlay.querySelector("#dataListTitle");
+      const back = overlay.querySelector("#dataListBackBtn");
+      if(title) title.textContent = detailsOpen ? "전체 비행 데이터" : "저장공간";
+      if(back) back.hidden = !detailsOpen;
 
       const escapeHtml = (text)=>String(text).replace(/[&<>"']/g, (ch)=>({
         "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"
@@ -29263,7 +29267,8 @@ function requestMobileMockup3dMesh(){
       overlay.innerHTML =
         '<div class="mobile-chart-picker-dialog agent-help-dialog data-storage-dialog" role="dialog" aria-modal="true" aria-label="저장공간">' +
           '<div class="mobile-chart-picker-head">' +
-            '<div class="mobile-chart-picker-title">저장공간</div>' +
+            '<button id="dataListBackBtn" class="data-list-back" type="button" aria-label="저장공간 요약으로 돌아가기" hidden>‹</button>' +
+            '<div id="dataListTitle" class="mobile-chart-picker-title">저장공간</div>' +
             '<button id="dataListCloseBtn" class="mobile-chart-picker-close" type="button" aria-label="닫기">×</button>' +
           '</div>' +
           '<div class="mobile-chart-picker-body data-storage-dialog-body">' +
@@ -29293,6 +29298,8 @@ function requestMobileMockup3dMesh(){
       const close = ()=>{
         stopDataListLiveStatus();
         overlay._downloadSelectMode = false;
+        overlay._dataListDetailsOpen = false;
+        overlay.classList.remove("is-data-list-expanded");
         overlay.classList.remove("is-open");
         setTimeout(()=>{
           overlay.classList.add("hidden");
@@ -29302,6 +29309,24 @@ function requestMobileMockup3dMesh(){
       overlay.addEventListener("click", (ev)=>{ if(ev.target === overlay) close(); });
       const closeBtn = overlay.querySelector("#dataListCloseBtn");
       if(closeBtn) closeBtn.addEventListener("click", close);
+      const backBtn = overlay.querySelector("#dataListBackBtn");
+      if(backBtn){
+        backBtn.addEventListener("click", ()=>{
+          overlay._downloadSelectMode = false;
+          overlay._dataListDetailsOpen = false;
+          const download = overlay.querySelector("#dataStorageDownloadBtn");
+          if(download) download.textContent = "다운로드";
+          renderDataListSummary(
+            overlay.querySelector("#dataListSummary"),
+            overlay._boardInfo || {},
+            Array.isArray(overlay._appSessions) ? overlay._appSessions : [],
+            overlay._originFilter,
+            overlay._remoteStageInfo,
+            overlay._remoteStageError
+          );
+          renderDataListItems(overlay);
+        });
+      }
       overlay.querySelectorAll("[data-data-origin-filter]").forEach((button)=>{
         button.addEventListener("click", ()=>{
           overlay._originFilter =
