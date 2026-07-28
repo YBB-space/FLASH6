@@ -1,15 +1,15 @@
 
 constexpr char kFirmwareProgram[] = "Altis_Intelligent3_firmware1";
-constexpr char kFirmwareVersion[] = "0.9.13";
-constexpr char kFirmwareBuildId[] = "v6 b43";
-constexpr uint16_t kFirmwareBuildNumber = 43;
+constexpr char kFirmwareVersion[] = "0.9.14";
+constexpr char kFirmwareBuildId[] = "v6 b44";
+constexpr uint16_t kFirmwareBuildNumber = 44;
 constexpr char kFirmwareBoard[] = "Altis_Intelligent3_b3";
-constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b9";
-constexpr uint8_t kStorageProtocolVersion = 8;
+constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b10";
+constexpr uint8_t kStorageProtocolVersion = 9;
 // Only formats explicitly verified by this build are decoded as native.
 // Expand this range only after replay compatibility has been validated.
 constexpr uint8_t kStorageProtocolCompatibleMin = 8;
-constexpr uint8_t kStorageProtocolCompatibleMax = 8;
+constexpr uint8_t kStorageProtocolCompatibleMax = 9;
 constexpr uint8_t kMissionTimebaseVersion = 1;  // THRUST_ARM_V1
 constexpr uint8_t kMissionTimingSettingsVersion = 2;
 constexpr uint32_t kDefaultMissionStage1SeparationBackupMs = 2500U;
@@ -138,8 +138,10 @@ constexpr uint16_t kNorFormatVersion = 1;
 constexpr uint16_t kNorSessionSectorVersion = 2;
 constexpr uint16_t kNorCompactSectorVersion = 3;
 constexpr uint16_t kNorProtocolSectorVersion = 4;
-constexpr uint16_t kStorageBinMetadataVersion = 1;
+constexpr uint16_t kNorSyncedSectorVersion = 5;
+constexpr uint16_t kStorageBinMetadataVersion = 2;
 constexpr uint16_t kStorageMetadataFlagValid = 1U << 0;
+constexpr uint16_t kStorageMetadataFlagMissionSync = 1U << 1;
 constexpr uint32_t kNorFooterOffset = kNorSectorBytes - 16U;
 constexpr uint16_t kStorageHttpListMaxItems = 32;
 
@@ -147,7 +149,7 @@ constexpr uint8_t kWifiChannel = 6;
 constexpr uint8_t kWifiMaxClients = 2;
 constexpr char kWifiPass[] = "12345678";
 constexpr uint32_t kFlashLinkMagic = 0x314B4C46UL;  // FLK1
-constexpr uint8_t kFlashLinkVersion = 8;
+constexpr uint8_t kFlashLinkVersion = 9;
 constexpr uint8_t kFlashLinkChannel = 6;
 constexpr uint8_t kFlashLinkVehicleNodeCount = 2;
 constexpr uint8_t kFlashLinkNodeIdGround = 0;
@@ -210,7 +212,9 @@ constexpr uint32_t kFlashLinkStorageExclusiveHoldMs = 750;
 static_assert(
   kFlashLinkStorageSerialChunkBytes <= kSerialStorageChunkBytes,
   "Shared serial storage buffer is smaller than the A.I LINK aggregate");
-constexpr uint8_t kFlashLinkStorageListBatchItems = 8;
+// V2 list items include mission-sync metadata. Five 32-byte items preserve
+// the original 172-byte response payload and stay below ESP-NOW's limit.
+constexpr uint8_t kFlashLinkStorageListBatchItems = 5;
 constexpr uint32_t kFlashLinkStorageRequestRetryMs = 45;
 constexpr uint8_t kFlashLinkStorageRequestMaxAttempts = 12;
 constexpr wifi_phy_rate_t kFlashLinkEspNowRate = WIFI_PHY_RATE_1M_L;
@@ -778,10 +782,15 @@ struct FlashLinkStorageListItemV1 {
   uint32_t offsetBytes;
   uint32_t bytes;
   uint32_t records;
+  uint32_t syncId;
+  uint32_t syncLocalAnchorMs;
   uint8_t current;
   uint8_t protocolVersion;
   uint8_t missionTimebaseVersion;
   uint8_t metadataFlags;
+  uint8_t stageNodeId;
+  uint8_t syncVersion;
+  uint16_t syncFlags;
 };
 
 struct FlashLinkStorageListResponseV1 {
@@ -1108,6 +1117,19 @@ struct StorageBinHeaderV2 {
   uint32_t metadataCrcReserved;
 };
 
+// HWLOGV2 v4 extends the stable V2 header with a cross-board mission anchor.
+// syncLocalAnchorMs is the local millis() value at which the shared syncId was
+// accepted. Replayers align multiple boards by subtracting this local anchor.
+struct StorageBinHeaderV3 {
+  StorageBinHeaderV2 base;
+  uint32_t syncId;
+  uint32_t syncLocalAnchorMs;
+  uint8_t stageNodeId;
+  uint8_t syncVersion;
+  uint16_t syncFlags;
+  uint32_t syncReserved;
+};
+
 struct NorMetadataV1 {
   uint32_t magic;
   uint16_t version;
@@ -1161,6 +1183,16 @@ struct NorSectorHeaderV4 {
   uint8_t reserved0;
   uint16_t firmwareBuildNumber;
   uint16_t reserved1;
+};
+
+struct NorSectorHeaderV5 {
+  NorSectorHeaderV4 base;
+  uint32_t syncId;
+  uint32_t syncLocalAnchorMs;
+  uint8_t stageNodeId;
+  uint8_t syncVersion;
+  uint16_t syncFlags;
+  uint32_t syncReserved;
 };
 
 struct NorSectorFooterV1 {
@@ -1493,11 +1525,13 @@ static_assert(sizeof(StorageMissionAlarmPayloadV3) == 88, "StorageMissionAlarmPa
 static_assert(sizeof(StorageMissionAlarmRecordV3) == 104, "StorageMissionAlarmRecordV3 size mismatch");
 static_assert(sizeof(StorageBinHeaderV1) == 40, "StorageBinHeaderV1 size mismatch");
 static_assert(sizeof(StorageBinHeaderV2) == 64, "StorageBinHeaderV2 size mismatch");
+static_assert(sizeof(StorageBinHeaderV3) == 80, "StorageBinHeaderV3 size mismatch");
 static_assert(sizeof(NorMetadataV1) == 16, "NorMetadataV1 size mismatch");
 static_assert(sizeof(NorSectorHeaderV1) == 16, "NorSectorHeaderV1 size mismatch");
 static_assert(sizeof(NorSectorHeaderV2) == 20, "NorSectorHeaderV2 size mismatch");
 static_assert(sizeof(NorSectorHeaderV3) == 24, "NorSectorHeaderV3 size mismatch");
 static_assert(sizeof(NorSectorHeaderV4) == 32, "NorSectorHeaderV4 size mismatch");
+static_assert(sizeof(NorSectorHeaderV5) == 48, "NorSectorHeaderV5 size mismatch");
 static_assert(sizeof(NorSectorFooterV1) == 16, "NorSectorFooterV1 size mismatch");
 
 constexpr uint16_t kNorRecordsPerSectorV1 =
@@ -1510,6 +1544,8 @@ constexpr uint16_t kNorRecordsPerSectorV4 =
   (kNorFooterOffset - sizeof(NorSectorHeaderV3)) / sizeof(StorageRecordV4);
 constexpr uint16_t kNorRecordsPerSectorV5 =
   (kNorFooterOffset - sizeof(NorSectorHeaderV4)) / sizeof(StorageRecordV5);
+constexpr uint16_t kNorRecordsPerSectorV5Synced =
+  (kNorFooterOffset - sizeof(NorSectorHeaderV5)) / sizeof(StorageRecordV5);
 constexpr uint16_t kNorMaxRecordsPerSector12 =
   kNorRecordsPerSectorV2 > kNorRecordsPerSectorV1
     ? kNorRecordsPerSectorV2
@@ -1543,7 +1579,9 @@ constexpr uint32_t kNorLogicalCapacityBytesV4 =
 constexpr uint32_t kNorLogicalCapacityBytesV5 =
   (uint32_t)kNorDataSectorCount * (uint32_t)kNorRecordsPerSectorV5 * (uint32_t)sizeof(StorageRecordV5);
 constexpr uint32_t kNorLogicalCapacityBytes =
-  kNorLogicalCapacityBytesV5;
+  (uint32_t)kNorDataSectorCount *
+  (uint32_t)kNorRecordsPerSectorV5Synced *
+  (uint32_t)sizeof(StorageRecordV5);
 
 struct StorageRuntime {
   bool ready = false;
@@ -1560,6 +1598,11 @@ struct StorageRuntime {
   uint32_t sessionCount = 0;
   uint32_t startedAtMs = 0;
   uint32_t loggingStartedAtMs = 0;
+  uint32_t missionSyncId = 0;
+  uint32_t missionSyncLocalAnchorMs = 0;
+  uint8_t missionSyncStageNodeId = 0;
+  uint8_t missionSyncVersion = 0;
+  uint16_t missionSyncFlags = 0;
   uint32_t lastFlushMs = 0;
   uint32_t generation = 0;
   uint32_t sectorCount = 0;
@@ -1576,6 +1619,11 @@ struct StorageSessionInfo {
   uint8_t missionTimebaseVersion = 0;
   uint8_t metadataFlags = 0;
   uint16_t firmwareBuildNumber = 0;
+  uint32_t syncId = 0;
+  uint32_t syncLocalAnchorMs = 0;
+  uint8_t stageNodeId = 0;
+  uint8_t syncVersion = 0;
+  uint16_t syncFlags = 0;
 };
 
 StorageRuntime storageState;

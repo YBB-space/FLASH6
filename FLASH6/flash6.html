@@ -127,7 +127,7 @@
   <!-- Preload 축소: AP 모드/저메모리 환경에서 동시 요청 버스트를 줄임 -->
   <script>
     (function(){
-    var ASSET_VER = "20260728-flight-logging-b123-__FLASH6_DEPLOY_SHA__";
+    var ASSET_VER = "20260728-replay-picker-gate-b125-__FLASH6_DEPLOY_SHA__";
       window.__flashBoot = window.__flashBoot || {jsReady:false,lastError:"",phase:"static_loader",version:ASSET_VER};
       var isLocalPreview = !!window.__flashBoot.localPreview;
       var beaconEnabled = (window.__flashBoot.beaconEnabled !== false);
@@ -365,7 +365,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="styles/flash6.css?v=20260728-obs-local-relay-b120-__FLASH6_DEPLOY_SHA__">
+  <link rel="stylesheet" href="styles/flash6.css?v=20260728-replay-picker-gate-b125-__FLASH6_DEPLOY_SHA__">
 </head>
 <body>
   <!-- ✅ LOCKOUT 배경 오버레이 -->
@@ -1990,7 +1990,7 @@
           </div>
 
           <div id="replayPanel" class="replay-panel hidden" aria-hidden="true">
-            <input id="replayFileInput" class="hidden-input" type="file" accept=".xlsx,.csv,.bin,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,application/octet-stream">
+            <input id="replayFileInput" class="hidden-input" type="file" multiple accept=".xlsx,.csv,.bin,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,application/octet-stream">
             <button id="replayCloseBtn" class="replay-dock-close" type="button" aria-label="리플레이 종료" title="리플레이 종료">×</button>
             <div class="replay-layout-row">
               <div class="replay-file-row">
@@ -3370,8 +3370,34 @@
           <button id="replayDataPickerClose" class="mobile-chart-picker-close" type="button" aria-label="닫기">×</button>
         </div>
         <div class="mobile-chart-picker-body replay-data-picker-body">
-          <section class="replay-data-picker-section" aria-labelledby="replayRecentTitle">
+          <section class="replay-data-summary" aria-labelledby="replayDataSummaryTitle">
             <div class="replay-data-picker-section-head">
+              <span id="replayDataSummaryTitle">비행 데이터 요약</span>
+            </div>
+            <div id="replayDataSummary" class="replay-data-summary-card" aria-live="polite">
+              <div class="replay-data-summary-empty">선택된 비행 데이터가 없습니다.</div>
+            </div>
+            <button id="replayBrowseFileBtn" class="replay-data-picker-file" type="button" aria-label="리플레이 파일 선택 또는 드래그 앤 드롭">
+              <span class="replay-data-picker-file-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M4 7.5h6l2 2h8v9.5H4z"></path><path d="M4 7.5V5h6l2 2h8v2.5"></path></svg>
+              </span>
+              <span class="replay-data-picker-file-copy">
+                <strong>비행 데이터 선택</strong>
+                <small>BIN, CSV, XLSX · 1·2단 파일 동시 선택 가능</small>
+              </span>
+              <span class="replay-data-picker-file-arrow" aria-hidden="true">›</span>
+            </button>
+            <button id="replayProceedBtn" class="replay-data-picker-proceed" type="button" disabled>
+              리플레이 진행하기
+            </button>
+          </section>
+
+          <section class="replay-data-picker-section replay-data-library" aria-label="리플레이 데이터 기록">
+            <div class="replay-data-picker-tabs" role="tablist" aria-label="데이터 기록 구분">
+              <button id="replayRecentFlightTab" class="is-active" type="button" role="tab" aria-selected="true">최근 비행 기록</button>
+              <button id="replayRecentSelectedTab" type="button" role="tab" aria-selected="false">최근 선택 데이터</button>
+            </div>
+            <div class="replay-data-picker-section-head replay-data-picker-list-head">
               <span id="replayRecentTitle">최근 비행 기록</span>
               <span id="replayRecentCount" class="replay-data-picker-count">0개</span>
             </div>
@@ -3379,19 +3405,6 @@
               <div class="replay-data-picker-empty">저장 기록을 불러오는 중입니다.</div>
             </div>
           </section>
-
-          <div class="replay-data-picker-divider"><span>또는</span></div>
-
-          <button id="replayBrowseFileBtn" class="replay-data-picker-file" type="button" aria-label="리플레이 파일 선택 또는 드래그 앤 드롭">
-            <span class="replay-data-picker-file-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><path d="M4 7.5h6l2 2h8v9.5H4z"></path><path d="M4 7.5V5h6l2 2h8v2.5"></path></svg>
-            </span>
-            <span class="replay-data-picker-file-copy">
-              <strong>파일에서 선택</strong>
-              <small>BIN, CSV, XLSX · 파일을 여기로 드래그</small>
-            </span>
-            <span class="replay-data-picker-file-arrow" aria-hidden="true">›</span>
-          </button>
         </div>
       </div>
     </div>

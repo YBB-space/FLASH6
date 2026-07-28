@@ -66,7 +66,8 @@ void serialPrintStorageItem(uint32_t idx) {
   char name[32];
   storageSessionName(item.id, name, sizeof(name));
   Serial.printf("ACK SPI_FLASH_ITEM count=%lu idx=%lu name=%s session=%lu off=%lu bytes=%lu records=%lu current=%u "
-                "protocol=%u timebase=%u meta=%u build=%u started=0\n",
+                "protocol=%u timebase=%u meta=%u build=%u started=0 "
+                "sync_id=%lu sync_anchor=%lu stage_node=%u sync_version=%u sync_flags=%u\n",
                 (unsigned long)storageState.sessionCount,
                 (unsigned long)idx,
                 name,
@@ -78,7 +79,12 @@ void serialPrintStorageItem(uint32_t idx) {
                 (unsigned)item.protocolVersion,
                 (unsigned)item.missionTimebaseVersion,
                 (unsigned)item.metadataFlags,
-                (unsigned)item.firmwareBuildNumber);
+                (unsigned)item.firmwareBuildNumber,
+                (unsigned long)item.syncId,
+                (unsigned long)item.syncLocalAnchorMs,
+                (unsigned)item.stageNodeId,
+                (unsigned)item.syncVersion,
+                (unsigned)item.syncFlags);
 }
 
 void serialPrintStorageChunk(uint32_t offset, uint32_t len) {
@@ -173,7 +179,8 @@ void serialPrintRemoteStorageItem(uint32_t idx) {
   storageSessionName(item.sessionId, name, sizeof(name));
   Serial.printf(
     "ACK SPI_FLASH_REMOTE_ITEM count=%u idx=%lu name=%s session=%lu off=%lu bytes=%lu records=%lu current=%u started=0 "
-    "protocol=%u timebase=%u meta=%u ready=%u capacity=%lu used=%lu total_records=%lu record_hz=%lu\n",
+    "protocol=%u timebase=%u meta=%u sync_id=%lu sync_anchor=%lu stage_node=%u sync_version=%u sync_flags=%u "
+    "ready=%u capacity=%lu used=%lu total_records=%lu record_hz=%lu\n",
     (unsigned)response.totalSessions,
     (unsigned long)idx,
     name,
@@ -185,6 +192,11 @@ void serialPrintRemoteStorageItem(uint32_t idx) {
     (unsigned)item.protocolVersion,
     (unsigned)item.missionTimebaseVersion,
     (unsigned)item.metadataFlags,
+    (unsigned long)item.syncId,
+    (unsigned long)item.syncLocalAnchorMs,
+    (unsigned)item.stageNodeId,
+    (unsigned)item.syncVersion,
+    (unsigned)item.syncFlags,
     capacity > 0U ? 1U : 0U,
     (unsigned long)capacity,
     (unsigned long)used,

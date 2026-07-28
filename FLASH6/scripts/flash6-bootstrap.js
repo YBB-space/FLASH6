@@ -78,7 +78,12 @@
       el.replayDataPickerClose = document.getElementById("replayDataPickerClose");
       el.replayRecentList = document.getElementById("replayRecentList");
       el.replayRecentCount = document.getElementById("replayRecentCount");
+      el.replayRecentTitle = document.getElementById("replayRecentTitle");
+      el.replayRecentFlightTab = document.getElementById("replayRecentFlightTab");
+      el.replayRecentSelectedTab = document.getElementById("replayRecentSelectedTab");
+      el.replayDataSummary = document.getElementById("replayDataSummary");
       el.replayBrowseFileBtn = document.getElementById("replayBrowseFileBtn");
+      el.replayProceedBtn = document.getElementById("replayProceedBtn");
       initMobilePreviewCarousel();
       initMobileChartPicker();
       initMobileMockup3d();
@@ -932,52 +937,87 @@
           });
         });
       }
-      replayFileLoader = async (file)=>{
-        if(!file) return;
+      replayFileLoader = async (fileOrFiles)=>{
+        const files = Array.from(
+          fileOrFiles && typeof fileOrFiles.length === "number" &&
+          typeof fileOrFiles !== "string" && !fileOrFiles.name
+            ? fileOrFiles
+            : (fileOrFiles ? [fileOrFiles] : [])
+        ).filter(Boolean);
+        if(!files.length) return;
+        if(files.length > 2){
+          showToast("리플레이 파일은 최대 2개까지 함께 선택할 수 있습니다.", "notice", {key:"replay-file-limit"});
+          return;
+        }
         cancelReplaySeekProcessing();
-        setReplayStatus("Replay 파일 자동 분석 중... (XLSX/CSV/BIN)");
+        setReplayStatus(files.length === 2
+          ? "1·2단 비행 데이터 동기화 중..."
+          : "Replay 파일 자동 분석 중... (XLSX/CSV/BIN)");
         if(el.replayFileBtn) el.replayFileBtn.classList.remove("is-dragover");
         try{
-          const parsed = await parseReplayFileAuto(file);
-          const samples = parsed.samples;
+          const parsedEntries = await Promise.all(files.map(async(file)=>{
+            const parsed = await parseReplayFileAuto(file);
+            const mode = inferReplayDataMode(parsed.samples) || "flight";
+            if(mode === "flight") applyPressureRobustAltitudeToReplayFrames(parsed.samples);
+            return Object.assign({file, dataMode:mode}, parsed);
+          }));
+          const selection = buildSynchronizedReplaySelection(parsedEntries);
+          const samples = selection.samples;
           const replayDataMode = inferReplayDataMode(samples) || "flight";
-          if(replayDataMode === "flight"){
-            applyPressureRobustAltitudeToReplayFrames(samples);
-          }
           pauseReplayPlayback({silent:true});
           setActiveDataSource(DATA_SOURCE_LIVE);
           replayState.samples = samples;
-          replayState.fileName = file.name;
-          replayState.parserLabel = parsed.parserLabel;
+          replayState.fileName = files.map((file)=>file.name).join(" + ");
+          replayState.sourceFiles = files.map((file)=>({
+            name:file.name,
+            size:Number(file.size) || 0,
+            type:String(file.type || "")
+          }));
+          replayState.parserLabel = selection.parserLabel;
           replayState.dataMode = replayDataMode;
+          replayState.synchronizedStages = selection.synchronized;
+          replayState.syncId = selection.syncId || 0;
+          const selectionKey = files.map((file)=>
+            [file.name, Number(file.size) || 0, Number(file.lastModified) || 0].join(":")
+          ).join("|");
+          replayRecentFileSelections = replayRecentFileSelections.filter(
+            (item)=>item && item.key !== selectionKey
+          );
+          replayRecentFileSelections.unshift({
+            key:selectionKey,
+            files:files.slice(),
+            synchronized:selection.synchronized,
+            selectedAt:Date.now()
+          });
+          replayRecentFileSelections = replayRecentFileSelections.slice(0, 8);
+          renderReplayDataSummary();
           replayState.index = 0;
           replayState.lastIndex = -1;
           prepareReplayLinkQualityData(samples);
-          setActiveDataSource(DATA_SOURCE_REPLAY);
-          // Leave the welcome screen as soon as parsing has succeeded.  The
-          // remaining render/status updates must not strand a valid replay on
-          // the home surface.
-          activateReplayModeAfterSelection();
-          setFlashLinkDisplayDataMode(replayDataMode);
-          renderReplayAlarmEvents();
-          updateReplayModeUi();
-          updateExportButtonState();
-          setReplayStatus("");
+          renderReplayPickerLibrary();
+          setReplayStatus("비행 데이터 선택 완료 · 리플레이 진행하기를 누르세요.");
           showToast(
-            "리플레이 파일 로딩 완료 (" + parsed.parserLabel + "): " + samples.length + " samples",
+            (selection.synchronized
+              ? "1·2단 비행 데이터 자동 동기화 완료"
+              : "리플레이 파일 로딩 완료") +
+              " (" + selection.parserLabel + "): " + samples.length +
+              " samples · 리플레이 진행 준비 완료",
             "success",
             {key:"replay-load"}
           );
-          setReplayDataPickerVisible(false);
         }catch(err){
           const reason = (err && err.message) ? err.message : String(err || "unknown");
           replayState.samples = [];
           replayState.fileName = "";
+          replayState.sourceFiles = [];
           replayState.parserLabel = "";
           replayState.dataMode = null;
+          replayState.synchronizedStages = false;
+          replayState.syncId = 0;
           replayState.index = 0;
           replayState.lastIndex = -1;
           prepareReplayLinkQualityData([]);
+          renderReplayDataSummary();
           renderReplayAlarmEvents();
           updateReplayModeUi();
           updateExportButtonState();
@@ -987,7 +1027,7 @@
           if(el.replayFileInput) el.replayFileInput.value = "";
         }
       };
-      const loadReplayFile = (file)=>replayFileLoader(file);
+      const loadReplayFile = (files)=>replayFileLoader(files);
       if(el.replayDataPickerClose){
         el.replayDataPickerClose.addEventListener("click",()=>setReplayDataPickerVisible(false));
       }
@@ -998,6 +1038,15 @@
       }
       if(el.replayBrowseFileBtn && el.replayFileInput){
         el.replayBrowseFileBtn.addEventListener("click",()=>el.replayFileInput.click());
+      }
+      if(el.replayProceedBtn){
+        el.replayProceedBtn.addEventListener("click",()=>proceedWithSelectedReplay());
+      }
+      if(el.replayRecentFlightTab){
+        el.replayRecentFlightTab.addEventListener("click",()=>setReplayPickerTab("flight"));
+      }
+      if(el.replayRecentSelectedTab){
+        el.replayRecentSelectedTab.addEventListener("click",()=>setReplayPickerTab("selected"));
       }
       if(el.replayFileBtn && el.replayFileInput){
         el.replayFileBtn.addEventListener("click",()=>showReplayDataPicker());
@@ -1034,19 +1083,21 @@
           ev.preventDefault();
           ev.stopPropagation();
           clearDragState();
-          const file = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0]
-            ? ev.dataTransfer.files[0]
-            : null;
-          if(file) loadReplayFile(file);
+          const files = ev.dataTransfer && ev.dataTransfer.files
+            ? Array.from(ev.dataTransfer.files)
+            : [];
+          if(files.length) loadReplayFile(files);
         });
       };
       bindReplayFileDropTarget(el.replayFileBtn);
       bindReplayFileDropTarget(el.replayBrowseFileBtn);
       if(el.replayFileInput){
         el.replayFileInput.addEventListener("change", async ()=>{
-          const file = el.replayFileInput.files && el.replayFileInput.files[0];
-          if(!file) return;
-          await loadReplayFile(file);
+          const files = el.replayFileInput.files
+            ? Array.from(el.replayFileInput.files)
+            : [];
+          if(!files.length) return;
+          await loadReplayFile(files);
         });
       }
       if(el.replayStartBtn){

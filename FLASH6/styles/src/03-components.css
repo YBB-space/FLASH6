@@ -1721,8 +1721,8 @@ body:has(#welcomeConnectScreen:not(.hidden)) #replayDataPickerOverlay.replay-dat
   display:flex !important;
 }
 .replay-data-picker-dialog{
-  width:min(620px, calc(100vw - 32px));
-  max-width:620px;
+  width:min(920px, calc(100vw - 32px));
+  max-width:920px;
 }
 .replay-data-picker-head > div:first-child{
   min-width:0;
@@ -1734,10 +1734,10 @@ body:has(#welcomeConnectScreen:not(.hidden)) #replayDataPickerOverlay.replay-dat
   line-height:1.35;
 }
 .replay-data-picker-body{
-  display:flex;
-  flex-direction:column;
-  gap:16px;
-  padding:20px;
+  display:grid;
+  grid-template-columns:minmax(0, .82fr) minmax(0, 1.18fr);
+  gap:20px;
+  padding:22px;
 }
 .replay-data-picker-section{
   min-width:0;
@@ -1760,9 +1760,119 @@ body:has(#welcomeConnectScreen:not(.hidden)) #replayDataPickerOverlay.replay-dat
   display:flex;
   flex-direction:column;
   gap:7px;
-  max-height:min(330px, 42dvh);
+  max-height:min(360px, 44dvh);
   overflow:auto;
   scrollbar-width:thin;
+}
+.replay-data-summary{
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  padding-right:20px;
+  border-right:1px solid #2b2d31;
+}
+.replay-data-summary-card{
+  min-height:218px;
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+  padding:18px;
+  border:1px solid #303339;
+  border-radius:8px;
+  background:#111214;
+}
+.replay-data-summary-empty{
+  flex:1 1 auto;
+  display:grid;
+  place-items:center;
+  color:#777b82;
+  font-size:12px;
+  text-align:center;
+}
+.replay-data-summary-status{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  color:#bfc3ca;
+  font-size:11px;
+  font-weight:700;
+}
+.replay-data-summary-status::before{
+  content:"";
+  width:7px;
+  height:7px;
+  border-radius:50%;
+  background:#36c978;
+}
+.replay-data-summary-name{
+  color:#f3f4f5;
+  font-size:16px;
+  line-height:1.35;
+  font-weight:680;
+  overflow-wrap:anywhere;
+}
+.replay-data-summary-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:1px;
+  margin-top:auto;
+  overflow:hidden;
+  border:1px solid #2c2f34;
+  border-radius:6px;
+  background:#2c2f34;
+}
+.replay-data-summary-grid span{
+  min-width:0;
+  padding:10px 11px;
+  background:#17181b;
+  color:#7e838c;
+  font-size:9px;
+  font-weight:700;
+  letter-spacing:.08em;
+}
+.replay-data-summary-grid strong{
+  display:block;
+  margin-top:4px;
+  color:#dfe1e5;
+  font-size:11px;
+  letter-spacing:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.replay-data-library{
+  display:flex;
+  min-width:0;
+  flex-direction:column;
+}
+.replay-data-picker-tabs{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:3px;
+  margin-bottom:14px;
+  padding:3px;
+  border:1px solid #303339;
+  border-radius:8px;
+  background:#111214;
+}
+.replay-data-picker-tabs button{
+  min-height:38px;
+  border:0;
+  border-radius:6px;
+  background:transparent;
+  color:#8d929a;
+  font:inherit;
+  font-size:11px;
+  font-weight:700;
+  cursor:pointer;
+}
+.replay-data-picker-tabs button.is-active{
+  background:#e7e8ea;
+  color:#17181a;
+}
+.replay-data-picker-list-head{
+  margin-bottom:10px;
 }
 .replay-data-picker-empty{
   min-height:92px;
@@ -1887,6 +1997,32 @@ body:has(#welcomeConnectScreen:not(.hidden)) #replayDataPickerOverlay.replay-dat
   font-weight:300;
   line-height:1;
 }
+.replay-data-picker-proceed{
+  width:100%;
+  min-height:48px;
+  border:1px solid #d5d7db;
+  border-radius:8px;
+  background:#e7e8ea;
+  color:#17181a;
+  font:inherit;
+  font-size:12px;
+  font-weight:750;
+  cursor:pointer;
+  transition:background .16s ease,border-color .16s ease,color .16s ease;
+}
+.replay-data-picker-proceed:hover:not(:disabled){
+  border-color:#fff;
+  background:#fff;
+}
+.replay-data-picker-proceed:active:not(:disabled){
+  background:#d7d9dc;
+}
+.replay-data-picker-proceed:disabled{
+  border-color:#303339;
+  background:#1a1b1e;
+  color:#666b73;
+  cursor:not-allowed;
+}
 @media(max-width:600px){
   .replay-data-picker-overlay{
     align-items:flex-end !important;
@@ -1901,7 +2037,18 @@ body:has(#welcomeConnectScreen:not(.hidden)) #replayDataPickerOverlay.replay-dat
     border-radius:12px 12px 0 0 !important;
   }
   .replay-data-picker-body{
+    display:flex;
+    flex-direction:column;
     padding:16px 16px max(18px, env(safe-area-inset-bottom, 0px));
+  }
+  .replay-data-summary{
+    padding-right:0;
+    padding-bottom:16px;
+    border-right:0;
+    border-bottom:1px solid #2b2d31;
+  }
+  .replay-data-summary-card{
+    min-height:150px;
   }
   .replay-data-picker-list{
     max-height:42dvh;

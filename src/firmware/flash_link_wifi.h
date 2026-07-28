@@ -2627,6 +2627,11 @@ void flashLinkHandlePacket(FlashLinkRxSlot& slot) {
             item.protocolVersion = info.protocolVersion;
             item.missionTimebaseVersion = info.missionTimebaseVersion;
             item.metadataFlags = info.metadataFlags;
+            item.syncId = info.syncId;
+            item.syncLocalAnchorMs = info.syncLocalAnchorMs;
+            item.stageNodeId = info.stageNodeId;
+            item.syncVersion = info.syncVersion;
+            item.syncFlags = info.syncFlags;
           }
         }
       }

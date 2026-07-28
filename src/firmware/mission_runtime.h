@@ -874,6 +874,18 @@ MissionStandbyResult startMissionStandbyRuntime(uint32_t nowMs) {
     "Mission standby",
     "Waiting for physical ARM release or thrust-flight detection.");
   if (missionIsStage1Node()) {
+    if (flashLinkStage2Enabled) {
+      const uint32_t storageAnchorMs = nowMs - bootMs;
+      const bool syncStored = storageSetMissionSyncMetadata(
+        launchMission.sequenceId,
+        storageAnchorMs,
+        kFlashLinkNodeIdStage1);
+      Serial.printf(
+        "[MISSION] two-stage time sync id=%08lX anchor=%lu stage=1 stored=%u\n",
+        (unsigned long)launchMission.sequenceId,
+        (unsigned long)storageAnchorMs,
+        syncStored ? 1U : 0U);
+    }
     missionSendInterstageEvent(MissionInterstageEventCode::Standby, nowMs, 0);
     launchMission.lastStandbyEventTxMs = nowMs;
   }
@@ -894,6 +906,9 @@ void missionHandleInterstageEvent(
   if (missionIsStage2Node() && sourceNodeId == kFlashLinkNodeIdStage1) {
     if (code == MissionInterstageEventCode::Standby) {
       if (launchMission.launchLatched) return;
+      const bool acceptNewSync =
+        launchMission.sequenceId != event.sequenceId ||
+        storageState.missionSyncId != event.sequenceId;
       const uint32_t nextStage1SeparationMs = clampU32(
         (long)event.stage1SeparationBackupMs,
         500,
@@ -936,6 +951,18 @@ void missionHandleInterstageEvent(
         if (result != MissionStandbyResult::Started) return;
       }
       launchMission.sequenceId = event.sequenceId;
+      if (acceptNewSync) {
+        const uint32_t storageAnchorMs = receivedAtMs - bootMs;
+        const bool syncStored = storageSetMissionSyncMetadata(
+          event.sequenceId,
+          storageAnchorMs,
+          kFlashLinkNodeIdStage2);
+        Serial.printf(
+          "[MISSION] two-stage time sync id=%08lX anchor=%lu stage=2 stored=%u\n",
+          (unsigned long)event.sequenceId,
+          (unsigned long)storageAnchorMs,
+          syncStored ? 1U : 0U);
+      }
       return;
     }
     if (code == MissionInterstageEventCode::Tplus) {

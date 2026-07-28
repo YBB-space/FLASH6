@@ -1335,30 +1335,38 @@ void sendStorageChunkResponse(AsyncWebServerRequest* request, uint32_t offset, u
     (sourceSession.metadataFlags & kStorageMetadataFlagValid) != 0U &&
     sourceSession.protocolVersion != 0U;
 
-  StorageBinHeaderV2 hdr{};
-  memcpy(hdr.base.magic, "HWLOGV2", 7);
-  hdr.base.magic[7] = '\0';
-  hdr.base.version = 3;
-  hdr.base.headerSize = sizeof(StorageBinHeaderV2);
-  hdr.base.dataBytes = dataBytes;
-  hdr.base.recordCount = storageCountRecordsInRange(offset, dataBytes);
-  hdr.base.exportedAtMs = millis() - bootMs;
-  hdr.base.samplePeriodMs = 1000UL / kStorageRecordHz;
-  hdr.base.recordMarker = kStorageRecordMarker;
-  hdr.metadataMagic = kStorageBinMetadataMagic;
-  hdr.metadataVersion = kStorageBinMetadataVersion;
-  hdr.metadataFlags = hasSessionMetadata ? kStorageMetadataFlagValid : 0U;
-  hdr.sessionId = hasSessionMetadata ? sourceSession.id : 0U;
-  hdr.protocolVersion =
+  StorageBinHeaderV3 hdr{};
+  memcpy(hdr.base.base.magic, "HWLOGV2", 7);
+  hdr.base.base.magic[7] = '\0';
+  hdr.base.base.version = 4;
+  hdr.base.base.headerSize = sizeof(StorageBinHeaderV3);
+  hdr.base.base.dataBytes = dataBytes;
+  hdr.base.base.recordCount = storageCountRecordsInRange(offset, dataBytes);
+  hdr.base.base.exportedAtMs = millis() - bootMs;
+  hdr.base.base.samplePeriodMs = 1000UL / kStorageRecordHz;
+  hdr.base.base.recordMarker = kStorageRecordMarker;
+  hdr.base.metadataMagic = kStorageBinMetadataMagic;
+  hdr.base.metadataVersion = kStorageBinMetadataVersion;
+  hdr.base.metadataFlags = hasSessionMetadata ? sourceSession.metadataFlags : 0U;
+  hdr.base.sessionId = hasSessionMetadata ? sourceSession.id : 0U;
+  hdr.base.protocolVersion =
     hasSessionMetadata ? sourceSession.protocolVersion : 0U;
-  hdr.firmwareBuildNumber =
+  hdr.base.firmwareBuildNumber =
     hasSessionMetadata ? sourceSession.firmwareBuildNumber : 0U;
-  hdr.missionTimebaseVersion =
+  hdr.base.missionTimebaseVersion =
     hasSessionMetadata ? sourceSession.missionTimebaseVersion : 0U;
-  hdr.compatibleProtocolMin = kStorageProtocolCompatibleMin;
-  hdr.compatibleProtocolMax = kStorageProtocolCompatibleMax;
+  hdr.base.compatibleProtocolMin = kStorageProtocolCompatibleMin;
+  hdr.base.compatibleProtocolMax = kStorageProtocolCompatibleMax;
+  if (hasSessionMetadata &&
+      (sourceSession.metadataFlags & kStorageMetadataFlagMissionSync) != 0U) {
+    hdr.syncId = sourceSession.syncId;
+    hdr.syncLocalAnchorMs = sourceSession.syncLocalAnchorMs;
+    hdr.stageNodeId = sourceSession.stageNodeId;
+    hdr.syncVersion = sourceSession.syncVersion;
+    hdr.syncFlags = sourceSession.syncFlags;
+  }
 
-  const size_t headerBytes = withHeader ? sizeof(StorageBinHeaderV2) : 0U;
+  const size_t headerBytes = withHeader ? sizeof(StorageBinHeaderV3) : 0U;
   AsyncWebServerResponse* response = request->beginChunkedResponse(
     "application/octet-stream",
     [hdr, headerBytes, offset, dataBytes, generation](
@@ -1511,6 +1519,16 @@ String remoteStorageListJson() {
         json += String(item.missionTimebaseVersion);
         json += ",\"meta\":";
         json += String(item.metadataFlags);
+        json += ",\"sync_id\":";
+        json += String(item.syncId);
+        json += ",\"sync_anchor_ms\":";
+        json += String(item.syncLocalAnchorMs);
+        json += ",\"stage_node\":";
+        json += String(item.stageNodeId);
+        json += ",\"sync_version\":";
+        json += String(item.syncVersion);
+        json += ",\"sync_flags\":";
+        json += String(item.syncFlags);
         json += ",\"build\":0,\"started_at_ms\":0,\"remote\":1}";
       }
     }

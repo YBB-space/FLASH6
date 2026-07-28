@@ -200,69 +200,98 @@ bool norReadSectorInfo(uint16_t sectorIndex, uint32_t generation,
                        uint8_t* protocolVersion = nullptr,
                        uint8_t* missionTimebaseVersion = nullptr,
                        uint8_t* metadataFlags = nullptr,
-                       uint16_t* firmwareBuildNumber = nullptr) {
+                       uint16_t* firmwareBuildNumber = nullptr,
+                       uint32_t* syncId = nullptr,
+                       uint32_t* syncLocalAnchorMs = nullptr,
+                       uint8_t* stageNodeId = nullptr,
+                       uint8_t* syncVersion = nullptr,
+                       uint16_t* syncFlags = nullptr) {
   if (protocolVersion) *protocolVersion = 0;
   if (missionTimebaseVersion) *missionTimebaseVersion = 0;
   if (metadataFlags) *metadataFlags = 0;
   if (firmwareBuildNumber) *firmwareBuildNumber = 0;
-  NorSectorHeaderV4 header{};
+  if (syncId) *syncId = 0;
+  if (syncLocalAnchorMs) *syncLocalAnchorMs = 0;
+  if (stageNodeId) *stageNodeId = 0;
+  if (syncVersion) *syncVersion = 0;
+  if (syncFlags) *syncFlags = 0;
+  NorSectorHeaderV5 header{};
   if (!norRead(norSectorAddress(sectorIndex), &header, sizeof(header))) return false;
-  if (header.magic != kNorSectorMagic ||
-      header.generation != generation ||
-      header.sectorIndex != sectorIndex) {
+  if (header.base.magic != kNorSectorMagic ||
+      header.base.generation != generation ||
+      header.base.sectorIndex != sectorIndex) {
     return false;
   }
-  if (header.version == kNorFormatVersion &&
-      header.headerSize == sizeof(NorSectorHeaderV1)) {
+  if (header.base.version == kNorFormatVersion &&
+      header.base.headerSize == sizeof(NorSectorHeaderV1)) {
     headerSize = sizeof(NorSectorHeaderV1);
     sessionId = 1U;
     recordVersion = kStorageRecordVersionV1;
     return true;
   }
-  if (header.version == kNorSessionSectorVersion &&
-      header.headerSize == sizeof(NorSectorHeaderV2) &&
-      header.sessionId != 0U &&
-      header.sessionId <= UINT16_MAX) {
+  if (header.base.version == kNorSessionSectorVersion &&
+      header.base.headerSize == sizeof(NorSectorHeaderV2) &&
+      header.base.sessionId != 0U &&
+      header.base.sessionId <= UINT16_MAX) {
     headerSize = sizeof(NorSectorHeaderV2);
-    sessionId = header.sessionId;
+    sessionId = header.base.sessionId;
     recordVersion = kStorageRecordVersionV1;
     return true;
   }
-  if (header.version == kNorCompactSectorVersion &&
-      header.headerSize == sizeof(NorSectorHeaderV3) &&
-      header.sessionId != 0U &&
-      header.sessionId <= UINT16_MAX &&
-      header.recordType == kStorageRecordTypeSampleV1 &&
-      ((header.recordVersion == kStorageRecordVersionV2 &&
-        header.recordSize == sizeof(StorageRecordV2)) ||
-       (header.recordVersion == kStorageRecordVersionV3 &&
-        header.recordSize == sizeof(StorageRecordV3)) ||
-       (header.recordVersion == kStorageRecordVersionV4 &&
-        header.recordSize == sizeof(StorageRecordV4)) ||
-       (header.recordVersion == kStorageRecordVersionV5 &&
-        header.recordSize == sizeof(StorageRecordV5)))) {
+  if (header.base.version == kNorCompactSectorVersion &&
+      header.base.headerSize == sizeof(NorSectorHeaderV3) &&
+      header.base.sessionId != 0U &&
+      header.base.sessionId <= UINT16_MAX &&
+      header.base.recordType == kStorageRecordTypeSampleV1 &&
+      ((header.base.recordVersion == kStorageRecordVersionV2 &&
+        header.base.recordSize == sizeof(StorageRecordV2)) ||
+       (header.base.recordVersion == kStorageRecordVersionV3 &&
+        header.base.recordSize == sizeof(StorageRecordV3)) ||
+       (header.base.recordVersion == kStorageRecordVersionV4 &&
+        header.base.recordSize == sizeof(StorageRecordV4)) ||
+       (header.base.recordVersion == kStorageRecordVersionV5 &&
+        header.base.recordSize == sizeof(StorageRecordV5)))) {
     headerSize = sizeof(NorSectorHeaderV3);
-    sessionId = header.sessionId;
-    recordVersion = header.recordVersion;
+    sessionId = header.base.sessionId;
+    recordVersion = header.base.recordVersion;
     return true;
   }
-  if (header.version == kNorProtocolSectorVersion &&
-      header.headerSize == sizeof(NorSectorHeaderV4) &&
-      header.sessionId != 0U &&
-      header.sessionId <= UINT16_MAX &&
-      header.recordType == kStorageRecordTypeSampleV1 &&
-      header.recordVersion == kStorageRecordVersionV5 &&
-      header.recordSize == sizeof(StorageRecordV5)) {
-    headerSize = sizeof(NorSectorHeaderV4);
-    sessionId = header.sessionId;
-    recordVersion = header.recordVersion;
-    if (protocolVersion) *protocolVersion = header.protocolVersion;
+  const bool protocolV4 =
+    header.base.version == kNorProtocolSectorVersion &&
+    header.base.headerSize == sizeof(NorSectorHeaderV4);
+  const bool syncedV5 =
+    header.base.version == kNorSyncedSectorVersion &&
+    header.base.headerSize == sizeof(NorSectorHeaderV5);
+  if ((protocolV4 || syncedV5) &&
+      header.base.sessionId != 0U &&
+      header.base.sessionId <= UINT16_MAX &&
+      header.base.recordType == kStorageRecordTypeSampleV1 &&
+      header.base.recordVersion == kStorageRecordVersionV5 &&
+      header.base.recordSize == sizeof(StorageRecordV5)) {
+    headerSize = protocolV4 ? sizeof(NorSectorHeaderV4) : sizeof(NorSectorHeaderV5);
+    sessionId = header.base.sessionId;
+    recordVersion = header.base.recordVersion;
+    if (protocolVersion) *protocolVersion = header.base.protocolVersion;
     if (missionTimebaseVersion) {
-      *missionTimebaseVersion = header.missionTimebaseVersion;
+      *missionTimebaseVersion = header.base.missionTimebaseVersion;
     }
-    if (metadataFlags) *metadataFlags = header.metadataFlags;
+    if (metadataFlags) *metadataFlags = header.base.metadataFlags;
     if (firmwareBuildNumber) {
-      *firmwareBuildNumber = header.firmwareBuildNumber;
+      *firmwareBuildNumber = header.base.firmwareBuildNumber;
+    }
+    if (syncedV5 &&
+        header.syncId != 0U &&
+        header.syncId != UINT32_MAX &&
+        header.syncLocalAnchorMs != UINT32_MAX &&
+        (header.stageNodeId == kFlashLinkNodeIdStage1 ||
+         header.stageNodeId == kFlashLinkNodeIdStage2) &&
+        header.syncVersion == 1U) {
+      if (syncId) *syncId = header.syncId;
+      if (syncLocalAnchorMs) *syncLocalAnchorMs = header.syncLocalAnchorMs;
+      if (stageNodeId) *stageNodeId = header.stageNodeId;
+      if (syncVersion) *syncVersion = header.syncVersion;
+      if (syncFlags) *syncFlags = header.syncFlags;
+      if (metadataFlags) *metadataFlags |= kStorageMetadataFlagMissionSync;
     }
     return true;
   }
@@ -473,6 +502,11 @@ void storageClearIndex() {
   storageState.usedBytes = 0;
   storageState.recordCount = 0;
   storageState.full = false;
+  storageState.missionSyncId = 0;
+  storageState.missionSyncLocalAnchorMs = 0;
+  storageState.missionSyncStageNodeId = 0;
+  storageState.missionSyncVersion = 0;
+  storageState.missionSyncFlags = 0;
 }
 
 bool norStartNewSector() {
@@ -484,24 +518,36 @@ bool norStartNewSector() {
   const uint32_t address = norSectorAddress(sectorIndex);
   if (!norEraseSector(address)) return false;
 
-  NorSectorHeaderV4 header{};
-  header.magic = kNorSectorMagic;
-  header.version = kNorProtocolSectorVersion;
-  header.headerSize = sizeof(NorSectorHeaderV4);
-  header.generation = storageState.generation;
-  header.sectorIndex = sectorIndex;
-  header.sessionId = storageCurrentSessionId;
-  header.recordVersion = kStorageRecordVersionV5;
-  header.recordType = kStorageRecordTypeSampleV1;
-  header.recordSize = sizeof(StorageRecordV5);
-  header.protocolVersion = kStorageProtocolVersion;
-  header.missionTimebaseVersion = kMissionTimebaseVersion;
-  header.metadataFlags = kStorageMetadataFlagValid;
-  header.firmwareBuildNumber = kFirmwareBuildNumber;
+  NorSectorHeaderV5 header{};
+  header.base.magic = kNorSectorMagic;
+  header.base.version = kNorSyncedSectorVersion;
+  header.base.headerSize = sizeof(NorSectorHeaderV5);
+  header.base.generation = storageState.generation;
+  header.base.sectorIndex = sectorIndex;
+  header.base.sessionId = storageCurrentSessionId;
+  header.base.recordVersion = kStorageRecordVersionV5;
+  header.base.recordType = kStorageRecordTypeSampleV1;
+  header.base.recordSize = sizeof(StorageRecordV5);
+  header.base.protocolVersion = kStorageProtocolVersion;
+  header.base.missionTimebaseVersion = kMissionTimebaseVersion;
+  header.base.metadataFlags = kStorageMetadataFlagValid;
+  header.base.firmwareBuildNumber = kFirmwareBuildNumber;
+  const bool hasSync =
+    storageState.missionSyncId != 0U &&
+    storageState.missionSyncStageNodeId >= kFlashLinkNodeIdStage1 &&
+    storageState.missionSyncStageNodeId <= kFlashLinkNodeIdStage2;
+  header.syncId = hasSync ? storageState.missionSyncId : UINT32_MAX;
+  header.syncLocalAnchorMs =
+    hasSync ? storageState.missionSyncLocalAnchorMs : UINT32_MAX;
+  header.stageNodeId =
+    hasSync ? storageState.missionSyncStageNodeId : UINT8_MAX;
+  header.syncVersion = hasSync ? storageState.missionSyncVersion : UINT8_MAX;
+  header.syncFlags = hasSync ? storageState.missionSyncFlags : UINT16_MAX;
+  header.syncReserved = UINT32_MAX;
   if (!norProgram(address, &header, sizeof(header))) return false;
 
   storageSectorRecordCounts[sectorIndex] = 0;
-  storageSectorHeaderSizes[sectorIndex] = sizeof(NorSectorHeaderV4);
+  storageSectorHeaderSizes[sectorIndex] = sizeof(NorSectorHeaderV5);
   storageSectorRecordVersions[sectorIndex] = kStorageRecordVersionV5;
   storageSectorSessionIds[sectorIndex] = storageCurrentSessionId;
   storageSectorPrefix[sectorIndex + 1U] = storageSectorPrefix[sectorIndex];
@@ -512,6 +558,90 @@ bool norStartNewSector() {
   }
   storageState.sectorCount++;
   storageCurrentSectorWritable = true;
+  return true;
+}
+
+bool storageSetMissionSyncMetadata(
+  uint32_t syncId,
+  uint32_t localAnchorMs,
+  uint8_t stageNodeId
+) {
+  if (syncId == 0U ||
+      (stageNodeId != kFlashLinkNodeIdStage1 &&
+       stageNodeId != kFlashLinkNodeIdStage2)) {
+    return false;
+  }
+  StorageLock lock;
+  if (!lock || storageResetActive || !storageState.ready) return false;
+
+  storageState.missionSyncId = syncId;
+  storageState.missionSyncLocalAnchorMs = localAnchorMs;
+  storageState.missionSyncStageNodeId = stageNodeId;
+  storageState.missionSyncVersion = 1U;
+  storageState.missionSyncFlags = 1U;
+
+  // Logging may be enabled after standby. In that case norStartNewSector()
+  // consumes the pending metadata directly.
+  if (!storageState.loggingEnabled || storageState.sectorCount == 0U) {
+    return true;
+  }
+
+  uint16_t firstSector = UINT16_MAX;
+  for (uint16_t i = 0; i < storageState.sectorCount; ++i) {
+    if (storageSectorSessionIds[i] == storageCurrentSessionId) {
+      firstSector = i;
+      break;
+    }
+  }
+  if (firstSector == UINT16_MAX ||
+      storageSectorHeaderSizes[firstSector] != sizeof(NorSectorHeaderV5)) {
+    return false;
+  }
+
+  NorSectorHeaderV5 header{};
+  const uint32_t address = norSectorAddress(firstSector);
+  if (!norRead(address, &header, sizeof(header)) ||
+      header.base.version != kNorSyncedSectorVersion ||
+      header.base.sessionId != storageCurrentSessionId) {
+    return false;
+  }
+  if (header.syncId != UINT32_MAX) {
+    return header.syncId == syncId &&
+      header.syncLocalAnchorMs == localAnchorMs &&
+      header.stageNodeId == stageNodeId;
+  }
+
+  struct MissionSyncTail {
+    uint32_t syncId;
+    uint32_t syncLocalAnchorMs;
+    uint8_t stageNodeId;
+    uint8_t syncVersion;
+    uint16_t syncFlags;
+    uint32_t syncReserved;
+  } tail{};
+  static_assert(
+    sizeof(MissionSyncTail) ==
+      sizeof(NorSectorHeaderV5) - sizeof(NorSectorHeaderV4),
+    "mission sync tail layout mismatch");
+  tail.syncId = syncId;
+  tail.syncLocalAnchorMs = localAnchorMs;
+  tail.stageNodeId = stageNodeId;
+  tail.syncVersion = 1U;
+  tail.syncFlags = 1U;
+  tail.syncReserved = UINT32_MAX;
+  if (!norProgram(
+        address + sizeof(NorSectorHeaderV4),
+        &tail,
+        sizeof(tail))) {
+    storageState.writeErrors++;
+    return false;
+  }
+  Serial.printf(
+    "[W25Q] mission sync session=%lu sync=%08lX anchor=%lu stage=%u\n",
+    (unsigned long)storageCurrentSessionId,
+    (unsigned long)syncId,
+    (unsigned long)localAnchorMs,
+    (unsigned)stageNodeId);
   return true;
 }
 
@@ -896,6 +1026,11 @@ bool storageSetLoggingEnabled(bool enabled) {
   storageState.loggingStartedAtMs = 0;
   storageCurrentSessionId++;
   if (storageCurrentSessionId == 0U) storageCurrentSessionId = 1U;
+  storageState.missionSyncId = 0;
+  storageState.missionSyncLocalAnchorMs = 0;
+  storageState.missionSyncStageNodeId = 0;
+  storageState.missionSyncVersion = 0;
+  storageState.missionSyncFlags = 0;
   storageRefreshStats();
   Serial.printf(
     "[W25Q] flight logging disabled next_session=%lu\n",
@@ -939,6 +1074,11 @@ bool storageReset() {
   storageState.writeErrors = 0;
   storageState.loggingEnabled = false;
   storageState.loggingStartedAtMs = 0;
+  storageState.missionSyncId = 0;
+  storageState.missionSyncLocalAnchorMs = 0;
+  storageState.missionSyncStageNodeId = 0;
+  storageState.missionSyncVersion = 0;
+  storageState.missionSyncFlags = 0;
   storageState.startedAtMs = millis() - bootMs;
   storageCurrentSessionId = 1U;
   storageResetActive = false;
@@ -1264,7 +1404,12 @@ bool storageGetSessionInfo(uint32_t ordinal, StorageSessionInfo& out) {
         &out.protocolVersion,
         &out.missionTimebaseVersion,
         &out.metadataFlags,
-        &out.firmwareBuildNumber);
+        &out.firmwareBuildNumber,
+        &out.syncId,
+        &out.syncLocalAnchorMs,
+        &out.stageNodeId,
+        &out.syncVersion,
+        &out.syncFlags);
       return true;
     }
     currentOrdinal++;
@@ -1330,7 +1475,7 @@ String storageStatusJson() {
     "\"chip_capacity_bytes\":%lu,"
     "\"capacity_bytes\":%lu,\"used_bytes\":%lu,\"queue_bytes\":%lu,\"used_percent\":%.2f,"
     "\"record_hz\":%lu,\"selected_spi_hz\":%lu,\"session_count\":%lu,"
-    "\"record_format\":\"mixed-v1-v2-v3-v4-v5\",\"current_record_version\":%u,\"current_record_bytes\":%u,"
+    "\"record_format\":\"mixed-v1-v2-v3-v4-v5-sync\",\"current_record_version\":%u,\"current_record_bytes\":%u,"
     "\"current_session_id\":%lu,\"current_file\":\"%s\",\"record_count\":%lu,"
     "\"dropped_records\":%lu,\"lock_skipped_samples\":%lu,"
     "\"flush_count\":%lu,\"write_errors\":%lu,"
@@ -1437,6 +1582,16 @@ String storageListJson() {
       json += String(item.metadataFlags);
       json += ",\"build\":";
       json += String(item.firmwareBuildNumber);
+      json += ",\"sync_id\":";
+      json += String(item.syncId);
+      json += ",\"sync_anchor_ms\":";
+      json += String(item.syncLocalAnchorMs);
+      json += ",\"stage_node\":";
+      json += String(item.stageNodeId);
+      json += ",\"sync_version\":";
+      json += String(item.syncVersion);
+      json += ",\"sync_flags\":";
+      json += String(item.syncFlags);
       json += ",\"started_at_ms\":0}";
     }
   }

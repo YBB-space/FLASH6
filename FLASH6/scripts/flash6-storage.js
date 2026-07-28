@@ -2124,7 +2124,12 @@
           timebase:Math.max(0, Math.floor(num("timebase", 0))),
           meta:Math.max(0, Math.floor(num("meta", 0))),
           build:Math.max(0, Math.floor(num("build", 0))),
-          started_at_ms:Math.max(0, Math.floor(num("started", 0)))
+          started_at_ms:Math.max(0, Math.floor(num("started", 0))),
+          sync_id:Math.max(0, Math.floor(num("sync_id", 0))),
+          sync_anchor_ms:Math.max(0, Math.floor(num("sync_anchor", 0))),
+          stage_node:Math.max(0, Math.floor(num("stage_node", 0))),
+          sync_version:Math.max(0, Math.floor(num("sync_version", 0))),
+          sync_flags:Math.max(0, Math.floor(num("sync_flags", 0)))
         }
       };
     }
@@ -2170,6 +2175,11 @@
           meta:Math.max(0, Math.floor(num("meta", 0))),
           build:Math.max(0, Math.floor(num("build", 0))),
           started_at_ms:Math.max(0, Math.floor(num("started", 0))),
+          sync_id:Math.max(0, Math.floor(num("sync_id", 0))),
+          sync_anchor_ms:Math.max(0, Math.floor(num("sync_anchor", 0))),
+          stage_node:Math.max(0, Math.floor(num("stage_node", 0))),
+          sync_version:Math.max(0, Math.floor(num("sync_version", 0))),
+          sync_flags:Math.max(0, Math.floor(num("sync_flags", 0))),
           remote:true
         }
       };
@@ -2288,7 +2298,7 @@
     }
 
     function buildSpiFlashBinHeader(info){
-      const headerSize = 64;
+      const headerSize = 80;
       const dataBytes = Math.max(0, Number(info && info.used_bytes || 0)) >>> 0;
       const recordCount = Math.max(0, Number(info && info.record_count || 0)) >>> 0;
       let samplePeriodMs = Math.max(
@@ -2306,7 +2316,7 @@
       const magic = "HWLOGV2";
       for(let i=0;i<magic.length;i++) header[i] = magic.charCodeAt(i);
       header[7] = 0;
-      dv.setUint16(8, 3, true); // v3 adds protocol/session metadata after the stable 40-byte prefix
+      dv.setUint16(8, 4, true); // v4 adds dual-stage mission synchronization metadata
       dv.setUint16(10, headerSize, true);
       dv.setUint32(12, dataBytes, true);
       dv.setUint32(16, recordCount, true);
@@ -2325,8 +2335,27 @@
       );
       const metadataValid = protocolVersion > 0 && (metadataFlags & 1) !== 0;
       dv.setUint32(40, 0x32544D48, true); // HMT2
-      dv.setUint16(44, 1, true);
-      dv.setUint16(46, metadataValid ? 1 : 0, true);
+      const syncId = Math.max(0, Number(info && (info.sync_id ?? info.syncId) || 0)) >>> 0;
+      const syncAnchorMs = Math.max(
+        0,
+        Number(info && (info.sync_anchor_ms ?? info.syncLocalAnchorMs) || 0)
+      ) >>> 0;
+      const stageNode = Math.max(
+        0,
+        Math.min(255, Math.floor(Number(info && (info.stage_node ?? info.stageNodeId) || 0)))
+      );
+      const syncVersion = Math.max(
+        0,
+        Math.min(255, Math.floor(Number(info && (info.sync_version ?? info.syncVersion) || 0)))
+      );
+      const syncFlags = Math.max(
+        0,
+        Math.min(65535, Math.floor(Number(info && (info.sync_flags ?? info.syncFlags) || 0)))
+      );
+      const syncValid = syncId > 0 && syncAnchorMs > 0 &&
+        (stageNode === 1 || stageNode === 2) && syncVersion > 0;
+      dv.setUint16(44, 2, true);
+      dv.setUint16(46, (metadataValid ? 1 : 0) | (syncValid ? 2 : 0), true);
       dv.setUint32(
         48,
         metadataValid
@@ -2350,6 +2379,12 @@
       );
       dv.setUint8(57, REPLAY_PROTOCOL_COMPATIBLE_MIN);
       dv.setUint8(58, REPLAY_PROTOCOL_COMPATIBLE_MAX);
+      dv.setUint32(64, syncValid ? syncId : 0, true);
+      dv.setUint32(68, syncValid ? syncAnchorMs : 0, true);
+      dv.setUint8(72, syncValid ? stageNode : 0);
+      dv.setUint8(73, syncValid ? syncVersion : 0);
+      dv.setUint16(74, syncValid ? syncFlags : 0, true);
+      dv.setUint32(76, 0, true);
       return header;
     }
 

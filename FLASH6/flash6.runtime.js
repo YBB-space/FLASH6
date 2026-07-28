@@ -962,8 +962,11 @@ if (typeof window !== "undefined") {
       virtualCountdownLaunchTsMs: NaN,
       virtualCountdownBaseSample: null,
       fileName: "",
+      sourceFiles: [],
       parserLabel: "",
       dataMode: null,
+      synchronizedStages: false,
+      syncId: 0,
       appCommunicationRecorded: false,
       linkQualityAvailable: false,
       linkSamples: [],
@@ -980,6 +983,9 @@ if (typeof window !== "undefined") {
     let replaySeekDisplayIndex = -1;
     let replayFileLoader = null;
     let replayPickerRequestId = 0;
+    let replayPickerTab = "flight";
+    let replayPickerSessions = [];
+    let replayRecentFileSelections = [];
     const REPLAY_SEEK_REBUILD_CHUNK = 900;
     const REPLAY_MIN_FRAME_DELAY_MS = 1;
     const REPLAY_MAX_FRAME_DELAY_MS = 120;
@@ -12698,7 +12704,7 @@ function requestMobileMockup3dMesh(){
       const infoRows = [
         {cells:["ALTIS INTELLIGENT LINK1 COMMUNICATION REPORT"], style:2},
         {cells:["Generated at", now.toISOString()], style:3},
-        {cells:["Protocol", "Flash6-Intelligent-b8 / ALTIS INTELLIGENT LINK1 ESP-NOW LR"], style:3},
+        {cells:["Protocol", "Flash6-Intelligent-b10 / ALTIS INTELLIGENT LINK1 ESP-NOW LR"], style:3},
         {cells:["Board role", roleLabel], style:3},
         {cells:["Peer", peer || "--"], style:3},
         {cells:["Target rate", stats.targetHz + " Hz"], style:3},
@@ -21459,10 +21465,112 @@ function requestMobileMockup3dMesh(){
       }).format(date);
     }
 
-    function renderReplayRecentSessions(sessions){
+    function renderReplayDataSummary(){
+      const container = el.replayDataSummary;
+      const samples = Array.isArray(replayState.samples) ? replayState.samples : [];
+      if(el.replayProceedBtn){
+        el.replayProceedBtn.disabled = samples.length === 0;
+        el.replayProceedBtn.setAttribute(
+          "aria-disabled",
+          samples.length ? "false" : "true"
+        );
+      }
+      if(!container) return;
+      if(!samples.length || !replayState.fileName){
+        container.innerHTML = '<div class="replay-data-summary-empty">선택된 비행 데이터가 없습니다.</div>';
+        return;
+      }
+      const firstTs = Number(samples[0] && samples[0].tsMs);
+      const lastTs = Number(samples[samples.length - 1] && samples[samples.length - 1].tsMs);
+      const durationSec = isFinite(firstTs) && isFinite(lastTs)
+        ? Math.max(0, (lastTs - firstTs) / 1000)
+        : 0;
+      const files = Array.isArray(replayState.sourceFiles) ? replayState.sourceFiles : [];
+      const totalBytes = files.reduce((sum, file)=>sum + Math.max(0, Number(file && file.size) || 0), 0);
+      container.innerHTML =
+        '<div class="replay-data-summary-status">' +
+          (replayState.synchronizedStages ? "1·2단 동기화 완료" : "리플레이 준비 완료") +
+        '</div>' +
+        '<div class="replay-data-summary-name">' + escapeHtmlText(replayState.fileName) + '</div>' +
+        '<div class="replay-data-summary-grid">' +
+          '<span>DATA<strong>' + samples.length.toLocaleString("ko-KR") + ' samples</strong></span>' +
+          '<span>DURATION<strong>' + durationSec.toFixed(2) + ' s</strong></span>' +
+          '<span>FORMAT<strong>' + escapeHtmlText(replayState.parserLabel || "--") + '</strong></span>' +
+          '<span>SIZE<strong>' + escapeHtmlText(formatBytesCompact(totalBytes)) + '</strong></span>' +
+        '</div>';
+    }
+
+    function proceedWithSelectedReplay(){
+      if(!Array.isArray(replayState.samples) || !replayState.samples.length){
+        showToast("비행 데이터를 먼저 선택하세요.", "notice", {key:"replay-proceed-empty"});
+        return false;
+      }
+      setActiveDataSource(DATA_SOURCE_REPLAY);
+      activateReplayModeAfterSelection();
+      setFlashLinkDisplayDataMode(replayState.dataMode || "flight");
+      renderReplayAlarmEvents();
+      updateReplayModeUi();
+      updateExportButtonState();
+      setReplayStatus("");
+      setReplayDataPickerVisible(false);
+      return true;
+    }
+
+    function renderReplayPickerLibrary(){
       const list = el.replayRecentList;
       if(!list) return;
-      const items = (Array.isArray(sessions) ? sessions : [])
+      const showingSelections = replayPickerTab === "selected";
+      if(el.replayRecentFlightTab){
+        el.replayRecentFlightTab.classList.toggle("is-active", !showingSelections);
+        el.replayRecentFlightTab.setAttribute("aria-selected", showingSelections ? "false" : "true");
+      }
+      if(el.replayRecentSelectedTab){
+        el.replayRecentSelectedTab.classList.toggle("is-active", showingSelections);
+        el.replayRecentSelectedTab.setAttribute("aria-selected", showingSelections ? "true" : "false");
+      }
+      if(el.replayRecentTitle){
+        el.replayRecentTitle.textContent = showingSelections ? "최근 선택 데이터" : "최근 비행 기록";
+      }
+
+      if(showingSelections){
+        const selections = replayRecentFileSelections.slice(0, 8);
+        if(el.replayRecentCount) el.replayRecentCount.textContent = selections.length + "개";
+        if(!selections.length){
+          list.innerHTML = '<div class="replay-data-picker-empty">이번 실행에서 선택한 데이터가 없습니다.</div>';
+          return;
+        }
+        list.innerHTML = selections.map((selection, index)=>{
+          const files = Array.isArray(selection.files) ? selection.files : [];
+          const fileName = files.map((file)=>file.name).join(" + ");
+          const totalBytes = files.reduce((sum, file)=>sum + Math.max(0, Number(file.size) || 0), 0);
+          return '<button class="replay-data-picker-item" type="button" data-replay-selection-index="' + index + '">' +
+            '<span class="replay-data-picker-item-mark" aria-hidden="true"></span>' +
+            '<span class="replay-data-picker-item-copy">' +
+              '<strong>' + escapeHtmlText(fileName) + '</strong>' +
+              '<small>' + files.length + '개 파일 · ' + escapeHtmlText(formatBytesCompact(totalBytes)) +
+                (selection.synchronized ? ' · 1·2단 동기화' : '') + '</small>' +
+            '</span>' +
+            '<span class="replay-data-picker-file-arrow" aria-hidden="true">›</span>' +
+          '</button>';
+        }).join("");
+        list.querySelectorAll("[data-replay-selection-index]").forEach((button)=>{
+          button.addEventListener("click", async()=>{
+            const selection = selections[Number(button.dataset.replaySelectionIndex)];
+            if(!selection || typeof replayFileLoader !== "function") return;
+            button.disabled = true;
+            button.classList.add("is-loading");
+            try{
+              await replayFileLoader(selection.files);
+            }finally{
+              button.disabled = false;
+              button.classList.remove("is-loading");
+            }
+          });
+        });
+        return;
+      }
+
+      const items = replayPickerSessions
         .filter(session=>session && session.id && Number(session.sampleCount || 0) > 0)
         .slice(0, 8);
       if(el.replayRecentCount) el.replayRecentCount.textContent = items.length + "개";
@@ -21493,7 +21601,6 @@ function requestMobileMockup3dMesh(){
           try{
             const file = await buildAppDataSessionFile(session);
             await replayFileLoader(file);
-            if(replayState.samples.length) setReplayDataPickerVisible(false);
           }catch(err){
             const reason = (err && err.message) ? err.message : String(err || "unknown");
             showToast("저장 기록을 열지 못했습니다: " + reason, "error", {key:"replay-app-session-fail"});
@@ -21503,6 +21610,16 @@ function requestMobileMockup3dMesh(){
           }
         });
       });
+    }
+
+    function renderReplayRecentSessions(sessions){
+      replayPickerSessions = Array.isArray(sessions) ? sessions : [];
+      renderReplayPickerLibrary();
+    }
+
+    function setReplayPickerTab(tab){
+      replayPickerTab = tab === "selected" ? "selected" : "flight";
+      renderReplayPickerLibrary();
     }
 
     async function showReplayDataPicker(){
@@ -21515,6 +21632,7 @@ function requestMobileMockup3dMesh(){
         el.replayRecentList.innerHTML = '<div class="replay-data-picker-empty">저장 기록을 불러오는 중입니다.</div>';
       }
       if(el.replayRecentCount) el.replayRecentCount.textContent = "--";
+      renderReplayDataSummary();
       setReplayDataPickerVisible(true);
       const sessions = await listAppDataSessions();
       if(requestId !== replayPickerRequestId) return;
@@ -22175,9 +22293,10 @@ function requestMobileMockup3dMesh(){
     const REPLAY_BIN_SCAN_MAX_BYTES = 1024 * 1024;
     const REPLAY_BIN_APP_SOURCE_TAG = 0x31505041; // "APP1"
     const REPLAY_BIN_METADATA_BYTES = 64;
+    const REPLAY_BIN_SYNC_METADATA_BYTES = 80;
     const REPLAY_BIN_METADATA_MAGIC = 0x32544D48; // "HMT2"
     const REPLAY_PROTOCOL_COMPATIBLE_MIN = 8;
-    const REPLAY_PROTOCOL_COMPATIBLE_MAX = 8;
+    const REPLAY_PROTOCOL_COMPATIBLE_MAX = 9;
     const REPLAY_LEGACY_ARM_DEBOUNCE_MS = 50;
     const REPLAY_LEGACY_THRUST_ACCEL_G = 1.5;
     const REPLAY_LEGACY_THRUST_HOLD_MS = 100;
@@ -22204,6 +22323,12 @@ function requestMobileMockup3dMesh(){
         missionTimebaseVersion:0,
         firmwareBuildNumber:0,
         sessionId:0,
+        syncId:0,
+        syncLocalAnchorMs:0,
+        stageNodeId:0,
+        syncVersion:0,
+        syncFlags:0,
+        hasMissionSync:false,
         reason:"missing"
       };
       if(!(arrayBuffer instanceof ArrayBuffer) || arrayBuffer.byteLength < 2){
@@ -22222,9 +22347,10 @@ function requestMobileMockup3dMesh(){
         return result;
       }
       const headerSize = dv.getUint16(10, true);
+      const metadataVersion = dv.getUint16(44, true);
       if(headerSize < REPLAY_BIN_METADATA_BYTES ||
          dv.getUint32(40, true) !== REPLAY_BIN_METADATA_MAGIC ||
-         dv.getUint16(44, true) !== 1){
+         (metadataVersion !== 1 && metadataVersion !== 2)){
         return result;
       }
       const metadataFlags = dv.getUint16(46, true);
@@ -22234,6 +22360,21 @@ function requestMobileMockup3dMesh(){
       result.firmwareBuildNumber = dv.getUint16(54, true);
       result.missionTimebaseVersion = dv.getUint8(56);
       result.hasMetadata = (metadataFlags & 1) !== 0 && protocolVersion > 0;
+      if(metadataVersion >= 2 &&
+         headerSize >= REPLAY_BIN_SYNC_METADATA_BYTES &&
+         arrayBuffer.byteLength >= REPLAY_BIN_SYNC_METADATA_BYTES){
+        result.syncId = dv.getUint32(64, true);
+        result.syncLocalAnchorMs = dv.getUint32(68, true);
+        result.stageNodeId = dv.getUint8(72);
+        result.syncVersion = dv.getUint8(73);
+        result.syncFlags = dv.getUint16(74, true);
+        result.hasMissionSync =
+          (metadataFlags & 2) !== 0 &&
+          result.syncId > 0 &&
+          result.syncLocalAnchorMs > 0 &&
+          (result.stageNodeId === 1 || result.stageNodeId === 2) &&
+          result.syncVersion > 0;
+      }
       if(!result.hasMetadata) return result;
       result.compatible =
         protocolVersion >= REPLAY_PROTOCOL_COMPATIBLE_MIN &&
@@ -22477,6 +22618,12 @@ function requestMobileMockup3dMesh(){
         entry.sample.bin_mission_timebase_version =
           metadata.missionTimebaseVersion || 0;
         entry.sample.bin_firmware_build = metadata.firmwareBuildNumber || 0;
+        entry.sample.bin_sync_id = metadata.syncId || 0;
+        entry.sample.bin_sync_anchor_ms = metadata.syncLocalAnchorMs || 0;
+        entry.sample.bin_stage_node_id = metadata.stageNodeId || 0;
+        entry.sample.bin_sync_version = metadata.syncVersion || 0;
+        entry.sample.bin_sync_flags = metadata.syncFlags || 0;
+        entry.sample.bin_has_mission_sync = metadata.hasMissionSync ? 1 : 0;
       });
       return samples;
     }
@@ -23238,6 +23385,128 @@ function requestMobileMockup3dMesh(){
       throw new Error("자동 판별 실패 (" + reasons.join(" | ") + ")");
     }
 
+    function replayMissionSyncDescriptor(parsedEntry){
+      const frames = parsedEntry && Array.isArray(parsedEntry.samples)
+        ? parsedEntry.samples
+        : [];
+      const sampleEntry = frames.find((entry)=>entry && entry.sample);
+      const sample = sampleEntry && sampleEntry.sample;
+      if(!sample) return null;
+      const syncId = Math.max(0, Math.floor(Number(sample.bin_sync_id) || 0));
+      const anchorMs = Math.max(0, Number(sample.bin_sync_anchor_ms) || 0);
+      const stageNodeId = Math.floor(Number(sample.bin_stage_node_id) || 0);
+      const syncVersion = Math.max(0, Math.floor(Number(sample.bin_sync_version) || 0));
+      const valid = Number(sample.bin_has_mission_sync) !== 0 &&
+        syncId > 0 && anchorMs > 0 &&
+        (stageNodeId === 1 || stageNodeId === 2) &&
+        syncVersion > 0;
+      return valid ? {syncId, anchorMs, stageNodeId, syncVersion} : null;
+    }
+
+    function buildSynchronizedReplaySelection(parsedEntries){
+      const entries = (Array.isArray(parsedEntries) ? parsedEntries : [])
+        .filter((entry)=>entry && Array.isArray(entry.samples) && entry.samples.length);
+      if(entries.length !== 2){
+        const first = entries[0];
+        return {
+          samples:first ? first.samples : [],
+          synchronized:false,
+          syncId:0,
+          stageNodes:[],
+          parserLabel:first ? first.parserLabel : ""
+        };
+      }
+
+      const sources = entries.map((entry)=>({
+        entry,
+        sync:replayMissionSyncDescriptor(entry)
+      }));
+      if(sources.some((source)=>!source.sync)){
+        throw new Error("1·2단 자동 동기화 정보가 없는 파일입니다. b10 이상 BIN 두 개를 함께 선택하세요.");
+      }
+      if(sources[0].sync.syncId !== sources[1].sync.syncId){
+        throw new Error("서로 다른 미션의 1·2단 기록입니다. 동기화 ID가 일치하지 않습니다.");
+      }
+      if(sources[0].sync.stageNodeId === sources[1].sync.stageNodeId){
+        throw new Error("같은 단의 기록 두 개가 선택되었습니다. 1단과 2단 BIN을 각각 선택하세요.");
+      }
+
+      const timeline = [];
+      sources.forEach((source)=>{
+        const stageNodeId = source.sync.stageNodeId;
+        source.entry.samples.forEach((frame, sourceIndex)=>{
+          const tsMs = Number(frame && frame.tsMs);
+          if(!frame || !frame.sample || !isFinite(tsMs)) return;
+          timeline.push({
+            alignedMs:tsMs - source.sync.anchorMs,
+            sourceIndex,
+            stageNodeId,
+            sample:frame.sample
+          });
+        });
+      });
+      timeline.sort((a, b)=>
+        (a.alignedMs - b.alignedMs) ||
+        (a.stageNodeId - b.stageNodeId) ||
+        (a.sourceIndex - b.sourceIndex)
+      );
+      if(!timeline.length){
+        throw new Error("동기화할 리플레이 샘플이 없습니다.");
+      }
+
+      const earliestMs = timeline[0].alignedMs;
+      const latestByStage = {1:null, 2:null};
+      const merged = [];
+      let cursor = 0;
+      while(cursor < timeline.length){
+        const groupStart = timeline[cursor].alignedMs;
+        const group = [];
+        while(cursor < timeline.length &&
+              Math.abs(timeline[cursor].alignedMs - groupStart) < 0.5){
+          group.push(timeline[cursor]);
+          cursor += 1;
+        }
+        const stageBundle = [];
+        group.forEach((event)=>{
+          const stageSample = Object.assign({}, event.sample, {
+            stage_node_id:event.stageNodeId,
+            fl_node:event.stageNodeId,
+            node_id:event.stageNodeId,
+            stage_connected:1,
+            stage_valid:1
+          });
+          latestByStage[event.stageNodeId] = stageSample;
+          stageBundle.push(stageSample);
+        });
+        const primary = latestByStage[1] || latestByStage[2] || stageBundle[0];
+        const replayTsMs = Math.max(
+          merged.length ? merged[merged.length - 1].tsMs + 0.001 : 0,
+          groupStart - earliestMs
+        );
+        const sample = Object.assign({}, primary, {
+          stage_telemetry:stageBundle,
+          fl_stage2_mode:1,
+          flash_link_stage2_mode:1,
+          flash_link_role:"ground",
+          fl_role:"ground",
+          fl_stage1:latestByStage[1] ? 1 : 0,
+          fl_stage2:latestByStage[2] ? 1 : 0,
+          _replayTsMs:replayTsMs,
+          replay_dual_stage_sync:1,
+          replay_sync_id:sources[0].sync.syncId
+        });
+        merged.push({tsMs:replayTsMs, sample});
+      }
+
+      return {
+        samples:merged,
+        synchronized:true,
+        syncId:sources[0].sync.syncId,
+        stageNodes:sources.map((source)=>source.sync.stageNodeId).sort(),
+        parserLabel:entries.map((entry)=>entry.parserLabel).join(" + ")
+      };
+    }
+
     function inferReplayDataMode(samples){
       const frames = Array.isArray(samples) ? samples : [];
       let flightScore = 0;
@@ -23997,8 +24266,8 @@ function requestMobileMockup3dMesh(){
         fl_rssi_age_ms:(frame[56] != null && isFinite(Number(frame[56]))) ? Number(frame[56]) : 4294967295,
         fw_program:"Altis_Intelligent3_firmware1",
         fw_board:"Altis_Intelligent3_b3",
-        fw_protocol:"Flash6-Intelligent-b8",
-        fw_build:"v6 b42"
+        fw_protocol:"Flash6-Intelligent-b10",
+        fw_build:"v6 b44"
       };
     }
 
@@ -29075,7 +29344,12 @@ function requestMobileMockup3dMesh(){
           timebase:Math.max(0, Math.floor(num("timebase", 0))),
           meta:Math.max(0, Math.floor(num("meta", 0))),
           build:Math.max(0, Math.floor(num("build", 0))),
-          started_at_ms:Math.max(0, Math.floor(num("started", 0)))
+          started_at_ms:Math.max(0, Math.floor(num("started", 0))),
+          sync_id:Math.max(0, Math.floor(num("sync_id", 0))),
+          sync_anchor_ms:Math.max(0, Math.floor(num("sync_anchor", 0))),
+          stage_node:Math.max(0, Math.floor(num("stage_node", 0))),
+          sync_version:Math.max(0, Math.floor(num("sync_version", 0))),
+          sync_flags:Math.max(0, Math.floor(num("sync_flags", 0)))
         }
       };
     }
@@ -29121,6 +29395,11 @@ function requestMobileMockup3dMesh(){
           meta:Math.max(0, Math.floor(num("meta", 0))),
           build:Math.max(0, Math.floor(num("build", 0))),
           started_at_ms:Math.max(0, Math.floor(num("started", 0))),
+          sync_id:Math.max(0, Math.floor(num("sync_id", 0))),
+          sync_anchor_ms:Math.max(0, Math.floor(num("sync_anchor", 0))),
+          stage_node:Math.max(0, Math.floor(num("stage_node", 0))),
+          sync_version:Math.max(0, Math.floor(num("sync_version", 0))),
+          sync_flags:Math.max(0, Math.floor(num("sync_flags", 0))),
           remote:true
         }
       };
@@ -29239,7 +29518,7 @@ function requestMobileMockup3dMesh(){
     }
 
     function buildSpiFlashBinHeader(info){
-      const headerSize = 64;
+      const headerSize = 80;
       const dataBytes = Math.max(0, Number(info && info.used_bytes || 0)) >>> 0;
       const recordCount = Math.max(0, Number(info && info.record_count || 0)) >>> 0;
       let samplePeriodMs = Math.max(
@@ -29257,7 +29536,7 @@ function requestMobileMockup3dMesh(){
       const magic = "HWLOGV2";
       for(let i=0;i<magic.length;i++) header[i] = magic.charCodeAt(i);
       header[7] = 0;
-      dv.setUint16(8, 3, true); // v3 adds protocol/session metadata after the stable 40-byte prefix
+      dv.setUint16(8, 4, true); // v4 adds dual-stage mission synchronization metadata
       dv.setUint16(10, headerSize, true);
       dv.setUint32(12, dataBytes, true);
       dv.setUint32(16, recordCount, true);
@@ -29276,8 +29555,27 @@ function requestMobileMockup3dMesh(){
       );
       const metadataValid = protocolVersion > 0 && (metadataFlags & 1) !== 0;
       dv.setUint32(40, 0x32544D48, true); // HMT2
-      dv.setUint16(44, 1, true);
-      dv.setUint16(46, metadataValid ? 1 : 0, true);
+      const syncId = Math.max(0, Number(info && (info.sync_id ?? info.syncId) || 0)) >>> 0;
+      const syncAnchorMs = Math.max(
+        0,
+        Number(info && (info.sync_anchor_ms ?? info.syncLocalAnchorMs) || 0)
+      ) >>> 0;
+      const stageNode = Math.max(
+        0,
+        Math.min(255, Math.floor(Number(info && (info.stage_node ?? info.stageNodeId) || 0)))
+      );
+      const syncVersion = Math.max(
+        0,
+        Math.min(255, Math.floor(Number(info && (info.sync_version ?? info.syncVersion) || 0)))
+      );
+      const syncFlags = Math.max(
+        0,
+        Math.min(65535, Math.floor(Number(info && (info.sync_flags ?? info.syncFlags) || 0)))
+      );
+      const syncValid = syncId > 0 && syncAnchorMs > 0 &&
+        (stageNode === 1 || stageNode === 2) && syncVersion > 0;
+      dv.setUint16(44, 2, true);
+      dv.setUint16(46, (metadataValid ? 1 : 0) | (syncValid ? 2 : 0), true);
       dv.setUint32(
         48,
         metadataValid
@@ -29301,6 +29599,12 @@ function requestMobileMockup3dMesh(){
       );
       dv.setUint8(57, REPLAY_PROTOCOL_COMPATIBLE_MIN);
       dv.setUint8(58, REPLAY_PROTOCOL_COMPATIBLE_MAX);
+      dv.setUint32(64, syncValid ? syncId : 0, true);
+      dv.setUint32(68, syncValid ? syncAnchorMs : 0, true);
+      dv.setUint8(72, syncValid ? stageNode : 0);
+      dv.setUint8(73, syncValid ? syncVersion : 0);
+      dv.setUint16(74, syncValid ? syncFlags : 0, true);
+      dv.setUint32(76, 0, true);
       return header;
     }
 
@@ -37588,7 +37892,12 @@ function requestMobileMockup3dMesh(){
       el.replayDataPickerClose = document.getElementById("replayDataPickerClose");
       el.replayRecentList = document.getElementById("replayRecentList");
       el.replayRecentCount = document.getElementById("replayRecentCount");
+      el.replayRecentTitle = document.getElementById("replayRecentTitle");
+      el.replayRecentFlightTab = document.getElementById("replayRecentFlightTab");
+      el.replayRecentSelectedTab = document.getElementById("replayRecentSelectedTab");
+      el.replayDataSummary = document.getElementById("replayDataSummary");
       el.replayBrowseFileBtn = document.getElementById("replayBrowseFileBtn");
+      el.replayProceedBtn = document.getElementById("replayProceedBtn");
       initMobilePreviewCarousel();
       initMobileChartPicker();
       initMobileMockup3d();
@@ -38442,52 +38751,87 @@ function requestMobileMockup3dMesh(){
           });
         });
       }
-      replayFileLoader = async (file)=>{
-        if(!file) return;
+      replayFileLoader = async (fileOrFiles)=>{
+        const files = Array.from(
+          fileOrFiles && typeof fileOrFiles.length === "number" &&
+          typeof fileOrFiles !== "string" && !fileOrFiles.name
+            ? fileOrFiles
+            : (fileOrFiles ? [fileOrFiles] : [])
+        ).filter(Boolean);
+        if(!files.length) return;
+        if(files.length > 2){
+          showToast("리플레이 파일은 최대 2개까지 함께 선택할 수 있습니다.", "notice", {key:"replay-file-limit"});
+          return;
+        }
         cancelReplaySeekProcessing();
-        setReplayStatus("Replay 파일 자동 분석 중... (XLSX/CSV/BIN)");
+        setReplayStatus(files.length === 2
+          ? "1·2단 비행 데이터 동기화 중..."
+          : "Replay 파일 자동 분석 중... (XLSX/CSV/BIN)");
         if(el.replayFileBtn) el.replayFileBtn.classList.remove("is-dragover");
         try{
-          const parsed = await parseReplayFileAuto(file);
-          const samples = parsed.samples;
+          const parsedEntries = await Promise.all(files.map(async(file)=>{
+            const parsed = await parseReplayFileAuto(file);
+            const mode = inferReplayDataMode(parsed.samples) || "flight";
+            if(mode === "flight") applyPressureRobustAltitudeToReplayFrames(parsed.samples);
+            return Object.assign({file, dataMode:mode}, parsed);
+          }));
+          const selection = buildSynchronizedReplaySelection(parsedEntries);
+          const samples = selection.samples;
           const replayDataMode = inferReplayDataMode(samples) || "flight";
-          if(replayDataMode === "flight"){
-            applyPressureRobustAltitudeToReplayFrames(samples);
-          }
           pauseReplayPlayback({silent:true});
           setActiveDataSource(DATA_SOURCE_LIVE);
           replayState.samples = samples;
-          replayState.fileName = file.name;
-          replayState.parserLabel = parsed.parserLabel;
+          replayState.fileName = files.map((file)=>file.name).join(" + ");
+          replayState.sourceFiles = files.map((file)=>({
+            name:file.name,
+            size:Number(file.size) || 0,
+            type:String(file.type || "")
+          }));
+          replayState.parserLabel = selection.parserLabel;
           replayState.dataMode = replayDataMode;
+          replayState.synchronizedStages = selection.synchronized;
+          replayState.syncId = selection.syncId || 0;
+          const selectionKey = files.map((file)=>
+            [file.name, Number(file.size) || 0, Number(file.lastModified) || 0].join(":")
+          ).join("|");
+          replayRecentFileSelections = replayRecentFileSelections.filter(
+            (item)=>item && item.key !== selectionKey
+          );
+          replayRecentFileSelections.unshift({
+            key:selectionKey,
+            files:files.slice(),
+            synchronized:selection.synchronized,
+            selectedAt:Date.now()
+          });
+          replayRecentFileSelections = replayRecentFileSelections.slice(0, 8);
+          renderReplayDataSummary();
           replayState.index = 0;
           replayState.lastIndex = -1;
           prepareReplayLinkQualityData(samples);
-          setActiveDataSource(DATA_SOURCE_REPLAY);
-          // Leave the welcome screen as soon as parsing has succeeded.  The
-          // remaining render/status updates must not strand a valid replay on
-          // the home surface.
-          activateReplayModeAfterSelection();
-          setFlashLinkDisplayDataMode(replayDataMode);
-          renderReplayAlarmEvents();
-          updateReplayModeUi();
-          updateExportButtonState();
-          setReplayStatus("");
+          renderReplayPickerLibrary();
+          setReplayStatus("비행 데이터 선택 완료 · 리플레이 진행하기를 누르세요.");
           showToast(
-            "리플레이 파일 로딩 완료 (" + parsed.parserLabel + "): " + samples.length + " samples",
+            (selection.synchronized
+              ? "1·2단 비행 데이터 자동 동기화 완료"
+              : "리플레이 파일 로딩 완료") +
+              " (" + selection.parserLabel + "): " + samples.length +
+              " samples · 리플레이 진행 준비 완료",
             "success",
             {key:"replay-load"}
           );
-          setReplayDataPickerVisible(false);
         }catch(err){
           const reason = (err && err.message) ? err.message : String(err || "unknown");
           replayState.samples = [];
           replayState.fileName = "";
+          replayState.sourceFiles = [];
           replayState.parserLabel = "";
           replayState.dataMode = null;
+          replayState.synchronizedStages = false;
+          replayState.syncId = 0;
           replayState.index = 0;
           replayState.lastIndex = -1;
           prepareReplayLinkQualityData([]);
+          renderReplayDataSummary();
           renderReplayAlarmEvents();
           updateReplayModeUi();
           updateExportButtonState();
@@ -38497,7 +38841,7 @@ function requestMobileMockup3dMesh(){
           if(el.replayFileInput) el.replayFileInput.value = "";
         }
       };
-      const loadReplayFile = (file)=>replayFileLoader(file);
+      const loadReplayFile = (files)=>replayFileLoader(files);
       if(el.replayDataPickerClose){
         el.replayDataPickerClose.addEventListener("click",()=>setReplayDataPickerVisible(false));
       }
@@ -38508,6 +38852,15 @@ function requestMobileMockup3dMesh(){
       }
       if(el.replayBrowseFileBtn && el.replayFileInput){
         el.replayBrowseFileBtn.addEventListener("click",()=>el.replayFileInput.click());
+      }
+      if(el.replayProceedBtn){
+        el.replayProceedBtn.addEventListener("click",()=>proceedWithSelectedReplay());
+      }
+      if(el.replayRecentFlightTab){
+        el.replayRecentFlightTab.addEventListener("click",()=>setReplayPickerTab("flight"));
+      }
+      if(el.replayRecentSelectedTab){
+        el.replayRecentSelectedTab.addEventListener("click",()=>setReplayPickerTab("selected"));
       }
       if(el.replayFileBtn && el.replayFileInput){
         el.replayFileBtn.addEventListener("click",()=>showReplayDataPicker());
@@ -38544,19 +38897,21 @@ function requestMobileMockup3dMesh(){
           ev.preventDefault();
           ev.stopPropagation();
           clearDragState();
-          const file = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0]
-            ? ev.dataTransfer.files[0]
-            : null;
-          if(file) loadReplayFile(file);
+          const files = ev.dataTransfer && ev.dataTransfer.files
+            ? Array.from(ev.dataTransfer.files)
+            : [];
+          if(files.length) loadReplayFile(files);
         });
       };
       bindReplayFileDropTarget(el.replayFileBtn);
       bindReplayFileDropTarget(el.replayBrowseFileBtn);
       if(el.replayFileInput){
         el.replayFileInput.addEventListener("change", async ()=>{
-          const file = el.replayFileInput.files && el.replayFileInput.files[0];
-          if(!file) return;
-          await loadReplayFile(file);
+          const files = el.replayFileInput.files
+            ? Array.from(el.replayFileInput.files)
+            : [];
+          if(!files.length) return;
+          await loadReplayFile(files);
         });
       }
       if(el.replayStartBtn){

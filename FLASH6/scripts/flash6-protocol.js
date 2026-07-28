@@ -239,7 +239,7 @@
         fl_rssi_age_ms:(frame[56] != null && isFinite(Number(frame[56]))) ? Number(frame[56]) : 4294967295,
         fw_program:"Altis_Intelligent3_firmware1",
         fw_board:"Altis_Intelligent3_b3",
-        fw_protocol:"Flash6-Intelligent-b8",
-        fw_build:"v6 b42"
+        fw_protocol:"Flash6-Intelligent-b10",
+        fw_build:"v6 b44"
       };
     }

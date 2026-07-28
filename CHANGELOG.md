@@ -3,6 +3,32 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.9.14 — v6 b44 — 2026-07-28
+
+Protocol: `Flash6-Intelligent-b10`
+
+Storage record protocol: `HWLOGV2` version `9` (native compatibility `8–9`)
+
+- 2단 운용 중 `미션 대기`를 시작하면 기존 단간 `STANDBY` 이벤트의
+  공통 시퀀스 ID를 비행 기록 동기화 ID로 함께 사용합니다. 1단은 명령
+  수락 시각, 2단은 같은 이벤트 수신 시각을 각 보드의 로컬 기준점으로
+  저장합니다.
+- SPI NOR 세션 헤더와 내보낸 BIN 헤더에 동기화 ID, 로컬 기준시각,
+  단 번호 및 동기화 형식 버전을 추가했습니다. 기존 version 8 기록은
+  계속 읽을 수 있으며 새 메타데이터가 없는 로그는 단일 파일로
+  재생됩니다.
+- 저장 기록 목록의 HTTP·USB 시리얼·A.I LINK 프록시 경로 모두에서
+  동기화 메타데이터가 유실되지 않도록 전송 규격을 확장했습니다.
+- 리플레이 파일 선택에서 1단·2단 BIN 두 개를 동시에 선택하거나
+  드래그하면 공통 동기화 ID를 검증한 뒤 각 보드의 로컬 시간축을
+  자동 정렬하여 하나의 2단 텔레메트리 리플레이로 병합합니다.
+- 리플레이 데이터 선택 모달을 왼쪽 비행 데이터 요약과 오른쪽 기록
+  라이브러리로 재구성했습니다. 오른쪽에서는 `최근 비행 기록`과
+  `최근 선택 데이터`를 토글할 수 있습니다.
+- 파일을 고른 직후 리플레이 화면으로 자동 전환하지 않고, 요약 아래의
+  `리플레이 진행하기`를 눌렀을 때만 선택 데이터를 재생하도록 변경했습니다.
+- FLASH6 UI 자산 버전을 `b125`로 갱신했습니다.
+
 ## 0.9.13 — v6 b43 — 2026-07-28
 
 Protocol: `Flash6-Intelligent-b9`

@@ -961,8 +961,11 @@ if (typeof window !== "undefined") {
       virtualCountdownLaunchTsMs: NaN,
       virtualCountdownBaseSample: null,
       fileName: "",
+      sourceFiles: [],
       parserLabel: "",
       dataMode: null,
+      synchronizedStages: false,
+      syncId: 0,
       appCommunicationRecorded: false,
       linkQualityAvailable: false,
       linkSamples: [],
@@ -979,6 +982,9 @@ if (typeof window !== "undefined") {
     let replaySeekDisplayIndex = -1;
     let replayFileLoader = null;
     let replayPickerRequestId = 0;
+    let replayPickerTab = "flight";
+    let replayPickerSessions = [];
+    let replayRecentFileSelections = [];
     const REPLAY_SEEK_REBUILD_CHUNK = 900;
     const REPLAY_MIN_FRAME_DELAY_MS = 1;
     const REPLAY_MAX_FRAME_DELAY_MS = 120;
