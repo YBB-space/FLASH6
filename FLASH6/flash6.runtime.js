@@ -28457,22 +28457,22 @@ function requestMobileMockup3dMesh(){
         ? Math.max(0, Math.min(100, (used / capacity) * 100))
         : 0;
       const ready = !error && capacity > 0;
-      const status = error ? "연결 대기" : (ready ? "동기화됨" : "확인 중");
-      return '<section class="data-storage-stage-card' + (ready ? ' is-ready' : ' is-waiting') + '">' +
+      const status = error ? "LINK WAIT" : (ready ? "A.I LINK" : "SYNC WAIT");
+      const model = String(boardInfo.model || "W25Q256JVEIQ");
+      return '<div class="data-storage-avionics-summary' + (ready ? ' is-ready' : ' is-waiting') + '">' +
         '<div class="data-storage-summary-heading">' +
-          '<span class="data-storage-title"><i aria-hidden="true"></i>STAGE ' + stageNode + '</span>' +
+          '<span class="data-storage-title">STAGE ' + stageNode + '</span>' +
           '<span class="data-storage-total">' + status + '</span>' +
-        '</div>' +
-        '<div class="data-storage-track" role="progressbar" aria-label="' + stageNode + '단 저장공간 사용량" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + pct.toFixed(1) + '">' +
-          '<span class="data-storage-fill' + (pct > 0 ? ' has-usage' : '') + '" style="--storage-used:' + pct.toFixed(2) + '%" aria-hidden="true"></span>' +
         '</div>' +
         '<div class="data-storage-metrics">' +
           '<div><span>전체 용량</span><strong>' + (capacity > 0 ? formatBytesCompact(capacity) : '--') + '</strong></div>' +
           '<div><span>사용량</span><strong>' + (capacity > 0 ? formatBytesCompact(used) : '--') + '</strong></div>' +
           '<div><span>저장 기록</span><strong>' + (capacity > 0 ? records.toLocaleString("ko-KR") : '--') + '</strong></div>' +
         '</div>' +
-        '<div class="data-storage-spec">SPI NOR · ' + (capacity > 0 ? pct.toFixed(1) + '% 사용' : 'A.I LINK 응답 대기') + '</div>' +
-      '</section>';
+        '<div class="data-storage-spec">' + model + ' · SPI NOR · ' +
+          (capacity > 0 ? pct.toFixed(1) + '% 사용' : '에비오닉스 응답 대기') +
+        '</div>' +
+      '</div>';
     }
 
     function renderDataListSummary(
@@ -28539,20 +28539,19 @@ function requestMobileMockup3dMesh(){
         const remotePct = remoteCapacity > 0
           ? Math.max(0, Math.min(100, (remoteUsed / remoteCapacity) * 100))
           : 0;
+      const stageNode = normalizeStorageStageNode(boardInfo.stage_node) ||
+        selectedRemoteStorageStage(summary.closest("#dataListOverlay"));
       summary.innerHTML =
         '<div class="data-storage-summary-heading">' +
-          '<span class="data-storage-title">에비오닉스 저장공간</span>' +
-          '<span class="data-storage-total">' + (remoteCapacity > 0 ? model : 'SYNC WAIT') + '</span>' +
-        '</div>' +
-        '<div class="data-storage-track" role="progressbar" aria-label="에비오닉스 저장공간 사용량" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + remotePct.toFixed(1) + '">' +
-          '<span class="data-storage-fill' + (remotePct > 0 ? ' has-usage' : '') + '" style="--storage-used:' + remotePct.toFixed(2) + '%" aria-hidden="true"></span>' +
+          '<span class="data-storage-title">STAGE ' + String(stageNode || 1) + '</span>' +
+          '<span class="data-storage-total">' + (remoteCapacity > 0 ? (remoteInfo ? 'A.I LINK' : 'DIRECT') : 'SYNC WAIT') + '</span>' +
         '</div>' +
         '<div class="data-storage-metrics">' +
           '<div><span>전체 용량</span><strong>' + (remoteCapacity > 0 ? formatBytesCompact(remoteCapacity) : '--') + '</strong></div>' +
           '<div><span>사용량</span><strong>' + formatBytesCompact(remoteUsed) + '</strong></div>' +
           '<div><span>저장 기록</span><strong>' + remoteRecords.toLocaleString("ko-KR") + '</strong></div>' +
         '</div>' +
-        '<div class="data-storage-spec">SPI NOR · ' + remotePct.toFixed(1) + '% 사용 · ' + liveText + '</div>';
+        '<div class="data-storage-spec">' + model + ' · SPI NOR · ' + remotePct.toFixed(1) + '% 사용 · ' + liveText + '</div>';
     }
 
     function stopDataListLiveStatus(){
@@ -29213,6 +29212,7 @@ function requestMobileMockup3dMesh(){
               : ("STAGE " + String(expandedStageMatch ? expandedStageMatch[1] : selectedStage || 1) + " 비행 데이터"));
       }
       if(back) back.hidden = !detailsOpen;
+      if(!detailsOpen) body.scrollTop = 0;
 
       const escapeHtml = (text)=>String(text).replace(/[&<>"']/g, (ch)=>({
         "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"
@@ -29326,8 +29326,13 @@ function requestMobileMockup3dMesh(){
         '</div>';
       document.body.appendChild(overlay);
       overlay._originFilter = "avionics";
+      const setDocumentScrollLocked = (locked)=>{
+        document.documentElement.classList.toggle("data-storage-modal-open", !!locked);
+        if(document.body) document.body.classList.toggle("data-storage-modal-open", !!locked);
+      };
       const close = ()=>{
         stopDataListLiveStatus();
+        setDocumentScrollLocked(false);
         overlay._downloadSelectMode = false;
         overlay._dataListDetailsOpen = false;
         overlay._dataListExpandedGroup = "";
@@ -29339,6 +29344,17 @@ function requestMobileMockup3dMesh(){
         }, 220);
       };
       overlay.addEventListener("click", (ev)=>{ if(ev.target === overlay) close(); });
+      const preventOverviewScroll = (ev)=>{
+        const expanded = overlay.classList.contains("is-data-list-expanded");
+        const recordList = ev.target && ev.target.closest
+          ? ev.target.closest("#dataListBody")
+          : null;
+        if(expanded && recordList) return;
+        ev.preventDefault();
+      };
+      overlay.addEventListener("wheel", preventOverviewScroll, {passive:false});
+      overlay.addEventListener("touchmove", preventOverviewScroll, {passive:false});
+      overlay._setDocumentScrollLocked = setDocumentScrollLocked;
       const closeBtn = overlay.querySelector("#dataListCloseBtn");
       if(closeBtn) closeBtn.addEventListener("click", close);
       const backBtn = overlay.querySelector("#dataListBackBtn");
@@ -29507,6 +29523,13 @@ function requestMobileMockup3dMesh(){
       overlay.classList.remove("is-avionics-only");
       overlay.classList.remove("hidden");
       overlay.style.display = "flex";
+      if(typeof overlay._setDocumentScrollLocked === "function"){
+        overlay._setDocumentScrollLocked(true);
+      }
+      overlay.scrollTop = 0;
+      const dialogBody = overlay.querySelector(".data-storage-dialog-body");
+      if(dialogBody) dialogBody.scrollTop = 0;
+      if(body) body.scrollTop = 0;
       requestAnimationFrame(()=>overlay.classList.add("is-open"));
       syncDataStorageActionButtons();
       if(summary) summary.textContent = "저장공간 목록을 불러오는 중…";

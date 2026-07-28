@@ -30834,6 +30834,12 @@ html body #dataListOverlay.mobile-chart-picker-overlay{
   overflow:hidden !important;
   overscroll-behavior:none !important;
 }
+html.data-storage-modal-open,
+html.data-storage-modal-open body,
+body.data-storage-modal-open{
+  overflow:hidden !important;
+  overscroll-behavior:none !important;
+}
 html body #dataListOverlay > .data-storage-dialog{
   display:flex !important;
   flex-direction:column !important;
@@ -30848,6 +30854,20 @@ html body #dataListOverlay .data-storage-dialog-body{
   min-height:0 !important;
   overflow:hidden !important;
   overscroll-behavior:none !important;
+}
+html body #dataListOverlay #dataListSummary > .data-storage-summary-heading{
+  margin-bottom:0 !important;
+}
+html body #dataListOverlay #dataListSummary > .data-storage-metrics,
+html body #dataListOverlay #dataListSummary > .data-storage-avionics-summary > .data-storage-metrics{
+  margin-top:18px !important;
+  padding:16px 0 !important;
+  border-top:1px solid #303238 !important;
+  border-bottom:1px solid #303238 !important;
+}
+html body #dataListOverlay #dataListSummary > .data-storage-spec,
+html body #dataListOverlay #dataListSummary > .data-storage-avionics-summary > .data-storage-spec{
+  margin-top:14px !important;
 }
 html body #dataListOverlay:not(.is-data-list-expanded) #dataListBody{
   overflow:hidden !important;
