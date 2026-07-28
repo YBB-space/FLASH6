@@ -3,6 +3,25 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.9.17 — v6 b47 — 2026-07-28
+
+Protocol unchanged: `Flash6-Intelligent-b10`
+
+Storage record protocol unchanged: `HWLOGV2` version `9`
+
+- 저장공간 초기화 또는 로깅 상태 변경이 기록 쓰기와 겹쳐 일시적으로
+  `BUSY`가 반환되면 A.I LINK가 명령을 버리지 않고 새 트랜잭션 번호로
+  제한 횟수만큼 자동 재시도하도록 변경했습니다.
+- 원격 초기화 명령에 STAGE 1/2 대상 노드를 명시해 저장공간 화면에서
+  선택한 보드와 실제 초기화 대상이 달라지지 않도록 수정했습니다.
+- FLASH6는 초기화 명령의 큐 등록만으로 성공 처리하지 않고 사용량,
+  레코드 수, 로깅 상태가 실제 초기화 결과로 바뀔 때까지 확인합니다.
+  확인이 늦으면 명령을 다시 전송하되 동일 목표 상태의 멱등 동작으로
+  처리합니다.
+- 비행데이터 로깅 ON/OFF는 전송 ACK 유실과 상태 반영 지연을 분리해
+  실제 텔레메트리 상태를 최대 세 차례 확인하고 재요청합니다.
+- FLASH6 UI 자산 버전을 `b140`으로 갱신했습니다.
+
 ## 0.9.16 — v6 b46 — 2026-07-28
 
 Protocol unchanged: `Flash6-Intelligent-b10`

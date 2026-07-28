@@ -25729,11 +25729,12 @@ function requestMobileMockup3dMesh(){
       currentDataOrigin = dataOrigin;
       if(!isReplaySample) applyFlightDataLoggingTelemetry(data);
       {
-        const applyTelemetryStorageInfo = (origin, usedRaw, capacityRaw, recordsRaw)=>{
+        const applyTelemetryStorageInfo = (origin, usedRaw, capacityRaw, recordsRaw, stageNodeRaw)=>{
           const telemetryCapacity = Number(capacityRaw);
           if(!isFinite(telemetryCapacity) || telemetryCapacity <= 0) return false;
           const telemetryUsed = Math.max(0, Number(usedRaw) || 0);
           const telemetryRecordCount = Math.max(0, Number(recordsRaw) || 0);
+          const stageNode = normalizeStorageStageNode(stageNodeRaw);
           const telemetryStorageInfo = {
             ready:true,
             used_bytes:telemetryUsed,
@@ -25746,6 +25747,10 @@ function requestMobileMockup3dMesh(){
             updated_at:Date.now()
           };
           if(origin === "avionics"){
+            if(stageNode){
+              telemetryStorageInfo.stage_node = stageNode;
+              latestAvionicsStorageByStage[stageNode] = telemetryStorageInfo;
+            }
             latestAvionicsStorageInfo = telemetryStorageInfo;
             latestAvionicsStorageOkMs = Date.now();
           }else{
@@ -25777,7 +25782,8 @@ function requestMobileMockup3dMesh(){
             dataOrigin === "avionics" ? "avionics" : "local",
             data.remote_storage_used_bytes,
             data.remote_storage_capacity_bytes,
-            data.remote_storage_records
+            data.remote_storage_records,
+            data.fl_target ?? data.flash_link_target_node_id
           ) || storageChanged;
         }
         if(storageChanged){
@@ -27854,11 +27860,18 @@ function requestMobileMockup3dMesh(){
         isFlashLinkGroundStorageUi() &&
         (origin === "avionics" || (!origin && !simEnabled));
       const avionics = remote || origin === "avionics";
+      const requestedStage = normalizeStorageStageNode(opts && opts.stageNode);
+      const activeStage = normalizeStorageStageNode(
+        typeof flashLinkTargetNodeId !== "undefined" ? flashLinkTargetNodeId : 0
+      );
+      const stageNode = remote ? (requestedStage || activeStage || 1) : 0;
+      const stageLabel = stageNode ? (" STAGE " + stageNode) : "";
       return {
         remote,
+        stageNode,
         origin: avionics ? "avionics" : "local",
-        label: avionics ? "에비오닉스 저장공간" : "수신기 저장공간",
-        statusLabel: avionics ? "에비오닉스 저장공간" : "SPI Flash 저장소"
+        label: avionics ? ("에비오닉스" + stageLabel + " 저장공간") : "수신기 저장공간",
+        statusLabel: avionics ? ("에비오닉스" + stageLabel + " 저장공간") : "SPI Flash 저장소"
       };
     }
 
@@ -28004,21 +28017,22 @@ function requestMobileMockup3dMesh(){
 
       let commandAccepted = false;
       let confirmed = false;
-      for(let attempt = 0; attempt < 2 && !confirmed; attempt++){
+      const confirmationWindows = [2400, 3200, 4200];
+      for(let attempt = 0; attempt < confirmationWindows.length && !confirmed; attempt++){
         const result = await sendCommand({
           http:"/set?storage_logging=" + (next ? 1 : 0),
           ser:"/set?storage_logging=" + (next ? 1 : 0)
         }, true);
         commandAccepted = commandAccepted || !!(result && result.ok);
-        if(!result || !result.ok) break;
         confirmed = await waitForFlightDataLoggingConfirmation(
           next,
-          attempt === 0 ? 1800 : 3600
+          confirmationWindows[attempt]
         );
-        if(!confirmed && attempt === 0){
+        if(!confirmed && attempt + 1 < confirmationWindows.length){
           flightDataLoggingPending = true;
           flightDataLoggingDesired = next;
           syncFlightDataLoggingUi();
+          await delay(120 + attempt * 100);
         }
       }
 
@@ -29503,7 +29517,10 @@ function requestMobileMockup3dMesh(){
       if(resetBtn){
         resetBtn.addEventListener("click", ()=>{
           if(resetBtn.disabled || !canUseDataStorageActions()) return;
-          showDataResetConfirmOverlay({origin:overlay._originFilter});
+          showDataResetConfirmOverlay({
+            origin:overlay._originFilter,
+            stageNode:selectedRemoteStorageStage(overlay)
+          });
         });
       }
       syncDataStorageActionButtons();
@@ -30319,98 +30336,203 @@ function requestMobileMockup3dMesh(){
       fetchSpiFlashStatus({background:true}).catch(()=>{}).finally(()=>{ spiFlashProbePending = false; });
     }
 
-    async function resetSpiFlashStorage(opts){
-      const target = getSpiFlashResetTarget(opts);
-      let serialReason = "";
-      if(canUseSerialForSpiFlash()){
-        let streamPaused = false;
-        try{
-          if(el.spiFlashStatusLine){
-            el.spiFlashStatusLine.textContent =
-              target.statusLabel + (target.remote ? " 초기화 명령 전송 중...(Serial)" : " 초기화 중...(Serial)");
-          }
-          if(!target.remote){
-            await setSerialStreamState(false);
-            streamPaused = true;
-            await delay(80);
-          }
-          const waiter = createSerialAckWaiter((evt)=>{
-            if(evt.kind === "err") return true;
-            if(evt.kind !== "ack") return false;
-            const message = String(evt.message || "");
-            if(message.indexOf("SPI_FLASH_INIT_OK") === 0) return true;
-            return target.remote && message.indexOf("FLASH_LINK_COMMAND_QUEUED") === 0;
-          }, target.remote ? 5000 : 180000);
-          const wrote = await serialWriteLine("/storage/spi_flash/init");
-          if(!wrote){
-            cancelSerialAckWaiter(waiter, "SERIAL_WRITE_FAIL");
-            throw new Error("SERIAL_WRITE_FAIL");
-          }
-          const reply = await waiter.promise;
-          if(!reply.ok){
-            throw new Error(reply.message || reply.kind || "SERIAL_FAIL");
-          }
-          if(target.remote){
-            if(el.spiFlashStatusLine){
-              el.spiFlashStatusLine.textContent =
-                "에비오닉스 저장공간 초기화 명령 전송 완료 · A.I LINK 상태 동기화 대기";
-            }
-            setTimeout(()=>{ syncStoragePreview(null, true); }, 1200);
-            showToast("에비오닉스 저장공간 초기화 명령을 보냈습니다.", "success", {key:"spi-flash-init"});
-            return true;
-          }
-          await fetchSpiFlashStatus({force:true});
-          showToast(target.statusLabel + "를 초기화했습니다.", "success", {key:"spi-flash-init"});
-          return true;
-        }catch(err){
-          serialReason = (err && err.message) ? err.message : String(err || "SERIAL_ERROR");
-          if(serialEnabled){
-            showToast(target.label + " 초기화 실패: " + serialReason, "error", {key:"spi-flash-init-fail"});
-            return false;
-          }
-        }finally{
-          if(streamPaused) await setSerialStreamState(true);
-        }
-      }
+    function spiFlashResetStateComplete(info){
+      if(!info || !info.ready) return false;
+      const used = Math.max(0, Number(info.used_bytes || 0));
+      const records = Math.max(0, Number(info.record_count || info.records || 0));
+      const loggingKnown = info.logging != null && isFinite(Number(info.logging));
+      return used === 0 && records === 0 &&
+        (!loggingKnown || Number(info.logging) === 0);
+    }
+
+    async function refreshRemoteSpiFlashStatus(stageNode){
+      const node = normalizeStorageStageNode(stageNode);
       const API_BASE = getApiBaseForCommands();
-      const url = (API_BASE ? API_BASE : "") + "/storage/spi_flash/init";
+      const nodeQuery = node ? ("?node=" + node) : "";
+      const url = (API_BASE ? API_BASE : "") +
+        "/storage/spi_flash/remote/status" + nodeQuery;
       const ctrl = createAbortControllerSafe();
-      const timer = ctrl ? setTimeout(()=>{ try{ ctrl.abort(); }catch(_e){} }, 180000) : null;
+      const timer = ctrl
+        ? setTimeout(()=>{ try{ ctrl.abort(); }catch(_e){} }, 1800)
+        : null;
       const opt = API_BASE
-        ? Object.assign({method:"POST", mode:"cors"}, ctrl ? {signal:ctrl.signal} : {})
-        : Object.assign({method:"POST"}, ctrl ? {signal:ctrl.signal} : {});
+        ? Object.assign(
+            {cache:"no-store", mode:"cors"},
+            ctrl ? {signal:ctrl.signal} : {}
+          )
+        : Object.assign(
+            {cache:"no-store"},
+            ctrl ? {signal:ctrl.signal} : {}
+          );
       try{
-        if(el.spiFlashStatusLine){
-          el.spiFlashStatusLine.textContent =
-            target.statusLabel + (target.remote ? " 초기화 명령 전송 중..." : " 초기화 중...");
+        const res = await fetch(url, opt);
+        if(!res.ok) return null;
+        const info = await res.json();
+        return updateRemoteSpiFlashInfo(info, node);
+      }catch(_err){
+        return null;
+      }finally{
+        if(timer) clearTimeout(timer);
+      }
+    }
+
+    async function waitForSpiFlashResetCompletion(target, timeoutMs){
+      const deadline = Date.now() + Math.max(1000, Number(timeoutMs) || 8000);
+      let nextRemoteProbeAt = 0;
+      while(Date.now() < deadline){
+        let info = null;
+        if(target.remote){
+          info = target.stageNode
+            ? latestAvionicsStorageByStage[target.stageNode]
+            : latestAvionicsStorageInfo;
+          if(Date.now() >= nextRemoteProbeAt){
+            nextRemoteProbeAt = Date.now() + 700;
+            info = await refreshRemoteSpiFlashStatus(target.stageNode) || info;
+          }
+        }else{
+          info = await fetchSpiFlashStatus({force:true});
         }
+        if(spiFlashResetStateComplete(info)) return true;
+        await delay(target.remote ? 280 : 180);
+      }
+      return false;
+    }
+
+    async function sendSpiFlashResetSerial(target){
+      const waiter = createSerialAckWaiter((evt)=>{
+        if(evt.kind === "err") return true;
+        if(evt.kind !== "ack") return false;
+        const message = String(evt.message || "");
+        if(message.indexOf("SPI_FLASH_INIT_OK") === 0) return true;
+        return target.remote &&
+          message.indexOf("FLASH_LINK_COMMAND_QUEUED") === 0;
+      }, target.remote ? 5500 : 180000);
+      const nodeQuery = target.remote && target.stageNode
+        ? ("?node=" + target.stageNode)
+        : "";
+      const wrote = await serialWriteLine(
+        "/storage/spi_flash/init" + nodeQuery
+      );
+      if(!wrote){
+        cancelSerialAckWaiter(waiter, "SERIAL_WRITE_FAIL");
+        throw new Error("SERIAL_WRITE_FAIL");
+      }
+      const reply = await waiter.promise;
+      if(!reply.ok){
+        throw new Error(reply.message || reply.kind || "SERIAL_FAIL");
+      }
+      return true;
+    }
+
+    async function sendSpiFlashResetHttp(target){
+      const API_BASE = getApiBaseForCommands();
+      const nodeQuery = target.remote && target.stageNode
+        ? ("?node=" + target.stageNode)
+        : "";
+      const url = (API_BASE ? API_BASE : "") +
+        "/storage/spi_flash/init" + nodeQuery;
+      const ctrl = createAbortControllerSafe();
+      const timeoutMs = target.remote ? 6500 : 180000;
+      const timer = ctrl
+        ? setTimeout(()=>{ try{ ctrl.abort(); }catch(_e){} }, timeoutMs)
+        : null;
+      const opt = API_BASE
+        ? Object.assign(
+            {method:"POST", mode:"cors"},
+            ctrl ? {signal:ctrl.signal} : {}
+          )
+        : Object.assign(
+            {method:"POST"},
+            ctrl ? {signal:ctrl.signal} : {}
+          );
+      try{
         const res = await fetch(url, opt);
         if(!res.ok){
           const text = await res.text();
           throw new Error(text || ("HTTP " + res.status));
         }
-        if(target.remote){
-          if(el.spiFlashStatusLine){
-            el.spiFlashStatusLine.textContent =
-              "에비오닉스 저장공간 초기화 명령 전송 완료 · A.I LINK 상태 동기화 대기";
-          }
-          setTimeout(()=>{ syncStoragePreview(null, true); }, 1200);
-          showToast("에비오닉스 저장공간 초기화 명령을 보냈습니다.", "success", {key:"spi-flash-init"});
-          return true;
-        }
-        await fetchSpiFlashStatus({force:true});
-        showToast(target.statusLabel + "를 초기화했습니다.", "success", {key:"spi-flash-init"});
         return true;
-      }catch(err){
-        const httpReason = (err && err.name === "AbortError")
-          ? "TIMEOUT(5s)"
-          : ((err && err.message) ? err.message : String(err || "unknown"));
-        const reason = serialReason ? ("SERIAL " + serialReason + " / HTTP " + httpReason) : httpReason;
-        showToast(target.label + " 초기화 실패: " + reason, "error", {key:"spi-flash-init-fail"});
-        updateSpiFlashStatusUi(null, reason);
-        return false;
       }finally{
         if(timer) clearTimeout(timer);
+      }
+    }
+
+    async function resetSpiFlashStorage(opts){
+      const target = getSpiFlashResetTarget(opts);
+      let streamPaused = false;
+      let lastReason = "";
+      try{
+        if(canUseSerialForSpiFlash() && !target.remote){
+          await setSerialStreamState(false);
+          streamPaused = true;
+          await delay(80);
+        }
+
+        for(let attempt = 0; attempt < 3; attempt++){
+          let accepted = false;
+          if(el.spiFlashStatusLine){
+            el.spiFlashStatusLine.textContent =
+              target.statusLabel + " 초기화 요청 중… " +
+              (attempt + 1) + "/3";
+          }
+
+          if(canUseSerialForSpiFlash()){
+            try{
+              accepted = await sendSpiFlashResetSerial(target);
+            }catch(err){
+              lastReason = (err && err.message)
+                ? err.message
+                : String(err || "SERIAL_ERROR");
+            }
+          }
+
+          if(!accepted){
+            try{
+              accepted = await sendSpiFlashResetHttp(target);
+            }catch(err){
+              const reason = (err && err.name === "AbortError")
+                ? "HTTP_TIMEOUT"
+                : ((err && err.message) ? err.message : String(err || "HTTP_ERROR"));
+              lastReason = lastReason
+                ? (lastReason + " / " + reason)
+                : reason;
+            }
+          }
+
+          if(accepted){
+            if(el.spiFlashStatusLine){
+              el.spiFlashStatusLine.textContent =
+                target.statusLabel + " 초기화 적용 확인 중…";
+            }
+            const confirmed = await waitForSpiFlashResetCompletion(
+              target,
+              target.remote ? 9000 : 3500
+            );
+            if(confirmed){
+              syncStoragePreview("0.0%", true);
+              showToast(
+                target.statusLabel + "를 초기화했습니다.",
+                "success",
+                {key:"spi-flash-init"}
+              );
+              return true;
+            }
+            lastReason = "RESET_STATE_NOT_CONFIRMED";
+          }
+
+          if(attempt < 2) await delay(250 + attempt * 250);
+        }
+
+        const reason = lastReason || "RESET_COMMAND_FAILED";
+        showToast(
+          target.label + " 초기화 실패: " + reason,
+          "error",
+          {key:"spi-flash-init-fail"}
+        );
+        if(!target.remote) updateSpiFlashStatusUi(null, reason);
+        return false;
+      }finally{
+        if(streamPaused) await setSerialStreamState(true);
       }
     }
 

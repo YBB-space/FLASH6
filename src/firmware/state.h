@@ -1,8 +1,8 @@
 
 constexpr char kFirmwareProgram[] = "Altis_Intelligent3_firmware1";
-constexpr char kFirmwareVersion[] = "0.9.16";
-constexpr char kFirmwareBuildId[] = "v6 b46";
-constexpr uint16_t kFirmwareBuildNumber = 46;
+constexpr char kFirmwareVersion[] = "0.9.17";
+constexpr char kFirmwareBuildId[] = "v6 b47";
+constexpr uint16_t kFirmwareBuildNumber = 47;
 constexpr char kFirmwareBoard[] = "Altis_Intelligent3_b3";
 constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b10";
 constexpr uint8_t kStorageProtocolVersion = 9;
@@ -192,6 +192,7 @@ constexpr uint32_t kFlashLinkCommandRetryMs = 60;
 constexpr uint8_t kFlashLinkCommandMaxAttempts = 8;
 constexpr uint32_t kFlashLinkLongCommandRetryMs = 500;
 constexpr uint8_t kFlashLinkLongCommandMaxAttempts = 60;
+constexpr uint8_t kFlashLinkCommandBusyRetryMax = 12;
 constexpr uint16_t kFlashLinkMaxPacketBytes = ESP_NOW_MAX_DATA_LEN;
 constexpr uint16_t kFlashLinkStorageChunkBytes = 192;
 constexpr uint16_t kFlashLinkStorageHttpChunkBytes = 1024;
@@ -1497,6 +1498,7 @@ struct FlashLinkCommandQueueEntry {
   FlashLinkCommandV1 command{};
   uint8_t targetNodeId = kFlashLinkNodeIdStage1;
   uint8_t attempts = 0;
+  uint8_t busyRetries = 0;
   uint32_t lastSendMs = 0;
 };
 
@@ -1866,7 +1868,8 @@ bool flashLinkQueueCommand(
   FlashLinkCommandCode code,
   int32_t arg0 = 0,
   int32_t arg1 = 0,
-  int32_t arg2 = 0);
+  int32_t arg2 = 0,
+  uint8_t requestedTargetNodeId = 0U);
 bool flashLinkGroundControlActive();
 FlashLinkGroundPeer* flashLinkGroundPeerForNode(uint8_t nodeId);
 uint8_t flashLinkStorageTargetNode(uint8_t requestedNodeId);

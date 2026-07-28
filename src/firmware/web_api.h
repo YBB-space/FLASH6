@@ -43,7 +43,15 @@ bool forwardFlashLinkHttpCommand(
   int32_t arg2 = 0
 ) {
   if (!flashLinkGroundRole()) return false;
-  if (!flashLinkQueueCommand(code, arg0, arg1, arg2)) {
+  uint8_t targetNodeId = 0U;
+  if (request && request->hasParam("node")) {
+    const long requestedNode = request->getParam("node")->value().toInt();
+    if (requestedNode == kFlashLinkNodeIdStage1 ||
+        requestedNode == kFlashLinkNodeIdStage2) {
+      targetNodeId = (uint8_t)requestedNode;
+    }
+  }
+  if (!flashLinkQueueCommand(code, arg0, arg1, arg2, targetNodeId)) {
     sendText(
       request,
       503,
@@ -51,12 +59,13 @@ bool forwardFlashLinkHttpCommand(
       "{\"ok\":0,\"err\":\"FLASH_LINK_COMMAND_UNAVAILABLE\"}");
     return true;
   }
-  char json[80];
+  char json[96];
   snprintf(
     json,
     sizeof(json),
-    "{\"ok\":1,\"queued\":1,\"command\":%u}",
-    (unsigned)code);
+    "{\"ok\":1,\"queued\":1,\"command\":%u,\"node\":%u}",
+    (unsigned)code,
+    (unsigned)(targetNodeId ? targetNodeId : flashLinkTargetNodeId));
   sendText(request, 202, "application/json", json);
   return true;
 }

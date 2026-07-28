@@ -312,11 +312,12 @@
       currentDataOrigin = dataOrigin;
       if(!isReplaySample) applyFlightDataLoggingTelemetry(data);
       {
-        const applyTelemetryStorageInfo = (origin, usedRaw, capacityRaw, recordsRaw)=>{
+        const applyTelemetryStorageInfo = (origin, usedRaw, capacityRaw, recordsRaw, stageNodeRaw)=>{
           const telemetryCapacity = Number(capacityRaw);
           if(!isFinite(telemetryCapacity) || telemetryCapacity <= 0) return false;
           const telemetryUsed = Math.max(0, Number(usedRaw) || 0);
           const telemetryRecordCount = Math.max(0, Number(recordsRaw) || 0);
+          const stageNode = normalizeStorageStageNode(stageNodeRaw);
           const telemetryStorageInfo = {
             ready:true,
             used_bytes:telemetryUsed,
@@ -329,6 +330,10 @@
             updated_at:Date.now()
           };
           if(origin === "avionics"){
+            if(stageNode){
+              telemetryStorageInfo.stage_node = stageNode;
+              latestAvionicsStorageByStage[stageNode] = telemetryStorageInfo;
+            }
             latestAvionicsStorageInfo = telemetryStorageInfo;
             latestAvionicsStorageOkMs = Date.now();
           }else{
@@ -360,7 +365,8 @@
             dataOrigin === "avionics" ? "avionics" : "local",
             data.remote_storage_used_bytes,
             data.remote_storage_capacity_bytes,
-            data.remote_storage_records
+            data.remote_storage_records,
+            data.fl_target ?? data.flash_link_target_node_id
           ) || storageChanged;
         }
         if(storageChanged){

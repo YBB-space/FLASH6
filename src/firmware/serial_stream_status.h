@@ -331,10 +331,11 @@ bool forwardFlashLinkSerialCommand(
   int32_t arg0 = 0,
   int32_t arg1 = 0,
   int32_t arg2 = 0,
-  bool acknowledgeQueued = true
+  bool acknowledgeQueued = true,
+  uint8_t targetNodeId = 0U
 ) {
   if (!flashLinkGroundRole()) return false;
-  if (!flashLinkQueueCommand(code, arg0, arg1, arg2)) {
+  if (!flashLinkQueueCommand(code, arg0, arg1, arg2, targetNodeId)) {
     Serial.printf(
       "ERR FLASH_LINK_COMMAND_UNAVAILABLE code=%u\n",
       (unsigned)code);
@@ -506,8 +507,23 @@ void handleSerialLine(const char* line) {
     return;
   }
 
-  if (cmd == "/storage/spi_flash/init") {
-    if (forwardFlashLinkSerialCommand(FlashLinkCommandCode::StorageReset)) {
+  if (cmd.startsWith("/storage/spi_flash/init")) {
+    String nodeRaw;
+    uint8_t targetNodeId = 0U;
+    if (getQueryValue(cmd, "node", nodeRaw)) {
+      const long requestedNode = nodeRaw.toInt();
+      if (requestedNode == kFlashLinkNodeIdStage1 ||
+          requestedNode == kFlashLinkNodeIdStage2) {
+        targetNodeId = (uint8_t)requestedNode;
+      }
+    }
+    if (forwardFlashLinkSerialCommand(
+          FlashLinkCommandCode::StorageReset,
+          0,
+          0,
+          0,
+          true,
+          targetNodeId)) {
       return;
     }
     if (!storageReset()) {

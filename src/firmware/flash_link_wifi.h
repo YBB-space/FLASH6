@@ -287,6 +287,7 @@ bool flashLinkCommandIsUrgent(uint8_t code) {
          code == static_cast<uint8_t>(FlashLinkCommandCode::SetSafety) ||
          code == static_cast<uint8_t>(FlashLinkCommandCode::SetArmLock) ||
          code == static_cast<uint8_t>(FlashLinkCommandCode::SetStorageLogging) ||
+         code == static_cast<uint8_t>(FlashLinkCommandCode::StorageReset) ||
          code == static_cast<uint8_t>(FlashLinkCommandCode::Reboot);
 }
 
@@ -654,11 +655,17 @@ bool flashLinkQueueCommand(
   FlashLinkCommandCode code,
   int32_t arg0,
   int32_t arg1,
-  int32_t arg2
+  int32_t arg2,
+  uint8_t requestedTargetNodeId
 ) {
   if (!flashLinkGroundControlActive()) return false;
 
   const uint8_t codeValue = static_cast<uint8_t>(code);
+  const uint8_t commandTargetNodeId =
+    requestedTargetNodeId == kFlashLinkNodeIdStage1 ||
+    requestedTargetNodeId == kFlashLinkNodeIdStage2
+      ? requestedTargetNodeId
+      : flashLinkTargetNodeId;
   const bool urgent = flashLinkCommandIsUrgent(codeValue);
   const bool coalesceByArg0 =
     codeValue == static_cast<uint8_t>(FlashLinkCommandCode::SetServo);
@@ -681,7 +688,7 @@ bool flashLinkQueueCommand(
                   kFlashLinkCommandQueueDepth);
       FlashLinkCommandQueueEntry& pending = flashLinkCommandQueue[index];
       if (pending.command.code == codeValue &&
-          pending.targetNodeId == flashLinkTargetNodeId &&
+          pending.targetNodeId == commandTargetNodeId &&
           (coalesceByCode || pending.command.arg0 == arg0)) {
         if (pending.attempts == 0U) {
           pending.command.arg0 = arg0;
@@ -703,7 +710,7 @@ bool flashLinkQueueCommand(
     }
   }
   if (!coalescible &&
-      flashLink.lastQueuedTargetNodeId == flashLinkTargetNodeId &&
+      flashLink.lastQueuedTargetNodeId == commandTargetNodeId &&
       flashLink.lastQueuedCommandCode == codeValue &&
       flashLink.lastQueuedArg0 == arg0 &&
       flashLink.lastQueuedArg1 == arg1 &&
@@ -716,7 +723,7 @@ bool flashLinkQueueCommand(
       (uint8_t)((flashLinkCommandHead + i) % kFlashLinkCommandQueueDepth);
     const FlashLinkCommandV1& pending = flashLinkCommandQueue[index].command;
     duplicate =
-      flashLinkCommandQueue[index].targetNodeId == flashLinkTargetNodeId &&
+      flashLinkCommandQueue[index].targetNodeId == commandTargetNodeId &&
       pending.code == codeValue &&
       pending.arg0 == arg0 &&
       pending.arg1 == arg1 &&
@@ -758,7 +765,7 @@ bool flashLinkQueueCommand(
     }
     FlashLinkCommandQueueEntry& entry = flashLinkCommandQueue[entryIndex];
     entry = {};
-    entry.targetNodeId = flashLinkTargetNodeId;
+    entry.targetNodeId = commandTargetNodeId;
     entry.command.transaction = ++flashLink.nextCommandTransaction;
     if (entry.command.transaction == 0) {
       entry.command.transaction = ++flashLink.nextCommandTransaction;
@@ -773,7 +780,7 @@ bool flashLinkQueueCommand(
     }
     flashLinkCommandCount++;
     flashLink.lastQueuedCommandMs = nowMs;
-    flashLink.lastQueuedTargetNodeId = flashLinkTargetNodeId;
+    flashLink.lastQueuedTargetNodeId = commandTargetNodeId;
     flashLink.lastQueuedCommandCode = codeValue;
     flashLink.lastQueuedArg0 = arg0;
     flashLink.lastQueuedArg1 = arg1;
@@ -2540,18 +2547,52 @@ void flashLinkHandlePacket(FlashLinkRxSlot& slot) {
       *reinterpret_cast<const FlashLinkCommandAckV1*>(
         slot.data + sizeof(FlashLinkHeaderV1));
     bool matched = false;
+    bool retryingBusy = false;
+    uint8_t busyRetryCount = 0;
+    uint32_t retryTransaction = 0;
     portENTER_CRITICAL(&flashLinkCommandMux);
     if (flashLinkCommandCount > 0 &&
         flashLinkCommandQueue[flashLinkCommandHead].targetNodeId == incomingNodeId &&
         flashLinkCommandQueue[flashLinkCommandHead].command.transaction ==
           ack.transaction) {
-      flashLinkCommandHead =
-        (uint8_t)((flashLinkCommandHead + 1U) % kFlashLinkCommandQueueDepth);
-      flashLinkCommandCount--;
+      FlashLinkCommandQueueEntry& head =
+        flashLinkCommandQueue[flashLinkCommandHead];
+      const bool transientBusy =
+        ack.result == static_cast<uint8_t>(FlashLinkCommandResult::Busy) &&
+        (ack.code == static_cast<uint8_t>(FlashLinkCommandCode::StorageReset) ||
+         ack.code == static_cast<uint8_t>(FlashLinkCommandCode::SetStorageLogging));
+      if (transientBusy &&
+          head.busyRetries < kFlashLinkCommandBusyRetryMax) {
+        head.busyRetries++;
+        head.attempts = 0;
+        head.lastSendMs = millis();
+        head.command.transaction = ++flashLink.nextCommandTransaction;
+        if (head.command.transaction == 0U) {
+          head.command.transaction = ++flashLink.nextCommandTransaction;
+        }
+        busyRetryCount = head.busyRetries;
+        retryTransaction = head.command.transaction;
+        retryingBusy = true;
+      } else {
+        flashLinkCommandHead =
+          (uint8_t)((flashLinkCommandHead + 1U) % kFlashLinkCommandQueueDepth);
+        flashLinkCommandCount--;
+      }
       matched = true;
     }
     portEXIT_CRITICAL(&flashLinkCommandMux);
     if (matched) {
+      if (retryingBusy) {
+        flashLink.commandRetries++;
+        Serial.printf(
+          "[FLASH_LINK] command busy retry old_txn=%lu new_txn=%lu code=%u retry=%u/%u\n",
+          (unsigned long)ack.transaction,
+          (unsigned long)retryTransaction,
+          (unsigned)ack.code,
+          (unsigned)busyRetryCount,
+          (unsigned)kFlashLinkCommandBusyRetryMax);
+        return;
+      }
       flashLink.commandAcked++;
       flashLink.lastCommandCode = ack.code;
       flashLink.lastCommandResult = ack.result;
