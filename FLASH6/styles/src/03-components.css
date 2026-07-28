@@ -8893,11 +8893,17 @@ html body #dataListOverlay > .data-storage-dialog{
   overflow:hidden !important;
   overscroll-behavior:none !important;
 }
+html body #dataListOverlay:not(.is-data-list-expanded) > .data-storage-dialog{
+  height:min(700px, calc(100dvh - 48px)) !important;
+  min-height:min(700px, calc(100dvh - 48px)) !important;
+  max-height:calc(100dvh - 48px) !important;
+}
 html body #dataListOverlay .mobile-chart-picker-head{
   position:relative !important;
   flex:0 0 auto !important;
 }
 html body #dataListOverlay .data-storage-dialog-body{
+  flex:1 1 auto !important;
   min-height:0 !important;
   overflow:hidden !important;
   overscroll-behavior:none !important;
@@ -8917,10 +8923,19 @@ html body #dataListOverlay #dataListSummary > .data-storage-avionics-summary > .
   margin-top:14px !important;
 }
 html body #dataListOverlay:not(.is-data-list-expanded) #dataListBody{
+  height:218px !important;
+  min-height:218px !important;
+  max-height:218px !important;
+  flex:0 0 218px !important;
   overflow:hidden !important;
   overscroll-behavior:none !important;
   touch-action:none !important;
   scrollbar-width:none !important;
+}
+html body #dataListOverlay:not(.is-data-list-expanded) #dataListBody > .data-storage-empty{
+  width:100% !important;
+  height:100% !important;
+  min-height:0 !important;
 }
 html body #dataListOverlay:not(.is-data-list-expanded) #dataListBody::-webkit-scrollbar{
   display:none !important;
@@ -9011,6 +9026,11 @@ html body #dataListOverlay.is-data-list-expanded #dataListBody::-webkit-scrollba
 @media (max-width:900px){
   html body #dataListOverlay.mobile-chart-picker-overlay{
     padding:10px !important;
+  }
+  html body #dataListOverlay:not(.is-data-list-expanded) > .data-storage-dialog{
+    height:min(700px, calc(100dvh - 20px)) !important;
+    min-height:min(700px, calc(100dvh - 20px)) !important;
+    max-height:calc(100dvh - 20px) !important;
   }
   html body #dataListOverlay.is-data-list-expanded > .data-storage-dialog{
     width:100% !important;
