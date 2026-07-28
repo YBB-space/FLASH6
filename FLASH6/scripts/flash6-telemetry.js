@@ -864,15 +864,13 @@
         : Number(flightPhaseInfo && flightPhaseInfo.verticalSpeedMps);
       if(!isFinite(quickAltitudeRateMps)) quickAltitudeRateMps = 0;
       if(Math.abs(quickAltitudeRateMps) < 0.05) quickAltitudeRateMps = 0;
-      if(!stageTelemetryModeActive){
-        updateGyroPathFromTelemetry(motionTelemetryData, timeMs, {
-          altitudeM:quickAltitudeM,
-          verticalSpeedMps:quickAltitudeRateMps,
-          phase:flightPhaseInfo && flightPhaseInfo.phase
-            ? flightPhaseInfo.phase
-            : null
-        });
-      }
+      updateGyroPathFromTelemetry(motionTelemetryData, timeMs, {
+        altitudeM:quickAltitudeM,
+        verticalSpeedMps:quickAltitudeRateMps,
+        phase:flightPhaseInfo && flightPhaseInfo.phase
+          ? flightPhaseInfo.phase
+          : null
+      });
       if(!isFastReplaySeek && !stageTelemetryModeActive){
         scheduleLiveGyroRender(gy);
       }

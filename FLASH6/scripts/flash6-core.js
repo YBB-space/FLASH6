@@ -938,95 +938,6 @@ if (typeof window !== "undefined") {
       fusionApogeeAltitudeM: 0,
       fusionApogeeMs: 0
     };
-    gyroPathState.stageId = 1;
-    gyroPathState.attitudeQuat = null;
-    gyroPathState.lastTelemetryMs = 0;
-    gyroPathState.separationMs = 0;
-    const gyroStagePathStates = {
-      1: gyroPathState,
-      2: Object.assign({}, gyroPathState, {
-        stageId: 2,
-        points: [],
-        smoothPath: [],
-        smoothPathMeters: [],
-        attitudeQuat: null,
-        lastTelemetryMs: 0,
-        separationMs: 0
-      })
-    };
-    function withGyroPathState(targetState, callback){
-      if(!targetState || targetState === gyroPathState) return callback();
-      const previousState = gyroPathState;
-      gyroPathState = targetState;
-      try{
-        return callback();
-      }finally{
-        gyroPathState = previousState;
-      }
-    }
-    function getGyroStagePathState(stageId){
-      return gyroStagePathStates[Number(stageId) === 2 ? 2 : 1];
-    }
-    function updateGyroStagePathFromTelemetry(stageId, data, nowMs, chartSample){
-      const state = getGyroStagePathState(stageId);
-      if(!state || !data) return false;
-      const firmwareQuat = quatFromFirmwareAttitude(
-        data.attitude_q ?? data.attitudeQuat ?? null
-      );
-      if(firmwareQuat) state.attitudeQuat = firmwareQuat.slice();
-      const sampleTimeMs = Number(nowMs) || Date.now();
-      const pathTimeMs = Math.max(
-        sampleTimeMs,
-        (Number(state.lastTelemetryMs) || 0) + 1
-      );
-      state.lastTelemetryMs = pathTimeMs;
-      const previousQuat = gyroAttitudeQuat;
-      const previousReady = gyroAttitudeReady;
-      if(firmwareQuat){
-        gyroAttitudeQuat = firmwareQuat;
-        gyroAttitudeReady = true;
-      }
-      try{
-        return withGyroPathState(
-          state,
-          ()=>updateGyroPathFusion(data, pathTimeMs, chartSample)
-        );
-      }finally{
-        gyroAttitudeQuat = previousQuat;
-        gyroAttitudeReady = previousReady;
-      }
-    }
-    function ensureSecondaryGyroPathFromPrimary(){
-      const primary = gyroStagePathStates[1];
-      const secondary = gyroStagePathStates[2];
-      if(!primary || !secondary || !primary.points || primary.points.length < 2) return false;
-      const separationPoint = primary.points[primary.points.length - 1];
-      if(secondary.points && secondary.points.length > 1){
-        if(!(secondary.separationMs > 0)){
-          secondary.separationMs = Number(separationPoint && separationPoint.ms) || Date.now();
-        }
-        return false;
-      }
-      const secondaryIdentity = {
-        stageId: 2,
-        attitudeQuat: secondary.attitudeQuat,
-        lastTelemetryMs: secondary.lastTelemetryMs
-      };
-      Object.assign(secondary, primary);
-      secondary.stageId = secondaryIdentity.stageId;
-      secondary.attitudeQuat = secondaryIdentity.attitudeQuat || (
-        primary.attitudeQuat ? primary.attitudeQuat.slice() : null
-      );
-      secondary.lastTelemetryMs = Math.max(
-        Number(secondaryIdentity.lastTelemetryMs) || 0,
-        Number(primary.lastTelemetryMs) || 0
-      );
-      secondary.points = primary.points.map((point)=>Object.assign({}, point));
-      secondary.smoothPath = (primary.smoothPath || []).map((point)=>Object.assign({}, point));
-      secondary.smoothPathMeters = (primary.smoothPathMeters || []).map((point)=>Object.assign({}, point));
-      secondary.separationMs = Number(separationPoint && separationPoint.ms) || Date.now();
-      return true;
-    }
     const DATA_SOURCE_LIVE = "live";
     const DATA_SOURCE_REPLAY = "replay";
     let activeDataSource = DATA_SOURCE_LIVE;
@@ -3574,20 +3485,8 @@ function requestMobileMockup3dMesh(){
       gyroGl.gl.viewport(0, 0, w, h);
     }
 
-    function resetGyroPathTracking(options){
-      const opts = options || {};
-      if(!opts.singleStage){
-        withGyroPathState(gyroStagePathStates[1], ()=>{
-          resetGyroPathTracking({singleStage:true});
-        });
-        withGyroPathState(gyroStagePathStates[2], ()=>{
-          resetGyroPathTracking({singleStage:true, preserveTerrain:true});
-        });
-        gyroPathState = gyroStagePathStates[1];
-        return;
-      }
-      if(!opts.preserveTerrain) resetGyroTerrain();
-      const stageId = Number(gyroPathState.stageId) === 2 ? 2 : 1;
+    function resetGyroPathTracking(){
+      resetGyroTerrain();
       gyroPathState.originLat = null;
       gyroPathState.originLon = null;
       gyroPathState.originAlt = null;
@@ -3675,11 +3574,7 @@ function requestMobileMockup3dMesh(){
       gyroPathState.fusionBaroValidMs = 0;
       gyroPathState.fusionApogeeAltitudeM = 0;
       gyroPathState.fusionApogeeMs = 0;
-      gyroPathState.stageId = stageId;
-      gyroPathState.attitudeQuat = null;
-      gyroPathState.lastTelemetryMs = 0;
-      gyroPathState.separationMs = 0;
-      if(gyroGl && !opts.preserveTerrain){
+      if(gyroGl){
         setTimeout(()=>{
           ensureGyroTerrainForGeo(getGyroTerrainReferenceGeo());
         }, 80);
@@ -5010,49 +4905,7 @@ function requestMobileMockup3dMesh(){
       return true;
     }
 
-    function getGyroSharedRenderScaleY(states){
-      const pathStates = (states || []).filter(Boolean);
-      let maxAbsX = 0;
-      let maxAbsY = 0;
-      let maxAbsZ = 0;
-      pathStates.forEach((state)=>{
-        const points = state.points || [];
-        const start = Math.max(0, points.length - GYRO_TRAIL_MAX_POINTS);
-        for(let i=start;i<points.length;i++){
-          const point = points[i];
-          maxAbsX = Math.max(maxAbsX, Math.abs(Number(point.x) || 0));
-          maxAbsY = Math.max(maxAbsY, Math.abs(Number(point.y) || 0));
-          maxAbsZ = Math.max(maxAbsZ, Math.abs(Number(point.z) || 0));
-        }
-      });
-      const targetScale = Math.max(
-        GYRO_TRAIL_BASE_METERS_PER_UNIT,
-        (maxAbsX * GYRO_TRAIL_HORIZONTAL_EXAGGERATION) / GYRO_TRAIL_HALF_SPAN_XZ,
-        (maxAbsZ * GYRO_TRAIL_HORIZONTAL_EXAGGERATION) / GYRO_TRAIL_HALF_SPAN_XZ,
-        maxAbsY / GYRO_TRAIL_HALF_SPAN_Y
-      );
-      const primary = gyroStagePathStates[1];
-      const currentScale = Math.max(
-        GYRO_TRAIL_BASE_METERS_PER_UNIT,
-        Number(primary.renderScaleY) || GYRO_TRAIL_BASE_METERS_PER_UNIT
-      );
-      const scaleSmooth = targetScale > currentScale
-        ? GYRO_TRAIL_ZOOM_OUT_SMOOTH
-        : GYRO_TRAIL_ZOOM_IN_SMOOTH;
-      return currentScale + ((targetScale - currentScale) * scaleSmooth);
-    }
-
-    function getGyroPathRenderData(options){
-      const opts = options || {};
-      const targetState = opts.pathState;
-      if(targetState && targetState !== gyroPathState){
-        const nestedOptions = Object.assign({}, opts);
-        delete nestedOptions.pathState;
-        return withGyroPathState(
-          targetState,
-          ()=>getGyroPathRenderData(nestedOptions)
-        );
-      }
+    function getGyroPathRenderData(){
       const baseResult = {
         current: {x:0, y:GYRO_WORLD_ALTITUDE_BASE, z:0},
         trailPos: [],
@@ -5069,12 +4922,9 @@ function requestMobileMockup3dMesh(){
       };
       const pts = gyroPathState.points;
       if(!pts || !pts.length){
-        const sharedScaleY = Number(opts.sharedScaleY);
         const currentScale = gyroPathState.renderScaleY;
-        const nextScale = isFinite(sharedScaleY) && sharedScaleY > 0
-          ? sharedScaleY
-          : currentScale +
-            (GYRO_TRAIL_BASE_METERS_PER_UNIT - currentScale) * GYRO_TRAIL_ZOOM_IN_SMOOTH;
+        const nextScale = currentScale +
+          (GYRO_TRAIL_BASE_METERS_PER_UNIT - currentScale) * GYRO_TRAIL_ZOOM_IN_SMOOTH;
         gyroPathState.renderScaleXZ = nextScale / GYRO_TRAIL_HORIZONTAL_EXAGGERATION;
         gyroPathState.renderScaleY = nextScale;
         gyroPathState.smoothPath = [];
@@ -5114,14 +4964,11 @@ function requestMobileMockup3dMesh(){
         (maxAbsZ * GYRO_TRAIL_HORIZONTAL_EXAGGERATION) / GYRO_TRAIL_HALF_SPAN_XZ,
         maxAbsY / GYRO_TRAIL_HALF_SPAN_Y
       );
-      const sharedScaleY = Number(opts.sharedScaleY);
       const currentScale = gyroPathState.renderScaleY;
       const scaleSmooth = (targetScale > currentScale)
         ? GYRO_TRAIL_ZOOM_OUT_SMOOTH
         : GYRO_TRAIL_ZOOM_IN_SMOOTH;
-      const nextScale = isFinite(sharedScaleY) && sharedScaleY > 0
-        ? sharedScaleY
-        : currentScale + (targetScale - currentScale) * scaleSmooth;
+      const nextScale = currentScale + (targetScale - currentScale) * scaleSmooth;
       gyroPathState.renderScaleXZ = nextScale / GYRO_TRAIL_HORIZONTAL_EXAGGERATION;
       gyroPathState.renderScaleY = nextScale;
 
@@ -5159,7 +5006,7 @@ function requestMobileMockup3dMesh(){
             x = launchPoint.x + ((point.x - launchPoint.x) * curveBlend);
             z = launchPoint.z + ((point.z - launchPoint.z) * curveBlend);
           }
-          return {x, y:point.y, z, ms:point.ms};
+          return {x, y:point.y, z};
         });
       }
 
@@ -5184,7 +5031,7 @@ function requestMobileMockup3dMesh(){
         const wx = m.x / scaleXZ;
         const wy = GYRO_WORLD_ALTITUDE_BASE + (m.y / scaleY);
         const wz = m.z / scaleXZ;
-        smoothPath.push({x: wx, y: wy, z: wz, ms:m.ms});
+        smoothPath.push({x: wx, y: wy, z: wz});
         trailPos.push(wx, wy, wz);
         trailCol.push(trailR, trailG, trailB, 0.98);
         trailGlowCol.push(trailR, trailG, trailB, 0.92);
@@ -5204,8 +5051,7 @@ function requestMobileMockup3dMesh(){
       const currentWorld = {
         x: currentRaw.x / scaleXZ,
         y: GYRO_WORLD_ALTITUDE_BASE + (currentRaw.y / scaleY),
-        z: currentRaw.z / scaleXZ,
-        ms: currentRaw.ms
+        z: currentRaw.z / scaleXZ
       };
       if(smoothPath.length) smoothPath[smoothPath.length - 1] = currentWorld;
 
@@ -5448,31 +5294,9 @@ function requestMobileMockup3dMesh(){
       yawDeg = getGyroDisplayYawDeg(yawDeg);
       resizeGyroGl();
       const gl = gyroGl.gl;
+      const pathRender = getGyroPathRenderData();
       const previewMode = getGyroPreviewMode();
       const showWorldDecor = (previewMode === "3d");
-      const separation = Math.max(0, Math.min(1, cameraStageSeparationProgress));
-      const dualStagePathActive = showWorldDecor && (
-        cameraStageSeparationLatched ||
-        cameraStageSeparationManualAt > 0 ||
-        separation > 0.001
-      );
-      if(dualStagePathActive) ensureSecondaryGyroPathFromPrimary();
-      const sharedScaleY = dualStagePathActive
-        ? getGyroSharedRenderScaleY([
-            gyroStagePathStates[1],
-            gyroStagePathStates[2]
-          ])
-        : NaN;
-      const pathRender = getGyroPathRenderData({
-        pathState:gyroStagePathStates[1],
-        sharedScaleY
-      });
-      const secondStagePathRender = dualStagePathActive
-        ? getGyroPathRenderData({
-            pathState:gyroStagePathStates[2],
-            sharedScaleY
-          })
-        : null;
       const simpleRocketPos = {x:0, y:GYRO_WORLD_ALTITUDE_BASE + 0.34, z:0};
       const inExpanded = isGyroViewportExpanded();
       const inCameraPreview = !!(el.gyro3dViewport &&
@@ -5491,32 +5315,9 @@ function requestMobileMockup3dMesh(){
       const rocketRenderPos = showWorldDecor
         ? {x:pathRender.current.x, y:pathRender.current.y + worldRocketLift, z:pathRender.current.z}
         : simpleRocketPos;
+      const separation = Math.max(0, Math.min(1, cameraStageSeparationProgress));
       const cameraFocusEase = 1 - Math.pow(1 - separation, 4);
-      const primaryPathQuat = gyroStagePathStates[1].attitudeQuat;
-      const secondaryPathQuat = gyroStagePathStates[2].attitudeQuat;
-      const rocketRotation = quatToMat4(
-        primaryPathQuat || getGyroRocketModelQuat()
-      );
-      const secondStageRotation = quatToMat4(
-        secondaryPathQuat || primaryPathQuat || getGyroRocketModelQuat()
-      );
-      const secondStageRenderPos = secondStagePathRender
-        ? {
-            x:secondStagePathRender.current.x,
-            y:secondStagePathRender.current.y + worldRocketLift,
-            z:secondStagePathRender.current.z
-          }
-        : rocketRenderPos;
-      if(secondStagePathRender){
-        pathRender.cameraDistance = Math.max(
-          pathRender.cameraDistance,
-          secondStagePathRender.cameraDistance
-        );
-        pathRender.gridSpan = Math.max(
-          pathRender.gridSpan,
-          secondStagePathRender.gridSpan
-        );
-      }
+      const rocketRotation = quatToMat4(getGyroRocketModelQuat());
       const stages = gyroGl.solid.rocketStages;
       const fullVisualCenter = gyroGl.solid.rocketVisualCenter || [0,0,0];
       const stage1VisualCenter = stages && stages.stage1 && stages.stage1.visualCenter
@@ -5535,15 +5336,9 @@ function requestMobileMockup3dMesh(){
         0
       );
       const rocketLookTarget = {
-        x:(secondStagePathRender
-          ? ((rocketRenderPos.x + secondStageRenderPos.x) * 0.5)
-          : rocketRenderPos.x) + visualCenterOffset[0],
-        y:(secondStagePathRender
-          ? ((rocketRenderPos.y + secondStageRenderPos.y) * 0.5)
-          : rocketRenderPos.y) + visualCenterOffset[1],
-        z:(secondStagePathRender
-          ? ((rocketRenderPos.z + secondStageRenderPos.z) * 0.5)
-          : rocketRenderPos.z) + visualCenterOffset[2]
+        x:rocketRenderPos.x + visualCenterOffset[0],
+        y:rocketRenderPos.y + visualCenterOffset[1],
+        z:rocketRenderPos.z + visualCenterOffset[2]
       };
       const lookTargetSource = (inCameraPreview || showWorldDecor)
         ? {
@@ -5831,67 +5626,6 @@ function requestMobileMockup3dMesh(){
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
       }
 
-      if(
-        showWorldDecor &&
-        secondStagePathRender &&
-        secondStagePathRender.trailWorldPoints &&
-        secondStagePathRender.trailWorldPoints.length >= 2
-      ){
-        const separationMs = Number(gyroStagePathStates[2].separationMs) || 0;
-        let trailPts = secondStagePathRender.trailWorldPoints;
-        if(separationMs > 0){
-          const firstAfterSeparation = trailPts.findIndex(
-            (point)=>Number(point.ms) >= separationMs
-          );
-          if(firstAfterSeparation > 0){
-            trailPts = trailPts.slice(firstAfterSeparation - 1);
-          }
-        }
-        const phase = Date.now() * 0.0051;
-        const drawSecondStageTrail = (geometry, mode, additive)=>{
-          const minimum = mode === gl.TRIANGLES ? 3 : 4;
-          if(!geometry || geometry.count < minimum) return;
-          gl.bindBuffer(gl.ARRAY_BUFFER, gyroGl.line.trailPosBuf);
-          gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(geometry.pos), gl.DYNAMIC_DRAW);
-          gl.bindBuffer(gl.ARRAY_BUFFER, gyroGl.line.trailColBuf);
-          gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(geometry.col), gl.DYNAMIC_DRAW);
-          gl.blendFunc(gl.SRC_ALPHA, additive ? gl.ONE : gl.ONE_MINUS_SRC_ALPHA);
-          drawLineBatch(
-            gyroGl.line.trailPosBuf,
-            gyroGl.line.trailColBuf,
-            mode,
-            geometry.count,
-            viewProj
-          );
-        };
-        gl.disable(gl.DEPTH_TEST);
-        drawSecondStageTrail(
-          buildGyroTrailRibbonGeometry(trailPts, eye, 0.018, (t, index)=>{
-            const pulse = 0.8 + (0.2 * Math.sin((index * 0.3) + phase));
-            return [0.02, 0.025, 0.03, (0.2 + (0.48 * t)) * pulse];
-          }),
-          gl.TRIANGLE_STRIP,
-          false
-        );
-        drawSecondStageTrail(
-          buildGyroTrailRibbonGeometry(trailPts, eye, 0.011, (t, index)=>{
-            const pulse = 0.76 + (0.24 * Math.sin((index * 0.38) + phase));
-            return [0.08, 0.74 + (0.2 * t), 1.0, (0.18 + (0.62 * t)) * pulse];
-          }),
-          gl.TRIANGLE_STRIP,
-          true
-        );
-        drawSecondStageTrail(
-          buildGyroTrailRibbonGeometry(trailPts, eye, 0.005, (t)=>{
-            return [0.76, 0.96, 1.0, 0.56 + (0.4 * t)];
-          }),
-          gl.TRIANGLE_STRIP,
-          false
-        );
-        gl.enable(gl.DEPTH_TEST);
-        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-      }
-
       if(showWorldDecor){
         const yawRad = yawDeg * DEG_TO_RAD;
         const headingDir = [Math.sin(yawRad), 0, Math.cos(yawRad)];
@@ -5934,26 +5668,40 @@ function requestMobileMockup3dMesh(){
       if(stages){
         if(separation > 0.001){
           const moveEase = 1 - Math.pow(1 - separation, 3);
+          const fadeProgress = Math.max(0, Math.min(1, (separation - 0.22) / 0.78));
+          const fadeEase = fadeProgress * fadeProgress * (3 - (2 * fadeProgress));
           drawStage(stages.stage1, rocketModel, renderStyle);
-          const secondStageModel = mat4Mul(
-            mat4Translate(
-              secondStageRenderPos.x,
-              secondStageRenderPos.y,
-              secondStageRenderPos.z
-            ),
-            mat4Mul(
-              secondStageRotation,
-              mat4Mul(
-                mat4Translate(0, moveEase * 0.22, 0),
-                mat4Scale(
-                  rocketDisplayScale,
-                  rocketDisplayScale,
-                  rocketDisplayScale
+          const secondStageVisibility = Math.max(0, 1 - fadeEase);
+          if(secondStageVisibility > 0.01){
+            const blurRadius = fadeEase * 0.032;
+            const blurSamples = [
+              [0, 0, 0, 1 - (.42 * fadeEase)],
+              [blurRadius, 0, 0, .16 * fadeEase],
+              [-blurRadius, 0, 0, .16 * fadeEase],
+              [0, 0, blurRadius, .16 * fadeEase],
+              [0, 0, -blurRadius, .16 * fadeEase],
+              [0, -blurRadius * .8, 0, .11 * fadeEase],
+              [0, blurRadius * .55, 0, .08 * fadeEase]
+            ];
+            gl.depthMask(false);
+            blurSamples.forEach((sample)=>{
+              const sampleOpacity = secondStageVisibility * sample[3];
+              if(sampleOpacity <= 0.001) return;
+              const secondStageStyle = Object.assign({}, renderStyle, {opacity:sampleOpacity});
+              const secondStageModel = mat4Mul(
+                mat4Translate(rocketRenderPos.x, rocketRenderPos.y, rocketRenderPos.z),
+                mat4Mul(
+                  rocketRotation,
+                  mat4Mul(
+                    mat4Translate(sample[0], (moveEase * 0.22) + sample[1], sample[2]),
+                    mat4Scale(rocketDisplayScale, rocketDisplayScale, rocketDisplayScale)
+                  )
                 )
-              )
-            )
-          );
-          drawStage(stages.stage2, secondStageModel, renderStyle);
+              );
+              drawStage(stages.stage2, secondStageModel, secondStageStyle);
+            });
+            gl.depthMask(true);
+          }
         }else{
           drawStage(stages.stage1, rocketModel, renderStyle);
           drawStage(stages.stage2, rocketModel, renderStyle);
@@ -6087,18 +5835,8 @@ function requestMobileMockup3dMesh(){
       offlineGyroPreviewRenderRaf = requestAnimationFrame(()=>{
         offlineGyroPreviewRenderRaf = 0;
         if(isDeviceUiOnline() || simEnabled || replaySourceActive) return;
-        const retainedTrajectory = [1, 2].some((stageId)=>{
-          const state = gyroStagePathStates[stageId];
-          return !!(state && state.points && state.points.length);
-        });
-        if(retainedTrajectory){
-          if(gyroGl) renderGyroGl(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
-          renderNavBall(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
-          renderGyroPreview(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
-          renderNavBallPreview(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
-          return;
-        }
         resetGyroAttitudeState();
+        resetGyroPathTracking();
         resetGyroCameraPose(true);
         if(gyroGl) renderGyroGl(0, 0, 0);
         renderNavBall(0, 0, 0);
