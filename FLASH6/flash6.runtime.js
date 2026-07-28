@@ -37898,7 +37898,8 @@ function requestMobileMockup3dMesh(){
       el.replayRecentSelectedTab = document.getElementById("replayRecentSelectedTab");
       el.replayDataSummary = document.getElementById("replayDataSummary");
       el.replayBrowseFileBtn = document.getElementById("replayBrowseFileBtn");
-      el.replayBrowseDualStageBtn = document.getElementById("replayBrowseDualStageBtn");
+      el.replayBrowseFileHint = document.getElementById("replayBrowseFileHint");
+      el.replayDualStageToggle = document.getElementById("replayDualStageToggle");
       el.replayProceedBtn = document.getElementById("replayProceedBtn");
       initMobilePreviewCarousel();
       initMobileChartPicker();
@@ -38765,6 +38766,9 @@ function requestMobileMockup3dMesh(){
           showToast("리플레이 파일은 최대 2개까지 함께 선택할 수 있습니다.", "notice", {key:"replay-file-limit"});
           return;
         }
+        setReplayFileSelectionMode(files.length === 2 ? "dual" : "single", {
+          preserveSelection:true
+        });
         cancelReplaySeekProcessing();
         setReplayStatus(files.length === 2
           ? "1·2단 비행 데이터 동기화 중..."
@@ -38852,9 +38856,43 @@ function requestMobileMockup3dMesh(){
           if(event.target === el.replayDataPickerOverlay) setReplayDataPickerVisible(false);
         });
       }
-      const openReplayFileSelection = (mode)=>{
+      const clearReplaySelectionForModeChange = ()=>{
+        if(!Array.isArray(replayState.samples) || !replayState.samples.length) return;
+        pauseReplayPlayback({silent:true});
+        replayState.samples = [];
+        replayState.fileName = "";
+        replayState.sourceFiles = [];
+        replayState.parserLabel = "";
+        replayState.dataMode = null;
+        replayState.synchronizedStages = false;
+        replayState.syncId = 0;
+        replayState.index = 0;
+        replayState.lastIndex = -1;
+        prepareReplayLinkQualityData([]);
+        renderReplayDataSummary();
+        setReplayStatus("비행 데이터를 선택하세요.");
+      };
+      const setReplayFileSelectionMode = (mode, options)=>{
+        const nextMode = mode === "dual" ? "dual" : "single";
+        const changed = replayFileSelectionMode !== nextMode;
+        replayFileSelectionMode = nextMode;
+        const dual = replayFileSelectionMode === "dual";
+        if(el.replayFileInput) el.replayFileInput.multiple = dual;
+        if(el.replayDualStageToggle){
+          el.replayDualStageToggle.classList.toggle("is-on", dual);
+          el.replayDualStageToggle.setAttribute("aria-checked", dual ? "true" : "false");
+        }
+        if(el.replayBrowseFileHint){
+          el.replayBrowseFileHint.textContent = dual
+            ? "1단·2단 비행 데이터 2개 선택 · 자동 동기화"
+            : "BIN, CSV, XLSX · 단일 비행 기록";
+        }
+        if(changed && !(options && options.preserveSelection)){
+          clearReplaySelectionForModeChange();
+        }
+      };
+      const openReplayFileSelection = ()=>{
         if(!el.replayFileInput) return;
-        replayFileSelectionMode = mode === "dual" ? "dual" : "single";
         el.replayFileInput.multiple = replayFileSelectionMode === "dual";
         el.replayFileInput.value = "";
         el.replayFileInput.click();
@@ -38876,10 +38914,12 @@ function requestMobileMockup3dMesh(){
         return true;
       };
       if(el.replayBrowseFileBtn && el.replayFileInput){
-        el.replayBrowseFileBtn.addEventListener("click",()=>openReplayFileSelection("single"));
+        el.replayBrowseFileBtn.addEventListener("click",()=>openReplayFileSelection());
       }
-      if(el.replayBrowseDualStageBtn && el.replayFileInput){
-        el.replayBrowseDualStageBtn.addEventListener("click",()=>openReplayFileSelection("dual"));
+      if(el.replayDualStageToggle){
+        el.replayDualStageToggle.addEventListener("click",()=>{
+          setReplayFileSelectionMode(replayFileSelectionMode === "dual" ? "single" : "dual");
+        });
       }
       if(el.replayProceedBtn){
         el.replayProceedBtn.addEventListener("click",()=>proceedWithSelectedReplay());
@@ -38928,7 +38968,9 @@ function requestMobileMockup3dMesh(){
           const files = ev.dataTransfer && ev.dataTransfer.files
             ? Array.from(ev.dataTransfer.files)
             : [];
-          const selectionMode = mode === "dual" ? "dual" : (mode === "single" ? "single" : "auto");
+          const selectionMode = mode === "current"
+            ? replayFileSelectionMode
+            : (mode === "dual" ? "dual" : (mode === "single" ? "single" : "auto"));
           if(files.length &&
              (selectionMode === "auto" || validateReplayFileSelection(files, selectionMode))){
             loadReplayFile(files);
@@ -38936,8 +38978,7 @@ function requestMobileMockup3dMesh(){
         });
       };
       bindReplayFileDropTarget(el.replayFileBtn, "auto");
-      bindReplayFileDropTarget(el.replayBrowseFileBtn, "single");
-      bindReplayFileDropTarget(el.replayBrowseDualStageBtn, "dual");
+      bindReplayFileDropTarget(el.replayBrowseFileBtn, "current");
       if(el.replayFileInput){
         el.replayFileInput.addEventListener("change", async ()=>{
           const files = el.replayFileInput.files
