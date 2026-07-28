@@ -6487,6 +6487,7 @@ function requestMobileMockup3dMesh(){
     };
     let currentDataOrigin = "local";
     let latestAvionicsStorageInfo = null;
+    const latestAvionicsStorageByStage = {1:null, 2:null};
     let latestAvionicsStorageOkMs = 0;
 
     const DISCONNECT_GRACE_MS = 5000;  // 이 시간 동안 샘플이 없으면 끊김 후보
@@ -24268,7 +24269,7 @@ function requestMobileMockup3dMesh(){
         fw_program:"Altis_Intelligent3_firmware1",
         fw_board:"Altis_Intelligent3_b3",
         fw_protocol:"Flash6-Intelligent-b10",
-        fw_build:"v6 b44"
+        fw_build:"v6 b45"
       };
     }
 
@@ -28202,9 +28203,29 @@ function requestMobileMockup3dMesh(){
       });
     }
 
-    function updateRemoteSpiFlashInfo(info){
+    function normalizeStorageStageNode(value){
+      const node = Math.floor(Number(value) || 0);
+      return node === 1 || node === 2 ? node : 0;
+    }
+
+    function remoteStorageStageNodes(){
+      if(uiSettings && uiSettings.flashLinkStage2Mode === true) return [1, 2];
+      const selected = normalizeStorageStageNode(
+        typeof flashLinkTargetNodeId !== "undefined" ? flashLinkTargetNodeId : 0
+      );
+      return [selected || 1];
+    }
+
+    function updateRemoteSpiFlashInfo(info, requestedNodeId){
       const normalized = normalizeRemoteSpiFlashInfo(info);
       if(!normalized) return null;
+      const stageNode = normalizeStorageStageNode(
+        requestedNodeId || normalized.stage_node
+      );
+      if(stageNode){
+        normalized.stage_node = stageNode;
+        latestAvionicsStorageByStage[stageNode] = normalized;
+      }
       latestAvionicsStorageInfo = normalized;
       latestAvionicsStorageOkMs = Date.now();
       if(normalized.logging != null){
@@ -28215,13 +28236,14 @@ function requestMobileMockup3dMesh(){
       return normalized;
     }
 
-    async function fetchSpiFlashRemoteDataList(){
+    async function fetchSpiFlashRemoteDataList(requestedNodeId){
       if(!isFlashLinkGroundStorageUi()){
         throw new Error("FLASH_LINK_REMOTE_NOT_ACTIVE");
       }
+      const stageNode = normalizeStorageStageNode(requestedNodeId);
       if(canUseSerialForSpiFlash()){
         try{
-          return await fetchSpiFlashRemoteDataListViaSerial();
+          return await fetchSpiFlashRemoteDataListViaSerial(stageNode);
         }catch(serialErr){
           if(serialEnabled) throw serialErr;
         }
@@ -28231,7 +28253,8 @@ function requestMobileMockup3dMesh(){
         throw new Error("SERIAL_NOT_READY");
       }
       const API_BASE = getApiBaseForCommands();
-      const url = (API_BASE ? API_BASE : "") + "/storage/spi_flash/remote/list";
+      const nodeQuery = stageNode ? ("?node=" + stageNode) : "";
+      const url = (API_BASE ? API_BASE : "") + "/storage/spi_flash/remote/list" + nodeQuery;
       const ctrl = createAbortControllerSafe();
       const timer = ctrl ? setTimeout(()=>{ try{ ctrl.abort(); }catch(_e){} }, 12000) : null;
       const opt = API_BASE
@@ -28244,9 +28267,12 @@ function requestMobileMockup3dMesh(){
         if(Number(info.list_available) === 0 || Number(info.list_complete) === 0){
           throw new Error("REMOTE_SESSION_LIST_UNAVAILABLE");
         }
-        const normalized = updateRemoteSpiFlashInfo(info) || info;
+        const normalized = updateRemoteSpiFlashInfo(info, stageNode) || info;
         const items = Array.isArray(info.items) ? info.items : [];
-        return Object.assign({}, normalized, {items});
+        return Object.assign({}, normalized, {
+          stage_node:stageNode || normalizeStorageStageNode(info.stage_node),
+          items
+        });
       }catch(err){
         throw err;
       }finally{
@@ -28301,35 +28327,98 @@ function requestMobileMockup3dMesh(){
     let dataListLiveTimer = null;
     let dataListLivePending = false;
 
-    function normalizeRemoteDataListItems(info){
+    function normalizeRemoteDataListItems(info, requestedNodeId){
       const items = info && Array.isArray(info.items) ? info.items : [];
-      return items.map((item)=>Object.assign({}, item, {
-        kind:"board",
-        origin:"avionics",
-        remote:true,
-        dataKey:"board-remote:" + String(item.offset || 0)
-      }));
+      const infoStage = normalizeStorageStageNode(
+        requestedNodeId || (info && info.stage_node)
+      );
+      return items.map((item)=>{
+        const recordedStage = normalizeStorageStageNode(item && item.stage_node);
+        const storageStage = infoStage || recordedStage;
+        return Object.assign({}, item, {
+          kind:"board",
+          origin:"avionics",
+          remote:true,
+          storageStage,
+          stage_node:recordedStage || storageStage,
+          dataKey:"board-remote-s" + String(storageStage || 0) + ":" + String(item.offset || 0)
+        });
+      });
     }
 
-    function applyRemoteDataListResult(overlay, summary, info){
+    function rebuildRemoteBoardItems(overlay){
+      const stageInfos = overlay && overlay._remoteStageInfo || {};
+      const items = [];
+      [1, 2].forEach((stageNode)=>{
+        if(stageInfos[stageNode]){
+          items.push.apply(items, normalizeRemoteDataListItems(stageInfos[stageNode], stageNode));
+        }
+      });
+      return items.concat(Array.isArray(overlay && overlay._localBoardItems)
+        ? overlay._localBoardItems
+        : []);
+    }
+
+    function applyRemoteDataListResult(overlay, summary, info, requestedNodeId){
       if(!overlay || !info) return;
+      const stageNode = normalizeStorageStageNode(
+        requestedNodeId || info.stage_node
+      ) || 1;
+      overlay._remoteStageInfo = overlay._remoteStageInfo || {};
+      overlay._remoteStageError = overlay._remoteStageError || {};
+      overlay._remoteStageInfo[stageNode] = info;
+      overlay._remoteStageError[stageNode] = null;
       overlay._remoteBoardInfo = info;
       overlay._remoteBoardError = null;
       overlay._remoteListFailureCount = 0;
       overlay._remoteListRetryAt = 0;
-      overlay._boardItems = normalizeRemoteDataListItems(info).concat(
-        Array.isArray(overlay._localBoardItems) ? overlay._localBoardItems : []
-      );
+      overlay._boardItems = rebuildRemoteBoardItems(overlay);
       renderDataListSummary(
         summary,
         info,
         Array.isArray(overlay._appSessions) ? overlay._appSessions : [],
-        overlay._originFilter
+        overlay._originFilter,
+        overlay._remoteStageInfo,
+        overlay._remoteStageError
       );
       renderDataListItems(overlay);
     }
 
-    function renderDataListSummary(summary, info, appSessions, originFilter){
+    function renderStorageStageSummary(stageNode, info, error){
+      const boardInfo = normalizeRemoteSpiFlashInfo(info) || {};
+      const capacity = Math.max(0, Number(boardInfo.capacity_bytes || 0));
+      const used = Math.max(0, Number(boardInfo.used_bytes || 0));
+      const records = Math.max(0, Number(boardInfo.record_count || 0));
+      const pct = capacity > 0
+        ? Math.max(0, Math.min(100, (used / capacity) * 100))
+        : 0;
+      const ready = !error && capacity > 0;
+      const status = error ? "연결 대기" : (ready ? "동기화됨" : "확인 중");
+      return '<section class="data-storage-stage-card' + (ready ? ' is-ready' : ' is-waiting') + '">' +
+        '<div class="data-storage-summary-heading">' +
+          '<span class="data-storage-title"><i aria-hidden="true"></i>STAGE ' + stageNode + '</span>' +
+          '<span class="data-storage-total">' + status + '</span>' +
+        '</div>' +
+        '<div class="data-storage-track" role="progressbar" aria-label="' + stageNode + '단 저장공간 사용량" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + pct.toFixed(1) + '">' +
+          '<span class="data-storage-fill' + (pct > 0 ? ' has-usage' : '') + '" style="--storage-used:' + pct.toFixed(2) + '%" aria-hidden="true"></span>' +
+        '</div>' +
+        '<div class="data-storage-metrics">' +
+          '<div><span>전체 용량</span><strong>' + (capacity > 0 ? formatBytesCompact(capacity) : '--') + '</strong></div>' +
+          '<div><span>사용량</span><strong>' + (capacity > 0 ? formatBytesCompact(used) : '--') + '</strong></div>' +
+          '<div><span>저장 기록</span><strong>' + (capacity > 0 ? records.toLocaleString("ko-KR") : '--') + '</strong></div>' +
+        '</div>' +
+        '<div class="data-storage-spec">SPI NOR · ' + (capacity > 0 ? pct.toFixed(1) + '% 사용' : 'A.I LINK 응답 대기') + '</div>' +
+      '</section>';
+    }
+
+    function renderDataListSummary(
+      summary,
+      info,
+      appSessions,
+      originFilter,
+      remoteStageInfo,
+      remoteStageError
+    ){
       if(!summary) return;
       info = info || {};
       appSessions = Array.isArray(appSessions) ? appSessions : [];
@@ -28356,6 +28445,20 @@ function requestMobileMockup3dMesh(){
         '<div class="data-storage-spec">HWLOGV2 BIN · 수신 데이터를 원본 형식으로 저장</div>';
       if(selectedView === "app"){
         summary.innerHTML = appSummary;
+        return;
+      }
+      const stageNodes = remoteStorageStageNodes();
+      if(isFlashLinkGroundStorageUi() && stageNodes.length > 1){
+        const infos = remoteStageInfo || {};
+        const errors = remoteStageError || {};
+        summary.innerHTML =
+          '<div class="data-storage-stage-grid">' +
+            stageNodes.map((stageNode)=>renderStorageStageSummary(
+              stageNode,
+              infos[stageNode] || latestAvionicsStorageByStage[stageNode],
+              errors[stageNode]
+            )).join("") +
+          '</div>';
         return;
       }
       const remoteInfo = isFlashLinkGroundStorageUi()
@@ -28405,7 +28508,9 @@ function requestMobileMockup3dMesh(){
             summary,
             overlay._boardInfo || {},
             Array.isArray(overlay._appSessions) ? overlay._appSessions : [],
-            overlay._originFilter
+            overlay._originFilter,
+            overlay._remoteStageInfo,
+            overlay._remoteStageError
           );
           syncDataStorageActionButtons();
           if(overlay.classList.contains("is-open")) dataListLiveTimer = setTimeout(refresh, 1600);
@@ -28416,25 +28521,38 @@ function requestMobileMockup3dMesh(){
             summary,
             latestAvionicsStorageInfo || {},
             Array.isArray(overlay._appSessions) ? overlay._appSessions : [],
-            overlay._originFilter
+            overlay._originFilter,
+            overlay._remoteStageInfo,
+            overlay._remoteStageError
           );
           const nowMs = Date.now();
-          const retryDue = !!overlay._remoteBoardError &&
-            !overlay._remoteListPending &&
-            nowMs >= Number(overlay._remoteListRetryAt || 0);
-          if(retryDue){
+          const retryNode = remoteStorageStageNodes().find((stageNode)=>{
+            const error = overlay._remoteStageError && overlay._remoteStageError[stageNode];
+            const retryAt = overlay._remoteStageRetryAt && overlay._remoteStageRetryAt[stageNode];
+            return !!error && nowMs >= Number(retryAt || 0);
+          });
+          if(retryNode && !overlay._remoteListPending){
             overlay._remoteListPending = true;
             renderDataListItems(overlay);
             try{
-              const refreshed = await fetchSpiFlashRemoteDataList();
+              const refreshed = await fetchSpiFlashRemoteDataList(retryNode);
               if(overlay.classList.contains("is-open")){
-                applyRemoteDataListResult(overlay, summary, refreshed);
+                applyRemoteDataListResult(overlay, summary, refreshed, retryNode);
               }
             }catch(error){
               overlay._remoteBoardError = error;
-              const failures = Math.min(8, Math.max(0, Number(overlay._remoteListFailureCount || 0)) + 1);
+              overlay._remoteStageError = overlay._remoteStageError || {};
+              overlay._remoteStageFailureCount = overlay._remoteStageFailureCount || {};
+              overlay._remoteStageRetryAt = overlay._remoteStageRetryAt || {};
+              overlay._remoteStageError[retryNode] = error;
+              const failures = Math.min(
+                8,
+                Math.max(0, Number(overlay._remoteStageFailureCount[retryNode] || 0)) + 1
+              );
+              overlay._remoteStageFailureCount[retryNode] = failures;
+              overlay._remoteStageRetryAt[retryNode] =
+                Date.now() + Math.min(6000, 800 * Math.pow(2, Math.min(3, failures - 1)));
               overlay._remoteListFailureCount = failures;
-              overlay._remoteListRetryAt = Date.now() + Math.min(6000, 800 * Math.pow(2, Math.min(3, failures - 1)));
               if(overlay.classList.contains("is-open")) renderDataListItems(overlay);
             }finally{
               overlay._remoteListPending = false;
@@ -28454,7 +28572,9 @@ function requestMobileMockup3dMesh(){
                 summary,
                 info,
                 Array.isArray(overlay._appSessions) ? overlay._appSessions : [],
-                overlay._originFilter
+                overlay._originFilter,
+                overlay._remoteStageInfo,
+                overlay._remoteStageError
               );
             }
           }finally{
@@ -28663,9 +28783,13 @@ function requestMobileMockup3dMesh(){
           note:"APP BIN · 샘플 " + Math.max(0, Number(item.sampleCount || 0)).toLocaleString("ko-KR") + "개 · " + formatBytesCompact(item.bytes || 0)
         };
       }
+      const stageNode = normalizeStorageStageNode(item.storageStage || item.stage_node);
       return {
         title:String(item.name || "BOARD BIN"),
-        note:"AVIONICS BIN · 레코드 " + Math.max(0, Number(item.records || 0)).toLocaleString("ko-KR") + "개 · " + formatBytesCompact(item.bytes || 0)
+        note:(stageNode ? ("STAGE " + stageNode + " · ") : "") +
+          "AVIONICS BIN · 레코드 " +
+          Math.max(0, Number(item.records || 0)).toLocaleString("ko-KR") +
+          "개 · " + formatBytesCompact(item.bytes || 0)
       };
     }
 
@@ -28989,28 +29113,51 @@ function requestMobileMockup3dMesh(){
           '자세히 보기 · ' + hiddenCount.toLocaleString("ko-KR") + '개 더 보기' +
         '</button>';
       };
-      const boardEmptyText =
-        overlay._remoteBoardError
-            ? (Number(overlay._remoteListFailureCount || 0) >= 3
-                ? '저장 기록 목록 동기화가 지연되고 있습니다. A.I LINK 연결을 확인하는 동안 자동으로 다시 시도합니다.'
-                : '저장 기록 목록을 다시 동기화하는 중입니다…')
-            : overlay._boardError
-            ? '에비오닉스 보드 저장공간은 연결 후 확인할 수 있습니다.'
-            : '에비오닉스 저장공간에 저장된 기록이 없습니다.';
-      const boardHtml = boardItems.length
-        ? boardItems.slice().reverse().slice(0, detailsOpen ? boardItems.length : previewLimit).map((item)=>{
-                  const name = String(item.name || "DATA");
-                  const records = Math.max(0, Number(item.records || 0));
-                  const bytes = formatBytesCompact(item.bytes || 0);
-                  const currentText = Number(item.current || 0) ? " · 현재 기록 중" : "";
-                  return '<button class="agent-help-issue data-list-item" type="button" data-data-key="' + escapeHtml(item.dataKey) + '">' +
-                    '<span class="agent-help-dot" aria-hidden="true"></span><span>' +
-                    '<span class="agent-help-issue-title">' + escapeHtml(name) + '</span>' +
-                    '<span class="agent-help-issue-sub">AVIONICS BIN · 레코드 ' + records.toLocaleString("ko-KR") + '개 · ' + bytes + currentText + '</span>' +
-                    '</span><span class="agent-help-chevron" aria-hidden="true">›</span></button>';
-                }).join("") +
-                renderMoreButton(Math.max(0, boardItems.length - previewLimit), "board")
-        : '<p class="data-storage-empty">' + boardEmptyText + '</p>';
+      const boardEmptyTextFor = (stageNode)=>{
+        const stageError = stageNode &&
+          overlay._remoteStageError &&
+          overlay._remoteStageError[stageNode];
+        if(stageError) return stageNode + '단 저장 기록을 다시 동기화하는 중입니다…';
+        if(overlay._boardError) return '에비오닉스 보드 저장공간은 연결 후 확인할 수 있습니다.';
+        return stageNode
+          ? stageNode + '단 저장공간에 저장된 기록이 없습니다.'
+          : '에비오닉스 저장공간에 저장된 기록이 없습니다.';
+      };
+      const renderBoardRows = (items, stageNode)=>{
+        if(!items.length){
+          return '<p class="data-storage-empty data-storage-empty--stage">' +
+            escapeHtml(boardEmptyTextFor(stageNode)) +
+          '</p>';
+        }
+        const visible = items.slice().reverse().slice(0, detailsOpen ? items.length : previewLimit);
+        return visible.map((item)=>{
+          const name = String(item.name || "DATA");
+          const records = Math.max(0, Number(item.records || 0));
+          const bytes = formatBytesCompact(item.bytes || 0);
+          const itemStage = normalizeStorageStageNode(item.storageStage || item.stage_node);
+          const stageText = itemStage ? ("STAGE " + itemStage + " · ") : "";
+          const currentText = Number(item.current || 0) ? " · 현재 기록 중" : "";
+          return '<button class="agent-help-issue data-list-item" type="button" data-data-key="' + escapeHtml(item.dataKey) + '">' +
+            '<span class="agent-help-dot" aria-hidden="true"></span><span>' +
+            '<span class="agent-help-issue-title">' + escapeHtml(name) + '</span>' +
+            '<span class="agent-help-issue-sub">' + stageText + 'AVIONICS BIN · 레코드 ' + records.toLocaleString("ko-KR") + '개 · ' + bytes + currentText + '</span>' +
+            '</span><span class="agent-help-chevron" aria-hidden="true">›</span></button>';
+        }).join("") +
+          renderMoreButton(Math.max(0, items.length - previewLimit), "board-stage-" + String(stageNode || 0));
+      };
+      const stageNodes = remoteStorageStageNodes();
+      const boardHtml = isFlashLinkGroundStorageUi() && stageNodes.length > 1
+        ? stageNodes.map((stageNode)=>{
+            const stageItems = boardItems.filter((item)=>
+              normalizeStorageStageNode(item.storageStage || item.stage_node) === stageNode
+            );
+            return '<section class="data-storage-record-group">' +
+              '<div class="data-storage-record-group-head"><strong>STAGE ' + stageNode + '</strong><span>' +
+                stageItems.length.toLocaleString("ko-KR") + ' RECORDS</span></div>' +
+              renderBoardRows(stageItems, stageNode) +
+            '</section>';
+          }).join("")
+        : renderBoardRows(boardItems, 0);
       const appHtml = appItems.length
         ? appItems.slice(0, detailsOpen ? appItems.length : previewLimit).map((item)=>{
             const started = new Date(Number(item.startedAt || 0));
@@ -29103,7 +29250,9 @@ function requestMobileMockup3dMesh(){
             overlay.querySelector("#dataListSummary"),
             overlay._boardInfo || {},
             Array.isArray(overlay._appSessions) ? overlay._appSessions : [],
-            overlay._originFilter
+            overlay._originFilter,
+            overlay._remoteStageInfo,
+            overlay._remoteStageError
           );
           renderDataListItems(overlay);
         });
@@ -29210,6 +29359,21 @@ function requestMobileMockup3dMesh(){
       await flushAppDataSamples();
       const shouldLoadRemoteBoard = !appOnly && isFlashLinkGroundStorageUi();
       const shouldLoadLocalBoard = !appOnly && !shouldLoadRemoteBoard;
+      const remoteNodes = shouldLoadRemoteBoard ? remoteStorageStageNodes() : [];
+      const remoteResultsPromise = (async()=>{
+        const stageResults = {};
+        for(const stageNode of remoteNodes){
+          try{
+            stageResults[stageNode] = {
+              info:await fetchSpiFlashRemoteDataList(stageNode),
+              error:null
+            };
+          }catch(error){
+            stageResults[stageNode] = {info:null, error};
+          }
+        }
+        return stageResults;
+      })();
       const results = await Promise.all([
         shouldLoadLocalBoard
           ? fetchSpiFlashDataList()
@@ -29217,15 +29381,13 @@ function requestMobileMockup3dMesh(){
               .catch((error)=>({info:null, error}))
           : Promise.resolve({info:null, error:null}),
         listAppDataSessions(),
-        shouldLoadRemoteBoard
-          ? fetchSpiFlashRemoteDataList()
-              .then((info)=>({info, error:null}))
-              .catch((error)=>({info:null, error}))
-          : Promise.resolve({info:null, error:null})
+        remoteResultsPromise
       ]);
       const boardResult = results[0];
       const appSessions = results[1];
-      const remoteBoardResult = results[2] || {info:null, error:null};
+      const remoteStageResults = results[2] || {};
+      const primaryRemoteNode = remoteNodes[0] || 1;
+      const remoteBoardResult = remoteStageResults[primaryRemoteNode] || {info:null, error:null};
       const info = boardResult.info || {};
       const localBoardItems = shouldLoadLocalBoard ? (Array.isArray(info.items) ? info.items : []).map((item)=>Object.assign({}, item, {
         kind:"board",
@@ -29233,7 +29395,26 @@ function requestMobileMockup3dMesh(){
         dataKey:"board-avionics:" + String(item.offset || 0)
       })) : [];
       const remoteInfo = remoteBoardResult.info || {};
-      const remoteBoardItems = normalizeRemoteDataListItems(remoteInfo);
+      const remoteStageInfo = {};
+      const remoteStageError = {};
+      const remoteStageFailureCount = {};
+      const remoteStageRetryAt = {};
+      remoteNodes.forEach((stageNode)=>{
+        const result = remoteStageResults[stageNode] || {info:null, error:null};
+        if(result.info) remoteStageInfo[stageNode] = result.info;
+        remoteStageError[stageNode] = result.error || null;
+        remoteStageFailureCount[stageNode] = result.error ? 1 : 0;
+        remoteStageRetryAt[stageNode] = result.error ? Date.now() + 800 : 0;
+      });
+      const remoteBoardItems = [];
+      remoteNodes.forEach((stageNode)=>{
+        if(remoteStageInfo[stageNode]){
+          remoteBoardItems.push.apply(
+            remoteBoardItems,
+            normalizeRemoteDataListItems(remoteStageInfo[stageNode], stageNode)
+          );
+        }
+      });
       const appItems = appSessions.map((item)=>Object.assign({}, item, {
         kind:"app",
         dataKey:"app:" + String(item.id)
@@ -29242,6 +29423,10 @@ function requestMobileMockup3dMesh(){
       overlay._boardError = boardResult.error;
       overlay._remoteBoardInfo = remoteInfo;
       overlay._remoteBoardError = remoteBoardResult.error;
+      overlay._remoteStageInfo = remoteStageInfo;
+      overlay._remoteStageError = remoteStageError;
+      overlay._remoteStageFailureCount = remoteStageFailureCount;
+      overlay._remoteStageRetryAt = remoteStageRetryAt;
       overlay._remoteListPending = false;
       overlay._remoteListFailureCount = remoteBoardResult.error ? 1 : 0;
       overlay._remoteListRetryAt = remoteBoardResult.error ? Date.now() + 800 : 0;
@@ -29251,7 +29436,14 @@ function requestMobileMockup3dMesh(){
       overlay._appSessions = appSessions;
       overlay._downloadSelectMode = false;
       overlay._dataListDetailsOpen = false;
-      renderDataListSummary(summary, info, appSessions, overlay._originFilter);
+      renderDataListSummary(
+        summary,
+        info,
+        appSessions,
+        overlay._originFilter,
+        overlay._remoteStageInfo,
+        overlay._remoteStageError
+      );
       if(shouldLoadRemoteBoard || boardResult.info || remoteBoardResult.info){
         startDataListLiveStatus(overlay, summary);
       }
@@ -29372,6 +29564,7 @@ function requestMobileMockup3dMesh(){
       const count = Math.max(0, Math.floor(num("count", 0)));
       const idx = Math.max(0, Math.floor(num("idx", 0)));
       const status = {
+        stage_node:Math.max(0, Math.floor(num("node", 0))),
         ready:num("ready", 0) ? 1 : 0,
         capacity_bytes:Math.max(0, Math.floor(num("capacity", 0))),
         chip_capacity_bytes:Math.max(0, Math.floor(num("capacity", 0))),
@@ -29440,15 +29633,21 @@ function requestMobileMockup3dMesh(){
       return Object.assign({}, info, {items, session_count:totalCount, listed_from:firstIdx});
     }
 
-    async function fetchSpiFlashRemoteItemViaSerial(idx){
+    async function fetchSpiFlashRemoteItemViaSerial(idx, requestedNodeId){
       const wantedIdx = Math.max(0, Math.floor(Number(idx) || 0));
+      const stageNode = normalizeStorageStageNode(requestedNodeId);
       const waiter = createSerialAckWaiter((evt)=>{
         if(evt.kind === "err") return true;
         if(evt.kind !== "ack") return false;
         const parsed = parseSpiFlashRemoteItemAckMessage(evt.message);
-        return !!parsed && (parsed.count === 0 || parsed.idx === wantedIdx);
+        return !!parsed &&
+          (!stageNode || Number(parsed.status && parsed.status.stage_node || 0) === stageNode) &&
+          (parsed.count === 0 || parsed.idx === wantedIdx);
       }, 4200);
-      const wrote = await serialWriteLine("/storage/spi_flash/remote/list?idx=" + wantedIdx);
+      const wrote = await serialWriteLine(
+        "/storage/spi_flash/remote/list?idx=" + wantedIdx +
+        (stageNode ? ("&node=" + stageNode) : "")
+      );
       if(!wrote){
         cancelSerialAckWaiter(waiter, "SERIAL_WRITE_FAIL");
         throw new Error("SERIAL_WRITE_FAIL");
@@ -29460,14 +29659,15 @@ function requestMobileMockup3dMesh(){
       return parsed;
     }
 
-    async function fetchSpiFlashRemoteDataListViaSerial(){
-      const first = await fetchSpiFlashRemoteItemViaSerial(0);
+    async function fetchSpiFlashRemoteDataListViaSerial(requestedNodeId){
+      const stageNode = normalizeStorageStageNode(requestedNodeId);
+      const first = await fetchSpiFlashRemoteItemViaSerial(0, stageNode);
       const items = [];
       const totalCount = Math.max(0, first.count);
       const firstIdx = Math.max(0, totalCount - 32);
       if(first.item && firstIdx === 0) items.push(first.item);
       for(let idx = Math.max(1, firstIdx); idx < totalCount; idx++){
-        const next = await fetchSpiFlashRemoteItemViaSerial(idx);
+        const next = await fetchSpiFlashRemoteItemViaSerial(idx, stageNode);
         if(next.item) items.push(next.item);
       }
       const rawInfo = Object.assign({}, first.status || {}, {
@@ -29475,10 +29675,11 @@ function requestMobileMockup3dMesh(){
         remote:1,
         list_available:1,
         list_complete:1,
+        stage_node:stageNode,
         session_count:totalCount,
         listed_from:firstIdx
       });
-      const info = updateRemoteSpiFlashInfo(rawInfo) || rawInfo;
+      const info = updateRemoteSpiFlashInfo(rawInfo, stageNode) || rawInfo;
       return Object.assign({}, info, {items});
     }
 
@@ -29668,13 +29869,15 @@ function requestMobileMockup3dMesh(){
       return bytes;
     }
 
-    async function fetchSpiFlashRemoteChunkViaSerial(off, len){
+    async function fetchSpiFlashRemoteChunkViaSerial(off, len, requestedNodeId){
       if(!canUseSerialForSpiFlash()){
         throw new Error("SERIAL_NOT_READY");
       }
       const offInt = Math.max(0, Math.floor(Number(off) || 0));
       const lenInt = Math.max(1, Math.min(SPI_FLASH_REMOTE_CHUNK_BYTES, Math.floor(Number(len) || 0)));
-      const cmd = "/storage/spi_flash/remote/read?off=" + offInt + "&len=" + lenInt;
+      const stageNode = normalizeStorageStageNode(requestedNodeId);
+      const cmd = "/storage/spi_flash/remote/read?off=" + offInt + "&len=" + lenInt +
+        (stageNode ? ("&node=" + stageNode) : "");
       let lastErr = null;
       for(let attempt = 0; attempt < 4; attempt++){
         const waiter = createSerialAckWaiter((evt)=>{
@@ -29763,10 +29966,11 @@ function requestMobileMockup3dMesh(){
       showToast("SPI Flash BIN(Serial) 다운로드 완료", "success", {key:"spi-flash-dump-serial"});
     }
 
-    async function fetchSpiFlashRemoteChunk(off, len){
+    async function fetchSpiFlashRemoteChunk(off, len, requestedNodeId){
+      const stageNode = normalizeStorageStageNode(requestedNodeId);
       if(canUseSerialForSpiFlash()){
         try{
-          return await fetchSpiFlashRemoteChunkViaSerial(off, len);
+          return await fetchSpiFlashRemoteChunkViaSerial(off, len, stageNode);
         }catch(serialErr){
           if(serialEnabled) throw serialErr;
         }
@@ -29778,7 +29982,8 @@ function requestMobileMockup3dMesh(){
       const API_BASE = getApiBaseForCommands();
       const offInt = Math.max(0, Math.floor(Number(off) || 0));
       const lenInt = Math.max(1, Math.min(SPI_FLASH_REMOTE_CHUNK_BYTES, Math.floor(Number(len) || 0)));
-      const url = (API_BASE ? API_BASE : "") + "/storage/spi_flash/remote/read?off=" + offInt + "&len=" + lenInt;
+      const url = (API_BASE ? API_BASE : "") + "/storage/spi_flash/remote/read?off=" + offInt +
+        "&len=" + lenInt + (stageNode ? ("&node=" + stageNode) : "");
       let lastErr = null;
       for(let attempt = 0; attempt < 4; attempt++){
         const ctrl = createAbortControllerSafe();
@@ -29817,11 +30022,17 @@ function requestMobileMockup3dMesh(){
       const dataBytes = Math.max(0, Number(selectedItem && selectedItem.bytes || 0));
       const baseOffset = Math.max(0, Number(selectedItem && selectedItem.offset || 0));
       const recordCount = Math.max(0, Number(selectedItem && selectedItem.records || 0));
+      const stageNode = normalizeStorageStageNode(
+        selectedItem && (selectedItem.storageStage || selectedItem.stage_node)
+      );
       if(!dataBytes) throw new Error("EMPTY_DATA");
-      const recordHz = Math.max(1, Number((latestAvionicsStorageInfo && latestAvionicsStorageInfo.record_hz) || 200));
+      const stageStorageInfo = stageNode
+        ? latestAvionicsStorageByStage[stageNode]
+        : latestAvionicsStorageInfo;
+      const recordHz = Math.max(1, Number((stageStorageInfo && stageStorageInfo.record_hz) || 200));
       const header = buildSpiFlashBinHeader(Object.assign(
         {},
-        latestAvionicsStorageInfo || {},
+        stageStorageInfo || {},
         selectedItem || {},
         {
           used_bytes:dataBytes,
@@ -29837,7 +30048,7 @@ function requestMobileMockup3dMesh(){
       updateStorageDownloadProgress(0, dataBytes, "A.I LINK 데이터 수신 중…", true);
       while(off < dataBytes){
         const len = Math.min(SPI_FLASH_REMOTE_CHUNK_BYTES, dataBytes - off);
-        const bytes = await fetchSpiFlashRemoteChunk(baseOffset + off, len);
+        const bytes = await fetchSpiFlashRemoteChunk(baseOffset + off, len, stageNode);
         if(!bytes.byteLength) throw new Error("REMOTE_EMPTY_CHUNK");
         fileBytes.set(bytes, header.byteLength + off);
         off += bytes.byteLength;

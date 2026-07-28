@@ -297,10 +297,17 @@ bool flashLinkGroundControlActive() {
          flashLinkOperational();
 }
 
-bool flashLinkCanProxyStorage() {
+uint8_t flashLinkStorageTargetNode(uint8_t requestedNodeId) {
+  return (requestedNodeId == 1U || requestedNodeId == 2U)
+    ? requestedNodeId
+    : flashLinkTargetNodeId;
+}
+
+bool flashLinkCanProxyStorage(uint8_t requestedNodeId) {
+  const uint8_t targetNodeId = flashLinkStorageTargetNode(requestedNodeId);
   return flashLinkGroundRole() &&
          flashLink.initialized &&
-         flashLinkGroundPeerTransportActive(flashLinkTargetNodeId);
+         flashLinkGroundPeerTransportActive(targetNodeId);
 }
 
 void flashLinkStorageReadCancel(uint32_t transaction) {
@@ -396,11 +403,12 @@ bool flashLinkRequestStorageReadWindowed(
   uint16_t len,
   uint8_t* out,
   uint16_t& outLen,
-  uint32_t timeoutMs
+  uint32_t timeoutMs,
+  uint8_t requestedNodeId
 ) {
   outLen = 0;
-  if (!out || len == 0 || !flashLinkCanProxyStorage()) return false;
-  const uint8_t targetNodeId = flashLinkTargetNodeId;
+  const uint8_t targetNodeId = flashLinkStorageTargetNode(requestedNodeId);
+  if (!out || len == 0 || !flashLinkCanProxyStorage(targetNodeId)) return false;
   flashLinkHoldStorageTransfer(millis());
 
   struct PendingRead {
@@ -570,10 +578,11 @@ bool flashLinkRequestStorageReadWindowed(
 bool flashLinkRequestStorageList(
   uint16_t startOrdinal,
   FlashLinkStorageListResponseV1& out,
-  uint32_t timeoutMs
+  uint32_t timeoutMs,
+  uint8_t requestedNodeId
 ) {
-  if (!flashLinkCanProxyStorage()) return false;
-  const uint8_t targetNodeId = flashLinkTargetNodeId;
+  const uint8_t targetNodeId = flashLinkStorageTargetNode(requestedNodeId);
+  if (!flashLinkCanProxyStorage(targetNodeId)) return false;
   const uint32_t transaction = flashLinkNextStorageReadTransaction();
   portENTER_CRITICAL(&flashLinkStorageReadMux);
   if (flashLinkStorageListClient.pending) {

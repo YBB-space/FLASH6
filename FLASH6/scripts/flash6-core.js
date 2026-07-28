@@ -6486,6 +6486,7 @@ function requestMobileMockup3dMesh(){
     };
     let currentDataOrigin = "local";
     let latestAvionicsStorageInfo = null;
+    const latestAvionicsStorageByStage = {1:null, 2:null};
     let latestAvionicsStorageOkMs = 0;
 
     const DISCONNECT_GRACE_MS = 5000;  // 이 시간 동안 샘플이 없으면 끊김 후보

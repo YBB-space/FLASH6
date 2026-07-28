@@ -136,8 +136,9 @@ void serialPrintStorageChunk(uint32_t offset, uint32_t len) {
   Serial.write('\n');
 }
 
-void serialPrintRemoteStorageItem(uint32_t idx) {
-  if (!flashLinkCanProxyStorage()) {
+void serialPrintRemoteStorageItem(uint32_t idx, uint8_t requestedNodeId = 0U) {
+  const uint8_t targetNodeId = flashLinkStorageTargetNode(requestedNodeId);
+  if (!flashLinkCanProxyStorage(targetNodeId)) {
     Serial.println("ERR SPI_FLASH_REMOTE_ITEM LINK_UNAVAILABLE");
     return;
   }
@@ -146,17 +147,20 @@ void serialPrintRemoteStorageItem(uint32_t idx) {
   if (!flashLinkRequestStorageList(
         (uint16_t)min<uint32_t>(UINT16_MAX, idx),
         response,
-        2800U)) {
+        2800U,
+        targetNodeId)) {
     Serial.println("ERR SPI_FLASH_REMOTE_ITEM TIMEOUT");
     return;
   }
 
-  const uint32_t capacity = flashLinkRemoteState.storageCapacityBytes;
-  const uint32_t used = flashLinkRemoteState.storageUsedBytes;
-  const uint32_t records = flashLinkRemoteState.storageRecordCount;
+  FlashLinkGroundPeer* targetPeer = flashLinkGroundPeerForNode(targetNodeId);
+  const uint32_t capacity = targetPeer ? targetPeer->state.storageCapacityBytes : 0U;
+  const uint32_t used = targetPeer ? targetPeer->state.storageUsedBytes : 0U;
+  const uint32_t records = targetPeer ? targetPeer->state.storageRecordCount : 0U;
   if (response.totalSessions == 0U || response.status == 2U) {
     Serial.printf(
-      "ACK SPI_FLASH_REMOTE_ITEM count=0 idx=0 ready=%u capacity=%lu used=%lu records=%lu record_hz=%lu\n",
+      "ACK SPI_FLASH_REMOTE_ITEM node=%u count=0 idx=0 ready=%u capacity=%lu used=%lu records=%lu record_hz=%lu\n",
+      (unsigned)targetNodeId,
       capacity > 0U ? 1U : 0U,
       (unsigned long)capacity,
       (unsigned long)used,
@@ -178,9 +182,10 @@ void serialPrintRemoteStorageItem(uint32_t idx) {
   char name[32];
   storageSessionName(item.sessionId, name, sizeof(name));
   Serial.printf(
-    "ACK SPI_FLASH_REMOTE_ITEM count=%u idx=%lu name=%s session=%lu off=%lu bytes=%lu records=%lu current=%u started=0 "
+    "ACK SPI_FLASH_REMOTE_ITEM node=%u count=%u idx=%lu name=%s session=%lu off=%lu bytes=%lu records=%lu current=%u started=0 "
     "protocol=%u timebase=%u meta=%u sync_id=%lu sync_anchor=%lu stage_node=%u sync_version=%u sync_flags=%u "
     "ready=%u capacity=%lu used=%lu total_records=%lu record_hz=%lu\n",
+    (unsigned)targetNodeId,
     (unsigned)response.totalSessions,
     (unsigned long)idx,
     name,
@@ -204,8 +209,13 @@ void serialPrintRemoteStorageItem(uint32_t idx) {
     (unsigned long)kStorageRecordHz);
 }
 
-void serialPrintRemoteStorageChunk(uint32_t offset, uint32_t len) {
-  if (!flashLinkCanProxyStorage()) {
+void serialPrintRemoteStorageChunk(
+  uint32_t offset,
+  uint32_t len,
+  uint8_t requestedNodeId = 0U
+) {
+  const uint8_t targetNodeId = flashLinkStorageTargetNode(requestedNodeId);
+  if (!flashLinkCanProxyStorage(targetNodeId)) {
     Serial.println("ERR SPI_FLASH_REMOTE_CHUNK LINK_UNAVAILABLE");
     return;
   }
@@ -219,7 +229,8 @@ void serialPrintRemoteStorageChunk(uint32_t offset, uint32_t len) {
         (uint16_t)len,
         serialStorageBulkData,
         totalLen,
-        4800U) ||
+        4800U,
+        targetNodeId) ||
       totalLen != len) {
     Serial.println("ERR SPI_FLASH_REMOTE_CHUNK TIMEOUT");
     return;
@@ -237,7 +248,8 @@ void serialPrintRemoteStorageChunk(uint32_t offset, uint32_t len) {
   }
   serialStorageBulkB64[b64Len] = '\0';
   Serial.printf(
-    "ACK SPI_FLASH_REMOTE_CHUNK off=%lu len=%u b64=",
+    "ACK SPI_FLASH_REMOTE_CHUNK node=%u off=%lu len=%u b64=",
+    (unsigned)targetNodeId,
     (unsigned long)offset,
     (unsigned)totalLen);
   Serial.write(serialStorageBulkB64, b64Len);
@@ -428,20 +440,28 @@ void handleSerialLine(const char* line) {
 
   if (cmd.startsWith("/storage/spi_flash/remote/list")) {
     String idxRaw;
+    String nodeRaw;
     uint32_t idx = 0;
+    uint8_t node = 0U;
     if (getQueryValue(cmd, "idx", idxRaw)) {
       const long v = idxRaw.toInt();
       idx = v > 0 ? (uint32_t)v : 0U;
     }
-    serialPrintRemoteStorageItem(idx);
+    if (getQueryValue(cmd, "node", nodeRaw)) {
+      const long v = nodeRaw.toInt();
+      if (v == 1L || v == 2L) node = (uint8_t)v;
+    }
+    serialPrintRemoteStorageItem(idx, node);
     return;
   }
 
   if (cmd.startsWith("/storage/spi_flash/remote/read")) {
     String offRaw;
     String lenRaw;
+    String nodeRaw;
     uint32_t off = 0;
     uint32_t len = 0;
+    uint8_t node = 0U;
     if (getQueryValue(cmd, "off", offRaw)) {
       const long v = offRaw.toInt();
       off = v > 0 ? (uint32_t)v : 0U;
@@ -450,7 +470,11 @@ void handleSerialLine(const char* line) {
       const long v = lenRaw.toInt();
       len = v > 0 ? (uint32_t)v : 0U;
     }
-    serialPrintRemoteStorageChunk(off, len);
+    if (getQueryValue(cmd, "node", nodeRaw)) {
+      const long v = nodeRaw.toInt();
+      if (v == 1L || v == 2L) node = (uint8_t)v;
+    }
+    serialPrintRemoteStorageChunk(off, len, node);
     return;
   }
 

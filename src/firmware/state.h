@@ -1,8 +1,8 @@
 
 constexpr char kFirmwareProgram[] = "Altis_Intelligent3_firmware1";
-constexpr char kFirmwareVersion[] = "0.9.14";
-constexpr char kFirmwareBuildId[] = "v6 b44";
-constexpr uint16_t kFirmwareBuildNumber = 44;
+constexpr char kFirmwareVersion[] = "0.9.15";
+constexpr char kFirmwareBuildId[] = "v6 b45";
+constexpr uint16_t kFirmwareBuildNumber = 45;
 constexpr char kFirmwareBoard[] = "Altis_Intelligent3_b3";
 constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b10";
 constexpr uint8_t kStorageProtocolVersion = 9;
@@ -1868,17 +1868,21 @@ bool flashLinkQueueCommand(
   int32_t arg1 = 0,
   int32_t arg2 = 0);
 bool flashLinkGroundControlActive();
-bool flashLinkCanProxyStorage();
+FlashLinkGroundPeer* flashLinkGroundPeerForNode(uint8_t nodeId);
+uint8_t flashLinkStorageTargetNode(uint8_t requestedNodeId);
+bool flashLinkCanProxyStorage(uint8_t targetNodeId = 0);
 bool flashLinkRequestStorageReadWindowed(
   uint32_t offset,
   uint16_t len,
   uint8_t* out,
   uint16_t& outLen,
-  uint32_t timeoutMs = 2600);
+  uint32_t timeoutMs = 2600,
+  uint8_t targetNodeId = 0);
 bool flashLinkRequestStorageList(
   uint16_t startOrdinal,
   FlashLinkStorageListResponseV1& out,
-  uint32_t timeoutMs = 1800);
+  uint32_t timeoutMs = 1800,
+  uint8_t targetNodeId = 0);
 const char* flashLinkCommandResultName(uint8_t result);
 bool startCountdownRuntimeFor(uint32_t nowMs, uint32_t durationMs, bool playStartTone);
 bool loadMissionRuntimeFromFlash();

@@ -1409,10 +1409,25 @@ void sendStorageChunkResponse(AsyncWebServerRequest* request, uint32_t offset, u
   request->send(response);
 }
 
-String remoteStorageStatusJson() {
-  const bool active = flashLinkCanProxyStorage();
-  const uint32_t capacity = flashLinkRemoteState.storageCapacityBytes;
-  const uint32_t used = flashLinkRemoteState.storageUsedBytes;
+uint8_t remoteStorageRequestNode(AsyncWebServerRequest* request) {
+  if (!request || !request->hasParam("node")) return 0U;
+  const long raw = request->getParam("node")->value().toInt();
+  return (raw == 1L || raw == 2L) ? (uint8_t)raw : 0U;
+}
+
+const FlashLinkRemoteState* remoteStorageStateForNode(uint8_t requestedNodeId) {
+  const uint8_t targetNodeId = flashLinkStorageTargetNode(requestedNodeId);
+  FlashLinkGroundPeer* peer = flashLinkGroundPeerForNode(targetNodeId);
+  return peer ? &peer->state : nullptr;
+}
+
+String remoteStorageStatusJson(uint8_t requestedNodeId = 0U) {
+  const uint8_t targetNodeId = flashLinkStorageTargetNode(requestedNodeId);
+  const FlashLinkRemoteState* remoteState = remoteStorageStateForNode(targetNodeId);
+  const bool active = flashLinkCanProxyStorage(targetNodeId);
+  const uint32_t capacity = remoteState ? remoteState->storageCapacityBytes : 0U;
+  const uint32_t used = remoteState ? remoteState->storageUsedBytes : 0U;
+  const uint32_t records = remoteState ? remoteState->storageRecordCount : 0U;
   const float pct = capacity > 0
     ? ((float)used * 100.0f / (float)capacity)
     : 0.0f;
@@ -1420,13 +1435,14 @@ String remoteStorageStatusJson() {
   snprintf(
     json,
     sizeof(json),
-    "{\"ok\":1,\"remote\":1,\"ready\":%u,\"busy\":0,\"full\":%u,"
+    "{\"ok\":1,\"remote\":1,\"stage_node\":%u,\"ready\":%u,\"busy\":0,\"full\":%u,"
     "\"storage_kind\":\"external_spi_nor\",\"model\":\"W25Q256JVEIQ\","
     "\"chip_capacity_bytes\":%lu,\"capacity_bytes\":%lu,"
     "\"used_bytes\":%lu,\"used_percent\":%.2f,\"record_hz\":%lu,"
     "\"selected_spi_hz\":0,\"session_count\":%u,"
     "\"record_count\":%lu,\"current_file\":\"FLASH6_AVIONICS_STORAGE\","
     "\"link_active\":%u,\"log_path\":\"ail://avionics/w25q256\"}",
+    (unsigned)targetNodeId,
     (active && capacity > 0) ? 1U : 0U,
     (capacity > 0 && used >= capacity) ? 1U : 0U,
     (unsigned long)capacity,
@@ -1435,20 +1451,24 @@ String remoteStorageStatusJson() {
     pct,
     (unsigned long)kStorageRecordHz,
     used > 0 ? 1U : 0U,
-    (unsigned long)flashLinkRemoteState.storageRecordCount,
+    (unsigned long)records,
     active ? 1U : 0U);
   return String(json);
 }
 
-String remoteStorageListJson() {
-  const uint32_t capacity = flashLinkRemoteState.storageCapacityBytes;
-  const uint32_t used = flashLinkRemoteState.storageUsedBytes;
-  const bool ready = flashLinkCanProxyStorage() && capacity > 0;
+String remoteStorageListJson(uint8_t requestedNodeId = 0U) {
+  const uint8_t targetNodeId = flashLinkStorageTargetNode(requestedNodeId);
+  const FlashLinkRemoteState* remoteState = remoteStorageStateForNode(targetNodeId);
+  const uint32_t capacity = remoteState ? remoteState->storageCapacityBytes : 0U;
+  const uint32_t used = remoteState ? remoteState->storageUsedBytes : 0U;
+  const uint32_t remoteRecordCount = remoteState ? remoteState->storageRecordCount : 0U;
+  const bool ready = flashLinkCanProxyStorage(targetNodeId) && capacity > 0;
   const float pct = capacity > 0
     ? ((float)used * 100.0f / (float)capacity)
     : 0.0f;
   FlashLinkStorageListResponseV1 firstBatch{};
-  const bool listReady = ready && flashLinkRequestStorageList(0U, firstBatch, 2200U);
+  const bool listReady = ready &&
+    flashLinkRequestStorageList(0U, firstBatch, 2200U, targetNodeId);
   bool listComplete = listReady;
   const uint16_t totalSessions = listReady ? firstBatch.totalSessions : 0U;
   const uint16_t firstListedSession =
@@ -1457,7 +1477,9 @@ String remoteStorageListJson() {
       : 0U;
   String json;
   json.reserve(4800);
-  json += "{\"ok\":1,\"remote\":1,\"ready\":";
+  json += "{\"ok\":1,\"remote\":1,\"stage_node\":";
+  json += String(targetNodeId);
+  json += ",\"ready\":";
   json += ready ? "1" : "0";
   json += ",\"full\":";
   json += (capacity > 0 && used >= capacity) ? "1" : "0";
@@ -1472,6 +1494,8 @@ String remoteStorageListJson() {
   json += String(pct, 2);
   json += ",\"record_hz\":";
   json += String(kStorageRecordHz);
+  json += ",\"record_count\":";
+  json += String(remoteRecordCount);
   json += ",\"selected_spi_hz\":0,\"session_count\":";
   json += String(totalSessions);
   json += ",\"listed_from\":";
@@ -1487,7 +1511,11 @@ String remoteStorageListJson() {
       const bool reusedFirst = ordinal == 0U && firstBatch.startOrdinal == 0U;
       if (reusedFirst) {
         batch = firstBatch;
-      } else if (!flashLinkRequestStorageList(ordinal, batch, 2200U)) {
+      } else if (!flashLinkRequestStorageList(
+                   ordinal,
+                   batch,
+                   2200U,
+                   targetNodeId)) {
         listComplete = false;
         break;
       }
@@ -1538,8 +1566,14 @@ String remoteStorageListJson() {
   return json;
 }
 
-void sendRemoteStorageReadResponse(AsyncWebServerRequest* request, uint32_t offset, uint32_t len) {
-  if (!flashLinkCanProxyStorage()) {
+void sendRemoteStorageReadResponse(
+  AsyncWebServerRequest* request,
+  uint32_t offset,
+  uint32_t len,
+  uint8_t requestedNodeId = 0U
+) {
+  const uint8_t targetNodeId = flashLinkStorageTargetNode(requestedNodeId);
+  if (!flashLinkCanProxyStorage(targetNodeId)) {
     sendText(request, 503, "application/json", "{\"ok\":0,\"err\":\"FLASH_LINK_REMOTE_UNAVAILABLE\"}");
     return;
   }
@@ -1553,7 +1587,8 @@ void sendRemoteStorageReadResponse(AsyncWebServerRequest* request, uint32_t offs
         requestLen,
         bytes,
         totalLen,
-        2600)) {
+        2600,
+        targetNodeId)) {
     sendText(request, 504, "application/json", "{\"ok\":0,\"err\":\"FLASH_LINK_READ_TIMEOUT\"}");
     return;
   }
@@ -1577,7 +1612,8 @@ void sendRemoteStorageReadResponse(AsyncWebServerRequest* request, uint32_t offs
   const int prefixLen = snprintf(
     prefix,
     sizeof(prefix),
-    "{\"ok\":1,\"remote\":1,\"off\":%lu,\"len\":%u,\"b64\":\"",
+    "{\"ok\":1,\"remote\":1,\"stage_node\":%u,\"off\":%lu,\"len\":%u,\"b64\":\"",
+    (unsigned)targetNodeId,
     (unsigned long)offset,
     (unsigned)totalLen);
   if (prefixLen <= 0 || (size_t)prefixLen >= sizeof(prefix)) {
@@ -2353,17 +2389,25 @@ void setupRoutes() {
     sendStorageChunkResponse(request, off, len, true);
   });
   server.on("/storage/spi_flash/remote/status", HTTP_GET, [](AsyncWebServerRequest* request) {
-    sendText(request, 200, "application/json", remoteStorageStatusJson());
+    sendText(
+      request,
+      200,
+      "application/json",
+      remoteStorageStatusJson(remoteStorageRequestNode(request)));
   });
   server.on("/storage/spi_flash/remote/list", HTTP_GET, [](AsyncWebServerRequest* request) {
-    sendText(request, 200, "application/json", remoteStorageListJson());
+    sendText(
+      request,
+      200,
+      "application/json",
+      remoteStorageListJson(remoteStorageRequestNode(request)));
   });
   server.on("/storage/spi_flash/remote/read", HTTP_GET, [](AsyncWebServerRequest* request) {
     const long offRaw = request->hasParam("off") ? request->getParam("off")->value().toInt() : 0L;
     const long lenRaw = request->hasParam("len") ? request->getParam("len")->value().toInt() : 0L;
     const uint32_t off = offRaw > 0 ? (uint32_t)offRaw : 0U;
     const uint32_t len = lenRaw > 0 ? (uint32_t)lenRaw : kFlashLinkStorageChunkBytes;
-    sendRemoteStorageReadResponse(request, off, len);
+    sendRemoteStorageReadResponse(request, off, len, remoteStorageRequestNode(request));
   });
   server.on("/storage/spi_flash/init", HTTP_POST, [](AsyncWebServerRequest* request) {
     if (forwardFlashLinkHttpCommand(request, FlashLinkCommandCode::StorageReset)) {
