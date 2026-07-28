@@ -29187,13 +29187,10 @@ function requestMobileMockup3dMesh(){
         }).join("") +
           renderMoreButton(Math.max(0, items.length - previewLimit), "board-stage-" + String(stageNode || 0));
       };
-      const boardHtml = stageSelectionActive
-        ? '<section class="data-storage-record-group">' +
-            '<div class="data-storage-record-group-head"><strong>STAGE ' + selectedStage + '</strong><span>' +
-              boardItems.length.toLocaleString("ko-KR") + ' RECORDS</span></div>' +
-            renderBoardRows(boardItems, selectedStage) +
-          '</section>'
-        : renderBoardRows(boardItems, 0);
+      const boardHtml = renderBoardRows(
+        boardItems,
+        stageSelectionActive ? selectedStage : 0
+      );
       const appHtml = appItems.length
         ? appItems.slice(0, detailsOpen ? appItems.length : previewLimit).map((item)=>{
             const started = new Date(Number(item.startedAt || 0));
@@ -29245,16 +29242,11 @@ function requestMobileMockup3dMesh(){
               '</div>' +
             '</div>' +
             '<section class="data-storage-surface">' +
-              '<div class="data-storage-surface-head">' +
-                '<div><strong>저장공간 상태</strong><span>STORAGE STATUS</span></div>' +
-                '<span class="data-storage-live">OVERVIEW</span>' +
-              '</div>' +
               '<div class="data-storage-stage-selector" data-storage-stage-selector role="tablist" aria-label="에비오닉스 단 선택" hidden>' +
                 '<button class="is-active" type="button" role="tab" aria-selected="true" data-storage-stage="1">STAGE 1</button>' +
                 '<button type="button" role="tab" aria-selected="false" data-storage-stage="2">STAGE 2</button>' +
               '</div>' +
               '<div id="dataListSummary" class="agent-help-summary">저장공간 목록을 불러오는 중…</div>' +
-              '<div class="data-storage-list-head"><strong>저장 기록</strong><span>항목을 선택하면 다운로드합니다.</span></div>' +
               '<div id="dataListBody" class="agent-help-list" aria-live="polite"></div>' +
               '<div class="data-storage-actions">' +
                 '<button id="dataStorageDownloadBtn" class="data-storage-download" type="button">다운로드</button>' +

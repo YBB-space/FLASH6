@@ -27557,7 +27557,7 @@ body.camera-view-active .camera-center-countdown .camera-count-time{
   display:grid;
   grid-template-columns:repeat(2,minmax(0,1fr));
   gap:5px;
-  margin:14px 20px 0;
+  margin:20px 20px 0;
   padding:4px;
   border:1px solid #303238;
   border-radius:8px;
@@ -27624,30 +27624,6 @@ body.camera-view-active .camera-center-countdown .camera-count-time{
 }
 .data-storage-stage-card .data-storage-metrics strong{
   font-size:15px;
-}
-.data-storage-record-group + .data-storage-record-group{
-  border-top:1px solid #303238;
-}
-.data-storage-record-group-head{
-  min-height:38px;
-  padding:0 20px;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:12px;
-  color:#858a93;
-  background:#121315;
-}
-.data-storage-record-group-head strong{
-  color:#cfd2d7;
-  font-size:10px;
-  font-weight:650;
-  letter-spacing:.08em;
-}
-.data-storage-record-group-head span{
-  font-size:8px;
-  font-weight:600;
-  letter-spacing:.06em;
 }
 .data-storage-empty.data-storage-empty--stage{
   min-height:72px !important;
