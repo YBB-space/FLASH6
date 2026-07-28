@@ -127,7 +127,7 @@
   <!-- Preload 축소: AP 모드/저메모리 환경에서 동시 요청 버스트를 줄임 -->
   <script>
     (function(){
-    var ASSET_VER = "20260728-device-binding-b141-__FLASH6_DEPLOY_SHA__";
+    var ASSET_VER = "20260728-runtime-loader-b143-__FLASH6_DEPLOY_SHA__";
       window.__flashBoot = window.__flashBoot || {jsReady:false,lastError:"",phase:"static_loader",version:ASSET_VER};
       var isLocalPreview = !!window.__flashBoot.localPreview;
       var beaconEnabled = (window.__flashBoot.beaconEnabled !== false);
@@ -266,7 +266,7 @@
       // 번역/순수 유틸을 먼저 로드하고, 이후 메인 런타임을 로드합니다.
       var modernJsOk = true;
       try{
-        // flash6.js uses modern syntax (optional chaining/nullish coalescing).
+        // FLASH6 runtime uses modern syntax (optional chaining/nullish coalescing).
         // Parse-check here so old browsers fail with a visible message.
         new Function("var a={b:1}; return (a?.b ?? 0);");
       }catch(_syntaxErr){
@@ -305,7 +305,7 @@
             "./scripts/flash6-export.js"
           ];
           scriptCandidates = [
-            "./flash6.js"
+            "./flash6-loader.js"
           ];
         }else{
           i18nCandidates = versioned([
@@ -345,12 +345,12 @@
             "/flash6/scripts/flash6-export.js"
           ]);
           scriptCandidates = [
-            "./flash6.js?v=" + ASSET_VER,
-            "/flash6.js?v=" + ASSET_VER,
-            "/flash6/flash6.js?v=" + ASSET_VER,
-            "./flash6.js",
-            "/flash6.js",
-            "/flash6/flash6.js"
+            "./flash6-loader.js?v=" + ASSET_VER,
+            "/flash6-loader.js?v=" + ASSET_VER,
+            "/flash6/flash6-loader.js?v=" + ASSET_VER,
+            "./flash6-loader.js",
+            "/flash6-loader.js",
+            "/flash6/flash6-loader.js"
           ];
         }
         window.__flashBoot.loadScriptLater("flash6_i18n", i18nCandidates, 250, function(){
@@ -365,7 +365,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="styles/flash6.css?v=20260728-device-binding-b141-__FLASH6_DEPLOY_SHA__">
+  <link rel="stylesheet" href="styles/flash6.css?v=20260728-runtime-loader-b143-__FLASH6_DEPLOY_SHA__">
 </head>
 <body>
   <!-- ✅ LOCKOUT 배경 오버레이 -->

@@ -28,7 +28,11 @@ Storage record protocol unchanged: `HWLOGV2` version `9`
   후처리 예외로 업로드 작업이 실패 표시되던 문제를 수정했습니다.
 - 네이티브 앱 동기화 대상에 생성된 `flash6.runtime.js`를 포함해 Android와
   iOS가 웹 원본보다 오래된 UI 번들로 돌아가지 않도록 수정했습니다.
-- FLASH6 UI 자산 버전을 `b141`로 갱신했습니다.
+- VS Code Live Preview가 디스크의 최신 모듈 로더 대신 메모리에 남은
+  구형 단일 `flash6.js` 번들을 응답해 신·구 UI가 섞이던 문제를
+  방지했습니다. HTML은 새 `flash6-loader.js` 경로를 직접 사용하고,
+  기존 파일은 오래된 배포 문서용 호환 별칭으로만 유지합니다.
+- FLASH6 UI 자산 버전을 `b143`으로 갱신했습니다.
 
 ## 0.9.17 — v6 b47 — 2026-07-28
 

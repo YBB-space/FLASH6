@@ -27,7 +27,7 @@ function fail(message){
   process.exitCode = 1;
 }
 
-const loader = fs.readFileSync(path.join(root, "flash6.js"), "utf8");
+const loader = fs.readFileSync(path.join(root, "flash6-loader.js"), "utf8");
 let previousIndex = -1;
 for(const name of runtimeModules){
   const filePath = path.join(root, "scripts", name);
@@ -80,6 +80,9 @@ if(expectedCss !== generatedCss){
 const html = fs.readFileSync(path.join(root, "flash6.html"), "utf8");
 if(/\son(?:click|change|input|submit)=/i.test(html)){
   fail("inline DOM event handlers remain in flash6.html");
+}
+if(!html.includes("flash6-loader.js")){
+  fail("flash6.html does not reference the dedicated runtime loader");
 }
 if(!html.includes("scripts/flash6-watchdog.js")){
   fail("external boot watchdog is not referenced by flash6.html");

@@ -11,7 +11,8 @@ npm install
 
 ## 웹앱 변경 반영
 
-루트 `FLASH6/flash6.html`, `FLASH6/flash6.js`, `scripts/`, `styles/`, 자산 폴더를 `www/`로 복사하고 네이티브 프로젝트에 동기화합니다.
+루트 `FLASH6/flash6.html`, `FLASH6/flash6-loader.js`, `FLASH6/flash6.js`,
+`scripts/`, `styles/`, 자산 폴더를 `www/`로 복사하고 네이티브 프로젝트에 동기화합니다.
 
 ```bash
 npm run cap:sync

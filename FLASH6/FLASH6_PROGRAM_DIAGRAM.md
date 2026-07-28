@@ -7,7 +7,7 @@ This document summarizes the current `flash6` program structure (external UI + f
 ```mermaid
 flowchart LR
   subgraph Browser["Operator Browser"]
-    UI["flash6.html + styles/ + scripts/ + flash6.js"]
+    UI["flash6.html + styles/ + scripts/ + flash6-loader.js"]
     Overlay["overlay.html"]
   end
 

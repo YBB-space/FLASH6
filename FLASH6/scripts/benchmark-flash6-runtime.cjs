@@ -29,7 +29,7 @@ const sources = runtimeModules.map((name)=>({
   name,
   source:fs.readFileSync(path.join(root, "scripts", name), "utf8")
 }));
-const loaderSource = fs.readFileSync(path.join(root, "flash6.js"), "utf8");
+const loaderSource = fs.readFileSync(path.join(root, "flash6-loader.js"), "utf8");
 const combinedSource = sources.map((entry)=>entry.source).join("\n");
 const bundleSource = fs.readFileSync(path.join(root, "flash6.runtime.js"), "utf8");
 

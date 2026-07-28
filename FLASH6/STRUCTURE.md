@@ -6,9 +6,10 @@ The ESP32 firmware exposes telemetry/control APIs, while this UI runs from the b
 ## Runtime files
 
 - `flash6.html` - document shell, boot scripts, and dashboard markup.
-- `flash6.js` - lightweight classic-script manifest loader. It owns the shared
+- `flash6-loader.js` - lightweight classic-script manifest loader. It owns the shared
   `window.Flash6` runtime, application lifecycle scope, telemetry store, and
   ordered module loading.
+- `flash6.js` - legacy loader alias retained for older packaged documents.
 - `flash6.runtime.js` - generated single-request deployment bundle. Run
   `node scripts/build-flash6-runtime.cjs` after changing a runtime source
   module.
@@ -51,7 +52,7 @@ The ESP32 firmware exposes telemetry/control APIs, while this UI runs from the b
 
 ## Runtime order
 
-`flash6.js` loads the generated runtime bundle by default. Adding
+`flash6-loader.js` loads the generated runtime bundle by default. Adding
 `?runtime_modules=1` to the page URL loads the source modules directly for
 diagnosis; those requests start together but execute in manifest order. Do not
 reorder the source list casually: the classic-script global lexical
