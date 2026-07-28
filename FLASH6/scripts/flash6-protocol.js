@@ -236,6 +236,6 @@
         fw_program:"Altis_Intelligent3_firmware1",
         fw_board:"Altis_Intelligent3_b3",
         fw_protocol:"Flash6-Intelligent-b8",
-        fw_build:"v6 b40"
+        fw_build:"v6 b42"
       };
     }

@@ -6765,11 +6765,16 @@ function requestMobileMockup3dMesh(){
     const SETTINGS_KEY = "hanwool_tms_settings_v3";
     const OVERLAY_CHANNEL = "hanwool_overlay_sync";
     const OVERLAY_SYNC_KEY = "hanwool_overlay_latest";
-    const OVERLAY_SYNC_MIN_MS = 80;
+    const OVERLAY_SYNC_MIN_MS = 20;
+    const OVERLAY_STORAGE_MIN_MS = 100;
     let overlayChannel = null;
     let lastOverlaySyncMs = 0;
+    let lastOverlayStorageMs = 0;
     let lastOverlayStateText = "--";
     let lastOverlayStateStatus = null;
+    let overlayRelaySocket = null;
+    let overlayRelayUrl = "";
+    let overlayRelayPendingText = "";
     let uiSettings = null;
 
     function normalizeDecimalDigits(value, fallback){
@@ -6981,6 +6986,67 @@ function requestMobileMockup3dMesh(){
       }
     }catch(e){}
 
+    function closeOverlayRelaySocket(){
+      const socket = overlayRelaySocket;
+      overlayRelaySocket = null;
+      overlayRelayUrl = "";
+      overlayRelayPendingText = "";
+      if(!socket) return;
+      try{ socket.close(1000, "hud relay idle"); }catch(_error){}
+    }
+
+    function flushOverlayRelaySample(){
+      const socket = overlayRelaySocket;
+      if(!socket || socket.readyState !== WebSocket.OPEN || !overlayRelayPendingText) return;
+      if(Number(socket.bufferedAmount) > 32768) return;
+      const payload = overlayRelayPendingText;
+      overlayRelayPendingText = "";
+      try{ socket.send(payload); }catch(_error){}
+    }
+
+    function publishOverlayRelaySample(serializedSample){
+      if(!replaySourceActive){
+        if(overlayRelaySocket) closeOverlayRelaySocket();
+        return;
+      }
+      let url = "";
+      try{
+        url = typeof getWsUrl === "function" ? String(getWsUrl() || "") : "";
+      }catch(_error){}
+      if(!url) return;
+      const relayPayload = "{\"hud_live\":1,\"data\":" + serializedSample + "}";
+      if(
+        overlayRelaySocket &&
+        overlayRelayUrl === url &&
+        (overlayRelaySocket.readyState === WebSocket.OPEN ||
+         overlayRelaySocket.readyState === WebSocket.CONNECTING)
+      ){
+        overlayRelayPendingText = relayPayload;
+        flushOverlayRelaySample();
+        return;
+      }
+      closeOverlayRelaySocket();
+      overlayRelayPendingText = relayPayload;
+      overlayRelayUrl = url;
+      try{
+        const socket = new WebSocket(url);
+        overlayRelaySocket = socket;
+        socket.onopen = ()=>{
+          if(overlayRelaySocket === socket) flushOverlayRelaySample();
+        };
+        socket.onclose = ()=>{
+          if(overlayRelaySocket === socket){
+            overlayRelaySocket = null;
+            overlayRelayUrl = "";
+          }
+        };
+        socket.onerror = ()=>{ try{ socket.close(); }catch(_error){} };
+      }catch(_error){
+        overlayRelaySocket = null;
+        overlayRelayUrl = "";
+      }
+    }
+
     function publishOverlaySample(sampleOrFactory){
       const now = Date.now();
       if(now - lastOverlaySyncMs < OVERLAY_SYNC_MIN_MS) return false;
@@ -6990,7 +7056,15 @@ function requestMobileMockup3dMesh(){
       if(!sample) return;
       lastOverlaySyncMs = now;
       if(overlayChannel) overlayChannel.postMessage(sample);
-      try{ localStorage.setItem(OVERLAY_SYNC_KEY, JSON.stringify(sample)); }catch(e){}
+      let serialized = "";
+      try{ serialized = JSON.stringify(sample); }catch(_error){}
+      if(serialized){
+        if(now - lastOverlayStorageMs >= OVERLAY_STORAGE_MIN_MS){
+          lastOverlayStorageMs = now;
+          try{ localStorage.setItem(OVERLAY_SYNC_KEY, serialized); }catch(e){}
+        }
+        publishOverlayRelaySample(serialized);
+      }
       return true;
     }
 
@@ -20355,6 +20429,7 @@ function requestMobileMockup3dMesh(){
       const url = new URL("overlay.html", window.location.href);
       url.search = "";
       url.hash = "";
+      url.searchParams.set("v", "20260728-obs-hud-live-b118");
       const mission = String(
         (el.missionName && el.missionName.value) ||
         selectedMotorName ||
@@ -20362,11 +20437,28 @@ function requestMobileMockup3dMesh(){
         "FLASH6 MISSION"
       ).trim();
       if(mission) url.searchParams.set("mission", mission);
+      url.searchParams.set("mode", "replay");
       try{
+        const activeWsUrl =
+          (wsSocket && typeof wsSocket.url === "string" && wsSocket.url)
+            ? wsSocket.url
+            : ((typeof getWsUrl === "function") ? getWsUrl() : "");
+        if(activeWsUrl){
+          const hudWsUrl = new URL(activeWsUrl);
+          hudWsUrl.pathname = "/hud_ws";
+          hudWsUrl.search = "";
+          hudWsUrl.hash = "";
+          url.searchParams.set("ws", hudWsUrl.href);
+        }
         const bases = (typeof getApiBaseCandidates === "function")
           ? getApiBaseCandidates().filter((base)=>!!base)
           : [];
-        if(bases[0]) url.searchParams.set("source", bases[0]);
+        const activeBase = (typeof getApiBaseForCommands === "function")
+          ? getApiBaseForCommands()
+          : "";
+        if(activeBase || bases[0]){
+          url.searchParams.set("source", activeBase || bases[0]);
+        }
       }catch(_error){}
       return url.href;
     }
@@ -23652,7 +23744,7 @@ function requestMobileMockup3dMesh(){
         fw_program:"Altis_Intelligent3_firmware1",
         fw_board:"Altis_Intelligent3_b3",
         fw_protocol:"Flash6-Intelligent-b8",
-        fw_build:"v6 b40"
+        fw_build:"v6 b42"
       };
     }
 

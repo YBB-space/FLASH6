@@ -1392,6 +1392,7 @@ void sendPeriodicTelemetry() {
       if ((uint32_t)(nowMs - lastCleanupMs) >= 1000U) {
         lastCleanupMs = nowMs;
         ws.cleanupClients(kWifiMaxClients);
+        hudWs.cleanupClients(2U);
       }
     }
   }

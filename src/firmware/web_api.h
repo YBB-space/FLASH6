@@ -2408,14 +2408,43 @@ void setupRoutes() {
   server.on("/abort", HTTP_OPTIONS, options);
   server.on("/sequence_end", HTTP_OPTIONS, options);
 
-  ws.onEvent([](AsyncWebSocket*, AsyncWebSocketClient* client, AwsEventType type, void*, uint8_t*, size_t) {
+  ws.onEvent([](AsyncWebSocket*, AsyncWebSocketClient* client, AwsEventType type, void* arg, uint8_t* data, size_t len) {
     if (type == WS_EVT_CONNECT) {
       client->setCloseClientOnQueueFull(true);
       if (client->canSend()) client->text(telemetryJson(true));
       Serial.printf("[WS] connect id=%u\n", client->id());
     } else if (type == WS_EVT_DISCONNECT) {
       Serial.printf("[WS] disconnect id=%u\n", client->id());
+    } else if (type == WS_EVT_DATA && arg != nullptr && data != nullptr) {
+      const AwsFrameInfo* info = static_cast<const AwsFrameInfo*>(arg);
+      constexpr char kHudRelayPrefix[] = "{\"hud_live\":1,";
+      constexpr size_t kHudRelayMaxBytes = 1400U;
+      const bool completeText =
+        info->final &&
+        info->index == 0U &&
+        info->len == len &&
+        info->opcode == WS_TEXT;
+      const bool validHudRelay =
+        completeText &&
+        len >= sizeof(kHudRelayPrefix) - 1U &&
+        len <= kHudRelayMaxBytes &&
+        memcmp(data, kHudRelayPrefix, sizeof(kHudRelayPrefix) - 1U) == 0;
+      if (validHudRelay &&
+          hudWs.count() > 0U &&
+          hudWs.availableForWriteAll()) {
+        hudWs.textAll(reinterpret_cast<const char*>(data), len);
+      }
     }
   });
   server.addHandler(&ws);
+
+  hudWs.onEvent([](AsyncWebSocket*, AsyncWebSocketClient* client, AwsEventType type, void*, uint8_t*, size_t) {
+    if (type == WS_EVT_CONNECT) {
+      client->setCloseClientOnQueueFull(false);
+      Serial.printf("[HUD_WS] connect id=%u\n", client->id());
+    } else if (type == WS_EVT_DISCONNECT) {
+      Serial.printf("[HUD_WS] disconnect id=%u\n", client->id());
+    }
+  });
+  server.addHandler(&hudWs);
 }

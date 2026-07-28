@@ -3,6 +3,29 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 OBS HUD streaming b118 — 2026-07-28
+
+Firmware: `0.9.12` (`v6 b42`)
+
+Protocol unchanged: `Flash6-Intelligent-b8`
+
+- OBS의 독립 브라우저 프로필에서도 보드 WebSocket 압축 프레임을 직접
+  해석하도록 경량 HUD 디코더를 추가했습니다.
+- HUD LIVE 복사 링크에 메인 콘솔이 실제 사용 중인 WebSocket 주소를
+  포함해 잘못된 기본 보드 주소로 연결되던 문제를 수정했습니다.
+- 메인 미리보기와 OBS WebSocket 송신 주기를 20ms(최대 50Hz)로
+  단축했습니다. 동기식 저장소 기록은 100ms로 분리해 메인 UI 부하를
+  억제합니다. OBS에서는
+  백그라운드 `animation frame`이 약 1Hz로 제한될 수 있어 WebSocket
+  샘플을 수신 즉시 반영하도록 분리했습니다.
+- 리플레이 HUD 샘플을 지상국 WebSocket에서 OBS로 중계하는 제한된
+  전용 프레임을 추가했습니다. 파이로·미션 명령 경로와는 분리됩니다.
+- HUD LIVE 링크에 렌더러 버전을 포함해 OBS가 이전 오버레이 문서를
+  캐시에서 재사용하지 않도록 했습니다.
+- OBS 리플레이 전용 `/hud_ws` 채널을 추가했습니다. 일반 `/ws`의
+  50Hz 보드 프레임과 리플레이 HUD 프레임이 같은 송신 큐에서
+  경쟁하지 않으며, 중계 송신자에게 프레임을 되돌려 보내지 않습니다.
+
 ## FLASH6 HUD LIVE streaming b115 — 2026-07-27
 
 Firmware build unchanged, protocol unchanged.

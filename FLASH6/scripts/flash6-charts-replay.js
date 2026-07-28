@@ -2169,6 +2169,7 @@
       const url = new URL("overlay.html", window.location.href);
       url.search = "";
       url.hash = "";
+      url.searchParams.set("v", "20260728-obs-hud-live-b118");
       const mission = String(
         (el.missionName && el.missionName.value) ||
         selectedMotorName ||
@@ -2176,11 +2177,28 @@
         "FLASH6 MISSION"
       ).trim();
       if(mission) url.searchParams.set("mission", mission);
+      url.searchParams.set("mode", "replay");
       try{
+        const activeWsUrl =
+          (wsSocket && typeof wsSocket.url === "string" && wsSocket.url)
+            ? wsSocket.url
+            : ((typeof getWsUrl === "function") ? getWsUrl() : "");
+        if(activeWsUrl){
+          const hudWsUrl = new URL(activeWsUrl);
+          hudWsUrl.pathname = "/hud_ws";
+          hudWsUrl.search = "";
+          hudWsUrl.hash = "";
+          url.searchParams.set("ws", hudWsUrl.href);
+        }
         const bases = (typeof getApiBaseCandidates === "function")
           ? getApiBaseCandidates().filter((base)=>!!base)
           : [];
-        if(bases[0]) url.searchParams.set("source", bases[0]);
+        const activeBase = (typeof getApiBaseForCommands === "function")
+          ? getApiBaseForCommands()
+          : "";
+        if(activeBase || bases[0]){
+          url.searchParams.set("source", activeBase || bases[0]);
+        }
       }catch(_error){}
       return url.href;
     }

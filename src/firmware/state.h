@@ -1,8 +1,8 @@
 
 constexpr char kFirmwareProgram[] = "Altis_Intelligent3_firmware1";
-constexpr char kFirmwareVersion[] = "0.9.10";
-constexpr char kFirmwareBuildId[] = "v6 b40";
-constexpr uint16_t kFirmwareBuildNumber = 40;
+constexpr char kFirmwareVersion[] = "0.9.12";
+constexpr char kFirmwareBuildId[] = "v6 b42";
+constexpr uint16_t kFirmwareBuildNumber = 42;
 constexpr char kFirmwareBoard[] = "Altis_Intelligent3_b3";
 constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b8";
 constexpr uint8_t kStorageProtocolVersion = 8;
@@ -273,6 +273,9 @@ constexpr uint32_t kButtonSequenceBeepIntervalMs = 1000;
 
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
+// OBS/replay HUD uses a separate socket so the 50 Hz vehicle stream cannot
+// compete with or overwrite browser-source relay frames.
+AsyncWebSocket hudWs("/hud_ws");
 Adafruit_LSM6DSOX imu;
 Adafruit_BMP280 bmp(&Wire);
 HardwareSerial gpsUart(2);

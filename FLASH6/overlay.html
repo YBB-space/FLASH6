@@ -555,6 +555,7 @@
         preroll:$("hudPreroll"), prerollValue:$("hudPrerollValue")
       };
       const configuredMission = String(params.get("mission") || "FLASH6 MISSION").trim();
+      const replayRelayMode = String(params.get("mode") || "").toLowerCase() === "replay";
       let lastMessageAt = 0;
       let lastSample = null;
       let socket = null;
@@ -685,6 +686,68 @@
         const az = finite(pick(data, ["az","accel_z"], NaN));
         return [ax,ay,az].every(Number.isFinite) ? Math.hypot(ax,ay,az) : NaN;
       }
+      function decodeWireFrame(frame){
+        if(!Array.isArray(frame)) return frame;
+        if(Number(frame[0]) !== 2 || frame.length < 32) return null;
+        const flags = (Number(frame[16]) || 0) & 0xffff;
+        const bit = (index)=>((flags >>> index) & 1);
+        const phaseCode = finite(frame[74]);
+        const verticalSpeed = finite(frame[75]);
+        const targetStage = Math.max(
+          1,
+          Math.min(2,Math.round(finite(frame[88]) || 1))
+        );
+        const storageUsed = finite(frame[66]);
+        const storageCapacity = finite(frame[67]);
+        return {
+          proto:2,
+          seq:finite(frame[1]),
+          ts:Date.now(),
+          stageId:targetStage,
+          connected:true,
+          p:finite(frame[3]),
+          altitudeM:finite(frame[4]),
+          ax:finite(frame[5]),
+          ay:finite(frame[6]),
+          az:finite(frame[7]),
+          gforceG:Math.hypot(
+            finite(frame[5]) || 0,
+            finite(frame[6]) || 0,
+            finite(frame[7]) || 0
+          ),
+          speedMps:Number.isFinite(verticalSpeed) ? Math.abs(verticalSpeed) : NaN,
+          st:finite(frame[18]) || 0,
+          td:finite(frame[19]) || 0,
+          ab:bit(8),
+          swOn:bit(5),
+          pyroText:(finite(frame[17]) || 0) ? "ACTIVE" : "ALL OFF",
+          ignitionDelayMs:finite(frame[82]),
+          ignitionDelayValid:Number(frame[83]) ? 1 : 0,
+          deploymentState:finite(frame[84]) || 0,
+          deploymentFlags:finite(frame[85]) || 0,
+          flightPhaseCode:Number.isFinite(phaseCode) ? phaseCode : null,
+          storagePercent:Number.isFinite(storageUsed) &&
+            Number.isFinite(storageCapacity) &&
+            storageCapacity > 0
+              ? Math.max(0,Math.min(100,(storageUsed / storageCapacity) * 100))
+              : null
+        };
+      }
+      function scheduleSocketSample(input){
+        if(replayRelayMode){
+          if(!input || Number(input.hud_live) !== 1 || !input.data) return;
+          input = input.data;
+        }else if(input && Number(input.hud_live) === 1 && input.data){
+          input = input.data;
+        }
+        const decoded = decodeWireFrame(input);
+        if(!decoded) return;
+        // OBS Browser Source throttles requestAnimationFrame when Chromium
+        // considers the page background/offscreen. Applying each 30–50 Hz
+        // WebSocket sample immediately keeps the HUD live in OBS as well as
+        // in the same-profile preview.
+        consume(decoded);
+      }
       function updateTimeline(data){
         const index = timelineIndex(data);
         nodes.timelineItems.forEach((item,itemIndex)=>{
@@ -771,7 +834,7 @@
         try{
           socket = new WebSocket(url);
           socket.onmessage = (event)=>{
-            try{ consume(JSON.parse(event.data)); }catch(_error){}
+            try{ scheduleSocketSample(JSON.parse(event.data)); }catch(_error){}
           };
           socket.onclose = ()=>{
             socket = null;
@@ -811,7 +874,7 @@
           lastSyncPayload = payload;
           consume(JSON.parse(payload));
         }catch(_error){}
-      },100);
+      },33);
       setText(nodes.mission,configuredMission);
       setInterval(()=>{
         const stale = !lastMessageAt || Date.now() - lastMessageAt > 2500;
