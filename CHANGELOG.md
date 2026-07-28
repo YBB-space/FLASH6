@@ -32,7 +32,10 @@ Storage record protocol unchanged: `HWLOGV2` version `9`
   구형 단일 `flash6.js` 번들을 응답해 신·구 UI가 섞이던 문제를
   방지했습니다. HTML은 새 `flash6-loader.js` 경로를 직접 사용하고,
   기존 파일은 오래된 배포 문서용 호환 별칭으로만 유지합니다.
-- FLASH6 UI 자산 버전을 `b143`으로 갱신했습니다.
+- 같은 미리보기 서버가 최신 1.11 MB 스타일 대신 0.83 MB 구형
+  `flash6.css`를 응답하던 문제도 새 `flash6-app.css` 경로로
+  우회했습니다. 런타임과 스타일이 모두 동일 세대 파일로 로드됩니다.
+- FLASH6 UI 자산 버전을 `b144`로 갱신했습니다.
 
 ## 0.9.17 — v6 b47 — 2026-07-28
 

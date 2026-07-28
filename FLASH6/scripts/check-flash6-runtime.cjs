@@ -72,9 +72,9 @@ const cssSources = fs.readdirSync(cssSourceRoot)
 const expectedCss = cssSources
   .map((name)=>fs.readFileSync(path.join(cssSourceRoot, name), "utf8"))
   .join("");
-const generatedCss = fs.readFileSync(path.join(root, "styles", "flash6.css"), "utf8");
+const generatedCss = fs.readFileSync(path.join(root, "styles", "flash6-app.css"), "utf8");
 if(expectedCss !== generatedCss){
-  fail("styles/flash6.css is stale; run node scripts/build-flash6-css.cjs");
+  fail("styles/flash6-app.css is stale; run node scripts/build-flash6-css.cjs");
 }
 
 const html = fs.readFileSync(path.join(root, "flash6.html"), "utf8");
@@ -83,6 +83,9 @@ if(/\son(?:click|change|input|submit)=/i.test(html)){
 }
 if(!html.includes("flash6-loader.js")){
   fail("flash6.html does not reference the dedicated runtime loader");
+}
+if(!html.includes("styles/flash6-app.css")){
+  fail("flash6.html does not reference the dedicated application stylesheet");
 }
 if(!html.includes("scripts/flash6-watchdog.js")){
   fail("external boot watchdog is not referenced by flash6.html");

@@ -5,7 +5,7 @@ const path = require("path");
 
 const root = path.resolve(__dirname, "..");
 const sourceRoot = path.join(root, "styles", "src");
-const outputPath = path.join(root, "styles", "flash6.css");
+const outputPath = path.join(root, "styles", "flash6-app.css");
 const files = fs.readdirSync(sourceRoot)
   .filter((name)=>/^\d{2}-.+\.css$/i.test(name))
   .sort();
@@ -19,4 +19,4 @@ const output = files
   .join("");
 
 fs.writeFileSync(outputPath, output);
-console.log("Built styles/flash6.css from " + files.length + " ordered layers.");
+console.log("Built styles/flash6-app.css from " + files.length + " ordered layers.");

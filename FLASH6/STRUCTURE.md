@@ -45,8 +45,10 @@ The ESP32 firmware exposes telemetry/control APIs, while this UI runs from the b
 - `scripts/flash6-watchdog.js` - boot failure guard and fallback connectivity
   probe.
 - `styles/src/` - ordered stylesheet source layers.
-- `styles/flash6.css` - generated single-request application stylesheet. Run
+- `styles/flash6-app.css` - generated single-request application stylesheet. Run
   `node scripts/build-flash6-css.cjs` after editing a source layer.
+- `styles/flash6.css` - legacy stylesheet alias retained for older packaged
+  documents.
 - `overlay.html` - standalone overlay/streaming view.
 - `manifest.webmanifest` - app metadata for browser/native wrapper previews.
 
@@ -96,7 +98,7 @@ when the view closes.
 - Do not remove `old.html` until its behavior has been checked against the current dashboard.
 - Prefer adding new UI modules under `scripts/` or `styles/` instead of growing `flash6.html`.
 - Keep split runtime files loadable without ES modules so local preview, static hosts, and native wrappers can all use the same files.
-- Do not edit generated `styles/flash6.css` directly. Edit the matching ordered
+- Do not edit generated `styles/flash6-app.css` directly. Edit the matching ordered
   layer in `styles/src/`, rebuild it, and keep the generated file committed for
   one-request AP delivery.
 - Do not edit generated `flash6.runtime.js` directly. Edit the responsibility
