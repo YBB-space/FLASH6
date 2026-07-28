@@ -4268,9 +4268,9 @@
       sequenceActive = false;
       localTplusActive = false;
       localTplusStartMs = null;
-      resetGyroAttitudeState();
-      resetGyroPathTracking();
-      resetQuickFlightMetricsState();
+      // A short relay/serial outage must not erase an in-flight trajectory.
+      // Keep the last attitude, path, camera and derived flight state intact;
+      // fresh samples continue from the retained state after reconnection.
 
       setMetricPlaceholder(el.thrust, isFlightModeUi() ? "m" : ((uiSettings && uiSettings.thrustUnit) || "kgf"));
       setMetricPlaceholder(el.pressure, isFlightModeUi() ? "G" : "MPa");
