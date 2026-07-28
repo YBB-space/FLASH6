@@ -1614,7 +1614,14 @@
           stateStatus: cameraStateStatus,
           st,
           td,
-          countdownTotalMs: Math.max(3000, Math.min(60000, Number((uiSettings && uiSettings.countdownSec) || 10) * 1000)),
+          countdownTotalMs: Math.max(
+            3000,
+            Math.min(
+              60000,
+              Number(data.virtual_countdown_total_ms) ||
+                Number((uiSettings && uiSettings.countdownSec) || 10) * 1000
+            )
+          ),
           altitudeM: quickAltitudeM,
           altitudeRateMps: quickAltitudeRateMps,
           speedMps: quickSpeedMps,
@@ -1714,7 +1721,11 @@
             td,
             countdownTotalMs:Math.max(
               3000,
-              Math.min(60000, Number((uiSettings && uiSettings.countdownSec) || 10) * 1000)
+              Math.min(
+                60000,
+                Number(data.virtual_countdown_total_ms) ||
+                  Number((uiSettings && uiSettings.countdownSec) || 10) * 1000
+              )
             ),
             altitudeM:quickAltitudeM,
             altitudeRateMps:quickAltitudeRateMps,

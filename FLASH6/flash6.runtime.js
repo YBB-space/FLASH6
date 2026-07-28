@@ -950,6 +950,12 @@ if (typeof window !== "undefined") {
       lastRenderMs: 0,
       playing: false,
       speed: 1,
+      virtualCountdownActive: false,
+      virtualCountdownStartedAtMs: NaN,
+      virtualCountdownDurationMs: 15000,
+      virtualCountdownLaunchIndex: -1,
+      virtualCountdownLaunchTsMs: NaN,
+      virtualCountdownBaseSample: null,
       fileName: "",
       parserLabel: "",
       dataMode: null,
@@ -20824,8 +20830,8 @@ function requestMobileMockup3dMesh(){
       }
       if(el.replayQuickBtn){
         el.replayQuickBtn.disabled = !hasSamples || controlsDisabled;
-        el.replayQuickBtn.setAttribute("aria-label", "발사 15초 전으로 이동");
-        el.replayQuickBtn.setAttribute("title", "발사 15초 전으로 이동");
+        el.replayQuickBtn.setAttribute("aria-label", "15초 가상 카운트다운");
+        el.replayQuickBtn.setAttribute("title", "15초 가상 카운트다운");
       }
       if(el.replayConvertBtn){
         el.replayConvertBtn.setAttribute("aria-label", "Excel 보고서 내보내기");
@@ -20862,6 +20868,15 @@ function requestMobileMockup3dMesh(){
       replayState.nextDeadlineMs = NaN;
       replayState.lastUiUpdateMs = 0;
       replayState.lastRenderMs = 0;
+    }
+
+    function resetReplayVirtualCountdownState(){
+      replayState.virtualCountdownActive = false;
+      replayState.virtualCountdownStartedAtMs = NaN;
+      replayState.virtualCountdownDurationMs = 15000;
+      replayState.virtualCountdownLaunchIndex = -1;
+      replayState.virtualCountdownLaunchTsMs = NaN;
+      replayState.virtualCountdownBaseSample = null;
     }
 
     function mergeReplayAlarmEvents(replaySample, startIndex, endIndex){
@@ -21043,10 +21058,12 @@ function requestMobileMockup3dMesh(){
       clearReplayTimer();
       resetReplayClock();
       const wasPlaying = replayState.playing;
+      const wasVirtualCountdown = replayState.virtualCountdownActive;
+      resetReplayVirtualCountdownState();
       replayState.playing = false;
       sendBoardMissionSimControl(false).catch(()=>{});
       updateReplayModeUi();
-      if(wasPlaying && !silent){
+      if((wasPlaying || wasVirtualCountdown) && !silent){
         setReplayStatus("리플레이 정지");
       }
     }
@@ -21062,7 +21079,7 @@ function requestMobileMockup3dMesh(){
         replayState.index = 0;
         replayState.lastIndex = -1;
       }
-      if(replayState.lastIndex < 0 && replayState.index === 0){
+      if(replayState.lastIndex < 0){
         resetReplayBuffers();
       }
       setActiveDataSource(DATA_SOURCE_REPLAY);
@@ -21212,47 +21229,163 @@ function requestMobileMockup3dMesh(){
       return NaN;
     }
 
-    function findReplayTminusIndex(targetMs){
-      const target = Number(targetMs);
-      if(!isFinite(target) || !replayState.samples.length) return -1;
+    function findReplayLaunchIndex(){
+      if(!replayState.samples.length) return -1;
       const t0Ts = findReplayLaunchTimeMs();
-      if(!isFinite(t0Ts)) return -1;
-
-      const targetTs = t0Ts + target;
-      const firstTs = Number(replayState.samples[0] && replayState.samples[0].tsMs);
-      // If recording began after T-15, do not silently jump to frame zero and
-      // pretend it is the requested pre-roll point.
-      if(isFinite(firstTs) && targetTs < firstTs) return -1;
-      let nearest = -1;
-      let nearestDiff = Infinity;
+      if(!isFinite(t0Ts)) return 0;
+      let lastBefore = 0;
       for(let i = 0; i < replayState.samples.length; i++){
-        const frameTs = Number(replayState.samples[i].tsMs);
+        const frameTs = Number(replayState.samples[i] && replayState.samples[i].tsMs);
         if(!isFinite(frameTs)) continue;
-        if(frameTs > t0Ts) break;
-        const diff = Math.abs(frameTs - targetTs);
-        if(diff < nearestDiff){
-          nearestDiff = diff;
-          nearest = i;
-        }
+        if(frameTs >= t0Ts) return i;
+        lastBefore = i;
       }
-      return nearest;
+      return lastBefore;
+    }
+
+    function buildReplayVirtualCountdownSample(remainingMs){
+      const base = replayState.virtualCountdownBaseSample || {};
+      const sample = Object.assign({}, base);
+      const remain = Math.max(1, Math.min(15000, Math.round(Number(remainingMs) || 0)));
+      const launchTs = Number(replayState.virtualCountdownLaunchTsMs);
+      const applyCountdownFields = (target)=>{
+        if(!target || typeof target !== "object") return target;
+        target.st = 1;
+        target.state = 1;
+        target.td = -remain;
+        target.uw = 1;
+        target.ab = 0;
+        target.ar = 0;
+        target.t = 0;
+        target.thrust = 0;
+        target.r = 0;
+        target.rly = 0;
+        target.deployment_state = 0;
+        target.deployment_flags = 0;
+        target.flight_phase_code = 0;
+        target.flight_phase = "PRE_FLIGHT";
+        target.actual_speed_mps = 0;
+        target.speed_mps = 0;
+        target.virtual_countdown = 1;
+        target.virtual_countdown_total_ms = 15000;
+        return target;
+      };
+      if(Array.isArray(base.stage_telemetry)){
+        sample.stage_telemetry = base.stage_telemetry.map((stageSample)=>
+          applyCountdownFields(
+            stageSample && typeof stageSample === "object"
+              ? Object.assign({}, stageSample)
+              : stageSample
+          )
+        );
+      }
+      sample._replayTsMs = isFinite(launchTs)
+        ? launchTs - remain
+        : Date.now() - remain;
+      applyCountdownFields(sample);
+      sample.mission_alarm_events = [];
+      delete sample.mission_alarm_seq;
+      delete sample.mission_alarm_block;
+      delete sample.mission_alarm_title;
+      delete sample.mission_alarm_message;
+      delete sample.mission_alarm_ts;
+      return sample;
+    }
+
+    function updateReplayVirtualCountdownUi(remainingMs){
+      const remaining = Math.max(0, Math.min(15000, Math.round(Number(remainingMs) || 0)));
+      if(el.replaySeekRange){
+        const maxIndex = Math.max(0, replayState.samples.length - 1);
+        el.replaySeekRange.max = String(maxIndex);
+        el.replaySeekRange.value = String(Math.max(
+          0,
+          Math.min(maxIndex, replayState.virtualCountdownLaunchIndex)
+        ));
+      }
+      if(el.replaySeekLabel){
+        const totalMs = replayState.samples.length
+          ? replayRelativeMsAt(replayState.samples.length - 1)
+          : 0;
+        el.replaySeekLabel.textContent =
+          "T-" + formatReplayMs(remaining) + " / " + formatReplayMs(totalMs);
+      }
+    }
+
+    function finishReplayVirtualCountdown(){
+      const launchIndex = Math.max(0, Number(replayState.virtualCountdownLaunchIndex) || 0);
+      clearReplayTimer();
+      resetReplayVirtualCountdownState();
+      replayState.playing = false;
+      setReplayStatus("T+0 · 실제 리플레이 시작");
+      seekReplayToIndex(launchIndex, true);
+      sendBoardMissionSimControl(true).catch(()=>{});
+    }
+
+    function runReplayVirtualCountdownTick(){
+      replayState.timer = null;
+      if(!replayState.playing || !replayState.virtualCountdownActive) return;
+      const nowMs = replayClockNowMs();
+      const elapsedMs = Math.max(0, nowMs - replayState.virtualCountdownStartedAtMs);
+      const remainingMs = Math.max(0, replayState.virtualCountdownDurationMs - elapsedMs);
+      if(remainingMs <= 0){
+        finishReplayVirtualCountdown();
+        return;
+      }
+      try{
+        onIncomingSample(
+          buildReplayVirtualCountdownSample(remainingMs),
+          "REPLAY",
+          {forceUi:true}
+        );
+      }catch(err){
+        console.warn("Virtual replay countdown sample apply failed", err);
+      }
+      updateReplayVirtualCountdownUi(remainingMs);
+      replayState.timer = setTimeout(runReplayVirtualCountdownTick, 25);
+    }
+
+    function startReplayVirtualCountdown(){
+      if(!replayState.samples.length){
+        showToast("리플레이 파일을 먼저 선택하세요.", "notice", {key:"replay-no-file"});
+        return false;
+      }
+      if(replaySeekProcessing) return false;
+      const launchIndex = findReplayLaunchIndex();
+      if(launchIndex < 0) return false;
+      const launchFrame = replayState.samples[launchIndex] || {};
+      const launchTs = Number(launchFrame.tsMs);
+      const baseIndex = Math.max(0, launchIndex - 1);
+      const baseFrame = replayState.samples[baseIndex] || launchFrame;
+
+      pauseReplayPlayback({silent:true});
+      setActiveDataSource(DATA_SOURCE_REPLAY);
+      resetReplayBuffers();
+      replayState.index = launchIndex;
+      replayState.lastIndex = -1;
+      replayState.virtualCountdownActive = true;
+      replayState.virtualCountdownStartedAtMs = replayClockNowMs();
+      replayState.virtualCountdownDurationMs = 15000;
+      replayState.virtualCountdownLaunchIndex = launchIndex;
+      replayState.virtualCountdownLaunchTsMs = isFinite(launchTs)
+        ? launchTs
+        : Date.now();
+      replayState.virtualCountdownBaseSample = Object.assign(
+        {},
+        baseFrame && baseFrame.sample ? baseFrame.sample : {}
+      );
+      replayState.playing = true;
+      sendBoardMissionSimControl(true).catch(()=>{});
+      setReplayStatus("가상 카운트다운 T-15");
+      updateReplayModeUi();
+      updateReplayVirtualCountdownUi(15000);
+      runReplayVirtualCountdownTick();
+      return true;
     }
 
     function seekReplayToQuickStart(){
-      if(!replayState.samples.length){
-        showToast("리플레이 파일을 먼저 선택하세요.", "notice", {key:"replay-no-file"});
-        return;
+      if(startReplayVirtualCountdown()){
+        showToast("15초 가상 카운트다운 시작", "info", {key:"replay-quick-start"});
       }
-      const idx = findReplayTminusIndex(-15000);
-      if(idx < 0){
-        setReplayStatus("T-15 지점 없음");
-        showToast("T-15 지점을 찾지 못했습니다.", "notice", {key:"replay-tminus-missing"});
-        return;
-      }
-      const resume = replayState.playing;
-      seekReplayToIndex(idx, resume);
-      setReplayStatus("T-15 프리롤 시작");
-      showToast("발사 15초 전으로 이동", "info", {key:"replay-quick-start"});
     }
 
     function enterReplayMode(){
@@ -26619,7 +26752,14 @@ function requestMobileMockup3dMesh(){
           stateStatus: cameraStateStatus,
           st,
           td,
-          countdownTotalMs: Math.max(3000, Math.min(60000, Number((uiSettings && uiSettings.countdownSec) || 10) * 1000)),
+          countdownTotalMs: Math.max(
+            3000,
+            Math.min(
+              60000,
+              Number(data.virtual_countdown_total_ms) ||
+                Number((uiSettings && uiSettings.countdownSec) || 10) * 1000
+            )
+          ),
           altitudeM: quickAltitudeM,
           altitudeRateMps: quickAltitudeRateMps,
           speedMps: quickSpeedMps,
@@ -26719,7 +26859,11 @@ function requestMobileMockup3dMesh(){
             td,
             countdownTotalMs:Math.max(
               3000,
-              Math.min(60000, Number((uiSettings && uiSettings.countdownSec) || 10) * 1000)
+              Math.min(
+                60000,
+                Number(data.virtual_countdown_total_ms) ||
+                  Number((uiSettings && uiSettings.countdownSec) || 10) * 1000
+              )
             ),
             altitudeM:quickAltitudeM,
             altitudeRateMps:quickAltitudeRateMps,

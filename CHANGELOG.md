@@ -3,6 +3,21 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 replay virtual countdown b122 — 2026-07-28
+
+Firmware build unchanged: `0.9.12` (`v6 b42`)
+
+Protocol unchanged: `Flash6-Intelligent-b8`
+
+- QUICK 실행 시 기록 파일에 T-15 샘플이 있는지와 관계없이
+  `T-15 → T-0` 가상 카운트다운을 실제 15초 동안 재생합니다.
+- 가상 카운트다운 프레임을 메인 HUD와 OBS HUD LIVE에 동일하게
+  전달하며, T-15~T-10 구간의 HUD LIVE 프리롤도 함께 동작합니다.
+- T-0 도달 시 기록에서 복원한 실제 발사 프레임으로 이동해 리플레이를
+  자동 재생합니다.
+- 일시정지, 시점 이동, 리플레이 종료 시 진행 중인 가상 카운트다운도
+  함께 취소되도록 재생 상태를 통합했습니다.
+
 ## FLASH6 replay QUICK T-15 fix b121 — 2026-07-28
 
 Firmware build unchanged: `0.9.12` (`v6 b42`)
