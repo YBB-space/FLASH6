@@ -724,8 +724,7 @@
       if(
         flightDataLoggingPending &&
         flightDataLoggingDesired != null &&
-        enabled !== flightDataLoggingDesired &&
-        (Date.now() - flightDataLoggingCommandStartedAt) < 4000
+        enabled !== flightDataLoggingDesired
       ) return;
       const changed = enabled !== flightDataLoggingEnabled;
       flightDataLoggingKnown = true;
@@ -734,6 +733,29 @@
       flightDataLoggingEnabled = enabled;
       if(changed && !enabled) finalizeAppDataSession();
       syncFlightDataLoggingUi();
+    }
+
+    function waitForFlightDataLoggingConfirmation(expected, timeoutMs){
+      const deadline = Date.now() + Math.max(250, Number(timeoutMs) || 2500);
+      return new Promise((resolve)=>{
+        const inspect = ()=>{
+          if(
+            !flightDataLoggingPending &&
+            flightDataLoggingDesired == null &&
+            flightDataLoggingKnown &&
+            flightDataLoggingEnabled === expected
+          ){
+            resolve(true);
+            return;
+          }
+          if(Date.now() >= deadline){
+            resolve(false);
+            return;
+          }
+          setTimeout(inspect, 50);
+        };
+        inspect();
+      });
     }
 
     async function toggleFlightDataLogging(){
@@ -746,48 +768,59 @@
       const next = !previous;
       flightDataLoggingPending = true;
       flightDataLoggingDesired = next;
-      flightDataLoggingCommandStartedAt = Date.now();
-      flightDataLoggingEnabled = next;
-      if(!next) finalizeAppDataSession();
       syncFlightDataLoggingUi();
 
       if(simEnabled){
         flightDataLoggingKnown = true;
         flightDataLoggingPending = false;
         flightDataLoggingDesired = null;
+        flightDataLoggingEnabled = next;
+        if(!next) finalizeAppDataSession();
         syncFlightDataLoggingUi();
         showToast(next ? "시뮬레이션 비행데이터 로깅을 시작했습니다." : "시뮬레이션 비행데이터 로깅을 종료했습니다.", "success");
         return;
       }
 
-      const result = await sendCommand({
-        http:"/set?storage_logging=" + (next ? 1 : 0),
-        ser:"/set?storage_logging=" + (next ? 1 : 0)
-      }, true);
-      if(!result || !result.ok){
-        flightDataLoggingEnabled = previous;
+      let commandAccepted = false;
+      let confirmed = false;
+      for(let attempt = 0; attempt < 2 && !confirmed; attempt++){
+        const result = await sendCommand({
+          http:"/set?storage_logging=" + (next ? 1 : 0),
+          ser:"/set?storage_logging=" + (next ? 1 : 0)
+        }, true);
+        commandAccepted = commandAccepted || !!(result && result.ok);
+        if(!result || !result.ok) break;
+        confirmed = await waitForFlightDataLoggingConfirmation(
+          next,
+          attempt === 0 ? 1800 : 3600
+        );
+        if(!confirmed && attempt === 0){
+          flightDataLoggingPending = true;
+          flightDataLoggingDesired = next;
+          syncFlightDataLoggingUi();
+        }
+      }
+
+      if(!confirmed){
         flightDataLoggingPending = false;
         flightDataLoggingDesired = null;
-        if(!previous) finalizeAppDataSession();
+        flightDataLoggingEnabled = previous;
         syncFlightDataLoggingUi();
-        showToast("비행데이터 로깅 상태를 변경하지 못했습니다. 연결과 저장공간을 확인하세요.", "error");
+        showToast(
+          commandAccepted
+            ? "에비오닉스가 로깅 상태를 적용하지 않았습니다. 저장공간과 A.I LINK를 확인하세요."
+            : "비행데이터 로깅 명령을 전송하지 못했습니다. 연결을 확인하세요.",
+          "error"
+        );
         return;
       }
 
-      flightDataLoggingKnown = true;
-      syncFlightDataLoggingUi();
       showToast(
         next
           ? "비행데이터 로깅을 시작했습니다. 새 기록 세션이 생성됩니다."
           : "비행데이터 로깅을 종료하고 기록을 안전하게 닫았습니다.",
         "success"
       );
-      setTimeout(()=>{
-        if(!flightDataLoggingPending || flightDataLoggingDesired !== next) return;
-        flightDataLoggingPending = false;
-        flightDataLoggingDesired = null;
-        syncFlightDataLoggingUi();
-      }, 4000);
     }
 
     function getSequenceStorageGuard(){

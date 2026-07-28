@@ -3,6 +3,22 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.9.16 — v6 b46 — 2026-07-28
+
+Protocol unchanged: `Flash6-Intelligent-b10`
+
+Storage record protocol unchanged: `HWLOGV2` version `9`
+
+- 비행데이터 로깅 명령을 A.I LINK 긴급 상태 명령으로 승격하고 같은
+  목표 상태의 중복 명령을 병합합니다. 명령 ACK가 유실돼도 텔레메트리의
+  저장 상태 비트로 적용 완료를 확인해 큐를 즉시 정리합니다.
+- A.I LINK 원격 저장공간 상태 응답에 실제 에비오닉스의 로깅 상태를
+  포함해 지상국 로컬 저장 상태와 혼동하지 않도록 수정했습니다.
+- FLASH6는 명령 전송 성공만으로 ON/OFF를 확정하지 않고 실제 보드
+  텔레메트리 확인을 기다립니다. 첫 확인이 지연되면 한 번 재전송하며,
+  끝내 적용되지 않은 경우 기존 상태를 유지하고 원인을 명확히 알립니다.
+- FLASH6 UI 자산 버전을 `b133`으로 갱신했습니다.
+
 ## 0.9.15 — v6 b45 — 2026-07-28
 
 Protocol unchanged: `Flash6-Intelligent-b10`

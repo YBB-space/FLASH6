@@ -286,6 +286,7 @@ bool flashLinkCommandIsUrgent(uint8_t code) {
          code == static_cast<uint8_t>(FlashLinkCommandCode::MissionStandby) ||
          code == static_cast<uint8_t>(FlashLinkCommandCode::SetSafety) ||
          code == static_cast<uint8_t>(FlashLinkCommandCode::SetArmLock) ||
+         code == static_cast<uint8_t>(FlashLinkCommandCode::SetStorageLogging) ||
          code == static_cast<uint8_t>(FlashLinkCommandCode::Reboot);
 }
 
@@ -663,7 +664,8 @@ bool flashLinkQueueCommand(
     codeValue == static_cast<uint8_t>(FlashLinkCommandCode::SetServo);
   const bool coalesceByCode =
     codeValue == static_cast<uint8_t>(FlashLinkCommandCode::SetSafety) ||
-    codeValue == static_cast<uint8_t>(FlashLinkCommandCode::SetArmLock);
+    codeValue == static_cast<uint8_t>(FlashLinkCommandCode::SetArmLock) ||
+    codeValue == static_cast<uint8_t>(FlashLinkCommandCode::SetStorageLogging);
   const bool coalescible = coalesceByArg0 || coalesceByCode;
   const uint32_t nowMs = millis();
   bool queued = false;
@@ -2100,12 +2102,15 @@ bool flashLinkGroundConfirmStateCommandFromTelemetry(
     code = pending.command.code;
     const bool stateCommand =
       code == static_cast<uint8_t>(FlashLinkCommandCode::SetSafety) ||
-      code == static_cast<uint8_t>(FlashLinkCommandCode::SetArmLock);
+      code == static_cast<uint8_t>(FlashLinkCommandCode::SetArmLock) ||
+      code == static_cast<uint8_t>(FlashLinkCommandCode::SetStorageLogging);
     if (stateCommand && pending.targetNodeId == peer.nodeId) {
       const uint16_t stateMask =
         code == static_cast<uint8_t>(FlashLinkCommandCode::SetSafety)
           ? (1U << 9)
-          : (1U << 10);
+          : (code == static_cast<uint8_t>(FlashLinkCommandCode::SetArmLock)
+              ? (1U << 10)
+              : (1U << 14));
       appliedValue = (peer.state.flags & stateMask) != 0U ? 1 : 0;
       if (appliedValue == (pending.command.arg0 != 0 ? 1 : 0)) {
         transaction = pending.command.transaction;
@@ -2553,7 +2558,8 @@ void flashLinkHandlePacket(FlashLinkRxSlot& slot) {
       const bool commandOk =
         ack.result == static_cast<uint8_t>(FlashLinkCommandResult::Ok);
       if (ack.code == static_cast<uint8_t>(FlashLinkCommandCode::SetSafety) ||
-          ack.code == static_cast<uint8_t>(FlashLinkCommandCode::SetArmLock)) {
+          ack.code == static_cast<uint8_t>(FlashLinkCommandCode::SetArmLock) ||
+          ack.code == static_cast<uint8_t>(FlashLinkCommandCode::SetStorageLogging)) {
         if (commandOk) {
           Serial.printf("ACK FLASH_LINK_STATE code=%u value=%ld\n",
                         (unsigned)ack.code,
@@ -3177,7 +3183,9 @@ void flashLinkGroundTick(uint32_t nowMs) {
         if (pending.command.code ==
               static_cast<uint8_t>(FlashLinkCommandCode::SetSafety) ||
             pending.command.code ==
-              static_cast<uint8_t>(FlashLinkCommandCode::SetArmLock)) {
+              static_cast<uint8_t>(FlashLinkCommandCode::SetArmLock) ||
+            pending.command.code ==
+              static_cast<uint8_t>(FlashLinkCommandCode::SetStorageLogging)) {
           Serial.printf("ERR FLASH_LINK_STATE code=%u result=timeout detail=-1\n",
                         (unsigned)pending.command.code);
         }

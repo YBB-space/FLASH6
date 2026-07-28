@@ -1435,7 +1435,7 @@ String remoteStorageStatusJson(uint8_t requestedNodeId = 0U) {
   snprintf(
     json,
     sizeof(json),
-    "{\"ok\":1,\"remote\":1,\"stage_node\":%u,\"ready\":%u,\"busy\":0,\"full\":%u,"
+    "{\"ok\":1,\"remote\":1,\"stage_node\":%u,\"ready\":%u,\"busy\":0,\"full\":%u,\"logging\":%u,"
     "\"storage_kind\":\"external_spi_nor\",\"model\":\"W25Q256JVEIQ\","
     "\"chip_capacity_bytes\":%lu,\"capacity_bytes\":%lu,"
     "\"used_bytes\":%lu,\"used_percent\":%.2f,\"record_hz\":%lu,"
@@ -1445,6 +1445,7 @@ String remoteStorageStatusJson(uint8_t requestedNodeId = 0U) {
     (unsigned)targetNodeId,
     (active && capacity > 0) ? 1U : 0U,
     (capacity > 0 && used >= capacity) ? 1U : 0U,
+    (remoteState && (remoteState->flags & (1U << 14))) ? 1U : 0U,
     (unsigned long)capacity,
     (unsigned long)capacity,
     (unsigned long)used,

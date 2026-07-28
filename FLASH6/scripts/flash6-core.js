@@ -137,7 +137,6 @@ if (typeof window !== "undefined") {
     let flightDataLoggingPending = false;
     let flightDataLoggingKnown = false;
     let flightDataLoggingDesired = null;
-    let flightDataLoggingCommandStartedAt = 0;
 
     const IGN_THRUST_THRESHOLD = 10.0;  // kgf, ignition delay threshold
     const IGN_PRESSURE_WINDOW_THRESHOLD_MPA = 0.3;
