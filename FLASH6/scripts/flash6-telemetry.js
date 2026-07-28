@@ -1697,7 +1697,7 @@
       // OBS HUD is a telemetry consumer, not part of the dashboard render loop.
       // Publish it from the sample pipeline so ordinary sensor frames keep
       // moving even when no event/state transition causes a DOM refresh.
-      if(!isFastReplaySeek){
+      if(!isFastReplaySeek && shouldRefreshUi){
         publishOverlaySample(()=>{
           const fallbackStateText = String(
             (flightPhaseInfo && flightPhaseInfo.label) ||

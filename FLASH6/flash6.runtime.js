@@ -640,7 +640,10 @@ if (typeof window !== "undefined") {
     const SIM_SAMPLE_HZ      = 100;
     const SIM_SAMPLE_INTERVAL_MS = 1000 / SIM_SAMPLE_HZ;
 
-    const UI_SAMPLE_SKIP     = 6;
+    // Keep the main console and OBS HUD on the same visible sample cadence.
+    // 50 Hz live telemetry becomes 25 Hz UI, while 60 fps replay rendering
+    // settles near 30 Hz without running the full DOM path for every packet.
+    const UI_SAMPLE_SKIP     = 2;
     const CHART_MIN_INTERVAL = 40;
     const PARACHUTE_STATUS_HOLD_MS = 18000;
 
@@ -20429,7 +20432,7 @@ function requestMobileMockup3dMesh(){
       const url = new URL("overlay.html", window.location.href);
       url.search = "";
       url.hash = "";
-      url.searchParams.set("v", "20260728-obs-hud-live-b118");
+      url.searchParams.set("v", "20260728-obs-hud-sync-b119");
       const mission = String(
         (el.missionName && el.missionName.value) ||
         selectedMotorName ||
@@ -26590,7 +26593,7 @@ function requestMobileMockup3dMesh(){
       // OBS HUD is a telemetry consumer, not part of the dashboard render loop.
       // Publish it from the sample pipeline so ordinary sensor frames keep
       // moving even when no event/state transition causes a DOM refresh.
-      if(!isFastReplaySeek){
+      if(!isFastReplaySeek && shouldRefreshUi){
         publishOverlaySample(()=>{
           const fallbackStateText = String(
             (flightPhaseInfo && flightPhaseInfo.label) ||

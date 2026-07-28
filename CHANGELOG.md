@@ -3,6 +3,19 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 HUD display-clock sync b119 — 2026-07-28
+
+Firmware build unchanged: `0.9.12` (`v6 b42`)
+
+Protocol unchanged: `Flash6-Intelligent-b8`
+
+- 메인 콘솔의 표시 주기를 8~10Hz에서 라이브 약 25Hz, 리플레이 약
+  30Hz로 높였습니다.
+- HUD LIVE는 별도 샘플을 앞서 전송하지 않고 메인 콘솔이 실제 표시한
+  동일 프레임만 전송합니다. 재생, 일시정지 직전, 탐색 및 QUICK 이동
+  후의 시간·상태·계기 값이 같은 프레임을 기준으로 맞춰집니다.
+- HUD URL 캐시 키를 `b119`로 갱신했습니다.
+
 ## FLASH6 OBS HUD streaming b118 — 2026-07-28
 
 Firmware: `0.9.12` (`v6 b42`)

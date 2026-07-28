@@ -2169,7 +2169,7 @@
       const url = new URL("overlay.html", window.location.href);
       url.search = "";
       url.hash = "";
-      url.searchParams.set("v", "20260728-obs-hud-live-b118");
+      url.searchParams.set("v", "20260728-obs-hud-sync-b119");
       const mission = String(
         (el.missionName && el.missionName.value) ||
         selectedMotorName ||
