@@ -11,7 +11,7 @@ void serialPrintStorageStatus() {
   storageRefreshStats();
   char currentName[32];
   storageSessionName(storageCurrentSessionId, currentName, sizeof(currentName));
-  Serial.printf("ACK SPI_FLASH_STATUS ready=%u busy=%u full=%u model=W25Q256JVEIQ kind=external_spi_nor "
+  Serial.printf("ACK SPI_FLASH_STATUS ready=%u busy=%u full=%u logging=%u logging_started=%lu model=W25Q256JVEIQ kind=external_spi_nor "
                 "reset=%s reset_code=%u reset_raw_code=%u "
                 "mfr=%u type=%u cap_code=%u chip_capacity=%lu capacity=%lu used=%lu queue=%lu "
                 "records=%lu dropped=%lu lock_skips=%lu flush=%lu sessions=%lu current_session=%lu current_file=%s "
@@ -19,6 +19,8 @@ void serialPrintStorageStatus() {
                 storageState.ready ? 1U : 0U,
                 storageState.busy ? 1U : 0U,
                 storageState.full ? 1U : 0U,
+                storageState.loggingEnabled ? 1U : 0U,
+                (unsigned long)storageState.loggingStartedAtMs,
                 telemetryResetReasonName(),
                 (unsigned)telemetryResetReasonCode(),
                 (unsigned)bootRawResetReason,
@@ -326,7 +328,7 @@ void handleSerialLine(const char* line) {
   cmd.trim();
 
   if (cmd == "help" || cmd == "/help") {
-    Serial.println("ACK GYRO_BARO_GPS_FLASH commands: /set?stream=0|1&ign_ms=1000&cd_ms=10000&daq_seq_pyro=1, /settings, /rates, /gps, /baro, /loadcell|zero|cal|reset, /servo?ch=1&deg=90 or SERVO 1 90, /storage/spi_flash/status|list|read|init, /storage/spi_flash/remote/list|read, /mission_profile_begin|chunk|end|cancel, /countdown_start, /mission_standby, /mission_force_timed, /abort, /reset");
+    Serial.println("ACK GYRO_BARO_GPS_FLASH commands: /set?stream=0|1&storage_logging=0|1&ign_ms=1000&cd_ms=10000&daq_seq_pyro=1, /settings, /rates, /gps, /baro, /loadcell|zero|cal|reset, /servo?ch=1&deg=90 or SERVO 1 90, /storage/spi_flash/status|list|read|init, /storage/spi_flash/remote/list|read, /mission_profile_begin|chunk|end|cancel, /countdown_start, /mission_standby, /mission_force_timed, /abort, /reset");
     return;
   }
 
@@ -699,6 +701,17 @@ void handleSerialLine(const char* line) {
         else if (key == "mute") {
           if (forwardRemote) queueRemote(FlashLinkCommandCode::SetMute, truthy(val) ? 1 : 0);
           else setBuzzerMuted(truthy(val));
+        }
+        else if (key == "storage_logging" || key == "flight_logging") {
+          const bool enabled = truthy(val);
+          if (forwardRemote) {
+            queueRemote(
+              FlashLinkCommandCode::SetStorageLogging,
+              enabled ? 1 : 0);
+          } else if (!storageSetLoggingEnabled(enabled)) {
+            Serial.println("ERR SET STORAGE_LOGGING_FAILED");
+            return;
+          }
         }
         else if (key == "ign_ms") {
           long parsed = 0;

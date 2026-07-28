@@ -794,6 +794,11 @@
       el.launcherOpenBtns = document.querySelectorAll(".js-launcher-open");
       el.storageOpenBtn = document.getElementById("storageOpenBtn");
       el.storageStatusPill = document.getElementById("storageStatusPill");
+      el.flightLoggingBtn = document.getElementById("flightLoggingBtn");
+      el.flightLoggingStatus = document.getElementById("flightLoggingStatus");
+      el.mobileFlightLoggingBtn = document.getElementById("mobileFlightLoggingBtn");
+      el.mobileFlightLoggingStatus = document.getElementById("mobileFlightLoggingStatus");
+      syncFlightDataLoggingUi();
       el.inspectionOverlay = document.getElementById("inspectionOverlay");
       el.inspectionClose = document.getElementById("inspectionClose");
       el.inspectionStepLabel = document.getElementById("inspectionStepLabel");
@@ -1927,6 +1932,12 @@
             e.preventDefault();
             showDataListOverlay();
           }
+        });
+      }
+      if(el.flightLoggingBtn){
+        el.flightLoggingBtn.addEventListener("click", (ev)=>{
+          ev.preventDefault();
+          toggleFlightDataLogging();
         });
       }
       if(el.sidebarStorageBtn){
@@ -4117,6 +4128,7 @@
         safety: ()=>{ toggleInput(el.safeModeToggle); },
         launcher: ()=>{ ensureDashboardViewForPanels(); showLauncher(); },
         export: ()=>{ showDataListOverlay(); },
+        flight_logging: ()=>{ toggleFlightDataLogging(); },
         servo: ()=>{ showServoControl(); },
         gyro_zero: ()=>{ handleGyroZero(); },
       };

@@ -1,10 +1,10 @@
 
 constexpr char kFirmwareProgram[] = "Altis_Intelligent3_firmware1";
-constexpr char kFirmwareVersion[] = "0.9.12";
-constexpr char kFirmwareBuildId[] = "v6 b42";
-constexpr uint16_t kFirmwareBuildNumber = 42;
+constexpr char kFirmwareVersion[] = "0.9.13";
+constexpr char kFirmwareBuildId[] = "v6 b43";
+constexpr uint16_t kFirmwareBuildNumber = 43;
 constexpr char kFirmwareBoard[] = "Altis_Intelligent3_b3";
-constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b8";
+constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b9";
 constexpr uint8_t kStorageProtocolVersion = 8;
 // Only formats explicitly verified by this build are decoded as native.
 // Expand this range only after replay compatibility has been validated.
@@ -652,6 +652,7 @@ enum class FlashLinkCommandCode : uint8_t {
   SetStage1SeparationAngleDeg = 33,
   SetStage1EjectionAngleDeg = 34,
   SetStage2EjectionAngleDeg = 35,
+  SetStorageLogging = 36,
 };
 
 enum class FlashLinkCommandResult : uint8_t {
@@ -1548,6 +1549,7 @@ struct StorageRuntime {
   bool ready = false;
   bool busy = false;
   bool full = false;
+  bool loggingEnabled = false;
   uint32_t capacityBytes = 0;
   uint32_t usedBytes = 0;
   uint32_t queueBytes = 0;
@@ -1557,6 +1559,7 @@ struct StorageRuntime {
   uint32_t writeErrors = 0;
   uint32_t sessionCount = 0;
   uint32_t startedAtMs = 0;
+  uint32_t loggingStartedAtMs = 0;
   uint32_t lastFlushMs = 0;
   uint32_t generation = 0;
   uint32_t sectorCount = 0;

@@ -22103,6 +22103,16 @@ body.camera-view-active .page-wrap{
     background:#202125 !important;
     box-shadow:none !important;
   }
+  body.dashboard-view-active #controlsCard .flight-logging-tile.is-recording{
+    border-color:#315a45 !important;
+    background:#19231e !important;
+  }
+  body.dashboard-view-active #controlsCard .flight-logging-tile.is-recording .control-tile-label{
+    color:#9ce0b8 !important;
+  }
+  body.dashboard-view-active #controlsCard .flight-logging-tile.is-pending{
+    opacity:.72;
+  }
   body.dashboard-view-active #controlsCard .control-tile-label{
     color:#e9eaec !important;
     font-size:11px !important;
@@ -22626,6 +22636,13 @@ html body #replayLegacyProtocolOverlay .replay-legacy-protocol-dialog{
     color:#c9ccd1 !important;
     font-size:9px !important;
     box-shadow:none !important;
+  }
+  .desktop-control-drawer-mount #controlsCard .flight-logging-tile.is-recording{
+    border-color:#315a45 !important;
+    background:#19231e !important;
+  }
+  .desktop-control-drawer-mount #controlsCard .flight-logging-tile.is-recording .control-tile-label{
+    color:#9ce0b8 !important;
   }
   .desktop-control-drawer-mount #controlsCard .control-tile-actions--dual{
     display:flex !important;

@@ -134,6 +134,11 @@ if (typeof window !== "undefined") {
     let appDataPendingSamples = [];
     let appDataLastStoredAtMs = 0;
     let appDataFlushPromise = Promise.resolve();
+    let flightDataLoggingEnabled = false;
+    let flightDataLoggingPending = false;
+    let flightDataLoggingKnown = false;
+    let flightDataLoggingDesired = null;
+    let flightDataLoggingCommandStartedAt = 0;
 
     const IGN_THRUST_THRESHOLD = 10.0;  // kgf, ignition delay threshold
     const IGN_PRESSURE_WINDOW_THRESHOLD_MPA = 0.3;
@@ -23826,6 +23831,7 @@ function requestMobileMockup3dMesh(){
         stage_loss_permille:finiteOrNull(38),
         stage_rssi_dbm:finiteOrNull(39),
         stage_rssi_age_ms:finiteOrNull(40),
+        storage_logging:finiteOrNull(41),
         data_origin:"avionics"
       };
     }
@@ -23909,6 +23915,9 @@ function requestMobileMockup3dMesh(){
           : (resetCode === 23 ? "POWER_GLITCH" : null),
         boot_session:(frame[97] != null && isFinite(Number(frame[97])))
           ? Number(frame[97])
+          : null,
+        storage_logging:(frame[98] != null && isFinite(Number(frame[98])))
+          ? (Number(frame[98]) ? 1 : 0)
           : null,
         stage_telemetry:stageTelemetry,
         p:Number(frame[3]) || 0,
@@ -25448,6 +25457,7 @@ function requestMobileMockup3dMesh(){
       const dataOrigin = normalizeDataOrigin(data);
       data.data_origin = dataOrigin;
       currentDataOrigin = dataOrigin;
+      if(!isReplaySample) applyFlightDataLoggingTelemetry(data);
       {
         const applyTelemetryStorageInfo = (origin, usedRaw, capacityRaw, recordsRaw)=>{
           const telemetryCapacity = Number(capacityRaw);
@@ -27428,7 +27438,7 @@ function requestMobileMockup3dMesh(){
     }
 
     function recordIncomingSampleToApp(data, transport, isReplaySample){
-      if(isReplaySample || simEnabled || !data) return;
+      if(isReplaySample || simEnabled || !data || !flightDataLoggingEnabled) return;
       const nowMs = Date.now();
       const origin = normalizeDataOrigin(data);
       if(
@@ -27631,6 +27641,106 @@ function requestMobileMockup3dMesh(){
       }
     }
 
+    function syncFlightDataLoggingUi(){
+      const controls = [
+        [el.flightLoggingBtn, el.flightLoggingStatus],
+        [el.mobileFlightLoggingBtn, el.mobileFlightLoggingStatus]
+      ];
+      controls.forEach(([button, status])=>{
+        if(button){
+          button.classList.toggle("is-recording", flightDataLoggingEnabled);
+          button.classList.toggle("is-pending", flightDataLoggingPending);
+          button.setAttribute("aria-pressed", flightDataLoggingEnabled ? "true" : "false");
+          button.disabled = !!flightDataLoggingPending;
+        }
+        if(status){
+          status.textContent = flightDataLoggingPending
+            ? "확인 중"
+            : (flightDataLoggingEnabled ? "ON" : "OFF");
+          status.classList.remove("pill-gray", "pill-green", "pill-blue");
+          status.classList.add(
+            flightDataLoggingPending
+              ? "pill-blue"
+              : (flightDataLoggingEnabled ? "pill-green" : "pill-gray")
+          );
+        }
+      });
+    }
+
+    function applyFlightDataLoggingTelemetry(data){
+      if(!data) return;
+      const raw = data.storage_logging != null ? data.storage_logging : data.sl;
+      if(raw == null || raw === "" || !isFinite(Number(raw))) return;
+      const enabled = Number(raw) !== 0;
+      if(
+        flightDataLoggingPending &&
+        flightDataLoggingDesired != null &&
+        enabled !== flightDataLoggingDesired &&
+        (Date.now() - flightDataLoggingCommandStartedAt) < 4000
+      ) return;
+      const changed = enabled !== flightDataLoggingEnabled;
+      flightDataLoggingKnown = true;
+      flightDataLoggingPending = false;
+      flightDataLoggingDesired = null;
+      flightDataLoggingEnabled = enabled;
+      if(changed && !enabled) finalizeAppDataSession();
+      syncFlightDataLoggingUi();
+    }
+
+    async function toggleFlightDataLogging(){
+      if(flightDataLoggingPending) return;
+      if(!simEnabled && !(connOk || wsConnected || serialConnected)){
+        showToast("보드 연결 후 비행데이터 로깅을 시작할 수 있습니다.", "warn");
+        return;
+      }
+      const previous = flightDataLoggingEnabled;
+      const next = !previous;
+      flightDataLoggingPending = true;
+      flightDataLoggingDesired = next;
+      flightDataLoggingCommandStartedAt = Date.now();
+      flightDataLoggingEnabled = next;
+      if(!next) finalizeAppDataSession();
+      syncFlightDataLoggingUi();
+
+      if(simEnabled){
+        flightDataLoggingKnown = true;
+        flightDataLoggingPending = false;
+        flightDataLoggingDesired = null;
+        syncFlightDataLoggingUi();
+        showToast(next ? "시뮬레이션 비행데이터 로깅을 시작했습니다." : "시뮬레이션 비행데이터 로깅을 종료했습니다.", "success");
+        return;
+      }
+
+      const result = await sendCommand({
+        http:"/set?storage_logging=" + (next ? 1 : 0),
+        ser:"/set?storage_logging=" + (next ? 1 : 0)
+      }, true);
+      if(!result || !result.ok){
+        flightDataLoggingEnabled = previous;
+        flightDataLoggingPending = false;
+        flightDataLoggingDesired = null;
+        if(!previous) finalizeAppDataSession();
+        syncFlightDataLoggingUi();
+        showToast("비행데이터 로깅 상태를 변경하지 못했습니다. 연결과 저장공간을 확인하세요.", "error");
+        return;
+      }
+
+      flightDataLoggingKnown = true;
+      syncFlightDataLoggingUi();
+      showToast(
+        next
+          ? "비행데이터 로깅을 시작했습니다. 새 기록 세션이 생성됩니다."
+          : "비행데이터 로깅을 종료하고 기록을 안전하게 닫았습니다.",
+        "success"
+      );
+      setTimeout(()=>{
+        if(!flightDataLoggingPending || flightDataLoggingDesired !== next) return;
+        flightDataLoggingPending = false;
+        flightDataLoggingDesired = null;
+        syncFlightDataLoggingUi();
+      }, 4000);
+    }
+
     function getSequenceStorageGuard(){
       if(simEnabled){
         return {level:"ok", pct:0, blocked:false, label:"시뮬레이션 저장공간"};
@@ -27772,6 +27882,9 @@ function requestMobileMockup3dMesh(){
       latestSpiFlashStorageInfo = Object.assign({}, info, {updated_at:Date.now()});
       latestSpiFlashStorageOkMs = Date.now();
       spiFlashReadyState = true;
+      if(!isFlashLinkGroundStorageUi() && info.logging != null){
+        applyFlightDataLoggingTelemetry({storage_logging:info.logging});
+      }
       const usedBytes = Number(info.used_bytes || 0);
       const capBytes = Number(info.capacity_bytes || 0);
       const chipBytes = Number(info.chip_capacity_bytes || capBytes);
@@ -27824,6 +27937,9 @@ function requestMobileMockup3dMesh(){
       if(!normalized) return null;
       latestAvionicsStorageInfo = normalized;
       latestAvionicsStorageOkMs = Date.now();
+      if(normalized.logging != null){
+        applyFlightDataLoggingTelemetry({storage_logging:normalized.logging});
+      }
       syncStoragePreview();
       processSequenceStorageGuardUpdate({notifyCritical:true});
       return normalized;
@@ -37072,6 +37188,8 @@ function requestMobileMockup3dMesh(){
         normalizedPath.startsWith("/sequence_end") ||
         normalizedPath.startsWith("/set?safe=") ||
         normalizedPath.startsWith("/set?arm_lock=") ||
+        normalizedPath.startsWith("/set?storage_logging=") ||
+        normalizedPath.startsWith("/set?flight_logging=") ||
         normalizedPath.startsWith("/reset");
       if(lockoutLatched && !isLockoutBypassCmd && !isCoreConfigCmd){
         const name = relayMaskName(lockoutRelayMask);
@@ -38186,6 +38304,11 @@ function requestMobileMockup3dMesh(){
       el.launcherOpenBtns = document.querySelectorAll(".js-launcher-open");
       el.storageOpenBtn = document.getElementById("storageOpenBtn");
       el.storageStatusPill = document.getElementById("storageStatusPill");
+      el.flightLoggingBtn = document.getElementById("flightLoggingBtn");
+      el.flightLoggingStatus = document.getElementById("flightLoggingStatus");
+      el.mobileFlightLoggingBtn = document.getElementById("mobileFlightLoggingBtn");
+      el.mobileFlightLoggingStatus = document.getElementById("mobileFlightLoggingStatus");
+      syncFlightDataLoggingUi();
       el.inspectionOverlay = document.getElementById("inspectionOverlay");
       el.inspectionClose = document.getElementById("inspectionClose");
       el.inspectionStepLabel = document.getElementById("inspectionStepLabel");
@@ -39319,6 +39442,12 @@ function requestMobileMockup3dMesh(){
             e.preventDefault();
             showDataListOverlay();
           }
+        });
+      }
+      if(el.flightLoggingBtn){
+        el.flightLoggingBtn.addEventListener("click", (ev)=>{
+          ev.preventDefault();
+          toggleFlightDataLogging();
         });
       }
       if(el.sidebarStorageBtn){
@@ -41509,6 +41638,7 @@ function requestMobileMockup3dMesh(){
         safety: ()=>{ toggleInput(el.safeModeToggle); },
         launcher: ()=>{ ensureDashboardViewForPanels(); showLauncher(); },
         export: ()=>{ showDataListOverlay(); },
+        flight_logging: ()=>{ toggleFlightDataLogging(); },
         servo: ()=>{ showServoControl(); },
         gyro_zero: ()=>{ handleGyroZero(); },
       };

@@ -695,6 +695,8 @@ bool initFlashStorage() {
   storageClearIndex();
   storageState.generation = meta.generation;
   storageState.ready = true;
+  storageState.loggingEnabled = false;
+  storageState.loggingStartedAtMs = 0;
   storageState.capacityBytes = kNorLogicalCapacityBytes;
   storageState.startedAtMs = millis() - bootMs;
 
@@ -762,15 +764,8 @@ bool initFlashStorage() {
   storageCurrentSectorWritable = false;
   storageCurrentSessionId = maxSessionId + 1U;
   if (storageCurrentSessionId == 0U) storageCurrentSessionId = 1U;
-  if (!norStartNewSector()) {
-    storageState.full = storageState.sectorCount >= kNorDataSectorCount;
-    storageRefreshStats();
-    Serial.printf("[W25Q] read-only: no space for boot session %lu; existing sessions remain available\n",
-                  (unsigned long)storageCurrentSessionId);
-    return true;
-  }
   storageRefreshStats();
-  Serial.printf("[W25Q] ready model=W25Q256JVEIQ jedec=%02X %02X %02X physical=%lu usable=%lu used=%lu records=%lu sectors=%lu sessions=%lu current=FLASH6_BOOT_%06lu spi=%luHz\n",
+  Serial.printf("[W25Q] ready model=W25Q256JVEIQ jedec=%02X %02X %02X physical=%lu usable=%lu used=%lu records=%lu sectors=%lu sessions=%lu next=FLASH6_BOOT_%06lu logging=0 spi=%luHz\n",
                 storageJedecMfr, storageJedecType, storageJedecCapacity,
                 (unsigned long)kNorExpectedCapacityBytes,
                 (unsigned long)storageState.capacityBytes,
@@ -854,6 +849,60 @@ bool storageFlush(bool force = false) {
   return storageQueueCount == 0 || drained > 0;
 }
 
+bool storageSetLoggingEnabled(bool enabled) {
+  StorageLock lock;
+  if (!lock || storageResetActive || !storageState.ready) return false;
+  if (storageState.loggingEnabled == enabled) return true;
+
+  if (enabled) {
+    storageRefreshStats();
+    if (storageState.full || storageState.sectorCount >= kNorDataSectorCount) {
+      storageState.full = true;
+      return false;
+    }
+    if (storageCurrentSectorWritable || storageQueueCount != 0U) {
+      return false;
+    }
+    storageState.busy = true;
+    const bool started = norStartNewSector();
+    storageState.busy = false;
+    if (!started) {
+      storageRefreshStats();
+      return false;
+    }
+    storageState.loggingEnabled = true;
+    storageState.loggingStartedAtMs = millis() - bootMs;
+    Serial.printf(
+      "[W25Q] flight logging enabled session=%lu\n",
+      (unsigned long)storageCurrentSessionId);
+    return true;
+  }
+
+  // Stop accepting samples first, then drain every sample already accepted.
+  // This preserves a clean session boundary without dropping the tail.
+  storageState.loggingEnabled = false;
+  if (!storageFlush(true)) {
+    return false;
+  }
+  if (storageCurrentSectorWritable && storageState.sectorCount > 0U) {
+    const uint16_t sectorIndex = (uint16_t)(storageState.sectorCount - 1U);
+    if (!norCloseSector(sectorIndex, storageSectorRecordCounts[sectorIndex])) {
+      storageState.writeErrors++;
+      storageCurrentSectorWritable = false;
+      return false;
+    }
+    storageCurrentSectorWritable = false;
+  }
+  storageState.loggingStartedAtMs = 0;
+  storageCurrentSessionId++;
+  if (storageCurrentSessionId == 0U) storageCurrentSessionId = 1U;
+  storageRefreshStats();
+  Serial.printf(
+    "[W25Q] flight logging disabled next_session=%lu\n",
+    (unsigned long)storageCurrentSessionId);
+  return true;
+}
+
 bool storageReset() {
   StorageLock lock;
   if (!lock || storageResetActive) return false;
@@ -888,14 +937,10 @@ bool storageReset() {
   storageState.droppedRecords = 0;
   storageState.flushCount = 0;
   storageState.writeErrors = 0;
+  storageState.loggingEnabled = false;
+  storageState.loggingStartedAtMs = 0;
   storageState.startedAtMs = millis() - bootMs;
   storageCurrentSessionId = 1U;
-  if (!norStartNewSector()) {
-    storageResetActive = false;
-    storageState.busy = false;
-    storageState.ready = false;
-    return false;
-  }
   storageResetActive = false;
   storageState.busy = false;
   storageRefreshStats();
@@ -921,7 +966,8 @@ void storageEnqueueSample(uint32_t timestampMs) {
     storageLockSkippedSamples++;
     return;
   }
-  if (!storageState.ready || storageState.full || !snap.sampleValid) return;
+  if (!storageState.ready || !storageState.loggingEnabled ||
+      storageState.full || !snap.sampleValid) return;
   if ((storageState.usedBytes + storageState.queueBytes + sizeof(StorageRecordV5)) >
       storageState.capacityBytes) {
     storageState.full = true;
@@ -1054,7 +1100,8 @@ bool storageEnqueueMissionAlarm(
 ) {
   if (storageResetActive) return false;
   StorageLock lock(0);
-  if (!lock || !storageState.ready || storageState.full) return false;
+  if (!lock || !storageState.ready || !storageState.loggingEnabled ||
+      storageState.full) return false;
   if ((storageState.usedBytes + storageState.queueBytes +
        sizeof(StorageMissionAlarmRecordV3)) > storageState.capacityBytes) {
     storageState.full = true;
@@ -1276,7 +1323,7 @@ String storageStatusJson() {
   char currentName[32];
   storageSessionName(currentSessionId, currentName, sizeof(currentName));
   snprintf(json, sizeof(json),
-    "{\"ok\":1,\"ready\":%u,\"busy\":%u,\"full\":%u,"
+    "{\"ok\":1,\"ready\":%u,\"busy\":%u,\"full\":%u,\"logging\":%u,\"logging_started_at_ms\":%lu,"
     "\"reset_reason\":\"%s\",\"reset_code\":%u,\"reset_raw_code\":%u,"
     "\"storage_kind\":\"external_spi_nor\",\"model\":\"W25Q256JVEIQ\","
     "\"jedec\":{\"mfr\":%u,\"type\":%u,\"cap_code\":%u},"
@@ -1291,6 +1338,8 @@ String storageStatusJson() {
     state.ready ? 1U : 0U,
     state.busy ? 1U : 0U,
     state.full ? 1U : 0U,
+    state.loggingEnabled ? 1U : 0U,
+    (unsigned long)state.loggingStartedAtMs,
     telemetryResetReasonName(),
     (unsigned)telemetryResetReasonCode(),
     (unsigned)bootRawResetReason,
@@ -1332,6 +1381,8 @@ String storageListJson() {
   json += storageState.ready ? "1" : "0";
   json += ",\"full\":";
   json += storageState.full ? "1" : "0";
+  json += ",\"logging\":";
+  json += storageState.loggingEnabled ? "1" : "0";
   json += ",\"capacity_bytes\":";
   json += String(storageState.capacityBytes);
   json += ",\"chip_capacity_bytes\":";

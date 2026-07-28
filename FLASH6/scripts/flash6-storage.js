@@ -487,7 +487,7 @@
     }
 
     function recordIncomingSampleToApp(data, transport, isReplaySample){
-      if(isReplaySample || simEnabled || !data) return;
+      if(isReplaySample || simEnabled || !data || !flightDataLoggingEnabled) return;
       const nowMs = Date.now();
       const origin = normalizeDataOrigin(data);
       if(
@@ -690,6 +690,106 @@
       }
     }
 
+    function syncFlightDataLoggingUi(){
+      const controls = [
+        [el.flightLoggingBtn, el.flightLoggingStatus],
+        [el.mobileFlightLoggingBtn, el.mobileFlightLoggingStatus]
+      ];
+      controls.forEach(([button, status])=>{
+        if(button){
+          button.classList.toggle("is-recording", flightDataLoggingEnabled);
+          button.classList.toggle("is-pending", flightDataLoggingPending);
+          button.setAttribute("aria-pressed", flightDataLoggingEnabled ? "true" : "false");
+          button.disabled = !!flightDataLoggingPending;
+        }
+        if(status){
+          status.textContent = flightDataLoggingPending
+            ? "확인 중"
+            : (flightDataLoggingEnabled ? "ON" : "OFF");
+          status.classList.remove("pill-gray", "pill-green", "pill-blue");
+          status.classList.add(
+            flightDataLoggingPending
+              ? "pill-blue"
+              : (flightDataLoggingEnabled ? "pill-green" : "pill-gray")
+          );
+        }
+      });
+    }
+
+    function applyFlightDataLoggingTelemetry(data){
+      if(!data) return;
+      const raw = data.storage_logging != null ? data.storage_logging : data.sl;
+      if(raw == null || raw === "" || !isFinite(Number(raw))) return;
+      const enabled = Number(raw) !== 0;
+      if(
+        flightDataLoggingPending &&
+        flightDataLoggingDesired != null &&
+        enabled !== flightDataLoggingDesired &&
+        (Date.now() - flightDataLoggingCommandStartedAt) < 4000
+      ) return;
+      const changed = enabled !== flightDataLoggingEnabled;
+      flightDataLoggingKnown = true;
+      flightDataLoggingPending = false;
+      flightDataLoggingDesired = null;
+      flightDataLoggingEnabled = enabled;
+      if(changed && !enabled) finalizeAppDataSession();
+      syncFlightDataLoggingUi();
+    }
+
+    async function toggleFlightDataLogging(){
+      if(flightDataLoggingPending) return;
+      if(!simEnabled && !(connOk || wsConnected || serialConnected)){
+        showToast("보드 연결 후 비행데이터 로깅을 시작할 수 있습니다.", "warn");
+        return;
+      }
+      const previous = flightDataLoggingEnabled;
+      const next = !previous;
+      flightDataLoggingPending = true;
+      flightDataLoggingDesired = next;
+      flightDataLoggingCommandStartedAt = Date.now();
+      flightDataLoggingEnabled = next;
+      if(!next) finalizeAppDataSession();
+      syncFlightDataLoggingUi();
+
+      if(simEnabled){
+        flightDataLoggingKnown = true;
+        flightDataLoggingPending = false;
+        flightDataLoggingDesired = null;
+        syncFlightDataLoggingUi();
+        showToast(next ? "시뮬레이션 비행데이터 로깅을 시작했습니다." : "시뮬레이션 비행데이터 로깅을 종료했습니다.", "success");
+        return;
+      }
+
+      const result = await sendCommand({
+        http:"/set?storage_logging=" + (next ? 1 : 0),
+        ser:"/set?storage_logging=" + (next ? 1 : 0)
+      }, true);
+      if(!result || !result.ok){
+        flightDataLoggingEnabled = previous;
+        flightDataLoggingPending = false;
+        flightDataLoggingDesired = null;
+        if(!previous) finalizeAppDataSession();
+        syncFlightDataLoggingUi();
+        showToast("비행데이터 로깅 상태를 변경하지 못했습니다. 연결과 저장공간을 확인하세요.", "error");
+        return;
+      }
+
+      flightDataLoggingKnown = true;
+      syncFlightDataLoggingUi();
+      showToast(
+        next
+          ? "비행데이터 로깅을 시작했습니다. 새 기록 세션이 생성됩니다."
+          : "비행데이터 로깅을 종료하고 기록을 안전하게 닫았습니다.",
+        "success"
+      );
+      setTimeout(()=>{
+        if(!flightDataLoggingPending || flightDataLoggingDesired !== next) return;
+        flightDataLoggingPending = false;
+        flightDataLoggingDesired = null;
+        syncFlightDataLoggingUi();
+      }, 4000);
+    }
+
     function getSequenceStorageGuard(){
       if(simEnabled){
         return {level:"ok", pct:0, blocked:false, label:"시뮬레이션 저장공간"};
@@ -831,6 +931,9 @@
       latestSpiFlashStorageInfo = Object.assign({}, info, {updated_at:Date.now()});
       latestSpiFlashStorageOkMs = Date.now();
       spiFlashReadyState = true;
+      if(!isFlashLinkGroundStorageUi() && info.logging != null){
+        applyFlightDataLoggingTelemetry({storage_logging:info.logging});
+      }
       const usedBytes = Number(info.used_bytes || 0);
       const capBytes = Number(info.capacity_bytes || 0);
       const chipBytes = Number(info.chip_capacity_bytes || capBytes);
@@ -883,6 +986,9 @@
       if(!normalized) return null;
       latestAvionicsStorageInfo = normalized;
       latestAvionicsStorageOkMs = Date.now();
+      if(normalized.logging != null){
+        applyFlightDataLoggingTelemetry({storage_logging:normalized.logging});
+      }
       syncStoragePreview();
       processSequenceStorageGuardUpdate({notifyCritical:true});
       return normalized;

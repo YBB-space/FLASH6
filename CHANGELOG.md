@@ -3,6 +3,26 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.9.13 — v6 b43 — 2026-07-28
+
+Protocol: `Flash6-Intelligent-b9`
+
+Storage record protocol unchanged: `HWLOGV2` version `8`
+
+- 부팅 직후 자동으로 시작하던 에비오닉스 SPI NOR 기록을 중단하고,
+  컨트롤 패널의 `비행데이터 로깅` 버튼을 눌렀을 때만 새 기록 세션을
+  시작하도록 변경했습니다.
+- 로깅을 끄면 신규 샘플 수집을 먼저 막고 대기 중인 기록 큐를 모두
+  플러시한 뒤 현재 세션을 닫습니다. 기존 저장 기록과 BIN 형식은
+  변경하거나 삭제하지 않습니다.
+- 동일한 버튼으로 브라우저 APP 수신 기록과 에비오닉스 200 Hz 플래시
+  기록을 함께 제어하며, 보드가 회신한 실제 로깅 상태를 데스크톱과
+  모바일 UI에 동기화합니다.
+- A.I LINK 명령 `SetStorageLogging(36)`과 텔레메트리
+  `storage_logging` 상태 필드를 추가했습니다. 지상국 경유 연결에서도
+  선택된 에비오닉스의 기록 상태를 확인하고 제어할 수 있습니다.
+- FLASH6 UI 자산 버전을 `b123`으로 갱신했습니다.
+
 ## FLASH6 replay virtual countdown b122 — 2026-07-28
 
 Firmware build unchanged: `0.9.12` (`v6 b42`)

@@ -265,7 +265,7 @@ size_t buildTelemetryJson(char* json, size_t jsonLen, bool full) {
            "\"st\":%u,\"td\":%ld,\"uw\":%u,\"ab\":%u,\"ar\":%u,\"m\":%u,"
            "\"op_mode\":\"%s\",\"opm\":%u,\"link_mode\":\"%s\","
            "\"data_mode\":\"%s\",\"data_opm\":%u,\"flash_link_data_mode\":\"%s\","
-           "\"sta\":%u,\"ss\":%u,\"dev_mode\":%u,\"sm\":%u,\"al\":%u,\"ip\":%u,\"bo\":%u,\"sr\":%u,"
+           "\"sta\":%u,\"ss\":%u,\"dev_mode\":%u,\"sm\":%u,\"al\":%u,\"ip\":%u,\"bo\":%u,\"sr\":%u,\"sl\":%u,"
            "\"ign_ms\":%lu,\"cd_ms\":%lu,\"daq_seq_pyro\":%u,"
            "\"heap_free\":%lu,\"heap_min_free\":%lu,\"heap_max_alloc\":%lu,"
            "\"wq\":%lu,\"we\":%u,\"sq\":%lu,"
@@ -341,6 +341,7 @@ size_t buildTelemetryJson(char* json, size_t jsonLen, bool full) {
            remoteOutput ? ((remoteFlags >> 11) & 1U) : (inspectionPassed ? 1U : 0U),
            output.baroValid ? 1U : 0U,
            remoteOutput ? ((remoteFlags >> 12) & 1U) : (storageState.ready ? 1U : 0U),
+           remoteOutput ? ((remoteFlags >> 14) & 1U) : (storageState.loggingEnabled ? 1U : 0U),
            (unsigned long)outputIgnitionMs,
            (unsigned long)outputCountdownMs,
            (unsigned)outputPyroChannel,
@@ -437,7 +438,7 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
   //  ignition_delay_ms,ignition_delay_valid,deployment_state,deployment_flags,
   //  arm_physical,flash_node,flash_target,stage1_connected,stage2_connected,
   //  stage1_snapshot,stage2_snapshot,stage2_mode,operation_mode,data_mode,
-  //  reset_code,boot_session]
+  //  reset_code,boot_session,storage_logging]
   const bool remoteOutput = flashLinkGroundRole();
   const Telemetry& output = remoteOutput ? flashLinkRemoteSnap : snap;
   const uint16_t remoteFlags = remoteOutput ? flashLinkRemoteState.flags : 0;
@@ -605,7 +606,7 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
   //  deployment_flags,relay,state,td,arm,arm_physical,ign_delay_valid,
   //  ign_delay_ms,alarm_seq,alarm_block,alarm_title,alarm_message,rx_seq,
   //  rx_hz,chip_temp,chip_temp_valid,loop_ms,cpu_us,reset_code,boot_session,
-  //  rx_loss_permille,rssi_dbm,rssi_age_ms]
+  //  rx_loss_permille,rssi_dbm,rssi_age_ms,storage_logging]
   char stageSnapshots[2][576];
   for (uint8_t i = 0; i < 2; ++i) {
     if (!remoteOutput || !flashLinkStage2Enabled) {
@@ -634,7 +635,7 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
       "[%u,%u,%u,%lu,%.2f,%.3f,%.3f,%.3f,%.2f,%.2f,%.2f,"
       "%.6f,%.6f,%.6f,%.6f,%u,%.2f,%u,%u,%u,%u,%ld,%u,%u,"
       "%u,%lu,%lu,%u,\"%s\",\"%s\",%lu,%u,%.1f,%u,%.3f,%u,%u,%lu,"
-      "%u,%d,%lu]",
+      "%u,%d,%lu,%u]",
       (unsigned)(i + kFlashLinkNodeIdStage1),
       connected ? 1U : 0U,
       valid ? 1U : 0U,
@@ -675,7 +676,8 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
       (unsigned long)peer.session,
       (unsigned)peer.rxLossPermille,
       (int)peer.rssiDbm,
-      (unsigned long)rssiAgeMs);
+      (unsigned long)rssiAgeMs,
+      (peer.state.flags & (1U << 14)) ? 1U : 0U);
     if (stageLen <= 0 || (size_t)stageLen >= sizeof(stageSnapshots[i])) {
       strlcpy(stageSnapshots[i], "null", sizeof(stageSnapshots[i]));
     }
@@ -691,7 +693,7 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
            "%u,%lu,%lu,%u,%u,%lu,%u,%u,%ld,%d,%lu,"
            "%.3f,%u,%ld,%u,%u,%u,%u,%.3f,%.6f,%lu,%lu,%lu,"
            "%lu,%lu,%u,\"%s\",\"%s\",%u,%.2f,%.2f,%lu,%.6f,%.6f,%.6f,%.6f,"
-           "%lu,%u,%u,%u,%u,%u,%u,%u,%u,%s,%s,%u,%u,%u,%u,%lu]",
+           "%lu,%u,%u,%u,%u,%u,%u,%u,%u,%s,%s,%u,%u,%u,%u,%lu,%u]",
            (unsigned long)frameSequence,
            (unsigned long)output.ut,
            output.baroValid ? output.p : 0.0f,
@@ -785,7 +787,8 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
                (unsigned)operationModeCode(),
                (unsigned)outputDataModeCode,
                (unsigned)outputResetCode,
-               (unsigned long)outputBootSession);
+               (unsigned long)outputBootSession,
+               remoteOutput ? ((remoteFlags >> 14) & 1U) : (storageState.loggingEnabled ? 1U : 0U));
   if (n <= 0) {
     if (jsonLen) json[0] = '\0';
     return 0;
@@ -1623,7 +1626,7 @@ void setupRoutes() {
              "\"deployment_flags\",\"arm_physical\",\"flash_node\",\"flash_target\","
              "\"stage1_connected\",\"stage2_connected\",\"stage1_snapshot\","
              "\"stage2_snapshot\",\"stage2_mode\",\"operation_mode\",\"data_mode\","
-             "\"reset_code\",\"boot_session\"],"
+             "\"reset_code\",\"boot_session\",\"storage_logging\"],"
              "\"flags\":{\"sample\":0,\"baro\":1,\"attitude\":2,\"gps_fix\":3,\"gps_seen\":4,"
              "\"arm\":5,\"igniter\":6,\"user_wait\":7,\"abort\":8,\"safety\":9,"
              "\"arm_lock\":10,\"inspection\":11,\"storage\":12,\"serial\":13,"
@@ -1860,6 +1863,24 @@ void setupRoutes() {
       if (forwardRemote) queueRemote(FlashLinkCommandCode::SetMute, value ? 1 : 0);
       else setBuzzerMuted(value);
     }
+    const char* storageLoggingKey = request->hasParam("storage_logging")
+      ? "storage_logging"
+      : (request->hasParam("flight_logging") ? "flight_logging" : nullptr);
+    if (storageLoggingKey) {
+      const bool enabled = truthy(request->getParam(storageLoggingKey)->value());
+      if (forwardRemote) {
+        queueRemote(
+          FlashLinkCommandCode::SetStorageLogging,
+          enabled ? 1 : 0);
+      } else if (!storageSetLoggingEnabled(enabled)) {
+        sendText(
+          request,
+          409,
+          "application/json",
+          "{\"ok\":0,\"err\":\"STORAGE_LOGGING_FAILED\"}");
+        return;
+      }
+    }
     if (request->hasParam("ign_ms")) {
       long value = 0;
       if (!requestParamLong(request, "ign_ms", value)) {
@@ -2012,6 +2033,7 @@ void setupRoutes() {
       ", FLASH_LINK_DATA_MODE=" + dataOperationModeNameFor(flashLinkDataModeCode()) +
       ", RESTART=" + (restartRequired ? "1" : "0") +
       ", MUTE=" + (buzzerMuted ? "1" : "0") +
+      ", STORAGE_LOGGING=" + (storageState.loggingEnabled ? "1" : "0") +
       ", IGN_MS=" + String(ignitionDurationMs) +
       ", CD_MS=" + String(countdownDurationMs) +
       ", DAQ_SEQ_PYRO=" + String(daqSequencePyroChannel));

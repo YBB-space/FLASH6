@@ -133,6 +133,11 @@ if (typeof window !== "undefined") {
     let appDataPendingSamples = [];
     let appDataLastStoredAtMs = 0;
     let appDataFlushPromise = Promise.resolve();
+    let flightDataLoggingEnabled = false;
+    let flightDataLoggingPending = false;
+    let flightDataLoggingKnown = false;
+    let flightDataLoggingDesired = null;
+    let flightDataLoggingCommandStartedAt = 0;
 
     const IGN_THRUST_THRESHOLD = 10.0;  // kgf, ignition delay threshold
     const IGN_PRESSURE_WINDOW_THRESHOLD_MPA = 0.3;

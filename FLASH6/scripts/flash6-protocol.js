@@ -73,6 +73,7 @@
         stage_loss_permille:finiteOrNull(38),
         stage_rssi_dbm:finiteOrNull(39),
         stage_rssi_age_ms:finiteOrNull(40),
+        storage_logging:finiteOrNull(41),
         data_origin:"avionics"
       };
     }
@@ -156,6 +157,9 @@
           : (resetCode === 23 ? "POWER_GLITCH" : null),
         boot_session:(frame[97] != null && isFinite(Number(frame[97])))
           ? Number(frame[97])
+          : null,
+        storage_logging:(frame[98] != null && isFinite(Number(frame[98])))
+          ? (Number(frame[98]) ? 1 : 0)
           : null,
         stage_telemetry:stageTelemetry,
         p:Number(frame[3]) || 0,

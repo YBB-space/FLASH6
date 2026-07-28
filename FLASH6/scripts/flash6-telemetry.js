@@ -310,6 +310,7 @@
       const dataOrigin = normalizeDataOrigin(data);
       data.data_origin = dataOrigin;
       currentDataOrigin = dataOrigin;
+      if(!isReplaySample) applyFlightDataLoggingTelemetry(data);
       {
         const applyTelemetryStorageInfo = (origin, usedRaw, capacityRaw, recordsRaw)=>{
           const telemetryCapacity = Number(capacityRaw);

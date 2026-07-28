@@ -164,6 +164,8 @@
         normalizedPath.startsWith("/sequence_end") ||
         normalizedPath.startsWith("/set?safe=") ||
         normalizedPath.startsWith("/set?arm_lock=") ||
+        normalizedPath.startsWith("/set?storage_logging=") ||
+        normalizedPath.startsWith("/set?flight_logging=") ||
         normalizedPath.startsWith("/reset");
       if(lockoutLatched && !isLockoutBypassCmd && !isCoreConfigCmd){
         const name = relayMaskName(lockoutRelayMask);

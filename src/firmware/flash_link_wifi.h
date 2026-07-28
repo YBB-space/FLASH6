@@ -1014,6 +1014,16 @@ FlashLinkCommandResult flashLinkExecuteCommand(
       detail = (int32_t)storageState.generation;
       return FlashLinkCommandResult::Ok;
 
+    case FlashLinkCommandCode::SetStorageLogging:
+      if (command.arg0 != 0 && command.arg0 != 1) {
+        return FlashLinkCommandResult::InvalidArgument;
+      }
+      if (!storageSetLoggingEnabled(command.arg0 != 0)) {
+        return FlashLinkCommandResult::Busy;
+      }
+      detail = storageState.loggingEnabled ? 1 : 0;
+      return FlashLinkCommandResult::Ok;
+
     case FlashLinkCommandCode::Reboot:
       // Leave enough time for the completion ACK to reach the ground node
       // before the avionics radio and CPU are restarted.
@@ -1877,6 +1887,7 @@ void flashLinkFillTelemetry(FlashLinkTelemetryV1& out) {
   if (inspectionPassed) out.flags |= 1U << 11;
   if (storageState.ready) out.flags |= 1U << 12;
   if (armSwitchPhysicalInstalled()) out.flags |= 1U << 13;
+  if (storageState.loggingEnabled) out.flags |= 1U << 14;
   if (isfinite(snap.chipTempC)) out.flags |= 1U << 15;
   out.ignitionMs = (uint16_t)min<uint32_t>(65535U, ignitionDurationMs);
   out.countdownMs = (uint16_t)min<uint32_t>(65535U, reportedCountdownDurationMs());

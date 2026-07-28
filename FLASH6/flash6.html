@@ -127,7 +127,7 @@
   <!-- Preload 축소: AP 모드/저메모리 환경에서 동시 요청 버스트를 줄임 -->
   <script>
     (function(){
-    var ASSET_VER = "20260728-virtual-countdown-b122-__FLASH6_DEPLOY_SHA__";
+    var ASSET_VER = "20260728-flight-logging-b123-__FLASH6_DEPLOY_SHA__";
       window.__flashBoot = window.__flashBoot || {jsReady:false,lastError:"",phase:"static_loader",version:ASSET_VER};
       var isLocalPreview = !!window.__flashBoot.localPreview;
       var beaconEnabled = (window.__flashBoot.beaconEnabled !== false);
@@ -617,6 +617,13 @@
               <svg viewBox="0 0 24 24"><path d="M12 5v9"/><path d="m8.5 11 3.5 3.5 3.5-3.5"/><path d="M6.5 18.5h11"/></svg>
             </span>
             <span class="mobile-quick-label">저장공간</span>
+          </button>
+          <button id="mobileFlightLoggingBtn" type="button" class="control-tile mobile-control mobile-quick-btn" data-mobile-control="flight_logging" aria-pressed="false">
+            <span class="mobile-quick-icon tone-green" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2.5"></circle></svg>
+            </span>
+            <span class="mobile-quick-label">비행데이터 로깅</span>
+            <span id="mobileFlightLoggingStatus" class="mobile-quick-state pill pill-gray">OFF</span>
           </button>
         </div>
         <div id="mobileLauncherPanel" class="launcher-panel mobile-launcher-panel" aria-hidden="true">
@@ -1888,7 +1895,7 @@
                 <span id="virtualMissionBtnStatus" class="pill pill-gray">TIME BASED</span>
               </button>
 
-              <div id="storageOpenBtn" class="control-tile is-btn span-2" role="button" tabindex="0" aria-label="저장공간 열기">
+              <div id="storageOpenBtn" class="control-tile is-btn" role="button" tabindex="0" aria-label="저장공간 열기">
                 <div>
                   <div class="control-tile-label" data-i18n="controlsSectionData">저장공간</div>
                   <div class="control-tile-sub">APP / AVIONICS</div>
@@ -1897,6 +1904,16 @@
                   <span id="storageStatusPill" class="pill pill-gray">--</span>
                 </div>
               </div>
+
+              <button id="flightLoggingBtn" class="control-tile is-btn flight-logging-tile" type="button" aria-label="비행데이터 로깅 시작 또는 종료" aria-pressed="false">
+                <span>
+                  <span class="control-tile-label">비행데이터 로깅</span>
+                  <span class="control-tile-sub">APP / AVIONICS</span>
+                </span>
+                <span class="control-tile-actions">
+                  <span id="flightLoggingStatus" class="pill pill-gray">OFF</span>
+                </span>
+              </button>
 
               <div id="servoControlTile" class="control-tile is-btn" role="button" tabindex="0">
                 <div>
