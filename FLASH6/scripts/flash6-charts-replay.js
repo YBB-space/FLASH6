@@ -2854,56 +2854,69 @@
       });
     }
 
+    function findReplayLaunchTimeMs(){
+      if(!replayState.samples.length) return NaN;
+      let firstPositiveMissionTime = null;
+      let lastNegativeMissionTime = null;
+      let firstPoweredFlightTime = null;
+
+      for(let i = 0; i < replayState.samples.length; i++){
+        const frame = replayState.samples[i];
+        const sample = frame && frame.sample;
+        const frameTs = Number(frame && frame.tsMs);
+        if(!sample || !isFinite(frameTs)) continue;
+        const td = Number(sample.td);
+        const st = Number(sample.st);
+
+        // TPLUS is sequence state 3. PRE_FLIGHT also stores td=0, so td>=0
+        // alone must never be treated as launch.
+        if(st === REPLAY_SEQUENCE_STATE_TPLUS){
+          return isFinite(td) && td >= 0
+            ? frameTs - td
+            : frameTs;
+        }
+        if(firstPositiveMissionTime == null && isFinite(td) && td > 0){
+          firstPositiveMissionTime = frameTs - td;
+        }
+        if(isFinite(td) && td < 0){
+          lastNegativeMissionTime = frameTs - td;
+        }
+
+        const phaseCode = Number(sample.flight_phase_code);
+        const phaseName = String(sample.flight_phase || "").toUpperCase();
+        if(firstPoweredFlightTime == null &&
+           (phaseCode === 1 || phaseName === "POWERED_FLIGHT")){
+          firstPoweredFlightTime = isFinite(td) && td >= 0
+            ? frameTs - td
+            : frameTs;
+        }
+      }
+
+      if(isFinite(firstPoweredFlightTime)) return firstPoweredFlightTime;
+      if(isFinite(firstPositiveMissionTime)) return firstPositiveMissionTime;
+      // Countdown-only legacy records can still project T0 from their final
+      // negative mission time even if the TPLUS transition frame is missing.
+      if(isFinite(lastNegativeMissionTime)) return lastNegativeMissionTime;
+      return NaN;
+    }
+
     function findReplayTminusIndex(targetMs){
       const target = Number(targetMs);
-      if(!isFinite(target)) return -1;
-      if(!replayState.samples.length) return -1;
-      let bestIndex = -1;
-      let bestDiff = Infinity;
-
-      for(let i = 0; i < replayState.samples.length; i++){
-        const frame = replayState.samples[i];
-        const td = Number(frame && frame.sample ? frame.sample.td : NaN);
-        if(!isFinite(td) || td >= 0) continue;
-        const diff = Math.abs(td - target);
-        if(diff < bestDiff){
-          bestDiff = diff;
-          bestIndex = i;
-        }
-      }
-      if(bestIndex >= 0){
-        return bestIndex;
-      }
-
-      let t0Ts = null;
-      for(let i = 0; i < replayState.samples.length; i++){
-        const frame = replayState.samples[i];
-        const td = Number(frame && frame.sample ? frame.sample.td : NaN);
-        if(isFinite(td) && td >= 0){
-          t0Ts = Number(frame.tsMs);
-          break;
-        }
-      }
-      if(!isFinite(t0Ts)){
-        for(let i = 0; i < replayState.samples.length; i++){
-          const frame = replayState.samples[i];
-          const st = Number(frame && frame.sample ? frame.sample.st : NaN);
-          if(st === 2){
-            t0Ts = Number(frame.tsMs);
-            break;
-          }
-        }
-      }
-      if(!isFinite(t0Ts)){
-        return -1;
-      }
+      if(!isFinite(target) || !replayState.samples.length) return -1;
+      const t0Ts = findReplayLaunchTimeMs();
+      if(!isFinite(t0Ts)) return -1;
 
       const targetTs = t0Ts + target;
+      const firstTs = Number(replayState.samples[0] && replayState.samples[0].tsMs);
+      // If recording began after T-15, do not silently jump to frame zero and
+      // pretend it is the requested pre-roll point.
+      if(isFinite(firstTs) && targetTs < firstTs) return -1;
       let nearest = -1;
       let nearestDiff = Infinity;
       for(let i = 0; i < replayState.samples.length; i++){
         const frameTs = Number(replayState.samples[i].tsMs);
         if(!isFinite(frameTs)) continue;
+        if(frameTs > t0Ts) break;
         const diff = Math.abs(frameTs - targetTs);
         if(diff < nearestDiff){
           nearestDiff = diff;

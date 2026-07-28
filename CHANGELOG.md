@@ -3,6 +3,20 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 replay QUICK T-15 fix b121 — 2026-07-28
+
+Firmware build unchanged: `0.9.12` (`v6 b42`)
+
+Protocol unchanged: `Flash6-Intelligent-b8`
+
+- PRE_FLIGHT에서도 미션 시간이 `0`인 점을 고려하지 않고 첫
+  `td >= 0` 프레임을 발사로 오인하던 QUICK 탐색을 수정했습니다.
+- 실제 `TPLUS(3)` 상태를 최우선으로 사용하고 저장된 T+ 경과시간을
+  역산해 발사 시각을 복원합니다. 추력 비행 상태와 미션 시간 증가는
+  순서대로 보조 근거로 사용합니다.
+- 기록 자체가 T-15 이후에 시작된 경우 파일 첫 프레임으로 잘못
+  이동하지 않고 T-15 데이터가 없음을 안내합니다.
+
 ## FLASH6 OBS local HUD relay b120 — 2026-07-28
 
 Firmware build unchanged: `0.9.12` (`v6 b42`)
