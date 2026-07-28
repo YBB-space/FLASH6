@@ -30833,6 +30833,17 @@ body #missionStandbyReviewOverlay .loadcell-primary{
 html body #dataListOverlay.mobile-chart-picker-overlay{
   overflow:hidden !important;
   overscroll-behavior:none !important;
+  scrollbar-width:none !important;
+}
+html body #dataListOverlay,
+html body #dataListOverlay *{
+  scrollbar-width:none !important;
+}
+html body #dataListOverlay::-webkit-scrollbar,
+html body #dataListOverlay *::-webkit-scrollbar{
+  display:none !important;
+  width:0 !important;
+  height:0 !important;
 }
 html.data-storage-modal-open,
 html.data-storage-modal-open body,
@@ -30962,19 +30973,12 @@ html body #dataListOverlay.is-data-list-expanded #dataListBody{
   overflow-y:auto !important;
   overscroll-behavior:contain !important;
   touch-action:pan-y !important;
-  scrollbar-width:thin !important;
-  scrollbar-color:#555961 transparent !important;
+  scrollbar-width:none !important;
 }
 html body #dataListOverlay.is-data-list-expanded #dataListBody::-webkit-scrollbar{
-  display:block !important;
-  width:7px !important;
-}
-html body #dataListOverlay.is-data-list-expanded #dataListBody::-webkit-scrollbar-track{
-  background:transparent !important;
-}
-html body #dataListOverlay.is-data-list-expanded #dataListBody::-webkit-scrollbar-thumb{
-  border-radius:999px !important;
-  background:#555961 !important;
+  display:none !important;
+  width:0 !important;
+  height:0 !important;
 }
 @media (max-width:900px){
   html body #dataListOverlay.mobile-chart-picker-overlay{
