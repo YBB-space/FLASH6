@@ -3,6 +3,25 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.10.2 — v6 b50 — 2026-07-29
+
+Protocol unchanged: `Flash6-Intelligent-b11`
+
+Storage record protocol unchanged: `HWLOGV2` version `9`
+
+- 보드 역할·단 위치·지상국 2단 운용 설정의 잠금 해제를 UI 버튼
+  제스처에서 보드 물리 버튼 조작으로 변경했습니다. 변경하려는 보드의
+  물리 버튼을 6회 누른 뒤 길게 눌러야 설정 모달이 열립니다.
+- 비행 시퀀스와 미션 대기 중에는 역할 설정 잠금 해제를 거부하며,
+  정상 대기 상태에서 인증된 뒤 60초 동안만 설정을 허용합니다.
+- HTTP와 USB 시리얼 설정 경로도 물리 버튼 인증 상태를 확인합니다.
+  UI를 우회해 역할 변경 명령을 보내도 거부하며, 설정이 적용되면 인증
+  권한을 즉시 소모합니다.
+- 1단 전용 지상국이 STAGE 2를 감지해 2단 운용 적용을 선택한 경우에도
+  바로 변경하지 않고 지상국 물리 버튼 인증 후 설정 모달에서 최종
+  확인하도록 통일했습니다.
+- FLASH6 UI 자산 버전을 `b147`로 갱신했습니다.
+
 ## 0.10.1 — v6 b49 — 2026-07-29
 
 Protocol: `Flash6-Intelligent-b11`

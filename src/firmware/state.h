@@ -1,8 +1,8 @@
 
 constexpr char kFirmwareProgram[] = "Altis_Intelligent3_firmware1";
-constexpr char kFirmwareVersion[] = "0.10.1";
-constexpr char kFirmwareBuildId[] = "v6 b49";
-constexpr uint16_t kFirmwareBuildNumber = 49;
+constexpr char kFirmwareVersion[] = "0.10.2";
+constexpr char kFirmwareBuildId[] = "v6 b50";
+constexpr uint16_t kFirmwareBuildNumber = 50;
 constexpr char kFirmwareBoard[] = "Altis_Intelligent3_b3";
 constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b11";
 constexpr uint8_t kStorageProtocolVersion = 9;
@@ -268,8 +268,9 @@ constexpr uint8_t kBuzzerLedcResolutionBits = 10;
 constexpr uint32_t kBootButtonDebounceMs = 35;
 constexpr uint32_t kBootButtonSequenceGapMs = 1000;
 constexpr uint32_t kBootButtonMaxClickMs = 600;
-constexpr uint8_t kBootButtonMaxActionClicks = 5;
+constexpr uint8_t kBootButtonMaxActionClicks = 6;
 constexpr uint32_t kBootButtonConfirmHoldMs = 1200;
+constexpr uint32_t kRoleConfigUnlockWindowMs = 60000;
 constexpr uint16_t kBootButtonMenuBeepHz = 1760;
 constexpr uint16_t kBootButtonMenuBeepMs = 62;
 constexpr uint16_t kBootButtonMenuBeepGapMs = 58;
@@ -390,6 +391,8 @@ uint8_t bootButtonPressCount = 0;
 uint8_t bootButtonHoldAction = 0;
 uint8_t bootButtonPendingHoldAction = 0;
 uint32_t bootButtonPendingHoldActionAtMs = 0;
+uint32_t roleConfigUnlockSeq = 0;
+uint32_t roleConfigUnlockUntilMs = 0;
 bool bootButtonRawPressed = false;
 bool bootButtonStablePressed = false;
 bool bootButtonConfirmHoldActive = false;
@@ -397,6 +400,16 @@ bool bootButtonConfirmHoldTriggered = false;
 bool buttonSequenceWarningActive = false;
 uint8_t buttonSequenceWarningBeeps = 0;
 uint32_t buttonSequenceWarningStartMs = 0;
+
+inline bool roleConfigUnlockActive(uint32_t nowMs) {
+  return roleConfigUnlockSeq != 0U &&
+    roleConfigUnlockUntilMs != 0U &&
+    (int32_t)(roleConfigUnlockUntilMs - nowMs) > 0;
+}
+
+inline void consumeRoleConfigUnlock() {
+  roleConfigUnlockUntilMs = 0;
+}
 uint32_t ignitionDurationMs = kDefaultIgnitionMs;
 uint32_t countdownDurationMs = kDefaultCountdownMs;
 uint32_t sequenceCountdownTotalMs = 0;

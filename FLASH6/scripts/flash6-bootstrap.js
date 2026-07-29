@@ -5351,27 +5351,7 @@
         });
       }
       if(el.flashLinkRoleAccessBtn){
-        el.flashLinkRoleAccessBtn.addEventListener("click", registerFlashLinkRoleUnlockTap);
-        el.flashLinkRoleAccessBtn.addEventListener("pointerdown", (event)=>{
-          if(event.button != null && event.button !== 0) return;
-          if(flashLinkRoleUnlockArmedUntil > Date.now()){
-            try{ el.flashLinkRoleAccessBtn.setPointerCapture(event.pointerId); }catch(_e){}
-            beginFlashLinkRoleLongPress();
-          }
-        });
-        ["pointerup", "pointercancel", "lostpointercapture"].forEach((name)=>{
-          el.flashLinkRoleAccessBtn.addEventListener(name, ()=>cancelFlashLinkRoleLongPress());
-        });
-        el.flashLinkRoleAccessBtn.addEventListener("keydown", (event)=>{
-          if(event.key !== "Enter" && event.key !== " ") return;
-          if(flashLinkRoleUnlockArmedUntil > Date.now()){
-            event.preventDefault();
-            if(!event.repeat) beginFlashLinkRoleLongPress();
-          }
-        });
-        el.flashLinkRoleAccessBtn.addEventListener("keyup", (event)=>{
-          if(event.key === "Enter" || event.key === " ") cancelFlashLinkRoleLongPress();
-        });
+        el.flashLinkRoleAccessBtn.addEventListener("click", showFlashLinkRolePhysicalButtonHint);
       }
       if(el.flashLinkRoleDraftButtons){
         el.flashLinkRoleDraftButtons.forEach((button)=>{
@@ -5412,6 +5392,7 @@
       }
       if(el.flashLinkStage2MismatchCancel){
         el.flashLinkStage2MismatchCancel.addEventListener("click", ()=>{
+          flashLinkRolePendingHardwareDraft = null;
           flashLinkStage2MismatchDismissed = true;
           flashLinkStage2MismatchSuppressUntil = Date.now() + 30000;
           hideFlashLinkStage2MismatchPrompt(false);
@@ -5422,7 +5403,14 @@
           const cfg = currentFlashLinkRoleConfig();
           cfg.role = "ground";
           cfg.stage2Mode = true;
-          void applyFlashLinkRoleConfiguration(cfg, {fromMismatch:true});
+          flashLinkRolePendingHardwareDraft = cfg;
+          flashLinkStage2MismatchSuppressUntil = Date.now() + 60000;
+          hideFlashLinkStage2MismatchPrompt(false);
+          showToast(
+            "지상국 물리 버튼을 6회 누른 뒤 길게 눌러 2단 운용 설정을 여세요.",
+            "warning",
+            {key:"flash-link-role-hardware-unlock", duration:6200}
+          );
         });
       }
       if(el.flashLinkScanBtn){

@@ -742,6 +742,19 @@ void handleSerialLine(const char* line) {
     const uint8_t oldDataMode = flashLinkDataModeCode();
     const uint8_t oldNodeId = flashLinkNodeId;
     const bool oldStage2Mode = flashLinkStage2Enabled;
+    const bool protectedRoleRequest =
+      cmd.indexOf("?flash_link_role=") >= 0 || cmd.indexOf("&flash_link_role=") >= 0 ||
+      cmd.indexOf("?fl_role=") >= 0 || cmd.indexOf("&fl_role=") >= 0 ||
+      cmd.indexOf("?flash_link_node_id=") >= 0 || cmd.indexOf("&flash_link_node_id=") >= 0 ||
+      cmd.indexOf("?fl_node=") >= 0 || cmd.indexOf("&fl_node=") >= 0 ||
+      cmd.indexOf("?flash_link_stage2_mode=") >= 0 ||
+      cmd.indexOf("&flash_link_stage2_mode=") >= 0 ||
+      cmd.indexOf("?fl_stage2_mode=") >= 0 || cmd.indexOf("&fl_stage2_mode=") >= 0 ||
+      cmd.indexOf("?stage2_mode=") >= 0 || cmd.indexOf("&stage2_mode=") >= 0;
+    if (protectedRoleRequest && !roleConfigUnlockActive(millis())) {
+      Serial.println("ERR SET ROLE_CONFIG_LOCKED hint=PRESS_PHYSICAL_BUTTON_6X_THEN_HOLD");
+      return;
+    }
     const bool localCommunicationRequest =
       cmd.indexOf("?op_mode=") >= 0 || cmd.indexOf("&op_mode=") >= 0 ||
       cmd.indexOf("?mode=") >= 0 || cmd.indexOf("&mode=") >= 0 ||
@@ -899,6 +912,7 @@ void handleSerialLine(const char* line) {
     if (requestedStage2Mode.length() > 0) {
       flashLinkSetStage2Mode(truthy(requestedStage2Mode), true);
     }
+    if (protectedRoleRequest) consumeRoleConfigUnlock();
     if (requestedDataMode.length() > 0) {
       String normalizedDataMode = requestedDataMode;
       normalizedDataMode.trim();

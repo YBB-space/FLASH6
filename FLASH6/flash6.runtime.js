@@ -6736,13 +6736,9 @@ function requestMobileMockup3dMesh(){
     let pendingOperationModeConfirm = null;
     let operationModeChangeBusy = false;
     let lastConfirmedOperationMode = null;
-    const FLASH_LINK_ROLE_UNLOCK_TAPS = 6;
-    const FLASH_LINK_ROLE_UNLOCK_WINDOW_MS = 4500;
-    const FLASH_LINK_ROLE_LONG_PRESS_MS = 1100;
-    let flashLinkRoleUnlockTapCount = 0;
-    let flashLinkRoleUnlockTimer = null;
-    let flashLinkRoleUnlockArmedUntil = 0;
-    let flashLinkRoleLongPressTimer = null;
+    let flashLinkRoleUnlockLastSeq = 0;
+    let flashLinkRoleUnlockLatched = false;
+    let flashLinkRolePendingHardwareDraft = null;
     let flashLinkRoleConfigDraft = null;
     let flashLinkRoleConfigBusy = false;
     let flashLinkRoleConfigLastConfirmedKey = "";
@@ -12231,79 +12227,35 @@ function requestMobileMockup3dMesh(){
       el.flashLinkRoleAccessBtn.disabled = flashLinkRoleConfigBusy;
       el.flashLinkRoleAccessBtn.setAttribute("aria-busy", flashLinkRoleConfigBusy ? "true" : "false");
     }
-    function resetFlashLinkRoleUnlockGesture(message){
-      if(flashLinkRoleUnlockTimer){
-        clearTimeout(flashLinkRoleUnlockTimer);
-        flashLinkRoleUnlockTimer = null;
-      }
-      if(flashLinkRoleLongPressTimer){
-        clearTimeout(flashLinkRoleLongPressTimer);
-        flashLinkRoleLongPressTimer = null;
-      }
-      flashLinkRoleUnlockTapCount = 0;
-      flashLinkRoleUnlockArmedUntil = 0;
-      if(el.flashLinkRoleAccessBtn){
-        el.flashLinkRoleAccessBtn.classList.remove("is-unlock-armed", "is-long-pressing");
-        el.flashLinkRoleAccessBtn.style.removeProperty("--fl-role-hold");
-      }
-      if(el.flashLinkRoleAccessHint){
-        el.flashLinkRoleAccessHint.textContent = message ||
-          "보호된 설정 · 6회 누른 뒤 길게 눌러 변경합니다.";
-      }
-      updateFlashLinkRoleAccessUi();
-    }
-    function registerFlashLinkRoleUnlockTap(){
-      if(flashLinkRoleConfigBusy || isFlashLinkRoleConfigOpen()) return;
-      const now = Date.now();
-      if(flashLinkRoleUnlockArmedUntil > now){
-        if(el.flashLinkRoleAccessHint) el.flashLinkRoleAccessHint.textContent = "이제 버튼을 길게 누르세요.";
-        return;
-      }
-      flashLinkRoleUnlockTapCount++;
-      if(flashLinkRoleUnlockTimer) clearTimeout(flashLinkRoleUnlockTimer);
-      if(flashLinkRoleUnlockTapCount >= FLASH_LINK_ROLE_UNLOCK_TAPS){
-        flashLinkRoleUnlockTapCount = FLASH_LINK_ROLE_UNLOCK_TAPS;
-        flashLinkRoleUnlockArmedUntil = now + FLASH_LINK_ROLE_UNLOCK_WINDOW_MS;
-        if(el.flashLinkRoleAccessBtn) el.flashLinkRoleAccessBtn.classList.add("is-unlock-armed");
-        if(el.flashLinkRoleAccessHint) el.flashLinkRoleAccessHint.textContent = "잠금 해제 준비됨 · 버튼을 길게 누르세요.";
-        flashLinkRoleUnlockTimer = setTimeout(()=>{
-          resetFlashLinkRoleUnlockGesture("시간이 지나 잠금 상태로 돌아갔습니다.");
-        }, FLASH_LINK_ROLE_UNLOCK_WINDOW_MS + 30);
-        return;
-      }
+    function showFlashLinkRolePhysicalButtonHint(){
       if(el.flashLinkRoleAccessHint){
         el.flashLinkRoleAccessHint.textContent =
-          "보호 해제 " + flashLinkRoleUnlockTapCount + " / " + FLASH_LINK_ROLE_UNLOCK_TAPS;
+          "보드 물리 버튼을 6회 누른 뒤 길게 누르면 변경 창이 열립니다.";
       }
-      flashLinkRoleUnlockTimer = setTimeout(()=>resetFlashLinkRoleUnlockGesture(), 1800);
+      showToast(
+        "보드 역할 변경: 물리 버튼 6회 입력 후 길게 누르세요.",
+        "info",
+        {key:"flash-link-role-hardware-unlock", duration:4200}
+      );
     }
-    function beginFlashLinkRoleLongPress(){
-      if(flashLinkRoleConfigBusy || flashLinkRoleUnlockArmedUntil <= Date.now()) return;
-      if(flashLinkRoleLongPressTimer) clearTimeout(flashLinkRoleLongPressTimer);
-      if(el.flashLinkRoleAccessBtn){
-        el.flashLinkRoleAccessBtn.classList.add("is-long-pressing");
-        el.flashLinkRoleAccessBtn.style.setProperty("--fl-role-hold", "100%");
+    function handleFlashLinkRoleHardwareUnlock(data, isReplaySample){
+      if(isReplaySample || simEnabled || !data) return;
+      const seq = Math.max(0, Math.floor(Number(data.role_config_unlock_seq) || 0));
+      const active = Number(data.role_config_unlock_active) !== 0;
+      if(!active){
+        flashLinkRoleUnlockLatched = false;
+        return;
       }
-      if(el.flashLinkRoleAccessHint) el.flashLinkRoleAccessHint.textContent = "계속 누르고 있으세요…";
-      flashLinkRoleLongPressTimer = setTimeout(()=>{
-        flashLinkRoleLongPressTimer = null;
-        openFlashLinkRoleConfigModal();
-        resetFlashLinkRoleUnlockGesture();
-      }, FLASH_LINK_ROLE_LONG_PRESS_MS);
-    }
-    function cancelFlashLinkRoleLongPress(){
-      if(!flashLinkRoleLongPressTimer) return;
-      clearTimeout(flashLinkRoleLongPressTimer);
-      flashLinkRoleLongPressTimer = null;
-      if(el.flashLinkRoleAccessBtn){
-        el.flashLinkRoleAccessBtn.classList.remove("is-long-pressing");
-        el.flashLinkRoleAccessBtn.style.removeProperty("--fl-role-hold");
-      }
+      if(seq <= 0 || (flashLinkRoleUnlockLatched && seq === flashLinkRoleUnlockLastSeq)) return;
+      flashLinkRoleUnlockLastSeq = seq;
+      flashLinkRoleUnlockLatched = true;
+      if(flashLinkRoleConfigBusy || isFlashLinkRoleConfigOpen()) return;
       if(el.flashLinkRoleAccessHint){
-        el.flashLinkRoleAccessHint.textContent = flashLinkRoleUnlockArmedUntil > Date.now()
-          ? "길게 눌러 설정을 여세요."
-          : "보호된 설정 · 6회 누른 뒤 길게 눌러 변경합니다.";
+        el.flashLinkRoleAccessHint.textContent = "물리 버튼 인증 완료 · 설정을 확인한 뒤 적용하세요.";
       }
+      const pendingDraft = flashLinkRolePendingHardwareDraft;
+      flashLinkRolePendingHardwareDraft = null;
+      openFlashLinkRoleConfigModal(pendingDraft || undefined);
     }
     function syncFlashLinkRoleConfigModal(){
       if(!flashLinkRoleConfigDraft) return;
@@ -12365,7 +12317,10 @@ function requestMobileMockup3dMesh(){
       if(flashLinkRoleConfigBusy) return;
       setOverlayVisible(el.flashLinkRoleConfigOverlay, false);
       flashLinkRoleConfigDraft = null;
-      resetFlashLinkRoleUnlockGesture();
+      if(el.flashLinkRoleAccessHint){
+        el.flashLinkRoleAccessHint.textContent =
+          "보드 물리 버튼을 6회 누른 뒤 길게 누르면 변경 창이 열립니다.";
+      }
     }
     function buildFlashLinkRoleConfigPath(config){
       const cfg = config || currentFlashLinkRoleConfig();
@@ -25019,6 +24974,12 @@ function requestMobileMockup3dMesh(){
         storage_logging:(frame[98] != null && isFinite(Number(frame[98])))
           ? (Number(frame[98]) ? 1 : 0)
           : null,
+        role_config_unlock_seq:(frame[99] != null && isFinite(Number(frame[99])))
+          ? Number(frame[99])
+          : 0,
+        role_config_unlock_active:(frame[100] != null && isFinite(Number(frame[100])))
+          ? (Number(frame[100]) ? 1 : 0)
+          : 0,
         stage_telemetry:stageTelemetry,
         p:Number(frame[3]) || 0,
         alt_m:Number(frame[4]) || 0,
@@ -25097,8 +25058,8 @@ function requestMobileMockup3dMesh(){
         fl_rssi_age_ms:(frame[56] != null && isFinite(Number(frame[56]))) ? Number(frame[56]) : 4294967295,
         fw_program:"Altis_Intelligent3_firmware1",
         fw_board:"Altis_Intelligent3_b3",
-        fw_protocol:"Flash6-Intelligent-b10",
-        fw_build:"v6 b46"
+        fw_protocol:"Flash6-Intelligent-b11",
+        fw_build:"v6 b50"
       };
     }
 
@@ -26450,6 +26411,9 @@ function requestMobileMockup3dMesh(){
         window.__flashLastSample = data;
         window.__flashLastSampleSrc = src;
         window.__flashLastSampleAt = Date.now();
+      }
+      if(!isFastReplaySeek){
+        handleFlashLinkRoleHardwareUnlock(data, isReplaySample);
       }
       if(!isReplaySample && data){
         const incomingMode = normalizeOperationModeValue(data.op_mode ?? data.operation_mode ?? "");
@@ -44526,27 +44490,7 @@ function requestMobileMockup3dMesh(){
         });
       }
       if(el.flashLinkRoleAccessBtn){
-        el.flashLinkRoleAccessBtn.addEventListener("click", registerFlashLinkRoleUnlockTap);
-        el.flashLinkRoleAccessBtn.addEventListener("pointerdown", (event)=>{
-          if(event.button != null && event.button !== 0) return;
-          if(flashLinkRoleUnlockArmedUntil > Date.now()){
-            try{ el.flashLinkRoleAccessBtn.setPointerCapture(event.pointerId); }catch(_e){}
-            beginFlashLinkRoleLongPress();
-          }
-        });
-        ["pointerup", "pointercancel", "lostpointercapture"].forEach((name)=>{
-          el.flashLinkRoleAccessBtn.addEventListener(name, ()=>cancelFlashLinkRoleLongPress());
-        });
-        el.flashLinkRoleAccessBtn.addEventListener("keydown", (event)=>{
-          if(event.key !== "Enter" && event.key !== " ") return;
-          if(flashLinkRoleUnlockArmedUntil > Date.now()){
-            event.preventDefault();
-            if(!event.repeat) beginFlashLinkRoleLongPress();
-          }
-        });
-        el.flashLinkRoleAccessBtn.addEventListener("keyup", (event)=>{
-          if(event.key === "Enter" || event.key === " ") cancelFlashLinkRoleLongPress();
-        });
+        el.flashLinkRoleAccessBtn.addEventListener("click", showFlashLinkRolePhysicalButtonHint);
       }
       if(el.flashLinkRoleDraftButtons){
         el.flashLinkRoleDraftButtons.forEach((button)=>{
@@ -44587,6 +44531,7 @@ function requestMobileMockup3dMesh(){
       }
       if(el.flashLinkStage2MismatchCancel){
         el.flashLinkStage2MismatchCancel.addEventListener("click", ()=>{
+          flashLinkRolePendingHardwareDraft = null;
           flashLinkStage2MismatchDismissed = true;
           flashLinkStage2MismatchSuppressUntil = Date.now() + 30000;
           hideFlashLinkStage2MismatchPrompt(false);
@@ -44597,7 +44542,14 @@ function requestMobileMockup3dMesh(){
           const cfg = currentFlashLinkRoleConfig();
           cfg.role = "ground";
           cfg.stage2Mode = true;
-          void applyFlashLinkRoleConfiguration(cfg, {fromMismatch:true});
+          flashLinkRolePendingHardwareDraft = cfg;
+          flashLinkStage2MismatchSuppressUntil = Date.now() + 60000;
+          hideFlashLinkStage2MismatchPrompt(false);
+          showToast(
+            "지상국 물리 버튼을 6회 누른 뒤 길게 눌러 2단 운용 설정을 여세요.",
+            "warning",
+            {key:"flash-link-role-hardware-unlock", duration:6200}
+          );
         });
       }
       if(el.flashLinkScanBtn){

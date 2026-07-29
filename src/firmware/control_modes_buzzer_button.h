@@ -474,6 +474,30 @@ void dispatchBootButtonHoldAction(uint8_t action, uint32_t nowMs) {
                     flashLinkRoleName());
       break;
 
+    case 6:
+      if (buttonSequenceWarningActive ||
+          sequenceState != kSequenceStateIdle ||
+          sequenceUserWaiting ||
+          missionLaunchStandby) {
+        buzzerPlayTone(420, 260);
+        Serial.printf(
+          "[BOOT_BUTTON] action=6 role config rejected warning=%u state=%u waiting=%u standby=%u\n",
+          buttonSequenceWarningActive ? 1U : 0U,
+          (unsigned)sequenceState,
+          sequenceUserWaiting ? 1U : 0U,
+          missionLaunchStandby ? 1U : 0U);
+        break;
+      }
+      roleConfigUnlockSeq++;
+      if (roleConfigUnlockSeq == 0U) roleConfigUnlockSeq = 1U;
+      roleConfigUnlockUntilMs = nowMs + kRoleConfigUnlockWindowMs;
+      buzzerPlayTone(2637, 220);
+      Serial.printf(
+        "ACK ROLE_CONFIG_UNLOCK seq=%lu window_ms=%lu source=physical_button\n",
+        (unsigned long)roleConfigUnlockSeq,
+        (unsigned long)kRoleConfigUnlockWindowMs);
+      break;
+
     default:
       Serial.printf("[BOOT_BUTTON] action=%u ignored\n", (unsigned)action);
       break;

@@ -6735,13 +6735,9 @@ function requestMobileMockup3dMesh(){
     let pendingOperationModeConfirm = null;
     let operationModeChangeBusy = false;
     let lastConfirmedOperationMode = null;
-    const FLASH_LINK_ROLE_UNLOCK_TAPS = 6;
-    const FLASH_LINK_ROLE_UNLOCK_WINDOW_MS = 4500;
-    const FLASH_LINK_ROLE_LONG_PRESS_MS = 1100;
-    let flashLinkRoleUnlockTapCount = 0;
-    let flashLinkRoleUnlockTimer = null;
-    let flashLinkRoleUnlockArmedUntil = 0;
-    let flashLinkRoleLongPressTimer = null;
+    let flashLinkRoleUnlockLastSeq = 0;
+    let flashLinkRoleUnlockLatched = false;
+    let flashLinkRolePendingHardwareDraft = null;
     let flashLinkRoleConfigDraft = null;
     let flashLinkRoleConfigBusy = false;
     let flashLinkRoleConfigLastConfirmedKey = "";

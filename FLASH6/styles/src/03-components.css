@@ -6589,16 +6589,6 @@ body :is(#brownoutWarningOverlay,#missionArmRiskOverlay) .brownout-warning-confi
   -webkit-user-select:none !important;
   touch-action:manipulation !important;
 }
-.flash-link-role-access.is-unlock-armed{
-  border-color:#737984 !important;
-  color:#f4f5f6 !important;
-  background:#282b30 !important;
-}
-.flash-link-role-access.is-long-pressing{
-  background:
-    linear-gradient(90deg, rgba(238,239,241,.13) var(--fl-role-hold, 0%), transparent 0),
-    #24262a !important;
-}
 .flash-role-config-overlay{
   position:fixed !important;
   inset:0 !important;

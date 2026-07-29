@@ -204,6 +204,9 @@
         window.__flashLastSampleSrc = src;
         window.__flashLastSampleAt = Date.now();
       }
+      if(!isFastReplaySeek){
+        handleFlashLinkRoleHardwareUnlock(data, isReplaySample);
+      }
       if(!isReplaySample && data){
         const incomingMode = normalizeOperationModeValue(data.op_mode ?? data.operation_mode ?? "");
         const incomingLinkMode = normalizeOperationModeValue(

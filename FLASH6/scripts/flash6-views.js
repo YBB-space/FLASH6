@@ -927,79 +927,35 @@
       el.flashLinkRoleAccessBtn.disabled = flashLinkRoleConfigBusy;
       el.flashLinkRoleAccessBtn.setAttribute("aria-busy", flashLinkRoleConfigBusy ? "true" : "false");
     }
-    function resetFlashLinkRoleUnlockGesture(message){
-      if(flashLinkRoleUnlockTimer){
-        clearTimeout(flashLinkRoleUnlockTimer);
-        flashLinkRoleUnlockTimer = null;
-      }
-      if(flashLinkRoleLongPressTimer){
-        clearTimeout(flashLinkRoleLongPressTimer);
-        flashLinkRoleLongPressTimer = null;
-      }
-      flashLinkRoleUnlockTapCount = 0;
-      flashLinkRoleUnlockArmedUntil = 0;
-      if(el.flashLinkRoleAccessBtn){
-        el.flashLinkRoleAccessBtn.classList.remove("is-unlock-armed", "is-long-pressing");
-        el.flashLinkRoleAccessBtn.style.removeProperty("--fl-role-hold");
-      }
-      if(el.flashLinkRoleAccessHint){
-        el.flashLinkRoleAccessHint.textContent = message ||
-          "보호된 설정 · 6회 누른 뒤 길게 눌러 변경합니다.";
-      }
-      updateFlashLinkRoleAccessUi();
-    }
-    function registerFlashLinkRoleUnlockTap(){
-      if(flashLinkRoleConfigBusy || isFlashLinkRoleConfigOpen()) return;
-      const now = Date.now();
-      if(flashLinkRoleUnlockArmedUntil > now){
-        if(el.flashLinkRoleAccessHint) el.flashLinkRoleAccessHint.textContent = "이제 버튼을 길게 누르세요.";
-        return;
-      }
-      flashLinkRoleUnlockTapCount++;
-      if(flashLinkRoleUnlockTimer) clearTimeout(flashLinkRoleUnlockTimer);
-      if(flashLinkRoleUnlockTapCount >= FLASH_LINK_ROLE_UNLOCK_TAPS){
-        flashLinkRoleUnlockTapCount = FLASH_LINK_ROLE_UNLOCK_TAPS;
-        flashLinkRoleUnlockArmedUntil = now + FLASH_LINK_ROLE_UNLOCK_WINDOW_MS;
-        if(el.flashLinkRoleAccessBtn) el.flashLinkRoleAccessBtn.classList.add("is-unlock-armed");
-        if(el.flashLinkRoleAccessHint) el.flashLinkRoleAccessHint.textContent = "잠금 해제 준비됨 · 버튼을 길게 누르세요.";
-        flashLinkRoleUnlockTimer = setTimeout(()=>{
-          resetFlashLinkRoleUnlockGesture("시간이 지나 잠금 상태로 돌아갔습니다.");
-        }, FLASH_LINK_ROLE_UNLOCK_WINDOW_MS + 30);
-        return;
-      }
+    function showFlashLinkRolePhysicalButtonHint(){
       if(el.flashLinkRoleAccessHint){
         el.flashLinkRoleAccessHint.textContent =
-          "보호 해제 " + flashLinkRoleUnlockTapCount + " / " + FLASH_LINK_ROLE_UNLOCK_TAPS;
+          "보드 물리 버튼을 6회 누른 뒤 길게 누르면 변경 창이 열립니다.";
       }
-      flashLinkRoleUnlockTimer = setTimeout(()=>resetFlashLinkRoleUnlockGesture(), 1800);
+      showToast(
+        "보드 역할 변경: 물리 버튼 6회 입력 후 길게 누르세요.",
+        "info",
+        {key:"flash-link-role-hardware-unlock", duration:4200}
+      );
     }
-    function beginFlashLinkRoleLongPress(){
-      if(flashLinkRoleConfigBusy || flashLinkRoleUnlockArmedUntil <= Date.now()) return;
-      if(flashLinkRoleLongPressTimer) clearTimeout(flashLinkRoleLongPressTimer);
-      if(el.flashLinkRoleAccessBtn){
-        el.flashLinkRoleAccessBtn.classList.add("is-long-pressing");
-        el.flashLinkRoleAccessBtn.style.setProperty("--fl-role-hold", "100%");
+    function handleFlashLinkRoleHardwareUnlock(data, isReplaySample){
+      if(isReplaySample || simEnabled || !data) return;
+      const seq = Math.max(0, Math.floor(Number(data.role_config_unlock_seq) || 0));
+      const active = Number(data.role_config_unlock_active) !== 0;
+      if(!active){
+        flashLinkRoleUnlockLatched = false;
+        return;
       }
-      if(el.flashLinkRoleAccessHint) el.flashLinkRoleAccessHint.textContent = "계속 누르고 있으세요…";
-      flashLinkRoleLongPressTimer = setTimeout(()=>{
-        flashLinkRoleLongPressTimer = null;
-        openFlashLinkRoleConfigModal();
-        resetFlashLinkRoleUnlockGesture();
-      }, FLASH_LINK_ROLE_LONG_PRESS_MS);
-    }
-    function cancelFlashLinkRoleLongPress(){
-      if(!flashLinkRoleLongPressTimer) return;
-      clearTimeout(flashLinkRoleLongPressTimer);
-      flashLinkRoleLongPressTimer = null;
-      if(el.flashLinkRoleAccessBtn){
-        el.flashLinkRoleAccessBtn.classList.remove("is-long-pressing");
-        el.flashLinkRoleAccessBtn.style.removeProperty("--fl-role-hold");
-      }
+      if(seq <= 0 || (flashLinkRoleUnlockLatched && seq === flashLinkRoleUnlockLastSeq)) return;
+      flashLinkRoleUnlockLastSeq = seq;
+      flashLinkRoleUnlockLatched = true;
+      if(flashLinkRoleConfigBusy || isFlashLinkRoleConfigOpen()) return;
       if(el.flashLinkRoleAccessHint){
-        el.flashLinkRoleAccessHint.textContent = flashLinkRoleUnlockArmedUntil > Date.now()
-          ? "길게 눌러 설정을 여세요."
-          : "보호된 설정 · 6회 누른 뒤 길게 눌러 변경합니다.";
+        el.flashLinkRoleAccessHint.textContent = "물리 버튼 인증 완료 · 설정을 확인한 뒤 적용하세요.";
       }
+      const pendingDraft = flashLinkRolePendingHardwareDraft;
+      flashLinkRolePendingHardwareDraft = null;
+      openFlashLinkRoleConfigModal(pendingDraft || undefined);
     }
     function syncFlashLinkRoleConfigModal(){
       if(!flashLinkRoleConfigDraft) return;
@@ -1061,7 +1017,10 @@
       if(flashLinkRoleConfigBusy) return;
       setOverlayVisible(el.flashLinkRoleConfigOverlay, false);
       flashLinkRoleConfigDraft = null;
-      resetFlashLinkRoleUnlockGesture();
+      if(el.flashLinkRoleAccessHint){
+        el.flashLinkRoleAccessHint.textContent =
+          "보드 물리 버튼을 6회 누른 뒤 길게 누르면 변경 창이 열립니다.";
+      }
     }
     function buildFlashLinkRoleConfigPath(config){
       const cfg = config || currentFlashLinkRoleConfig();

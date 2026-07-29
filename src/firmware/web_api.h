@@ -299,6 +299,7 @@ size_t buildTelemetryJson(char* json, size_t jsonLen, bool full) {
            "\"vertical_speed_mps\":%.2f,\"apogee_m\":%.2f,\"flight_phase_ms\":%lu,"
            "\"ignition_delay_ms\":%lu,\"ignition_delay_valid\":%u,"
            "\"deployment_state\":%u,\"deployment_flags\":%u,"
+           "\"role_config_unlock_seq\":%lu,\"role_config_unlock_active\":%u,"
            "\"attitude_q\":[%.6f,%.6f,%.6f,%.6f]%s}",
            output.loadcellValid ? output.thrustKgf : 0.0f,
            output.loadcellValid ? output.thrustKgf : 0.0f,
@@ -405,6 +406,8 @@ size_t buildTelemetryJson(char* json, size_t jsonLen, bool full) {
            outputIgnitionDelayValid ? 1U : 0U,
            (unsigned)output.deploymentState,
            (unsigned)output.deploymentFlags,
+           (unsigned long)roleConfigUnlockSeq,
+           roleConfigUnlockActive(nowMs) ? 1U : 0U,
            output.attitudeQw,
            output.attitudeQx,
            output.attitudeQy,
@@ -448,7 +451,8 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
   //  ignition_delay_ms,ignition_delay_valid,deployment_state,deployment_flags,
   //  arm_physical,flash_node,flash_target,stage1_connected,stage2_connected,
   //  stage1_snapshot,stage2_snapshot,stage2_mode,operation_mode,data_mode,
-  //  reset_code,boot_session,storage_logging]
+  //  reset_code,boot_session,storage_logging,role_config_unlock_seq,
+  //  role_config_unlock_active]
   const bool remoteOutput = flashLinkGroundRole();
   const Telemetry& output = remoteOutput ? flashLinkRemoteSnap : snap;
   const uint16_t remoteFlags = remoteOutput ? flashLinkRemoteState.flags : 0;
@@ -704,7 +708,7 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
            "%u,%lu,%lu,%u,%u,%lu,%u,%u,%ld,%d,%lu,"
            "%.3f,%u,%ld,%u,%u,%u,%u,%.3f,%.6f,%lu,%lu,%lu,"
            "%lu,%lu,%u,\"%s\",\"%s\",%u,%.2f,%.2f,%lu,%.6f,%.6f,%.6f,%.6f,"
-           "%lu,%u,%u,%u,%u,%u,%u,%u,%u,%s,%s,%u,%u,%u,%u,%lu,%u]",
+           "%lu,%u,%u,%u,%u,%u,%u,%u,%u,%s,%s,%u,%u,%u,%u,%lu,%u,%lu,%u]",
            (unsigned long)frameSequence,
            (unsigned long)output.ut,
            output.baroValid ? output.p : 0.0f,
@@ -799,7 +803,9 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
                (unsigned)outputDataModeCode,
                (unsigned)outputResetCode,
                (unsigned long)outputBootSession,
-               remoteOutput ? ((remoteFlags >> 14) & 1U) : (storageState.loggingEnabled ? 1U : 0U));
+               remoteOutput ? ((remoteFlags >> 14) & 1U) : (storageState.loggingEnabled ? 1U : 0U),
+               (unsigned long)roleConfigUnlockSeq,
+               roleConfigUnlockActive(nowMs) ? 1U : 0U);
   if (n <= 0) {
     if (jsonLen) json[0] = '\0';
     return 0;
@@ -1874,6 +1880,19 @@ void setupRoutes() {
     const uint8_t oldDataMode = flashLinkDataModeCode();
     const uint8_t oldNodeId = flashLinkNodeId;
     const bool oldStage2Mode = flashLinkStage2Enabled;
+    const bool protectedRoleRequest =
+      request->hasParam("flash_link_role") || request->hasParam("fl_role") ||
+      request->hasParam("flash_link_node_id") || request->hasParam("fl_node") ||
+      request->hasParam("flash_link_stage2_mode") ||
+      request->hasParam("fl_stage2_mode") || request->hasParam("stage2_mode");
+    if (protectedRoleRequest && !roleConfigUnlockActive(millis())) {
+      sendText(
+        request,
+        403,
+        "application/json",
+        "{\"ok\":0,\"err\":\"ROLE_CONFIG_LOCKED\",\"hint\":\"PRESS_PHYSICAL_BUTTON_6X_THEN_HOLD\"}");
+      return;
+    }
     // Communication-role changes are local board configuration. Do not decide
     // remote forwarding from the old role and then change the role midway
     // through the same request; that made ground -> avionics activation try to
@@ -2030,6 +2049,7 @@ void setupRoutes() {
         truthy(request->getParam(stage2ModeKey)->value()),
         true);
     }
+    if (protectedRoleRequest) consumeRoleConfigUnlock();
     const char* dataModeKey = request->hasParam("flash_link_data_mode")
       ? "flash_link_data_mode"
       : (request->hasParam("fl_data_mode")

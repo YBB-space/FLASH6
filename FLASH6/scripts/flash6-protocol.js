@@ -161,6 +161,12 @@
         storage_logging:(frame[98] != null && isFinite(Number(frame[98])))
           ? (Number(frame[98]) ? 1 : 0)
           : null,
+        role_config_unlock_seq:(frame[99] != null && isFinite(Number(frame[99])))
+          ? Number(frame[99])
+          : 0,
+        role_config_unlock_active:(frame[100] != null && isFinite(Number(frame[100])))
+          ? (Number(frame[100]) ? 1 : 0)
+          : 0,
         stage_telemetry:stageTelemetry,
         p:Number(frame[3]) || 0,
         alt_m:Number(frame[4]) || 0,
@@ -239,7 +245,7 @@
         fl_rssi_age_ms:(frame[56] != null && isFinite(Number(frame[56]))) ? Number(frame[56]) : 4294967295,
         fw_program:"Altis_Intelligent3_firmware1",
         fw_board:"Altis_Intelligent3_b3",
-        fw_protocol:"Flash6-Intelligent-b10",
-        fw_build:"v6 b46"
+        fw_protocol:"Flash6-Intelligent-b11",
+        fw_build:"v6 b50"
       };
     }
