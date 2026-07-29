@@ -3,6 +3,23 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.11.3 — v6 b55 — 2026-07-29
+
+Protocol unchanged: `Flash6-Intelligent-b12`
+
+Storage record protocol unchanged: `HWLOGV2` version `9`
+
+- 기존 펌웨어의 256바이트 USB RX 큐에서도 Base64 명령 한 줄 전체가
+  들어가도록 USB 업데이트 청크를 128바이트로 제한했습니다.
+- 청크 그룹을 보내기 전부터 펌웨어 ERR 응답을 별도로 감시해 최초
+  오류가 후속 `UPDATE_NOT_ACTIVE`에 가려지지 않도록 수정했습니다.
+- 실패 처리 시 보드 상태와 원래 종료 사유를 먼저 조회하며, 업데이트가
+  실제로 활성 상태일 때만 abort를 전송합니다.
+- 새 펌웨어는 손상된 Base64 프레임과 오프셋 불일치만으로 전체 OTA
+  세션을 폐기하지 않습니다. 기록 위치를 조회한 뒤 해당 지점부터
+  안전하게 재개할 수 있습니다.
+- FLASH6 UI 자산 버전을 `b153`으로 갱신했습니다.
+
 ## 0.11.2 — v6 b54 — 2026-07-29
 
 Protocol unchanged: `Flash6-Intelligent-b12`

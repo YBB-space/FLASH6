@@ -368,7 +368,7 @@ bool handleFirmwareSerialChunkLine(const char* line) {
   const char* encoded = offsetEnd + 6U;
   const size_t encodedLen = strlen(encoded);
   if (encodedLen == 0U || encodedLen > 1024U) {
-    firmwareUpdateAbort("BAD_CHUNK_SIZE");
+    firmwareUpdateSetError("BAD_CHUNK_SIZE");
     Serial.println("ERR FIRMWARE_CHUNK BAD_CHUNK_SIZE");
     return true;
   }
@@ -382,7 +382,7 @@ bool handleFirmwareSerialChunkLine(const char* line) {
     reinterpret_cast<const unsigned char*>(encoded),
     encodedLen);
   if (decodeResult != 0 || decodedLen == 0U) {
-    firmwareUpdateAbort("BASE64_DECODE_FAILED");
+    firmwareUpdateSetError("BASE64_DECODE_FAILED");
     Serial.println("ERR FIRMWARE_CHUNK BASE64_DECODE_FAILED");
     return true;
   }

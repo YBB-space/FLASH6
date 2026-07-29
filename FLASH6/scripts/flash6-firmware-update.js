@@ -1,6 +1,9 @@
     const FIRMWARE_UPDATE_MIN_BYTES = 64 * 1024;
     const FIRMWARE_UPDATE_MAX_BYTES = 5 * 1024 * 1024;
-    const FIRMWARE_UPDATE_SERIAL_CHUNK_BYTES = 512;
+    // The currently installed b52/b53 firmware can expose only a 256-byte
+    // native USB RX queue. Keep the complete Base64 command below that limit
+    // so a flash write can never truncate the following command.
+    const FIRMWARE_UPDATE_SERIAL_CHUNK_BYTES = 128;
     const FIRMWARE_UPDATE_SERIAL_CONFIRM_BYTES = 2 * 1024;
     const FIRMWARE_UPDATE_SERIAL_LINE_PACE_MS = 2;
     const FIRMWARE_UPDATE_SERIAL_CONFIRM_RETRIES = 3;
@@ -94,6 +97,10 @@
         BAD_SIZE:"펌웨어 파일 크기가 허용 범위를 벗어났습니다.",
         BAD_SHA256:"펌웨어 무결성 정보가 올바르지 않습니다.",
         BAD_IMAGE_MAGIC:"ESP32-S3 펌웨어 이미지가 아닙니다.",
+        BAD_OFFSET:"USB 청크 순서가 어긋났습니다. 보드 수신 위치를 다시 확인하세요.",
+        BAD_CHUNK_SIZE:"USB 펌웨어 청크 크기가 올바르지 않습니다.",
+        BASE64_DECODE_FAILED:"USB 펌웨어 청크가 전송 중 손상되었습니다.",
+        UPDATE_NOT_ACTIVE:"보드의 펌웨어 업데이트 세션이 먼저 종료되었습니다.",
         SHA256_MISMATCH:"전송된 펌웨어의 무결성 검증에 실패했습니다.",
         TRANSFER_TIMEOUT:"전송 응답 시간이 초과되었습니다. 연결을 확인하세요.",
         SERIAL_BEGIN_TIMEOUT:"보드가 업데이트 시작에 응답하지 않았습니다. USB 연결과 물리 인증 상태를 확인하세요.",
@@ -472,60 +479,77 @@
         const confirmEnd = Math.min(
           bytes.length,
           confirmStart + FIRMWARE_UPDATE_SERIAL_CONFIRM_BYTES);
-        while(offset < confirmEnd){
-          const end = Math.min(
-            confirmEnd,
-            offset + FIRMWARE_UPDATE_SERIAL_CHUNK_BYTES);
-          await writeFirmwareSerialChunk(bytes, offset, end);
-          offset = end;
-          updateFirmwareProgress(offset, bytes.length, "USB로 펌웨어 전송 중");
-        }
+        let firstGroupError = null;
+        const groupErrorWaiter = createSerialAckWaiter((event)=>{
+          return event.kind === "err" &&
+            String(event.message || "").toUpperCase().indexOf("FIRMWARE") >= 0;
+        }, 15000);
+        groupErrorWaiter.promise.then((result)=>{
+          if(result && result.kind === "err" && !firstGroupError){
+            firstGroupError = result;
+          }
+        });
+        try{
+          while(offset < confirmEnd){
+            const end = Math.min(
+              confirmEnd,
+              offset + FIRMWARE_UPDATE_SERIAL_CHUNK_BYTES);
+            await writeFirmwareSerialChunk(bytes, offset, end);
+            offset = end;
+            updateFirmwareProgress(offset, bytes.length, "USB로 펌웨어 전송 중");
+          }
 
-        let confirmed = false;
-        for(
-          let attempt = 0;
-          attempt < FIRMWARE_UPDATE_SERIAL_CONFIRM_RETRIES;
-          attempt += 1
-        ){
-          const result = await requestFirmwareSerialStatus();
-          const reply = result ? result.reply : null;
-          const status = result ? result.status : null;
-          if(reply && reply.kind === "err"){
-            throw new Error(reply.message || "SERIAL_TRANSFER_TIMEOUT");
-          }
-          const written = status ? Math.round(Number(status.written)) : NaN;
-          const total = status ? Math.round(Number(status.total)) : NaN;
-          if(
-            status &&
-            Number(status.active) === 1 &&
-            isFinite(written) &&
-            written === confirmEnd &&
-            (!isFinite(total) || total === bytes.length)
+          let confirmed = false;
+          for(
+            let attempt = 0;
+            attempt < FIRMWARE_UPDATE_SERIAL_CONFIRM_RETRIES;
+            attempt += 1
           ){
-            confirmed = true;
-            break;
+            const result = await requestFirmwareSerialStatus();
+            const reply = result ? result.reply : null;
+            const status = result ? result.status : null;
+            if(firstGroupError){
+              throw new Error(firstGroupError.message || "SERIAL_TRANSFER_TIMEOUT");
+            }
+            if(reply && reply.kind === "err"){
+              throw new Error(reply.message || "SERIAL_TRANSFER_TIMEOUT");
+            }
+            const written = status ? Math.round(Number(status.written)) : NaN;
+            const total = status ? Math.round(Number(status.total)) : NaN;
+            if(
+              status &&
+              Number(status.active) === 1 &&
+              isFinite(written) &&
+              written === confirmEnd &&
+              (!isFinite(total) || total === bytes.length)
+            ){
+              confirmed = true;
+              break;
+            }
+            if(
+              status &&
+              Number(status.active) === 1 &&
+              isFinite(written) &&
+              written >= confirmStart &&
+              written < confirmEnd
+            ){
+              // The status command is ordered after the chunks on WebSerial.
+              // Resume at the authoritative device offset when a retryable
+              // frame error left this group only partially written.
+              offset = written;
+              updateFirmwareProgress(
+                offset,
+                bytes.length,
+                "USB 수신 위치 재동기화 중");
+              break;
+            }
           }
-          if(
-            status &&
-            Number(status.active) === 1 &&
-            isFinite(written) &&
-            written >= confirmStart &&
-            written < confirmEnd
-          ){
-            // The status command is ordered after the chunks on WebSerial. A
-            // lower offset means the device accepted only part of this group;
-            // resume exactly there without ever duplicating flash writes.
-            offset = written;
-            updateFirmwareProgress(
-              offset,
-              bytes.length,
-              "USB 수신 위치 재동기화 중");
-            break;
-          }
+          if(confirmed) continue;
+          if(offset < confirmEnd) continue;
+          throw new Error("SERIAL_TRANSFER_TIMEOUT");
+        }finally{
+          cancelSerialAckWaiter(groupErrorWaiter, "FIRMWARE_GROUP_COMPLETE");
         }
-        if(confirmed) continue;
-        if(offset < confirmEnd) continue;
-        throw new Error("SERIAL_TRANSFER_TIMEOUT");
       }
 
       updateFirmwareProgress(bytes.length, bytes.length, "이미지 무결성 검증 중");
@@ -613,12 +637,25 @@
           closeFirmwareUpdateModal();
         }, 4200);
       }catch(error){
-        const raw = error && error.message ? String(error.message) : String(error || "");
+        let raw = error && error.message ? String(error.message) : String(error || "");
         if(transport === "serial" && serialConnected && serialWriter){
           try{
-            await serialWriteLine(
-              "/firmware/abort",
-              {log:false, timeoutMs:1200, firmwareUpdate:true});
+            const failureResult = await requestFirmwareSerialStatus();
+            const failureStatus = failureResult ? failureResult.status : null;
+            const boardError = failureStatus
+              ? String(failureStatus.error || "").trim()
+              : "";
+            if(
+              boardError &&
+              (/UPDATE_NOT_ACTIVE/i.test(raw) || /SERIAL_TRANSFER_TIMEOUT/i.test(raw))
+            ){
+              raw = boardError;
+            }
+            if(failureStatus && Number(failureStatus.active) === 1){
+              await serialWriteLine(
+                "/firmware/abort",
+                {log:false, timeoutMs:1200, firmwareUpdate:true});
+            }
           }catch(_abortError){}
         }
         firmwareUpdateUiBusy = false;

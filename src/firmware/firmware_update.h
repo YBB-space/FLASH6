@@ -180,9 +180,15 @@ bool firmwareUpdateWrite(
     firmwareUpdateSetError("UPDATE_NOT_ACTIVE");
     return false;
   }
-  if (offset != firmwareUpdate.writtenBytes ||
-      len > firmwareUpdate.expectedBytes - firmwareUpdate.writtenBytes) {
-    firmwareUpdateAbort("BAD_OFFSET");
+  if (offset != firmwareUpdate.writtenBytes) {
+    // A serial frame may be retried after host backpressure. Keep the Update
+    // session alive so the host can query `writtenBytes` and resume exactly
+    // there; no hash or flash state has changed yet.
+    firmwareUpdateSetError("BAD_OFFSET");
+    return false;
+  }
+  if (len > firmwareUpdate.expectedBytes - firmwareUpdate.writtenBytes) {
+    firmwareUpdateAbort("BAD_CHUNK_SIZE");
     return false;
   }
   if (offset == 0U && data[0] != 0xE9U) {
@@ -200,6 +206,7 @@ bool firmwareUpdateWrite(
   }
   firmwareUpdate.writtenBytes += written;
   firmwareUpdate.lastWriteMs = millis();
+  firmwareUpdate.error[0] = '\0';
   return true;
 }
 
