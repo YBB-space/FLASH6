@@ -3,6 +3,20 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.11.4 — v6 b56 — 2026-07-29
+
+Protocol unchanged: `Flash6-Intelligent-b12`
+
+Storage record protocol unchanged: `HWLOGV2` version `9`
+
+- USB 명령 처리와 같은 루프에서 OTA 세션이 시작되면 루프 시작 시각이
+  OTA 시작 시각보다 과거가 되어 unsigned 경과시간이 언더플로되던
+  문제를 수정했습니다.
+- OTA 유휴 타임아웃은 명령 처리 후의 최신 시각으로 계산됩니다. 따라서
+  `/firmware/begin` 직후 첫 청크가 오기 전에 `TRANSFER_TIMEOUT`으로
+  세션이 종료되지 않습니다.
+- FLASH6 UI 자산 버전을 `b154`로 갱신했습니다.
+
 ## 0.11.3 — v6 b55 — 2026-07-29
 
 Protocol unchanged: `Flash6-Intelligent-b12`

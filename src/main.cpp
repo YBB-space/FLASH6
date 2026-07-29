@@ -143,7 +143,11 @@ void loop() {
   pollSerial();
   updateSharedSensorPins();
   applyPyroOutputs(nowMs);
-  firmwareUpdateTick(nowMs);
+  // `pollSerial()` can start an OTA session in this same loop iteration.
+  // Use a fresh timestamp here: comparing the pre-poll timestamp against the
+  // newly-created session timestamp underflows uint32_t and used to trigger an
+  // immediate TRANSFER_TIMEOUT before the first chunk could arrive.
+  firmwareUpdateTick(millis());
   if (firmwareUpdateActive()) {
     // Async HTTP keeps running on its own task. USB OTA continues through
     // pollSerial() above; all unrelated sensor/link/storage work is paused.

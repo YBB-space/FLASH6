@@ -1,8 +1,8 @@
 
 constexpr char kFirmwareProgram[] = "Altis_Intelligent3_firmware1";
-constexpr char kFirmwareVersion[] = "0.11.3";
-constexpr char kFirmwareBuildId[] = "v6 b55";
-constexpr uint16_t kFirmwareBuildNumber = 55;
+constexpr char kFirmwareVersion[] = "0.11.4";
+constexpr char kFirmwareBuildId[] = "v6 b56";
+constexpr uint16_t kFirmwareBuildNumber = 56;
 constexpr char kFirmwareBoard[] = "Altis_Intelligent3_b3";
 constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b12";
 constexpr uint8_t kStorageProtocolVersion = 9;

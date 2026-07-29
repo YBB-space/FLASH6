@@ -271,8 +271,13 @@ String firmwareUpdateStatusJson() {
 
 void firmwareUpdateTick(uint32_t nowMs) {
   if (!firmwareUpdate.active) return;
-  if ((uint32_t)(nowMs - firmwareUpdate.lastWriteMs) >
-      kFirmwareUpdateIdleTimeoutMs) {
+  const int32_t elapsedMs =
+    (int32_t)(nowMs - firmwareUpdate.lastWriteMs);
+  // The serial loop or AsyncWebServer task can create/refresh the session
+  // after the caller sampled `nowMs`. Treat that as zero elapsed time instead
+  // of allowing unsigned subtraction to look like a multi-day timeout.
+  if (elapsedMs < 0) return;
+  if ((uint32_t)elapsedMs > kFirmwareUpdateIdleTimeoutMs) {
     const bool serialTransfer =
       firmwareUpdate.transport == FirmwareUpdateTransport::Serial;
     firmwareUpdateAbort("TRANSFER_TIMEOUT");
