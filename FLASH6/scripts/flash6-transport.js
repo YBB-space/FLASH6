@@ -559,7 +559,10 @@
           return false;
         }
       }, timeoutMs);
-      const wrote = await serialWriteLine(command, {timeoutMs:writeTimeoutMs});
+      const wrote = await serialWriteLine(command, {
+        timeoutMs:writeTimeoutMs,
+        firmwareUpdate:options.firmwareUpdate === true
+      });
       if(!wrote){
         cancelSerialAckWaiter(waiter, "SERIAL_WRITE_FAIL");
       }
@@ -964,6 +967,12 @@
 
     async function serialWriteLine(line, opts){
       if(!serialConnected || !serialWriter) return false;
+      if(
+        firmwareUpdateUiBusy &&
+        !(opts && opts.firmwareUpdate === true)
+      ){
+        return false;
+      }
       try{
         const outLine = String(line || "").trim();
         const data = new TextEncoder().encode(outLine.endsWith("\n") ? outLine : (outLine + "\n"));

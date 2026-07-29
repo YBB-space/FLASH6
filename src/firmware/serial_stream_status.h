@@ -417,6 +417,10 @@ void handleSerialLine(const char* line) {
   }
 
   if (cmd == "/firmware/status") {
+    if (firmwareUpdateActive() &&
+        firmwareUpdate.transport == FirmwareUpdateTransport::Serial) {
+      firmwareUpdate.lastWriteMs = millis();
+    }
     Serial.print("ACK FIRMWARE_STATUS ");
     Serial.println(firmwareUpdateStatusJson());
     return;

@@ -25206,7 +25206,7 @@ function requestMobileMockup3dMesh(){
         fw_program:"Altis_Intelligent3_firmware1",
         fw_board:"Altis_Intelligent3_b3",
         fw_protocol:"Flash6-Intelligent-b12",
-        fw_build:"v6 b53"
+        fw_build:"v6 b54"
       };
     }
 
@@ -25771,7 +25771,10 @@ function requestMobileMockup3dMesh(){
           return false;
         }
       }, timeoutMs);
-      const wrote = await serialWriteLine(command, {timeoutMs:writeTimeoutMs});
+      const wrote = await serialWriteLine(command, {
+        timeoutMs:writeTimeoutMs,
+        firmwareUpdate:options.firmwareUpdate === true
+      });
       if(!wrote){
         cancelSerialAckWaiter(waiter, "SERIAL_WRITE_FAIL");
       }
@@ -26176,6 +26179,12 @@ function requestMobileMockup3dMesh(){
 
     async function serialWriteLine(line, opts){
       if(!serialConnected || !serialWriter) return false;
+      if(
+        firmwareUpdateUiBusy &&
+        !(opts && opts.firmwareUpdate === true)
+      ){
+        return false;
+      }
       try{
         const outLine = String(line || "").trim();
         const data = new TextEncoder().encode(outLine.endsWith("\n") ? outLine : (outLine + "\n"));
@@ -26362,9 +26371,9 @@ function requestMobileMockup3dMesh(){
     const FIRMWARE_UPDATE_MIN_BYTES = 64 * 1024;
     const FIRMWARE_UPDATE_MAX_BYTES = 5 * 1024 * 1024;
     const FIRMWARE_UPDATE_SERIAL_CHUNK_BYTES = 512;
-    const FIRMWARE_UPDATE_SERIAL_WINDOW_BYTES = 32 * 1024;
-    const FIRMWARE_UPDATE_SERIAL_LINE_PACE_MS = 3;
-    const FIRMWARE_UPDATE_SERIAL_WINDOW_RETRIES = 3;
+    const FIRMWARE_UPDATE_SERIAL_CONFIRM_BYTES = 2 * 1024;
+    const FIRMWARE_UPDATE_SERIAL_LINE_PACE_MS = 2;
+    const FIRMWARE_UPDATE_SERIAL_CONFIRM_RETRIES = 3;
     const FIRMWARE_UPDATE_IMAGE_MAGIC = 0xE9;
     const FIRMWARE_UPDATE_REQUIRED_MARKERS = [
       "Altis_Intelligent3_firmware1",
@@ -26731,11 +26740,6 @@ function requestMobileMockup3dMesh(){
       return btoa(binary);
     }
 
-    function parseFirmwareProgressBytes(message){
-      const match = String(message || "").match(/\bbytes=(\d+)/i);
-      return match ? Math.max(0, Number(match[1]) || 0) : 0;
-    }
-
     function parseFirmwareSerialStatus(message){
       const text = String(message || "");
       const jsonStart = text.indexOf("{");
@@ -26758,9 +26762,13 @@ function requestMobileMockup3dMesh(){
       const reply = await requestSerialCommandAck(
         "/firmware/status",
         (event)=>String(event.message || "").toUpperCase().indexOf("FIRMWARE_STATUS") === 0,
-        {timeoutMs:4000, writeTimeoutMs:2500});
-      if(!reply || !reply.ok) return null;
-      return parseFirmwareSerialStatus(reply.message);
+        {timeoutMs:5000, writeTimeoutMs:2500, firmwareUpdate:true});
+      return {
+        reply:reply || null,
+        status:reply && reply.ok
+          ? parseFirmwareSerialStatus(reply.message)
+          : null
+      };
     }
 
     function updateFirmwareProgress(written, total, stage){
@@ -26822,7 +26830,7 @@ function requestMobileMockup3dMesh(){
       const begin = await requestSerialCommandAck(
         "/firmware/begin?size=" + bytes.length + "&sha256=" + encodeURIComponent(hash),
         (event)=>String(event.message || "").toUpperCase().indexOf("FIRMWARE_BEGIN") === 0,
-        {timeoutMs:6000, writeTimeoutMs:3000});
+        {timeoutMs:6000, writeTimeoutMs:3000, firmwareUpdate:true});
       if(!begin || !begin.ok){
         const beginError = begin && begin.message ? begin.message : "SERIAL_NOT_READY";
         throw new Error(beginError === "SERIAL_TIMEOUT" ? "SERIAL_BEGIN_TIMEOUT" : beginError);
@@ -26830,67 +26838,71 @@ function requestMobileMockup3dMesh(){
 
       let offset = 0;
       while(offset < bytes.length){
-        const windowEnd = Math.min(bytes.length, offset + FIRMWARE_UPDATE_SERIAL_WINDOW_BYTES);
-        const windowStart = offset;
-        let recoveryCount = 0;
-        while(offset < windowEnd){
-          const progressWaiter = createSerialAckWaiter((event)=>{
-            if(event.kind === "err") return true;
-            return event.kind === "ack" &&
-              String(event.message || "").toUpperCase().indexOf("FIRMWARE_PROGRESS") === 0 &&
-              parseFirmwareProgressBytes(event.message) >= windowEnd;
-          }, 10000);
-          let progress = null;
-          try{
-            while(offset < windowEnd){
-              const end = Math.min(
-                windowEnd,
-                offset + FIRMWARE_UPDATE_SERIAL_CHUNK_BYTES);
-              await writeFirmwareSerialChunk(bytes, offset, end);
-              offset = end;
-              updateFirmwareProgress(offset, bytes.length, "USB로 펌웨어 전송 중");
-            }
-            progress = await progressWaiter.promise;
-          }catch(error){
-            cancelSerialAckWaiter(progressWaiter, "FIRMWARE_TRANSFER_ABORTED");
-            throw error;
-          }
+        const confirmStart = offset;
+        const confirmEnd = Math.min(
+          bytes.length,
+          confirmStart + FIRMWARE_UPDATE_SERIAL_CONFIRM_BYTES);
+        while(offset < confirmEnd){
+          const end = Math.min(
+            confirmEnd,
+            offset + FIRMWARE_UPDATE_SERIAL_CHUNK_BYTES);
+          await writeFirmwareSerialChunk(bytes, offset, end);
+          offset = end;
+          updateFirmwareProgress(offset, bytes.length, "USB로 펌웨어 전송 중");
+        }
 
-          if(progress && progress.ok) break;
-          if(progress && progress.kind === "err"){
-            throw new Error(progress.message || "SERIAL_TRANSFER_TIMEOUT");
+        let confirmed = false;
+        for(
+          let attempt = 0;
+          attempt < FIRMWARE_UPDATE_SERIAL_CONFIRM_RETRIES;
+          attempt += 1
+        ){
+          const result = await requestFirmwareSerialStatus();
+          const reply = result ? result.reply : null;
+          const status = result ? result.status : null;
+          if(reply && reply.kind === "err"){
+            throw new Error(reply.message || "SERIAL_TRANSFER_TIMEOUT");
           }
-
-          // A progress ACK can be lost when the browser or native USB queue is
-          // briefly back-pressured. Query the board's authoritative offset and
-          // continue from there instead of restarting or duplicating chunks.
-          const status = await requestFirmwareSerialStatus();
           const written = status ? Math.round(Number(status.written)) : NaN;
           const total = status ? Math.round(Number(status.total)) : NaN;
           if(
-            !status ||
-            Number(status.active) !== 1 ||
-            !isFinite(written) ||
-            written < windowStart ||
-            written > windowEnd ||
-            (isFinite(total) && total !== bytes.length)
+            status &&
+            Number(status.active) === 1 &&
+            isFinite(written) &&
+            written === confirmEnd &&
+            (!isFinite(total) || total === bytes.length)
           ){
-            throw new Error("SERIAL_TRANSFER_TIMEOUT");
+            confirmed = true;
+            break;
           }
-          offset = written;
-          updateFirmwareProgress(offset, bytes.length, "USB 수신 위치 재동기화 중");
-          recoveryCount += 1;
-          if(recoveryCount > FIRMWARE_UPDATE_SERIAL_WINDOW_RETRIES){
-            throw new Error("SERIAL_TRANSFER_TIMEOUT");
+          if(
+            status &&
+            Number(status.active) === 1 &&
+            isFinite(written) &&
+            written >= confirmStart &&
+            written < confirmEnd
+          ){
+            // The status command is ordered after the chunks on WebSerial. A
+            // lower offset means the device accepted only part of this group;
+            // resume exactly there without ever duplicating flash writes.
+            offset = written;
+            updateFirmwareProgress(
+              offset,
+              bytes.length,
+              "USB 수신 위치 재동기화 중");
+            break;
           }
         }
+        if(confirmed) continue;
+        if(offset < confirmEnd) continue;
+        throw new Error("SERIAL_TRANSFER_TIMEOUT");
       }
 
       updateFirmwareProgress(bytes.length, bytes.length, "이미지 무결성 검증 중");
       const complete = await requestSerialCommandAck(
         "/firmware/end",
         (event)=>String(event.message || "").toUpperCase().indexOf("FIRMWARE_COMPLETE") === 0,
-        {timeoutMs:120000, writeTimeoutMs:3000});
+        {timeoutMs:120000, writeTimeoutMs:3000, firmwareUpdate:true});
       if(!complete || !complete.ok){
         const verifyError = complete && complete.message ? complete.message : "VERIFY_FAILED";
         throw new Error(verifyError === "SERIAL_TIMEOUT" ? "SERIAL_VERIFY_TIMEOUT" : verifyError);
@@ -26973,7 +26985,11 @@ function requestMobileMockup3dMesh(){
       }catch(error){
         const raw = error && error.message ? String(error.message) : String(error || "");
         if(transport === "serial" && serialConnected && serialWriter){
-          try{ await serialWriteLine("/firmware/abort", {log:false, timeoutMs:1200}); }catch(_abortError){}
+          try{
+            await serialWriteLine(
+              "/firmware/abort",
+              {log:false, timeoutMs:1200, firmwareUpdate:true});
+          }catch(_abortError){}
         }
         firmwareUpdateUiBusy = false;
         document.body.classList.remove("firmware-update-locked");

@@ -3,6 +3,22 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.11.2 — v6 b54 — 2026-07-29
+
+Protocol unchanged: `Flash6-Intelligent-b12`
+
+Storage record protocol unchanged: `HWLOGV2` version `9`
+
+- USB 펌웨어 전송 확인 단위를 32KB 진행 ACK에서 2KB 상태 확인으로
+  변경했습니다. 브라우저는 네 개 청크를 보낸 직후 보드가 실제 기록한
+  오프셋을 확인하므로 작은 USB 큐에 데이터가 누적되지 않습니다.
+- 일부만 기록된 경우 보드가 보고한 정확한 오프셋부터 이어 보내며,
+  확인 응답은 최대 3회 재시도합니다. 전송 상태 조회도 유효한 활동으로
+  처리하고 보드 측 유휴 제한을 60초로 늘렸습니다.
+- 업데이트가 진행되는 동안 일반 설정·상태 동기화 명령이 동일한 USB
+  writer에 끼어들지 못하도록 펌웨어 전송 전용 잠금을 적용했습니다.
+- FLASH6 UI 자산 버전을 `b152`로 갱신했습니다.
+
 ## 0.11.1 — v6 b53 — 2026-07-29
 
 Protocol unchanged: `Flash6-Intelligent-b12`

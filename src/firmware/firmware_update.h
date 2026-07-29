@@ -26,7 +26,7 @@ constexpr size_t kFirmwareUpdateMinBytes = 64U * 1024U;
 constexpr size_t kFirmwareUpdateMaxBytes = 5U * 1024U * 1024U;
 constexpr size_t kFirmwareSerialChunkBytes = 768U;
 constexpr size_t kFirmwareProgressStepBytes = 32U * 1024U;
-constexpr uint32_t kFirmwareUpdateIdleTimeoutMs = 30000U;
+constexpr uint32_t kFirmwareUpdateIdleTimeoutMs = 60000U;
 
 bool firmwareUpdateActive() {
   return firmwareUpdate.active;
