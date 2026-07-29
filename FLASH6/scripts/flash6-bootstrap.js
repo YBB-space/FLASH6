@@ -561,6 +561,13 @@
       el.flashLinkRoleConfigCancel = document.getElementById("flashLinkRoleConfigCancel");
       el.flashLinkRoleConfigApply = document.getElementById("flashLinkRoleConfigApply");
       el.flashLinkRoleConfigSummary = document.getElementById("flashLinkRoleConfigSummary");
+      el.flashLinkIdentitySerial = document.getElementById("flashLinkIdentitySerial");
+      el.flashLinkIdentityResetBtn = document.getElementById("flashLinkIdentityResetBtn");
+      el.flashLinkIdentityResetOverlay = document.getElementById("flashLinkIdentityResetOverlay");
+      el.flashLinkIdentityResetClose = document.getElementById("flashLinkIdentityResetClose");
+      el.flashLinkIdentityResetCancel = document.getElementById("flashLinkIdentityResetCancel");
+      el.flashLinkIdentityResetConfirm = document.getElementById("flashLinkIdentityResetConfirm");
+      el.flashLinkIdentityResetSerial = document.getElementById("flashLinkIdentityResetSerial");
       el.flashLinkRoleGroundPanel = document.getElementById("flashLinkRoleGroundPanel");
       el.flashLinkRoleAvionicsPanel = document.getElementById("flashLinkRoleAvionicsPanel");
       el.flashLinkRoleDraftButtons = document.querySelectorAll("[data-fl-role-draft]");
@@ -568,7 +575,7 @@
       el.flashLinkStage2MismatchOverlay = document.getElementById("flashLinkStage2MismatchOverlay");
       el.flashLinkStage2MismatchCancel = document.getElementById("flashLinkStage2MismatchCancel");
       el.flashLinkStage2MismatchApply = document.getElementById("flashLinkStage2MismatchApply");
-      [el.flashLinkRoleConfigOverlay, el.flashLinkStage2MismatchOverlay].forEach((overlay)=>{
+      [el.flashLinkRoleConfigOverlay, el.flashLinkIdentityResetOverlay, el.flashLinkStage2MismatchOverlay].forEach((overlay)=>{
         if(overlay && overlay.parentElement !== document.body) document.body.appendChild(overlay);
       });
       el.flashLinkStage2ModePill = document.getElementById("flashLinkStage2ModePill");
@@ -2269,6 +2276,10 @@
         hideMobileControlsPanel();
       });
       document.addEventListener("keydown",(ev)=>{
+        if(ev.key === "Escape" && isFlashLinkIdentityResetOpen() && !flashLinkIdentityResetBusy){
+          closeFlashLinkIdentityResetModal();
+          return;
+        }
         if(ev.key === "Escape" && isFlashLinkRoleConfigOpen() && !flashLinkRoleConfigBusy){
           closeFlashLinkRoleConfigModal();
           return;
@@ -5388,6 +5399,25 @@
       if(el.flashLinkRoleConfigOverlay){
         el.flashLinkRoleConfigOverlay.addEventListener("click", (event)=>{
           if(event.target === el.flashLinkRoleConfigOverlay) closeFlashLinkRoleConfigModal();
+        });
+      }
+      if(el.flashLinkIdentityResetBtn){
+        el.flashLinkIdentityResetBtn.addEventListener("click", openFlashLinkIdentityResetModal);
+      }
+      if(el.flashLinkIdentityResetClose){
+        el.flashLinkIdentityResetClose.addEventListener("click", closeFlashLinkIdentityResetModal);
+      }
+      if(el.flashLinkIdentityResetCancel){
+        el.flashLinkIdentityResetCancel.addEventListener("click", closeFlashLinkIdentityResetModal);
+      }
+      if(el.flashLinkIdentityResetConfirm){
+        el.flashLinkIdentityResetConfirm.addEventListener("click", ()=>{
+          void resetFlashLinkIdentity();
+        });
+      }
+      if(el.flashLinkIdentityResetOverlay){
+        el.flashLinkIdentityResetOverlay.addEventListener("click", (event)=>{
+          if(event.target === el.flashLinkIdentityResetOverlay) closeFlashLinkIdentityResetModal();
         });
       }
       if(el.flashLinkStage2MismatchCancel){

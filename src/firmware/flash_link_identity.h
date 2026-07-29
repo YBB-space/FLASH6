@@ -169,6 +169,43 @@ bool flashLinkUnbindDevice(uint8_t nodeId) {
   return true;
 }
 
+bool flashLinkResetIdentityAndBindings() {
+  if (!bindingPrefsReady) {
+    bindingPrefsReady = bindingPrefs.begin("flash_bind", false);
+  }
+  if (!bindingPrefsReady) return false;
+
+  const FlashLinkBindingSlot previousBindings[2] = {
+    flashLinkBindings[0],
+    flashLinkBindings[1],
+  };
+  if (!bindingPrefs.clear()) return false;
+  bindingPrefs.putUChar("version", kFlashLinkBindingVersion);
+  flashLinkBindings[0] = {};
+  flashLinkBindings[1] = {};
+
+  bool identityCleared = false;
+  Preferences resetIdentityPrefs;
+  if (resetIdentityPrefs.begin("flash_identity", false)) {
+    identityCleared = resetIdentityPrefs.clear();
+    resetIdentityPrefs.end();
+  }
+
+  if (identityCleared) {
+    boardSerialNumber = 0U;
+    flashLinkBindingChanged(kFlashLinkNodeIdStage1);
+    flashLinkBindingChanged(kFlashLinkNodeIdStage2);
+    return true;
+  }
+
+  flashLinkBindings[0] = previousBindings[0];
+  flashLinkBindings[1] = previousBindings[1];
+  bindingPrefs.putUChar("version", kFlashLinkBindingVersion);
+  flashLinkPersistBindingSlot(kFlashLinkNodeIdStage1);
+  flashLinkPersistBindingSlot(kFlashLinkNodeIdStage2);
+  return false;
+}
+
 void flashLinkRecordDiscoveredDevice(
   uint64_t serial,
   uint8_t nodeId,

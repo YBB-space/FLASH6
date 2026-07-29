@@ -28698,6 +28698,34 @@ body :is(#brownoutWarningOverlay,#missionArmRiskOverlay) .brownout-warning-confi
   font-size:12px !important;
   line-height:1.45 !important;
 }
+.flash-role-identity-section{
+  display:flex !important;
+  align-items:center !important;
+  justify-content:space-between !important;
+  gap:18px !important;
+  padding:16px 2px 0 !important;
+  border-top:1px solid #2e3136 !important;
+}
+.flash-role-identity-serial{
+  font-family:var(--font-mono, ui-monospace, monospace) !important;
+  letter-spacing:.035em !important;
+}
+.flash-role-identity-reset{
+  min-height:38px !important;
+  flex:0 0 auto !important;
+  padding:0 15px !important;
+  border:1px solid #5f4245 !important;
+  border-radius:6px !important;
+  background:#24191b !important;
+  color:#e2a2a8 !important;
+  font-size:12px !important;
+  font-weight:700 !important;
+}
+.flash-role-identity-reset:hover{
+  border-color:#8e4a51 !important;
+  background:#2d1c1f !important;
+  color:#f0b0b6 !important;
+}
 .flash-role-config-actions{
   display:grid !important;
   grid-template-columns:1fr 1.55fr !important;
@@ -28720,9 +28748,41 @@ body :is(#brownoutWarningOverlay,#missionArmRiskOverlay) .brownout-warning-confi
   background:#e7e8ea !important;
   color:#17181a !important;
 }
+.flash-role-config-danger{
+  border:1px solid #a9434a !important;
+  background:#97363d !important;
+  color:#fff !important;
+}
 .flash-role-config-actions button:disabled{
   opacity:.48 !important;
   cursor:wait !important;
+}
+.flash-identity-reset-overlay{
+  z-index:2147483647 !important;
+}
+.flash-identity-reset-dialog{
+  width:min(520px, calc(100vw - 48px)) !important;
+}
+.flash-identity-reset-readout{
+  display:flex !important;
+  align-items:center !important;
+  justify-content:space-between !important;
+  gap:20px !important;
+  padding:16px 17px !important;
+  border:1px solid #3b3e44 !important;
+  border-radius:7px !important;
+  background:#111214 !important;
+}
+.flash-identity-reset-readout span{
+  color:#8f949d !important;
+  font-size:11px !important;
+  font-weight:650 !important;
+}
+.flash-identity-reset-readout strong{
+  color:#f1f2f4 !important;
+  font-family:var(--font-mono, ui-monospace, monospace) !important;
+  font-size:13px !important;
+  letter-spacing:.04em !important;
 }
 .flash-stage2-mismatch-dialog{
   width:min(520px, calc(100vw - 48px)) !important;
@@ -28760,6 +28820,7 @@ body :is(#brownoutWarningOverlay,#missionArmRiskOverlay) .brownout-warning-confi
     padding:14px !important;
   }
   .flash-role-config-dialog,
+  .flash-identity-reset-dialog,
   .flash-stage2-mismatch-dialog{
     width:100% !important;
     max-height:calc(100dvh - 28px) !important;

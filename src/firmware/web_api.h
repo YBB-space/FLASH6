@@ -2194,6 +2194,51 @@ void setupRoutes() {
     sendText(request, 200, "application/json", json);
   });
 
+  server.on("/identity/reset", HTTP_GET, [](AsyncWebServerRequest* request) {
+    if (!roleConfigUnlockActive(millis())) {
+      sendText(
+        request,
+        403,
+        "application/json",
+        "{\"ok\":0,\"err\":\"ROLE_CONFIG_LOCKED\",\"hint\":\"PRESS_PHYSICAL_BUTTON_6X_THEN_HOLD\"}");
+      return;
+    }
+    if (sequenceState != kSequenceStateIdle || sequenceUserWaiting ||
+        missionLaunchStandby || buttonSequenceWarningActive) {
+      sendText(
+        request,
+        409,
+        "application/json",
+        "{\"ok\":0,\"err\":\"SEQUENCE_ACTIVE\"}");
+      return;
+    }
+    if (!request->hasParam("confirm") ||
+        request->getParam("confirm")->value() != "RESET") {
+      sendText(
+        request,
+        400,
+        "application/json",
+        "{\"ok\":0,\"err\":\"CONFIRM_REQUIRED\"}");
+      return;
+    }
+    if (!flashLinkResetIdentityAndBindings()) {
+      sendText(
+        request,
+        500,
+        "application/json",
+        "{\"ok\":0,\"err\":\"IDENTITY_RESET_FAILED\"}");
+      return;
+    }
+    consumeRoleConfigUnlock();
+    pendingRestart = true;
+    restartAtMs = millis() + 900U;
+    sendText(
+      request,
+      200,
+      "application/json",
+      "{\"ok\":1,\"reset\":1,\"restart\":1}");
+  });
+
   server.on("/flash_link/devices", HTTP_GET, [](AsyncWebServerRequest* request) {
     sendText(request, 200, "application/json", flashLinkDevicesJson());
   });
@@ -2568,6 +2613,7 @@ void setupRoutes() {
   server.on("/rates", HTTP_OPTIONS, options);
   server.on("/settings", HTTP_OPTIONS, options);
   server.on("/identity", HTTP_OPTIONS, options);
+  server.on("/identity/reset", HTTP_OPTIONS, options);
   server.on("/flash_link/devices", HTTP_OPTIONS, options);
   server.on("/flash_link/bind", HTTP_OPTIONS, options);
   server.on("/flash_link/unbind", HTTP_OPTIONS, options);

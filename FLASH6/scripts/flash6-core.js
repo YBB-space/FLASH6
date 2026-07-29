@@ -6740,6 +6740,7 @@ function requestMobileMockup3dMesh(){
     let flashLinkRolePendingHardwareDraft = null;
     let flashLinkRoleConfigDraft = null;
     let flashLinkRoleConfigBusy = false;
+    let flashLinkIdentityResetBusy = false;
     let flashLinkRoleConfigLastConfirmedKey = "";
     let flashLinkStage2MismatchDetected = false;
     let flashLinkStage2MismatchDismissed = false;

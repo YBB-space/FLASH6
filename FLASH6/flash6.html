@@ -127,7 +127,7 @@
   <!-- Preload 축소: AP 모드/저메모리 환경에서 동시 요청 버스트를 줄임 -->
   <script>
     (function(){
-    var ASSET_VER = "20260729-physical-role-unlock-b147-__FLASH6_DEPLOY_SHA__";
+    var ASSET_VER = "20260729-identity-reset-b148-__FLASH6_DEPLOY_SHA__";
       window.__flashBoot = window.__flashBoot || {jsReady:false,lastError:"",phase:"static_loader",version:ASSET_VER};
       var isLocalPreview = !!window.__flashBoot.localPreview;
       var beaconEnabled = (window.__flashBoot.beaconEnabled !== false);
@@ -365,7 +365,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="styles/flash6-app.css?v=20260729-physical-role-unlock-b147-__FLASH6_DEPLOY_SHA__">
+  <link rel="stylesheet" href="styles/flash6-app.css?v=20260729-identity-reset-b148-__FLASH6_DEPLOY_SHA__">
 </head>
 <body>
   <!-- ✅ LOCKOUT 배경 오버레이 -->
@@ -3518,10 +3518,46 @@
             </div>
           </section>
           <div id="flashLinkRoleConfigSummary" class="flash-role-config-summary">현재 설정을 유지합니다.</div>
+          <section class="flash-role-identity-section" aria-label="기기 식별 정보">
+            <div>
+              <div class="flash-role-config-panel-title">기기 식별 정보</div>
+              <div id="flashLinkIdentitySerial" class="flash-role-config-panel-copy flash-role-identity-serial">S/N · --</div>
+            </div>
+            <button id="flashLinkIdentityResetBtn" class="flash-role-identity-reset" type="button">S/N 초기화</button>
+          </section>
         </div>
         <div class="flash-role-config-actions">
           <button id="flashLinkRoleConfigCancel" class="flash-role-config-secondary" type="button">취소</button>
           <button id="flashLinkRoleConfigApply" class="flash-role-config-primary" type="button">적용</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 물리 버튼 인증 후에만 가능한 로컬 S/N 초기화 -->
+    <div id="flashLinkIdentityResetOverlay" class="flash-role-config-overlay flash-identity-reset-overlay hidden" style="display:none;" aria-hidden="true">
+      <div class="flash-role-config-dialog flash-identity-reset-dialog" role="alertdialog" aria-modal="true" aria-labelledby="flashLinkIdentityResetTitle">
+        <div class="flash-role-config-header">
+          <div>
+            <div class="flash-role-config-kicker flash-role-config-kicker-warning">DEVICE IDENTITY</div>
+            <div id="flashLinkIdentityResetTitle" class="flash-role-config-title">기기 S/N 초기화</div>
+          </div>
+          <button id="flashLinkIdentityResetClose" class="flash-role-config-close" type="button" aria-label="닫기">×</button>
+        </div>
+        <div class="flash-role-config-body">
+          <div class="flash-role-config-copy">
+            이 보드의 영구 S/N과 저장된 바인드 슬롯을 지우고 재부팅합니다. 재부팅 시 새 S/N이 한 번 생성됩니다.
+          </div>
+          <div class="flash-identity-reset-readout">
+            <span>현재 기기</span>
+            <strong id="flashLinkIdentityResetSerial">--</strong>
+          </div>
+          <div class="flash-role-config-copy">
+            자이로·기압·로드셀 보정값과 미션 및 시퀀스 설정은 유지됩니다. 초기화 후 지상국에서 기기를 다시 등록하세요.
+          </div>
+        </div>
+        <div class="flash-role-config-actions">
+          <button id="flashLinkIdentityResetCancel" class="flash-role-config-secondary" type="button">취소</button>
+          <button id="flashLinkIdentityResetConfirm" class="flash-role-config-danger" type="button">초기화 후 재부팅</button>
         </div>
       </div>
     </div>

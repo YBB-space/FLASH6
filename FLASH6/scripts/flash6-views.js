@@ -918,6 +918,16 @@
       return !!(el.flashLinkRoleConfigOverlay &&
         !el.flashLinkRoleConfigOverlay.classList.contains("hidden"));
     }
+    function currentFlashLinkIdentitySerial(){
+      return String(
+        (flashLinkDeviceState && flashLinkDeviceState.board_sn) ||
+        "--"
+      );
+    }
+    function isFlashLinkIdentityResetOpen(){
+      return !!(el.flashLinkIdentityResetOverlay &&
+        !el.flashLinkIdentityResetOverlay.classList.contains("hidden"));
+    }
     function updateFlashLinkRoleAccessUi(){
       if(!el.flashLinkRoleAccessBtn) return;
       const cfg = currentFlashLinkRoleConfig();
@@ -991,6 +1001,17 @@
               : "적용 후 지상국은 STAGE 1 전용 100Hz 모드로 동작합니다.")
           : ("적용 후 이 보드는 STAGE " + draft.nodeId + " 에비오닉스로 동작합니다.");
       }
+      const serialText = currentFlashLinkIdentitySerial();
+      if(el.flashLinkIdentitySerial){
+        el.flashLinkIdentitySerial.textContent = "S/N · " + serialText;
+      }
+      if(el.flashLinkIdentityResetSerial){
+        el.flashLinkIdentityResetSerial.textContent = serialText;
+      }
+      if(el.flashLinkIdentityResetBtn){
+        el.flashLinkIdentityResetBtn.disabled =
+          flashLinkRoleConfigBusy || flashLinkIdentityResetBusy;
+      }
       if(el.flashLinkRoleConfigApply){
         el.flashLinkRoleConfigApply.disabled = flashLinkRoleConfigBusy;
         el.flashLinkRoleConfigApply.textContent = flashLinkRoleConfigBusy ? "적용 확인 중…" : "적용";
@@ -1008,6 +1029,9 @@
       };
       syncFlashLinkRoleConfigModal();
       setOverlayVisible(el.flashLinkRoleConfigOverlay, true);
+      void refreshFlashLinkDevices(false).then(()=>{
+        if(isFlashLinkRoleConfigOpen()) syncFlashLinkRoleConfigModal();
+      });
       requestAnimationFrame(()=>{
         const active = el.flashLinkRoleConfigOverlay.querySelector(".flash-role-segment .is-active");
         if(active) active.focus({preventScroll:true});
@@ -1020,6 +1044,117 @@
       if(el.flashLinkRoleAccessHint){
         el.flashLinkRoleAccessHint.textContent =
           "보드 물리 버튼을 6회 누른 뒤 길게 누르면 변경 창이 열립니다.";
+      }
+    }
+    function openFlashLinkIdentityResetModal(){
+      if(flashLinkRoleConfigBusy || flashLinkIdentityResetBusy ||
+          !isFlashLinkRoleConfigOpen() || !el.flashLinkIdentityResetOverlay) {
+        return;
+      }
+      const serialText = currentFlashLinkIdentitySerial();
+      if(el.flashLinkIdentityResetSerial){
+        el.flashLinkIdentityResetSerial.textContent = serialText;
+      }
+      setOverlayVisible(el.flashLinkIdentityResetOverlay, true);
+      requestAnimationFrame(()=>{
+        if(el.flashLinkIdentityResetCancel){
+          el.flashLinkIdentityResetCancel.focus({preventScroll:true});
+        }
+      });
+    }
+    function closeFlashLinkIdentityResetModal(){
+      if(flashLinkIdentityResetBusy) return;
+      setOverlayVisible(el.flashLinkIdentityResetOverlay, false);
+    }
+    function syncFlashLinkIdentityResetBusy(){
+      if(el.flashLinkIdentityResetClose){
+        el.flashLinkIdentityResetClose.disabled = flashLinkIdentityResetBusy;
+      }
+      if(el.flashLinkIdentityResetCancel){
+        el.flashLinkIdentityResetCancel.disabled = flashLinkIdentityResetBusy;
+      }
+      if(el.flashLinkIdentityResetConfirm){
+        el.flashLinkIdentityResetConfirm.disabled = flashLinkIdentityResetBusy;
+        el.flashLinkIdentityResetConfirm.textContent =
+          flashLinkIdentityResetBusy ? "초기화 중…" : "초기화 후 재부팅";
+      }
+      if(el.flashLinkIdentityResetBtn){
+        el.flashLinkIdentityResetBtn.disabled =
+          flashLinkRoleConfigBusy || flashLinkIdentityResetBusy;
+      }
+    }
+    async function requestFlashLinkIdentityReset(){
+      const path = "/identity/reset?confirm=RESET";
+      if(simEnabled) return {ok:true, reason:"SIM"};
+      if(serialConnected && serialWriter){
+        const reply = await requestSerialCommandAck(
+          path,
+          (evt)=>evt.kind === "ack" &&
+            String(evt.message || "").toUpperCase().includes("IDENTITY_RESET"),
+          {timeoutMs:3000, writeTimeoutMs:1000}
+        );
+        return {
+          ok:!!(reply && reply.ok),
+          reason:(reply && (reply.message || reply.kind)) || "SERIAL_NO_REPLY"
+        };
+      }
+      const API_BASE = getApiBaseForCommands();
+      const controller = createAbortControllerSafe();
+      const timer = controller ? setTimeout(()=>{
+        try{ controller.abort(); }catch(_e){}
+      }, 3500) : null;
+      try{
+        const response = await fetch((API_BASE || "") + path, Object.assign(
+          {cache:"no-cache"},
+          controller ? {signal:controller.signal} : {}
+        ));
+        const body = await response.text().catch(()=>"");
+        return {
+          ok:response.ok,
+          reason:(body && body.trim()) || ("HTTP " + response.status)
+        };
+      }catch(err){
+        return {
+          ok:false,
+          reason:(err && err.name === "AbortError")
+            ? "HTTP_TIMEOUT"
+            : ((err && err.message) || "NETWORK_ERROR")
+        };
+      }finally{
+        if(timer) clearTimeout(timer);
+      }
+    }
+    async function resetFlashLinkIdentity(){
+      if(flashLinkIdentityResetBusy) return false;
+      flashLinkIdentityResetBusy = true;
+      syncFlashLinkIdentityResetBusy();
+      showToast("기기 S/N과 바인드 정보를 초기화하는 중입니다.", "info", {
+        key:"flash-link-identity-reset",
+        duration:3200
+      });
+      try{
+        const result = await requestFlashLinkIdentityReset();
+        if(!result.ok){
+          showToast(
+            "S/N 초기화 실패 · " + String(result.reason || "NO_RESPONSE"),
+            "error",
+            {key:"flash-link-identity-reset", duration:5200}
+          );
+          return false;
+        }
+        flashLinkDeviceState = null;
+        setOverlayVisible(el.flashLinkIdentityResetOverlay, false);
+        setOverlayVisible(el.flashLinkRoleConfigOverlay, false);
+        flashLinkRoleConfigDraft = null;
+        showToast(
+          "초기화 완료 · 재부팅 후 새 S/N이 생성됩니다.",
+          "success",
+          {key:"flash-link-identity-reset", duration:5200}
+        );
+        return true;
+      }finally{
+        flashLinkIdentityResetBusy = false;
+        syncFlashLinkIdentityResetBusy();
       }
     }
     function buildFlashLinkRoleConfigPath(config){

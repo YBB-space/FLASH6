@@ -353,7 +353,7 @@ void handleSerialLine(const char* line) {
   cmd.trim();
 
   if (cmd == "help" || cmd == "/help") {
-    Serial.println("ACK GYRO_BARO_GPS_FLASH commands: /set?stream=0|1&storage_logging=0|1&ign_ms=1000&cd_ms=10000&daq_seq_pyro=1, /settings, /rates, /identity, /flash_link/devices, /flash_link/bind?node=1&sn=F6-XXXX-XXXX-XXXX-XXXX, /flash_link/unbind?node=1, /gps, /baro, /loadcell|zero|cal|reset, /servo?ch=1&deg=90 or SERVO 1 90, /storage/spi_flash/status|list|read|init, /storage/spi_flash/remote/list|read, /mission_profile_begin|chunk|end|cancel, /countdown_start, /mission_standby, /mission_force_timed, /abort, /reset");
+    Serial.println("ACK GYRO_BARO_GPS_FLASH commands: /set?stream=0|1&storage_logging=0|1&ign_ms=1000&cd_ms=10000&daq_seq_pyro=1, /settings, /rates, /identity, /identity/reset?confirm=RESET, /flash_link/devices, /flash_link/bind?node=1&sn=F6-XXXX-XXXX-XXXX-XXXX, /flash_link/unbind?node=1, /gps, /baro, /loadcell|zero|cal|reset, /servo?ch=1&deg=90 or SERVO 1 90, /storage/spi_flash/status|list|read|init, /storage/spi_flash/remote/list|read, /mission_profile_begin|chunk|end|cancel, /countdown_start, /mission_standby, /mission_force_timed, /abort, /reset");
     return;
   }
 
@@ -431,6 +431,33 @@ void handleSerialLine(const char* line) {
       kFirmwareVersion,
       kFirmwareBuildId,
       kFirmwareProtocol);
+    return;
+  }
+
+  if (cmd.startsWith("/identity/reset")) {
+    String confirmation;
+    if (!roleConfigUnlockActive(millis())) {
+      Serial.println("ERR IDENTITY_RESET ROLE_CONFIG_LOCKED hint=PRESS_PHYSICAL_BUTTON_6X_THEN_HOLD");
+      return;
+    }
+    if (sequenceState != kSequenceStateIdle || sequenceUserWaiting ||
+        missionLaunchStandby || buttonSequenceWarningActive) {
+      Serial.println("ERR IDENTITY_RESET SEQUENCE_ACTIVE");
+      return;
+    }
+    if (!getQueryValue(cmd, "confirm", confirmation) ||
+        confirmation != "RESET") {
+      Serial.println("ERR IDENTITY_RESET CONFIRM_REQUIRED");
+      return;
+    }
+    if (!flashLinkResetIdentityAndBindings()) {
+      Serial.println("ERR IDENTITY_RESET STORAGE_FAILED");
+      return;
+    }
+    consumeRoleConfigUnlock();
+    pendingRestart = true;
+    restartAtMs = millis() + 900U;
+    Serial.println("ACK IDENTITY_RESET restart=1");
     return;
   }
 

@@ -330,13 +330,21 @@ def register_after_upload(target, source, env) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--init", action="store_true")
+    parser.add_argument(
+        "--reset",
+        action="store_true",
+        help="remove every registered board and restart upload ordering at 1",
+    )
     parser.add_argument("--register-sn")
     parser.add_argument("--port", default="manual")
     parser.add_argument("--project-dir", default=str(Path(__file__).resolve().parents[1]))
     args = parser.parse_args()
     project_dir = Path(args.project_dir).resolve()
     registry = project_dir / REGISTRY_NAME
-    if args.init or not registry.exists():
+    if args.reset:
+        write_registry(registry, [])
+        print(f"[S/N] registry cleared: {registry}")
+    elif args.init or not registry.exists():
         write_registry(registry, read_registry(registry) if registry.exists() else [])
         print(registry)
     if args.register_sn:

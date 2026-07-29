@@ -6741,6 +6741,7 @@ function requestMobileMockup3dMesh(){
     let flashLinkRolePendingHardwareDraft = null;
     let flashLinkRoleConfigDraft = null;
     let flashLinkRoleConfigBusy = false;
+    let flashLinkIdentityResetBusy = false;
     let flashLinkRoleConfigLastConfirmedKey = "";
     let flashLinkStage2MismatchDetected = false;
     let flashLinkStage2MismatchDismissed = false;
@@ -12218,6 +12219,16 @@ function requestMobileMockup3dMesh(){
       return !!(el.flashLinkRoleConfigOverlay &&
         !el.flashLinkRoleConfigOverlay.classList.contains("hidden"));
     }
+    function currentFlashLinkIdentitySerial(){
+      return String(
+        (flashLinkDeviceState && flashLinkDeviceState.board_sn) ||
+        "--"
+      );
+    }
+    function isFlashLinkIdentityResetOpen(){
+      return !!(el.flashLinkIdentityResetOverlay &&
+        !el.flashLinkIdentityResetOverlay.classList.contains("hidden"));
+    }
     function updateFlashLinkRoleAccessUi(){
       if(!el.flashLinkRoleAccessBtn) return;
       const cfg = currentFlashLinkRoleConfig();
@@ -12291,6 +12302,17 @@ function requestMobileMockup3dMesh(){
               : "적용 후 지상국은 STAGE 1 전용 100Hz 모드로 동작합니다.")
           : ("적용 후 이 보드는 STAGE " + draft.nodeId + " 에비오닉스로 동작합니다.");
       }
+      const serialText = currentFlashLinkIdentitySerial();
+      if(el.flashLinkIdentitySerial){
+        el.flashLinkIdentitySerial.textContent = "S/N · " + serialText;
+      }
+      if(el.flashLinkIdentityResetSerial){
+        el.flashLinkIdentityResetSerial.textContent = serialText;
+      }
+      if(el.flashLinkIdentityResetBtn){
+        el.flashLinkIdentityResetBtn.disabled =
+          flashLinkRoleConfigBusy || flashLinkIdentityResetBusy;
+      }
       if(el.flashLinkRoleConfigApply){
         el.flashLinkRoleConfigApply.disabled = flashLinkRoleConfigBusy;
         el.flashLinkRoleConfigApply.textContent = flashLinkRoleConfigBusy ? "적용 확인 중…" : "적용";
@@ -12308,6 +12330,9 @@ function requestMobileMockup3dMesh(){
       };
       syncFlashLinkRoleConfigModal();
       setOverlayVisible(el.flashLinkRoleConfigOverlay, true);
+      void refreshFlashLinkDevices(false).then(()=>{
+        if(isFlashLinkRoleConfigOpen()) syncFlashLinkRoleConfigModal();
+      });
       requestAnimationFrame(()=>{
         const active = el.flashLinkRoleConfigOverlay.querySelector(".flash-role-segment .is-active");
         if(active) active.focus({preventScroll:true});
@@ -12320,6 +12345,117 @@ function requestMobileMockup3dMesh(){
       if(el.flashLinkRoleAccessHint){
         el.flashLinkRoleAccessHint.textContent =
           "보드 물리 버튼을 6회 누른 뒤 길게 누르면 변경 창이 열립니다.";
+      }
+    }
+    function openFlashLinkIdentityResetModal(){
+      if(flashLinkRoleConfigBusy || flashLinkIdentityResetBusy ||
+          !isFlashLinkRoleConfigOpen() || !el.flashLinkIdentityResetOverlay) {
+        return;
+      }
+      const serialText = currentFlashLinkIdentitySerial();
+      if(el.flashLinkIdentityResetSerial){
+        el.flashLinkIdentityResetSerial.textContent = serialText;
+      }
+      setOverlayVisible(el.flashLinkIdentityResetOverlay, true);
+      requestAnimationFrame(()=>{
+        if(el.flashLinkIdentityResetCancel){
+          el.flashLinkIdentityResetCancel.focus({preventScroll:true});
+        }
+      });
+    }
+    function closeFlashLinkIdentityResetModal(){
+      if(flashLinkIdentityResetBusy) return;
+      setOverlayVisible(el.flashLinkIdentityResetOverlay, false);
+    }
+    function syncFlashLinkIdentityResetBusy(){
+      if(el.flashLinkIdentityResetClose){
+        el.flashLinkIdentityResetClose.disabled = flashLinkIdentityResetBusy;
+      }
+      if(el.flashLinkIdentityResetCancel){
+        el.flashLinkIdentityResetCancel.disabled = flashLinkIdentityResetBusy;
+      }
+      if(el.flashLinkIdentityResetConfirm){
+        el.flashLinkIdentityResetConfirm.disabled = flashLinkIdentityResetBusy;
+        el.flashLinkIdentityResetConfirm.textContent =
+          flashLinkIdentityResetBusy ? "초기화 중…" : "초기화 후 재부팅";
+      }
+      if(el.flashLinkIdentityResetBtn){
+        el.flashLinkIdentityResetBtn.disabled =
+          flashLinkRoleConfigBusy || flashLinkIdentityResetBusy;
+      }
+    }
+    async function requestFlashLinkIdentityReset(){
+      const path = "/identity/reset?confirm=RESET";
+      if(simEnabled) return {ok:true, reason:"SIM"};
+      if(serialConnected && serialWriter){
+        const reply = await requestSerialCommandAck(
+          path,
+          (evt)=>evt.kind === "ack" &&
+            String(evt.message || "").toUpperCase().includes("IDENTITY_RESET"),
+          {timeoutMs:3000, writeTimeoutMs:1000}
+        );
+        return {
+          ok:!!(reply && reply.ok),
+          reason:(reply && (reply.message || reply.kind)) || "SERIAL_NO_REPLY"
+        };
+      }
+      const API_BASE = getApiBaseForCommands();
+      const controller = createAbortControllerSafe();
+      const timer = controller ? setTimeout(()=>{
+        try{ controller.abort(); }catch(_e){}
+      }, 3500) : null;
+      try{
+        const response = await fetch((API_BASE || "") + path, Object.assign(
+          {cache:"no-cache"},
+          controller ? {signal:controller.signal} : {}
+        ));
+        const body = await response.text().catch(()=>"");
+        return {
+          ok:response.ok,
+          reason:(body && body.trim()) || ("HTTP " + response.status)
+        };
+      }catch(err){
+        return {
+          ok:false,
+          reason:(err && err.name === "AbortError")
+            ? "HTTP_TIMEOUT"
+            : ((err && err.message) || "NETWORK_ERROR")
+        };
+      }finally{
+        if(timer) clearTimeout(timer);
+      }
+    }
+    async function resetFlashLinkIdentity(){
+      if(flashLinkIdentityResetBusy) return false;
+      flashLinkIdentityResetBusy = true;
+      syncFlashLinkIdentityResetBusy();
+      showToast("기기 S/N과 바인드 정보를 초기화하는 중입니다.", "info", {
+        key:"flash-link-identity-reset",
+        duration:3200
+      });
+      try{
+        const result = await requestFlashLinkIdentityReset();
+        if(!result.ok){
+          showToast(
+            "S/N 초기화 실패 · " + String(result.reason || "NO_RESPONSE"),
+            "error",
+            {key:"flash-link-identity-reset", duration:5200}
+          );
+          return false;
+        }
+        flashLinkDeviceState = null;
+        setOverlayVisible(el.flashLinkIdentityResetOverlay, false);
+        setOverlayVisible(el.flashLinkRoleConfigOverlay, false);
+        flashLinkRoleConfigDraft = null;
+        showToast(
+          "초기화 완료 · 재부팅 후 새 S/N이 생성됩니다.",
+          "success",
+          {key:"flash-link-identity-reset", duration:5200}
+        );
+        return true;
+      }finally{
+        flashLinkIdentityResetBusy = false;
+        syncFlashLinkIdentityResetBusy();
       }
     }
     function buildFlashLinkRoleConfigPath(config){
@@ -25059,7 +25195,7 @@ function requestMobileMockup3dMesh(){
         fw_program:"Altis_Intelligent3_firmware1",
         fw_board:"Altis_Intelligent3_b3",
         fw_protocol:"Flash6-Intelligent-b11",
-        fw_build:"v6 b50"
+        fw_build:"v6 b51"
       };
     }
 
@@ -39700,6 +39836,13 @@ function requestMobileMockup3dMesh(){
       el.flashLinkRoleConfigCancel = document.getElementById("flashLinkRoleConfigCancel");
       el.flashLinkRoleConfigApply = document.getElementById("flashLinkRoleConfigApply");
       el.flashLinkRoleConfigSummary = document.getElementById("flashLinkRoleConfigSummary");
+      el.flashLinkIdentitySerial = document.getElementById("flashLinkIdentitySerial");
+      el.flashLinkIdentityResetBtn = document.getElementById("flashLinkIdentityResetBtn");
+      el.flashLinkIdentityResetOverlay = document.getElementById("flashLinkIdentityResetOverlay");
+      el.flashLinkIdentityResetClose = document.getElementById("flashLinkIdentityResetClose");
+      el.flashLinkIdentityResetCancel = document.getElementById("flashLinkIdentityResetCancel");
+      el.flashLinkIdentityResetConfirm = document.getElementById("flashLinkIdentityResetConfirm");
+      el.flashLinkIdentityResetSerial = document.getElementById("flashLinkIdentityResetSerial");
       el.flashLinkRoleGroundPanel = document.getElementById("flashLinkRoleGroundPanel");
       el.flashLinkRoleAvionicsPanel = document.getElementById("flashLinkRoleAvionicsPanel");
       el.flashLinkRoleDraftButtons = document.querySelectorAll("[data-fl-role-draft]");
@@ -39707,7 +39850,7 @@ function requestMobileMockup3dMesh(){
       el.flashLinkStage2MismatchOverlay = document.getElementById("flashLinkStage2MismatchOverlay");
       el.flashLinkStage2MismatchCancel = document.getElementById("flashLinkStage2MismatchCancel");
       el.flashLinkStage2MismatchApply = document.getElementById("flashLinkStage2MismatchApply");
-      [el.flashLinkRoleConfigOverlay, el.flashLinkStage2MismatchOverlay].forEach((overlay)=>{
+      [el.flashLinkRoleConfigOverlay, el.flashLinkIdentityResetOverlay, el.flashLinkStage2MismatchOverlay].forEach((overlay)=>{
         if(overlay && overlay.parentElement !== document.body) document.body.appendChild(overlay);
       });
       el.flashLinkStage2ModePill = document.getElementById("flashLinkStage2ModePill");
@@ -41408,6 +41551,10 @@ function requestMobileMockup3dMesh(){
         hideMobileControlsPanel();
       });
       document.addEventListener("keydown",(ev)=>{
+        if(ev.key === "Escape" && isFlashLinkIdentityResetOpen() && !flashLinkIdentityResetBusy){
+          closeFlashLinkIdentityResetModal();
+          return;
+        }
         if(ev.key === "Escape" && isFlashLinkRoleConfigOpen() && !flashLinkRoleConfigBusy){
           closeFlashLinkRoleConfigModal();
           return;
@@ -44527,6 +44674,25 @@ function requestMobileMockup3dMesh(){
       if(el.flashLinkRoleConfigOverlay){
         el.flashLinkRoleConfigOverlay.addEventListener("click", (event)=>{
           if(event.target === el.flashLinkRoleConfigOverlay) closeFlashLinkRoleConfigModal();
+        });
+      }
+      if(el.flashLinkIdentityResetBtn){
+        el.flashLinkIdentityResetBtn.addEventListener("click", openFlashLinkIdentityResetModal);
+      }
+      if(el.flashLinkIdentityResetClose){
+        el.flashLinkIdentityResetClose.addEventListener("click", closeFlashLinkIdentityResetModal);
+      }
+      if(el.flashLinkIdentityResetCancel){
+        el.flashLinkIdentityResetCancel.addEventListener("click", closeFlashLinkIdentityResetModal);
+      }
+      if(el.flashLinkIdentityResetConfirm){
+        el.flashLinkIdentityResetConfirm.addEventListener("click", ()=>{
+          void resetFlashLinkIdentity();
+        });
+      }
+      if(el.flashLinkIdentityResetOverlay){
+        el.flashLinkIdentityResetOverlay.addEventListener("click", (event)=>{
+          if(event.target === el.flashLinkIdentityResetOverlay) closeFlashLinkIdentityResetModal();
         });
       }
       if(el.flashLinkStage2MismatchCancel){

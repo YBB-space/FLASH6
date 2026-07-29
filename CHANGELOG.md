@@ -3,6 +3,24 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.10.3 — v6 b51 — 2026-07-29
+
+Protocol unchanged: `Flash6-Intelligent-b11`
+
+Storage record protocol unchanged: `HWLOGV2` version `9`
+
+- 보드 물리 버튼 6회 입력 후 길게 눌러 열린 보호 설정 모달에 로컬
+  기기 S/N 초기화 기능을 추가했습니다. 별도의 2차 확인을 거친 뒤
+  영구 S/N과 바인드 슬롯만 삭제하고 보드를 재부팅합니다.
+- 자이로·기압·로드셀 보정값, 미션 및 시퀀스 설정은 S/N 초기화 대상에서
+  제외했습니다. 재부팅 후 새 S/N이 생성되므로 지상국에서 다시
+  바인드해야 합니다.
+- 비행 시퀀스 또는 미션 대기 중에는 S/N 초기화를 거부하며, HTTP와
+  USB 시리얼 경로 모두 물리 버튼 인증과 명시적 확인 토큰을 요구합니다.
+- `BOARD_SERIAL_REGISTRY.xlsx`의 기존 등록을 모두 비웠습니다. 다음
+  성공적인 펌웨어 업로드부터 새 S/N을 업로드 순서 1번으로 기록합니다.
+- FLASH6 UI 자산 버전을 `b148`로 갱신했습니다.
+
 ## 0.10.2 — v6 b50 — 2026-07-29
 
 Protocol unchanged: `Flash6-Intelligent-b11`
