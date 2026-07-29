@@ -6573,6 +6573,269 @@ body :is(#brownoutWarningOverlay,#missionArmRiskOverlay) .brownout-warning-confi
   }
 }
 
+/* Protected A.I LINK role configuration. */
+.flash-link-protected-role-row{
+  align-items:center !important;
+}
+.flash-link-role-access{
+  min-width:188px !important;
+  padding-inline:18px !important;
+  font-family:var(--font-mono, ui-monospace, monospace) !important;
+  font-size:11px !important;
+  font-weight:700 !important;
+  letter-spacing:.04em !important;
+  white-space:nowrap !important;
+  user-select:none !important;
+  -webkit-user-select:none !important;
+  touch-action:manipulation !important;
+}
+.flash-link-role-access.is-unlock-armed{
+  border-color:#737984 !important;
+  color:#f4f5f6 !important;
+  background:#282b30 !important;
+}
+.flash-link-role-access.is-long-pressing{
+  background:
+    linear-gradient(90deg, rgba(238,239,241,.13) var(--fl-role-hold, 0%), transparent 0),
+    #24262a !important;
+}
+.flash-role-config-overlay{
+  position:fixed !important;
+  inset:0 !important;
+  z-index:2147483646 !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  padding:24px !important;
+  box-sizing:border-box !important;
+  background:rgba(3,5,8,.78) !important;
+  -webkit-backdrop-filter:blur(10px) !important;
+  backdrop-filter:blur(10px) !important;
+}
+.flash-role-config-overlay.hidden{
+  display:none !important;
+}
+.flash-role-config-dialog{
+  width:min(620px, calc(100vw - 48px)) !important;
+  max-height:calc(100dvh - 48px) !important;
+  overflow:hidden !important;
+  border:1px solid #383b40 !important;
+  border-radius:9px !important;
+  background:#151618 !important;
+  color:#f3f4f6 !important;
+  box-shadow:0 28px 86px rgba(0,0,0,.58) !important;
+}
+.flash-role-config-header{
+  display:flex !important;
+  align-items:flex-start !important;
+  justify-content:space-between !important;
+  gap:20px !important;
+  padding:24px 24px 20px !important;
+  border-bottom:1px solid #2d3035 !important;
+  background:#181a1d !important;
+}
+.flash-role-config-kicker{
+  margin:0 0 8px !important;
+  color:#8d939e !important;
+  font-family:var(--font-mono, ui-monospace, monospace) !important;
+  font-size:10px !important;
+  line-height:1 !important;
+  font-weight:700 !important;
+  letter-spacing:.17em !important;
+}
+.flash-role-config-kicker-warning{
+  color:#d7a95e !important;
+}
+.flash-role-config-title{
+  color:#f4f5f6 !important;
+  font-size:22px !important;
+  line-height:1.2 !important;
+  font-weight:660 !important;
+  letter-spacing:-.025em !important;
+}
+.flash-role-config-close{
+  width:38px !important;
+  height:38px !important;
+  flex:0 0 38px !important;
+  padding:0 !important;
+  border:1px solid #383b41 !important;
+  border-radius:6px !important;
+  background:#202226 !important;
+  color:#aeb2b9 !important;
+  font-size:25px !important;
+  line-height:34px !important;
+  font-weight:300 !important;
+}
+.flash-role-config-body{
+  display:grid !important;
+  gap:16px !important;
+  padding:22px 24px 20px !important;
+}
+.flash-role-config-copy{
+  color:#aeb2b9 !important;
+  font-size:13px !important;
+  line-height:1.58 !important;
+}
+.flash-role-config-copy strong{
+  color:#e5e7ea !important;
+  font-weight:650 !important;
+}
+.flash-role-config-label{
+  margin-top:2px !important;
+  color:#858b95 !important;
+  font-size:10px !important;
+  line-height:1 !important;
+  font-weight:700 !important;
+  letter-spacing:.14em !important;
+}
+.flash-role-segment{
+  display:grid !important;
+  grid-template-columns:repeat(2, minmax(0,1fr)) !important;
+  gap:6px !important;
+  padding:6px !important;
+  border:1px solid #33363c !important;
+  border-radius:7px !important;
+  background:#101113 !important;
+}
+.flash-role-segment button{
+  min-height:48px !important;
+  padding:0 16px !important;
+  border:1px solid transparent !important;
+  border-radius:5px !important;
+  background:transparent !important;
+  color:#9297a0 !important;
+  font-size:13px !important;
+  font-weight:650 !important;
+  box-shadow:none !important;
+}
+.flash-role-segment button.is-active{
+  border-color:#e0e1e3 !important;
+  background:#e7e8ea !important;
+  color:#17181a !important;
+}
+.flash-role-config-panel{
+  display:flex !important;
+  align-items:center !important;
+  justify-content:space-between !important;
+  gap:20px !important;
+  min-height:74px !important;
+  padding:17px 18px !important;
+  box-sizing:border-box !important;
+  border:1px solid #303339 !important;
+  border-radius:7px !important;
+  background:#191a1d !important;
+}
+.flash-role-config-panel[hidden]{
+  display:none !important;
+}
+.flash-role-config-panel-stack{
+  align-items:stretch !important;
+  flex-direction:column !important;
+}
+.flash-role-config-panel-title{
+  color:#e4e5e7 !important;
+  font-size:13px !important;
+  font-weight:650 !important;
+}
+.flash-role-config-panel-copy{
+  margin-top:4px !important;
+  color:#8e939c !important;
+  font-size:11px !important;
+  line-height:1.4 !important;
+}
+.flash-role-stage-segment{
+  width:100% !important;
+  box-sizing:border-box !important;
+}
+.flash-role-config-summary{
+  padding:12px 14px !important;
+  border-left:2px solid #666c75 !important;
+  background:#111214 !important;
+  color:#b1b5bc !important;
+  font-size:12px !important;
+  line-height:1.45 !important;
+}
+.flash-role-config-actions{
+  display:grid !important;
+  grid-template-columns:1fr 1.55fr !important;
+  gap:10px !important;
+  padding:0 24px 24px !important;
+}
+.flash-role-config-actions button{
+  min-height:48px !important;
+  border-radius:6px !important;
+  font-size:13px !important;
+  font-weight:700 !important;
+}
+.flash-role-config-secondary{
+  border:1px solid #383b41 !important;
+  background:#202226 !important;
+  color:#c3c6cc !important;
+}
+.flash-role-config-primary{
+  border:1px solid #e2e3e5 !important;
+  background:#e7e8ea !important;
+  color:#17181a !important;
+}
+.flash-role-config-actions button:disabled{
+  opacity:.48 !important;
+  cursor:wait !important;
+}
+.flash-stage2-mismatch-dialog{
+  width:min(520px, calc(100vw - 48px)) !important;
+}
+.flash-stage2-mismatch-readout{
+  display:flex !important;
+  align-items:center !important;
+  justify-content:space-between !important;
+  gap:20px !important;
+  padding:16px 17px !important;
+  border:1px solid #3b3e44 !important;
+  border-radius:7px !important;
+  background:#111214 !important;
+}
+.flash-stage2-mismatch-readout span{
+  color:#8f949d !important;
+  font-size:11px !important;
+  font-weight:650 !important;
+}
+.flash-stage2-mismatch-readout strong{
+  color:#f1f2f4 !important;
+  font-family:var(--font-mono, ui-monospace, monospace) !important;
+  font-size:14px !important;
+  letter-spacing:.06em !important;
+}
+@media (max-width:600px){
+  .flash-link-protected-role-row{
+    align-items:flex-start !important;
+  }
+  .flash-link-role-access{
+    min-width:0 !important;
+    max-width:54vw !important;
+  }
+  .flash-role-config-overlay{
+    padding:14px !important;
+  }
+  .flash-role-config-dialog,
+  .flash-stage2-mismatch-dialog{
+    width:100% !important;
+    max-height:calc(100dvh - 28px) !important;
+  }
+  .flash-role-config-header{
+    padding:20px 18px 17px !important;
+  }
+  .flash-role-config-title{
+    font-size:20px !important;
+  }
+  .flash-role-config-body{
+    gap:13px !important;
+    padding:18px !important;
+  }
+  .flash-role-config-actions{
+    padding:0 18px 18px !important;
+  }
+}
+
 /*
  * Desktop modal system.
  * Keep phone and phone-landscape dialogs independent from this layer.

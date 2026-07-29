@@ -554,12 +554,25 @@
       el.countdownSave = document.getElementById("countdownSave");
       el.opModeSelect = document.getElementById("opModeSelect");
       el.flashLinkEnabledPill = document.getElementById("flashLinkEnabledPill");
+      el.flashLinkRoleAccessBtn = document.getElementById("flashLinkRoleAccessBtn");
+      el.flashLinkRoleAccessHint = document.getElementById("flashLinkRoleAccessHint");
+      el.flashLinkRoleConfigOverlay = document.getElementById("flashLinkRoleConfigOverlay");
+      el.flashLinkRoleConfigClose = document.getElementById("flashLinkRoleConfigClose");
+      el.flashLinkRoleConfigCancel = document.getElementById("flashLinkRoleConfigCancel");
+      el.flashLinkRoleConfigApply = document.getElementById("flashLinkRoleConfigApply");
+      el.flashLinkRoleConfigSummary = document.getElementById("flashLinkRoleConfigSummary");
+      el.flashLinkRoleGroundPanel = document.getElementById("flashLinkRoleGroundPanel");
+      el.flashLinkRoleAvionicsPanel = document.getElementById("flashLinkRoleAvionicsPanel");
+      el.flashLinkRoleDraftButtons = document.querySelectorAll("[data-fl-role-draft]");
+      el.flashLinkNodeDraftButtons = document.querySelectorAll("[data-fl-node-draft]");
+      el.flashLinkStage2MismatchOverlay = document.getElementById("flashLinkStage2MismatchOverlay");
+      el.flashLinkStage2MismatchCancel = document.getElementById("flashLinkStage2MismatchCancel");
+      el.flashLinkStage2MismatchApply = document.getElementById("flashLinkStage2MismatchApply");
+      [el.flashLinkRoleConfigOverlay, el.flashLinkStage2MismatchOverlay].forEach((overlay)=>{
+        if(overlay && overlay.parentElement !== document.body) document.body.appendChild(overlay);
+      });
       el.flashLinkStage2ModePill = document.getElementById("flashLinkStage2ModePill");
-      el.flashLinkStage2ModeRow = document.getElementById("flashLinkStage2ModeRow");
       el.flashLinkStatusHint = document.getElementById("flashLinkStatusHint");
-      el.flashLinkRoleSelect = document.getElementById("flashLinkRoleSelect");
-      el.flashLinkNodeRow = document.getElementById("flashLinkNodeRow");
-      el.flashLinkNodeSelect = document.getElementById("flashLinkNodeSelect");
       el.flashLinkTargetRow = document.getElementById("flashLinkTargetRow");
       el.flashLinkStageStatus = document.getElementById("flashLinkStageStatus");
       el.flashLinkDataModeRow = document.getElementById("flashLinkDataModeRow");
@@ -2256,6 +2269,21 @@
         hideMobileControlsPanel();
       });
       document.addEventListener("keydown",(ev)=>{
+        if(ev.key === "Escape" && isFlashLinkRoleConfigOpen() && !flashLinkRoleConfigBusy){
+          closeFlashLinkRoleConfigModal();
+          return;
+        }
+        if(
+          ev.key === "Escape" &&
+          el.flashLinkStage2MismatchOverlay &&
+          !el.flashLinkStage2MismatchOverlay.classList.contains("hidden") &&
+          !flashLinkRoleConfigBusy
+        ){
+          flashLinkStage2MismatchDismissed = true;
+          flashLinkStage2MismatchSuppressUntil = Date.now() + 30000;
+          hideFlashLinkStage2MismatchPrompt(false);
+          return;
+        }
         if(
           ev.key === "Escape" &&
           el.replayHudLiveOverlay &&
@@ -5322,65 +5350,84 @@
           setFlashLinkEnabled(!enabled);
         });
       }
+      if(el.flashLinkRoleAccessBtn){
+        el.flashLinkRoleAccessBtn.addEventListener("click", registerFlashLinkRoleUnlockTap);
+        el.flashLinkRoleAccessBtn.addEventListener("pointerdown", (event)=>{
+          if(event.button != null && event.button !== 0) return;
+          if(flashLinkRoleUnlockArmedUntil > Date.now()){
+            try{ el.flashLinkRoleAccessBtn.setPointerCapture(event.pointerId); }catch(_e){}
+            beginFlashLinkRoleLongPress();
+          }
+        });
+        ["pointerup", "pointercancel", "lostpointercapture"].forEach((name)=>{
+          el.flashLinkRoleAccessBtn.addEventListener(name, ()=>cancelFlashLinkRoleLongPress());
+        });
+        el.flashLinkRoleAccessBtn.addEventListener("keydown", (event)=>{
+          if(event.key !== "Enter" && event.key !== " ") return;
+          if(flashLinkRoleUnlockArmedUntil > Date.now()){
+            event.preventDefault();
+            if(!event.repeat) beginFlashLinkRoleLongPress();
+          }
+        });
+        el.flashLinkRoleAccessBtn.addEventListener("keyup", (event)=>{
+          if(event.key === "Enter" || event.key === " ") cancelFlashLinkRoleLongPress();
+        });
+      }
+      if(el.flashLinkRoleDraftButtons){
+        el.flashLinkRoleDraftButtons.forEach((button)=>{
+          button.addEventListener("click", ()=>{
+            if(!flashLinkRoleConfigDraft || flashLinkRoleConfigBusy) return;
+            flashLinkRoleConfigDraft.role = normalizeFlashLinkRole(button.dataset.flRoleDraft);
+            syncFlashLinkRoleConfigModal();
+          });
+        });
+      }
+      if(el.flashLinkNodeDraftButtons){
+        el.flashLinkNodeDraftButtons.forEach((button)=>{
+          button.addEventListener("click", ()=>{
+            if(!flashLinkRoleConfigDraft || flashLinkRoleConfigBusy) return;
+            flashLinkRoleConfigDraft.nodeId = normalizeFlashLinkNodeId(button.dataset.flNodeDraft);
+            syncFlashLinkRoleConfigModal();
+          });
+        });
+      }
       if(el.flashLinkStage2ModePill){
         el.flashLinkStage2ModePill.addEventListener("click", ()=>{
-          if(!uiSettings || getSettingsOperationModeValue() !== "flash_link") return;
-          const enabled = uiSettings.flashLinkStage2Mode !== true;
-          uiSettings.flashLinkStage2Mode = enabled;
-          flashLinkUiStage2Mode = enabled;
-          if(!enabled){
-            flashLinkStage2Connected = false;
-            cameraHudStageSwitchLatched = false;
-            setAutomaticActiveStage(1, "STAGE 1 ONLY");
-          }
-          saveSettings();
-          applySettingsToUI();
-          updateStageTelemetryDashboard();
-          syncFlashLinkTopologyUi();
-          syncFlashLinkStage2ModeToBoard(false);
-          showToast(
-            enabled ? "2단 운용 ON · 50Hz" : "1단 전용 ON · 100Hz",
-            enabled ? "info" : "success",
-            {key:"flash-link-stage-mode", duration:3200}
-          );
+          if(!flashLinkRoleConfigDraft || flashLinkRoleConfigBusy) return;
+          flashLinkRoleConfigDraft.stage2Mode = !flashLinkRoleConfigDraft.stage2Mode;
+          syncFlashLinkRoleConfigModal();
+        });
+      }
+      if(el.flashLinkRoleConfigClose) el.flashLinkRoleConfigClose.addEventListener("click", closeFlashLinkRoleConfigModal);
+      if(el.flashLinkRoleConfigCancel) el.flashLinkRoleConfigCancel.addEventListener("click", closeFlashLinkRoleConfigModal);
+      if(el.flashLinkRoleConfigApply){
+        el.flashLinkRoleConfigApply.addEventListener("click", ()=>{
+          void applyFlashLinkRoleConfiguration(flashLinkRoleConfigDraft);
+        });
+      }
+      if(el.flashLinkRoleConfigOverlay){
+        el.flashLinkRoleConfigOverlay.addEventListener("click", (event)=>{
+          if(event.target === el.flashLinkRoleConfigOverlay) closeFlashLinkRoleConfigModal();
+        });
+      }
+      if(el.flashLinkStage2MismatchCancel){
+        el.flashLinkStage2MismatchCancel.addEventListener("click", ()=>{
+          flashLinkStage2MismatchDismissed = true;
+          flashLinkStage2MismatchSuppressUntil = Date.now() + 30000;
+          hideFlashLinkStage2MismatchPrompt(false);
+        });
+      }
+      if(el.flashLinkStage2MismatchApply){
+        el.flashLinkStage2MismatchApply.addEventListener("click", ()=>{
+          const cfg = currentFlashLinkRoleConfig();
+          cfg.role = "ground";
+          cfg.stage2Mode = true;
+          void applyFlashLinkRoleConfiguration(cfg, {fromMismatch:true});
         });
       }
       if(el.flashLinkScanBtn){
         el.flashLinkScanBtn.addEventListener("click", ()=>{
           void refreshFlashLinkDevices(true);
-        });
-      }
-      if(el.flashLinkRoleSelect){
-        el.flashLinkRoleSelect.addEventListener("change",()=>{
-          if(!uiSettings) return;
-          const before = normalizeFlashLinkRole(uiSettings.flashLinkRole);
-          uiSettings.flashLinkRole = normalizeFlashLinkRole(el.flashLinkRoleSelect.value);
-          saveSettings();
-          applySettingsToUI();
-          if(before !== uiSettings.flashLinkRole){
-            syncFlashLinkRoleToBoard(false);
-            const roleLabel = uiSettings.flashLinkRole === "ground"
-              ? t("flashLinkRoleGround")
-              : t("flashLinkRoleAvionics");
-            showToast("ALTIS INTELLIGENT LINK1: " + roleLabel, "info");
-            if(uiSettings.flashLinkRole === "ground"){
-              setTimeout(()=>{ void refreshFlashLinkDevices(false); }, 700);
-            }
-          }
-        });
-      }
-      if(el.flashLinkNodeSelect){
-        el.flashLinkNodeSelect.addEventListener("change",()=>{
-          if(!uiSettings) return;
-          const before = normalizeFlashLinkNodeId(uiSettings.flashLinkNodeId);
-          uiSettings.flashLinkNodeId = normalizeFlashLinkNodeId(el.flashLinkNodeSelect.value);
-          saveSettings();
-          applySettingsToUI();
-          if(before !== uiSettings.flashLinkNodeId){
-            syncFlashLinkNodeSelectionToBoard(false);
-            showToast((currentLang === "ko" ? "에비오닉스 위치: " : "Avionics position: ") +
-              (uiSettings.flashLinkNodeId === 2 ? t("flashLinkStage2") : t("flashLinkStage1")), "info");
-          }
         });
       }
       if(el.flashLinkDataModeSelect){

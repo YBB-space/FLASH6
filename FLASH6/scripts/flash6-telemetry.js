@@ -211,7 +211,7 @@
         );
         const incomingRoleRaw = data.flash_link_role ?? data.fl_role ?? null;
         const incomingRole = normalizeFlashLinkRole(incomingRoleRaw);
-        if(incomingRoleRaw != null && uiSettings && document.activeElement !== el.flashLinkRoleSelect){
+        if(incomingRoleRaw != null && uiSettings && !flashLinkRoleConfigBusy && !isFlashLinkRoleConfigOpen()){
           uiSettings.flashLinkRole = incomingRole;
         }
         syncGpsClockFromTelemetry(data);
@@ -637,7 +637,7 @@
         }else if(boardOpModeRaw != null){
           confirmOperationModeFromBoard(boardOpModeRaw);
         }
-        if(boardFlashLinkRoleRaw != null && activeEl !== el.flashLinkRoleSelect){
+        if(boardFlashLinkRoleRaw != null && !flashLinkRoleConfigBusy && !isFlashLinkRoleConfigOpen()){
           const nextFlashLinkRole = normalizeFlashLinkRole(boardFlashLinkRoleRaw);
           if(nextFlashLinkRole !== uiSettings.flashLinkRole){
             uiSettings.flashLinkRole = nextFlashLinkRole;
@@ -651,7 +651,7 @@
             boardSettingsChanged = true;
           }
         }
-        if(boardFlashLinkNodeRaw != null && activeEl !== el.flashLinkNodeSelect){
+        if(boardFlashLinkNodeRaw != null && !flashLinkRoleConfigBusy && !isFlashLinkRoleConfigOpen()){
           const nextNodeId = normalizeFlashLinkNodeId(boardFlashLinkNodeRaw);
           if(nextNodeId !== uiSettings.flashLinkNodeId){
             uiSettings.flashLinkNodeId = nextNodeId;
@@ -665,7 +665,7 @@
             boardSettingsChanged = true;
           }
         }
-        if(boardFlashLinkStage2ModeRaw != null && activeEl !== el.flashLinkStage2ModePill){
+        if(boardFlashLinkStage2ModeRaw != null && !flashLinkRoleConfigBusy && !isFlashLinkRoleConfigOpen()){
           const nextStage2Mode = Number(boardFlashLinkStage2ModeRaw) !== 0;
           if(nextStage2Mode !== uiSettings.flashLinkStage2Mode){
             uiSettings.flashLinkStage2Mode = nextStage2Mode;

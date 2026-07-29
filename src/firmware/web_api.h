@@ -188,10 +188,11 @@ size_t buildTelemetryJson(char* json, size_t jsonLen, bool full) {
   const bool stage1Connected = stage1Peer.peerReady && stage1Peer.linked &&
     stage1Peer.remoteValid && stage1Peer.lastTelemetryRxMs != 0U &&
     (uint32_t)(nowMs - stage1Peer.lastTelemetryRxMs) <= kFlashLinkTelemetryStaleMs;
-  const bool stage2Connected = flashLinkStage2Enabled &&
-    stage2Peer.peerReady && stage2Peer.linked &&
-    stage2Peer.remoteValid && stage2Peer.lastTelemetryRxMs != 0U &&
-    (uint32_t)(nowMs - stage2Peer.lastTelemetryRxMs) <= kFlashLinkTelemetryStaleMs;
+  const bool stage2Connected = flashLinkStage2Enabled
+    ? (stage2Peer.peerReady && stage2Peer.linked &&
+       stage2Peer.remoteValid && stage2Peer.lastTelemetryRxMs != 0U &&
+       (uint32_t)(nowMs - stage2Peer.lastTelemetryRxMs) <= kFlashLinkTelemetryStaleMs)
+    : flashLinkUnexpectedStage2Detected(nowMs);
   char fullFields[1120] = {};
   if (full) {
     const bool outputImuReady = remoteOutput ? output.sampleValid : imuReady;
@@ -583,10 +584,11 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
   const bool streamStage1Connected = streamStage1.peerReady && streamStage1.linked &&
     streamStage1.remoteValid && streamStage1.lastTelemetryRxMs != 0U &&
     (uint32_t)(nowMs - streamStage1.lastTelemetryRxMs) <= kFlashLinkTelemetryStaleMs;
-  const bool streamStage2Connected = flashLinkStage2Enabled &&
-    streamStage2.peerReady && streamStage2.linked &&
-    streamStage2.remoteValid && streamStage2.lastTelemetryRxMs != 0U &&
-    (uint32_t)(nowMs - streamStage2.lastTelemetryRxMs) <= kFlashLinkTelemetryStaleMs;
+  const bool streamStage2Connected = flashLinkStage2Enabled
+    ? (streamStage2.peerReady && streamStage2.linked &&
+       streamStage2.remoteValid && streamStage2.lastTelemetryRxMs != 0U &&
+       (uint32_t)(nowMs - streamStage2.lastTelemetryRxMs) <= kFlashLinkTelemetryStaleMs)
+    : flashLinkUnexpectedStage2Detected(nowMs);
   const uint8_t outputLoadcellRawOk =
     (output.loadcellReady && !output.loadcellSaturated &&
      (output.loadcellValid || output.loadcellOffsetValid || output.loadcellHz > 0U))
@@ -1149,10 +1151,11 @@ String settingsJson() {
   const bool stage1Connected = stage1.peerReady && stage1.linked && stage1.remoteValid &&
     stage1.lastTelemetryRxMs != 0U &&
     (uint32_t)(nowMs - stage1.lastTelemetryRxMs) <= kFlashLinkTelemetryStaleMs;
-  const bool stage2Connected = flashLinkStage2Enabled &&
-    stage2.peerReady && stage2.linked && stage2.remoteValid &&
-    stage2.lastTelemetryRxMs != 0U &&
-    (uint32_t)(nowMs - stage2.lastTelemetryRxMs) <= kFlashLinkTelemetryStaleMs;
+  const bool stage2Connected = flashLinkStage2Enabled
+    ? (stage2.peerReady && stage2.linked && stage2.remoteValid &&
+       stage2.lastTelemetryRxMs != 0U &&
+       (uint32_t)(nowMs - stage2.lastTelemetryRxMs) <= kFlashLinkTelemetryStaleMs)
+    : flashLinkUnexpectedStage2Detected(nowMs);
   const bool stage2RelayConnected = flashLinkStage2Enabled && (flashLinkGroundRole()
     ? stage2.relayReady && stage2.relayLinked &&
       flashLinkRouteFresh(
@@ -2095,6 +2098,7 @@ void setupRoutes() {
       ", FLASH_LINK_ROLE=" + flashLinkRoleName() +
       ", FLASH_LINK_NODE=" + String(flashLinkNodeId) +
       ", FLASH_LINK_TARGET=" + String(flashLinkTargetNodeId) +
+      ", FLASH_LINK_STAGE2_MODE=" + String(flashLinkStage2Enabled ? 1 : 0) +
       ", FLASH_LINK_DATA_MODE=" + dataOperationModeNameFor(flashLinkDataModeCode()) +
       ", RESTART=" + (restartRequired ? "1" : "0") +
       ", MUTE=" + (buzzerMuted ? "1" : "0") +

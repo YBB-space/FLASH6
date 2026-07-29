@@ -93,6 +93,14 @@ bool flashLinkRouteFresh(uint32_t lastRxMs, uint32_t maxAgeMs) {
   return lastRxMs != 0U && (uint32_t)(millis() - lastRxMs) <= maxAgeMs;
 }
 
+bool flashLinkUnexpectedStage2Detected(uint32_t nowMs = millis()) {
+  return flashLinkGroundRole() &&
+    !flashLinkStage2Enabled &&
+    flashLinkUnexpectedStage2LastRxMs != 0U &&
+    (uint32_t)(nowMs - flashLinkUnexpectedStage2LastRxMs) <=
+      kFlashLinkTelemetryStaleMs;
+}
+
 bool flashLinkStorageTransferActive(uint32_t nowMs) {
   return flashLink.storageTransferExclusiveUntilMs != 0U &&
     (int32_t)(flashLink.storageTransferExclusiveUntilMs - nowMs) > 0;
@@ -1244,7 +1252,25 @@ void flashLinkOnReceive(const uint8_t* mac, const uint8_t* data, int dataLen) {
       !flashLinkStage2Enabled &&
       flashLinkPacketSourceNode(incomingHeader) == kFlashLinkNodeIdStage2) {
     // Single-stage mode deliberately drops stage-2 traffic before it enters
-    // the RX queue, preserving queue headroom and CPU time for stage 1.
+    // the RX queue, preserving queue headroom and CPU time for stage 1. A
+    // ground station only records a detection when the discovery S/N matches
+    // its bound STAGE 2 slot, preventing nearby unbound boards from opening
+    // the protected mode-change prompt.
+    if (flashLinkGroundRole() &&
+        incomingHeader.version == kFlashLinkVersion &&
+        incomingHeader.role == static_cast<uint8_t>(FlashLinkRole::Avionics) &&
+        incomingHeader.type == static_cast<uint8_t>(FlashLinkPacketType::Discover) &&
+        incomingHeader.payloadBytes == sizeof(FlashLinkDiscoveryV1) &&
+        dataLen == (int)(sizeof(FlashLinkHeaderV1) + sizeof(FlashLinkDiscoveryV1))) {
+      FlashLinkDiscoveryV1 discovery{};
+      memcpy(
+        &discovery,
+        data + sizeof(FlashLinkHeaderV1),
+        sizeof(discovery));
+      if (flashLinkBindingAllows(kFlashLinkNodeIdStage2, discovery.deviceId)) {
+        flashLinkUnexpectedStage2LastRxMs = millis();
+      }
+    }
     return;
   }
 
@@ -1507,6 +1533,7 @@ void flashLinkSetStage2Mode(bool enabled, bool persist) {
     return;
   }
   flashLinkStage2Enabled = enabled;
+  flashLinkUnexpectedStage2LastRxMs = 0U;
   flashLink.lastDiscoveryMs = 0;
   flashLink.lastTelemetryTxUs = 0;
   lastWsUs = 0;

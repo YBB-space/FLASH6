@@ -1199,6 +1199,12 @@
         bundle.forEach((sample)=>{
           const stageId = resolveTelemetryStageId(sample);
           if(stageId !== 1 && stageId !== 2) return;
+          if(stageId === 2 && normalizeFlashLinkRole(flashLinkUiRole) === "ground" && !flashLinkUiStage2Mode){
+            const stage2SampleValid = Number(
+              sample.stage_valid ?? sample.fl_remote_valid ?? sample.flash_link_remote_valid ?? 1
+            ) !== 0;
+            updateFlashLinkStage2MismatchDetection(stage2SampleValid);
+          }
           if(stageId === 2 && !flashLinkUiStage2Mode) return;
           recordStageTelemetrySample(stageId, sample);
           handleMissionAlarmTelemetry(sample, src, isReplaySample, stageId);
@@ -2061,11 +2067,10 @@
         el.flashLinkEnabledPill.setAttribute("aria-busy", operationModeChangeBusy ? "true" : "false");
       }
       const stage2ModeEnabled = uiSettings.flashLinkStage2Mode === true;
-      if(el.flashLinkStage2ModePill){
+      if(el.flashLinkStage2ModePill && !flashLinkRoleConfigDraft){
         el.flashLinkStage2ModePill.textContent = stage2ModeEnabled ? "ON" : "OFF";
         el.flashLinkStage2ModePill.classList.toggle("is-on", stage2ModeEnabled);
         el.flashLinkStage2ModePill.classList.toggle("is-off", !stage2ModeEnabled);
-        el.flashLinkStage2ModePill.disabled = operationModeChangeBusy || !flashLinkEnabled;
       }
       if(el.flashLinkStatusHint){
         el.flashLinkStatusHint.textContent = currentLang === "ko"
@@ -2087,27 +2092,20 @@
           }
         }
       }
-      if(el.flashLinkRoleSelect) el.flashLinkRoleSelect.value = normalizeFlashLinkRole(uiSettings.flashLinkRole);
-      if(el.flashLinkNodeSelect) el.flashLinkNodeSelect.value = String(normalizeFlashLinkNodeId(uiSettings.flashLinkNodeId));
       if(el.flashLinkDataModeSelect) el.flashLinkDataModeSelect.value = normalizeDataModeValue(uiSettings.flashLinkDataMode, "flight");
       {
         const role = normalizeFlashLinkRole(uiSettings.flashLinkRole);
         const dataModeDisabled = !flashLinkEnabled || role !== "avionics";
-        if(el.flashLinkRoleSelect) el.flashLinkRoleSelect.disabled = operationModeChangeBusy || !flashLinkEnabled;
-        if(el.flashLinkNodeRow) el.flashLinkNodeRow.hidden = role !== "avionics";
         if(el.flashLinkTargetRow) el.flashLinkTargetRow.hidden = role !== "ground";
         if(el.flashLinkBindingSection) el.flashLinkBindingSection.hidden = role !== "ground";
-        if(el.flashLinkNodeSelect) el.flashLinkNodeSelect.disabled = operationModeChangeBusy || !flashLinkEnabled || role !== "avionics";
-        if(el.flashLinkNodeSelect){
-          const stage2Option = el.flashLinkNodeSelect.querySelector('option[value="2"]');
-          if(stage2Option) stage2Option.disabled = !stage2ModeEnabled;
-        }
         if(el.flashLinkDataModeSelect) el.flashLinkDataModeSelect.disabled = operationModeChangeBusy || dataModeDisabled;
         if(el.flashLinkDataModeRow) el.flashLinkDataModeRow.classList.toggle("is-disabled", !flashLinkEnabled || dataModeDisabled);
         if(el.flashLinkStatus) el.flashLinkStatus.classList.toggle("is-disabled", !flashLinkEnabled);
         const group = el.flashLinkEnabledPill ? el.flashLinkEnabledPill.closest(".flash-link-settings-group") : null;
         if(group) group.classList.toggle("is-ail-off", !flashLinkEnabled);
       }
+      updateFlashLinkRoleAccessUi();
+      if(flashLinkRoleConfigDraft) syncFlashLinkRoleConfigModal();
       syncSettingsCommunicationOnlyUi();
       const previewMode = getGyroPreviewMode();
       if(el.gyroPreviewSelect) el.gyroPreviewSelect.value = previewMode;

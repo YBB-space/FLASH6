@@ -3,7 +3,7 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
-## 0.10.0 — v6 b48 — 2026-07-29
+## 0.10.1 — v6 b49 — 2026-07-29
 
 Protocol: `Flash6-Intelligent-b11`
 
@@ -41,7 +41,16 @@ Storage record protocol unchanged: `HWLOGV2` version `9`
 - 지상국 릴레이 또는 USB 통신이 잠시 끊겨도 마지막 궤적과 카메라 상태를
   지우지 않고 유지합니다. 재연결 시 새 수신 지점부터 기존 궤적을 이어
   그리며, 명시적인 새 미션·리플레이·시뮬레이션 초기화에서만 지웁니다.
-- FLASH6 UI 자산 버전을 `b145`로 갱신했습니다.
+- 설정의 보드 역할·단 위치·2단 운용 변경을 일반 설정에서 분리했습니다.
+  현재 역할 버튼을 6회 누른 뒤 길게 눌러야 보호 모달이 열리며, 모달의
+  선택값은 `적용`을 누르고 보드 확인 응답을 받은 뒤에만 저장됩니다.
+- 보호 모달은 지상국 역할에서 2단 운용 토글을, 에비오닉스 역할에서
+  STAGE 1·2 위치 선택을 각각 노출해 서로 관계없는 설정을 숨깁니다.
+- 1단 전용 지상국이 바인드된 STAGE 2 검색 신호를 감지하면 현재
+  에비오닉스가 2단임을 알리고 2단 운용 적용 여부를 확인합니다. 해당
+  패킷은 RX 큐에 넣지 않고 감지 시각만 기록해 1단 100 Hz 성능을
+  유지하며, 주변의 미등록 보드는 경고 대상으로 취급하지 않습니다.
+- FLASH6 UI 자산 버전을 `b146`으로 갱신했습니다.
 
 ## 0.9.17 — v6 b47 — 2026-07-28
 

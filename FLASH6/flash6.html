@@ -127,7 +127,7 @@
   <!-- Preload 축소: AP 모드/저메모리 환경에서 동시 요청 버스트를 줄임 -->
   <script>
     (function(){
-    var ASSET_VER = "20260729-dual-stage-trajectory-b145-__FLASH6_DEPLOY_SHA__";
+    var ASSET_VER = "20260729-protected-link-role-b146-__FLASH6_DEPLOY_SHA__";
       window.__flashBoot = window.__flashBoot || {jsReady:false,lastError:"",phase:"static_loader",version:ASSET_VER};
       var isLocalPreview = !!window.__flashBoot.localPreview;
       var beaconEnabled = (window.__flashBoot.beaconEnabled !== false);
@@ -365,7 +365,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="styles/flash6-app.css?v=20260729-dual-stage-trajectory-b145-__FLASH6_DEPLOY_SHA__">
+  <link rel="stylesheet" href="styles/flash6-app.css?v=20260729-protected-link-role-b146-__FLASH6_DEPLOY_SHA__">
 </head>
 <body>
   <!-- ✅ LOCKOUT 배경 오버레이 -->
@@ -2380,32 +2380,14 @@
                 <section class="flash-link-section flash-link-config-section" aria-labelledby="flashLinkConfigTitle">
                   <div id="flashLinkConfigTitle" class="flash-link-section-title" data-i18n="settingsFlashLinkConfigTitle">운용 설정</div>
                   <div class="flash-link-config-list">
-                    <div class="settings-row">
+                    <div class="settings-row flash-link-protected-role-row">
                       <div>
                         <div class="settings-label" data-i18n="settingsFlashLinkRoleLabel">보드 역할</div>
-                        <div class="hint-mini" data-i18n="settingsFlashLinkRoleHint">지상국 또는 에비오닉스 역할을 지정합니다.</div>
+                        <div id="flashLinkRoleAccessHint" class="hint-mini">보호된 설정 · 6회 누른 뒤 길게 눌러 변경합니다.</div>
                       </div>
-                      <select id="flashLinkRoleSelect" class="settings-select" aria-label="ALTIS INTELLIGENT LINK1 role">
-                        <option value="ground" data-i18n="flashLinkRoleGround">지상국</option>
-                        <option value="avionics" data-i18n="flashLinkRoleAvionics">에비오닉스</option>
-                      </select>
-                    </div>
-                    <div class="settings-row" id="flashLinkStage2ModeRow">
-                      <div>
-                        <div class="settings-label" data-i18n="settingsFlashLinkStage2ModeLabel">2단 운용</div>
-                        <div class="hint-mini" data-i18n="settingsFlashLinkStage2ModeHint">OFF 100Hz · ON 50Hz 중계 및 백업</div>
-                      </div>
-                      <button id="flashLinkStage2ModePill" class="pill pill-toggle is-off" type="button">OFF</button>
-                    </div>
-                    <div class="settings-row" id="flashLinkNodeRow">
-                      <div>
-                        <div class="settings-label" data-i18n="settingsFlashLinkNodeLabel">에비오닉스 위치</div>
-                        <div class="hint-mini" data-i18n="settingsFlashLinkNodeHint">이 보드가 장착된 단을 선택합니다.</div>
-                      </div>
-                      <select id="flashLinkNodeSelect" class="settings-select" aria-label="Avionics vehicle stage">
-                        <option value="1" data-i18n="flashLinkStage1">1단</option>
-                        <option value="2" data-i18n="flashLinkStage2">2단</option>
-                      </select>
+                      <button id="flashLinkRoleAccessBtn" class="settings-btn flash-link-role-access" type="button" aria-label="보호된 보드 역할 설정 열기">
+                        에비오닉스 · STAGE 1
+                      </button>
                     </div>
                     <div class="settings-row" id="flashLinkTargetRow">
                       <div>
@@ -3495,6 +3477,75 @@
         </div>
         <div class="confirm-actions">
           <button id="easterEggOk" class="loadcell-primary" data-i18n="easterEggOk">ㅋㅋ 확인</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 보호된 A.I LINK 보드 운용 모드 -->
+    <div id="flashLinkRoleConfigOverlay" class="flash-role-config-overlay hidden" style="display:none;" aria-hidden="true">
+      <div class="flash-role-config-dialog" role="dialog" aria-modal="true" aria-labelledby="flashLinkRoleConfigTitle">
+        <div class="flash-role-config-header">
+          <div>
+            <div class="flash-role-config-kicker">PROTECTED SETTING</div>
+            <div id="flashLinkRoleConfigTitle" class="flash-role-config-title">보드 운용 모드</div>
+          </div>
+          <button id="flashLinkRoleConfigClose" class="flash-role-config-close" type="button" aria-label="닫기">×</button>
+        </div>
+        <div class="flash-role-config-body">
+          <div class="flash-role-config-copy">
+            역할 변경은 연결 구조와 텔레메트리 경로를 다시 구성합니다. 아래 선택은 <strong>적용</strong> 전까지 보드에 전송되지 않습니다.
+          </div>
+          <div class="flash-role-config-label">보드 역할</div>
+          <div class="flash-role-segment" role="group" aria-label="보드 역할">
+            <button type="button" data-fl-role-draft="ground">지상국</button>
+            <button type="button" data-fl-role-draft="avionics">에비오닉스</button>
+          </div>
+          <section id="flashLinkRoleGroundPanel" class="flash-role-config-panel">
+            <div>
+              <div class="flash-role-config-panel-title">2단부 운용</div>
+              <div class="flash-role-config-panel-copy">STAGE 1 중계와 STAGE 2 직결 백업을 함께 사용합니다.</div>
+            </div>
+            <button id="flashLinkStage2ModePill" class="pill pill-toggle is-off" type="button">OFF</button>
+          </section>
+          <section id="flashLinkRoleAvionicsPanel" class="flash-role-config-panel flash-role-config-panel-stack">
+            <div>
+              <div class="flash-role-config-panel-title">에비오닉스 위치</div>
+              <div class="flash-role-config-panel-copy">이 보드가 장착된 기체 단을 선택합니다.</div>
+            </div>
+            <div class="flash-role-segment flash-role-stage-segment" role="group" aria-label="에비오닉스 위치">
+              <button type="button" data-fl-node-draft="1">STAGE 1</button>
+              <button type="button" data-fl-node-draft="2">STAGE 2</button>
+            </div>
+          </section>
+          <div id="flashLinkRoleConfigSummary" class="flash-role-config-summary">현재 설정을 유지합니다.</div>
+        </div>
+        <div class="flash-role-config-actions">
+          <button id="flashLinkRoleConfigCancel" class="flash-role-config-secondary" type="button">취소</button>
+          <button id="flashLinkRoleConfigApply" class="flash-role-config-primary" type="button">적용</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 1단 전용 지상국에서 감지된 STAGE 2 연결 -->
+    <div id="flashLinkStage2MismatchOverlay" class="flash-role-config-overlay hidden" style="display:none;" aria-hidden="true">
+      <div class="flash-role-config-dialog flash-stage2-mismatch-dialog" role="alertdialog" aria-modal="true" aria-labelledby="flashLinkStage2MismatchTitle">
+        <div class="flash-role-config-header">
+          <div>
+            <div class="flash-role-config-kicker flash-role-config-kicker-warning">LINK CONFIGURATION</div>
+            <div id="flashLinkStage2MismatchTitle" class="flash-role-config-title">2단 에비오닉스 감지</div>
+          </div>
+        </div>
+        <div class="flash-role-config-body">
+          <div class="flash-role-config-copy">현재 지상국은 <strong>1단 전용 모드</strong>입니다.</div>
+          <div class="flash-stage2-mismatch-readout">
+            <span>현재 연결 에비오닉스</span>
+            <strong>STAGE 2</strong>
+          </div>
+          <div class="flash-role-config-copy">2단 운용을 적용하면 STAGE 1 중계와 STAGE 2 지상국 직결 백업 경로를 활성화합니다.</div>
+        </div>
+        <div class="flash-role-config-actions">
+          <button id="flashLinkStage2MismatchCancel" class="flash-role-config-secondary" type="button">나중에</button>
+          <button id="flashLinkStage2MismatchApply" class="flash-role-config-primary" type="button">2단 운용 적용</button>
         </div>
       </div>
     </div>

@@ -1,8 +1,8 @@
 
 constexpr char kFirmwareProgram[] = "Altis_Intelligent3_firmware1";
-constexpr char kFirmwareVersion[] = "0.10.0";
-constexpr char kFirmwareBuildId[] = "v6 b48";
-constexpr uint16_t kFirmwareBuildNumber = 48;
+constexpr char kFirmwareVersion[] = "0.10.1";
+constexpr char kFirmwareBuildId[] = "v6 b49";
+constexpr uint16_t kFirmwareBuildNumber = 49;
 constexpr char kFirmwareBoard[] = "Altis_Intelligent3_b3";
 constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b11";
 constexpr uint8_t kStorageProtocolVersion = 9;
@@ -324,6 +324,10 @@ volatile bool flightMode = true;
 volatile bool flashLinkMode = false;
 volatile bool flashLinkDataFlightMode = true;
 volatile bool flashLinkStage2Enabled = false;
+// Single-stage ground stations still remember that a stage-2 transmitter was
+// heard. The packet itself is discarded before the RX queue, so the warning
+// path adds no telemetry parsing or queue pressure.
+volatile uint32_t flashLinkUnexpectedStage2LastRxMs = 0;
 volatile bool developerMode = false;
 enum class FlashLinkRole : uint8_t {
   Avionics = 0,
@@ -1877,6 +1881,7 @@ bool flashLinkRemoteActive();
 bool flashLinkOperational();
 void flashLinkGroundRefreshSelectedPeer();
 bool flashLinkRouteFresh(uint32_t lastRxMs, uint32_t maxAgeMs);
+bool flashLinkUnexpectedStage2Detected(uint32_t nowMs);
 bool flashLinkStorageTransferActive(uint32_t nowMs);
 void flashLinkHoldStorageTransfer(uint32_t nowMs);
 void flashLinkGroundChooseRoute(FlashLinkGroundPeer& peer);
