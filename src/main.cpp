@@ -64,6 +64,9 @@ void setup() {
   // serial telemetry disabled, so reserving the ground station's active TX
   // queue there only reduces runtime heap.
   loadSequenceSettings();
+#if ARDUINO_USB_MODE
+  Serial.setRxBufferSize(kSerialRxBufferBytes);
+#endif
   Serial.begin(kSerialBaud);
   Serial.setTimeout(2);
   Serial.setTxTimeoutMs(2);

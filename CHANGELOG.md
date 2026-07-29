@@ -3,6 +3,23 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.11.1 — v6 b53 — 2026-07-29
+
+Protocol unchanged: `Flash6-Intelligent-b12`
+
+Storage record protocol unchanged: `HWLOGV2` version `9`
+
+- USB 펌웨어 업데이트가 여러 Base64 청크를 한 번에 밀어 넣어 수신 큐가
+  포화되고 진행 ACK가 유실되던 경로를 수정했습니다. UI는 512바이트
+  청크를 순차 전송하고 짧게 페이싱합니다.
+- 진행 ACK가 늦거나 유실되면 업데이트를 즉시 실패시키지 않고 보드의
+  `/firmware/status`에서 실제 기록 위치를 조회해 해당 오프셋부터 최대
+  3회 이어 전송합니다. 시작·전송·검증 타임아웃도 구분해 표시합니다.
+- 네이티브 USB 수신 버퍼를 8KB로 확대하고 업데이트 중 시리얼 처리량을
+  루프당 256바이트에서 4KB로 높였습니다. 업데이트 중에는 기존처럼
+  센서·A.I LINK·로깅·주기 텔레메트리를 중단합니다.
+- FLASH6 UI 자산 버전을 `b151`로 갱신했습니다.
+
 ## 0.11.0 — v6 b52 — 2026-07-29
 
 Protocol updated: `Flash6-Intelligent-b11` → `Flash6-Intelligent-b12`

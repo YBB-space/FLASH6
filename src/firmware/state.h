@@ -1,8 +1,8 @@
 
 constexpr char kFirmwareProgram[] = "Altis_Intelligent3_firmware1";
-constexpr char kFirmwareVersion[] = "0.11.0";
-constexpr char kFirmwareBuildId[] = "v6 b52";
-constexpr uint16_t kFirmwareBuildNumber = 52;
+constexpr char kFirmwareVersion[] = "0.11.1";
+constexpr char kFirmwareBuildId[] = "v6 b53";
+constexpr uint16_t kFirmwareBuildNumber = 53;
 constexpr char kFirmwareBoard[] = "Altis_Intelligent3_b3";
 constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b12";
 constexpr uint8_t kStorageProtocolVersion = 9;
@@ -41,6 +41,8 @@ constexpr uint32_t kSamplePeriodUs = 1000000UL / kImuSampleHz;
 constexpr uint32_t kSerialPeriodUs = 1000000UL / kSerialStreamHz;
 constexpr uint32_t kBaroPeriodUs = 1000000UL / kBaroSampleHz;
 constexpr uint16_t kSerialRxDrainMaxBytes = 256;
+constexpr uint16_t kSerialFirmwareRxDrainMaxBytes = 4096;
+constexpr size_t kSerialRxBufferBytes = 8192;
 // USB firmware chunks use 768 raw bytes -> 1024 Base64 bytes plus framing.
 // A fixed buffer avoids thousands of temporary String allocations during OTA.
 constexpr size_t kSerialFirmwareLineBytes = 1152;

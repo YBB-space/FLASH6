@@ -1,7 +1,9 @@
     const FIRMWARE_UPDATE_MIN_BYTES = 64 * 1024;
     const FIRMWARE_UPDATE_MAX_BYTES = 5 * 1024 * 1024;
-    const FIRMWARE_UPDATE_SERIAL_CHUNK_BYTES = 768;
+    const FIRMWARE_UPDATE_SERIAL_CHUNK_BYTES = 512;
     const FIRMWARE_UPDATE_SERIAL_WINDOW_BYTES = 32 * 1024;
+    const FIRMWARE_UPDATE_SERIAL_LINE_PACE_MS = 3;
+    const FIRMWARE_UPDATE_SERIAL_WINDOW_RETRIES = 3;
     const FIRMWARE_UPDATE_IMAGE_MAGIC = 0xE9;
     const FIRMWARE_UPDATE_REQUIRED_MARKERS = [
       "Altis_Intelligent3_firmware1",
@@ -94,6 +96,9 @@
         BAD_IMAGE_MAGIC:"ESP32-S3 펌웨어 이미지가 아닙니다.",
         SHA256_MISMATCH:"전송된 펌웨어의 무결성 검증에 실패했습니다.",
         TRANSFER_TIMEOUT:"전송 응답 시간이 초과되었습니다. 연결을 확인하세요.",
+        SERIAL_BEGIN_TIMEOUT:"보드가 업데이트 시작에 응답하지 않았습니다. USB 연결과 물리 인증 상태를 확인하세요.",
+        SERIAL_TRANSFER_TIMEOUT:"USB 전송이 중단되었습니다. 케이블을 유지한 채 다시 시도하세요.",
+        SERIAL_VERIFY_TIMEOUT:"전송은 끝났지만 보드의 펌웨어 검증 응답이 없습니다.",
         SERIAL_NOT_READY:"USB 연결을 확인하세요.",
         SERIAL_WRITE_FAIL:"USB 전송에 실패했습니다.",
         SERIAL_WRITE_TIMEOUT:"USB 전송 응답 시간이 초과되었습니다.",
@@ -370,6 +375,33 @@
       return match ? Math.max(0, Number(match[1]) || 0) : 0;
     }
 
+    function parseFirmwareSerialStatus(message){
+      const text = String(message || "");
+      const jsonStart = text.indexOf("{");
+      if(jsonStart < 0) return null;
+      try{
+        const value = JSON.parse(text.slice(jsonStart));
+        return value && typeof value === "object" ? value : null;
+      }catch(_error){
+        return null;
+      }
+    }
+
+    function waitFirmwareSerialPace(){
+      return new Promise((resolve)=>{
+        setTimeout(resolve, FIRMWARE_UPDATE_SERIAL_LINE_PACE_MS);
+      });
+    }
+
+    async function requestFirmwareSerialStatus(){
+      const reply = await requestSerialCommandAck(
+        "/firmware/status",
+        (event)=>String(event.message || "").toUpperCase().indexOf("FIRMWARE_STATUS") === 0,
+        {timeoutMs:4000, writeTimeoutMs:2500});
+      if(!reply || !reply.ok) return null;
+      return parseFirmwareSerialStatus(reply.message);
+    }
+
     function updateFirmwareProgress(written, total, stage){
       const now = performance.now();
       const safeWritten = Math.max(0, Math.min(Number(total) || 0, Number(written) || 0));
@@ -411,13 +443,17 @@
       }
     }
 
-    async function writeFirmwareSerialBatch(lines){
+    async function writeFirmwareSerialChunk(bytes, offset, end){
       if(!serialConnected || !serialWriter) throw new Error("SERIAL_NOT_READY");
-      const encoded = new TextEncoder().encode(lines.join("\n") + "\n");
+      const line =
+        "/firmware/chunk?offset=" + offset +
+        "&data=" + bytesToBase64(bytes.subarray(offset, end));
+      const encoded = new TextEncoder().encode(line + "\n");
       await serialPromiseWithTimeout(
         serialWriter.write(encoded),
-        30000,
+        6000,
         "SERIAL_WRITE_TIMEOUT");
+      await waitFirmwareSerialPace();
     }
 
     async function uploadFirmwareOverSerial(buffer, hash){
@@ -427,39 +463,65 @@
         (event)=>String(event.message || "").toUpperCase().indexOf("FIRMWARE_BEGIN") === 0,
         {timeoutMs:6000, writeTimeoutMs:3000});
       if(!begin || !begin.ok){
-        throw new Error(begin && begin.message ? begin.message : "SERIAL_NOT_READY");
+        const beginError = begin && begin.message ? begin.message : "SERIAL_NOT_READY";
+        throw new Error(beginError === "SERIAL_TIMEOUT" ? "SERIAL_BEGIN_TIMEOUT" : beginError);
       }
 
       let offset = 0;
       while(offset < bytes.length){
         const windowEnd = Math.min(bytes.length, offset + FIRMWARE_UPDATE_SERIAL_WINDOW_BYTES);
-        const progressWaiter = createSerialAckWaiter((event)=>{
-          if(event.kind === "err") return true;
-          return event.kind === "ack" &&
-            String(event.message || "").toUpperCase().indexOf("FIRMWARE_PROGRESS") === 0 &&
-            parseFirmwareProgressBytes(event.message) >= windowEnd;
-        }, 30000);
-        try{
-          while(offset < windowEnd){
-            const lines = [];
-            for(let batch = 0; batch < 8 && offset < windowEnd; batch += 1){
-              const end = Math.min(windowEnd, offset + FIRMWARE_UPDATE_SERIAL_CHUNK_BYTES);
-              const chunk = bytes.subarray(offset, end);
-              lines.push(
-                "/firmware/chunk?offset=" + offset + "&data=" + bytesToBase64(chunk)
-              );
+        const windowStart = offset;
+        let recoveryCount = 0;
+        while(offset < windowEnd){
+          const progressWaiter = createSerialAckWaiter((event)=>{
+            if(event.kind === "err") return true;
+            return event.kind === "ack" &&
+              String(event.message || "").toUpperCase().indexOf("FIRMWARE_PROGRESS") === 0 &&
+              parseFirmwareProgressBytes(event.message) >= windowEnd;
+          }, 10000);
+          let progress = null;
+          try{
+            while(offset < windowEnd){
+              const end = Math.min(
+                windowEnd,
+                offset + FIRMWARE_UPDATE_SERIAL_CHUNK_BYTES);
+              await writeFirmwareSerialChunk(bytes, offset, end);
               offset = end;
+              updateFirmwareProgress(offset, bytes.length, "USB로 펌웨어 전송 중");
             }
-            await writeFirmwareSerialBatch(lines);
-            updateFirmwareProgress(offset, bytes.length, "USB로 펌웨어 전송 중");
+            progress = await progressWaiter.promise;
+          }catch(error){
+            cancelSerialAckWaiter(progressWaiter, "FIRMWARE_TRANSFER_ABORTED");
+            throw error;
           }
-          const progress = await progressWaiter.promise;
-          if(!progress || !progress.ok){
-            throw new Error(progress && progress.message ? progress.message : "TRANSFER_TIMEOUT");
+
+          if(progress && progress.ok) break;
+          if(progress && progress.kind === "err"){
+            throw new Error(progress.message || "SERIAL_TRANSFER_TIMEOUT");
           }
-        }catch(error){
-          cancelSerialAckWaiter(progressWaiter, "FIRMWARE_TRANSFER_ABORTED");
-          throw error;
+
+          // A progress ACK can be lost when the browser or native USB queue is
+          // briefly back-pressured. Query the board's authoritative offset and
+          // continue from there instead of restarting or duplicating chunks.
+          const status = await requestFirmwareSerialStatus();
+          const written = status ? Math.round(Number(status.written)) : NaN;
+          const total = status ? Math.round(Number(status.total)) : NaN;
+          if(
+            !status ||
+            Number(status.active) !== 1 ||
+            !isFinite(written) ||
+            written < windowStart ||
+            written > windowEnd ||
+            (isFinite(total) && total !== bytes.length)
+          ){
+            throw new Error("SERIAL_TRANSFER_TIMEOUT");
+          }
+          offset = written;
+          updateFirmwareProgress(offset, bytes.length, "USB 수신 위치 재동기화 중");
+          recoveryCount += 1;
+          if(recoveryCount > FIRMWARE_UPDATE_SERIAL_WINDOW_RETRIES){
+            throw new Error("SERIAL_TRANSFER_TIMEOUT");
+          }
         }
       }
 
@@ -469,7 +531,8 @@
         (event)=>String(event.message || "").toUpperCase().indexOf("FIRMWARE_COMPLETE") === 0,
         {timeoutMs:120000, writeTimeoutMs:3000});
       if(!complete || !complete.ok){
-        throw new Error(complete && complete.message ? complete.message : "VERIFY_FAILED");
+        const verifyError = complete && complete.message ? complete.message : "VERIFY_FAILED";
+        throw new Error(verifyError === "SERIAL_TIMEOUT" ? "SERIAL_VERIFY_TIMEOUT" : verifyError);
       }
     }
 

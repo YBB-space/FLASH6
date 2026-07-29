@@ -1599,7 +1599,10 @@ void handleSerialLine(const char* line) {
 
 void pollSerial() {
   uint16_t drained = 0;
-  while (Serial.available() > 0 && drained < kSerialRxDrainMaxBytes) {
+  const uint16_t drainLimit = firmwareUpdateActive()
+    ? kSerialFirmwareRxDrainMaxBytes
+    : kSerialRxDrainMaxBytes;
+  while (Serial.available() > 0 && drained < drainLimit) {
     drained++;
     char c = (char)Serial.read();
     if (c == '\r') c = '\n';
