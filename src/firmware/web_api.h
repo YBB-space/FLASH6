@@ -17,7 +17,7 @@ void addCorsHeaders(AsyncWebServerResponse* response) {
   if (!response) return;
   response->addHeader("Access-Control-Allow-Origin", "*");
   response->addHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  response->addHeader("Access-Control-Allow-Headers", "Content-Type,Cache-Control,Pragma,Origin,Accept,X-Requested-With");
+  response->addHeader("Access-Control-Allow-Headers", "Content-Type,Cache-Control,Pragma,Origin,Accept,X-Requested-With,X-Firmware-SHA256");
   response->addHeader("Access-Control-Allow-Private-Network", "true");
   response->addHeader("Cache-Control", "no-store");
 }
@@ -1315,6 +1315,83 @@ void handleMissionProfilePostBody(AsyncWebServerRequest* request, uint8_t* data,
   sendText(request, 200, "application/json", resp);
 }
 
+void handleFirmwareUpdatePostBody(
+  AsyncWebServerRequest* request,
+  uint8_t* data,
+  size_t len,
+  size_t index,
+  size_t total
+) {
+  if (!request) return;
+  // No heap allocation is required: the request-local marker only records
+  // whether the first body chunk accepted or rejected this upload.
+  constexpr uintptr_t kFirmwareHttpAccepted = 1U;
+  constexpr uintptr_t kFirmwareHttpRejected = 2U;
+
+  if (index == 0U) {
+    request->_tempObject = nullptr;
+    const String sha = request->header("X-Firmware-SHA256");
+    if (!firmwareUpdateBegin(
+          total,
+          sha.c_str(),
+          FirmwareUpdateTransport::Http)) {
+      request->_tempObject =
+        reinterpret_cast<void*>(kFirmwareHttpRejected);
+      char json[160];
+      snprintf(
+        json,
+        sizeof(json),
+        "{\"ok\":0,\"err\":\"%s\"}",
+        firmwareUpdate.error[0] ? firmwareUpdate.error : "BEGIN_FAILED");
+      sendText(request, 409, "application/json", json);
+      return;
+    }
+    request->_tempObject =
+      reinterpret_cast<void*>(kFirmwareHttpAccepted);
+  }
+
+  const uintptr_t marker =
+    reinterpret_cast<uintptr_t>(request->_tempObject);
+  if (marker != kFirmwareHttpAccepted) return;
+  if (!firmwareUpdateWrite(data, len, index)) {
+    request->_tempObject =
+      reinterpret_cast<void*>(kFirmwareHttpRejected);
+    char json[160];
+    snprintf(
+      json,
+      sizeof(json),
+      "{\"ok\":0,\"err\":\"%s\"}",
+      firmwareUpdate.error[0] ? firmwareUpdate.error : "WRITE_FAILED");
+    sendText(request, 422, "application/json", json);
+    return;
+  }
+  if ((index + len) != total) return;
+
+  char actualSha[65];
+  if (!firmwareUpdateFinish(actualSha, sizeof(actualSha))) {
+    request->_tempObject =
+      reinterpret_cast<void*>(kFirmwareHttpRejected);
+    char json[160];
+    snprintf(
+      json,
+      sizeof(json),
+      "{\"ok\":0,\"err\":\"%s\"}",
+      firmwareUpdate.error[0] ? firmwareUpdate.error : "VERIFY_FAILED");
+    sendText(request, 422, "application/json", json);
+    return;
+  }
+  request->_tempObject = nullptr;
+  char json[192];
+  snprintf(
+    json,
+    sizeof(json),
+    "{\"ok\":1,\"updated\":1,\"bytes\":%u,"
+    "\"sha256\":\"%s\",\"restart\":1}",
+    (unsigned)total,
+    actualSha);
+  sendText(request, 200, "application/json", json);
+}
+
 void sendStorageChunkResponse(AsyncWebServerRequest* request, uint32_t offset, uint32_t len, bool withHeader) {
   if (!storageFlush(true)) {
     sendText(request, 500, "application/json", "{\"ok\":0,\"err\":\"FLASH_FLUSH_FAILED\"}");
@@ -1653,7 +1730,7 @@ void sendRemoteStorageReadResponse(
 void setupRoutes() {
   DefaultHeaders::Instance().addHeader("Access-Control-Allow-Origin", "*");
   DefaultHeaders::Instance().addHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  DefaultHeaders::Instance().addHeader("Access-Control-Allow-Headers", "Content-Type,Cache-Control,Pragma,Origin,Accept,X-Requested-With");
+  DefaultHeaders::Instance().addHeader("Access-Control-Allow-Headers", "Content-Type,Cache-Control,Pragma,Origin,Accept,X-Requested-With,X-Firmware-SHA256");
   DefaultHeaders::Instance().addHeader("Access-Control-Allow-Private-Network", "true");
 
   auto options = [](AsyncWebServerRequest* request) { request->send(204); };
@@ -2194,6 +2271,28 @@ void setupRoutes() {
     sendText(request, 200, "application/json", json);
   });
 
+  server.on("/firmware/status", HTTP_GET, [](AsyncWebServerRequest* request) {
+    sendText(
+      request,
+      200,
+      "application/json",
+      firmwareUpdateStatusJson());
+  });
+  server.on(
+    "/firmware/update",
+    HTTP_POST,
+    [](AsyncWebServerRequest* request) {
+      if (request->contentLength() == 0U) {
+        sendText(
+          request,
+          400,
+          "application/json",
+          "{\"ok\":0,\"err\":\"FIRMWARE_EMPTY_BODY\"}");
+      }
+    },
+    nullptr,
+    handleFirmwareUpdatePostBody);
+
   server.on("/identity/reset", HTTP_GET, [](AsyncWebServerRequest* request) {
     if (!roleConfigUnlockActive(millis())) {
       sendText(
@@ -2614,6 +2713,8 @@ void setupRoutes() {
   server.on("/settings", HTTP_OPTIONS, options);
   server.on("/identity", HTTP_OPTIONS, options);
   server.on("/identity/reset", HTTP_OPTIONS, options);
+  server.on("/firmware/status", HTTP_OPTIONS, options);
+  server.on("/firmware/update", HTTP_OPTIONS, options);
   server.on("/flash_link/devices", HTTP_OPTIONS, options);
   server.on("/flash_link/bind", HTTP_OPTIONS, options);
   server.on("/flash_link/unbind", HTTP_OPTIONS, options);

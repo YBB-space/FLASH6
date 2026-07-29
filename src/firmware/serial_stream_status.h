@@ -347,13 +347,125 @@ bool forwardFlashLinkSerialCommand(
   return true;
 }
 
+bool handleFirmwareSerialChunkLine(const char* line) {
+  constexpr char kPrefix[] = "/firmware/chunk?offset=";
+  if (!line || strncmp(line, kPrefix, sizeof(kPrefix) - 1U) != 0) {
+    return false;
+  }
+  if (!firmwareUpdateActive() ||
+      firmwareUpdate.transport != FirmwareUpdateTransport::Serial) {
+    Serial.println("ERR FIRMWARE_CHUNK UPDATE_NOT_ACTIVE");
+    return true;
+  }
+
+  const char* offsetText = line + sizeof(kPrefix) - 1U;
+  char* offsetEnd = nullptr;
+  const unsigned long offset = strtoul(offsetText, &offsetEnd, 10);
+  if (!offsetEnd || strncmp(offsetEnd, "&data=", 6U) != 0) {
+    Serial.println("ERR FIRMWARE_CHUNK BAD_FRAME");
+    return true;
+  }
+  const char* encoded = offsetEnd + 6U;
+  const size_t encodedLen = strlen(encoded);
+  if (encodedLen == 0U || encodedLen > 1024U) {
+    firmwareUpdateAbort("BAD_CHUNK_SIZE");
+    Serial.println("ERR FIRMWARE_CHUNK BAD_CHUNK_SIZE");
+    return true;
+  }
+
+  uint8_t decoded[kFirmwareSerialChunkBytes];
+  size_t decodedLen = 0U;
+  const int decodeResult = mbedtls_base64_decode(
+    decoded,
+    sizeof(decoded),
+    &decodedLen,
+    reinterpret_cast<const unsigned char*>(encoded),
+    encodedLen);
+  if (decodeResult != 0 || decodedLen == 0U) {
+    firmwareUpdateAbort("BASE64_DECODE_FAILED");
+    Serial.println("ERR FIRMWARE_CHUNK BASE64_DECODE_FAILED");
+    return true;
+  }
+  if (!firmwareUpdateWrite(decoded, decodedLen, (size_t)offset)) {
+    Serial.printf(
+      "ERR FIRMWARE_CHUNK %s\n",
+      firmwareUpdate.error[0] ? firmwareUpdate.error : "WRITE_FAILED");
+    return true;
+  }
+  if (firmwareUpdate.writtenBytes >= firmwareUpdate.nextProgressBytes ||
+      firmwareUpdate.writtenBytes == firmwareUpdate.expectedBytes) {
+    Serial.printf(
+      "ACK FIRMWARE_PROGRESS bytes=%u total=%u\n",
+      (unsigned)firmwareUpdate.writtenBytes,
+      (unsigned)firmwareUpdate.expectedBytes);
+    while (firmwareUpdate.nextProgressBytes <= firmwareUpdate.writtenBytes) {
+      firmwareUpdate.nextProgressBytes += kFirmwareProgressStepBytes;
+    }
+  }
+  return true;
+}
+
 void handleSerialLine(const char* line) {
   if (!line || !line[0]) return;
+  if (handleFirmwareSerialChunkLine(line)) return;
   String cmd(line);
   cmd.trim();
 
   if (cmd == "help" || cmd == "/help") {
-    Serial.println("ACK GYRO_BARO_GPS_FLASH commands: /set?stream=0|1&storage_logging=0|1&ign_ms=1000&cd_ms=10000&daq_seq_pyro=1, /settings, /rates, /identity, /identity/reset?confirm=RESET, /flash_link/devices, /flash_link/bind?node=1&sn=F6-XXXX-XXXX-XXXX-XXXX, /flash_link/unbind?node=1, /gps, /baro, /loadcell|zero|cal|reset, /servo?ch=1&deg=90 or SERVO 1 90, /storage/spi_flash/status|list|read|init, /storage/spi_flash/remote/list|read, /mission_profile_begin|chunk|end|cancel, /countdown_start, /mission_standby, /mission_force_timed, /abort, /reset");
+    Serial.println("ACK GYRO_BARO_GPS_FLASH commands: /set?stream=0|1&storage_logging=0|1&ign_ms=1000&cd_ms=10000&daq_seq_pyro=1, /settings, /rates, /identity, /identity/reset?confirm=RESET, /flash_link/devices, /flash_link/bind?node=1&sn=F6-XXXX-XXXX-XXXX-XXXX, /flash_link/unbind?node=1, /gps, /baro, /loadcell|zero|cal|reset, /servo?ch=1&deg=90 or SERVO 1 90, /storage/spi_flash/status|list|read|init, /storage/spi_flash/remote/list|read, /mission_profile_begin|chunk|end|cancel, /firmware/status|begin|chunk|end|abort, /countdown_start, /mission_standby, /mission_force_timed, /abort, /reset");
+    return;
+  }
+
+  if (cmd == "/firmware/status") {
+    Serial.print("ACK FIRMWARE_STATUS ");
+    Serial.println(firmwareUpdateStatusJson());
+    return;
+  }
+
+  if (cmd.startsWith("/firmware/begin")) {
+    String sizeRaw;
+    String shaRaw;
+    const size_t imageSize =
+      getQueryValue(cmd, "size", sizeRaw) ? (size_t)sizeRaw.toInt() : 0U;
+    if (!getQueryValue(cmd, "sha256", shaRaw)) shaRaw = "";
+    if (!firmwareUpdateBegin(
+          imageSize,
+          shaRaw.c_str(),
+          FirmwareUpdateTransport::Serial)) {
+      Serial.printf(
+        "ERR FIRMWARE_BEGIN %s\n",
+        firmwareUpdate.error[0] ? firmwareUpdate.error : "BEGIN_FAILED");
+      return;
+    }
+    Serial.printf(
+      "ACK FIRMWARE_BEGIN ready=1 size=%u chunk=%u\n",
+      (unsigned)imageSize,
+      (unsigned)kFirmwareSerialChunkBytes);
+    return;
+  }
+
+  if (cmd == "/firmware/end") {
+    char actualSha[65];
+    if (!firmwareUpdateFinish(actualSha, sizeof(actualSha))) {
+      Serial.printf(
+        "ERR FIRMWARE_END %s\n",
+        firmwareUpdate.error[0] ? firmwareUpdate.error : "VERIFY_FAILED");
+      return;
+    }
+    Serial.printf(
+      "ACK FIRMWARE_COMPLETE sha256=%s restart=1\n",
+      actualSha);
+    return;
+  }
+
+  if (cmd == "/firmware/abort") {
+    firmwareUpdateAbort("USER_ABORT");
+    Serial.println("ACK FIRMWARE_ABORT");
+    return;
+  }
+
+  if (firmwareUpdateActive()) {
+    Serial.println("ERR FIRMWARE_UPDATE BUSY");
     return;
   }
 

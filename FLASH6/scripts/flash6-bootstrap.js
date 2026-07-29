@@ -556,6 +556,31 @@
       el.flashLinkEnabledPill = document.getElementById("flashLinkEnabledPill");
       el.flashLinkRoleAccessBtn = document.getElementById("flashLinkRoleAccessBtn");
       el.flashLinkRoleAccessHint = document.getElementById("flashLinkRoleAccessHint");
+      el.firmwareUpdateOpenBtn = document.getElementById("firmwareUpdateOpenBtn");
+      el.firmwareUpdateOverlay = document.getElementById("firmwareUpdateOverlay");
+      el.firmwareUpdateClose = document.getElementById("firmwareUpdateClose");
+      el.firmwareUpdateCancel = document.getElementById("firmwareUpdateCancel");
+      el.firmwareUpdateStart = document.getElementById("firmwareUpdateStart");
+      el.firmwareUpdateActions = document.getElementById("firmwareUpdateActions");
+      el.firmwareUpdateIdleView = document.getElementById("firmwareUpdateIdleView");
+      el.firmwareUpdateProgressView = document.getElementById("firmwareUpdateProgressView");
+      el.firmwareUpdateTransport = document.getElementById("firmwareUpdateTransport");
+      el.firmwareUpdateDropzone = document.getElementById("firmwareUpdateDropzone");
+      el.firmwareUpdateDropTitle = document.getElementById("firmwareUpdateDropTitle");
+      el.firmwareUpdateFileInput = document.getElementById("firmwareUpdateFileInput");
+      el.firmwareUpdateFileCard = document.getElementById("firmwareUpdateFileCard");
+      el.firmwareUpdateFileName = document.getElementById("firmwareUpdateFileName");
+      el.firmwareUpdateFileMeta = document.getElementById("firmwareUpdateFileMeta");
+      el.firmwareUpdateAuthState = document.getElementById("firmwareUpdateAuthState");
+      el.firmwareUpdateSafetyState = document.getElementById("firmwareUpdateSafetyState");
+      el.firmwareUpdateArmState = document.getElementById("firmwareUpdateArmState");
+      el.firmwareUpdateStatus = document.getElementById("firmwareUpdateStatus");
+      el.firmwareUpdateProgressStage = document.getElementById("firmwareUpdateProgressStage");
+      el.firmwareUpdateProgressPercent = document.getElementById("firmwareUpdateProgressPercent");
+      el.firmwareUpdateProgressBar = document.getElementById("firmwareUpdateProgressBar");
+      el.firmwareUpdateProgressBytes = document.getElementById("firmwareUpdateProgressBytes");
+      el.firmwareUpdateProgressSpeed = document.getElementById("firmwareUpdateProgressSpeed");
+      el.firmwareUpdateProgressEta = document.getElementById("firmwareUpdateProgressEta");
       el.flashLinkRoleConfigOverlay = document.getElementById("flashLinkRoleConfigOverlay");
       el.flashLinkRoleConfigClose = document.getElementById("flashLinkRoleConfigClose");
       el.flashLinkRoleConfigCancel = document.getElementById("flashLinkRoleConfigCancel");
@@ -575,7 +600,12 @@
       el.flashLinkStage2MismatchOverlay = document.getElementById("flashLinkStage2MismatchOverlay");
       el.flashLinkStage2MismatchCancel = document.getElementById("flashLinkStage2MismatchCancel");
       el.flashLinkStage2MismatchApply = document.getElementById("flashLinkStage2MismatchApply");
-      [el.flashLinkRoleConfigOverlay, el.flashLinkIdentityResetOverlay, el.flashLinkStage2MismatchOverlay].forEach((overlay)=>{
+      [
+        el.firmwareUpdateOverlay,
+        el.flashLinkRoleConfigOverlay,
+        el.flashLinkIdentityResetOverlay,
+        el.flashLinkStage2MismatchOverlay
+      ].forEach((overlay)=>{
         if(overlay && overlay.parentElement !== document.body) document.body.appendChild(overlay);
       });
       el.flashLinkStage2ModePill = document.getElementById("flashLinkStage2ModePill");
@@ -2276,6 +2306,10 @@
         hideMobileControlsPanel();
       });
       document.addEventListener("keydown",(ev)=>{
+        if(ev.key === "Escape" && isFirmwareUpdateOpen()){
+          if(!firmwareUpdateUiBusy) closeFirmwareUpdateModal();
+          return;
+        }
         if(ev.key === "Escape" && isFlashLinkIdentityResetOpen() && !flashLinkIdentityResetBusy){
           closeFlashLinkIdentityResetModal();
           return;
@@ -5399,6 +5433,58 @@
       if(el.flashLinkRoleConfigOverlay){
         el.flashLinkRoleConfigOverlay.addEventListener("click", (event)=>{
           if(event.target === el.flashLinkRoleConfigOverlay) closeFlashLinkRoleConfigModal();
+        });
+      }
+      if(el.firmwareUpdateOpenBtn){
+        el.firmwareUpdateOpenBtn.addEventListener("click", openFirmwareUpdateModal);
+      }
+      if(el.firmwareUpdateClose){
+        el.firmwareUpdateClose.addEventListener("click", closeFirmwareUpdateModal);
+      }
+      if(el.firmwareUpdateCancel){
+        el.firmwareUpdateCancel.addEventListener("click", closeFirmwareUpdateModal);
+      }
+      if(el.firmwareUpdateStart){
+        el.firmwareUpdateStart.addEventListener("click", ()=>{
+          void startFirmwareUpdate();
+        });
+      }
+      if(el.firmwareUpdateDropzone && el.firmwareUpdateFileInput){
+        el.firmwareUpdateDropzone.addEventListener("click", ()=>{
+          if(!firmwareUpdateUiBusy) el.firmwareUpdateFileInput.click();
+        });
+        ["dragenter", "dragover"].forEach((eventName)=>{
+          el.firmwareUpdateDropzone.addEventListener(eventName, (event)=>{
+            event.preventDefault();
+            if(!firmwareUpdateUiBusy) el.firmwareUpdateDropzone.classList.add("is-dragging");
+          });
+        });
+        ["dragleave", "drop"].forEach((eventName)=>{
+          el.firmwareUpdateDropzone.addEventListener(eventName, (event)=>{
+            event.preventDefault();
+            el.firmwareUpdateDropzone.classList.remove("is-dragging");
+          });
+        });
+        el.firmwareUpdateDropzone.addEventListener("drop", (event)=>{
+          if(firmwareUpdateUiBusy) return;
+          const file = event.dataTransfer && event.dataTransfer.files
+            ? event.dataTransfer.files[0]
+            : null;
+          if(file) void selectFirmwareUpdateFile(file);
+        });
+        el.firmwareUpdateFileInput.addEventListener("change", ()=>{
+          const file = el.firmwareUpdateFileInput.files
+            ? el.firmwareUpdateFileInput.files[0]
+            : null;
+          if(file) void selectFirmwareUpdateFile(file);
+          el.firmwareUpdateFileInput.value = "";
+        });
+      }
+      if(el.firmwareUpdateOverlay){
+        el.firmwareUpdateOverlay.addEventListener("click", (event)=>{
+          if(event.target === el.firmwareUpdateOverlay && !firmwareUpdateUiBusy){
+            closeFirmwareUpdateModal();
+          }
         });
       }
       if(el.flashLinkIdentityResetBtn){

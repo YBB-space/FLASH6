@@ -3,6 +3,29 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.11.0 — v6 b52 — 2026-07-29
+
+Protocol updated: `Flash6-Intelligent-b11` → `Flash6-Intelligent-b12`
+
+Storage record protocol unchanged: `HWLOGV2` version `9`
+
+- FLASH6 설정에서 직접 연결된 보드의 `firmware.bin`을 업데이트하는
+  로컬 펌웨어 업데이터를 추가했습니다. USB WebSerial과 지상국 Wi-Fi
+  HTTP 업로드를 지원하며 A.I LINK 중계 업데이트는 허용하지 않습니다.
+- 업데이트 시작 전에 ESP32-S3 이미지 매직, FLASH6 대상 문자열, 파일
+  크기와 SHA-256을 검증합니다. 보드에서도 전체 이미지를 다시 해시해
+  일치할 때만 OTA 파티션을 부팅 대상으로 확정합니다.
+- 물리 버튼 6회 입력 후 길게 누르는 인증, 안전 모드, ARM 잠금, 유휴
+  시퀀스 및 파이로 OFF 상태를 모두 만족해야 업데이트를 시작할 수
+  있습니다. 전송 중에는 센서·A.I LINK·로깅·텔레메트리 출력을 멈추고
+  OTA 쓰기와 검증에 처리 시간을 집중합니다.
+- UI에 전송률, 전송량, 진행률과 남은 예상 시간을 표시하고 업데이트
+  중 다른 조작을 차단합니다. 완료 후 보드가 자동 재부팅되며 OTA
+  롤백 검증을 사용합니다.
+- OTA는 애플리케이션 파티션만 교체하므로 영구 S/N, 바인드 슬롯,
+  보정값, 미션 설정과 저장된 비행 데이터는 유지됩니다.
+- FLASH6 UI 자산 버전을 `b149`로 갱신했습니다.
+
 ## 0.10.3 — v6 b51 — 2026-07-29
 
 Protocol unchanged: `Flash6-Intelligent-b11`

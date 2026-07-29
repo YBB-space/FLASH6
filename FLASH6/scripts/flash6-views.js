@@ -959,6 +959,7 @@
       if(seq <= 0 || (flashLinkRoleUnlockLatched && seq === flashLinkRoleUnlockLastSeq)) return;
       flashLinkRoleUnlockLastSeq = seq;
       flashLinkRoleUnlockLatched = true;
+      if(authorizeFirmwareUpdateFromHardware()) return;
       if(flashLinkRoleConfigBusy || isFlashLinkRoleConfigOpen()) return;
       if(el.flashLinkRoleAccessHint){
         el.flashLinkRoleAccessHint.textContent = "물리 버튼 인증 완료 · 설정을 확인한 뒤 적용하세요.";

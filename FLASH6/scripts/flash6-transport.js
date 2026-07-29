@@ -168,7 +168,13 @@
     }
 
     function ensureSerialAlive(){
-      if(!serialEnabled || !serialConnected || serialConnectBusy || serialStaleRecoveryBusy) return;
+      if(
+        firmwareUpdateUiBusy ||
+        !serialEnabled ||
+        !serialConnected ||
+        serialConnectBusy ||
+        serialStaleRecoveryBusy
+      ) return;
       const lastActivity = Math.max(lastSerialActivityAt || 0, lastSerialSampleAt || 0);
       if(!lastActivity || (Date.now() - lastActivity) <= SERIAL_LINK_STALE_MS) return;
       serialStaleRecoveryBusy = true;

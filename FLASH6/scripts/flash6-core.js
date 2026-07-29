@@ -6741,6 +6741,16 @@ function requestMobileMockup3dMesh(){
     let flashLinkRoleConfigDraft = null;
     let flashLinkRoleConfigBusy = false;
     let flashLinkIdentityResetBusy = false;
+    let firmwareUpdateUiBusy = false;
+    let firmwareUpdateAuthorized = false;
+    let firmwareUpdateFile = null;
+    let firmwareUpdateBuffer = null;
+    let firmwareUpdateSha256 = "";
+    let firmwareUpdateValidationError = "";
+    let firmwareUpdateStartedAt = 0;
+    let firmwareUpdateLastProgressAt = 0;
+    let firmwareUpdateLastProgressBytes = 0;
+    let firmwareUpdateSmoothedBytesPerSec = 0;
     let flashLinkRoleConfigLastConfirmedKey = "";
     let flashLinkStage2MismatchDetected = false;
     let flashLinkStage2MismatchDismissed = false;

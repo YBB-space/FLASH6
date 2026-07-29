@@ -9,12 +9,15 @@
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include <ArduinoJson.h>
+#include <Update.h>
 #include "esp_now.h"
+#include "esp_ota_ops.h"
 #include "esp_system.h"
 #include "esp_rom_sys.h"
 #include "esp_wifi.h"
 #include "esp_heap_caps.h"
 #include "mbedtls/base64.h"
+#include "mbedtls/sha256.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 
@@ -30,6 +33,7 @@ namespace {
 #include "firmware/control_modes_buzzer_button.h"
 #include "firmware/pyro_servo_sequence.h"
 #include "firmware/flash_storage.h"
+#include "firmware/firmware_update.h"
 #include "firmware/gps_sensors_files.h"
 #include "firmware/flight_phase.h"
 #include "firmware/mission_runtime.h"
@@ -120,6 +124,12 @@ void setup() {
   }
   initBootButton();
   runtimeServicesReady = true;
+  // A newly installed OTA image remains rollback-eligible until the complete
+  // hardware/runtime setup above succeeds. Confirm it only at this point.
+  const esp_err_t otaValidation = esp_ota_mark_app_valid_cancel_rollback();
+  if (otaValidation == ESP_OK) {
+    Serial.println("[OTA] running image validated");
+  }
   if (serverReady) {
     Serial.println("[WEB] routes ready: /ws /data /data_full /gyro_zero /baro /gps");
   }
@@ -130,6 +140,14 @@ void loop() {
   pollSerial();
   updateSharedSensorPins();
   applyPyroOutputs(nowMs);
+  firmwareUpdateTick(nowMs);
+  if (firmwareUpdateActive()) {
+    // Async HTTP keeps running on its own task. USB OTA continues through
+    // pollSerial() above; all unrelated sensor/link/storage work is paused.
+    buzzerTick();
+    delay(0);
+    return;
+  }
   if (!flashLinkGroundRole()) {
     if (gpsShouldRun()) pollGps();
     syncGpsTelemetry();

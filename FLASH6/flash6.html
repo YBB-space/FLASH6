@@ -127,7 +127,7 @@
   <!-- Preload 축소: AP 모드/저메모리 환경에서 동시 요청 버스트를 줄임 -->
   <script>
     (function(){
-    var ASSET_VER = "20260729-identity-reset-b148-__FLASH6_DEPLOY_SHA__";
+    var ASSET_VER = "20260729-firmware-update-b149-__FLASH6_DEPLOY_SHA__";
       window.__flashBoot = window.__flashBoot || {jsReady:false,lastError:"",phase:"static_loader",version:ASSET_VER};
       var isLocalPreview = !!window.__flashBoot.localPreview;
       var beaconEnabled = (window.__flashBoot.beaconEnabled !== false);
@@ -365,7 +365,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="styles/flash6-app.css?v=20260729-identity-reset-b148-__FLASH6_DEPLOY_SHA__">
+  <link rel="stylesheet" href="styles/flash6-app.css?v=20260729-firmware-update-b149-__FLASH6_DEPLOY_SHA__">
 </head>
 <body>
   <!-- ✅ LOCKOUT 배경 오버레이 -->
@@ -2340,6 +2340,20 @@
                 </div>
               </div>
 
+              <div class="settings-group firmware-update-settings">
+                <div class="settings-group-title">펌웨어 업데이트</div>
+                <div class="settings-row">
+                  <div>
+                    <div class="settings-label">FLASH6 보드 펌웨어</div>
+                    <div class="hint-mini">직접 연결된 보드를 USB 또는 지상국 Wi-Fi로 업데이트합니다.</div>
+                  </div>
+                  <button id="firmwareUpdateOpenBtn" class="settings-btn" type="button">펌웨어 선택</button>
+                </div>
+                <div class="firmware-update-settings-note">
+                  A.I LINK 중계 업데이트는 지원하지 않습니다. 비행 시퀀스를 종료하고 안전 모드와 ARM 잠금을 적용한 뒤 진행하세요.
+                </div>
+              </div>
+
               <div class="settings-group">
                 <div class="settings-group-title" data-i18n="loadcellSettingsTitle">로드셀 보정</div>
                 <div class="settings-row">
@@ -3481,6 +3495,91 @@
       </div>
     </div>
 
+    <!-- 보호된 로컬 펌웨어 업데이트 -->
+    <div id="firmwareUpdateOverlay" class="flash-role-config-overlay firmware-update-overlay hidden" style="display:none;" aria-hidden="true">
+      <div class="flash-role-config-dialog firmware-update-dialog" role="dialog" aria-modal="true" aria-labelledby="firmwareUpdateTitle">
+        <div class="flash-role-config-header firmware-update-header">
+          <div>
+            <div class="flash-role-config-kicker">LOCAL BOARD UPDATE</div>
+            <div id="firmwareUpdateTitle" class="flash-role-config-title">펌웨어 업데이트</div>
+          </div>
+          <button id="firmwareUpdateClose" class="flash-role-config-close" type="button" aria-label="닫기">×</button>
+        </div>
+
+        <div class="firmware-update-body">
+          <div id="firmwareUpdateIdleView">
+            <div class="firmware-update-transport">
+              <span>전송 경로</span>
+              <strong id="firmwareUpdateTransport">연결 확인 중</strong>
+            </div>
+
+            <button id="firmwareUpdateDropzone" class="firmware-update-dropzone" type="button">
+              <span class="firmware-update-drop-kicker">FLASH6 FIRMWARE BIN</span>
+              <strong id="firmwareUpdateDropTitle">펌웨어 파일을 선택하거나 여기에 놓으세요</strong>
+              <span>firmware.bin · 64 KB–5 MB</span>
+            </button>
+            <input id="firmwareUpdateFileInput" type="file" accept=".bin,application/octet-stream" hidden>
+
+            <div id="firmwareUpdateFileCard" class="firmware-update-file-card" hidden>
+              <div>
+                <span class="firmware-update-file-label">선택된 이미지</span>
+                <strong id="firmwareUpdateFileName">--</strong>
+              </div>
+              <div id="firmwareUpdateFileMeta" class="firmware-update-file-meta">--</div>
+            </div>
+
+            <div class="firmware-update-readiness" aria-label="업데이트 준비 상태">
+              <div id="firmwareUpdateAuthState" class="firmware-update-check">
+                <span class="firmware-update-check-dot"></span>
+                <div><strong>물리 인증</strong><small>보드 버튼 6회 입력 후 길게 누르기</small></div>
+                <b>대기</b>
+              </div>
+              <div id="firmwareUpdateSafetyState" class="firmware-update-check">
+                <span class="firmware-update-check-dot"></span>
+                <div><strong>안전 모드</strong><small>미션·시퀀스 출력 차단</small></div>
+                <b>확인</b>
+              </div>
+              <div id="firmwareUpdateArmState" class="firmware-update-check">
+                <span class="firmware-update-check-dot"></span>
+                <div><strong>ARM 잠금</strong><small>파이로 출력 비활성</small></div>
+                <b>확인</b>
+              </div>
+            </div>
+
+            <div id="firmwareUpdateStatus" class="firmware-update-status" role="status">
+              업데이트할 firmware.bin을 선택하세요.
+            </div>
+          </div>
+
+          <div id="firmwareUpdateProgressView" class="firmware-update-progress-view" hidden>
+            <div class="firmware-update-progress-head">
+              <div>
+                <span id="firmwareUpdateProgressStage">펌웨어 전송 중</span>
+                <strong id="firmwareUpdateProgressPercent">0%</strong>
+              </div>
+              <span>전원이 꺼지거나 연결이 끊기지 않도록 유지하세요.</span>
+            </div>
+            <div class="firmware-update-progress-track" aria-hidden="true">
+              <i id="firmwareUpdateProgressBar"></i>
+            </div>
+            <div class="firmware-update-progress-meta">
+              <div><span>전송량</span><strong id="firmwareUpdateProgressBytes">0 B / 0 B</strong></div>
+              <div><span>속도</span><strong id="firmwareUpdateProgressSpeed">--</strong></div>
+              <div><span>예상 시간</span><strong id="firmwareUpdateProgressEta">계산 중</strong></div>
+            </div>
+            <div class="firmware-update-lock-note">
+              업데이트가 완료될 때까지 FLASH6의 다른 기능은 잠시 사용할 수 없습니다.
+            </div>
+          </div>
+        </div>
+
+        <div id="firmwareUpdateActions" class="flash-role-config-actions firmware-update-actions">
+          <button id="firmwareUpdateCancel" class="flash-role-config-secondary" type="button">취소</button>
+          <button id="firmwareUpdateStart" class="flash-role-config-primary" type="button" disabled>업데이트 시작</button>
+        </div>
+      </div>
+    </div>
+
     <!-- 보호된 A.I LINK 보드 운용 모드 -->
     <div id="flashLinkRoleConfigOverlay" class="flash-role-config-overlay hidden" style="display:none;" aria-hidden="true">
       <div class="flash-role-config-dialog" role="dialog" aria-modal="true" aria-labelledby="flashLinkRoleConfigTitle">
@@ -4487,6 +4586,6 @@
     <button id="controlsOverlayClose" class="controls-overlay-close" type="button" aria-label="close">×</button>
     </div>
 
-  <script src="scripts/flash6-watchdog.js?v=20260722-nav-abort-below-b51-__FLASH6_DEPLOY_SHA__"></script>
+  <script src="scripts/flash6-watchdog.js?v=20260729-firmware-update-b52-__FLASH6_DEPLOY_SHA__"></script>
 </body>
 </html> 

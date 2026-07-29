@@ -12,6 +12,7 @@ const runtimeModules = [
   "flash6-charts-replay.js",
   "flash6-protocol.js",
   "flash6-transport.js",
+  "flash6-firmware-update.js",
   "flash6-telemetry.js",
   "flash6-storage.js",
   "flash6-polling.js",

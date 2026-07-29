@@ -1,10 +1,10 @@
 
 constexpr char kFirmwareProgram[] = "Altis_Intelligent3_firmware1";
-constexpr char kFirmwareVersion[] = "0.10.3";
-constexpr char kFirmwareBuildId[] = "v6 b51";
-constexpr uint16_t kFirmwareBuildNumber = 51;
+constexpr char kFirmwareVersion[] = "0.11.0";
+constexpr char kFirmwareBuildId[] = "v6 b52";
+constexpr uint16_t kFirmwareBuildNumber = 52;
 constexpr char kFirmwareBoard[] = "Altis_Intelligent3_b3";
-constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b11";
+constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b12";
 constexpr uint8_t kStorageProtocolVersion = 9;
 // Only formats explicitly verified by this build are decoded as native.
 // Expand this range only after replay compatibility has been validated.
@@ -41,6 +41,9 @@ constexpr uint32_t kSamplePeriodUs = 1000000UL / kImuSampleHz;
 constexpr uint32_t kSerialPeriodUs = 1000000UL / kSerialStreamHz;
 constexpr uint32_t kBaroPeriodUs = 1000000UL / kBaroSampleHz;
 constexpr uint16_t kSerialRxDrainMaxBytes = 256;
+// USB firmware chunks use 768 raw bytes -> 1024 Base64 bytes plus framing.
+// A fixed buffer avoids thousands of temporary String allocations during OTA.
+constexpr size_t kSerialFirmwareLineBytes = 1152;
 // Ground stations publish the automatically active vehicle as the legacy
 // top-level sample and, in dual-stage mode, both vehicle snapshots at the tail
 // of the v2 frame. Keep enough room for two alarm messages without dropping it.
@@ -1795,7 +1798,7 @@ float biasSumZ = 0.0f;
 uint16_t biasSamples = 0;
 bool bootBiasReady = false;
 
-char serialLine[160];
+char serialLine[kSerialFirmwareLineBytes];
 uint16_t serialLineLen = 0;
 char gpsLine[kGpsLineMax + 1];
 uint16_t gpsLineLen = 0;

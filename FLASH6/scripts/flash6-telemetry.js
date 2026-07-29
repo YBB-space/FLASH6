@@ -764,6 +764,7 @@
         swPhysical: physicalArmKnown ? (physicalArmOn ? 1 : 0) : null,
         ic: icOn ? 1 : 0,
         rly: relayMask,
+        st,
         mode,
         gs,
         uw: uw?1:0,
@@ -788,6 +789,9 @@
         gps_seen: (data.gps_seen != null) ? (Number(data.gps_seen) ? 1 : 0) : null,
         gps_age_ms: (data.gps_age_ms != null && isFinite(Number(data.gps_age_ms))) ? Number(data.gps_age_ms) : null
       };
+      if(isFirmwareUpdateOpen() && !firmwareUpdateUiBusy){
+        updateFirmwareUpdateUi();
+      }
       if(!isFastReplaySeek){
         updateGpsFixAlarm(data, isReplaySample);
       }
