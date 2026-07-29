@@ -127,7 +127,7 @@
   <!-- Preload 축소: AP 모드/저메모리 환경에서 동시 요청 버스트를 줄임 -->
   <script>
     (function(){
-    var ASSET_VER = "20260729-firmware-update-b149-__FLASH6_DEPLOY_SHA__";
+    var ASSET_VER = "20260729-firmware-bundle-b150-__FLASH6_DEPLOY_SHA__";
       window.__flashBoot = window.__flashBoot || {jsReady:false,lastError:"",phase:"static_loader",version:ASSET_VER};
       var isLocalPreview = !!window.__flashBoot.localPreview;
       var beaconEnabled = (window.__flashBoot.beaconEnabled !== false);
@@ -365,7 +365,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="styles/flash6-app.css?v=20260729-firmware-update-b149-__FLASH6_DEPLOY_SHA__">
+  <link rel="stylesheet" href="styles/flash6-app.css?v=20260729-firmware-bundle-b150-__FLASH6_DEPLOY_SHA__">
 </head>
 <body>
   <!-- ✅ LOCKOUT 배경 오버레이 -->
@@ -2347,7 +2347,7 @@
                     <div class="settings-label">FLASH6 보드 펌웨어</div>
                     <div class="hint-mini">직접 연결된 보드를 USB 또는 지상국 Wi-Fi로 업데이트합니다.</div>
                   </div>
-                  <button id="firmwareUpdateOpenBtn" class="settings-btn" type="button">펌웨어 선택</button>
+                  <button id="firmwareUpdateOpenBtn" class="settings-btn" type="button">업데이트</button>
                 </div>
                 <div class="firmware-update-settings-note">
                   A.I LINK 중계 업데이트는 지원하지 않습니다. 비행 시퀀스를 종료하고 안전 모드와 ARM 잠금을 적용한 뒤 진행하세요.
@@ -3514,15 +3514,15 @@
             </div>
 
             <button id="firmwareUpdateDropzone" class="firmware-update-dropzone" type="button">
-              <span class="firmware-update-drop-kicker">FLASH6 FIRMWARE BIN</span>
-              <strong id="firmwareUpdateDropTitle">펌웨어 파일을 선택하거나 여기에 놓으세요</strong>
-              <span>firmware.bin · 64 KB–5 MB</span>
+              <span class="firmware-update-drop-kicker">MANUAL FIRMWARE BIN</span>
+              <strong id="firmwareUpdateDropTitle">다른 BIN 파일 선택</strong>
+              <span>필요한 경우에만 프로젝트 기본 펌웨어를 교체합니다.</span>
             </button>
             <input id="firmwareUpdateFileInput" type="file" accept=".bin,application/octet-stream" hidden>
 
             <div id="firmwareUpdateFileCard" class="firmware-update-file-card" hidden>
               <div>
-                <span class="firmware-update-file-label">선택된 이미지</span>
+                <span id="firmwareUpdateFileLabel" class="firmware-update-file-label">프로젝트 펌웨어</span>
                 <strong id="firmwareUpdateFileName">--</strong>
               </div>
               <div id="firmwareUpdateFileMeta" class="firmware-update-file-meta">--</div>
@@ -3547,7 +3547,7 @@
             </div>
 
             <div id="firmwareUpdateStatus" class="firmware-update-status" role="status">
-              업데이트할 firmware.bin을 선택하세요.
+              프로젝트에 포함된 펌웨어를 불러오는 중입니다…
             </div>
           </div>
 
@@ -4586,6 +4586,6 @@
     <button id="controlsOverlayClose" class="controls-overlay-close" type="button" aria-label="close">×</button>
     </div>
 
-  <script src="scripts/flash6-watchdog.js?v=20260729-firmware-update-b52-__FLASH6_DEPLOY_SHA__"></script>
+  <script src="scripts/flash6-watchdog.js?v=20260729-firmware-bundle-b150-__FLASH6_DEPLOY_SHA__"></script>
 </body>
 </html> 

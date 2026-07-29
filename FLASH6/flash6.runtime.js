@@ -26368,7 +26368,13 @@ function requestMobileMockup3dMesh(){
       "Altis_Intelligent3_firmware1",
       "Altis_Intelligent3_b3"
     ];
+    const FIRMWARE_UPDATE_BUNDLED_BIN = "firmware/firmware.bin";
+    const FIRMWARE_UPDATE_BUNDLED_MANIFEST = "firmware/manifest.json";
     let firmwareUpdateAuthorizationTimer = null;
+    let firmwareUpdateBundledLoadPromise = null;
+    let firmwareUpdateBundledLoading = false;
+    let firmwareUpdateFileSource = "none";
+    let firmwareUpdateBundledManifest = null;
 
     function isFirmwareUpdateOpen(){
       return !!(
@@ -26477,7 +26483,9 @@ function requestMobileMockup3dMesh(){
         readiness.armLocked && Number(latestTelemetry && latestTelemetry.rly || 0) === 0,
         readiness.armLocked ? "잠김" : "해제");
 
-      let status = "업데이트할 firmware.bin을 선택하세요.";
+      let status = firmwareUpdateBundledLoading && !firmwareUpdateFile
+        ? "프로젝트에 포함된 펌웨어를 불러오는 중입니다…"
+        : "프로젝트 펌웨어를 불러오지 못했습니다. 다른 BIN 파일을 선택하세요.";
       if(firmwareUpdateValidationError){
         status = firmwareUpdateValidationError;
       }else if(firmwareUpdateFile && !firmwareUpdateBuffer){
@@ -26531,6 +26539,9 @@ function requestMobileMockup3dMesh(){
       setOverlayVisible(el.firmwareUpdateOverlay, true);
       el.firmwareUpdateOverlay.setAttribute("aria-hidden", "false");
       updateFirmwareUpdateUi();
+      if(!firmwareUpdateFile && !firmwareUpdateBundledLoadPromise){
+        loadBundledFirmwareUpdateFile();
+      }
     }
 
     function closeFirmwareUpdateModal(){
@@ -26578,12 +26589,69 @@ function requestMobileMockup3dMesh(){
         .join("");
     }
 
-    async function selectFirmwareUpdateFile(file){
+    function firmwareBundleUrl(relativePath){
+      const url = new URL(relativePath, document.baseURI);
+      const assetVersion = typeof ASSET_VER !== "undefined"
+        ? String(ASSET_VER || "")
+        : "";
+      if(assetVersion) url.searchParams.set("v", assetVersion);
+      return url.href;
+    }
+
+    async function loadBundledFirmwareUpdateFile(){
+      if(firmwareUpdateBundledLoadPromise) return firmwareUpdateBundledLoadPromise;
+      firmwareUpdateBundledLoading = true;
+      firmwareUpdateBundledLoadPromise = (async ()=>{
+        firmwareUpdateValidationError = "";
+        updateFirmwareUpdateUi();
+        try{
+          const responses = await Promise.all([
+            fetch(firmwareBundleUrl(FIRMWARE_UPDATE_BUNDLED_MANIFEST), {cache:"no-store"}),
+            fetch(firmwareBundleUrl(FIRMWARE_UPDATE_BUNDLED_BIN), {cache:"no-store"})
+          ]);
+          if(!responses[0].ok || !responses[1].ok){
+            throw new Error("프로젝트 기본 펌웨어 파일을 찾지 못했습니다.");
+          }
+          const manifest = await responses[0].json();
+          const blob = await responses[1].blob();
+          const name = String(manifest.file || "firmware.bin");
+          const file = new File([blob], name, {type:"application/octet-stream"});
+          firmwareUpdateBundledManifest = manifest;
+          await selectFirmwareUpdateFile(file, {
+            source:"bundled",
+            manifest
+          });
+          return true;
+        }catch(error){
+          firmwareUpdateBundledManifest = null;
+          firmwareUpdateValidationError = error && error.message
+            ? String(error.message)
+            : "프로젝트 기본 펌웨어를 불러오지 못했습니다.";
+          updateFirmwareUpdateUi();
+          return false;
+        }finally{
+          firmwareUpdateBundledLoading = false;
+          firmwareUpdateBundledLoadPromise = null;
+        }
+      })();
+      return firmwareUpdateBundledLoadPromise;
+    }
+
+    async function selectFirmwareUpdateFile(file, options){
+      const selection = options || {};
       firmwareUpdateFile = file || null;
+      firmwareUpdateFileSource = file
+        ? (selection.source === "bundled" ? "bundled" : "manual")
+        : "none";
       firmwareUpdateBuffer = null;
       firmwareUpdateSha256 = "";
       firmwareUpdateValidationError = "";
       if(el.firmwareUpdateFileCard) el.firmwareUpdateFileCard.hidden = !file;
+      if(el.firmwareUpdateFileLabel){
+        el.firmwareUpdateFileLabel.textContent = firmwareUpdateFileSource === "bundled"
+          ? "프로젝트 펌웨어"
+          : "직접 선택한 펌웨어";
+      }
       if(el.firmwareUpdateFileName){
         el.firmwareUpdateFileName.textContent = file ? file.name : "--";
       }
@@ -26612,11 +26680,29 @@ function requestMobileMockup3dMesh(){
           throw new Error("FLASH6 대상 펌웨어를 확인할 수 없습니다. 다른 보드용 BIN일 수 있습니다.");
         }
         const hash = await sha256Hex(buffer);
+        const manifest = selection.manifest || null;
+        if(
+          manifest &&
+          manifest.sha256 &&
+          String(manifest.sha256).toLowerCase() !== hash
+        ){
+          throw new Error("프로젝트 펌웨어의 SHA-256 정보가 일치하지 않습니다.");
+        }
+        if(
+          manifest &&
+          Number(manifest.size || 0) > 0 &&
+          Number(manifest.size) !== file.size
+        ){
+          throw new Error("프로젝트 펌웨어의 파일 크기 정보가 일치하지 않습니다.");
+        }
         if(firmwareUpdateFile !== file) return;
         firmwareUpdateBuffer = buffer;
         firmwareUpdateSha256 = hash;
         if(el.firmwareUpdateFileMeta){
-          el.firmwareUpdateFileMeta.textContent =
+          const buildText = manifest
+            ? [manifest.version, manifest.build].filter(Boolean).join(" · ") + " · "
+            : "";
+          el.firmwareUpdateFileMeta.textContent = buildText +
             formatFirmwareBytes(file.size) + " · SHA-256 " + hash.slice(0, 12) + "…";
         }
       }catch(error){
@@ -40369,6 +40455,7 @@ function requestMobileMockup3dMesh(){
       el.firmwareUpdateDropTitle = document.getElementById("firmwareUpdateDropTitle");
       el.firmwareUpdateFileInput = document.getElementById("firmwareUpdateFileInput");
       el.firmwareUpdateFileCard = document.getElementById("firmwareUpdateFileCard");
+      el.firmwareUpdateFileLabel = document.getElementById("firmwareUpdateFileLabel");
       el.firmwareUpdateFileName = document.getElementById("firmwareUpdateFileName");
       el.firmwareUpdateFileMeta = document.getElementById("firmwareUpdateFileMeta");
       el.firmwareUpdateAuthState = document.getElementById("firmwareUpdateAuthState");

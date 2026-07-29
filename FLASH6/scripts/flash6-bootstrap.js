@@ -569,6 +569,7 @@
       el.firmwareUpdateDropTitle = document.getElementById("firmwareUpdateDropTitle");
       el.firmwareUpdateFileInput = document.getElementById("firmwareUpdateFileInput");
       el.firmwareUpdateFileCard = document.getElementById("firmwareUpdateFileCard");
+      el.firmwareUpdateFileLabel = document.getElementById("firmwareUpdateFileLabel");
       el.firmwareUpdateFileName = document.getElementById("firmwareUpdateFileName");
       el.firmwareUpdateFileMeta = document.getElementById("firmwareUpdateFileMeta");
       el.firmwareUpdateAuthState = document.getElementById("firmwareUpdateAuthState");

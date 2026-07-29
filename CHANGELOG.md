@@ -24,7 +24,11 @@ Storage record protocol unchanged: `HWLOGV2` version `9`
   롤백 검증을 사용합니다.
 - OTA는 애플리케이션 파티션만 교체하므로 영구 S/N, 바인드 슬롯,
   보정값, 미션 설정과 저장된 비행 데이터는 유지됩니다.
-- FLASH6 UI 자산 버전을 `b149`로 갱신했습니다.
+- 성공한 PlatformIO 빌드를 `FLASH6/firmware/firmware.bin`과
+  `manifest.json`으로 자동 내보냅니다. 업데이트 UI는 프로젝트에
+  포함된 이 펌웨어를 기본값으로 자동 불러오며, 별도 BIN 선택은 수동
+  시험이 필요할 때만 사용합니다.
+- FLASH6 UI 자산 버전을 `b150`으로 갱신했습니다.
 
 ## 0.10.3 — v6 b51 — 2026-07-29
 
