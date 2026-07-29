@@ -1147,6 +1147,22 @@
       trimStageTelemetryHistory(state.gforceHistory);
       trimStageTelemetryHistory(state.ascentAccelHistory);
       recordDashboardStageLinkChartSample(stageId, state.data);
+      const stagePhaseInfo = readFirmwareFlightPhase(state.data);
+      const stageVerticalSpeedMps = readTelemetryVerticalSpeedMps(state.data);
+      updateGyroStagePathFromTelemetry(
+        stageId,
+        state.data,
+        state.updatedAt,
+        {
+          altitudeM:isFinite(state.altitudeM) ? state.altitudeM : NaN,
+          verticalSpeedMps:isFinite(stageVerticalSpeedMps)
+            ? stageVerticalSpeedMps
+            : NaN,
+          phase:stagePhaseInfo && stagePhaseInfo.phase
+            ? stagePhaseInfo.phase
+            : null
+        }
+      );
 
       if(stageId === 1 && flashLinkUiStage2Mode){
         const deploymentState = Number(sample.deployment_state) || 0;
@@ -1162,6 +1178,7 @@
           cameraHudStageSwitchLatched = false;
         }else if(separationConfirmed && !cameraHudStageSwitchLatched){
           cameraHudStageSwitchLatched = true;
+          ensureSecondaryGyroPathFromPrimary();
           setAutomaticActiveStage(2, "SEPARATION");
           latchCameraEventState("단분리 · HUD 2단 전환");
         }
@@ -1410,6 +1427,7 @@
         cameraStageSeparationProgress = clampLocal(elapsedMs / 1800, 0, 1);
         setCameraStageSeparating(true);
         if(previousProgress <= 0 && cameraStageSeparationProgress > 0){
+          ensureSecondaryGyroPathFromPrimary();
           latchCameraEventState("단분리 · T+2.0 S");
         }
         return;
@@ -1438,7 +1456,10 @@
       }
       const deploymentConfirmed = (isFinite(deploymentState) && deploymentState >= 2 && !primaryServoFailed) || eventDeployment;
       if(!deploymentConfirmed && !cameraStageSeparationLatched) return;
-      if(deploymentConfirmed) cameraStageSeparationLatched = true;
+      if(deploymentConfirmed){
+        ensureSecondaryGyroPathFromPrimary();
+        cameraStageSeparationLatched = true;
+      }
       if(!cameraStageSeparationFallbackAt) cameraStageSeparationFallbackAt = Date.now();
       const elapsedMs = Date.now() - cameraStageSeparationFallbackAt;
       const fadeDurationMs = 1800;
@@ -1454,6 +1475,7 @@
     function triggerCameraStageSeparationPreview(){
       cameraStageSeparationManualAt = Date.now();
       cameraStageSeparationProgress = 0;
+      ensureSecondaryGyroPathFromPrimary();
       setCameraStageSeparating(true);
       latchCameraEventState("단분리");
       syncCameraHud();

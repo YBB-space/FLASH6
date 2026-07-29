@@ -3,7 +3,7 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
-## 0.10.0 — v6 b48 — 2026-07-28
+## 0.10.0 — v6 b48 — 2026-07-29
 
 Protocol: `Flash6-Intelligent-b11`
 
@@ -35,7 +35,13 @@ Storage record protocol unchanged: `HWLOGV2` version `9`
 - 같은 미리보기 서버가 최신 1.11 MB 스타일 대신 0.83 MB 구형
   `flash6.css`를 응답하던 문제도 새 `flash6-app.css` 경로로
   우회했습니다. 런타임과 스타일이 모두 동일 세대 파일로 로드됩니다.
-- FLASH6 UI 자산 버전을 `b144`로 갱신했습니다.
+- 단분리 이후 STAGE 1과 STAGE 2가 각자의 자세, 위치 및 필터 상태를
+  독립적으로 누적합니다. 두 기체는 공통 상승 궤적에서 분기한 뒤 각각의
+  기체와 궤적을 동시에 표시하며 동일한 공간 축척을 사용합니다.
+- 지상국 릴레이 또는 USB 통신이 잠시 끊겨도 마지막 궤적과 카메라 상태를
+  지우지 않고 유지합니다. 재연결 시 새 수신 지점부터 기존 궤적을 이어
+  그리며, 명시적인 새 미션·리플레이·시뮬레이션 초기화에서만 지웁니다.
+- FLASH6 UI 자산 버전을 `b145`로 갱신했습니다.
 
 ## 0.9.17 — v6 b47 — 2026-07-28
 
