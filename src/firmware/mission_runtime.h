@@ -91,6 +91,10 @@ constexpr uint32_t kLaunchThrustArmConfirmMs = 1000U;
 constexpr uint32_t kLaunchArmChatterWindowMs = 1000U;
 constexpr uint8_t kLaunchArmChatterTransitions = 3U;
 constexpr uint32_t kMissionEventRepeatMs = 100U;
+// Stage-2 recovery must never be commanded during the nominal 1.7 s motor
+// burn. Apogee detection is primary; the configured delay remains an
+// independent latest-time backup if barometric descent is never established.
+constexpr uint32_t kStage2EjectionInhibitMs = 2500U;
 
 enum class LaunchMissionState : uint8_t {
   Idle = 0,
@@ -771,17 +775,39 @@ void missionCommandStage2Ignition(uint32_t nowMs) {
   missionEmitAlarm(0, "Stage-2 ignition", "PYRO CH1 ignition output started.");
 }
 
-void missionCommandStage2Ejection(uint32_t nowMs) {
+void missionCommandStage2Ejection(uint32_t nowMs, bool backup) {
   if (launchMission.stage2Ejected) return;
   const bool ok = setServoAngle(1U, missionStage2EjectionAngleDeg);
   launchMission.stage2Ejected = true;
   launchMission.secondaryCommanded = true;
   launchMission.secondaryFailed = !ok;
   launchMission.state = ok ? LaunchMissionState::Complete : LaunchMissionState::Fault;
-  missionEmitAlarm(
-    0,
-    ok ? "Stage-2 ejection" : "Stage-2 ejection fault",
-    ok ? "SERVO CH1 moved to configured angle." : "SERVO CH1 command failed.");
+  if (!ok) {
+    missionEmitAlarm(
+      0,
+      "Stage-2 ejection fault",
+      "SERVO CH1 command failed.");
+  } else if (backup) {
+    missionEmitAlarm(
+      0,
+      "Stage-2 ejection backup",
+      "Apogee backup time reached. SERVO CH1 moved.");
+  } else {
+    missionEmitAlarm(
+      0,
+      "Stage-2 apogee ejection",
+      "Apogee detected. SERVO CH1 moved to configured angle.");
+  }
+  Serial.printf(
+    "[MISSION] stage2 ejection reason=%s elapsed=%lums phase=%s "
+    "apogee=%.2f alt=%.2f vs_fast=%.2f ok=%u\n",
+    backup ? "backup_timer" : "apogee",
+    (unsigned long)(nowMs - launchMission.stage2IgnitionMs),
+    flightPhaseName(static_cast<FlightPhase>(snap.flightPhase)),
+    snap.flightApogeeM,
+    snap.baroValid && isfinite(snap.altM) ? snap.altM : 0.0f,
+    snap.flightFastVerticalSpeedMps,
+    ok ? 1U : 0U);
   if (ok) buzzerPlayRecoveryFindMelody();
   missionSyncLaunchTelemetry();
 }
@@ -1183,10 +1209,20 @@ void missionLaunchSequenceTick(uint32_t nowMs, bool armReleased, uint32_t armRel
         separationAuthorized) {
       missionCommandStage2Ignition(nowMs);
     }
-    if (launchMission.stage2Ignited && !launchMission.stage2Ejected &&
-        (uint32_t)(nowMs - launchMission.stage2IgnitionMs) >=
-          missionStage2EjectionDelayMs) {
-      missionCommandStage2Ejection(nowMs);
+    if (launchMission.stage2Ignited && !launchMission.stage2Ejected) {
+      const uint32_t ignitionElapsedMs =
+        (uint32_t)(nowMs - launchMission.stage2IgnitionMs);
+      const bool ejectionInhibitComplete =
+        ignitionElapsedMs >= kStage2EjectionInhibitMs;
+      const bool apogeeDetected =
+        snap.flightPhase == static_cast<uint8_t>(FlightPhase::Descent);
+      const bool backupDue =
+        ignitionElapsedMs >= missionStage2EjectionDelayMs;
+      if (ejectionInhibitComplete && (apogeeDetected || backupDue)) {
+        missionCommandStage2Ejection(
+          nowMs,
+          backupDue && !apogeeDetected);
+      }
     }
   }
 

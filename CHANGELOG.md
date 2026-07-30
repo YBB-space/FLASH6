@@ -3,6 +3,23 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.11.5 — v6 b57 / FLASH6 stage-2 apogee ejection b159 — 2026-07-30
+
+Protocol unchanged: `Flash6-Intelligent-b12`
+
+Storage record protocol unchanged: `HWLOGV2` version `9`
+
+- 2단 SERVO CH1 사출의 주 조건을 고정 점화 타이머에서 로컬 비행
+  상태의 어포지 통과(`DESCENT`) 검출로 변경했습니다.
+- 이론 연소시간 1.7초 중 사출되는 것을 막기 위해 2단 점화 후
+  2.5초 동안 사출 명령을 금지합니다.
+- 어포지가 검출되지 않으면 기존 설정값인 점화 후 5초에 백업 사출을
+  실행합니다.
+- 미션 알람과 직렬 로그에 어포지 사출과 백업 타이머 사출 원인을
+  구분해 기록합니다.
+- FLASH6 미션 설정과 미션 대기 확인 화면에서 2단 사출 시간이
+  주 조건이 아니라 백업 시간임을 명확하게 표시합니다.
+
 ## FLASH6 UI b158 — 2026-07-30
 
 - Changed the hidden replay dock restore control into a compact bottom-center pull handle.

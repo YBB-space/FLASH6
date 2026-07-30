@@ -7573,7 +7573,7 @@
         el.missionReviewLaunchGrace.textContent = "점화 종료 +" + sec(uiSettings.missionLaunchGraceMs);
       }
       if(el.missionReviewS2Ejection){
-        el.missionReviewS2Ejection.textContent = "점화 +" + sec(uiSettings.missionStage2EjectionDelayMs) + " · " + uiSettings.missionStage2EjectionAngleDeg + "°";
+        el.missionReviewS2Ejection.textContent = "어포지 우선 · 점화 +" + sec(uiSettings.missionStage2EjectionDelayMs) + " 백업 · " + uiSettings.missionStage2EjectionAngleDeg + "°";
       }
     }
 

@@ -127,7 +127,7 @@
   <!-- Preload 축소: AP 모드/저메모리 환경에서 동시 요청 버스트를 줄임 -->
   <script>
     (function(){
-    var ASSET_VER = "20260730-replay-dock-handle-b158-__FLASH6_DEPLOY_SHA__";
+    var ASSET_VER = "20260730-stage2-apogee-ejection-b159-__FLASH6_DEPLOY_SHA__";
       window.__flashBoot = window.__flashBoot || {jsReady:false,lastError:"",phase:"static_loader",version:ASSET_VER};
       var isLocalPreview = !!window.__flashBoot.localPreview;
       var beaconEnabled = (window.__flashBoot.beaconEnabled !== false);
@@ -365,7 +365,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="styles/flash6-app.css?v=20260730-replay-dock-handle-b158-__FLASH6_DEPLOY_SHA__">
+  <link rel="stylesheet" href="styles/flash6-app.css?v=20260730-stage2-apogee-ejection-b159-__FLASH6_DEPLOY_SHA__">
 </head>
 <body>
   <!-- ✅ LOCKOUT 배경 오버레이 -->
@@ -2805,7 +2805,7 @@
                   <div class="settings-number-wrap"><input id="missionS1EjectionMs" type="number" min="100" max="10000" step="100" class="settings-number"><div class="settings-desc">ms</div></div>
                 </div>
                 <div class="settings-row">
-                  <div><div class="settings-label">2단 사출 지연</div><div class="hint-mini">2단 PYRO CH1 점화 후 SERVO CH1 사출 지연</div></div>
+                  <div><div class="settings-label">2단 사출 백업</div><div class="hint-mini">어포지 미검출 시 2단 PYRO CH1 점화 후 백업 사출 시각</div></div>
                   <div class="settings-number-wrap"><input id="missionS2EjectionMs" type="number" min="500" max="30000" step="100" class="settings-number"><div class="settings-desc">ms</div></div>
                 </div>
                 <div class="settings-row">
@@ -3809,7 +3809,7 @@
           <div><span>링크 단절 판정</span><strong id="missionReviewLinkLoss">0.5 s 연속 미수신</strong></div>
           <div><span>발사 감지 경고</span><strong id="missionReviewLaunchGrace">점화 종료 +5.0 s</strong></div>
           <div><span>2단 점화</span><strong>분리 신호 + 2단 ARM</strong></div>
-          <div><span>2단 사출</span><strong id="missionReviewS2Ejection">점화 +5.0 s</strong></div>
+          <div><span>2단 사출</span><strong id="missionReviewS2Ejection">어포지 우선 · 점화 +5.0 s 백업</strong></div>
         </div>
         <div class="confirm-note">ARM 신호가 불안정하거나 이미 해제된 경우 안전모드로 전환하고 미션을 시작하지 않습니다.</div>
         <div class="confirm-actions">
@@ -4596,6 +4596,6 @@
     <button id="controlsOverlayClose" class="controls-overlay-close" type="button" aria-label="close">×</button>
     </div>
 
-  <script src="scripts/flash6-watchdog.js?v=20260730-replay-dock-handle-b158-__FLASH6_DEPLOY_SHA__"></script>
+  <script src="scripts/flash6-watchdog.js?v=20260730-stage2-apogee-ejection-b159-__FLASH6_DEPLOY_SHA__"></script>
 </body>
 </html> 

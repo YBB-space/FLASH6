@@ -18886,7 +18886,7 @@ function requestMobileMockup3dMesh(){
         el.missionReviewLaunchGrace.textContent = "점화 종료 +" + sec(uiSettings.missionLaunchGraceMs);
       }
       if(el.missionReviewS2Ejection){
-        el.missionReviewS2Ejection.textContent = "점화 +" + sec(uiSettings.missionStage2EjectionDelayMs) + " · " + uiSettings.missionStage2EjectionAngleDeg + "°";
+        el.missionReviewS2Ejection.textContent = "어포지 우선 · 점화 +" + sec(uiSettings.missionStage2EjectionDelayMs) + " 백업 · " + uiSettings.missionStage2EjectionAngleDeg + "°";
       }
     }
 
@@ -27159,6 +27159,8 @@ function requestMobileMockup3dMesh(){
         "Stage-1 ejection fault":"1단 사출 실패",
         "Stage-2 ignition":"2단 점화",
         "Stage-2 ejection":"2단 사출",
+        "Stage-2 apogee ejection":"2단 어포지 사출",
+        "Stage-2 ejection backup":"2단 백업 사출",
         "Stage-2 ejection fault":"2단 사출 실패",
         "Stage-2 separation":"2단 분리 감지",
         "Forced timed mission":"미션 강제 구동",
@@ -27217,6 +27219,8 @@ function requestMobileMockup3dMesh(){
           "SERVO CH2 moved to configured angle.":"서보 CH2를 설정 각도로 작동했습니다.",
           "SERVO CH2 command failed.":"서보 CH2 명령이 실패했습니다.",
           "PYRO CH1 ignition output started.":"파이로 CH1 점화 출력을 시작했습니다.",
+          "Apogee detected. SERVO CH1 moved to configured angle.":"어포지 통과를 확인해 서보 CH1을 설정 각도로 작동했습니다.",
+          "Apogee backup time reached. SERVO CH1 moved.":"어포지 미검출 상태로 백업 시간이 되어 서보 CH1을 작동했습니다.",
           "SERVO CH1 set to 0 degrees.":"서보 CH1을 0°로 작동했습니다.",
           "SERVO CH1 command failed.":"서보 CH1 명령이 실패했습니다.",
           "Virtual T+ started. No pyro output; CH1/CH2 servo schedule is active.":"가상 T+ 시작 · 파이로 출력 없이 서보 시퀀스를 실행합니다.",
