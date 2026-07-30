@@ -3,6 +3,11 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 UI b158 — 2026-07-30
+
+- Changed the hidden replay dock restore control into a compact bottom-center pull handle.
+- Kept the handle flush with the viewport edge so only a small tab protrudes above the bottom boundary without covering HUD telemetry.
+
 ## FLASH6 UI b157 — 2026-07-30
 
 - Moved the replay dock restore control from the center HUD area to a compact right-edge tab so it no longer covers the flight-state timeline.
