@@ -3,6 +3,13 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 UI b156 — 2026-07-30
+
+- 리플레이 하단 재생바를 접고 다시 펼칠 수 있는 컨트롤을 추가했습니다.
+- 재생바를 숨겨도 리플레이 재생 위치와 상태는 유지됩니다.
+- 카메라/자이로 화면에서는 접힌 재생바 높이를 회수해 화면을 전체
+  높이로 사용합니다.
+
 ## FLASH6 UI b155 — 2026-07-30
 
 - 리플레이 하단 재생바에 알람 이벤트 토글과 이벤트 개수 표시를

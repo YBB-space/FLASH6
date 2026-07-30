@@ -160,6 +160,7 @@ if (typeof window !== "undefined") {
     const missionAlarmEventKeys = new Set();
     let replayAlarmEvents = [];
     let replayAlarmEventsOpen = false;
+    let replayDockHidden = false;
 
     function createIgnitionAnalysis(startMs){
       return {

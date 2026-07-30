@@ -2505,6 +2505,7 @@
         el.replayPanel.classList.toggle("hidden", !replayUiActive);
         el.replayPanel.setAttribute("aria-hidden", replayUiActive ? "false" : "true");
       }
+      syncReplayDockVisibility();
       if(el.replayOpenBtns && el.replayOpenBtns.length){
         el.replayOpenBtns.forEach(btn=>{
           btn.setAttribute("aria-label", "Replay");
@@ -2568,6 +2569,27 @@
       syncReplayAlarmEventActive();
       updateNavActionState();
       updateExportButtonState();
+    }
+
+    function syncReplayDockVisibility(){
+      const hidden = !!replayUiActive && !!replayDockHidden;
+      document.documentElement.classList.toggle("replay-dock-hidden", hidden);
+      if(el.replayDockMinimizeBtn){
+        el.replayDockMinimizeBtn.setAttribute("aria-pressed", hidden ? "true" : "false");
+      }
+      if(el.replayDockRestoreBtn){
+        el.replayDockRestoreBtn.classList.toggle("hidden", !hidden);
+        el.replayDockRestoreBtn.setAttribute("aria-hidden", hidden ? "false" : "true");
+      }
+    }
+
+    function setReplayDockHidden(hidden){
+      replayDockHidden = !!hidden && !!replayUiActive;
+      if(replayDockHidden){
+        setReplayAlarmEventsOpen(false);
+        setReplayToolsPanelOpen(false);
+      }
+      syncReplayDockVisibility();
     }
 
     function clearReplayTimer(){
@@ -3116,6 +3138,7 @@
       setMissionPanelVisible(false);
       setInspectionPanelVisible(false);
       replayUiActive = true;
+      replayDockHidden = false;
       if(!replayState.samples.length){
         showReplayDataPicker();
       }
@@ -3361,6 +3384,7 @@
       const opts = options || {};
       setReplayHudLiveVisible(false);
       setReplayAlarmEventsOpen(false);
+      setReplayDockHidden(false);
       cancelReplaySeekProcessing();
       replayUiActive = false;
       pauseReplayPlayback({silent:true});

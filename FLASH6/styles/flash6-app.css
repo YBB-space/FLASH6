@@ -32588,6 +32588,10 @@ html:not(.phone-landscape-layout) body #hardwareServoDialog .hardware-servo-pres
 .replay-dock-close{
   display:none;
 }
+.replay-dock-minimize,
+.replay-dock-restore{
+  display:none;
+}
 .replay-tools-panel{
   position:fixed;
   top:50%;
@@ -33517,6 +33521,38 @@ html.replay-ui-active body .side-nav-mobile .js-controls-open{
     color:#f3f4f6 !important;
   }
 
+  html.replay-ui-active #controlsCard.replay-mode .replay-dock-minimize{
+    position:absolute !important;
+    top:13px !important;
+    right:43px !important;
+    z-index:2 !important;
+    width:30px !important;
+    height:30px !important;
+    padding:0 !important;
+    display:grid !important;
+    place-items:center !important;
+    border:1px solid transparent !important;
+    border-radius:6px !important;
+    background:transparent !important;
+    color:#858b95 !important;
+    cursor:pointer !important;
+  }
+
+  html.replay-ui-active #controlsCard.replay-mode .replay-dock-minimize svg{
+    width:16px !important;
+    height:16px !important;
+    fill:none !important;
+    stroke:currentColor !important;
+    stroke-width:1.8 !important;
+    stroke-linecap:round !important;
+  }
+
+  html.replay-ui-active #controlsCard.replay-mode .replay-dock-minimize:hover{
+    border-color:#3a3e46 !important;
+    background:#24272c !important;
+    color:#f3f4f6 !important;
+  }
+
   html.replay-ui-active #controlsCard.replay-mode .replay-event-panel:not(.hidden){
     position:absolute !important;
     right:0 !important;
@@ -33766,8 +33802,66 @@ html.replay-ui-active body .side-nav-mobile .js-controls-open{
     transform:translateY(-50%) !important;
   }
 
+  html.replay-ui-active body.camera-view-active #controlsCard.replay-mode .replay-dock-minimize{
+    top:50% !important;
+    right:88px !important;
+    transform:translateY(-50%) !important;
+  }
+
   html.replay-ui-active body.camera-view-active .replay-tools-panel{
     top:calc((100dvh - var(--replay-transport-height)) / 2) !important;
+  }
+
+  html.replay-ui-active.replay-dock-hidden body.camera-view-active{
+    --replay-transport-height:0px;
+  }
+
+  html.replay-ui-active.replay-dock-hidden #controlsCard.controls-card.replay-mode,
+  html.replay-ui-active.replay-dock-hidden .desktop-control-drawer-mount #controlsCard.controls-card.replay-mode,
+  html.replay-ui-active.replay-dock-hidden.control-drawer-open body.camera-view-active #controlsCard.controls-card.replay-mode,
+  html.replay-ui-active.replay-dock-hidden.control-drawer-open body.camera-view-active .desktop-control-drawer-mount #controlsCard.controls-card.replay-mode{
+    display:none !important;
+  }
+
+  html.replay-ui-active.replay-dock-hidden .replay-dock-restore{
+    position:fixed !important;
+    left:50% !important;
+    bottom:max(12px,env(safe-area-inset-bottom,0px)) !important;
+    z-index:83 !important;
+    min-width:92px !important;
+    height:34px !important;
+    padding:0 12px !important;
+    display:inline-flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    gap:7px !important;
+    border:1px solid rgba(116,122,132,.58) !important;
+    border-radius:7px !important;
+    background:rgba(17,19,23,.92) !important;
+    box-shadow:0 10px 30px rgba(0,0,0,.34) !important;
+    color:#c8ccd3 !important;
+    font:650 9px/1 ui-monospace,SFMono-Regular,Menlo,monospace !important;
+    letter-spacing:.12em !important;
+    transform:translateX(-50%) !important;
+    -webkit-backdrop-filter:blur(14px) !important;
+    backdrop-filter:blur(14px) !important;
+    cursor:pointer !important;
+  }
+
+  html.replay-ui-active.replay-dock-hidden .replay-dock-restore svg{
+    width:14px !important;
+    height:14px !important;
+    fill:none !important;
+    stroke:currentColor !important;
+    stroke-width:1.8 !important;
+    stroke-linecap:round !important;
+    stroke-linejoin:round !important;
+  }
+
+  html.replay-ui-active.replay-dock-hidden .replay-dock-restore:hover{
+    border-color:#707783 !important;
+    background:#22252a !important;
+    color:#f3f4f6 !important;
   }
 }
 

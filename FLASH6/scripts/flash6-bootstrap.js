@@ -715,6 +715,8 @@
       el.replayOpenBtns = document.querySelectorAll(".js-replay-open");
       el.replayPanel = document.getElementById("replayPanel");
       el.replayCloseBtn = document.getElementById("replayCloseBtn");
+      el.replayDockMinimizeBtn = document.getElementById("replayDockMinimizeBtn");
+      el.replayDockRestoreBtn = document.getElementById("replayDockRestoreBtn");
       el.replayToolsPanel = document.getElementById("replayToolsPanel");
       el.replayToolsCloseBtn = document.getElementById("replayToolsCloseBtn");
       el.replayGyroZeroBtn = document.getElementById("replayGyroZeroBtn");
@@ -748,6 +750,9 @@
       }
       if(el.replayHudLiveOverlay && el.replayHudLiveOverlay.parentNode !== document.body){
         document.body.appendChild(el.replayHudLiveOverlay);
+      }
+      if(el.replayDockRestoreBtn && el.replayDockRestoreBtn.parentNode !== document.body){
+        document.body.appendChild(el.replayDockRestoreBtn);
       }
       el.replayFileInput = document.getElementById("replayFileInput");
       el.replayFileBtn = document.getElementById("replayFileBtn");
@@ -2225,6 +2230,20 @@
           }else{
             setDesktopControlDrawerOpen(false);
           }
+        });
+      }
+      if(el.replayDockMinimizeBtn){
+        el.replayDockMinimizeBtn.addEventListener("click",(ev)=>{
+          ev.preventDefault();
+          ev.stopPropagation();
+          setReplayDockHidden(true);
+        });
+      }
+      if(el.replayDockRestoreBtn){
+        el.replayDockRestoreBtn.addEventListener("click",(ev)=>{
+          ev.preventDefault();
+          ev.stopPropagation();
+          setReplayDockHidden(false);
         });
       }
       if(el.replayToolsCloseBtn){

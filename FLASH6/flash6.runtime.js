@@ -161,6 +161,7 @@ if (typeof window !== "undefined") {
     const missionAlarmEventKeys = new Set();
     let replayAlarmEvents = [];
     let replayAlarmEventsOpen = false;
+    let replayDockHidden = false;
 
     function createIgnitionAnalysis(startMs){
       return {
@@ -21768,6 +21769,7 @@ function requestMobileMockup3dMesh(){
         el.replayPanel.classList.toggle("hidden", !replayUiActive);
         el.replayPanel.setAttribute("aria-hidden", replayUiActive ? "false" : "true");
       }
+      syncReplayDockVisibility();
       if(el.replayOpenBtns && el.replayOpenBtns.length){
         el.replayOpenBtns.forEach(btn=>{
           btn.setAttribute("aria-label", "Replay");
@@ -21831,6 +21833,27 @@ function requestMobileMockup3dMesh(){
       syncReplayAlarmEventActive();
       updateNavActionState();
       updateExportButtonState();
+    }
+
+    function syncReplayDockVisibility(){
+      const hidden = !!replayUiActive && !!replayDockHidden;
+      document.documentElement.classList.toggle("replay-dock-hidden", hidden);
+      if(el.replayDockMinimizeBtn){
+        el.replayDockMinimizeBtn.setAttribute("aria-pressed", hidden ? "true" : "false");
+      }
+      if(el.replayDockRestoreBtn){
+        el.replayDockRestoreBtn.classList.toggle("hidden", !hidden);
+        el.replayDockRestoreBtn.setAttribute("aria-hidden", hidden ? "false" : "true");
+      }
+    }
+
+    function setReplayDockHidden(hidden){
+      replayDockHidden = !!hidden && !!replayUiActive;
+      if(replayDockHidden){
+        setReplayAlarmEventsOpen(false);
+        setReplayToolsPanelOpen(false);
+      }
+      syncReplayDockVisibility();
     }
 
     function clearReplayTimer(){
@@ -22379,6 +22402,7 @@ function requestMobileMockup3dMesh(){
       setMissionPanelVisible(false);
       setInspectionPanelVisible(false);
       replayUiActive = true;
+      replayDockHidden = false;
       if(!replayState.samples.length){
         showReplayDataPicker();
       }
@@ -22624,6 +22648,7 @@ function requestMobileMockup3dMesh(){
       const opts = options || {};
       setReplayHudLiveVisible(false);
       setReplayAlarmEventsOpen(false);
+      setReplayDockHidden(false);
       cancelReplaySeekProcessing();
       replayUiActive = false;
       pauseReplayPlayback({silent:true});
@@ -40761,6 +40786,8 @@ function requestMobileMockup3dMesh(){
       el.replayOpenBtns = document.querySelectorAll(".js-replay-open");
       el.replayPanel = document.getElementById("replayPanel");
       el.replayCloseBtn = document.getElementById("replayCloseBtn");
+      el.replayDockMinimizeBtn = document.getElementById("replayDockMinimizeBtn");
+      el.replayDockRestoreBtn = document.getElementById("replayDockRestoreBtn");
       el.replayToolsPanel = document.getElementById("replayToolsPanel");
       el.replayToolsCloseBtn = document.getElementById("replayToolsCloseBtn");
       el.replayGyroZeroBtn = document.getElementById("replayGyroZeroBtn");
@@ -40794,6 +40821,9 @@ function requestMobileMockup3dMesh(){
       }
       if(el.replayHudLiveOverlay && el.replayHudLiveOverlay.parentNode !== document.body){
         document.body.appendChild(el.replayHudLiveOverlay);
+      }
+      if(el.replayDockRestoreBtn && el.replayDockRestoreBtn.parentNode !== document.body){
+        document.body.appendChild(el.replayDockRestoreBtn);
       }
       el.replayFileInput = document.getElementById("replayFileInput");
       el.replayFileBtn = document.getElementById("replayFileBtn");
@@ -42271,6 +42301,20 @@ function requestMobileMockup3dMesh(){
           }else{
             setDesktopControlDrawerOpen(false);
           }
+        });
+      }
+      if(el.replayDockMinimizeBtn){
+        el.replayDockMinimizeBtn.addEventListener("click",(ev)=>{
+          ev.preventDefault();
+          ev.stopPropagation();
+          setReplayDockHidden(true);
+        });
+      }
+      if(el.replayDockRestoreBtn){
+        el.replayDockRestoreBtn.addEventListener("click",(ev)=>{
+          ev.preventDefault();
+          ev.stopPropagation();
+          setReplayDockHidden(false);
         });
       }
       if(el.replayToolsCloseBtn){
