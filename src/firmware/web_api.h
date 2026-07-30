@@ -193,6 +193,22 @@ size_t buildTelemetryJson(char* json, size_t jsonLen, bool full) {
        stage2Peer.remoteValid && stage2Peer.lastTelemetryRxMs != 0U &&
        (uint32_t)(nowMs - stage2Peer.lastTelemetryRxMs) <= kFlashLinkTelemetryStaleMs)
     : flashLinkUnexpectedStage2Detected(nowMs);
+  const bool stage1RelayConnected = flashLinkStage2Enabled && (flashLinkGroundRole()
+    ? stage1Peer.relayReady && stage1Peer.relayLinked &&
+      flashLinkRouteFresh(
+        stage1Peer.lastRelayTelemetryRxMs != 0U
+          ? stage1Peer.lastRelayTelemetryRxMs
+          : stage1Peer.lastRelayRxMs,
+        kFlashLinkPrimaryRouteFreshMs)
+    : flashLinkStage1ReverseRelayActive(nowMs));
+  const bool stage1DirectConnected = flashLinkGroundRole()
+    ? stage1Peer.directReady && stage1Peer.directLinked &&
+      stage1Peer.lastDirectRxMs != 0U &&
+      (uint32_t)(nowMs - stage1Peer.lastDirectRxMs) <= kFlashLinkPeerTimeoutMs
+    : flashLinkStage1DirectGroundActive(nowMs);
+  const char* stage1Route = stage1DirectConnected
+    ? "direct"
+    : (stage1RelayConnected ? "relay" : "offline");
   char fullFields[1120] = {};
   if (full) {
     const bool outputImuReady = remoteOutput ? output.sampleValid : imuReady;
@@ -282,6 +298,8 @@ size_t buildTelemetryJson(char* json, size_t jsonLen, bool full) {
            "\"fl_role\":\"%s\",\"fl_node\":%u,\"fl_target\":%u,"
            "\"fl_stage2_mode\":%u,"
            "\"fl_stage1\":%u,\"fl_stage2\":%u,"
+           "\"fl_stage1_relay\":%u,\"fl_stage1_direct\":%u,"
+           "\"fl_stage1_route\":\"%s\","
            "\"fl_link\":%u,\"fl_remote_valid\":%u,"
            "\"fl_rx_hz\":%u,\"fl_loss_permille\":%u,\"fl_peer_age_ms\":%lu,"
            "\"fl_peer\":\"%s\",\"fl_tx_ok\":%lu,\"fl_tx_fail\":%lu,"
@@ -368,6 +386,9 @@ size_t buildTelemetryJson(char* json, size_t jsonLen, bool full) {
            flashLinkStage2Enabled ? 1U : 0U,
            stage1Connected ? 1U : 0U,
            stage2Connected ? 1U : 0U,
+           stage1RelayConnected ? 1U : 0U,
+           stage1DirectConnected ? 1U : 0U,
+           stage1Route,
            flashLinkOperational() ? 1U : 0U,
            remoteActive ? 1U : 0U,
            (unsigned)flashLink.rxHz,
@@ -452,7 +473,7 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
   //  arm_physical,flash_node,flash_target,stage1_connected,stage2_connected,
   //  stage1_snapshot,stage2_snapshot,stage2_mode,operation_mode,data_mode,
   //  reset_code,boot_session,storage_logging,role_config_unlock_seq,
-  //  role_config_unlock_active]
+  //  role_config_unlock_active,stage1_route,stage2_route]
   const bool remoteOutput = flashLinkGroundRole();
   const Telemetry& output = remoteOutput ? flashLinkRemoteSnap : snap;
   const uint16_t remoteFlags = remoteOutput ? flashLinkRemoteState.flags : 0;
@@ -593,6 +614,20 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
        streamStage2.remoteValid && streamStage2.lastTelemetryRxMs != 0U &&
        (uint32_t)(nowMs - streamStage2.lastTelemetryRxMs) <= kFlashLinkTelemetryStaleMs)
     : flashLinkUnexpectedStage2Detected(nowMs);
+  const uint8_t streamStage1Route = flashLinkGroundRole()
+    ? (streamStage1.peerReady
+        ? (streamStage1.relayed ? 2U : 1U)
+        : 0U)
+    : (flashLinkStage1DirectGroundActive(nowMs)
+        ? 1U
+        : (flashLinkStage1ReverseRelayActive(nowMs) ? 2U : 0U));
+  const uint8_t streamStage2Route = flashLinkGroundRole()
+    ? (streamStage2.peerReady
+        ? (streamStage2.relayed ? 2U : 1U)
+        : 0U)
+    : (flashLinkStage2RelayActive(nowMs)
+        ? 2U
+        : (flashLinkStage2DirectGroundActive(nowMs) ? 1U : 0U));
   const uint8_t outputLoadcellRawOk =
     (output.loadcellReady && !output.loadcellSaturated &&
      (output.loadcellValid || output.loadcellOffsetValid || output.loadcellHz > 0U))
@@ -708,7 +743,7 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
            "%u,%lu,%lu,%u,%u,%lu,%u,%u,%ld,%d,%lu,"
            "%.3f,%u,%ld,%u,%u,%u,%u,%.3f,%.6f,%lu,%lu,%lu,"
            "%lu,%lu,%u,\"%s\",\"%s\",%u,%.2f,%.2f,%lu,%.6f,%.6f,%.6f,%.6f,"
-           "%lu,%u,%u,%u,%u,%u,%u,%u,%u,%s,%s,%u,%u,%u,%u,%lu,%u,%lu,%u]",
+           "%lu,%u,%u,%u,%u,%u,%u,%u,%u,%s,%s,%u,%u,%u,%u,%lu,%u,%lu,%u,%u,%u]",
            (unsigned long)frameSequence,
            (unsigned long)output.ut,
            output.baroValid ? output.p : 0.0f,
@@ -805,7 +840,9 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
                (unsigned long)outputBootSession,
                remoteOutput ? ((remoteFlags >> 14) & 1U) : (storageState.loggingEnabled ? 1U : 0U),
                (unsigned long)roleConfigUnlockSeq,
-               roleConfigUnlockActive(nowMs) ? 1U : 0U);
+               roleConfigUnlockActive(nowMs) ? 1U : 0U,
+               (unsigned)streamStage1Route,
+               (unsigned)streamStage2Route);
   if (n <= 0) {
     if (jsonLen) json[0] = '\0';
     return 0;
@@ -1162,6 +1199,21 @@ String settingsJson() {
        stage2.lastTelemetryRxMs != 0U &&
        (uint32_t)(nowMs - stage2.lastTelemetryRxMs) <= kFlashLinkTelemetryStaleMs)
     : flashLinkUnexpectedStage2Detected(nowMs);
+  const bool stage1RelayConnected = flashLinkStage2Enabled && (flashLinkGroundRole()
+    ? stage1.relayReady && stage1.relayLinked &&
+      flashLinkRouteFresh(
+        stage1.lastRelayTelemetryRxMs != 0U
+          ? stage1.lastRelayTelemetryRxMs
+          : stage1.lastRelayRxMs,
+        kFlashLinkPrimaryRouteFreshMs)
+    : flashLinkStage1ReverseRelayActive(nowMs));
+  const bool stage1DirectConnected = flashLinkGroundRole()
+    ? stage1.directReady && stage1.directLinked && stage1.lastDirectRxMs != 0U &&
+      (uint32_t)(nowMs - stage1.lastDirectRxMs) <= kFlashLinkPeerTimeoutMs
+    : flashLinkStage1DirectGroundActive(nowMs);
+  const char* stage1Route = stage1DirectConnected
+    ? "direct"
+    : (stage1RelayConnected ? "relay" : "offline");
   const bool stage2RelayConnected = flashLinkStage2Enabled && (flashLinkGroundRole()
     ? stage2.relayReady && stage2.relayLinked &&
       flashLinkRouteFresh(
@@ -1177,7 +1229,7 @@ String settingsJson() {
   const char* stage2Route = stage2RelayConnected
     ? "relay"
     : (stage2DirectConnected ? "direct" : "offline");
-  char json[1400];
+  char json[1700];
   snprintf(json, sizeof(json),
            "{\"ok\":1,\"ign_ms\":%lu,\"cd_ms\":%lu,\"countdown_sec\":%lu,\"daq_seq_pyro\":%u,"
            "\"op_mode\":\"%s\",\"link_mode\":\"%s\",\"data_mode\":\"%s\","
@@ -1187,6 +1239,9 @@ String settingsJson() {
            "\"flash_link_node_id\":%u,\"flash_link_target_node_id\":%u,"
            "\"flash_link_stage2_mode\":%u,"
            "\"flash_link_stage1_connected\":%u,\"flash_link_stage2_connected\":%u,"
+           "\"flash_link_stage1_relay_connected\":%u,"
+           "\"flash_link_stage1_direct_connected\":%u,"
+           "\"flash_link_stage1_route\":\"%s\","
            "\"flash_link_stage2_relay_connected\":%u,"
            "\"flash_link_stage2_direct_connected\":%u,"
            "\"flash_link_stage2_route\":\"%s\","
@@ -1216,6 +1271,9 @@ String settingsJson() {
            flashLinkStage2Enabled ? 1U : 0U,
            stage1Connected ? 1U : 0U,
            stage2Connected ? 1U : 0U,
+           stage1RelayConnected ? 1U : 0U,
+           stage1DirectConnected ? 1U : 0U,
+           stage1Route,
            stage2RelayConnected ? 1U : 0U,
            stage2DirectConnected ? 1U : 0U,
            stage2Route,

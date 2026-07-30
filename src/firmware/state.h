@@ -1,10 +1,10 @@
 
 constexpr char kFirmwareProgram[] = "Altis_Intelligent3_firmware1";
-constexpr char kFirmwareVersion[] = "0.11.5";
-constexpr char kFirmwareBuildId[] = "v6 b57";
-constexpr uint16_t kFirmwareBuildNumber = 57;
+constexpr char kFirmwareVersion[] = "0.11.6";
+constexpr char kFirmwareBuildId[] = "v6 b58";
+constexpr uint16_t kFirmwareBuildNumber = 58;
 constexpr char kFirmwareBoard[] = "Altis_Intelligent3_b3";
-constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b12";
+constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b13";
 constexpr uint8_t kStorageProtocolVersion = 9;
 // Only formats explicitly verified by this build are decoded as native.
 // Expand this range only after replay compatibility has been validated.
@@ -154,7 +154,7 @@ constexpr uint8_t kWifiChannel = 6;
 constexpr uint8_t kWifiMaxClients = 2;
 constexpr char kWifiPass[] = "12345678";
 constexpr uint32_t kFlashLinkMagic = 0x314B4C46UL;  // FLK1
-constexpr uint8_t kFlashLinkVersion = 10;
+constexpr uint8_t kFlashLinkVersion = 11;
 constexpr uint8_t kFlashLinkChannel = 6;
 constexpr uint8_t kFlashLinkVehicleNodeCount = 2;
 constexpr uint8_t kFlashLinkDiscoveryCacheSize = 8;
@@ -165,12 +165,17 @@ constexpr uint8_t kFlashLinkNodeIdStage2 = 2;
 constexpr uint8_t kFlashLinkNodeIdMask = 0x03U;
 constexpr uint8_t kFlashLinkTargetNodeShift = 2U;
 constexpr uint8_t kFlashLinkTargetNodeMask = 0x0CU;
+constexpr uint8_t kFlashLinkGroundReachableFlag = 0x10U;
 constexpr uint8_t kFlashLinkRelayedFlag = 0x80U;
 static_assert((kFlashLinkNodeIdMask & kFlashLinkTargetNodeMask) == 0U,
               "ALTIS INTELLIGENT LINK1 source/target flags overlap");
 static_assert((kFlashLinkRelayedFlag &
               (kFlashLinkNodeIdMask | kFlashLinkTargetNodeMask)) == 0U,
               "ALTIS INTELLIGENT LINK1 relay flag overlaps routing flags");
+static_assert((kFlashLinkGroundReachableFlag &
+              (kFlashLinkNodeIdMask | kFlashLinkTargetNodeMask |
+               kFlashLinkRelayedFlag)) == 0U,
+              "ALTIS INTELLIGENT LINK1 route-health flag overlaps routing flags");
 constexpr uint32_t kFlashLinkSingleStageTelemetryHz = 100;
 constexpr uint32_t kFlashLinkDualStageTelemetryHz = 50;
 constexpr uint32_t kFlashLinkServiceMinPeriodUs = 500;
@@ -190,6 +195,7 @@ constexpr uint8_t kFlashLinkAckHz = 5;
 constexpr uint8_t kFlashLinkCapabilityStage1Relay = 1U << 4;
 constexpr uint8_t kFlashLinkCapabilityStage2Direct = 1U << 5;
 constexpr uint8_t kFlashLinkCapabilityDualStageMode = 1U << 6;
+constexpr uint8_t kFlashLinkCapabilityStage2Relay = 1U << 7;
 constexpr uint8_t kFlashLinkRxQueueDepth = 12;
 constexpr uint8_t kFlashLinkTelemetryQueueSoftLimit = 4;
 constexpr uint8_t kFlashLinkRxDrainLimit = kFlashLinkRxQueueDepth;
@@ -1306,6 +1312,8 @@ struct FlashLinkRuntime {
   uint32_t lastHelloMs = 0;
   uint32_t lastHeartbeatMs = 0;
   uint32_t lastPeerRxMs = 0;
+  bool peerGroundReachable = false;
+  uint32_t peerGroundReachableRxMs = 0;
   uint32_t lastTelemetryRxMs = 0;
   uint32_t lastTelemetryTxUs = 0;
   uint32_t lastStorageStatusTxMs = 0;
@@ -1496,8 +1504,13 @@ struct FlashLinkRelayRuntime {
   bool stage2AckPending = false;
   uint8_t stage2Mac[ESP_NOW_ETH_ALEN] = {};
   uint32_t stage2Session = 0;
+  bool stage2GroundReachable = false;
+  uint32_t stage2GroundReachableRxMs = 0;
   uint32_t stage2RxTelemetrySeq = 0;
   uint32_t stage2RxTelemetryFrames = 0;
+  uint32_t stage1RxTelemetrySeq = 0;
+  uint32_t stage1RxTelemetryFrames = 0;
+  bool stage1AckPending = false;
   uint32_t stage2LastRxMs = 0;
   uint32_t stage2LastTelemetryRxMs = 0;
   uint32_t stage2LastDiscoveryMs = 0;
@@ -1925,6 +1938,8 @@ void flashLinkRecordDiscoveredDevice(
 String flashLinkDevicesJson();
 bool flashLinkStage2RelayActive(uint32_t nowMs);
 bool flashLinkStage2DirectGroundActive(uint32_t nowMs);
+bool flashLinkStage1DirectGroundActive(uint32_t nowMs);
+bool flashLinkStage1ReverseRelayActive(uint32_t nowMs);
 void saveSequenceSettings();
 void setMissionStage1SeparationBackupMs(long ms);
 void setMissionStage1EjectionDelayMs(long ms);

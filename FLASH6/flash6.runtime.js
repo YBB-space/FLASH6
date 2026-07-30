@@ -6717,6 +6717,9 @@ function requestMobileMockup3dMesh(){
     let flashLinkUiStage2Mode = false;
     let flashLinkStage1Connected = false;
     let flashLinkStage2Connected = false;
+    let flashLinkStage1Route = "direct";
+    let flashLinkStage1DirectConnected = false;
+    let flashLinkStage1RelayConnected = false;
     let flashLinkStage2Route = "relay";
     let flashLinkStage2DirectConnected = false;
     let flashLinkStage2RelayConnected = false;
@@ -13821,6 +13824,16 @@ function requestMobileMockup3dMesh(){
           rssiAgeMs = 0;
         }
       }
+      if(id === 1 && flashLinkStage1Route === "relay" &&
+         flashLinkStage2Route !== "relay" &&
+         (!isFinite(rssiDbm) || rssiDbm <= -126 ||
+          (isFinite(rssiAgeMs) && rssiAgeMs > 6000))){
+        const relayRoute = getDashboardStageLinkSnapshot(2);
+        if(relayRoute.rssiValid){
+          rssiDbm = relayRoute.rssiDbm;
+          rssiAgeMs = 0;
+        }
+      }
       const available = !!(
         (state && state.valid) ||
         (flashLinkUiTargetNodeId === id && flashLinkUiHasStatus)
@@ -13897,6 +13910,8 @@ function requestMobileMockup3dMesh(){
       const stage2Online = flashLinkEnabled && stage2ModeEnabled && connectedStage2;
       const directRoute = stage2Online && flashLinkStage2Route === "direct";
       const relayRoute = stage2Online && !directRoute && stage1Online;
+      const reverseRelayRoute = stage1Online &&
+        flashLinkStage1Route === "relay" && stage2Online;
       const directRouteAvailable = stage2Online;
       const groundOnline = transportOnline;
       const mobileOnline = groundOnline && mobileClient && !serialConnected;
@@ -13908,26 +13923,42 @@ function requestMobileMockup3dMesh(){
         !stage2ModeEnabled ? "disabled" : (stage2Online ? "online" : "offline"),
         !stage2ModeEnabled
           ? "DISABLED"
-          : (stage2Online ? (directRoute ? "DIRECT" : "RELAY") : "OFFLINE"),
+          : (stage2Online
+            ? (reverseRelayRoute ? "GATEWAY" : (directRoute ? "DIRECT" : "RELAY"))
+            : "OFFLINE"),
         false
       );
-      setDashboardCommunicationNodeState("stage1", stage1Online ? "online" : "offline", stage1Online ? "LINKED" : "OFFLINE", false);
+      setDashboardCommunicationNodeState(
+        "stage1",
+        stage1Online ? "online" : "offline",
+        stage1Online ? (reverseRelayRoute ? "RELAYED" : "LINKED") : "OFFLINE",
+        false);
       setDashboardCommunicationNodeState("ground", groundOnline ? "online" : "offline", groundOnline ? "ONLINE" : "WAITING", false);
       setDashboardCommunicationNodeState("mobile", mobileOnline ? "online" : "standby", mobileOnline ? "CONNECTED" : "STANDBY", currentClient === "mobile");
       setDashboardCommunicationNodeState("pc", pcOnline ? "online" : "standby", pcOnline ? "CONNECTED" : "STANDBY", currentClient === "pc");
 
-      setDashboardCommunicationLinkState("stage2-stage1", relayRoute ? "online" : (stage2ModeEnabled ? "standby" : "offline"));
+      setDashboardCommunicationLinkState(
+        "stage2-stage1",
+        (relayRoute || reverseRelayRoute)
+          ? "online"
+          : (stage2ModeEnabled ? "standby" : "offline"));
       setDashboardCommunicationLinkState(
         "stage2-ground",
-        directRoute ? "online" : (directRouteAvailable ? "standby" : "offline")
+        (directRoute || reverseRelayRoute)
+          ? "online"
+          : (directRouteAvailable ? "standby" : "offline")
       );
-      setDashboardCommunicationLinkState("stage1-ground", stage1Online && groundOnline ? "online" : "offline");
+      setDashboardCommunicationLinkState(
+        "stage1-ground",
+        stage1Online && groundOnline && !reverseRelayRoute ? "online" : "offline");
       setDashboardCommunicationLinkState("ground-mobile", mobileOnline ? "online" : "standby");
       setDashboardCommunicationLinkState("ground-pc", pcOnline ? "online" : "standby");
 
       if(el.dashboardCommunicationRoute){
         el.dashboardCommunicationRoute.textContent = stage2ModeEnabled
-          ? (directRoute ? "2단 직통 백업 경로" : "1단 중계 우선 경로")
+          ? (reverseRelayRoute
+            ? "2단 역중계 자동 우회 경로"
+            : (directRoute ? "2단 직통 백업 경로" : "1단 중계 우선 경로"))
           : "1단 전용 · 100 Hz";
       }
       if(el.dashboardCommunicationPeer){
@@ -13970,7 +14001,7 @@ function requestMobileMockup3dMesh(){
         : !!(uiSettings && uiSettings.flashLinkStage2Mode);
       if(el.flashTopologyModeDescription){
         el.flashTopologyModeDescription.textContent = stage2ModeEnabled
-          ? "1단 중계 우선 · 링크 단절 시 2단 직통 백업 자동 전환"
+          ? "1단 중계 우선 · 어느 한쪽 직통 단절 시 반대편 보드가 자동 중계"
           : "1단 전용 · 100Hz 저지연 텔레메트리";
       }
       if(el.flashTopologyStage1Role){
@@ -13990,6 +14021,8 @@ function requestMobileMockup3dMesh(){
       const stage2Online = flashLinkEnabled && stage2ModeEnabled && connectedStage2;
       const directRoute = stage2Online && flashLinkStage2Route === "direct";
       const relayRoute = stage2Online && !directRoute && stage1Online;
+      const reverseRelayRoute = stage1Online &&
+        flashLinkStage1Route === "relay" && stage2Online;
       const groundOnline = transportOnline;
       const mobileOnline = groundOnline && mobileClient && !serialConnected;
       const pcOnline = groundOnline && (!mobileClient || serialConnected);
@@ -14000,18 +14033,28 @@ function requestMobileMockup3dMesh(){
         stage2Online,
         !stage2ModeEnabled
           ? "DISABLED"
-          : (stage2Online ? (directRoute ? "DIRECT BACKUP" : "RELAY LINK") : "OFFLINE"),
+          : (stage2Online
+            ? (reverseRelayRoute
+              ? "REVERSE GATEWAY"
+              : (directRoute ? "DIRECT BACKUP" : "RELAY LINK"))
+            : "OFFLINE"),
         false);
       const stage2Node = el.flashLinkTopologyOverlay.querySelector('[data-topology-node="stage2"]');
       if(stage2Node) stage2Node.classList.toggle("is-mode-disabled", !stage2ModeEnabled);
-      setFlashTopologyNodeState("stage1", stage1Online, stage1Online ? "LINKED" : "OFFLINE", false);
+      setFlashTopologyNodeState(
+        "stage1",
+        stage1Online,
+        stage1Online ? (reverseRelayRoute ? "RELAYED" : "LINKED") : "OFFLINE",
+        false);
       setFlashTopologyNodeState("ground", groundOnline, groundOnline ? "ONLINE" : "WAITING", false);
       setFlashTopologyNodeState("mobile", mobileOnline, mobileOnline ? "CONNECTED" : "STANDBY", currentClient === "mobile");
       setFlashTopologyNodeState("pc", pcOnline, pcOnline ? "CONNECTED" : "STANDBY", currentClient === "pc");
 
-      setFlashTopologyLinkState("stage2-stage1", relayRoute);
-      setFlashTopologyLinkState("stage2-ground", directRoute);
-      setFlashTopologyLinkState("stage1-ground", stage1Online && groundOnline);
+      setFlashTopologyLinkState("stage2-stage1", relayRoute || reverseRelayRoute);
+      setFlashTopologyLinkState("stage2-ground", directRoute || reverseRelayRoute);
+      setFlashTopologyLinkState(
+        "stage1-ground",
+        stage1Online && groundOnline && !reverseRelayRoute);
       setFlashTopologyLinkState("ground-mobile", mobileOnline);
       setFlashTopologyLinkState("ground-pc", pcOnline);
 
@@ -14078,6 +14121,9 @@ function requestMobileMockup3dMesh(){
       const stage1Linked = Number(src.fl_stage1 ?? src.flash_link_stage1_connected ?? 0) !== 0;
       const stage2LinkedRaw = src.fl_stage2 ?? src.flash_link_stage2_connected ?? null;
       const stage2Linked = Number(stage2LinkedRaw ?? 0) !== 0;
+      const stage1RouteRaw = src.fl_stage1_route ?? src.flash_link_stage1_route ?? null;
+      const stage1DirectRaw = src.fl_stage1_direct ?? src.flash_link_stage1_direct_connected ?? null;
+      const stage1RelayRaw = src.fl_stage1_relay ?? src.flash_link_stage1_relay_connected ?? null;
       const stage2RouteRaw = src.fl_stage2_route ?? src.flash_link_stage2_route ?? null;
       const stage2DirectRaw = src.fl_stage2_direct ?? src.flash_link_stage2_direct_connected ?? null;
       const stage2RelayRaw = src.fl_stage2_relay ?? src.flash_link_stage2_relay_connected ?? null;
@@ -14101,6 +14147,17 @@ function requestMobileMockup3dMesh(){
       });
       flashLinkStage1Connected = stage1Linked;
       flashLinkStage2Connected = stage2ModeEnabled && stage2Linked;
+      if(stage1RouteRaw != null){
+        const route = String(stage1RouteRaw).trim().toLowerCase();
+        flashLinkStage1Route = route === "relay" ? "relay" : (route === "direct" ? "direct" : "offline");
+      }
+      if(stage1DirectRaw != null) flashLinkStage1DirectConnected = Number(stage1DirectRaw) !== 0;
+      if(stage1RelayRaw != null) flashLinkStage1RelayConnected = Number(stage1RelayRaw) !== 0;
+      if(stage1RouteRaw == null && (stage1DirectRaw != null || stage1RelayRaw != null)){
+        flashLinkStage1Route = flashLinkStage1DirectConnected
+          ? "direct"
+          : (flashLinkStage1RelayConnected ? "relay" : "offline");
+      }
       const detectedStage2 = stage2Linked || (remoteValid && targetNodeId === 2);
       if(detectedStage2){
         updateFlashLinkStage2MismatchDetection(true);
@@ -25176,6 +25233,16 @@ function requestMobileMockup3dMesh(){
         fl_stage1:(frame[89] != null) ? (Number(frame[89]) ? 1 : 0) : 0,
         fl_stage2:(frame[90] != null) ? (Number(frame[90]) ? 1 : 0) : 0,
         fl_stage2_mode:(frame[93] != null) ? (Number(frame[93]) ? 1 : 0) : null,
+        fl_stage1_route:frame[101] != null
+          ? (Number(frame[101]) === 2
+            ? "relay"
+            : (Number(frame[101]) === 1 ? "direct" : "offline"))
+          : null,
+        fl_stage2_route:frame[102] != null
+          ? (Number(frame[102]) === 2
+            ? "relay"
+            : (Number(frame[102]) === 1 ? "direct" : "offline"))
+          : null,
         reset_code:resetCode,
         reset_reason:resetCode === 9
           ? "BROWNOUT"

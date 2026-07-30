@@ -3,6 +3,25 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.11.6 — v6 b58 / FLASH6 bidirectional stage relay b160 — 2026-07-30
+
+Protocol: `Flash6-Intelligent-b13`
+
+Storage record protocol unchanged: `HWLOGV2` version `9`
+
+- 1단의 지상국 직통 링크가 끊기고 2단 직통 링크가 살아 있으면
+  2단이 1단 패킷을 지상국으로 자동 역중계하도록 확장했습니다.
+- 중계 보드는 중계 전용으로 전환되지 않으며 자기 텔레메트리와
+  상대 단의 원본 패킷을 함께 전송합니다. 지상국은 원본 노드 ID로
+  두 단의 데이터를 계속 분리합니다.
+- 텔레메트리뿐 아니라 명령, ACK, 저장공간 조회와 응답도 선택된
+  양방향 중계 경로를 사용합니다.
+- 각 에비오닉스가 지상국 직통 경로의 생존 상태를 패킷에 표시하고,
+  중계된 프레임은 재중계하지 않아 경로 루프와 불필요한 플래핑을
+  방지합니다.
+- FLASH6 통신 화면과 스트림에 1단/2단의 `direct`, `relay`,
+  `offline` 경로 상태를 추가했습니다.
+
 ## 0.11.5 — v6 b57 / FLASH6 stage-2 apogee ejection b159 — 2026-07-30
 
 Protocol unchanged: `Flash6-Intelligent-b12`

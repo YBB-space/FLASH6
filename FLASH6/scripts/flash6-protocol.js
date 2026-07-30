@@ -151,6 +151,16 @@
         fl_stage1:(frame[89] != null) ? (Number(frame[89]) ? 1 : 0) : 0,
         fl_stage2:(frame[90] != null) ? (Number(frame[90]) ? 1 : 0) : 0,
         fl_stage2_mode:(frame[93] != null) ? (Number(frame[93]) ? 1 : 0) : null,
+        fl_stage1_route:frame[101] != null
+          ? (Number(frame[101]) === 2
+            ? "relay"
+            : (Number(frame[101]) === 1 ? "direct" : "offline"))
+          : null,
+        fl_stage2_route:frame[102] != null
+          ? (Number(frame[102]) === 2
+            ? "relay"
+            : (Number(frame[102]) === 1 ? "direct" : "offline"))
+          : null,
         reset_code:resetCode,
         reset_reason:resetCode === 9
           ? "BROWNOUT"

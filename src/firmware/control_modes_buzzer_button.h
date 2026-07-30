@@ -26,6 +26,10 @@ bool flashLinkStage2LeafRole() {
   return flashLinkStage2Enabled && flashLinkStage2NodeRole();
 }
 
+bool flashLinkInterstageRelayRole() {
+  return flashLinkStage1RelayRole() || flashLinkStage2LeafRole();
+}
+
 bool flashLinkMissionRoleEnabled() {
   // A board configured as STAGE 2 must remain mission-inert until the
   // operator explicitly enables two-stage operation. With A.I LINK disabled,

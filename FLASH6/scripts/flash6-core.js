@@ -6716,6 +6716,9 @@ function requestMobileMockup3dMesh(){
     let flashLinkUiStage2Mode = false;
     let flashLinkStage1Connected = false;
     let flashLinkStage2Connected = false;
+    let flashLinkStage1Route = "direct";
+    let flashLinkStage1DirectConnected = false;
+    let flashLinkStage1RelayConnected = false;
     let flashLinkStage2Route = "relay";
     let flashLinkStage2DirectConnected = false;
     let flashLinkStage2RelayConnected = false;
