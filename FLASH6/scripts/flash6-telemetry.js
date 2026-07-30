@@ -156,13 +156,17 @@
         }else if(!isReplaySample && rawTitle === "Launch validation fault"){
           showMissionArmRiskWarning(eventStageId ? [eventStageId] : [1], "thrust-validation");
         }
-        showToast(message, "notice", {
-          key:"hardware-mission-alarm-" + eventKey,
-          title,
-          duration:9000,
-          keep:true,
-          forceToast:false
-        });
+        // Replay alarms are reviewed from the explicit alarm toggle in the
+        // playback dock. Live alarms remain immediate and intrusive.
+        if(!isReplaySample){
+          showToast(message, "notice", {
+            key:"hardware-mission-alarm-" + eventKey,
+            title,
+            duration:9000,
+            keep:true,
+            forceToast:false
+          });
+        }
         addLogLine(
           (isReplaySample ? "[REPLAY][MISSION_ALARM]" : "[MISSION_ALARM]") +
           (eventStageId ? "[STAGE " + eventStageId + "]" : "") +

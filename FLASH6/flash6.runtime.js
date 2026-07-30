@@ -160,6 +160,7 @@ if (typeof window !== "undefined") {
     let replayHasStoredMissionAlarms = false;
     const missionAlarmEventKeys = new Set();
     let replayAlarmEvents = [];
+    let replayAlarmEventsOpen = false;
 
     function createIgnitionAnalysis(startMs){
       return {
@@ -21227,6 +21228,42 @@ function requestMobileMockup3dMesh(){
       });
     }
 
+    function syncReplayAlarmToggleUi(){
+      const hasEvents = Array.isArray(replayAlarmEvents) && replayAlarmEvents.length > 0;
+      if(!hasEvents) replayAlarmEventsOpen = false;
+      if(el.replayAlarmToggleCount){
+        el.replayAlarmToggleCount.textContent = String(replayAlarmEvents.length);
+      }
+      if(el.replayAlarmToggleBtn){
+        el.replayAlarmToggleBtn.disabled = !hasEvents;
+        el.replayAlarmToggleBtn.classList.toggle("is-active", hasEvents && replayAlarmEventsOpen);
+        el.replayAlarmToggleBtn.setAttribute("aria-expanded", hasEvents && replayAlarmEventsOpen ? "true" : "false");
+        el.replayAlarmToggleBtn.setAttribute("aria-pressed", hasEvents && replayAlarmEventsOpen ? "true" : "false");
+        el.replayAlarmToggleBtn.setAttribute(
+          "aria-label",
+          hasEvents
+            ? ("알람 이벤트 " + replayAlarmEvents.length + "개 " + (replayAlarmEventsOpen ? "닫기" : "열기"))
+            : "알람 이벤트 없음"
+        );
+      }
+      if(el.replayAlarmEventsPanel){
+        el.replayAlarmEventsPanel.classList.toggle(
+          "hidden",
+          !hasEvents || !replayAlarmEventsOpen
+        );
+        el.replayAlarmEventsPanel.setAttribute(
+          "aria-hidden",
+          hasEvents && replayAlarmEventsOpen ? "false" : "true"
+        );
+      }
+    }
+
+    function setReplayAlarmEventsOpen(open){
+      replayAlarmEventsOpen = !!open && replayAlarmEvents.length > 0;
+      syncReplayAlarmToggleUi();
+      if(replayAlarmEventsOpen) syncReplayAlarmEventActive();
+    }
+
     function renderReplayAlarmEvents(){
       collectReplayAlarmEvents();
       const panel = el.replayAlarmEventsPanel;
@@ -21235,11 +21272,10 @@ function requestMobileMockup3dMesh(){
       if(count) count.textContent = replayAlarmEvents.length.toLocaleString("ko-KR") + "개";
       if(!panel || !list) return;
       if(!replayAlarmEvents.length){
-        panel.classList.add("hidden");
         list.innerHTML = "";
+        syncReplayAlarmToggleUi();
         return;
       }
-      panel.classList.remove("hidden");
       const visible = replayAlarmEvents.slice(0, 80);
       list.innerHTML = visible.map((event)=>{
         const blockText = event.block ? ("BLOCK " + event.block) : "MISSION";
@@ -21255,6 +21291,7 @@ function requestMobileMockup3dMesh(){
       (replayAlarmEvents.length > visible.length
         ? '<div class="replay-event-meta">' + (replayAlarmEvents.length - visible.length).toLocaleString("ko-KR") + '개 더 있음</div>'
         : "");
+      syncReplayAlarmToggleUi();
       syncReplayAlarmEventActive();
     }
 
@@ -21777,6 +21814,7 @@ function requestMobileMockup3dMesh(){
         el.replayQuickBtn.setAttribute("aria-label", "15초 가상 카운트다운");
         el.replayQuickBtn.setAttribute("title", "15초 가상 카운트다운");
       }
+      syncReplayAlarmToggleUi();
       if(el.replayConvertBtn){
         el.replayConvertBtn.setAttribute("aria-label", "Excel 보고서 내보내기");
         el.replayConvertBtn.setAttribute("title", "Excel 보고서 내보내기");
@@ -22438,6 +22476,7 @@ function requestMobileMockup3dMesh(){
         showToast("비행 데이터를 먼저 선택하세요.", "notice", {key:"replay-proceed-empty"});
         return false;
       }
+      replayAlarmEventsOpen = false;
       setActiveDataSource(DATA_SOURCE_REPLAY);
       activateReplayModeAfterSelection();
       setFlashLinkDisplayDataMode(replayState.dataMode || "flight");
@@ -22584,6 +22623,7 @@ function requestMobileMockup3dMesh(){
     function exitReplayMode(options){
       const opts = options || {};
       setReplayHudLiveVisible(false);
+      setReplayAlarmEventsOpen(false);
       cancelReplaySeekProcessing();
       replayUiActive = false;
       pauseReplayPlayback({silent:true});
@@ -27223,13 +27263,17 @@ function requestMobileMockup3dMesh(){
         }else if(!isReplaySample && rawTitle === "Launch validation fault"){
           showMissionArmRiskWarning(eventStageId ? [eventStageId] : [1], "thrust-validation");
         }
-        showToast(message, "notice", {
-          key:"hardware-mission-alarm-" + eventKey,
-          title,
-          duration:9000,
-          keep:true,
-          forceToast:false
-        });
+        // Replay alarms are reviewed from the explicit alarm toggle in the
+        // playback dock. Live alarms remain immediate and intrusive.
+        if(!isReplaySample){
+          showToast(message, "notice", {
+            key:"hardware-mission-alarm-" + eventKey,
+            title,
+            duration:9000,
+            keep:true,
+            forceToast:false
+          });
+        }
         addLogLine(
           (isReplaySample ? "[REPLAY][MISSION_ALARM]" : "[MISSION_ALARM]") +
           (eventStageId ? "[STAGE " + eventStageId + "]" : "") +
@@ -40759,6 +40803,8 @@ function requestMobileMockup3dMesh(){
       el.replayRestartBtn = document.getElementById("replayRestartBtn");
       el.replayEndBtn = document.getElementById("replayEndBtn");
       el.replayQuickBtn = document.getElementById("replayQuickBtn");
+      el.replayAlarmToggleBtn = document.getElementById("replayAlarmToggleBtn");
+      el.replayAlarmToggleCount = document.getElementById("replayAlarmToggleCount");
       el.replayConvertBtn = document.getElementById("replayConvertBtn");
       el.replayDocxBtn = document.getElementById("replayDocxBtn");
       el.replaySeekRange = document.getElementById("replaySeekRange");
@@ -41261,6 +41307,11 @@ function requestMobileMockup3dMesh(){
       }
       if(el.replayQuickBtn){
         el.replayQuickBtn.addEventListener("click",()=>seekReplayToQuickStart());
+      }
+      if(el.replayAlarmToggleBtn){
+        el.replayAlarmToggleBtn.addEventListener("click",()=>{
+          setReplayAlarmEventsOpen(!replayAlarmEventsOpen);
+        });
       }
       if(el.replayAlarmEventsList){
         el.replayAlarmEventsList.addEventListener("click",(ev)=>{

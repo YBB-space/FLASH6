@@ -3,6 +3,15 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 UI b155 — 2026-07-30
+
+- 리플레이 하단 재생바에 알람 이벤트 토글과 이벤트 개수 표시를
+  추가했습니다.
+- 리플레이 알람 목록은 기본적으로 닫혀 있으며 사용자가 토글을 켠
+  경우에만 표시됩니다.
+- 리플레이 재생 중 알람 토스트가 자동으로 화면을 가리지 않도록
+  변경했습니다. 실시간 운용 알람 동작은 그대로 유지됩니다.
+
 ## 0.11.4 — v6 b56 — 2026-07-29
 
 Protocol unchanged: `Flash6-Intelligent-b12`

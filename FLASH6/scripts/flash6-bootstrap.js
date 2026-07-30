@@ -757,6 +757,8 @@
       el.replayRestartBtn = document.getElementById("replayRestartBtn");
       el.replayEndBtn = document.getElementById("replayEndBtn");
       el.replayQuickBtn = document.getElementById("replayQuickBtn");
+      el.replayAlarmToggleBtn = document.getElementById("replayAlarmToggleBtn");
+      el.replayAlarmToggleCount = document.getElementById("replayAlarmToggleCount");
       el.replayConvertBtn = document.getElementById("replayConvertBtn");
       el.replayDocxBtn = document.getElementById("replayDocxBtn");
       el.replaySeekRange = document.getElementById("replaySeekRange");
@@ -1259,6 +1261,11 @@
       }
       if(el.replayQuickBtn){
         el.replayQuickBtn.addEventListener("click",()=>seekReplayToQuickStart());
+      }
+      if(el.replayAlarmToggleBtn){
+        el.replayAlarmToggleBtn.addEventListener("click",()=>{
+          setReplayAlarmEventsOpen(!replayAlarmEventsOpen);
+        });
       }
       if(el.replayAlarmEventsList){
         el.replayAlarmEventsList.addEventListener("click",(ev)=>{

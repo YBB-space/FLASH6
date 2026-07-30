@@ -1965,6 +1965,42 @@
       });
     }
 
+    function syncReplayAlarmToggleUi(){
+      const hasEvents = Array.isArray(replayAlarmEvents) && replayAlarmEvents.length > 0;
+      if(!hasEvents) replayAlarmEventsOpen = false;
+      if(el.replayAlarmToggleCount){
+        el.replayAlarmToggleCount.textContent = String(replayAlarmEvents.length);
+      }
+      if(el.replayAlarmToggleBtn){
+        el.replayAlarmToggleBtn.disabled = !hasEvents;
+        el.replayAlarmToggleBtn.classList.toggle("is-active", hasEvents && replayAlarmEventsOpen);
+        el.replayAlarmToggleBtn.setAttribute("aria-expanded", hasEvents && replayAlarmEventsOpen ? "true" : "false");
+        el.replayAlarmToggleBtn.setAttribute("aria-pressed", hasEvents && replayAlarmEventsOpen ? "true" : "false");
+        el.replayAlarmToggleBtn.setAttribute(
+          "aria-label",
+          hasEvents
+            ? ("알람 이벤트 " + replayAlarmEvents.length + "개 " + (replayAlarmEventsOpen ? "닫기" : "열기"))
+            : "알람 이벤트 없음"
+        );
+      }
+      if(el.replayAlarmEventsPanel){
+        el.replayAlarmEventsPanel.classList.toggle(
+          "hidden",
+          !hasEvents || !replayAlarmEventsOpen
+        );
+        el.replayAlarmEventsPanel.setAttribute(
+          "aria-hidden",
+          hasEvents && replayAlarmEventsOpen ? "false" : "true"
+        );
+      }
+    }
+
+    function setReplayAlarmEventsOpen(open){
+      replayAlarmEventsOpen = !!open && replayAlarmEvents.length > 0;
+      syncReplayAlarmToggleUi();
+      if(replayAlarmEventsOpen) syncReplayAlarmEventActive();
+    }
+
     function renderReplayAlarmEvents(){
       collectReplayAlarmEvents();
       const panel = el.replayAlarmEventsPanel;
@@ -1973,11 +2009,10 @@
       if(count) count.textContent = replayAlarmEvents.length.toLocaleString("ko-KR") + "개";
       if(!panel || !list) return;
       if(!replayAlarmEvents.length){
-        panel.classList.add("hidden");
         list.innerHTML = "";
+        syncReplayAlarmToggleUi();
         return;
       }
-      panel.classList.remove("hidden");
       const visible = replayAlarmEvents.slice(0, 80);
       list.innerHTML = visible.map((event)=>{
         const blockText = event.block ? ("BLOCK " + event.block) : "MISSION";
@@ -1993,6 +2028,7 @@
       (replayAlarmEvents.length > visible.length
         ? '<div class="replay-event-meta">' + (replayAlarmEvents.length - visible.length).toLocaleString("ko-KR") + '개 더 있음</div>'
         : "");
+      syncReplayAlarmToggleUi();
       syncReplayAlarmEventActive();
     }
 
@@ -2515,6 +2551,7 @@
         el.replayQuickBtn.setAttribute("aria-label", "15초 가상 카운트다운");
         el.replayQuickBtn.setAttribute("title", "15초 가상 카운트다운");
       }
+      syncReplayAlarmToggleUi();
       if(el.replayConvertBtn){
         el.replayConvertBtn.setAttribute("aria-label", "Excel 보고서 내보내기");
         el.replayConvertBtn.setAttribute("title", "Excel 보고서 내보내기");
@@ -3176,6 +3213,7 @@
         showToast("비행 데이터를 먼저 선택하세요.", "notice", {key:"replay-proceed-empty"});
         return false;
       }
+      replayAlarmEventsOpen = false;
       setActiveDataSource(DATA_SOURCE_REPLAY);
       activateReplayModeAfterSelection();
       setFlashLinkDisplayDataMode(replayState.dataMode || "flight");
@@ -3322,6 +3360,7 @@
     function exitReplayMode(options){
       const opts = options || {};
       setReplayHudLiveVisible(false);
+      setReplayAlarmEventsOpen(false);
       cancelReplaySeekProcessing();
       replayUiActive = false;
       pauseReplayPlayback({silent:true});

@@ -33459,6 +33459,38 @@ html.replay-ui-active body .side-nav-mobile .js-controls-open{
     color:#f5f6f7 !important;
   }
 
+  html.replay-ui-active #controlsCard.replay-mode .replay-speed-buttons .replay-alarm-toggle{
+    display:inline-flex !important;
+    align-items:center !important;
+    gap:5px !important;
+    padding-inline:8px !important;
+  }
+
+  html.replay-ui-active #controlsCard.replay-mode .replay-speed-buttons .replay-alarm-toggle::before{
+    content:"" !important;
+    width:5px !important;
+    height:5px !important;
+    flex:0 0 5px !important;
+    border-radius:50% !important;
+    background:#656b75 !important;
+  }
+
+  html.replay-ui-active #controlsCard.replay-mode .replay-speed-buttons .replay-alarm-toggle.is-active::before{
+    background:#ff6678 !important;
+    box-shadow:0 0 0 3px rgba(255,102,120,.10) !important;
+  }
+
+  html.replay-ui-active #controlsCard.replay-mode .replay-speed-buttons .replay-alarm-toggle-count{
+    min-width:12px !important;
+    color:#aeb3bc !important;
+    font-variant-numeric:tabular-nums !important;
+    text-align:right !important;
+  }
+
+  html.replay-ui-active #controlsCard.replay-mode .replay-speed-buttons .replay-alarm-toggle:disabled{
+    opacity:.42 !important;
+  }
+
   html.replay-ui-active #controlsCard.replay-mode .replay-dock-close{
     position:absolute !important;
     top:13px !important;

@@ -159,6 +159,7 @@ if (typeof window !== "undefined") {
     let replayHasStoredMissionAlarms = false;
     const missionAlarmEventKeys = new Set();
     let replayAlarmEvents = [];
+    let replayAlarmEventsOpen = false;
 
     function createIgnitionAnalysis(startMs){
       return {
