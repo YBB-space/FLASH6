@@ -401,6 +401,23 @@
 
     <div id="toastContainer" class="toast-container"></div>
     <aside id="criticalAlertStack" class="critical-alert-stack" aria-label="Critical alerts" aria-live="assertive"></aside>
+    <button id="alarmHistoryToggle" class="alarm-history-toggle" type="button"
+      aria-label="알람 목록 열기" aria-controls="alarmHistoryPanel" aria-expanded="false">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5"/></svg>
+      <span id="alarmHistoryUnread" class="alarm-history-unread hidden">0</span>
+    </button>
+    <aside id="alarmHistoryPanel" class="alarm-history-panel hidden" aria-label="알람 목록" aria-hidden="true">
+      <header class="alarm-history-header">
+        <div>
+          <strong>알람</strong>
+          <span id="alarmHistoryCount">0</span>
+        </div>
+        <button id="alarmHistoryClear" type="button">기록 지우기</button>
+      </header>
+      <div id="alarmHistoryList" class="alarm-history-list">
+        <div class="alarm-history-empty">알람 기록이 없습니다.</div>
+      </div>
+    </aside>
 
     <section id="welcomeConnectScreen" class="welcome-connect-screen hidden" style="display:none;" aria-label="FLASH6 연결" aria-hidden="true">
       <div class="welcome-connect-panel">

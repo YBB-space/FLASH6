@@ -78,6 +78,9 @@ if (typeof window !== "undefined") {
     let logLines = [];
     let logData = [];
     let eventLog = [];
+    let alarmHistory = [];
+    let alarmHistoryUnreadCount = 0;
+    const ALARM_HISTORY_MAX = 100;
     let thrustBaseHistory = [];
     let pressureBaseHistory = [];
     let quickAltitudeHistory = [];
@@ -16516,6 +16519,99 @@ function requestMobileMockup3dMesh(){
       return raw;
     }
 
+    function alarmHistoryIsOpen(){
+      return !!(el.alarmHistoryPanel && !el.alarmHistoryPanel.classList.contains("hidden"));
+    }
+
+    function formatAlarmHistoryTime(timestamp){
+      const date = new Date(Number(timestamp) || Date.now());
+      return date.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit", second:"2-digit"});
+    }
+
+    function renderAlarmHistory(){
+      if(!el.alarmHistoryList) return;
+      if(el.alarmHistoryCount) el.alarmHistoryCount.textContent = String(alarmHistory.length);
+      if(el.alarmHistoryUnread){
+        el.alarmHistoryUnread.textContent = alarmHistoryUnreadCount > 99 ? "99+" : String(alarmHistoryUnreadCount);
+        el.alarmHistoryUnread.classList.toggle("hidden", alarmHistoryUnreadCount <= 0);
+      }
+      el.alarmHistoryList.replaceChildren();
+      if(!alarmHistory.length){
+        const empty = document.createElement("div");
+        empty.className = "alarm-history-empty";
+        empty.textContent = "알람 기록이 없습니다.";
+        el.alarmHistoryList.appendChild(empty);
+        return;
+      }
+      for(const entry of alarmHistory){
+        const item = document.createElement("article");
+        item.className = "alarm-history-item tone-" + normalizeToastType(entry.type);
+
+        const meta = document.createElement("div");
+        meta.className = "alarm-history-item-meta";
+        const title = document.createElement("strong");
+        title.textContent = entry.title || "알림";
+        const time = document.createElement("time");
+        time.dateTime = new Date(entry.timestamp).toISOString();
+        time.textContent = formatAlarmHistoryTime(entry.timestamp);
+        meta.appendChild(title);
+        meta.appendChild(time);
+
+        const message = document.createElement("p");
+        message.textContent = entry.message;
+        item.appendChild(meta);
+        item.appendChild(message);
+        el.alarmHistoryList.appendChild(item);
+      }
+    }
+
+    function recordAlarmHistory(message, type, title, key){
+      const text = String(message || "").trim();
+      if(!text) return;
+      const token = key ? String(key) : "";
+      const now = Date.now();
+      const existingIndex = token
+        ? alarmHistory.findIndex((entry)=>entry.key === token)
+        : -1;
+      if(existingIndex >= 0){
+        const existing = alarmHistory.splice(existingIndex, 1)[0];
+        existing.message = text;
+        existing.title = String(title || existing.title || "알림");
+        existing.type = String(type || existing.type || "info");
+        existing.timestamp = now;
+        existing.count = (Number(existing.count) || 1) + 1;
+        alarmHistory.unshift(existing);
+      }else{
+        alarmHistory.unshift({
+          key: token,
+          message: text,
+          title: String(title || "알림"),
+          type: String(type || "info"),
+          timestamp: now,
+          count: 1
+        });
+      }
+      if(alarmHistory.length > ALARM_HISTORY_MAX){
+        alarmHistory.length = ALARM_HISTORY_MAX;
+      }
+      if(!alarmHistoryIsOpen()) alarmHistoryUnreadCount++;
+      renderAlarmHistory();
+    }
+
+    function setAlarmHistoryOpen(open){
+      if(!el.alarmHistoryPanel || !el.alarmHistoryToggle) return;
+      const next = !!open;
+      el.alarmHistoryPanel.classList.toggle("hidden", !next);
+      el.alarmHistoryPanel.setAttribute("aria-hidden", next ? "false" : "true");
+      el.alarmHistoryToggle.classList.toggle("is-open", next);
+      el.alarmHistoryToggle.setAttribute("aria-expanded", next ? "true" : "false");
+      el.alarmHistoryToggle.setAttribute("aria-label", next ? "알람 목록 닫기" : "알람 목록 열기");
+      if(next){
+        alarmHistoryUnreadCount = 0;
+        renderAlarmHistory();
+      }
+    }
+
     function getToastIconSvg(type){
       const tType = normalizeToastType(type);
       if(tType === "success"){
@@ -16799,6 +16895,8 @@ function requestMobileMockup3dMesh(){
       const titleText = (opts && opts.title) ? String(opts.title) : getToastTitle(titleType, message);
       const sticky = !!(opts && opts.sticky);
       const forceToast = !!(opts && opts.forceToast);
+
+      recordAlarmHistory(message, rawType, titleText, key);
 
       if(isCritical && showCriticalAlert(message, opts, titleText)) return;
       if(!el.toastContainer) return;
@@ -40744,6 +40842,12 @@ function requestMobileMockup3dMesh(){
 
       el.toastContainer = document.getElementById("toastContainer");
       el.criticalAlertStack = document.getElementById("criticalAlertStack");
+      el.alarmHistoryToggle = document.getElementById("alarmHistoryToggle");
+      el.alarmHistoryUnread = document.getElementById("alarmHistoryUnread");
+      el.alarmHistoryPanel = document.getElementById("alarmHistoryPanel");
+      el.alarmHistoryCount = document.getElementById("alarmHistoryCount");
+      el.alarmHistoryClear = document.getElementById("alarmHistoryClear");
+      el.alarmHistoryList = document.getElementById("alarmHistoryList");
       el.desktopCameraBtn = document.getElementById("desktopCameraBtn");
       el.webcamPanel = document.getElementById("webcamPanel");
       el.webcamVideo = document.getElementById("webcamVideo");
@@ -46602,6 +46706,30 @@ function requestMobileMockup3dMesh(){
       if(chartLive){
         chartLive.addEventListener("click",()=>{ autoScrollChart=true; chartView.allowSmallWindow=false; redrawCharts(); });
       }
+
+      if(el.alarmHistoryToggle){
+        el.alarmHistoryToggle.addEventListener("click", (event)=>{
+          event.stopPropagation();
+          setAlarmHistoryOpen(!alarmHistoryIsOpen());
+        });
+      }
+      if(el.alarmHistoryPanel){
+        el.alarmHistoryPanel.addEventListener("click", (event)=>event.stopPropagation());
+      }
+      if(el.alarmHistoryClear){
+        el.alarmHistoryClear.addEventListener("click", ()=>{
+          alarmHistory = [];
+          alarmHistoryUnreadCount = 0;
+          renderAlarmHistory();
+        });
+      }
+      listenApp(document, "click", ()=>{
+        if(alarmHistoryIsOpen()) setAlarmHistoryOpen(false);
+      });
+      listenApp(document, "keydown", (event)=>{
+        if(event.key === "Escape" && alarmHistoryIsOpen()) setAlarmHistoryOpen(false);
+      });
+      renderAlarmHistory();
 
       attachTouch("thrustChart");
       attachTouch("pressureChart");

@@ -299,6 +299,14 @@ void buzzerPlayPattern(const BuzzerNote* notes, uint8_t count, bool loop) {
     buzzerStop();
     return;
   }
+  // Recovery finding is a continuous, safety-critical output. Once an
+  // ejection starts it must not be replaced by a later link/state cue. An
+  // explicit BUZZER_STOP or mute still clears the player normally.
+  if (buzzer.active &&
+      buzzer.notes == kRecoveryFindMelody &&
+      notes != kRecoveryFindMelody) {
+    return;
+  }
   buzzerSilence();
   buzzer.notes = notes;
   buzzer.count = count;

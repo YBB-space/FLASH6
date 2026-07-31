@@ -95,6 +95,7 @@ constexpr uint32_t kMissionEventRepeatMs = 100U;
 // false positive. Only a new apogee transition at/after this separation-based
 // gate can command recovery; the independent backup remains armed throughout.
 constexpr uint32_t kStage2ApogeeAcceptAfterSeparationMs = 8000U;
+constexpr uint32_t kStage2IgnitionPulseMs = 1000U;
 
 enum class LaunchMissionState : uint8_t {
   Idle = 0,
@@ -769,13 +770,16 @@ void missionCommandStage2Ignition(uint32_t nowMs) {
   launchMission.stage2IgnitionMs = nowMs;
   launchMission.state = LaunchMissionState::WaitingStage2Ejection;
   sequenceRelayMask = pyroMaskForChannel(1U);
-  sequenceRelayHoldUntilMs = nowMs + ignitionDurationMs;
+  // Stage-2 ignition is coupled to the confirmed separation edge and always
+  // uses the mission-defined one-second pulse, independent of the launcher
+  // ignition duration setting.
+  sequenceRelayHoldUntilMs = nowMs + kStage2IgnitionPulseMs;
   applyPyroOutputs(nowMs);
   missionSendInterstageEvent(
     MissionInterstageEventCode::Stage2Ignited,
     nowMs,
     (int32_t)(nowMs - launchMission.launchMs));
-  missionEmitAlarm(0, "Stage-2 ignition", "PYRO CH1 ignition output started.");
+  missionEmitAlarm(0, "Stage-2 ignition", "PYRO CH1 ignition output started for 1.0 s.");
 }
 
 void missionCommandStage2Ejection(uint32_t nowMs, bool backup) {

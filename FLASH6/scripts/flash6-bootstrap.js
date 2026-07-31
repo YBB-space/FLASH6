@@ -25,6 +25,12 @@
 
       el.toastContainer = document.getElementById("toastContainer");
       el.criticalAlertStack = document.getElementById("criticalAlertStack");
+      el.alarmHistoryToggle = document.getElementById("alarmHistoryToggle");
+      el.alarmHistoryUnread = document.getElementById("alarmHistoryUnread");
+      el.alarmHistoryPanel = document.getElementById("alarmHistoryPanel");
+      el.alarmHistoryCount = document.getElementById("alarmHistoryCount");
+      el.alarmHistoryClear = document.getElementById("alarmHistoryClear");
+      el.alarmHistoryList = document.getElementById("alarmHistoryList");
       el.desktopCameraBtn = document.getElementById("desktopCameraBtn");
       el.webcamPanel = document.getElementById("webcamPanel");
       el.webcamVideo = document.getElementById("webcamVideo");
@@ -5883,6 +5889,30 @@
       if(chartLive){
         chartLive.addEventListener("click",()=>{ autoScrollChart=true; chartView.allowSmallWindow=false; redrawCharts(); });
       }
+
+      if(el.alarmHistoryToggle){
+        el.alarmHistoryToggle.addEventListener("click", (event)=>{
+          event.stopPropagation();
+          setAlarmHistoryOpen(!alarmHistoryIsOpen());
+        });
+      }
+      if(el.alarmHistoryPanel){
+        el.alarmHistoryPanel.addEventListener("click", (event)=>event.stopPropagation());
+      }
+      if(el.alarmHistoryClear){
+        el.alarmHistoryClear.addEventListener("click", ()=>{
+          alarmHistory = [];
+          alarmHistoryUnreadCount = 0;
+          renderAlarmHistory();
+        });
+      }
+      listenApp(document, "click", ()=>{
+        if(alarmHistoryIsOpen()) setAlarmHistoryOpen(false);
+      });
+      listenApp(document, "keydown", (event)=>{
+        if(event.key === "Escape" && alarmHistoryIsOpen()) setAlarmHistoryOpen(false);
+      });
+      renderAlarmHistory();
 
       attachTouch("thrustChart");
       attachTouch("pressureChart");

@@ -77,6 +77,9 @@ if (typeof window !== "undefined") {
     let logLines = [];
     let logData = [];
     let eventLog = [];
+    let alarmHistory = [];
+    let alarmHistoryUnreadCount = 0;
+    const ALARM_HISTORY_MAX = 100;
     let thrustBaseHistory = [];
     let pressureBaseHistory = [];
     let quickAltitudeHistory = [];

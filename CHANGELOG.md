@@ -3,6 +3,20 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.12.9 — v6 b70 / recovery finder priority and alarm history — 2026-07-31
+
+Protocol unchanged: `Flash6-Intelligent-b14`
+
+Storage record protocol unchanged: `HWLOGV2` version `9`
+
+- 2단 사출 성공 후 반복 파인딩 버저를 시작하고, 이후 발생하는 통신 및
+  상태 안내음이 회수용 버저를 덮어쓰지 못하도록 우선순위를 고정했습니다.
+  명시적인 버저 정지 또는 음소거 명령은 계속 사용할 수 있습니다.
+- 2단 홀센서와 단간 이벤트로 단분리를 확정한 직후 2단부 `PYRO CH1`을
+  정확히 1초간 한 번만 출력하도록 점화 펄스를 미션 시퀀스에 고정했습니다.
+- FLASH6 화면 최상단에 알람 목록 펼침 버튼을 추가했습니다. 세션 중 발생한
+  알림을 최신순으로 누적하며, 읽지 않은 알림과 반복 알림을 함께 관리합니다.
+
 ## 0.12.8 — v6 b69 / stage-2 separation-based apogee recovery — 2026-07-31
 
 Protocol unchanged: `Flash6-Intelligent-b14`
