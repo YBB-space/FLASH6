@@ -3,6 +3,17 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.12.6 — v6 b67 / flight-controller boot chime — 2026-07-31
+
+Protocol unchanged: `Flash6-Intelligent-b14`
+
+Storage record protocol unchanged: `HWLOGV2` version `9`
+
+- 부팅음을 짧은 4단 상승 아르페지오와 고음 종지로 변경해 드론·비행
+  컨트롤러 계열 장비처럼 정돈된 전원 인가음으로 다듬었습니다.
+- 전체 재생 시간을 약 0.4초로 제한해 이후 A.I LINK 상태음을 가리지
+  않도록 했으며, 다른 상태음과 파인딩 버저는 변경하지 않았습니다.
+
 ## 0.12.5 — v6 b66 / distinct operational buzzer cues — 2026-07-31
 
 Protocol unchanged: `Flash6-Intelligent-b14`

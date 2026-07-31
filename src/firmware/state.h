@@ -1,8 +1,8 @@
 
 constexpr char kFirmwareProgram[] = "Altis_Intelligent3_firmware1";
-constexpr char kFirmwareVersion[] = "0.12.5";
-constexpr char kFirmwareBuildId[] = "v6 b66";
-constexpr uint16_t kFirmwareBuildNumber = 66;
+constexpr char kFirmwareVersion[] = "0.12.6";
+constexpr char kFirmwareBuildId[] = "v6 b67";
+constexpr uint16_t kFirmwareBuildNumber = 67;
 constexpr char kFirmwareBoard[] = "Altis_Intelligent3_b3";
 constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b14";
 constexpr uint8_t kStorageProtocolVersion = 9;
@@ -1952,10 +1952,13 @@ BuzzerNote buzzerSingleNote[1] = {};
 bool buzzerToneInitialized = false;
 
 const BuzzerNote kBootMelody[] = {
-  // Two low acknowledgements followed by one sustained ready tone.
-  {988, 65, 45},
-  {988, 65, 55},
-  {1480, 170, 0},
+  // Compact flight-controller power-on chime: a clean major arpeggio with a
+  // short high-register resolve. Kept under half a second so it cannot mask
+  // the following link-status cue.
+  {1175, 52, 18},
+  {1480, 52, 18},
+  {1760, 58, 22},
+  {2349, 135, 0},
 };
 const BuzzerNote kFlashLinkMelody[] = {
   // Link-mode change: a compact high-to-low toggle cue.
