@@ -3,6 +3,17 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.12.4 — v6 b65 / link and boot sound polish — 2026-07-31
+
+Protocol unchanged: `Flash6-Intelligent-b14`
+
+Storage record protocol unchanged: `HWLOGV2` version `9`
+
+- A.I LINK 연결음을 짧은 3단 상승형 `띠리링` 패턴으로 변경했습니다.
+- 부팅 멜로디를 하드웨어 초기화 완료 후 시작하도록 옮겨, `setup()`
+  실행 동안 첫 음이 길게 유지되던 문제를 제거했습니다.
+- 파인딩 버저와 통신 단절 경고음은 변경하지 않았습니다.
+
 ## FLASH6 UI b168 — 2026-07-31
 
 - A.I LINK 원격 펌웨어를 USB 지상국에 준비할 때 사용하는 Base64

@@ -1,8 +1,8 @@
 
 constexpr char kFirmwareProgram[] = "Altis_Intelligent3_firmware1";
-constexpr char kFirmwareVersion[] = "0.12.3";
-constexpr char kFirmwareBuildId[] = "v6 b64";
-constexpr uint16_t kFirmwareBuildNumber = 64;
+constexpr char kFirmwareVersion[] = "0.12.4";
+constexpr char kFirmwareBuildId[] = "v6 b65";
+constexpr uint16_t kFirmwareBuildNumber = 65;
 constexpr char kFirmwareBoard[] = "Altis_Intelligent3_b3";
 constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b14";
 constexpr uint8_t kStorageProtocolVersion = 9;
@@ -1961,8 +1961,9 @@ const BuzzerNote kFlashLinkMelody[] = {
   {1865, 115, 0},
 };
 const BuzzerNote kFlashLinkConnectedMelody[] = {
-  {1568, 60, 42},
-  {2093, 110, 0},
+  {1397, 50, 28},
+  {1760, 58, 32},
+  {2349, 120, 0},
 };
 const BuzzerNote kFlashLinkDisconnectedAlarm[] = {
   {1319, 140, 105},

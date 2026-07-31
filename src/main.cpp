@@ -59,7 +59,6 @@ void setup() {
   initPyroOutputs();
   buzzerBegin();
   loadBuzzerConfig();
-  buzzerPlayBootMelody();
 
   // Load the role before sizing USB serial. Avionics normally has periodic
   // serial telemetry disabled, so reserving the ground station's active TX
@@ -128,6 +127,10 @@ void setup() {
   }
   initBootButton();
   runtimeServicesReady = true;
+  // Start the boot cue only after blocking hardware initialization has
+  // finished. Starting it near the top of setup() left its first note active
+  // until loop() could finally service buzzerTick().
+  buzzerPlayBootMelody();
   // A newly installed OTA image remains rollback-eligible until the complete
   // hardware/runtime setup above succeeds. Confirm it only at this point.
   const esp_err_t otaValidation = esp_ota_mark_app_valid_cancel_rollback();
