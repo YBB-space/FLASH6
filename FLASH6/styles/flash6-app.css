@@ -34854,46 +34854,87 @@ body.dashboard-view-active #dashboardView .dashboard-communication-card.hidden{
 }
 .firmware-update-overlay{
   z-index:2147483647 !important;
+  background:rgba(3,5,8,.76) !important;
+  -webkit-backdrop-filter:blur(7px) !important;
+  backdrop-filter:blur(7px) !important;
 }
 .firmware-update-dialog{
-  width:min(680px, calc(100vw - 48px)) !important;
+  width:min(520px, calc(100vw - 48px)) !important;
+  max-width:520px !important;
+  border-color:#35383d !important;
+  border-radius:8px !important;
+  background:#151618 !important;
+  box-shadow:0 26px 80px rgba(0,0,0,.58) !important;
+}
+.firmware-update-header{
+  align-items:center !important;
+  padding:24px 26px 0 !important;
+  border-bottom:0 !important;
+  background:transparent !important;
+}
+.firmware-update-header .flash-role-config-kicker{
+  margin-bottom:7px !important;
+  color:#7f8792 !important;
+  font-size:9px !important;
+  letter-spacing:.18em !important;
+}
+.firmware-update-header .flash-role-config-title{
+  font-size:20px !important;
+  font-weight:650 !important;
+}
+.firmware-update-header .flash-role-config-close{
+  width:32px !important;
+  height:32px !important;
+  flex-basis:32px !important;
+  border:0 !important;
+  background:transparent !important;
+  color:#8d929a !important;
+  font-size:24px !important;
+  line-height:30px !important;
+}
+.firmware-update-header .flash-role-config-close:hover{
+  background:#202226 !important;
+  color:#e5e7ea !important;
 }
 .firmware-update-body{
-  padding:22px 24px 20px;
+  padding:18px 26px 20px;
 }
 .firmware-update-transport{
   display:flex;
   align-items:center;
   justify-content:space-between;
-  gap:20px;
-  margin-bottom:14px;
-  color:#8d929b;
-  font-size:11px;
-  font-weight:650;
+  gap:16px;
+  margin-bottom:12px;
+  padding-bottom:12px;
+  border-bottom:1px solid #2b2e32;
+  color:#777e87;
+  font-size:10px;
+  font-weight:620;
+  letter-spacing:.04em;
 }
 .firmware-update-transport strong{
-  color:#dadddf;
-  font-family:var(--font-mono, ui-monospace, monospace);
+  color:#dfe1e4;
+  font-family:inherit;
   font-size:11px;
-  letter-spacing:.08em;
+  letter-spacing:0;
 }
 .firmware-update-target{
   display:grid;
   grid-template-columns:repeat(3,minmax(0,1fr));
-  gap:4px;
-  margin-bottom:14px;
-  padding:4px;
-  border:1px solid #30343a;
-  border-radius:7px;
-  background:#111214;
+  gap:3px;
+  margin-bottom:12px;
+  padding:3px;
+  border:1px solid #303339;
+  border-radius:6px;
+  background:#101113;
 }
 .firmware-update-target button{
-  min-height:38px;
+  min-height:34px;
   border:0;
-  border-radius:5px;
+  border-radius:4px;
   background:transparent;
   color:#818791;
-  font-size:11px;
+  font-size:10px;
   font-weight:700;
   letter-spacing:.05em;
 }
@@ -34911,15 +34952,14 @@ body.dashboard-view-active #dashboardView .dashboard-communication-card.hidden{
 }
 .firmware-update-dropzone{
   width:100%;
-  min-height:126px;
+  min-height:74px;
   display:flex;
-  flex-direction:column;
   align-items:center;
-  justify-content:center;
-  gap:8px;
-  padding:22px;
+  justify-content:flex-start;
+  gap:12px;
+  padding:15px 16px;
   border:1px dashed #484c53;
-  border-radius:7px;
+  border-radius:6px;
   background:#111214;
   color:#91969f;
   box-sizing:border-box;
@@ -34933,16 +34973,21 @@ body.dashboard-view-active #dashboardView .dashboard-communication-card.hidden{
 }
 .firmware-update-dropzone strong{
   color:#e7e8ea;
-  font-size:14px;
+  font-size:12px;
   font-weight:650;
 }
 .firmware-update-dropzone > span:last-child{
-  font-size:11px;
+  margin-left:auto;
+  color:#747a83;
+  font-size:9px;
+  line-height:1.35;
+  text-align:right;
 }
 .firmware-update-drop-kicker{
+  flex:0 0 auto;
   color:#767c86;
   font-family:var(--font-mono, ui-monospace, monospace);
-  font-size:9px;
+  font-size:8px;
   font-weight:700;
   letter-spacing:.16em;
 }
@@ -34951,11 +34996,12 @@ body.dashboard-view-active #dashboardView .dashboard-communication-card.hidden{
   align-items:center;
   justify-content:space-between;
   gap:20px;
-  margin-top:12px;
-  padding:13px 15px;
-  border:1px solid #30343a;
-  border-radius:6px;
-  background:#1a1c1f;
+  margin-top:10px;
+  padding:11px 0;
+  border:0;
+  border-bottom:1px solid #2b2e32;
+  border-radius:0;
+  background:transparent;
 }
 .firmware-update-file-card[hidden]{
   display:none !important;
@@ -34984,20 +35030,21 @@ body.dashboard-view-active #dashboardView .dashboard-communication-card.hidden{
   font-family:var(--font-mono, ui-monospace, monospace);
 }
 .firmware-update-readiness{
-  display:grid;
-  grid-template-columns:repeat(2, minmax(0,1fr));
-  gap:8px;
-  margin-top:14px;
+  display:flex;
+  align-items:center;
+  gap:18px;
+  margin-top:13px;
 }
 .firmware-update-check{
   min-width:0;
   display:grid;
   grid-template-columns:8px minmax(0,1fr);
-  gap:4px 10px;
-  padding:13px 12px;
-  border:1px solid #30343a;
-  border-radius:6px;
-  background:#181a1d;
+  gap:2px 8px;
+  flex:1 1 0;
+  padding:0;
+  border:0;
+  border-radius:0;
+  background:transparent;
 }
 .firmware-update-check-dot{
   width:7px;
@@ -35012,13 +35059,13 @@ body.dashboard-view-active #dashboardView .dashboard-communication-card.hidden{
 .firmware-update-check strong{
   display:block;
   color:#d9dbdf;
-  font-size:11px;
+  font-size:10px;
   font-weight:650;
 }
 .firmware-update-check small{
   display:block;
   overflow:hidden;
-  margin-top:4px;
+  margin-top:2px;
   color:#747a84;
   font-size:9px;
   line-height:1.35;
@@ -35029,12 +35076,12 @@ body.dashboard-view-active #dashboardView .dashboard-communication-card.hidden{
   grid-column:2;
   color:#7c828c;
   font-family:var(--font-mono, ui-monospace, monospace);
-  font-size:9px;
+  font-size:8px;
   font-weight:700;
   letter-spacing:.08em;
 }
 .firmware-update-check.is-ready{
-  border-color:#365348;
+  border-color:transparent;
 }
 .firmware-update-check.is-ready .firmware-update-check-dot{
   background:#37d878;
@@ -35044,10 +35091,12 @@ body.dashboard-view-active #dashboardView .dashboard-communication-card.hidden{
   color:#72d79a;
 }
 .firmware-update-status{
-  min-height:18px;
-  margin-top:14px;
-  color:#9ca1aa;
-  font-size:11px;
+  min-height:16px;
+  margin-top:13px;
+  padding-top:12px;
+  border-top:1px solid #2b2e32;
+  color:#8f959e;
+  font-size:10px;
   line-height:1.5;
 }
 .firmware-update-status.is-ready{
@@ -35057,25 +35106,28 @@ body.dashboard-view-active #dashboardView .dashboard-communication-card.hidden{
   color:#ee929a;
 }
 .firmware-update-actions{
-  grid-template-columns:1fr 1.7fr !important;
+  grid-template-columns:1fr 1.65fr !important;
+  gap:8px !important;
+  padding:0 26px 24px !important;
+}
+.firmware-update-actions button{
+  min-height:42px !important;
+  border-radius:5px !important;
+  font-size:11px !important;
 }
 .firmware-update-actions[hidden]{
   display:none !important;
 }
 .firmware-update-progress-view{
-  min-height:300px;
-  display:flex;
-  flex-direction:column;
-  justify-content:center;
+  display:block;
+  min-height:0;
 }
 .firmware-update-progress-view[hidden]{
   display:none !important;
 }
 .firmware-update-confirm-view{
-  min-height:300px;
-  display:flex;
-  flex-direction:column;
-  justify-content:center;
+  display:block;
+  min-height:0;
 }
 .firmware-update-confirm-view[hidden]{
   display:none !important;
@@ -35088,10 +35140,11 @@ body.dashboard-view-active #dashboardView .dashboard-communication-card.hidden{
   letter-spacing:.16em;
 }
 .firmware-update-confirm-view > strong{
-  margin-top:10px;
+  display:block;
+  margin-top:9px;
   color:#f0f1f3;
-  font-size:21px;
-  font-weight:670;
+  font-size:19px;
+  font-weight:650;
 }
 .firmware-update-confirm-view > p{
   margin:8px 0 0;
@@ -35102,13 +35155,13 @@ body.dashboard-view-active #dashboardView .dashboard-communication-card.hidden{
 .firmware-update-confirm-summary{
   display:grid;
   grid-template-columns:.8fr 1fr 1.4fr;
-  margin-top:22px;
+  margin-top:18px;
   border-top:1px solid #30343a;
   border-bottom:1px solid #30343a;
 }
 .firmware-update-confirm-summary > div{
   min-width:0;
-  padding:15px 14px;
+  padding:12px 10px;
   border-right:1px solid #30343a;
 }
 .firmware-update-confirm-summary > div:first-child{
@@ -35138,12 +35191,12 @@ body.dashboard-view-active #dashboardView .dashboard-communication-card.hidden{
   white-space:nowrap;
 }
 .firmware-update-confirm-warning{
-  margin-top:14px;
-  padding:11px 13px;
-  border:1px solid #384139;
-  border-radius:5px;
-  background:#181d19;
-  color:#aebbb1;
+  margin-top:12px;
+  padding:0;
+  border:0;
+  border-radius:0;
+  background:transparent;
+  color:#858c95;
   font-size:10px;
   line-height:1.5;
 }
@@ -35151,10 +35204,10 @@ body.dashboard-view-active #dashboardView .dashboard-communication-card.hidden{
   display:grid;
   grid-template-columns:1fr 1.7fr;
   gap:8px;
-  margin-top:18px;
+  margin-top:16px;
 }
 .firmware-update-confirm-actions button{
-  min-height:44px;
+  min-height:42px;
   border:1px solid #3c4047;
   border-radius:5px;
   background:#24272b;
@@ -35168,10 +35221,8 @@ body.dashboard-view-active #dashboardView .dashboard-communication-card.hidden{
   color:#17181a;
 }
 .firmware-update-blocked-view{
-  min-height:300px;
-  display:flex;
-  flex-direction:column;
-  justify-content:center;
+  display:block;
+  min-height:0;
 }
 .firmware-update-blocked-view[hidden]{
   display:none !important;
@@ -35197,15 +35248,16 @@ body.dashboard-view-active #dashboardView .dashboard-communication-card.hidden{
 .firmware-update-blocked-view ul{
   display:grid;
   gap:7px;
-  margin:20px 0;
+  margin:16px 0;
   padding:0;
   list-style:none;
 }
 .firmware-update-blocked-view li{
-  padding:11px 13px;
-  border:1px solid #3b3033;
-  border-radius:5px;
-  background:#1b1719;
+  padding:9px 0 9px 14px;
+  border:0;
+  border-left:2px solid #6a3439;
+  border-radius:0;
+  background:transparent;
   color:#d9c8cb;
   font-size:11px;
 }
@@ -35220,83 +35272,118 @@ body.dashboard-view-active #dashboardView .dashboard-communication-card.hidden{
   font-size:12px;
   font-weight:650;
 }
-.firmware-update-progress-head{
-  display:flex;
-  align-items:flex-end;
-  justify-content:space-between;
-  gap:24px;
-}
-.firmware-update-progress-head > div{
-  display:flex;
-  flex-direction:column;
-  gap:8px;
-}
-.firmware-update-progress-head span{
-  color:#8f949d;
-  font-size:11px;
-}
-.firmware-update-progress-head strong{
-  color:#f0f1f3;
-  font-family:var(--font-mono, ui-monospace, monospace);
-  font-size:42px;
+.firmware-update-progress-kicker{
+  margin:0 0 12px;
+  color:#7f8792;
+  font-size:10px;
   line-height:1;
-  font-weight:560;
-  letter-spacing:-.04em;
+  font-weight:700;
+  letter-spacing:.18em;
+}
+.firmware-update-progress-heading{
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  gap:18px;
+}
+.firmware-update-progress-heading h2{
+  min-width:0;
+  margin:0;
+  color:#f5f6f7;
+  font-size:20px;
+  line-height:1.25;
+  font-weight:650;
+  letter-spacing:-.02em;
+}
+.firmware-update-progress-heading strong{
+  flex:0 0 auto;
+  color:#f0f1f3;
+  font-size:30px;
+  line-height:1;
+  font-weight:350;
+  font-variant-numeric:tabular-nums;
+}
+.firmware-update-progress-file{
+  margin:16px 0 13px;
+  color:#aeb3ba;
+  font-size:12px;
+  line-height:1.35;
+  font-weight:550;
 }
 .firmware-update-progress-track{
-  height:4px;
-  margin-top:24px;
+  height:5px;
   overflow:hidden;
   border-radius:2px;
-  background:#292c31;
+  background:#2a2d31;
 }
 .firmware-update-progress-track i{
   display:block;
   width:0;
   height:100%;
   border-radius:inherit;
-  background:#eceef0;
-  transition:width .12s linear;
+  background:#e9ebee;
+  transition:width .16s linear, background-color .16s ease;
 }
 .firmware-update-progress-meta{
-  display:grid;
-  grid-template-columns:1.3fr 1fr 1fr;
-  margin-top:18px;
-  border-top:1px solid #2e3136;
-  border-bottom:1px solid #2e3136;
-}
-.firmware-update-progress-meta > div{
-  padding:15px 14px;
-  border-right:1px solid #2e3136;
-}
-.firmware-update-progress-meta > div:first-child{
-  padding-left:0;
-}
-.firmware-update-progress-meta > div:last-child{
-  border-right:0;
-}
-.firmware-update-progress-meta span,
-.firmware-update-progress-meta strong{
-  display:block;
-}
-.firmware-update-progress-meta span{
-  color:#777d87;
-  font-size:9px;
-  font-weight:700;
-  letter-spacing:.1em;
-}
-.firmware-update-progress-meta strong{
-  margin-top:6px;
-  color:#d9dce0;
-  font-family:var(--font-mono, ui-monospace, monospace);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  margin-top:11px;
+  color:#9da3ab;
   font-size:11px;
-  font-weight:650;
+  line-height:1.35;
+  font-weight:560;
+}
+.firmware-update-progress-meta span:first-child{
+  min-width:0;
+}
+.firmware-update-progress-meta strong{
+  margin-left:4px;
+  color:#c6c9ce;
+  font-weight:560;
+  font-variant-numeric:tabular-nums;
+}
+.firmware-update-progress-meta > span:last-child{
+  flex:0 0 auto;
+  color:#c6c9ce;
+  font-variant-numeric:tabular-nums;
+}
+.firmware-update-progress-estimate{
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  gap:16px;
+  margin-top:8px;
+  color:#777e87;
+  font-size:10px;
+  line-height:1.35;
+  font-weight:620;
+  letter-spacing:.04em;
+}
+.firmware-update-progress-estimate strong{
+  flex:0 0 auto;
+  color:#e3e5e8;
+  font-size:12px;
+  font-weight:560;
+  letter-spacing:0;
+  font-variant-numeric:tabular-nums;
 }
 .firmware-update-lock-note{
   margin-top:18px;
-  color:#8b9099;
+  margin-bottom:0;
+  padding-top:16px;
+  border-top:1px solid #2b2e32;
+  color:#777e87;
   font-size:11px;
   line-height:1.5;
+  font-weight:520;
+}
+.firmware-update-overlay.is-updating .firmware-update-header{
+  display:none !important;
+}
+.firmware-update-overlay.is-updating .firmware-update-body{
+  padding:26px;
 }
 body.firmware-update-locked{
   cursor:progress;
@@ -35465,26 +35552,34 @@ html body #gyroZeroOverlay .gyro-zero-actions button:disabled{
     grid-template-columns:1fr !important;
   }
   .firmware-update-dialog{
-    width:100% !important;
+    width:calc(100vw - 28px) !important;
+    max-width:none !important;
+    border-radius:10px !important;
+  }
+  .firmware-update-header{
+    padding:21px 20px 0 !important;
   }
   .firmware-update-body{
-    max-height:calc(100dvh - 182px);
+    max-height:calc(100dvh - 150px);
     overflow:auto;
-    padding:18px;
+    padding:16px 20px 18px;
   }
   .firmware-update-readiness{
-    grid-template-columns:1fr;
+    align-items:stretch;
+    flex-direction:column;
+    gap:9px;
   }
   .firmware-update-check small{
     white-space:normal;
   }
   .firmware-update-file-card,
-  .firmware-update-progress-head{
+  .firmware-update-dropzone{
     align-items:flex-start;
     flex-direction:column;
   }
-  .firmware-update-progress-meta{
-    grid-template-columns:1fr;
+  .firmware-update-dropzone > span:last-child{
+    margin-left:0;
+    text-align:left;
   }
   .firmware-update-confirm-summary,
   .firmware-update-confirm-actions{
@@ -35500,13 +35595,15 @@ html body #gyroZeroOverlay .gyro-zero-actions button:disabled{
   .firmware-update-confirm-summary > div:last-child{
     border-bottom:0;
   }
-  .firmware-update-progress-meta > div,
-  .firmware-update-progress-meta > div:first-child{
-    padding:12px 0;
-    border-right:0;
-    border-bottom:1px solid #2e3136;
+  .firmware-update-progress-meta{
+    align-items:flex-start;
+    flex-direction:column;
+    gap:4px;
   }
-  .firmware-update-progress-meta > div:last-child{
-    border-bottom:0;
+  .firmware-update-progress-estimate{
+    margin-top:10px;
+  }
+  .firmware-update-overlay.is-updating .firmware-update-body{
+    padding:22px 20px;
   }
 }
