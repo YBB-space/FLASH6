@@ -26,7 +26,6 @@
       el.toastContainer = document.getElementById("toastContainer");
       el.criticalAlertStack = document.getElementById("criticalAlertStack");
       el.alarmHistoryToggle = document.getElementById("alarmHistoryToggle");
-      el.alarmHistoryUnread = document.getElementById("alarmHistoryUnread");
       el.alarmHistoryPanel = document.getElementById("alarmHistoryPanel");
       el.alarmHistoryCount = document.getElementById("alarmHistoryCount");
       el.alarmHistoryClear = document.getElementById("alarmHistoryClear");

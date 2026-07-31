@@ -16596,9 +16596,8 @@ function requestMobileMockup3dMesh(){
     function renderAlarmHistory(){
       if(!el.alarmHistoryList) return;
       if(el.alarmHistoryCount) el.alarmHistoryCount.textContent = String(alarmHistory.length);
-      if(el.alarmHistoryUnread){
-        el.alarmHistoryUnread.textContent = alarmHistoryUnreadCount > 99 ? "99+" : String(alarmHistoryUnreadCount);
-        el.alarmHistoryUnread.classList.toggle("hidden", alarmHistoryUnreadCount <= 0);
+      if(el.alarmHistoryToggle){
+        el.alarmHistoryToggle.classList.toggle("has-unread", alarmHistoryUnreadCount > 0);
       }
       el.alarmHistoryList.replaceChildren();
       if(!alarmHistory.length){
@@ -40914,7 +40913,6 @@ function requestMobileMockup3dMesh(){
       el.toastContainer = document.getElementById("toastContainer");
       el.criticalAlertStack = document.getElementById("criticalAlertStack");
       el.alarmHistoryToggle = document.getElementById("alarmHistoryToggle");
-      el.alarmHistoryUnread = document.getElementById("alarmHistoryUnread");
       el.alarmHistoryPanel = document.getElementById("alarmHistoryPanel");
       el.alarmHistoryCount = document.getElementById("alarmHistoryCount");
       el.alarmHistoryClear = document.getElementById("alarmHistoryClear");

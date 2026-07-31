@@ -32587,10 +32587,6 @@ html:not(.phone-landscape-layout) body #hardwareServoDialog .hardware-servo-pres
   body.camera-view-active .alarm-history-toggle.is-open svg{
     transform:rotate(180deg);
   }
-  body.camera-view-active .alarm-history-toggle .alarm-history-unread{
-    top:8px;
-    right:22px;
-  }
   body.camera-view-active .alarm-history-panel{
     top:42px;
   }
@@ -32664,17 +32660,12 @@ html:not(.phone-landscape-layout) body #hardwareServoDialog .hardware-servo-pres
 }
 .alarm-history-toggle:hover svg{ opacity:1; transform:translateY(4px); }
 .alarm-history-toggle.is-open svg{ opacity:1; transform:translateY(4px) rotate(180deg); }
-.alarm-history-unread{
-  position:absolute;
-  top:3px;
-  right:9px;
-  min-width:7px;
-  height:7px;
-  padding:0;
-  border-radius:999px;
-  background:#f87171;
-  color:transparent;
-  font-size:0;
+.alarm-history-toggle.has-unread,
+body.camera-view-active .alarm-history-toggle.has-unread{
+  color:#ff6673;
+}
+.alarm-history-toggle.has-unread svg{
+  opacity:1;
 }
 .alarm-history-panel{
   position:fixed;
