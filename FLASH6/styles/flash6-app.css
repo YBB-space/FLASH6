@@ -34877,6 +34877,38 @@ body.dashboard-view-active #dashboardView .dashboard-communication-card.hidden{
   font-size:11px;
   letter-spacing:.08em;
 }
+.firmware-update-target{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:4px;
+  margin-bottom:14px;
+  padding:4px;
+  border:1px solid #30343a;
+  border-radius:7px;
+  background:#111214;
+}
+.firmware-update-target button{
+  min-height:38px;
+  border:0;
+  border-radius:5px;
+  background:transparent;
+  color:#818791;
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:.05em;
+}
+.firmware-update-target button:hover:not(:disabled){
+  color:#d9dce0;
+  background:#1b1d20;
+}
+.firmware-update-target button.is-active{
+  background:#e4e6e9;
+  color:#17191c;
+}
+.firmware-update-target button:disabled{
+  opacity:.3;
+  cursor:not-allowed;
+}
 .firmware-update-dropzone{
   width:100%;
   min-height:126px;
@@ -35038,6 +35070,59 @@ body.dashboard-view-active #dashboardView .dashboard-communication-card.hidden{
 }
 .firmware-update-progress-view[hidden]{
   display:none !important;
+}
+.firmware-update-blocked-view{
+  min-height:300px;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+}
+.firmware-update-blocked-view[hidden]{
+  display:none !important;
+}
+.firmware-update-blocked-kicker{
+  color:#ef7f88;
+  font-family:var(--font-mono, ui-monospace, monospace);
+  font-size:9px;
+  font-weight:750;
+  letter-spacing:.16em;
+}
+.firmware-update-blocked-view > strong{
+  margin-top:10px;
+  color:#eceef0;
+  font-size:18px;
+  font-weight:650;
+}
+.firmware-update-blocked-view > p{
+  margin:7px 0 0;
+  color:#8e949d;
+  font-size:11px;
+}
+.firmware-update-blocked-view ul{
+  display:grid;
+  gap:7px;
+  margin:20px 0;
+  padding:0;
+  list-style:none;
+}
+.firmware-update-blocked-view li{
+  padding:11px 13px;
+  border:1px solid #3b3033;
+  border-radius:5px;
+  background:#1b1719;
+  color:#d9c8cb;
+  font-size:11px;
+}
+.firmware-update-blocked-view button{
+  align-self:flex-end;
+  min-width:132px;
+  min-height:42px;
+  border:1px solid #43474e;
+  border-radius:5px;
+  background:#25282d;
+  color:#eceef0;
+  font-size:12px;
+  font-weight:650;
 }
 .firmware-update-progress-head{
   display:flex;

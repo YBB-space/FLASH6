@@ -127,7 +127,7 @@
   <!-- Preload 축소: AP 모드/저메모리 환경에서 동시 요청 버스트를 줄임 -->
   <script>
     (function(){
-    var ASSET_VER = "20260731-upload-serial-handoff-b164-__FLASH6_DEPLOY_SHA__";
+    var ASSET_VER = "20260731-ailink-ota-b165-__FLASH6_DEPLOY_SHA__";
       window.__flashBoot = window.__flashBoot || {jsReady:false,lastError:"",phase:"static_loader",version:ASSET_VER};
       var isLocalPreview = !!window.__flashBoot.localPreview;
       var beaconEnabled = (window.__flashBoot.beaconEnabled !== false);
@@ -365,7 +365,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="styles/flash6-app.css?v=20260731-upload-serial-handoff-b164-__FLASH6_DEPLOY_SHA__">
+  <link rel="stylesheet" href="styles/flash6-app.css?v=20260731-ailink-ota-b165-__FLASH6_DEPLOY_SHA__">
 </head>
 <body>
   <!-- ✅ LOCKOUT 배경 오버레이 -->
@@ -3510,7 +3510,7 @@
       <div class="flash-role-config-dialog firmware-update-dialog" role="dialog" aria-modal="true" aria-labelledby="firmwareUpdateTitle">
         <div class="flash-role-config-header firmware-update-header">
           <div>
-            <div class="flash-role-config-kicker">LOCAL BOARD UPDATE</div>
+            <div class="flash-role-config-kicker">PROTECTED FIRMWARE UPDATE</div>
             <div id="firmwareUpdateTitle" class="flash-role-config-title">펌웨어 업데이트</div>
           </div>
           <button id="firmwareUpdateClose" class="flash-role-config-close" type="button" aria-label="닫기">×</button>
@@ -3521,6 +3521,12 @@
             <div class="firmware-update-transport">
               <span>전송 경로</span>
               <strong id="firmwareUpdateTransport">연결 확인 중</strong>
+            </div>
+
+            <div class="firmware-update-target" aria-label="업데이트 대상">
+              <button class="is-active" type="button" data-firmware-target="local">현재 보드</button>
+              <button type="button" data-firmware-target="stage1">STAGE 1</button>
+              <button type="button" data-firmware-target="stage2">STAGE 2</button>
             </div>
 
             <button id="firmwareUpdateDropzone" class="firmware-update-dropzone" type="button">
@@ -3580,6 +3586,14 @@
             <div class="firmware-update-lock-note">
               업데이트가 완료될 때까지 FLASH6의 다른 기능은 잠시 사용할 수 없습니다.
             </div>
+          </div>
+
+          <div id="firmwareUpdateBlockedView" class="firmware-update-blocked-view" hidden>
+            <div class="firmware-update-blocked-kicker">UPDATE BLOCKED</div>
+            <strong>현재 상태에서는 전송을 시작할 수 없습니다.</strong>
+            <p>비행 상태와 A.I LINK 직결 품질을 먼저 확인하세요.</p>
+            <ul id="firmwareUpdateBlockedReasons"></ul>
+            <button id="firmwareUpdateBlockedConfirm" type="button">확인</button>
           </div>
         </div>
 
@@ -4626,6 +4640,6 @@
     <button id="controlsOverlayClose" class="controls-overlay-close" type="button" aria-label="close">×</button>
     </div>
 
-  <script src="scripts/flash6-watchdog.js?v=20260731-upload-serial-handoff-b164-__FLASH6_DEPLOY_SHA__"></script>
+  <script src="scripts/flash6-watchdog.js?v=20260731-ailink-ota-b165-__FLASH6_DEPLOY_SHA__"></script>
 </body>
 </html> 

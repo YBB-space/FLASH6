@@ -23,6 +23,7 @@
 
 #include <cctype>
 #include <cstring>
+#include <new>
 
 namespace {
 
@@ -150,7 +151,20 @@ void loop() {
   firmwareUpdateTick(millis());
   if (firmwareUpdateActive()) {
     // Async HTTP keeps running on its own task. USB OTA continues through
-    // pollSerial() above; all unrelated sensor/link/storage work is paused.
+    // pollSerial() above. A.I LINK OTA keeps only its radio transfer service
+    // alive; all sensor, logging, mission, and ordinary telemetry work pauses.
+    if (firmwareUpdate.transport == FirmwareUpdateTransport::AILink) {
+      flashLinkTick();
+    }
+    buzzerTick();
+    delay(0);
+    return;
+  }
+  if (flashLinkFirmwareGround.active) {
+    // During ground -> avionics OTA the radio owns the loop. Suppressing
+    // telemetry, storage and UI streams keeps airtime and CPU available for
+    // the firmware packets and their acknowledgements.
+    flashLinkTick();
     buzzerTick();
     delay(0);
     return;

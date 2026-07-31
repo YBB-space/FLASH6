@@ -1450,6 +1450,173 @@ void handleFirmwareUpdatePostBody(
   sendText(request, 200, "application/json", json);
 }
 
+struct RemoteFirmwareUploadContext {
+  uint8_t* image = nullptr;
+  uint8_t sha256[32] = {};
+  uint8_t targetNodeId = 0;
+};
+
+bool parseFirmwareSha256Bytes(const String& text, uint8_t out[32]) {
+  if (!out || !firmwareUpdateSha256Valid(text.c_str())) return false;
+  auto nibble = [](char c) -> uint8_t {
+    if (c >= '0' && c <= '9') return (uint8_t)(c - '0');
+    if (c >= 'a' && c <= 'f') return (uint8_t)(c - 'a' + 10);
+    return (uint8_t)(c - 'A' + 10);
+  };
+  for (size_t i = 0; i < 32U; ++i) {
+    out[i] = (uint8_t)((nibble(text[i * 2U]) << 4U) |
+      nibble(text[i * 2U + 1U]));
+  }
+  return true;
+}
+
+uint8_t remoteFirmwareRequestNode(AsyncWebServerRequest* request) {
+  if (!request || !request->hasParam("node")) return 0U;
+  const int node = request->getParam("node")->value().toInt();
+  return (node >= kFlashLinkNodeIdStage1 &&
+          node <= kFlashLinkNodeIdStage2)
+    ? (uint8_t)node
+    : 0U;
+}
+
+void sendRemoteFirmwareError(
+  AsyncWebServerRequest* request,
+  int status,
+  const char* error
+) {
+  char json[192];
+  snprintf(
+    json,
+    sizeof(json),
+    "{\"ok\":0,\"err\":\"%s\",\"blocked\":1}",
+    (error && error[0]) ? error : "REMOTE_UPDATE_FAILED");
+  sendText(request, status, "application/json", json);
+}
+
+void handleRemoteFirmwareUpdatePostBody(
+  AsyncWebServerRequest* request,
+  uint8_t* data,
+  size_t len,
+  size_t index,
+  size_t total
+) {
+  if (!request) return;
+  constexpr uintptr_t kRemoteFirmwareRejected = 1U;
+  if (index == 0U) {
+    request->_tempObject = nullptr;
+    const uint8_t node = remoteFirmwareRequestNode(request);
+    char preflightError[72] = {};
+    if (node == 0U ||
+        !flashLinkFirmwarePreflight(
+          node,
+          preflightError,
+          sizeof(preflightError))) {
+      request->_tempObject =
+        reinterpret_cast<void*>(kRemoteFirmwareRejected);
+      sendRemoteFirmwareError(
+        request,
+        409,
+        preflightError[0] ? preflightError : "BAD_TARGET");
+      return;
+    }
+    if (total < kFirmwareUpdateMinBytes ||
+        total > kFirmwareUpdateMaxBytes) {
+      request->_tempObject =
+        reinterpret_cast<void*>(kRemoteFirmwareRejected);
+      sendRemoteFirmwareError(request, 422, "BAD_SIZE");
+      return;
+    }
+    RemoteFirmwareUploadContext* context =
+      new (std::nothrow) RemoteFirmwareUploadContext();
+    if (!context) {
+      request->_tempObject =
+        reinterpret_cast<void*>(kRemoteFirmwareRejected);
+      sendRemoteFirmwareError(request, 507, "NO_MEMORY");
+      return;
+    }
+    context->targetNodeId = node;
+    if (!parseFirmwareSha256Bytes(
+          request->header("X-Firmware-SHA256"),
+          context->sha256)) {
+      delete context;
+      request->_tempObject =
+        reinterpret_cast<void*>(kRemoteFirmwareRejected);
+      sendRemoteFirmwareError(request, 422, "BAD_SHA256");
+      return;
+    }
+    context->image = static_cast<uint8_t*>(heap_caps_malloc(
+      total,
+      MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
+    if (!context->image) {
+      context->image = static_cast<uint8_t*>(malloc(total));
+    }
+    if (!context->image) {
+      delete context;
+      request->_tempObject =
+        reinterpret_cast<void*>(kRemoteFirmwareRejected);
+      sendRemoteFirmwareError(request, 507, "NO_MEMORY");
+      return;
+    }
+    request->_tempObject = context;
+  }
+
+  const uintptr_t marker =
+    reinterpret_cast<uintptr_t>(request->_tempObject);
+  if (marker == kRemoteFirmwareRejected || !request->_tempObject) return;
+  RemoteFirmwareUploadContext* context =
+    static_cast<RemoteFirmwareUploadContext*>(request->_tempObject);
+  if (!data || len == 0U || index + len > total) {
+    free(context->image);
+    delete context;
+    request->_tempObject =
+      reinterpret_cast<void*>(kRemoteFirmwareRejected);
+    sendRemoteFirmwareError(request, 422, "BAD_CHUNK_SIZE");
+    return;
+  }
+  memcpy(context->image + index, data, len);
+  if (index + len != total) return;
+
+  uint8_t actualSha256[32] = {};
+  if (mbedtls_sha256_ret(context->image, total, actualSha256, 0) != 0 ||
+      memcmp(actualSha256, context->sha256, 32U) != 0) {
+    free(context->image);
+    delete context;
+    request->_tempObject =
+      reinterpret_cast<void*>(kRemoteFirmwareRejected);
+    sendRemoteFirmwareError(request, 422, "SHA256_MISMATCH");
+    return;
+  }
+  char stageError[72] = {};
+  uint8_t* image = context->image;
+  const uint8_t node = context->targetNodeId;
+  context->image = nullptr;
+  const bool staged = flashLinkFirmwareStage(
+    node,
+    image,
+    total,
+    context->sha256,
+    stageError,
+    sizeof(stageError));
+  delete context;
+  request->_tempObject = nullptr;
+  if (!staged) {
+    free(image);
+    sendRemoteFirmwareError(
+      request,
+      409,
+      stageError[0] ? stageError : "REMOTE_UPDATE_FAILED");
+    return;
+  }
+  char json[128];
+  snprintf(
+    json,
+    sizeof(json),
+    "{\"ok\":1,\"staged\":1,\"node\":%u,\"total\":%u}",
+    (unsigned)node,
+    (unsigned)total);
+  sendText(request, 202, "application/json", json);
+}
+
 void sendStorageChunkResponse(AsyncWebServerRequest* request, uint32_t offset, uint32_t len, bool withHeader) {
   if (!storageFlush(true)) {
     sendText(request, 500, "application/json", "{\"ok\":0,\"err\":\"FLASH_FLUSH_FAILED\"}");
@@ -2350,6 +2517,63 @@ void setupRoutes() {
     },
     nullptr,
     handleFirmwareUpdatePostBody);
+  server.on(
+    "/firmware/remote/preflight",
+    HTTP_GET,
+    [](AsyncWebServerRequest* request) {
+      const uint8_t node = remoteFirmwareRequestNode(request);
+      char error[72] = {};
+      if (node == 0U ||
+          !flashLinkFirmwarePreflight(node, error, sizeof(error))) {
+        sendRemoteFirmwareError(
+          request,
+          409,
+          error[0] ? error : "BAD_TARGET");
+        return;
+      }
+      sendText(
+        request,
+        200,
+        "application/json",
+        "{\"ok\":1,\"ready\":1}");
+    });
+  server.on(
+    "/firmware/remote/status",
+    HTTP_GET,
+    [](AsyncWebServerRequest* request) {
+      const uint8_t node = remoteFirmwareRequestNode(request);
+      if (node == 0U) {
+        sendRemoteFirmwareError(request, 400, "BAD_TARGET");
+        return;
+      }
+      sendText(
+        request,
+        200,
+        "application/json",
+        flashLinkFirmwareStatusJson(node));
+    });
+  server.on(
+    "/firmware/remote/abort",
+    HTTP_GET,
+    [](AsyncWebServerRequest* request) {
+      flashLinkFirmwareAbortGround(
+        FlashLinkFirmwareErrorCode::LinkLost);
+      sendText(
+        request,
+        200,
+        "application/json",
+        "{\"ok\":1,\"aborted\":1}");
+    });
+  server.on(
+    "/firmware/remote/update",
+    HTTP_POST,
+    [](AsyncWebServerRequest* request) {
+      if (request->contentLength() == 0U) {
+        sendRemoteFirmwareError(request, 400, "FIRMWARE_EMPTY_BODY");
+      }
+    },
+    nullptr,
+    handleRemoteFirmwareUpdatePostBody);
 
   server.on("/identity/reset", HTTP_GET, [](AsyncWebServerRequest* request) {
     if (!roleConfigUnlockActive(millis())) {
@@ -2773,6 +2997,10 @@ void setupRoutes() {
   server.on("/identity/reset", HTTP_OPTIONS, options);
   server.on("/firmware/status", HTTP_OPTIONS, options);
   server.on("/firmware/update", HTTP_OPTIONS, options);
+  server.on("/firmware/remote/preflight", HTTP_OPTIONS, options);
+  server.on("/firmware/remote/status", HTTP_OPTIONS, options);
+  server.on("/firmware/remote/abort", HTTP_OPTIONS, options);
+  server.on("/firmware/remote/update", HTTP_OPTIONS, options);
   server.on("/flash_link/devices", HTTP_OPTIONS, options);
   server.on("/flash_link/bind", HTTP_OPTIONS, options);
   server.on("/flash_link/unbind", HTTP_OPTIONS, options);

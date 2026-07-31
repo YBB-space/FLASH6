@@ -3,6 +3,40 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.12.0 — v6 b61 / guarded A.I LINK firmware OTA — 2026-07-31
+
+Protocol: `Flash6-Intelligent-b14`
+
+Storage record protocol unchanged: `HWLOGV2` version `9`
+
+- 지상국과 바로 앞에 둔 1단·2단 에비오닉스에 A.I LINK 직결 경로로
+  프로젝트 펌웨어를 전송하고, 대상 보드가 자체 검증 후 OTA
+  파티션에 적용하도록 확장했습니다.
+- FLASH6가 지상국에 Wi-Fi 또는 USB로 연결된 경우 모두 같은 원격
+  업데이트 절차를 지원하며, 대상 선택과 전송 진행률·실측 속도·예상
+  완료 시간을 펌웨어 업데이트 모달에 표시합니다.
+- 전송 시작 전에 지상국과 대상의 비행·시퀀스·파이로 상태, 안전모드,
+  ARM 잠금, 직결 링크, 최근 텔레메트리, RSSI, 손실률, 수신 Hz 및
+  보드 S/N을 검사합니다. 조건을 만족하지 않으면 데이터를 보내기
+  전에 차단 사유 모달을 표시합니다.
+- 원격 업데이트 중에는 일반 텔레메트리·센서·저장 작업을 멈추고
+  A.I LINK 전송과 ACK에 자원을 집중하며, 전송 구간에서는 ESP-NOW
+  PHY 속도를 높였다가 완료·오류 시 원래 속도로 복구합니다.
+- 기존 보드와의 단계적 업데이트 중 링크가 끊기지 않도록 A.I LINK
+  기본 프레임 버전은 호환 가능한 `11`을 유지하고, 추가 패킷 코드로
+  OTA 기능을 확장했습니다.
+- USB 이미지 준비가 중단되면 60초 뒤 임시 버퍼와 세션을 정리하고,
+  로컬 OTA와 원격 이미지 준비가 동시에 실행되지 않도록 보호합니다.
+
+## FLASH6 UI b165 — 2026-07-31
+
+- 펌웨어 업데이트 모달에 현재 보드·STAGE 1·STAGE 2 대상 선택과
+  A.I LINK 사전 점검 차단 화면을 추가했습니다.
+- 비행 중, 직결 링크 없음, RSSI 저하, 높은 손실률, 낮은 수신률,
+  안전모드·ARM 잠금 미적용 등 차단 원인을 한국어로 안내합니다.
+- 지상국에 이미지를 준비하는 시간과 실제 무선 전송 시간을 분리해
+  진행률과 남은 시간이 잘못 섞이지 않도록 수정했습니다.
+
 ## 0.11.8 — v6 b60 / ground A.I LINK disconnect buzzer — 2026-07-31
 
 Protocol unchanged: `Flash6-Intelligent-b13`

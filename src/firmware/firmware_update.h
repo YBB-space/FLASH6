@@ -4,6 +4,7 @@ enum class FirmwareUpdateTransport : uint8_t {
   None = 0,
   Serial = 1,
   Http = 2,
+  AILink = 3,
 };
 
 struct FirmwareUpdateRuntime {
@@ -36,6 +37,7 @@ const char* firmwareUpdateTransportName(FirmwareUpdateTransport transport) {
   switch (transport) {
     case FirmwareUpdateTransport::Serial: return "serial";
     case FirmwareUpdateTransport::Http: return "http";
+    case FirmwareUpdateTransport::AILink: return "ai_link";
     default: return "none";
   }
 }
@@ -61,8 +63,8 @@ bool firmwareUpdateSha256Valid(const char* text) {
   return true;
 }
 
-bool firmwareUpdateSafetyReady() {
-  return roleConfigUnlockActive(millis()) &&
+bool firmwareUpdateSafetyReady(bool requirePhysicalAuth = true) {
+  return (!requirePhysicalAuth || roleConfigUnlockActive(millis())) &&
     safetyMode &&
     armLock &&
     sequenceState == kSequenceStateIdle &&
@@ -72,8 +74,10 @@ bool firmwareUpdateSafetyReady() {
     sequenceRelayMask == 0U;
 }
 
-const char* firmwareUpdateSafetyError() {
-  if (!roleConfigUnlockActive(millis())) return "PHYSICAL_AUTH_REQUIRED";
+const char* firmwareUpdateSafetyError(bool requirePhysicalAuth = true) {
+  if (requirePhysicalAuth && !roleConfigUnlockActive(millis())) {
+    return "PHYSICAL_AUTH_REQUIRED";
+  }
   if (!safetyMode) return "SAFETY_MODE_REQUIRED";
   if (!armLock) return "ARM_LOCK_REQUIRED";
   if (sequenceState != kSequenceStateIdle ||
@@ -105,14 +109,15 @@ void firmwareUpdateAbort(const char* reason) {
 bool firmwareUpdateBegin(
   size_t totalBytes,
   const char* sha256,
-  FirmwareUpdateTransport transport
+  FirmwareUpdateTransport transport,
+  bool requirePhysicalAuth = true
 ) {
   if (firmwareUpdate.active || Update.isRunning()) {
     firmwareUpdateSetError("UPDATE_BUSY");
     return false;
   }
-  if (!firmwareUpdateSafetyReady()) {
-    firmwareUpdateSetError(firmwareUpdateSafetyError());
+  if (!firmwareUpdateSafetyReady(requirePhysicalAuth)) {
+    firmwareUpdateSetError(firmwareUpdateSafetyError(requirePhysicalAuth));
     return false;
   }
   if (transport == FirmwareUpdateTransport::None) {
@@ -242,7 +247,9 @@ bool firmwareUpdateFinish(char* actualSha256, size_t actualSha256Len) {
     return false;
   }
 
-  consumeRoleConfigUnlock();
+  if (firmwareUpdate.transport != FirmwareUpdateTransport::AILink) {
+    consumeRoleConfigUnlock();
+  }
   firmwareUpdate.active = false;
   firmwareUpdate.transport = FirmwareUpdateTransport::None;
   pendingRestart = true;

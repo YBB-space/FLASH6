@@ -585,6 +585,11 @@
       el.firmwareUpdateProgressBytes = document.getElementById("firmwareUpdateProgressBytes");
       el.firmwareUpdateProgressSpeed = document.getElementById("firmwareUpdateProgressSpeed");
       el.firmwareUpdateProgressEta = document.getElementById("firmwareUpdateProgressEta");
+      el.firmwareUpdateTargetButtons = Array.from(
+        document.querySelectorAll("[data-firmware-target]"));
+      el.firmwareUpdateBlockedView = document.getElementById("firmwareUpdateBlockedView");
+      el.firmwareUpdateBlockedReasons = document.getElementById("firmwareUpdateBlockedReasons");
+      el.firmwareUpdateBlockedConfirm = document.getElementById("firmwareUpdateBlockedConfirm");
       el.flashLinkRoleConfigOverlay = document.getElementById("flashLinkRoleConfigOverlay");
       el.flashLinkRoleConfigClose = document.getElementById("flashLinkRoleConfigClose");
       el.flashLinkRoleConfigCancel = document.getElementById("flashLinkRoleConfigCancel");
@@ -5549,6 +5554,18 @@
       if(el.firmwareUpdateStart){
         el.firmwareUpdateStart.addEventListener("click", ()=>{
           void startFirmwareUpdate();
+        });
+      }
+      (el.firmwareUpdateTargetButtons || []).forEach((button)=>{
+        button.addEventListener("click", ()=>{
+          if(firmwareUpdateUiBusy || button.disabled) return;
+          setFirmwareUpdateTarget(button.dataset.firmwareTarget);
+        });
+      });
+      if(el.firmwareUpdateBlockedConfirm){
+        el.firmwareUpdateBlockedConfirm.addEventListener("click", ()=>{
+          setFirmwareUpdateBlockedVisible(false);
+          updateFirmwareUpdateUi();
         });
       }
       if(el.firmwareUpdateDropzone && el.firmwareUpdateFileInput){

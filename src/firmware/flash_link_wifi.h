@@ -1983,6 +1983,546 @@ bool flashLinkSendPacket(
     false);
 }
 
+const char* flashLinkFirmwareErrorName(FlashLinkFirmwareErrorCode error) {
+  switch (error) {
+    case FlashLinkFirmwareErrorCode::Unsafe: return "TARGET_UNSAFE";
+    case FlashLinkFirmwareErrorCode::Busy: return "UPDATE_BUSY";
+    case FlashLinkFirmwareErrorCode::InvalidImage: return "INVALID_IMAGE";
+    case FlashLinkFirmwareErrorCode::BadOffset: return "BAD_OFFSET";
+    case FlashLinkFirmwareErrorCode::WriteFailed: return "WRITE_FAILED";
+    case FlashLinkFirmwareErrorCode::VerifyFailed: return "VERIFY_FAILED";
+    case FlashLinkFirmwareErrorCode::Timeout: return "TRANSFER_TIMEOUT";
+    case FlashLinkFirmwareErrorCode::LinkLost: return "DIRECT_LINK_LOST";
+    case FlashLinkFirmwareErrorCode::NoMemory: return "NO_MEMORY";
+    case FlashLinkFirmwareErrorCode::BadTarget: return "BAD_TARGET";
+    default: return "";
+  }
+}
+
+void flashLinkFirmwareSetRate(wifi_phy_rate_t rate, const char* name) {
+  const esp_err_t error =
+    esp_wifi_config_espnow_rate(flashLinkWifiInterface(), rate);
+  if (error == ESP_OK) {
+    snprintf(flashLinkRateName, sizeof(flashLinkRateName), "%s", name);
+  }
+  flashLinkRateError = (int)error;
+}
+
+void flashLinkFirmwareRestoreRate() {
+  flashLinkFirmwareSetRate(kFlashLinkEspNowRate, kFlashLinkEspNowRateName);
+}
+
+void flashLinkFirmwareUseFastRate() {
+  flashLinkFirmwareSetRate(WIFI_PHY_RATE_2M_L, "2M_L");
+}
+
+void flashLinkFirmwareDigestHex(const uint8_t digest[32], char out[65]) {
+  for (size_t i = 0; i < 32U; ++i) {
+    snprintf(out + i * 2U, 3U, "%02x", digest[i]);
+  }
+  out[64] = '\0';
+}
+
+bool flashLinkFirmwarePreflight(
+  uint8_t targetNodeId,
+  char* error,
+  size_t errorLen
+) {
+  auto fail = [&](const char* reason) {
+    if (error && errorLen > 0U) snprintf(error, errorLen, "%s", reason);
+    return false;
+  };
+  if (!flashLinkGroundRole()) return fail("GROUND_ROLE_REQUIRED");
+  if (!roleConfigUnlockActive(millis())) return fail("PHYSICAL_AUTH_REQUIRED");
+  if (firmwareUpdateActive() || flashLinkFirmwareGround.active) {
+    return fail("UPDATE_BUSY");
+  }
+  if (targetNodeId < kFlashLinkNodeIdStage1 ||
+      targetNodeId > kFlashLinkNodeIdStage2) {
+    return fail("BAD_TARGET");
+  }
+  if (targetNodeId == kFlashLinkNodeIdStage2 && !flashLinkStage2Enabled) {
+    return fail("STAGE2_MODE_REQUIRED");
+  }
+  if (sequenceState != kSequenceStateIdle ||
+      sequenceUserWaiting ||
+      missionLaunchStandby ||
+      buttonSequenceWarningActive ||
+      sequenceRelayMask != 0U) {
+    return fail("GROUND_SEQUENCE_ACTIVE");
+  }
+
+  FlashLinkGroundPeer* peer = flashLinkGroundPeerForNode(targetNodeId);
+  if (!peer || !peer->occupied || !peer->remoteValid) {
+    return fail("TARGET_OFFLINE");
+  }
+  const uint32_t nowMs = millis();
+  if (!peer->directReady || !peer->directLinked ||
+      peer->lastDirectTelemetryRxMs == 0U ||
+      (uint32_t)(nowMs - peer->lastDirectTelemetryRxMs) >
+        kFlashLinkTelemetryStaleMs) {
+    return fail("DIRECT_LINK_REQUIRED");
+  }
+  if (peer->lastDirectRssiMs == 0U ||
+      (uint32_t)(nowMs - peer->lastDirectRssiMs) >
+        kFlashLinkTelemetryStaleMs ||
+      peer->directRssiDbm < kFlashLinkFirmwareMinRssiDbm) {
+    return fail("LINK_RSSI_LOW");
+  }
+  if (peer->rxLossPermille > kFlashLinkFirmwareMaxLossPermille) {
+    return fail("LINK_PACKET_LOSS_HIGH");
+  }
+  if (peer->rxHz < kFlashLinkFirmwareMinRxHz) {
+    return fail("LINK_RX_RATE_LOW");
+  }
+  if (peer->snap.flightPhase !=
+        static_cast<uint8_t>(FlightPhase::PreFlight)) {
+    return fail("FLIGHT_ACTIVE");
+  }
+  if (peer->state.state != kSequenceStateIdle ||
+      (peer->state.flags & (1U << 7)) != 0U ||
+      peer->state.relayMask != 0U) {
+    return fail("TARGET_SEQUENCE_ACTIVE");
+  }
+  if ((peer->state.flags & (1U << 9)) == 0U) {
+    return fail("TARGET_SAFETY_REQUIRED");
+  }
+  if ((peer->state.flags & (1U << 10)) == 0U) {
+    return fail("TARGET_ARM_LOCK_REQUIRED");
+  }
+  if (peer->deviceId == 0U) return fail("TARGET_ID_MISSING");
+  if (error && errorLen > 0U) error[0] = '\0';
+  return true;
+}
+
+bool flashLinkFirmwareStage(
+  uint8_t targetNodeId,
+  uint8_t* image,
+  size_t totalBytes,
+  const uint8_t sha256[32],
+  char* error,
+  size_t errorLen
+) {
+  if (!image || !sha256 || totalBytes < kFirmwareUpdateMinBytes ||
+      totalBytes > kFirmwareUpdateMaxBytes || image[0] != 0xE9U) {
+    if (error && errorLen > 0U) snprintf(error, errorLen, "INVALID_IMAGE");
+    return false;
+  }
+  if (!flashLinkFirmwarePreflight(targetNodeId, error, errorLen)) return false;
+  FlashLinkGroundPeer* peer = flashLinkGroundPeerForNode(targetNodeId);
+  if (!peer) return false;
+
+  flashLinkFirmwareGround = {};
+  flashLinkFirmwareGround.active = true;
+  flashLinkFirmwareGround.targetNodeId = targetNodeId;
+  flashLinkFirmwareGround.status =
+    static_cast<uint8_t>(FlashLinkFirmwareStatusCode::Ready);
+  flashLinkFirmwareGround.transaction = esp_random();
+  if (flashLinkFirmwareGround.transaction == 0U) {
+    flashLinkFirmwareGround.transaction = 1U;
+  }
+  flashLinkFirmwareGround.totalBytes = (uint32_t)totalBytes;
+  flashLinkFirmwareGround.targetDeviceId = peer->deviceId;
+  flashLinkFirmwareGround.startedMs = millis();
+  flashLinkFirmwareGround.lastActionMs = flashLinkFirmwareGround.startedMs;
+  memcpy(flashLinkFirmwareGround.sha256, sha256, 32U);
+  flashLinkFirmwareGround.image = image;
+  consumeRoleConfigUnlock();
+  if (error && errorLen > 0U) error[0] = '\0';
+  return true;
+}
+
+void flashLinkFirmwareAbortGround(FlashLinkFirmwareErrorCode reason) {
+  if (flashLinkFirmwareGround.active) {
+    FlashLinkGroundPeer* peer =
+      flashLinkGroundPeerForNode(flashLinkFirmwareGround.targetNodeId);
+    if (peer && peer->directReady && !flashLink.txBusy) {
+      FlashLinkFirmwareAbortV1 abort{};
+      abort.transaction = flashLinkFirmwareGround.transaction;
+      abort.reason = static_cast<uint8_t>(reason);
+      flashLinkSendPacket(
+        FlashLinkPacketType::FirmwareAbort,
+        peer->directMac,
+        &abort,
+        sizeof(abort),
+        0,
+        flashLinkFirmwareGround.targetNodeId);
+    }
+  }
+  free(flashLinkFirmwareGround.image);
+  flashLinkFirmwareGround.image = nullptr;
+  flashLinkFirmwareGround.active = false;
+  flashLinkFirmwareGround.awaitingReply = false;
+  flashLinkFirmwareGround.status =
+    static_cast<uint8_t>(FlashLinkFirmwareStatusCode::Error);
+  flashLinkFirmwareGround.error = static_cast<uint8_t>(reason);
+  if (flashLinkFirmwareGround.fastRateActive) {
+    flashLinkFirmwareRestoreRate();
+    flashLinkFirmwareGround.fastRateActive = false;
+  }
+}
+
+String flashLinkFirmwareStatusJson(uint8_t targetNodeId) {
+  const bool targetMatches =
+    flashLinkFirmwareGround.targetNodeId == targetNodeId;
+  char json[384];
+  snprintf(
+    json,
+    sizeof(json),
+    "{\"ok\":1,\"node\":%u,\"active\":%u,\"status\":%u,"
+    "\"error\":\"%s\",\"written\":%lu,\"total\":%lu,"
+    "\"elapsed_ms\":%lu,\"rate\":\"%s\"}",
+    (unsigned)targetNodeId,
+    (flashLinkFirmwareGround.active && targetMatches) ? 1U : 0U,
+    targetMatches ? (unsigned)flashLinkFirmwareGround.status : 0U,
+    targetMatches
+      ? flashLinkFirmwareErrorName(
+          static_cast<FlashLinkFirmwareErrorCode>(
+            flashLinkFirmwareGround.error))
+      : "",
+    targetMatches
+      ? (unsigned long)flashLinkFirmwareGround.acknowledgedBytes
+      : 0UL,
+    targetMatches ? (unsigned long)flashLinkFirmwareGround.totalBytes : 0UL,
+    targetMatches && flashLinkFirmwareGround.startedMs != 0U
+      ? (unsigned long)(millis() - flashLinkFirmwareGround.startedMs)
+      : 0UL,
+    flashLinkRateName);
+  return String(json);
+}
+
+void flashLinkFirmwareQueueTargetStatus(
+  FlashLinkFirmwareStatusCode status,
+  FlashLinkFirmwareErrorCode error = FlashLinkFirmwareErrorCode::None
+) {
+  flashLinkFirmwareTarget.status = static_cast<uint8_t>(status);
+  flashLinkFirmwareTarget.error = static_cast<uint8_t>(error);
+  flashLinkFirmwareTarget.statusPending = true;
+}
+
+void flashLinkFirmwareFailTarget(FlashLinkFirmwareErrorCode error) {
+  if (firmwareUpdateActive() &&
+      firmwareUpdate.transport == FirmwareUpdateTransport::AILink) {
+    firmwareUpdateAbort(flashLinkFirmwareErrorName(error));
+  }
+  flashLinkFirmwareTarget.active = false;
+  flashLinkFirmwareQueueTargetStatus(
+    FlashLinkFirmwareStatusCode::Error,
+    error);
+  flashLinkFirmwareTarget.restoreRatePending =
+    flashLinkFirmwareTarget.fastRateActive;
+}
+
+bool flashLinkFirmwareHandlePacket(
+  FlashLinkRxSlot& slot,
+  const FlashLinkHeaderV1& header,
+  FlashLinkPacketType type,
+  uint8_t incomingNodeId,
+  uint8_t targetNodeId,
+  bool relayedPacket,
+  uint32_t nowMs
+) {
+  const uint8_t* payload = slot.data + sizeof(FlashLinkHeaderV1);
+  if (type == FlashLinkPacketType::FirmwareStatus &&
+      flashLinkGroundRole()) {
+    if (relayedPacket ||
+        header.payloadBytes != sizeof(FlashLinkFirmwareStatusV1) ||
+        !flashLinkFirmwareGround.active ||
+        incomingNodeId != flashLinkFirmwareGround.targetNodeId) {
+      return true;
+    }
+    FlashLinkGroundPeer* peer = flashLinkGroundPeerForNode(incomingNodeId);
+    if (!peer || !peer->directReady ||
+        memcmp(slot.mac, peer->directMac, ESP_NOW_ETH_ALEN) != 0) {
+      return true;
+    }
+    const FlashLinkFirmwareStatusV1& status =
+      *reinterpret_cast<const FlashLinkFirmwareStatusV1*>(payload);
+    if (status.transaction != flashLinkFirmwareGround.transaction) return true;
+    flashLinkFirmwareGround.lastActionMs = nowMs;
+    flashLinkFirmwareGround.awaitingReply = false;
+    flashLinkFirmwareGround.retries = 0U;
+    flashLinkFirmwareGround.status = status.status;
+    flashLinkFirmwareGround.error = status.error;
+    flashLinkFirmwareGround.acknowledgedBytes =
+      min<uint32_t>(status.nextOffset, flashLinkFirmwareGround.totalBytes);
+    if (status.status ==
+        static_cast<uint8_t>(FlashLinkFirmwareStatusCode::Ready)) {
+      flashLinkFirmwareUseFastRate();
+      flashLinkFirmwareGround.fastRateActive = true;
+    } else if (status.status ==
+        static_cast<uint8_t>(FlashLinkFirmwareStatusCode::Complete)) {
+      free(flashLinkFirmwareGround.image);
+      flashLinkFirmwareGround.image = nullptr;
+      flashLinkFirmwareGround.active = false;
+      if (flashLinkFirmwareGround.fastRateActive) {
+        flashLinkFirmwareRestoreRate();
+        flashLinkFirmwareGround.fastRateActive = false;
+      }
+    } else if (status.status ==
+               static_cast<uint8_t>(FlashLinkFirmwareStatusCode::Error)) {
+      flashLinkFirmwareAbortGround(
+        static_cast<FlashLinkFirmwareErrorCode>(status.error));
+    }
+    return true;
+  }
+
+  if (!flashLinkAvionicsRole() || relayedPacket ||
+      incomingNodeId != kFlashLinkNodeIdGround ||
+      targetNodeId != flashLinkLocalNodeId()) {
+    return type == FlashLinkPacketType::FirmwareBegin ||
+      type == FlashLinkPacketType::FirmwareChunk ||
+      type == FlashLinkPacketType::FirmwareEnd ||
+      type == FlashLinkPacketType::FirmwareAbort;
+  }
+
+  if (type == FlashLinkPacketType::FirmwareBegin) {
+    if (header.payloadBytes != sizeof(FlashLinkFirmwareBeginV1)) return true;
+    const FlashLinkFirmwareBeginV1& begin =
+      *reinterpret_cast<const FlashLinkFirmwareBeginV1*>(payload);
+    if (begin.targetDeviceId != boardSerialNumber) {
+      flashLinkFirmwareTarget = {};
+      flashLinkFirmwareTarget.transaction = begin.transaction;
+      memcpy(
+        flashLinkFirmwareTarget.destination,
+        slot.mac,
+        ESP_NOW_ETH_ALEN);
+      flashLinkFirmwareQueueTargetStatus(
+        FlashLinkFirmwareStatusCode::Error,
+        FlashLinkFirmwareErrorCode::BadTarget);
+      return true;
+    }
+    char shaHex[65];
+    flashLinkFirmwareDigestHex(begin.sha256, shaHex);
+    if (!firmwareUpdateBegin(
+          begin.totalBytes,
+          shaHex,
+          FirmwareUpdateTransport::AILink,
+          false)) {
+      const FlashLinkFirmwareErrorCode error =
+        strcmp(firmwareUpdate.error, "UPDATE_BUSY") == 0
+          ? FlashLinkFirmwareErrorCode::Busy
+          : (strcmp(firmwareUpdate.error, "BAD_SIZE") == 0 ||
+             strcmp(firmwareUpdate.error, "BAD_SHA256") == 0
+              ? FlashLinkFirmwareErrorCode::InvalidImage
+              : FlashLinkFirmwareErrorCode::Unsafe);
+      flashLinkFirmwareTarget = {};
+      flashLinkFirmwareTarget.transaction = begin.transaction;
+      memcpy(
+        flashLinkFirmwareTarget.destination,
+        slot.mac,
+        ESP_NOW_ETH_ALEN);
+      flashLinkFirmwareQueueTargetStatus(
+        FlashLinkFirmwareStatusCode::Error,
+        error);
+      return true;
+    }
+    flashLinkFirmwareTarget = {};
+    flashLinkFirmwareTarget.active = true;
+    flashLinkFirmwareTarget.transaction = begin.transaction;
+    flashLinkFirmwareTarget.totalBytes = begin.totalBytes;
+    flashLinkFirmwareTarget.lastPacketMs = nowMs;
+    memcpy(
+      flashLinkFirmwareTarget.destination,
+      slot.mac,
+      ESP_NOW_ETH_ALEN);
+    flashLinkFirmwareTarget.fastRatePending = true;
+    flashLinkFirmwareQueueTargetStatus(FlashLinkFirmwareStatusCode::Ready);
+    return true;
+  }
+
+  if (!flashLinkFirmwareTarget.active) return true;
+  if (type == FlashLinkPacketType::FirmwareChunk) {
+    if (header.payloadBytes != sizeof(FlashLinkFirmwareChunkV1)) {
+      flashLinkFirmwareFailTarget(FlashLinkFirmwareErrorCode::InvalidImage);
+      return true;
+    }
+    const FlashLinkFirmwareChunkV1& chunk =
+      *reinterpret_cast<const FlashLinkFirmwareChunkV1*>(payload);
+    if (chunk.transaction != flashLinkFirmwareTarget.transaction) return true;
+    flashLinkFirmwareTarget.lastPacketMs = nowMs;
+    if (chunk.len == 0U || chunk.len > kFlashLinkFirmwareChunkBytes ||
+        chunk.offset + chunk.len > flashLinkFirmwareTarget.totalBytes) {
+      flashLinkFirmwareFailTarget(FlashLinkFirmwareErrorCode::BadOffset);
+      return true;
+    }
+    if (chunk.offset == firmwareUpdate.writtenBytes) {
+      if (!firmwareUpdateWrite(chunk.data, chunk.len, chunk.offset)) {
+        flashLinkFirmwareFailTarget(
+          strcmp(firmwareUpdate.error, "BAD_OFFSET") == 0
+            ? FlashLinkFirmwareErrorCode::BadOffset
+            : FlashLinkFirmwareErrorCode::WriteFailed);
+        return true;
+      }
+    } else if (chunk.offset > firmwareUpdate.writtenBytes) {
+      flashLinkFirmwareFailTarget(FlashLinkFirmwareErrorCode::BadOffset);
+      return true;
+    }
+    flashLinkFirmwareQueueTargetStatus(
+      FlashLinkFirmwareStatusCode::Receiving);
+    return true;
+  }
+
+  if (type == FlashLinkPacketType::FirmwareEnd) {
+    if (header.payloadBytes != sizeof(FlashLinkFirmwareEndV1)) return true;
+    const FlashLinkFirmwareEndV1& end =
+      *reinterpret_cast<const FlashLinkFirmwareEndV1*>(payload);
+    if (end.transaction != flashLinkFirmwareTarget.transaction) return true;
+    flashLinkFirmwareTarget.lastPacketMs = nowMs;
+    char actualSha[65];
+    flashLinkFirmwareTarget.status =
+      static_cast<uint8_t>(FlashLinkFirmwareStatusCode::Verifying);
+    if (!firmwareUpdateFinish(actualSha, sizeof(actualSha))) {
+      flashLinkFirmwareFailTarget(FlashLinkFirmwareErrorCode::VerifyFailed);
+      return true;
+    }
+    flashLinkFirmwareTarget.active = false;
+    flashLinkFirmwareQueueTargetStatus(
+      FlashLinkFirmwareStatusCode::Complete);
+    flashLinkFirmwareTarget.restoreRatePending =
+      flashLinkFirmwareTarget.fastRateActive;
+    return true;
+  }
+
+  if (type == FlashLinkPacketType::FirmwareAbort) {
+    if (header.payloadBytes != sizeof(FlashLinkFirmwareAbortV1)) return true;
+    const FlashLinkFirmwareAbortV1& abort =
+      *reinterpret_cast<const FlashLinkFirmwareAbortV1*>(payload);
+    if (abort.transaction != flashLinkFirmwareTarget.transaction) return true;
+    firmwareUpdateAbort("REMOTE_ABORT");
+    flashLinkFirmwareTarget.active = false;
+    flashLinkFirmwareTarget.statusPending = false;
+    if (flashLinkFirmwareTarget.fastRateActive) {
+      flashLinkFirmwareRestoreRate();
+      flashLinkFirmwareTarget.fastRateActive = false;
+    }
+    return true;
+  }
+  return false;
+}
+
+bool flashLinkFirmwareServiceTick(uint32_t nowMs) {
+  if (flashLinkGroundRole() && flashLinkFirmwareGround.active) {
+    if ((uint32_t)(nowMs - flashLinkFirmwareGround.startedMs) >
+        kFlashLinkFirmwareSessionTimeoutMs) {
+      flashLinkFirmwareAbortGround(FlashLinkFirmwareErrorCode::Timeout);
+      return true;
+    }
+    FlashLinkGroundPeer* peer =
+      flashLinkGroundPeerForNode(flashLinkFirmwareGround.targetNodeId);
+    if (!peer || !peer->directReady || !peer->directLinked) {
+      flashLinkFirmwareAbortGround(FlashLinkFirmwareErrorCode::LinkLost);
+      return true;
+    }
+    const bool retryDue = flashLinkFirmwareGround.awaitingReply &&
+      (uint32_t)(nowMs - flashLinkFirmwareGround.lastActionMs) >=
+        kFlashLinkFirmwareAckTimeoutMs;
+    if (flashLinkFirmwareGround.awaitingReply && !retryDue) return true;
+    if (retryDue) {
+      if (++flashLinkFirmwareGround.retries >
+          kFlashLinkFirmwareMaxRetries) {
+        flashLinkFirmwareAbortGround(FlashLinkFirmwareErrorCode::LinkLost);
+        return true;
+      }
+      flashLinkFirmwareGround.awaitingReply = false;
+    }
+    if (flashLink.txBusy) return true;
+
+    bool sent = false;
+    if (flashLinkFirmwareGround.acknowledgedBytes == 0U &&
+        flashLinkFirmwareGround.status ==
+          static_cast<uint8_t>(FlashLinkFirmwareStatusCode::Ready) &&
+        !flashLinkFirmwareGround.fastRateActive) {
+      FlashLinkFirmwareBeginV1 begin{};
+      begin.transaction = flashLinkFirmwareGround.transaction;
+      begin.totalBytes = flashLinkFirmwareGround.totalBytes;
+      begin.targetDeviceId = flashLinkFirmwareGround.targetDeviceId;
+      memcpy(begin.sha256, flashLinkFirmwareGround.sha256, 32U);
+      sent = flashLinkSendPacket(
+        FlashLinkPacketType::FirmwareBegin,
+        peer->directMac,
+        &begin,
+        sizeof(begin),
+        0,
+        flashLinkFirmwareGround.targetNodeId);
+    } else if (flashLinkFirmwareGround.acknowledgedBytes <
+               flashLinkFirmwareGround.totalBytes) {
+      FlashLinkFirmwareChunkV1 chunk{};
+      chunk.transaction = flashLinkFirmwareGround.transaction;
+      chunk.offset = flashLinkFirmwareGround.acknowledgedBytes;
+      chunk.len = (uint16_t)min<uint32_t>(
+        kFlashLinkFirmwareChunkBytes,
+        flashLinkFirmwareGround.totalBytes - chunk.offset);
+      memcpy(
+        chunk.data,
+        flashLinkFirmwareGround.image + chunk.offset,
+        chunk.len);
+      sent = flashLinkSendPacket(
+        FlashLinkPacketType::FirmwareChunk,
+        peer->directMac,
+        &chunk,
+        sizeof(chunk),
+        0,
+        flashLinkFirmwareGround.targetNodeId);
+    } else {
+      FlashLinkFirmwareEndV1 end{};
+      end.transaction = flashLinkFirmwareGround.transaction;
+      sent = flashLinkSendPacket(
+        FlashLinkPacketType::FirmwareEnd,
+        peer->directMac,
+        &end,
+        sizeof(end),
+        0,
+        flashLinkFirmwareGround.targetNodeId);
+    }
+    if (sent) {
+      flashLinkFirmwareGround.awaitingReply = true;
+      flashLinkFirmwareGround.lastActionMs = nowMs;
+    }
+    return true;
+  }
+
+  if (!flashLinkFirmwareTarget.statusPending && !flashLink.txBusy &&
+      flashLinkFirmwareTarget.fastRatePending) {
+    flashLinkFirmwareTarget.fastRatePending = false;
+    flashLinkFirmwareTarget.fastRateActive = true;
+    flashLinkFirmwareUseFastRate();
+    return true;
+  }
+  if (!flashLinkFirmwareTarget.statusPending && !flashLink.txBusy &&
+      flashLinkFirmwareTarget.restoreRatePending) {
+    flashLinkFirmwareTarget.restoreRatePending = false;
+    flashLinkFirmwareTarget.fastRateActive = false;
+    flashLinkFirmwareRestoreRate();
+    return true;
+  }
+  if (flashLinkFirmwareTarget.statusPending && !flashLink.txBusy) {
+    FlashLinkFirmwareStatusV1 status{};
+    status.transaction = flashLinkFirmwareTarget.transaction;
+    status.nextOffset = (uint32_t)firmwareUpdate.writtenBytes;
+    status.totalBytes = flashLinkFirmwareTarget.totalBytes;
+    status.status = flashLinkFirmwareTarget.status;
+    status.error = flashLinkFirmwareTarget.error;
+    if (flashLinkSendPacket(
+          FlashLinkPacketType::FirmwareStatus,
+          flashLinkFirmwareTarget.destination,
+          &status,
+          sizeof(status),
+          0,
+          kFlashLinkNodeIdGround)) {
+      flashLinkFirmwareTarget.statusPending = false;
+    }
+    return true;
+  }
+  if (flashLinkFirmwareTarget.active &&
+      (uint32_t)(nowMs - flashLinkFirmwareTarget.lastPacketMs) >
+        kFlashLinkFirmwareSessionTimeoutMs) {
+    flashLinkFirmwareFailTarget(FlashLinkFirmwareErrorCode::Timeout);
+    return true;
+  }
+  return flashLinkFirmwareTarget.active;
+}
+
 bool flashLinkQueueRelayedFrame(
   const uint8_t* destination,
   const FlashLinkRxSlot& incoming,
@@ -2869,6 +3409,22 @@ void flashLinkHandlePacket(FlashLinkRxSlot& slot) {
     }
     if (targetNodeId != kFlashLinkNodeIdGround &&
         targetNodeId != flashLinkLocalNodeId()) return;
+  }
+
+  if (type == FlashLinkPacketType::FirmwareBegin ||
+      type == FlashLinkPacketType::FirmwareChunk ||
+      type == FlashLinkPacketType::FirmwareStatus ||
+      type == FlashLinkPacketType::FirmwareEnd ||
+      type == FlashLinkPacketType::FirmwareAbort) {
+    flashLinkFirmwareHandlePacket(
+      slot,
+      *header,
+      type,
+      incomingNodeId,
+      targetNodeId,
+      relayedPacket,
+      nowMs);
+    return;
   }
 
   if (type == FlashLinkPacketType::Command &&
@@ -4044,6 +4600,9 @@ void flashLinkTick() {
     flashLink.txBusy = false;
     flashLink.txFail++;
   }
+  // OTA owns the radio while active. This keeps control/telemetry packets
+  // from extending the firmware transfer or displacing acknowledgements.
+  if (flashLinkFirmwareServiceTick(nowMs)) return;
   if (flashLinkFlushPendingCommandAck()) return;
   if (flashLinkFlushPendingStorageReadResponse()) return;
   if (flashLinkFlushPendingStorageListResponse()) return;

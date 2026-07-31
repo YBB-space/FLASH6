@@ -347,6 +347,94 @@ bool forwardFlashLinkSerialCommand(
   return true;
 }
 
+struct SerialRemoteFirmwareStaging {
+  bool active = false;
+  uint8_t targetNodeId = 0U;
+  size_t expectedBytes = 0U;
+  size_t writtenBytes = 0U;
+  uint32_t lastActivityMs = 0U;
+  uint8_t expectedSha256[32] = {};
+  uint8_t* image = nullptr;
+};
+
+SerialRemoteFirmwareStaging serialRemoteFirmwareStaging;
+
+void serialRemoteFirmwareReset(bool releaseImage = true) {
+  if (releaseImage) free(serialRemoteFirmwareStaging.image);
+  serialRemoteFirmwareStaging = {};
+}
+
+bool serialRemoteFirmwareParseSha256(
+  const String& text,
+  uint8_t out[32]
+) {
+  if (!out || text.length() != 64U) return false;
+  auto nibble = [](char c) -> int {
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+    return -1;
+  };
+  for (size_t i = 0; i < 32U; ++i) {
+    const int high = nibble(text[i * 2U]);
+    const int low = nibble(text[i * 2U + 1U]);
+    if (high < 0 || low < 0) return false;
+    out[i] = (uint8_t)((high << 4) | low);
+  }
+  return true;
+}
+
+bool handleRemoteFirmwareSerialChunkLine(const char* line) {
+  constexpr char kPrefix[] = "/firmware/remote/chunk?offset=";
+  if (!line || strncmp(line, kPrefix, sizeof(kPrefix) - 1U) != 0) {
+    return false;
+  }
+  if (!serialRemoteFirmwareStaging.active ||
+      !serialRemoteFirmwareStaging.image) {
+    Serial.println("ERR FIRMWARE_REMOTE_CHUNK UPDATE_NOT_ACTIVE");
+    return true;
+  }
+  const char* offsetText = line + sizeof(kPrefix) - 1U;
+  char* offsetEnd = nullptr;
+  const unsigned long offset = strtoul(offsetText, &offsetEnd, 10);
+  if (!offsetEnd || strncmp(offsetEnd, "&data=", 6U) != 0) {
+    Serial.println("ERR FIRMWARE_REMOTE_CHUNK BAD_FRAME");
+    return true;
+  }
+  const char* encoded = offsetEnd + 6U;
+  const size_t encodedLen = strlen(encoded);
+  if (encodedLen == 0U || encodedLen > 1024U) {
+    Serial.println("ERR FIRMWARE_REMOTE_CHUNK BAD_CHUNK_SIZE");
+    return true;
+  }
+  uint8_t decoded[kFirmwareSerialChunkBytes];
+  size_t decodedLen = 0U;
+  const int decodeResult = mbedtls_base64_decode(
+    decoded,
+    sizeof(decoded),
+    &decodedLen,
+    reinterpret_cast<const unsigned char*>(encoded),
+    encodedLen);
+  if (decodeResult != 0 || decodedLen == 0U) {
+    Serial.println("ERR FIRMWARE_REMOTE_CHUNK BASE64_DECODE_FAILED");
+    return true;
+  }
+  if (offset != serialRemoteFirmwareStaging.writtenBytes ||
+      decodedLen >
+        serialRemoteFirmwareStaging.expectedBytes -
+          serialRemoteFirmwareStaging.writtenBytes) {
+    Serial.println("ERR FIRMWARE_REMOTE_CHUNK BAD_OFFSET");
+    return true;
+  }
+  memcpy(
+    serialRemoteFirmwareStaging.image + offset,
+    decoded,
+    decodedLen);
+  serialRemoteFirmwareStaging.writtenBytes += decodedLen;
+  serialRemoteFirmwareStaging.lastActivityMs = millis();
+  return true;
+}
+
 bool handleFirmwareSerialChunkLine(const char* line) {
   constexpr char kPrefix[] = "/firmware/chunk?offset=";
   if (!line || strncmp(line, kPrefix, sizeof(kPrefix) - 1U) != 0) {
@@ -407,12 +495,160 @@ bool handleFirmwareSerialChunkLine(const char* line) {
 
 void handleSerialLine(const char* line) {
   if (!line || !line[0]) return;
+  if (handleRemoteFirmwareSerialChunkLine(line)) return;
   if (handleFirmwareSerialChunkLine(line)) return;
   String cmd(line);
   cmd.trim();
 
   if (cmd == "help" || cmd == "/help") {
-    Serial.println("ACK GYRO_BARO_GPS_FLASH commands: /set?stream=0|1&storage_logging=0|1&ign_ms=1000&cd_ms=10000&daq_seq_pyro=1, /settings, /rates, /identity, /identity/reset?confirm=RESET, /flash_link/devices, /flash_link/bind?node=1&sn=F6-XXXX-XXXX-XXXX-XXXX, /flash_link/unbind?node=1, /gps, /baro, /loadcell|zero|cal|reset, /servo?ch=1&deg=90 or SERVO 1 90, /storage/spi_flash/status|list|read|init, /storage/spi_flash/remote/list|read, /mission_profile_begin|chunk|end|cancel, /firmware/status|begin|chunk|end|abort, /countdown_start, /mission_standby, /mission_force_timed, /abort, /reset");
+    Serial.println("ACK GYRO_BARO_GPS_FLASH commands: /set?stream=0|1&storage_logging=0|1&ign_ms=1000&cd_ms=10000&daq_seq_pyro=1, /settings, /rates, /identity, /identity/reset?confirm=RESET, /flash_link/devices, /flash_link/bind?node=1&sn=F6-XXXX-XXXX-XXXX-XXXX, /flash_link/unbind?node=1, /gps, /baro, /loadcell|zero|cal|reset, /servo?ch=1&deg=90 or SERVO 1 90, /storage/spi_flash/status|list|read|init, /storage/spi_flash/remote/list|read, /mission_profile_begin|chunk|end|cancel, /firmware/status|begin|chunk|end|abort, /firmware/remote/preflight|begin|chunk|end|status|abort, /countdown_start, /mission_standby, /mission_force_timed, /abort, /reset");
+    return;
+  }
+
+  if (cmd.startsWith("/firmware/remote/preflight")) {
+    String nodeRaw;
+    const uint8_t node = getQueryValue(cmd, "node", nodeRaw)
+      ? (uint8_t)nodeRaw.toInt()
+      : 0U;
+    char error[72] = {};
+    if (!flashLinkFirmwarePreflight(node, error, sizeof(error))) {
+      Serial.printf(
+        "ERR FIRMWARE_REMOTE_PREFLIGHT %s\n",
+        error[0] ? error : "BAD_TARGET");
+      return;
+    }
+    Serial.printf("ACK FIRMWARE_REMOTE_PREFLIGHT node=%u ready=1\n", node);
+    return;
+  }
+
+  if (cmd.startsWith("/firmware/remote/status")) {
+    String nodeRaw;
+    const uint8_t node = getQueryValue(cmd, "node", nodeRaw)
+      ? (uint8_t)nodeRaw.toInt()
+      : serialRemoteFirmwareStaging.targetNodeId;
+    if (serialRemoteFirmwareStaging.active) {
+      serialRemoteFirmwareStaging.lastActivityMs = millis();
+      char json[224];
+      snprintf(
+        json,
+        sizeof(json),
+        "{\"ok\":1,\"node\":%u,\"staging\":1,\"active\":0,"
+        "\"status\":0,\"error\":\"\",\"written\":%u,\"total\":%u}",
+        (unsigned)serialRemoteFirmwareStaging.targetNodeId,
+        (unsigned)serialRemoteFirmwareStaging.writtenBytes,
+        (unsigned)serialRemoteFirmwareStaging.expectedBytes);
+      Serial.print("ACK FIRMWARE_REMOTE_STATUS ");
+      Serial.println(json);
+      return;
+    }
+    Serial.print("ACK FIRMWARE_REMOTE_STATUS ");
+    Serial.println(flashLinkFirmwareStatusJson(node));
+    return;
+  }
+
+  if (cmd.startsWith("/firmware/remote/begin")) {
+    String nodeRaw;
+    String sizeRaw;
+    String shaRaw;
+    const uint8_t node = getQueryValue(cmd, "node", nodeRaw)
+      ? (uint8_t)nodeRaw.toInt()
+      : 0U;
+    const size_t imageSize = getQueryValue(cmd, "size", sizeRaw)
+      ? (size_t)sizeRaw.toInt()
+      : 0U;
+    if (!getQueryValue(cmd, "sha256", shaRaw)) shaRaw = "";
+    char error[72] = {};
+    uint8_t sha256[32] = {};
+    if (!flashLinkFirmwarePreflight(node, error, sizeof(error))) {
+      Serial.printf(
+        "ERR FIRMWARE_REMOTE_BEGIN %s\n",
+        error[0] ? error : "BAD_TARGET");
+      return;
+    }
+    if (imageSize < kFirmwareUpdateMinBytes ||
+        imageSize > kFirmwareUpdateMaxBytes ||
+        !serialRemoteFirmwareParseSha256(shaRaw, sha256)) {
+      Serial.println("ERR FIRMWARE_REMOTE_BEGIN INVALID_IMAGE");
+      return;
+    }
+    serialRemoteFirmwareReset();
+    uint8_t* image = reinterpret_cast<uint8_t*>(
+      heap_caps_malloc(imageSize, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
+    if (!image) image = reinterpret_cast<uint8_t*>(malloc(imageSize));
+    if (!image) {
+      Serial.println("ERR FIRMWARE_REMOTE_BEGIN NO_MEMORY");
+      return;
+    }
+    serialRemoteFirmwareStaging.active = true;
+    serialRemoteFirmwareStaging.targetNodeId = node;
+    serialRemoteFirmwareStaging.expectedBytes = imageSize;
+    serialRemoteFirmwareStaging.lastActivityMs = millis();
+    serialRemoteFirmwareStaging.image = image;
+    memcpy(serialRemoteFirmwareStaging.expectedSha256, sha256, 32U);
+    Serial.printf(
+      "ACK FIRMWARE_REMOTE_BEGIN node=%u ready=1 size=%u chunk=%u\n",
+      (unsigned)node,
+      (unsigned)imageSize,
+      (unsigned)kFirmwareSerialChunkBytes);
+    return;
+  }
+
+  if (cmd.startsWith("/firmware/remote/end")) {
+    if (!serialRemoteFirmwareStaging.active ||
+        !serialRemoteFirmwareStaging.image ||
+        serialRemoteFirmwareStaging.writtenBytes !=
+          serialRemoteFirmwareStaging.expectedBytes) {
+      Serial.println("ERR FIRMWARE_REMOTE_END INCOMPLETE_IMAGE");
+      return;
+    }
+    uint8_t digest[32] = {};
+    if (mbedtls_sha256_ret(
+          serialRemoteFirmwareStaging.image,
+          serialRemoteFirmwareStaging.expectedBytes,
+          digest,
+          0) != 0 ||
+        memcmp(
+          digest,
+          serialRemoteFirmwareStaging.expectedSha256,
+          sizeof(digest)) != 0) {
+      serialRemoteFirmwareReset();
+      Serial.println("ERR FIRMWARE_REMOTE_END SHA256_MISMATCH");
+      return;
+    }
+    uint8_t* image = serialRemoteFirmwareStaging.image;
+    const uint8_t node = serialRemoteFirmwareStaging.targetNodeId;
+    const size_t total = serialRemoteFirmwareStaging.expectedBytes;
+    uint8_t expectedSha256[32];
+    memcpy(
+      expectedSha256,
+      serialRemoteFirmwareStaging.expectedSha256,
+      sizeof(expectedSha256));
+    serialRemoteFirmwareReset(false);
+    char error[72] = {};
+    if (!flashLinkFirmwareStage(
+          node,
+          image,
+          total,
+          expectedSha256,
+          error,
+          sizeof(error))) {
+      free(image);
+      Serial.printf(
+        "ERR FIRMWARE_REMOTE_END %s\n",
+        error[0] ? error : "UPDATE_BUSY");
+      return;
+    }
+    Serial.printf(
+      "ACK FIRMWARE_REMOTE_STAGED node=%u size=%u\n",
+      (unsigned)node,
+      (unsigned)total);
+    return;
+  }
+
+  if (cmd.startsWith("/firmware/remote/abort")) {
+    serialRemoteFirmwareReset();
+    flashLinkFirmwareAbortGround(FlashLinkFirmwareErrorCode::LinkLost);
+    Serial.println("ACK FIRMWARE_REMOTE_ABORT");
     return;
   }
 
@@ -427,6 +663,10 @@ void handleSerialLine(const char* line) {
   }
 
   if (cmd.startsWith("/firmware/begin")) {
+    if (serialRemoteFirmwareStaging.active) {
+      Serial.println("ERR FIRMWARE_BEGIN UPDATE_BUSY");
+      return;
+    }
     String sizeRaw;
     String shaRaw;
     const size_t imageSize =
@@ -1615,8 +1855,16 @@ void handleSerialLine(const char* line) {
 }
 
 void pollSerial() {
+  if (serialRemoteFirmwareStaging.active &&
+      serialRemoteFirmwareStaging.lastActivityMs != 0U &&
+      (uint32_t)(millis() - serialRemoteFirmwareStaging.lastActivityMs) >
+        kFirmwareUpdateIdleTimeoutMs) {
+    serialRemoteFirmwareReset();
+    Serial.println("ERR FIRMWARE_REMOTE_STAGING TRANSFER_TIMEOUT");
+  }
   uint16_t drained = 0;
-  const uint16_t drainLimit = firmwareUpdateActive()
+  const uint16_t drainLimit =
+    (firmwareUpdateActive() || serialRemoteFirmwareStaging.active)
     ? kSerialFirmwareRxDrainMaxBytes
     : kSerialRxDrainMaxBytes;
   while (Serial.available() > 0 && drained < drainLimit) {

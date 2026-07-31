@@ -7,6 +7,8 @@
     const FIRMWARE_UPDATE_SERIAL_CONFIRM_BYTES = 2 * 1024;
     const FIRMWARE_UPDATE_SERIAL_LINE_PACE_MS = 2;
     const FIRMWARE_UPDATE_SERIAL_CONFIRM_RETRIES = 3;
+    const FIRMWARE_UPDATE_REMOTE_SERIAL_CHUNK_BYTES = 768;
+    const FIRMWARE_UPDATE_REMOTE_SERIAL_CONFIRM_BYTES = 16 * 1024;
     const FIRMWARE_UPDATE_IMAGE_MAGIC = 0xE9;
     const FIRMWARE_UPDATE_REQUIRED_MARKERS = [
       "Altis_Intelligent3_firmware1",
@@ -27,17 +29,48 @@
       );
     }
 
-    function firmwareUpdateTransportKind(){
+    function firmwareUpdateGatewayTransportKind(){
       if(serialConnected && serialWriter) return "serial";
       if(!simEnabled && connOk) return "wifi";
       return "none";
     }
 
+    function firmwareUpdateRemoteNode(){
+      if(firmwareUpdateTarget === "stage1") return 1;
+      if(firmwareUpdateTarget === "stage2") return 2;
+      return 0;
+    }
+
+    function firmwareUpdateTransportKind(){
+      const gateway = firmwareUpdateGatewayTransportKind();
+      if(firmwareUpdateRemoteNode() > 0 && gateway !== "none") return "ai_link";
+      return gateway;
+    }
+
     function firmwareUpdateTransportLabel(){
       const kind = firmwareUpdateTransportKind();
+      if(kind === "ai_link"){
+        return "A.I LINK DIRECT · STAGE " + firmwareUpdateRemoteNode();
+      }
       if(kind === "serial") return "USB DIRECT";
       if(kind === "wifi") return "GROUND WI-FI";
       return "연결된 보드 없음";
+    }
+
+    function firmwareUpdateGroundRole(){
+      return String(flashLinkUiRole || "").toLowerCase() === "ground";
+    }
+
+    function setFirmwareUpdateTarget(target){
+      const next = target === "stage1" || target === "stage2"
+        ? target
+        : "local";
+      if(next !== "local" && !firmwareUpdateGroundRole()) return;
+      if(next === "stage2" && !flashLinkUiStage2Mode) return;
+      firmwareUpdateTarget = next;
+      firmwareUpdateValidationError = "";
+      setFirmwareUpdateBlockedVisible(false);
+      updateFirmwareUpdateUi();
     }
 
     function formatFirmwareBytes(value){
@@ -71,7 +104,11 @@
     }
 
     function firmwareUpdateReadiness(){
-      const telemetry = latestTelemetry || {};
+      const remoteNode = firmwareUpdateRemoteNode();
+      const remoteState = remoteNode > 0 ? stageTelemetryStore[remoteNode] : null;
+      const telemetry = remoteState && remoteState.data
+        ? remoteState.data
+        : (latestTelemetry || {});
       const safe = Number(telemetry.sm) === 1;
       const armLocked = Number(telemetry.al) === 1;
       const idle = Number(telemetry.st || 0) === 0 &&
@@ -82,6 +119,8 @@
         armLocked,
         idle,
         connected: transport !== "none",
+        targetConnected: remoteNode === 0 ||
+          !!(remoteState && remoteState.connected),
         transport
       };
     }
@@ -111,13 +150,40 @@
         SERIAL_WRITE_TIMEOUT:"USB 전송 응답 시간이 초과되었습니다.",
         VERIFY_FAILED:"보드에서 펌웨어 이미지 검증을 완료하지 못했습니다.",
         UPDATE_BUSY:"보드에서 다른 업데이트가 진행 중입니다.",
-        FIRMWARE_EMPTY_BODY:"선택한 펌웨어 파일이 비어 있습니다."
+        FIRMWARE_EMPTY_BODY:"선택한 펌웨어 파일이 비어 있습니다.",
+        GROUND_ROLE_REQUIRED:"A.I LINK 원격 업데이트는 지상국 모드에서만 사용할 수 있습니다.",
+        GROUND_SEQUENCE_ACTIVE:"지상국 시퀀스가 진행 중이라 업데이트를 시작할 수 없습니다.",
+        STAGE2_MODE_REQUIRED:"지상국의 2단부 운용 모드를 먼저 켜세요.",
+        TARGET_OFFLINE:"대상 에비오닉스가 오프라인입니다.",
+        DIRECT_LINK_REQUIRED:"중계 경로에서는 업데이트할 수 없습니다. 대상 보드를 지상국 앞에 두고 직결 상태를 확인하세요.",
+        LINK_RSSI_LOW:"A.I LINK 신호가 약합니다. 두 보드를 가까이 두고 안테나 방향을 확인하세요.",
+        LINK_PACKET_LOSS_HIGH:"A.I LINK 패킷 손실률이 높습니다. 주변 간섭을 줄인 뒤 다시 시도하세요.",
+        LINK_RX_RATE_LOW:"A.I LINK 수신률이 낮습니다. 링크가 안정될 때까지 기다리세요.",
+        FLIGHT_ACTIVE:"대상 보드가 비행 상태입니다. 비행 중에는 업데이트할 수 없습니다.",
+        TARGET_SEQUENCE_ACTIVE:"대상 보드의 미션 또는 시퀀스가 진행 중입니다.",
+        TARGET_SAFETY_REQUIRED:"대상 에비오닉스의 안전 모드를 켜세요.",
+        TARGET_ARM_LOCK_REQUIRED:"대상 에비오닉스의 ARM 잠금을 켜세요.",
+        TARGET_ID_MISSING:"대상 보드의 S/N을 확인할 수 없습니다.",
+        DIRECT_LINK_LOST:"업데이트 중 A.I LINK 직결 연결이 끊겼습니다.",
+        INVALID_IMAGE:"대상 보드가 펌웨어 이미지를 거부했습니다.",
+        NO_MEMORY:"지상국의 펌웨어 전송 메모리가 부족합니다.",
+        BAD_TARGET:"업데이트 대상 보드를 확인할 수 없습니다."
       };
       return messages[key] || (key ? ("업데이트 실패 · " + key) : "펌웨어 업데이트에 실패했습니다.");
     }
 
     function updateFirmwareUpdateUi(){
       const readiness = firmwareUpdateReadiness();
+      const remoteNode = firmwareUpdateRemoteNode();
+      const groundRole = firmwareUpdateGroundRole();
+      (el.firmwareUpdateTargetButtons || []).forEach((button)=>{
+        const target = button.dataset.firmwareTarget || "local";
+        button.classList.toggle("is-active", target === firmwareUpdateTarget);
+        button.disabled = target !== "local" && (
+          !groundRole ||
+          (target === "stage2" && !flashLinkUiStage2Mode)
+        );
+      });
       if(el.firmwareUpdateTransport){
         el.firmwareUpdateTransport.textContent = firmwareUpdateTransportLabel();
       }
@@ -143,14 +209,16 @@
         status = "펌웨어 파일을 검사하고 있습니다…";
       }else if(firmwareUpdateBuffer && !firmwareUpdateAuthorized){
         status = "파일 검증 완료 · 보드 물리 버튼을 6회 누른 뒤 길게 누르세요.";
-      }else if(firmwareUpdateBuffer && !readiness.safe){
+      }else if(firmwareUpdateBuffer && remoteNode === 0 && !readiness.safe){
         status = "안전 모드를 켜야 업데이트할 수 있습니다.";
-      }else if(firmwareUpdateBuffer && !readiness.armLocked){
+      }else if(firmwareUpdateBuffer && remoteNode === 0 && !readiness.armLocked){
         status = "ARM 잠금을 적용해야 업데이트할 수 있습니다.";
-      }else if(firmwareUpdateBuffer && !readiness.idle){
+      }else if(firmwareUpdateBuffer && remoteNode === 0 && !readiness.idle){
         status = "진행 중인 시퀀스와 파이로 출력을 먼저 종료하세요.";
       }else if(firmwareUpdateBuffer && !readiness.connected){
         status = "USB 또는 지상국 Wi-Fi로 보드를 직접 연결하세요.";
+      }else if(firmwareUpdateBuffer && remoteNode > 0){
+        status = "시작하면 대상의 비행 상태와 A.I LINK 직결 품질을 최종 검사합니다.";
       }else if(firmwareUpdateBuffer){
         status = "업데이트 준비가 완료되었습니다.";
       }
@@ -161,9 +229,9 @@
           "is-ready",
           !!firmwareUpdateBuffer &&
           firmwareUpdateAuthorized &&
-          readiness.safe &&
-          readiness.armLocked &&
-          readiness.idle &&
+          (remoteNode > 0 || readiness.safe) &&
+          (remoteNode > 0 || readiness.armLocked) &&
+          (remoteNode > 0 || readiness.idle) &&
           readiness.connected);
       }
       if(el.firmwareUpdateStart){
@@ -172,9 +240,9 @@
           !firmwareUpdateBuffer ||
           !firmwareUpdateSha256 ||
           !firmwareUpdateAuthorized ||
-          !readiness.safe ||
-          !readiness.armLocked ||
-          !readiness.idle ||
+          (remoteNode === 0 && !readiness.safe) ||
+          (remoteNode === 0 && !readiness.armLocked) ||
+          (remoteNode === 0 && !readiness.idle) ||
           !readiness.connected);
       }
     }
@@ -187,6 +255,7 @@
       }
       firmwareUpdateAuthorized = false;
       setFirmwareUpdateProgressVisible(false);
+      setFirmwareUpdateBlockedVisible(false);
       setOverlayVisible(el.firmwareUpdateOverlay, true);
       el.firmwareUpdateOverlay.setAttribute("aria-hidden", "false");
       updateFirmwareUpdateUi();
@@ -209,10 +278,31 @@
     function setFirmwareUpdateProgressVisible(visible){
       if(el.firmwareUpdateIdleView) el.firmwareUpdateIdleView.hidden = !!visible;
       if(el.firmwareUpdateProgressView) el.firmwareUpdateProgressView.hidden = !visible;
+      if(el.firmwareUpdateBlockedView) el.firmwareUpdateBlockedView.hidden = true;
       if(el.firmwareUpdateActions) el.firmwareUpdateActions.hidden = !!visible;
       if(el.firmwareUpdateClose) el.firmwareUpdateClose.hidden = !!visible;
       if(el.firmwareUpdateOverlay){
         el.firmwareUpdateOverlay.classList.toggle("is-updating", !!visible);
+      }
+    }
+
+    function setFirmwareUpdateBlockedVisible(visible, reasons){
+      if(el.firmwareUpdateIdleView) el.firmwareUpdateIdleView.hidden = !!visible;
+      if(el.firmwareUpdateProgressView) el.firmwareUpdateProgressView.hidden = true;
+      if(el.firmwareUpdateBlockedView) el.firmwareUpdateBlockedView.hidden = !visible;
+      if(el.firmwareUpdateActions) el.firmwareUpdateActions.hidden = !!visible;
+      if(el.firmwareUpdateClose) el.firmwareUpdateClose.hidden = false;
+      if(el.firmwareUpdateBlockedReasons && visible){
+        const list = Array.isArray(reasons) ? reasons : [reasons];
+        el.firmwareUpdateBlockedReasons.replaceChildren();
+        list.filter(Boolean).forEach((reason)=>{
+          const item = document.createElement("li");
+          item.textContent = firmwareUpdateErrorText(reason);
+          el.firmwareUpdateBlockedReasons.appendChild(item);
+        });
+      }
+      if(el.firmwareUpdateOverlay){
+        el.firmwareUpdateOverlay.classList.remove("is-updating");
       }
     }
 
@@ -595,6 +685,247 @@
       });
     }
 
+    async function requestAiLinkFirmwareJson(path, timeoutMs){
+      const controller = new AbortController();
+      const timer = setTimeout(
+        ()=>controller.abort(),
+        Math.max(500, Number(timeoutMs) || 5000));
+      try{
+        const base = String(getApiBaseForCommands() || "").replace(/\/+$/, "");
+        const response = await fetch(base + path, {
+          cache:"no-store",
+          signal:controller.signal
+        });
+        let payload = null;
+        try{ payload = await response.json(); }catch(_error){}
+        if(!response.ok || !payload || !payload.ok){
+          const error = new Error(
+            payload && payload.err
+              ? String(payload.err)
+              : ("HTTP_" + response.status));
+          error.payload = payload;
+          throw error;
+        }
+        return payload;
+      }catch(error){
+        if(error && error.name === "AbortError"){
+          throw new Error("TRANSFER_TIMEOUT");
+        }
+        throw error;
+      }finally{
+        clearTimeout(timer);
+      }
+    }
+
+    function stageFirmwareAtGround(buffer, hash, node){
+      return new Promise((resolve, reject)=>{
+        const base = String(getApiBaseForCommands() || "").replace(/\/+$/, "");
+        const xhr = new XMLHttpRequest();
+        xhr.open(
+          "POST",
+          base + "/firmware/remote/update?node=" + encodeURIComponent(node),
+          true);
+        xhr.timeout = 20000;
+        xhr.setRequestHeader("Content-Type", "application/octet-stream");
+        xhr.setRequestHeader("X-Firmware-SHA256", hash);
+        xhr.upload.onprogress = (event)=>{
+          if(!event.lengthComputable) return;
+          const stagedRatio = event.total > 0 ? event.loaded / event.total : 0;
+          updateFirmwareProgress(
+            Math.round(buffer.byteLength * stagedRatio * 0.01),
+            buffer.byteLength,
+            "지상국에 전송 이미지 준비 중");
+        };
+        xhr.onerror = ()=>reject(new Error("지상국 연결이 끊겼습니다."));
+        xhr.ontimeout = ()=>reject(new Error("TRANSFER_TIMEOUT"));
+        xhr.onload = ()=>{
+          let payload = null;
+          try{ payload = JSON.parse(xhr.responseText || "{}"); }catch(_error){}
+          if(xhr.status >= 200 && xhr.status < 300 && payload && payload.ok){
+            resolve(payload);
+            return;
+          }
+          const error = new Error(
+            payload && payload.err
+              ? String(payload.err)
+              : ("HTTP_" + xhr.status));
+          error.payload = payload;
+          reject(error);
+        };
+        xhr.send(buffer);
+      });
+    }
+
+    async function uploadFirmwareOverAiLink(buffer, hash){
+      const node = firmwareUpdateRemoteNode();
+      if(node <= 0) throw new Error("BAD_TARGET");
+
+      if(firmwareUpdateGatewayTransportKind() === "serial"){
+        return uploadFirmwareOverAiLinkSerial(buffer, hash, node);
+      }
+
+      // Safety and link quality are checked before the image is copied to the
+      // ground station, then checked once more immediately before radio TX.
+      await requestAiLinkFirmwareJson(
+        "/firmware/remote/preflight?node=" + encodeURIComponent(node),
+        5000);
+      updateFirmwareProgress(0, buffer.byteLength, "안전 상태와 A.I LINK 품질 확인 완료");
+      await stageFirmwareAtGround(buffer, hash, node);
+      firmwareUpdateLastProgressAt = performance.now();
+      firmwareUpdateLastProgressBytes = 0;
+      firmwareUpdateSmoothedBytesPerSec = 0;
+      updateFirmwareProgress(0, buffer.byteLength, "A.I LINK 전송 시작");
+
+      const startedAt = performance.now();
+      const deadlineMs = 90000;
+      while(performance.now() - startedAt < deadlineMs){
+        await new Promise((resolve)=>setTimeout(resolve, 120));
+        const status = await requestAiLinkFirmwareJson(
+          "/firmware/remote/status?node=" + encodeURIComponent(node),
+          4000);
+        const written = Math.max(0, Number(status.written) || 0);
+        const total = Math.max(1, Number(status.total) || buffer.byteLength);
+        updateFirmwareProgress(
+          written,
+          total,
+          Number(status.status) === 3
+            ? "대상 보드에서 이미지 검증 중"
+            : "A.I LINK로 펌웨어 전송 중");
+        if(Number(status.status) === 4){
+          updateFirmwareProgress(total, total, "대상 보드 업데이트 완료");
+          return status;
+        }
+        if(Number(status.status) === 5){
+          throw new Error(String(status.error || "VERIFY_FAILED"));
+        }
+        if(
+          Number(status.active) !== 1 &&
+          Number(status.status) !== 1 &&
+          Number(status.status) !== 2 &&
+          Number(status.status) !== 3
+        ){
+          throw new Error(String(status.error || "UPDATE_NOT_ACTIVE"));
+        }
+      }
+      try{
+        await requestAiLinkFirmwareJson("/firmware/remote/abort", 1500);
+      }catch(_error){}
+      throw new Error("TRANSFER_TIMEOUT");
+    }
+
+    async function requestAiLinkFirmwareSerialStatus(node){
+      const reply = await requestSerialCommandAck(
+        "/firmware/remote/status?node=" + encodeURIComponent(node),
+        (event)=>String(event.message || "").toUpperCase()
+          .indexOf("FIRMWARE_REMOTE_STATUS") === 0,
+        {timeoutMs:4000, writeTimeoutMs:2000, firmwareUpdate:true});
+      if(!reply || !reply.ok){
+        throw new Error(reply && reply.message ? reply.message : "SERIAL_TRANSFER_TIMEOUT");
+      }
+      const status = parseFirmwareSerialStatus(reply.message);
+      if(!status) throw new Error("SERIAL_TRANSFER_TIMEOUT");
+      return status;
+    }
+
+    async function uploadFirmwareOverAiLinkSerial(buffer, hash, node){
+      const bytes = new Uint8Array(buffer);
+      const preflight = await requestSerialCommandAck(
+        "/firmware/remote/preflight?node=" + encodeURIComponent(node),
+        (event)=>String(event.message || "").toUpperCase()
+          .indexOf("FIRMWARE_REMOTE_PREFLIGHT") === 0,
+        {timeoutMs:5000, writeTimeoutMs:2000, firmwareUpdate:true});
+      if(!preflight || !preflight.ok){
+        throw new Error(preflight && preflight.message
+          ? preflight.message
+          : "SERIAL_TRANSFER_TIMEOUT");
+      }
+
+      const begin = await requestSerialCommandAck(
+        "/firmware/remote/begin?node=" + encodeURIComponent(node) +
+          "&size=" + bytes.length +
+          "&sha256=" + encodeURIComponent(hash),
+        (event)=>String(event.message || "").toUpperCase()
+          .indexOf("FIRMWARE_REMOTE_BEGIN") === 0,
+        {timeoutMs:7000, writeTimeoutMs:2500, firmwareUpdate:true});
+      if(!begin || !begin.ok){
+        throw new Error(begin && begin.message ? begin.message : "SERIAL_TRANSFER_TIMEOUT");
+      }
+
+      let offset = 0;
+      while(offset < bytes.length){
+        const confirmEnd = Math.min(
+          bytes.length,
+          offset + FIRMWARE_UPDATE_REMOTE_SERIAL_CONFIRM_BYTES);
+        while(offset < confirmEnd){
+          const end = Math.min(
+            confirmEnd,
+            offset + FIRMWARE_UPDATE_REMOTE_SERIAL_CHUNK_BYTES);
+          const command = "/firmware/remote/chunk?offset=" + offset +
+            "&data=" + bytesToBase64(bytes.subarray(offset, end));
+          const wrote = await serialWriteLine(command, {
+            timeoutMs:3500,
+            firmwareUpdate:true
+          });
+          if(!wrote) throw new Error("SERIAL_WRITE_FAIL");
+          offset = end;
+        }
+        const status = await requestAiLinkFirmwareSerialStatus(node);
+        const confirmed = Math.max(0, Number(status.written) || 0);
+        if(Number(status.staging) !== 1 || confirmed > bytes.length){
+          throw new Error(String(status.error || "SERIAL_TRANSFER_TIMEOUT"));
+        }
+        if(confirmed !== offset){
+          offset = confirmed;
+        }
+        updateFirmwareProgress(
+          Math.round(offset * 0.01),
+          bytes.length,
+          "USB 지상국에 전송 이미지 준비 중");
+      }
+
+      const staged = await requestSerialCommandAck(
+        "/firmware/remote/end?node=" + encodeURIComponent(node),
+        (event)=>String(event.message || "").toUpperCase()
+          .indexOf("FIRMWARE_REMOTE_STAGED") === 0,
+        {timeoutMs:10000, writeTimeoutMs:2500, firmwareUpdate:true});
+      if(!staged || !staged.ok){
+        throw new Error(staged && staged.message ? staged.message : "VERIFY_FAILED");
+      }
+      firmwareUpdateLastProgressAt = performance.now();
+      firmwareUpdateLastProgressBytes = 0;
+      firmwareUpdateSmoothedBytesPerSec = 0;
+      updateFirmwareProgress(0, bytes.length, "A.I LINK 전송 시작");
+
+      const startedAt = performance.now();
+      while(performance.now() - startedAt < 90000){
+        await new Promise((resolve)=>setTimeout(resolve, 120));
+        const status = await requestAiLinkFirmwareSerialStatus(node);
+        const written = Math.max(0, Number(status.written) || 0);
+        const total = Math.max(1, Number(status.total) || bytes.length);
+        updateFirmwareProgress(
+          written,
+          total,
+          Number(status.status) === 3
+            ? "대상 보드에서 이미지 검증 중"
+            : "A.I LINK로 펌웨어 전송 중");
+        if(Number(status.status) === 4){
+          updateFirmwareProgress(total, total, "대상 보드 업데이트 완료");
+          return status;
+        }
+        if(Number(status.status) === 5){
+          throw new Error(String(status.error || "VERIFY_FAILED"));
+        }
+      }
+      try{
+        await requestSerialCommandAck(
+          "/firmware/remote/abort?node=" + encodeURIComponent(node),
+          (event)=>String(event.message || "").toUpperCase()
+            .indexOf("FIRMWARE_REMOTE_ABORT") === 0,
+          {timeoutMs:1500, writeTimeoutMs:1000, firmwareUpdate:true});
+      }catch(_error){}
+      throw new Error("TRANSFER_TIMEOUT");
+    }
+
     async function startFirmwareUpdate(){
       updateFirmwareUpdateUi();
       if(
@@ -622,6 +953,8 @@
           await uploadFirmwareOverSerial(buffer, hash);
         }else if(transport === "wifi"){
           await uploadFirmwareOverWifi(buffer, hash);
+        }else if(transport === "ai_link"){
+          await uploadFirmwareOverAiLink(buffer, hash);
         }else{
           throw new Error("연결된 보드를 찾을 수 없습니다.");
         }
@@ -660,11 +993,38 @@
         }
         firmwareUpdateUiBusy = false;
         document.body.classList.remove("firmware-update-locked");
+        const errorCode = raw
+          .replace(/^ERR\s+/i, "")
+          .replace(/^FIRMWARE_[A-Z_]+\s+/i, "");
+        const blockedCodes = new Set([
+          "GROUND_ROLE_REQUIRED",
+          "PHYSICAL_AUTH_REQUIRED",
+          "UPDATE_BUSY",
+          "BAD_TARGET",
+          "STAGE2_MODE_REQUIRED",
+          "GROUND_SEQUENCE_ACTIVE",
+          "TARGET_OFFLINE",
+          "DIRECT_LINK_REQUIRED",
+          "LINK_RSSI_LOW",
+          "LINK_PACKET_LOSS_HIGH",
+          "LINK_RX_RATE_LOW",
+          "FLIGHT_ACTIVE",
+          "TARGET_SEQUENCE_ACTIVE",
+          "TARGET_SAFETY_REQUIRED",
+          "TARGET_ARM_LOCK_REQUIRED",
+          "TARGET_ID_MISSING"
+        ]);
+        firmwareUpdateValidationError = firmwareUpdateErrorText(errorCode);
+        if(
+          transport === "ai_link" &&
+          (blockedCodes.has(errorCode) ||
+            !!(error && error.payload && error.payload.blocked))
+        ){
+          setFirmwareUpdateBlockedVisible(true, [errorCode]);
+          updateFirmwareUpdateUi();
+          return;
+        }
         setFirmwareUpdateProgressVisible(false);
-        firmwareUpdateValidationError = firmwareUpdateErrorText(
-          raw
-            .replace(/^ERR\s+/i, "")
-            .replace(/^FIRMWARE_[A-Z_]+\s+/i, ""));
         if(el.firmwareUpdateStatus){
           el.firmwareUpdateStatus.textContent = firmwareUpdateValidationError;
           el.firmwareUpdateStatus.classList.add("is-error");

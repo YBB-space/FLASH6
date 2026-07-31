@@ -1,10 +1,10 @@
 
 constexpr char kFirmwareProgram[] = "Altis_Intelligent3_firmware1";
-constexpr char kFirmwareVersion[] = "0.11.8";
-constexpr char kFirmwareBuildId[] = "v6 b60";
-constexpr uint16_t kFirmwareBuildNumber = 60;
+constexpr char kFirmwareVersion[] = "0.12.0";
+constexpr char kFirmwareBuildId[] = "v6 b61";
+constexpr uint16_t kFirmwareBuildNumber = 61;
 constexpr char kFirmwareBoard[] = "Altis_Intelligent3_b3";
-constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b13";
+constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b14";
 constexpr uint8_t kStorageProtocolVersion = 9;
 // Only formats explicitly verified by this build are decoded as native.
 // Expand this range only after replay compatibility has been validated.
@@ -154,6 +154,10 @@ constexpr uint8_t kWifiChannel = 6;
 constexpr uint8_t kWifiMaxClients = 2;
 constexpr char kWifiPass[] = "12345678";
 constexpr uint32_t kFlashLinkMagic = 0x314B4C46UL;  // FLK1
+// New optional packet types remain on frame version 11 so a newly updated
+// ground station can still discover and operate a peer on the previous
+// firmware while the fleet is rolled forward. Raise this only for an
+// incompatible header/layout change, not for additive packet codes.
 constexpr uint8_t kFlashLinkVersion = 11;
 constexpr uint8_t kFlashLinkChannel = 6;
 constexpr uint8_t kFlashLinkVehicleNodeCount = 2;
@@ -208,6 +212,16 @@ constexpr uint8_t kFlashLinkLongCommandMaxAttempts = 60;
 constexpr uint8_t kFlashLinkCommandBusyRetryMax = 12;
 constexpr uint16_t kFlashLinkMaxPacketBytes = ESP_NOW_MAX_DATA_LEN;
 constexpr uint16_t kFlashLinkStorageChunkBytes = 192;
+// ESP-NOW V1 leaves 226 bytes after the 24-byte A.I LINK header.  The OTA
+// chunk header consumes 10 bytes, so 216 bytes is the largest firmware block
+// that still fits in one radio frame without fragmentation.
+constexpr uint16_t kFlashLinkFirmwareChunkBytes = 216;
+constexpr uint32_t kFlashLinkFirmwareAckTimeoutMs = 85;
+constexpr uint32_t kFlashLinkFirmwareSessionTimeoutMs = 90000;
+constexpr uint8_t kFlashLinkFirmwareMaxRetries = 24;
+constexpr int8_t kFlashLinkFirmwareMinRssiDbm = -72;
+constexpr uint16_t kFlashLinkFirmwareMaxLossPermille = 50;
+constexpr uint16_t kFlashLinkFirmwareMinRxHz = 30;
 constexpr uint16_t kFlashLinkStorageHttpChunkBytes = 1024;
 // One host request is assembled from multiple unchanged 192-byte radio frames.
 // The larger aggregate cuts browser/USB request round trips while preserving
@@ -645,6 +659,34 @@ enum class FlashLinkPacketType : uint8_t {
   StorageListRequest = 12,
   StorageListResponse = 13,
   MissionEvent = 14,
+  FirmwareBegin = 15,
+  FirmwareChunk = 16,
+  FirmwareStatus = 17,
+  FirmwareEnd = 18,
+  FirmwareAbort = 19,
+};
+
+enum class FlashLinkFirmwareStatusCode : uint8_t {
+  Idle = 0,
+  Ready = 1,
+  Receiving = 2,
+  Verifying = 3,
+  Complete = 4,
+  Error = 5,
+};
+
+enum class FlashLinkFirmwareErrorCode : uint8_t {
+  None = 0,
+  Unsafe = 1,
+  Busy = 2,
+  InvalidImage = 3,
+  BadOffset = 4,
+  WriteFailed = 5,
+  VerifyFailed = 6,
+  Timeout = 7,
+  LinkLost = 8,
+  NoMemory = 9,
+  BadTarget = 10,
 };
 
 enum class MissionInterstageEventCode : uint8_t {
@@ -867,12 +909,49 @@ struct FlashLinkMissionEventV1 {
   uint8_t stage2EjectionAngleDeg;
 };
 
+struct FlashLinkFirmwareBeginV1 {
+  uint32_t transaction;
+  uint32_t totalBytes;
+  uint64_t targetDeviceId;
+  uint8_t sha256[32];
+};
+
+struct FlashLinkFirmwareChunkV1 {
+  uint32_t transaction;
+  uint32_t offset;
+  uint16_t len;
+  uint8_t data[kFlashLinkFirmwareChunkBytes];
+};
+
+struct FlashLinkFirmwareStatusV1 {
+  uint32_t transaction;
+  uint32_t nextOffset;
+  uint32_t totalBytes;
+  uint8_t status;
+  uint8_t error;
+  uint16_t reserved;
+};
+
+struct FlashLinkFirmwareEndV1 {
+  uint32_t transaction;
+};
+
+struct FlashLinkFirmwareAbortV1 {
+  uint32_t transaction;
+  uint8_t reason;
+  uint8_t reserved[3];
+};
+
 static_assert(
   sizeof(FlashLinkHeaderV1) + sizeof(FlashLinkTelemetryV1) <= kFlashLinkMaxPacketBytes,
   "A.I LINK telemetry exceeds the ESP-NOW packet limit");
 static_assert(
   sizeof(FlashLinkHeaderV1) + sizeof(FlashLinkMissionEventV1) <= kFlashLinkMaxPacketBytes,
   "A.I LINK mission event exceeds the ESP-NOW packet limit");
+static_assert(
+  sizeof(FlashLinkHeaderV1) + sizeof(FlashLinkFirmwareChunkV1) <=
+    kFlashLinkMaxPacketBytes,
+  "A.I LINK firmware chunk exceeds the ESP-NOW packet limit");
 
 struct FlashLinkCommandV1 {
   uint32_t transaction;
@@ -1500,6 +1579,45 @@ struct FlashLinkDirectGroundRuntime {
   uint32_t txFail = 0;
 };
 
+struct FlashLinkFirmwareGroundRuntime {
+  bool active = false;
+  bool awaitingReply = false;
+  bool fastRateActive = false;
+  uint8_t targetNodeId = 0;
+  uint8_t retries = 0;
+  uint8_t status =
+    static_cast<uint8_t>(FlashLinkFirmwareStatusCode::Idle);
+  uint8_t error =
+    static_cast<uint8_t>(FlashLinkFirmwareErrorCode::None);
+  uint32_t transaction = 0;
+  uint32_t totalBytes = 0;
+  uint32_t acknowledgedBytes = 0;
+  uint32_t lastActionMs = 0;
+  uint32_t startedMs = 0;
+  uint64_t targetDeviceId = 0;
+  uint8_t sha256[32] = {};
+  uint8_t* image = nullptr;
+};
+
+struct FlashLinkFirmwareTargetRuntime {
+  bool active = false;
+  bool statusPending = false;
+  bool fastRatePending = false;
+  bool fastRateActive = false;
+  bool restoreRatePending = false;
+  uint8_t status =
+    static_cast<uint8_t>(FlashLinkFirmwareStatusCode::Idle);
+  uint8_t error =
+    static_cast<uint8_t>(FlashLinkFirmwareErrorCode::None);
+  uint32_t transaction = 0;
+  uint32_t totalBytes = 0;
+  uint32_t lastPacketMs = 0;
+  uint8_t destination[ESP_NOW_ETH_ALEN] = {};
+};
+
+FlashLinkFirmwareGroundRuntime flashLinkFirmwareGround;
+FlashLinkFirmwareTargetRuntime flashLinkFirmwareTarget;
+
 struct FlashLinkRelayRuntime {
   bool stage2PeerReady = false;
   bool stage2Linked = false;
@@ -1971,6 +2089,19 @@ bool flashLinkRequestStorageList(
   FlashLinkStorageListResponseV1& out,
   uint32_t timeoutMs = 1800,
   uint8_t targetNodeId = 0);
+bool flashLinkFirmwarePreflight(
+  uint8_t targetNodeId,
+  char* error,
+  size_t errorLen);
+bool flashLinkFirmwareStage(
+  uint8_t targetNodeId,
+  uint8_t* image,
+  size_t totalBytes,
+  const uint8_t sha256[32],
+  char* error,
+  size_t errorLen);
+void flashLinkFirmwareAbortGround(FlashLinkFirmwareErrorCode reason);
+String flashLinkFirmwareStatusJson(uint8_t targetNodeId);
 const char* flashLinkCommandResultName(uint8_t result);
 bool startCountdownRuntimeFor(uint32_t nowMs, uint32_t durationMs, bool playStartTone);
 bool loadMissionRuntimeFromFlash();

@@ -6783,6 +6783,7 @@ function requestMobileMockup3dMesh(){
     let firmwareUpdateLastProgressAt = 0;
     let firmwareUpdateLastProgressBytes = 0;
     let firmwareUpdateSmoothedBytesPerSec = 0;
+    let firmwareUpdateTarget = "local";
     let flashLinkRoleConfigLastConfirmedKey = "";
     let flashLinkStage2MismatchDetected = false;
     let flashLinkStage2MismatchDismissed = false;
