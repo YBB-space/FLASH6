@@ -1025,7 +1025,7 @@ html:not(.phone-landscape-layout) body #hardwareServoDialog .hardware-servo-pres
     gap:18px;
     padding:0 18px;
     border-bottom:0;
-    background:transparent;
+    background:linear-gradient(180deg,rgba(7,9,12,.42) 0%,rgba(7,9,12,.2) 58%,rgba(7,9,12,0) 100%);
     color:#d9dde2;
     box-shadow:none;
     -webkit-backdrop-filter:none;
@@ -1039,7 +1039,7 @@ html:not(.phone-landscape-layout) body #hardwareServoDialog .hardware-servo-pres
     gap:18px;
     overflow:hidden;
     white-space:nowrap;
-    text-shadow:0 1px 5px rgba(0,0,0,.72);
+    text-shadow:0 1px 2px rgba(0,0,0,.96),0 0 7px rgba(0,0,0,.74);
   }
   .camera-system-stage--two{
     justify-content:flex-end;
@@ -1053,8 +1053,8 @@ html:not(.phone-landscape-layout) body #hardwareServoDialog .hardware-servo-pres
   .camera-system-stage-name{
     flex:0 0 auto;
     gap:7px;
-    color:#c4c9d0;
-    font-size:9px;
+    color:#eef1f4;
+    font-size:10px;
     line-height:1;
     font-weight:650;
     letter-spacing:.08em;
@@ -1067,8 +1067,8 @@ html:not(.phone-landscape-layout) body #hardwareServoDialog .hardware-servo-pres
     box-shadow:0 0 0 2px rgba(105,113,125,.12);
   }
   .camera-system-stage-name span{
-    color:#777f8a;
-    font:650 8px/1 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
+    color:#bec5cd;
+    font:680 9px/1 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
     letter-spacing:.07em;
   }
   .camera-system-stage.is-online .camera-system-stage-name i{
@@ -1082,8 +1082,8 @@ html:not(.phone-landscape-layout) body #hardwareServoDialog .hardware-servo-pres
     min-width:0;
     gap:13px;
     overflow:hidden;
-    color:#7f8792;
-    font:600 8px/1 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
+    color:#bdc3cb;
+    font:650 8.5px/1 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
     letter-spacing:.05em;
   }
   .camera-system-stage-metrics span{
@@ -1091,8 +1091,8 @@ html:not(.phone-landscape-layout) body #hardwareServoDialog .hardware-servo-pres
   }
   .camera-system-stage-metrics b{
     margin-left:3px;
-    color:#e0e3e7;
-    font-weight:650;
+    color:#f4f6f8;
+    font-weight:700;
     font-variant-numeric:tabular-nums;
   }
   .camera-system-center{
@@ -1109,8 +1109,9 @@ html:not(.phone-landscape-layout) body #hardwareServoDialog .hardware-servo-pres
     border-radius:0 0 8px 8px;
     background:transparent;
     box-shadow:none;
-    color:#c3c8cf;
+    color:#f0f2f5;
     pointer-events:auto;
+    filter:drop-shadow(0 1px 2px rgba(0,0,0,.9));
   }
   body.camera-view-active .alarm-history-toggle:hover,
   body.camera-view-active .alarm-history-toggle.is-open{
