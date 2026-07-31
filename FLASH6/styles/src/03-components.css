@@ -723,12 +723,14 @@ html body #replayLegacyProtocolOverlay .replay-legacy-protocol-dialog{
     --camera-data-width:clamp(270px,22vw,320px);
     --camera-data-panel-height:clamp(185px,21vh,220px);
     position:fixed;
-    top:calc(var(--camera-data-edge) + env(safe-area-inset-top, 0px));
+    top:calc(34px + env(safe-area-inset-top, 0px));
+    bottom:calc(116px + env(safe-area-inset-bottom, 0px));
     left:var(--camera-data-edge);
     z-index:7;
     display:grid;
     width:var(--camera-data-width);
     grid-template-rows:repeat(3,var(--camera-data-panel-height));
+    align-content:center;
     gap:8px;
     pointer-events:none;
   }
