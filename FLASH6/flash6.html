@@ -2826,8 +2826,8 @@
                   <div class="settings-number-wrap"><input id="missionS1EjectionMs" type="number" min="100" max="10000" step="100" class="settings-number"><div class="settings-desc">ms</div></div>
                 </div>
                 <div class="settings-row">
-                  <div><div class="settings-label">2단 사출 백업</div><div class="hint-mini">어포지 미검출 시 2단 PYRO CH1 점화 후 백업 사출 시각</div></div>
-                  <div class="settings-number-wrap"><input id="missionS2EjectionMs" type="number" min="500" max="30000" step="100" class="settings-number"><div class="settings-desc">ms</div></div>
+                  <div><div class="settings-label">2단 사출 백업</div><div class="hint-mini">단분리 +8초 이후 어포지 우선, 미검출 시 단분리 기준 백업 사출</div></div>
+                  <div class="settings-number-wrap"><input id="missionS2EjectionMs" type="number" min="8000" max="30000" step="100" class="settings-number"><div class="settings-desc">ms</div></div>
                 </div>
                 <div class="settings-row">
                   <div><div class="settings-label">발사 추가 감시</div><div class="hint-mini">점화 출력 종료 후 발사 감지 비정상 판정까지의 시간</div></div>
@@ -3857,7 +3857,7 @@
           <div><span>링크 단절 판정</span><strong id="missionReviewLinkLoss">0.5 s 연속 미수신</strong></div>
           <div><span>발사 감지 경고</span><strong id="missionReviewLaunchGrace">점화 종료 +5.0 s</strong></div>
           <div><span>2단 점화</span><strong>분리 신호 + 2단 ARM</strong></div>
-          <div><span>2단 사출</span><strong id="missionReviewS2Ejection">어포지 우선 · 점화 +5.0 s 백업</strong></div>
+          <div><span>2단 사출</span><strong id="missionReviewS2Ejection">단분리 +8초 이후 어포지 우선 · +10.5 s 백업</strong></div>
         </div>
         <div class="confirm-note">ARM 신호가 불안정하거나 이미 해제된 경우 안전모드로 전환하고 미션을 시작하지 않습니다.</div>
         <div class="confirm-actions">

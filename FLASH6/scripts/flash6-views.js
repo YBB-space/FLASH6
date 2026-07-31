@@ -7628,7 +7628,7 @@
         el.missionReviewLaunchGrace.textContent = "점화 종료 +" + sec(uiSettings.missionLaunchGraceMs);
       }
       if(el.missionReviewS2Ejection){
-        el.missionReviewS2Ejection.textContent = "어포지 우선 · 점화 +" + sec(uiSettings.missionStage2EjectionDelayMs) + " 백업 · " + uiSettings.missionStage2EjectionAngleDeg + "°";
+        el.missionReviewS2Ejection.textContent = "단분리 +8초 이후 어포지 우선 · 단분리 +" + sec(uiSettings.missionStage2EjectionDelayMs) + " 백업 · " + uiSettings.missionStage2EjectionAngleDeg + "°";
       }
     }
 
@@ -7644,7 +7644,7 @@
         const fields = [
           ["missionStage1SeparationBackupMs", data.mission_s1_sep_backup_ms, 500, 15000],
           ["missionStage1EjectionDelayMs", data.mission_s1_eject_delay_ms, 100, 10000],
-          ["missionStage2EjectionDelayMs", data.mission_s2_eject_delay_ms, 500, 30000],
+          ["missionStage2EjectionDelayMs", data.mission_s2_eject_delay_ms, 8000, 30000],
           ["missionLaunchGraceMs", data.mission_launch_grace_ms, 1000, 30000],
           ["missionLinkLossMs", data.mission_link_loss_ms, 200, 5000],
           ["missionStage1SeparationAngleDeg", data.mission_s1_sep_angle_deg, 0, 180],

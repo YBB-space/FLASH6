@@ -689,7 +689,7 @@
           const fields = [
             ["missionStage1SeparationBackupMs", "mission_s1_sep_backup_ms", 500, 15000],
             ["missionStage1EjectionDelayMs", "mission_s1_eject_delay_ms", 100, 10000],
-            ["missionStage2EjectionDelayMs", "mission_s2_eject_delay_ms", 500, 30000],
+            ["missionStage2EjectionDelayMs", "mission_s2_eject_delay_ms", 8000, 30000],
             ["missionLaunchGraceMs", "mission_launch_grace_ms", 1000, 30000],
             ["missionLinkLossMs", "mission_link_loss_ms", 200, 5000],
             ["missionStage1SeparationAngleDeg", "mission_s1_sep_angle_deg", 0, 180],

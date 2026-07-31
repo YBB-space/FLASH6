@@ -243,7 +243,7 @@ void loadSequenceSettings() {
     kDefaultMissionStage1SeparationBackupMs);
   // Version 1 used 2000 ms as its factory value. Migrate only that exact
   // legacy default; explicitly configured alternatives remain untouched.
-  if (missionTimingSettingsVersion < kMissionTimingSettingsVersion &&
+  if (missionTimingSettingsVersion < 2U &&
       storedStage1SeparationBackupMs == 2000U) {
     storedStage1SeparationBackupMs =
       kDefaultMissionStage1SeparationBackupMs;
@@ -255,8 +255,20 @@ void loadSequenceSettings() {
     kDefaultMissionStage1SeparationBackupMs);
   missionStage1EjectionDelayMs = clampU32(
     (long)settingsPrefs.getUInt("m_s1_ej", 1000U), 100, 10000, 1000U);
+  uint32_t storedStage2EjectionBackupMs = settingsPrefs.getUInt(
+    "m_s2_ej",
+    kDefaultMissionStage2EjectionBackupMs);
+  // Version 2 used 5000 ms as its factory stage-2 backup. Migrate only that
+  // exact legacy default; deliberately configured longer values are retained.
+  if (missionTimingSettingsVersion < kMissionTimingSettingsVersion &&
+      storedStage2EjectionBackupMs == 5000U) {
+    storedStage2EjectionBackupMs = kDefaultMissionStage2EjectionBackupMs;
+  }
   missionStage2EjectionDelayMs = clampU32(
-    (long)settingsPrefs.getUInt("m_s2_ej", 5000U), 500, 30000, 5000U);
+    (long)storedStage2EjectionBackupMs,
+    kMinimumMissionStage2EjectionBackupMs,
+    30000,
+    kDefaultMissionStage2EjectionBackupMs);
   missionLaunchDetectionGraceMs = clampU32(
     (long)settingsPrefs.getUInt("m_launch", 5000U), 1000, 30000, 5000U);
   missionInterstageLinkLossMs = clampU32(
@@ -340,7 +352,11 @@ void setMissionStage1EjectionDelayMs(long ms) {
 }
 
 void setMissionStage2EjectionDelayMs(long ms) {
-  missionStage2EjectionDelayMs = clampU32(ms, 500, 30000, 5000U);
+  missionStage2EjectionDelayMs = clampU32(
+    ms,
+    kMinimumMissionStage2EjectionBackupMs,
+    30000,
+    kDefaultMissionStage2EjectionBackupMs);
   saveSequenceSettings();
 }
 

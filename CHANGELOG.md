@@ -3,6 +3,22 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.12.8 — v6 b69 / stage-2 separation-based apogee recovery — 2026-07-31
+
+Protocol unchanged: `Flash6-Intelligent-b14`
+
+Storage record protocol unchanged: `HWLOGV2` version `9`
+
+- 2단 사출의 모든 시간 기준을 점화 시각에서 실제 1·2단 단분리 시각으로
+  변경했습니다. 단간 이벤트가 끊긴 경우에는 2단 홀센서의 자석 이탈
+  시각을 단분리 기준으로 사용합니다.
+- 단분리 후 8.0초 이전의 어포지 전환은 조기 오검출로 한 번만 기록하고
+  사출 명령에는 사용하지 않습니다. 이전에 이미 `DESCENT`로 바뀌었더라도
+  8초 도달 시 재사용되지 않도록 상태가 아닌 전환 시각을 검증합니다.
+- 단분리 후 8.0초부터 새로 확정된 어포지는 즉시 사출하며, 유효한 어포지가
+  없으면 단분리 후 10.5초에 강제 사출합니다. 설정 최소값도 8.0초로
+  제한하고 기존 5초 공장 기본값은 설정 버전 3에서 10.5초로 이전합니다.
+
 ## 0.12.7 — v6 b68 / UI finding buzzer control — 2026-07-31
 
 Protocol unchanged: `Flash6-Intelligent-b14`

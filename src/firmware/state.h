@@ -1,8 +1,8 @@
 
 constexpr char kFirmwareProgram[] = "Altis_Intelligent3_firmware1";
-constexpr char kFirmwareVersion[] = "0.12.7";
-constexpr char kFirmwareBuildId[] = "v6 b68";
-constexpr uint16_t kFirmwareBuildNumber = 68;
+constexpr char kFirmwareVersion[] = "0.12.8";
+constexpr char kFirmwareBuildId[] = "v6 b69";
+constexpr uint16_t kFirmwareBuildNumber = 69;
 constexpr char kFirmwareBoard[] = "Altis_Intelligent3_b3";
 constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b14";
 constexpr uint8_t kStorageProtocolVersion = 9;
@@ -11,8 +11,10 @@ constexpr uint8_t kStorageProtocolVersion = 9;
 constexpr uint8_t kStorageProtocolCompatibleMin = 8;
 constexpr uint8_t kStorageProtocolCompatibleMax = 9;
 constexpr uint8_t kMissionTimebaseVersion = 1;  // THRUST_ARM_V1
-constexpr uint8_t kMissionTimingSettingsVersion = 2;
+constexpr uint8_t kMissionTimingSettingsVersion = 3;
 constexpr uint32_t kDefaultMissionStage1SeparationBackupMs = 2500U;
+constexpr uint32_t kMinimumMissionStage2EjectionBackupMs = 8000U;
+constexpr uint32_t kDefaultMissionStage2EjectionBackupMs = 10500U;
 constexpr bool kFirmwareMissionLocked = true;
 constexpr char kFirmwareMissionSource[] = "builtin_launch_sequence";
 constexpr char kFirmwareMissionLockReason[] = "BUILTIN_MISSION";
@@ -379,7 +381,8 @@ volatile bool missionLaunchStandby = false;
 uint32_t missionStage1SeparationBackupMs =
   kDefaultMissionStage1SeparationBackupMs;
 uint32_t missionStage1EjectionDelayMs = 1000U;
-uint32_t missionStage2EjectionDelayMs = 5000U;
+uint32_t missionStage2EjectionDelayMs =
+  kDefaultMissionStage2EjectionBackupMs;
 uint32_t missionLaunchDetectionGraceMs = 5000U;
 uint32_t missionInterstageLinkLossMs = 500U;
 uint8_t missionStage1SeparationAngleDeg = 80U;
@@ -1503,7 +1506,8 @@ struct FlashLinkRemoteState {
   uint32_t missionStage1SeparationBackupMs =
     kDefaultMissionStage1SeparationBackupMs;
   uint32_t missionStage1EjectionDelayMs = 1000U;
-  uint32_t missionStage2EjectionDelayMs = 5000U;
+  uint32_t missionStage2EjectionDelayMs =
+    kDefaultMissionStage2EjectionBackupMs;
   uint32_t missionLaunchDetectionGraceMs = 5000U;
   uint32_t missionInterstageLinkLossMs = 500U;
   uint8_t missionStage1SeparationAngleDeg = 80U;

@@ -91,10 +91,10 @@ constexpr uint32_t kLaunchThrustArmConfirmMs = 1000U;
 constexpr uint32_t kLaunchArmChatterWindowMs = 1000U;
 constexpr uint8_t kLaunchArmChatterTransitions = 3U;
 constexpr uint32_t kMissionEventRepeatMs = 100U;
-// Stage-2 recovery must never be commanded during the nominal 1.7 s motor
-// burn. Apogee detection is primary; the configured delay remains an
-// independent latest-time backup if barometric descent is never established.
-constexpr uint32_t kStage2EjectionInhibitMs = 2500U;
+// A descent transition before this point is treated as an early barometric
+// false positive. Only a new apogee transition at/after this separation-based
+// gate can command recovery; the independent backup remains armed throughout.
+constexpr uint32_t kStage2ApogeeAcceptAfterSeparationMs = 8000U;
 
 enum class LaunchMissionState : uint8_t {
   Idle = 0,
@@ -125,6 +125,7 @@ struct LaunchMissionRuntime {
   bool stage2Ignited = false;
   bool stage1Ejected = false;
   bool stage2Ejected = false;
+  bool stage2EarlyApogeeIgnored = false;
   bool primaryFailed = false;
   bool secondaryCommanded = false;
   bool secondaryFailed = false;
@@ -138,6 +139,7 @@ struct LaunchMissionRuntime {
   uint32_t ignitionStartMs = 0;
   uint32_t ignitionDelayMs = UINT32_MAX;
   uint32_t primaryCommandMs = 0;
+  uint32_t stage1SeparationMs = 0;
   uint32_t stage2ArmReleasedMs = 0;
   uint32_t stage2IgnitionMs = 0;
   uint32_t localMotionSinceMs = 0;
@@ -723,6 +725,7 @@ void missionCommandPrimaryDeployment(uint32_t nowMs) {
   const bool ok = setServoAngle(1U, missionStage1SeparationAngleDeg);
   launchMission.primaryFailed = !ok;
   launchMission.primaryCommandMs = nowMs;
+  launchMission.stage1SeparationMs = nowMs;
   launchMission.stage1Separated = true;
   if (launchMission.forceTimed) launchMission.interstageFallback = true;
   launchMission.state = LaunchMissionState::WaitingStage2Arm;
@@ -799,9 +802,11 @@ void missionCommandStage2Ejection(uint32_t nowMs, bool backup) {
       "Apogee detected. SERVO CH1 moved to configured angle.");
   }
   Serial.printf(
-    "[MISSION] stage2 ejection reason=%s elapsed=%lums phase=%s "
+    "[MISSION] stage2 ejection reason=%s separation_elapsed=%lums "
+    "ignition_elapsed=%lums phase=%s "
     "apogee=%.2f alt=%.2f vs_fast=%.2f ok=%u\n",
     backup ? "backup_timer" : "apogee",
+    (unsigned long)(nowMs - launchMission.stage1SeparationMs),
     (unsigned long)(nowMs - launchMission.stage2IgnitionMs),
     flightPhaseName(static_cast<FlightPhase>(snap.flightPhase)),
     snap.flightApogeeM,
@@ -943,7 +948,10 @@ void missionHandleInterstageEvent(
       const uint32_t nextStage1EjectionMs = clampU32(
         (long)event.stage1EjectionDelayMs, 100, 10000, 1000U);
       const uint32_t nextStage2EjectionMs = clampU32(
-        (long)event.stage2EjectionDelayMs, 500, 30000, 5000U);
+        (long)event.stage2EjectionDelayMs,
+        kMinimumMissionStage2EjectionBackupMs,
+        30000,
+        kDefaultMissionStage2EjectionBackupMs);
       const uint32_t nextLaunchGraceMs = clampU32(
         (long)event.launchDetectionGraceMs, 1000, 30000, 5000U);
       const uint32_t nextLinkLossMs = clampU32(
@@ -1023,6 +1031,12 @@ void missionHandleInterstageEvent(
       }
       if (!launchMission.launchLatched) return;
       launchMission.stage1Separated = true;
+      const uint32_t separationElapsedMs = event.tplusMs > 0
+        ? (uint32_t)event.tplusMs
+        : 0U;
+      launchMission.stage1SeparationMs = separationElapsedMs > 0U
+        ? launchMission.launchMs + separationElapsedMs
+        : receivedAtMs;
       return;
     }
     if (code == MissionInterstageEventCode::MissionAbort &&
@@ -1207,18 +1221,45 @@ void missionLaunchSequenceTick(uint32_t nowMs, bool armReleased, uint32_t armRel
       launchMission.stage1Separated;
     if (!launchMission.stage2Ignited && launchMission.stage2ArmReleased &&
         separationAuthorized) {
+      if (launchMission.stage1SeparationMs == 0U) {
+        // When the interstage event is unavailable, the stage-2 Hall sensor is
+        // the physical separation reference used by the recovery timers.
+        launchMission.stage1SeparationMs = launchMission.stage2ArmReleasedMs != 0U
+          ? launchMission.stage2ArmReleasedMs
+          : nowMs;
+      }
       missionCommandStage2Ignition(nowMs);
     }
     if (launchMission.stage2Ignited && !launchMission.stage2Ejected) {
-      const uint32_t ignitionElapsedMs =
-        (uint32_t)(nowMs - launchMission.stage2IgnitionMs);
-      const bool ejectionInhibitComplete =
-        ignitionElapsedMs >= kStage2EjectionInhibitMs;
-      const bool apogeeDetected =
-        snap.flightPhase == static_cast<uint8_t>(FlightPhase::Descent);
+      const uint32_t separationElapsedMs =
+        (uint32_t)(nowMs - launchMission.stage1SeparationMs);
+      const bool apogeeTransitionAfterSeparation =
+        (int32_t)(flightPhaseRuntime.transitionAtMs -
+                  launchMission.stage1SeparationMs) >= 0;
+      const uint32_t apogeeTransitionElapsedMs =
+        (uint32_t)(flightPhaseRuntime.transitionAtMs -
+                   launchMission.stage1SeparationMs);
+      const bool apogeeTransition =
+        snap.flightPhase == static_cast<uint8_t>(FlightPhase::Descent) &&
+        snap.flightTransitionReason ==
+          static_cast<uint8_t>(FlightTransitionReason::ApogeeBarometer) &&
+        apogeeTransitionAfterSeparation;
+      const bool apogeeDetected = apogeeTransition &&
+        apogeeTransitionElapsedMs >= kStage2ApogeeAcceptAfterSeparationMs;
+      if (apogeeTransition && !apogeeDetected &&
+          !launchMission.stage2EarlyApogeeIgnored) {
+        launchMission.stage2EarlyApogeeIgnored = true;
+        Serial.printf(
+          "[MISSION] stage2 early apogee ignored separation_elapsed=%lums\n",
+          (unsigned long)apogeeTransitionElapsedMs);
+        missionEmitAlarm(
+          0,
+          "Stage-2 early apogee ignored",
+          "Apogee before 8.0 s was rejected; backup remains armed.");
+      }
       const bool backupDue =
-        ignitionElapsedMs >= missionStage2EjectionDelayMs;
-      if (ejectionInhibitComplete && (apogeeDetected || backupDue)) {
+        separationElapsedMs >= missionStage2EjectionDelayMs;
+      if (apogeeDetected || backupDue) {
         missionCommandStage2Ejection(
           nowMs,
           backupDue && !apogeeDetected);

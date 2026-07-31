@@ -5401,7 +5401,7 @@
         };
         const s1Sep = missionSettingInt(el.missionS1SeparationMs, 500, 15000, 2500);
         const s1Eject = missionSettingInt(el.missionS1EjectionMs, 100, 10000, 1000);
-        const s2Eject = missionSettingInt(el.missionS2EjectionMs, 500, 30000, 5000);
+        const s2Eject = missionSettingInt(el.missionS2EjectionMs, 8000, 30000, 10500);
         const launchGrace = missionSettingInt(el.missionLaunchGraceMs, 1000, 30000, 5000);
         const linkLoss = missionSettingInt(el.missionLinkLossMs, 200, 5000, 500);
         const s1SeparationAngle = missionSettingInt(el.missionS1SeparationAngleDeg, 0, 180, 80);

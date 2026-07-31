@@ -180,7 +180,7 @@
         daqSequencePyroChannel:1,
         missionStage1SeparationBackupMs:2500,
         missionStage1EjectionDelayMs:1000,
-        missionStage2EjectionDelayMs:5000,
+        missionStage2EjectionDelayMs:10500,
         missionLaunchGraceMs:5000,
         missionLinkLossMs:500,
         missionStage1SeparationAngleDeg:80,
@@ -232,14 +232,19 @@
         const cd = Number(uiSettings.countdownSec);
         uiSettings.countdownSec = (isFinite(cd) ? Math.max(3, Math.min(60, Math.round(cd))) : 10);
         uiSettings.daqSequencePyroChannel = normalizePyroChannel(uiSettings.daqSequencePyroChannel, 1);
-        if((Number(uiSettings.missionTimingSettingsVersion) || 0) < 2 &&
+        const missionTimingVersion = Number(uiSettings.missionTimingSettingsVersion) || 0;
+        if(missionTimingVersion < 2 &&
             Number(uiSettings.missionStage1SeparationBackupMs) === 2000){
           uiSettings.missionStage1SeparationBackupMs = 2500;
         }
-        uiSettings.missionTimingSettingsVersion = 2;
+        if(missionTimingVersion < 3 &&
+            Number(uiSettings.missionStage2EjectionDelayMs) === 5000){
+          uiSettings.missionStage2EjectionDelayMs = 10500;
+        }
+        uiSettings.missionTimingSettingsVersion = 3;
         uiSettings.missionStage1SeparationBackupMs = Math.max(500, Math.min(15000, Math.round(Number(uiSettings.missionStage1SeparationBackupMs) || 2500)));
         uiSettings.missionStage1EjectionDelayMs = Math.max(100, Math.min(10000, Math.round(Number(uiSettings.missionStage1EjectionDelayMs) || 1000)));
-        uiSettings.missionStage2EjectionDelayMs = Math.max(500, Math.min(30000, Math.round(Number(uiSettings.missionStage2EjectionDelayMs) || 5000)));
+        uiSettings.missionStage2EjectionDelayMs = Math.max(8000, Math.min(30000, Math.round(Number(uiSettings.missionStage2EjectionDelayMs) || 10500)));
         uiSettings.missionLaunchGraceMs = Math.max(1000, Math.min(30000, Math.round(Number(uiSettings.missionLaunchGraceMs) || 5000)));
         uiSettings.missionLinkLossMs = Math.max(200, Math.min(5000, Math.round(Number(uiSettings.missionLinkLossMs) || 500)));
         {

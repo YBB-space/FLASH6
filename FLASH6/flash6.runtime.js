@@ -7226,7 +7226,7 @@ function requestMobileMockup3dMesh(){
         daqSequencePyroChannel:1,
         missionStage1SeparationBackupMs:2500,
         missionStage1EjectionDelayMs:1000,
-        missionStage2EjectionDelayMs:5000,
+        missionStage2EjectionDelayMs:10500,
         missionLaunchGraceMs:5000,
         missionLinkLossMs:500,
         missionStage1SeparationAngleDeg:80,
@@ -7278,14 +7278,19 @@ function requestMobileMockup3dMesh(){
         const cd = Number(uiSettings.countdownSec);
         uiSettings.countdownSec = (isFinite(cd) ? Math.max(3, Math.min(60, Math.round(cd))) : 10);
         uiSettings.daqSequencePyroChannel = normalizePyroChannel(uiSettings.daqSequencePyroChannel, 1);
-        if((Number(uiSettings.missionTimingSettingsVersion) || 0) < 2 &&
+        const missionTimingVersion = Number(uiSettings.missionTimingSettingsVersion) || 0;
+        if(missionTimingVersion < 2 &&
             Number(uiSettings.missionStage1SeparationBackupMs) === 2000){
           uiSettings.missionStage1SeparationBackupMs = 2500;
         }
-        uiSettings.missionTimingSettingsVersion = 2;
+        if(missionTimingVersion < 3 &&
+            Number(uiSettings.missionStage2EjectionDelayMs) === 5000){
+          uiSettings.missionStage2EjectionDelayMs = 10500;
+        }
+        uiSettings.missionTimingSettingsVersion = 3;
         uiSettings.missionStage1SeparationBackupMs = Math.max(500, Math.min(15000, Math.round(Number(uiSettings.missionStage1SeparationBackupMs) || 2500)));
         uiSettings.missionStage1EjectionDelayMs = Math.max(100, Math.min(10000, Math.round(Number(uiSettings.missionStage1EjectionDelayMs) || 1000)));
-        uiSettings.missionStage2EjectionDelayMs = Math.max(500, Math.min(30000, Math.round(Number(uiSettings.missionStage2EjectionDelayMs) || 5000)));
+        uiSettings.missionStage2EjectionDelayMs = Math.max(8000, Math.min(30000, Math.round(Number(uiSettings.missionStage2EjectionDelayMs) || 10500)));
         uiSettings.missionLaunchGraceMs = Math.max(1000, Math.min(30000, Math.round(Number(uiSettings.missionLaunchGraceMs) || 5000)));
         uiSettings.missionLinkLossMs = Math.max(200, Math.min(5000, Math.round(Number(uiSettings.missionLinkLossMs) || 500)));
         {
@@ -18972,7 +18977,7 @@ function requestMobileMockup3dMesh(){
         el.missionReviewLaunchGrace.textContent = "점화 종료 +" + sec(uiSettings.missionLaunchGraceMs);
       }
       if(el.missionReviewS2Ejection){
-        el.missionReviewS2Ejection.textContent = "어포지 우선 · 점화 +" + sec(uiSettings.missionStage2EjectionDelayMs) + " 백업 · " + uiSettings.missionStage2EjectionAngleDeg + "°";
+        el.missionReviewS2Ejection.textContent = "단분리 +8초 이후 어포지 우선 · 단분리 +" + sec(uiSettings.missionStage2EjectionDelayMs) + " 백업 · " + uiSettings.missionStage2EjectionAngleDeg + "°";
       }
     }
 
@@ -18988,7 +18993,7 @@ function requestMobileMockup3dMesh(){
         const fields = [
           ["missionStage1SeparationBackupMs", data.mission_s1_sep_backup_ms, 500, 15000],
           ["missionStage1EjectionDelayMs", data.mission_s1_eject_delay_ms, 100, 10000],
-          ["missionStage2EjectionDelayMs", data.mission_s2_eject_delay_ms, 500, 30000],
+          ["missionStage2EjectionDelayMs", data.mission_s2_eject_delay_ms, 8000, 30000],
           ["missionLaunchGraceMs", data.mission_launch_grace_ms, 1000, 30000],
           ["missionLinkLossMs", data.mission_link_loss_ms, 200, 5000],
           ["missionStage1SeparationAngleDeg", data.mission_s1_sep_angle_deg, 0, 180],
@@ -26062,7 +26067,7 @@ function requestMobileMockup3dMesh(){
           const fields = [
             ["missionStage1SeparationBackupMs", "mission_s1_sep_backup_ms", 500, 15000],
             ["missionStage1EjectionDelayMs", "mission_s1_eject_delay_ms", 100, 10000],
-            ["missionStage2EjectionDelayMs", "mission_s2_eject_delay_ms", 500, 30000],
+            ["missionStage2EjectionDelayMs", "mission_s2_eject_delay_ms", 8000, 30000],
             ["missionLaunchGraceMs", "mission_launch_grace_ms", 1000, 30000],
             ["missionLinkLossMs", "mission_link_loss_ms", 200, 5000],
             ["missionStage1SeparationAngleDeg", "mission_s1_sep_angle_deg", 0, 180],
@@ -27725,6 +27730,7 @@ function requestMobileMockup3dMesh(){
         "Stage-2 apogee ejection":"2단 어포지 사출",
         "Stage-2 ejection backup":"2단 백업 사출",
         "Stage-2 ejection fault":"2단 사출 실패",
+        "Stage-2 early apogee ignored":"2단 조기 어포지 무시",
         "Stage-2 separation":"2단 분리 감지",
         "Forced timed mission":"미션 강제 구동",
         "Mission standby":"미션 대기",
@@ -27766,6 +27772,8 @@ function requestMobileMockup3dMesh(){
         localizedMessage = "ARM 또는 단분리 장치가 해제된 상태라 미션 대기가 거부되었습니다 · 안전 모드를 적용했습니다.";
       }else if(/^Hall sensor confirmed magnet departure\./i.test(message)){
         localizedMessage = "홀센서에서 자석 이탈을 확인했습니다 · 2단 단분리로 판정합니다.";
+      }else if(/^Apogee before 8\.0 s was rejected/i.test(message)){
+        localizedMessage = "단분리 후 8초 이전 어포지 검출을 무시했습니다 · 설정된 백업 사출은 계속 대기합니다.";
       }else if(/^Ignition ended without stage-1 ARM release/i.test(message)){
         localizedMessage = "점화 종료 후에도 1단 ARM 해제가 감지되지 않았습니다 · 발사체에 접근하지 마세요.";
       }else{
@@ -28318,7 +28326,7 @@ function requestMobileMockup3dMesh(){
         const missionTimingFields = [
           ["missionStage1SeparationBackupMs", data.mission_s1_sep_backup_ms, 500, 15000],
           ["missionStage1EjectionDelayMs", data.mission_s1_eject_delay_ms, 100, 10000],
-          ["missionStage2EjectionDelayMs", data.mission_s2_eject_delay_ms, 500, 30000],
+          ["missionStage2EjectionDelayMs", data.mission_s2_eject_delay_ms, 8000, 30000],
           ["missionLaunchGraceMs", data.mission_launch_grace_ms, 1000, 30000],
           ["missionLinkLossMs", data.mission_link_loss_ms, 200, 5000],
           ["missionStage1SeparationAngleDeg", data.mission_s1_sep_angle_deg, 0, 180],
@@ -46112,7 +46120,7 @@ function requestMobileMockup3dMesh(){
         };
         const s1Sep = missionSettingInt(el.missionS1SeparationMs, 500, 15000, 2500);
         const s1Eject = missionSettingInt(el.missionS1EjectionMs, 100, 10000, 1000);
-        const s2Eject = missionSettingInt(el.missionS2EjectionMs, 500, 30000, 5000);
+        const s2Eject = missionSettingInt(el.missionS2EjectionMs, 8000, 30000, 10500);
         const launchGrace = missionSettingInt(el.missionLaunchGraceMs, 1000, 30000, 5000);
         const linkLoss = missionSettingInt(el.missionLinkLossMs, 200, 5000, 500);
         const s1SeparationAngle = missionSettingInt(el.missionS1SeparationAngleDeg, 0, 180, 80);
