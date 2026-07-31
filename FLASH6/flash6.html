@@ -365,7 +365,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="styles/flash6-app.css?v=20260731-update-modal-b169-__FLASH6_DEPLOY_SHA__">
+  <link rel="stylesheet" href="styles/flash6-app.css?v=20260801-transparent-statusbar-b170-__FLASH6_DEPLOY_SHA__">
 </head>
 <body>
   <!-- ✅ LOCKOUT 배경 오버레이 -->
@@ -1018,11 +1018,7 @@
               <span>STORAGE <b id="cameraStage1Storage">--</b></span>
             </div>
           </section>
-          <div class="camera-system-center">
-            <time id="cameraSystemTime">--:--</time>
-            <svg class="camera-system-wifi" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 8.8a13.5 13.5 0 0 1 17 0"/><path d="M6.8 12.2a8.5 8.5 0 0 1 10.4 0"/><path d="M10 15.6a3.5 3.5 0 0 1 4 0"/><circle cx="12" cy="19" r="1"/></svg>
-            <span id="cameraSystemGroundLink">OFFLINE</span>
-          </div>
+          <div class="camera-system-center" aria-hidden="true"></div>
           <section id="cameraStage2Status" class="camera-system-stage camera-system-stage--two">
             <div class="camera-system-stage-metrics">
               <span>ARM <b id="cameraStage2Arm">--</b></span>

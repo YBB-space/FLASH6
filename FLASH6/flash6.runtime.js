@@ -8640,14 +8640,6 @@ function requestMobileMockup3dMesh(){
       return "";
     }
 
-    function syncCameraSystemClock(){
-      if(!el.cameraSystemTime) return;
-      const now = new Date();
-      const value = String(now.getHours()).padStart(2, "0") + ":" +
-        String(now.getMinutes()).padStart(2, "0");
-      if(el.cameraSystemTime.textContent !== value) el.cameraSystemTime.textContent = value;
-    }
-
     function syncCameraStageSystemStatus(stageId, fallbackData, fallbackConnected){
       const id = Number(stageId) === 2 ? 2 : 1;
       const stageState = stageTelemetryModeActive ? stageTelemetryStore[id] : null;
@@ -8695,11 +8687,8 @@ function requestMobileMockup3dMesh(){
     }
 
     function syncCameraSystemStatusBar(data, linkOk){
-      syncCameraSystemClock();
       syncCameraStageSystemStatus(1, data, linkOk);
       syncCameraStageSystemStatus(2, data, false);
-      if(el.cameraSystemStatusBar) el.cameraSystemStatusBar.classList.toggle("is-linked", !!linkOk);
-      if(el.cameraSystemGroundLink) el.cameraSystemGroundLink.textContent = linkOk ? "A.I LINK" : "OFFLINE";
     }
 
     function syncCameraHud(values){
@@ -41159,8 +41148,6 @@ function requestMobileMockup3dMesh(){
       el.cameraHudAltitudeGauge = document.getElementById("cameraHudAltitudeGauge");
       el.cameraHudAltitudeProg = document.getElementById("cameraHudAltitudeProg");
       el.cameraSystemStatusBar = document.getElementById("cameraSystemStatusBar");
-      el.cameraSystemTime = document.getElementById("cameraSystemTime");
-      el.cameraSystemGroundLink = document.getElementById("cameraSystemGroundLink");
       [1, 2].forEach((stageId)=>{
         el["cameraStage" + stageId + "Status"] = document.getElementById("cameraStage" + stageId + "Status");
         el["cameraStage" + stageId + "Link"] = document.getElementById("cameraStage" + stageId + "Link");

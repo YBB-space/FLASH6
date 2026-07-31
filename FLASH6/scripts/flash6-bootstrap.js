@@ -260,8 +260,6 @@
       el.cameraHudAltitudeGauge = document.getElementById("cameraHudAltitudeGauge");
       el.cameraHudAltitudeProg = document.getElementById("cameraHudAltitudeProg");
       el.cameraSystemStatusBar = document.getElementById("cameraSystemStatusBar");
-      el.cameraSystemTime = document.getElementById("cameraSystemTime");
-      el.cameraSystemGroundLink = document.getElementById("cameraSystemGroundLink");
       [1, 2].forEach((stageId)=>{
         el["cameraStage" + stageId + "Status"] = document.getElementById("cameraStage" + stageId + "Status");
         el["cameraStage" + stageId + "Link"] = document.getElementById("cameraStage" + stageId + "Link");
