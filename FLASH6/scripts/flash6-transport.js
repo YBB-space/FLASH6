@@ -6,6 +6,32 @@
     let platformioUploadHandoffToken = "";
     let platformioUploadHandoffActive = false;
 
+    async function releaseSerialForPlatformioUpload(token){
+      platformioUploadHandoffActive = true;
+      platformioUploadHandoffToken = String(token || platformioUploadHandoffToken || "");
+      cancelSerialAutoReconnect();
+      if(serialPort || serialConnected || serialReader || serialWriter){
+        addLogLine("PlatformIO upload requested; releasing WebSerial port.", "SER");
+        await serialDisconnect({silent:true});
+      }
+      return true;
+    }
+
+    function resumeSerialAfterPlatformioUpload(){
+      platformioUploadHandoffActive = false;
+      platformioUploadHandoffToken = "";
+      if(serialEnabled && !serialConnected){
+        scheduleSerialAutoReconnect("PlatformIO upload complete");
+      }
+      return true;
+    }
+
+    if(typeof window !== "undefined"){
+      window.Flash6 = window.Flash6 || {};
+      window.Flash6.releaseSerialForUpload = releaseSerialForPlatformioUpload;
+      window.Flash6.resumeSerialAfterUpload = resumeSerialAfterPlatformioUpload;
+    }
+
     function platformioUploadHandoffUrl(){
       try{
         const url = new URL("platformio-upload-handoff.json", document.baseURI);
@@ -47,13 +73,12 @@
         const token = String((payload && payload.token) || "");
 
         if(active){
-          platformioUploadHandoffActive = true;
           if(!token || token === platformioUploadHandoffToken) return;
-          platformioUploadHandoffToken = token;
-          cancelSerialAutoReconnect();
-          if(serialPort || serialConnected || serialReader || serialWriter){
-            addLogLine("PlatformIO upload requested; releasing WebSerial port.", "SER");
-            await serialDisconnect({silent:true});
+          const hadSerial = !!(
+            serialPort || serialConnected || serialReader || serialWriter
+          );
+          await releaseSerialForPlatformioUpload(token);
+          if(hadSerial){
             showToast(
               "펌웨어 업로드를 위해 USB 연결을 자동으로 해제했습니다.",
               "notice",
@@ -63,11 +88,7 @@
         }
 
         if(platformioUploadHandoffActive){
-          platformioUploadHandoffActive = false;
-          platformioUploadHandoffToken = "";
-          if(serialEnabled && !serialConnected){
-            scheduleSerialAutoReconnect("PlatformIO upload complete");
-          }
+          resumeSerialAfterPlatformioUpload();
         }
       }catch(_error){
         // The handoff file is available only on the local development host.

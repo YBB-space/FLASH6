@@ -3,6 +3,15 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 UI b164 — 2026-07-31
+
+- PlatformIO 업로드 전 브라우저 내부 핸드오프에 응답하지 않는 경우,
+  USB 포트를 실제로 점유한 macOS 브라우저의 FLASH6 탭만 업로드 동안
+  임시 해제하고 종료 후 원래 주소로 자동 복원합니다.
+- 브라우저 전체를 종료하지 않으며 다른 탭에는 영향을 주지 않습니다.
+- FLASH6 런타임에 명시적인 Web Serial 해제·재연결 API를 추가해
+  로컬 파일 폴링과 브라우저 직접 요청이 같은 정리 절차를 사용합니다.
+
 ## FLASH6 UI b163 — 2026-07-31
 
 - 로컬 FLASH6가 Web Serial 포트를 사용 중이어도 PlatformIO USB 업로드
