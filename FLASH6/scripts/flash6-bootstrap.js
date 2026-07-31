@@ -439,6 +439,11 @@
       el.forceBtn = document.getElementById("forceIgniteBtn");
       el.copyLogBtn = document.getElementById("copyLogBtn");
       el.gyroZeroBtn = document.getElementById("gyroZeroBtn");
+      el.findingBuzzerBtn = document.getElementById("findingBuzzerBtn");
+      el.findingBuzzerTarget = document.getElementById("findingBuzzerTarget");
+      el.findingBuzzerStatus = document.getElementById("findingBuzzerStatus");
+      el.mobileFindingBuzzerBtn = document.getElementById("mobileFindingBuzzerBtn");
+      el.mobileFindingBuzzerStatus = document.getElementById("mobileFindingBuzzerStatus");
       el.gyroZeroOverlay = document.getElementById("gyroZeroOverlay");
       el.gyroZeroConfirm = document.getElementById("gyroZeroConfirm");
       el.gyroZeroCancel = document.getElementById("gyroZeroCancel");
@@ -4039,6 +4044,13 @@
       if(el.gyroZeroBtn){
         el.gyroZeroBtn.addEventListener("click", handleGyroZero);
       }
+      if(el.findingBuzzerBtn){
+        el.findingBuzzerBtn.addEventListener("click", (ev)=>{
+          ev.preventDefault();
+          toggleFindingBuzzer();
+        });
+      }
+      updateFindingBuzzerUi();
       if(el.replayGyroZeroBtn){
         el.replayGyroZeroBtn.addEventListener("click", handleGyroZero);
       }
@@ -4446,6 +4458,7 @@
         flight_logging: ()=>{ toggleFlightDataLogging(); },
         servo: ()=>{ showServoControl(); },
         gyro_zero: ()=>{ handleGyroZero(); },
+        finding_buzzer: ()=>{ toggleFindingBuzzer(); },
       };
       if(el.mobileControlButtons && el.mobileControlButtons.length){
         el.mobileControlButtons.forEach(btn=>{

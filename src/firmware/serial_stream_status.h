@@ -1772,8 +1772,23 @@ void handleSerialLine(const char* line) {
     return;
   }
 
-  if (cmd == "/buzzer_stop" || cmd == "NOTONE") {
-    if (forwardFlashLinkSerialCommand(FlashLinkCommandCode::BuzzerStop)) {
+  if (cmd.startsWith("/buzzer_stop") || cmd == "NOTONE") {
+    uint8_t targetNodeId = 0U;
+    String nodeRaw;
+    if (getQueryValue(cmd, "node", nodeRaw)) {
+      const long requestedNode = nodeRaw.toInt();
+      if (requestedNode == kFlashLinkNodeIdStage1 ||
+          requestedNode == kFlashLinkNodeIdStage2) {
+        targetNodeId = (uint8_t)requestedNode;
+      }
+    }
+    if (forwardFlashLinkSerialCommand(
+          FlashLinkCommandCode::BuzzerStop,
+          0,
+          0,
+          0,
+          true,
+          targetNodeId)) {
       return;
     }
     buzzerStop();
@@ -1782,6 +1797,15 @@ void handleSerialLine(const char* line) {
   }
 
   if (cmd == "/buzzer" || cmd.startsWith("/buzzer?") || cmd.startsWith("BEEP") || cmd == "FIND_BUZZER") {
+    uint8_t targetNodeId = 0U;
+    String nodeRaw;
+    if (getQueryValue(cmd, "node", nodeRaw)) {
+      const long requestedNode = nodeRaw.toInt();
+      if (requestedNode == kFlashLinkNodeIdStage1 ||
+          requestedNode == kFlashLinkNodeIdStage2) {
+        targetNodeId = (uint8_t)requestedNode;
+      }
+    }
     if (cmd == "FIND_BUZZER") {
       if (forwardFlashLinkSerialCommand(FlashLinkCommandCode::BuzzerFind)) {
         return;
@@ -1794,16 +1818,34 @@ void handleSerialLine(const char* line) {
     if (getQueryValue(cmd, "pattern", pattern)) {
       pattern.toLowerCase();
       if (pattern == "find" || pattern == "finder" || pattern == "locate") {
-        if (forwardFlashLinkSerialCommand(FlashLinkCommandCode::BuzzerFind)) {
+        String loopRaw;
+        bool loop = false;
+        if (getQueryValue(cmd, "loop", loopRaw)) {
+          loopRaw.toLowerCase();
+          loop = loopRaw == "1" || loopRaw == "true" || loopRaw == "on" || loopRaw == "yes";
+        }
+        if (forwardFlashLinkSerialCommand(
+              FlashLinkCommandCode::BuzzerFind,
+              loop ? 1 : 0,
+              0,
+              0,
+              true,
+              targetNodeId)) {
           return;
         }
-        buzzerPlayFindMelody();
-        Serial.printf("ACK BUZZER_FIND loop=0 muted=%u\n", buzzerMuted ? 1U : 0U);
+        buzzerPlayFindMelody(loop);
+        Serial.printf("ACK BUZZER_FIND loop=%u muted=%u\n", loop ? 1U : 0U, buzzerMuted ? 1U : 0U);
         return;
       }
     }
     if (cmd.indexOf("find=1") >= 0) {
-      if (forwardFlashLinkSerialCommand(FlashLinkCommandCode::BuzzerFind)) {
+      if (forwardFlashLinkSerialCommand(
+            FlashLinkCommandCode::BuzzerFind,
+            0,
+            0,
+            0,
+            true,
+            targetNodeId)) {
         return;
       }
       buzzerPlayFindMelody();

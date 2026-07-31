@@ -3,6 +3,17 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.12.7 — v6 b68 / UI finding buzzer control — 2026-07-31
+
+Protocol unchanged: `Flash6-Intelligent-b14`
+
+Storage record protocol unchanged: `HWLOGV2` version `9`
+
+- FLASH6 컨트롤 패널에서 현재 선택한 STAGE 1/2의 파인딩 버저를 반복
+  재생하고 다시 정지할 수 있도록 전용 제어를 추가했습니다.
+- USB 직결과 A.I LINK 중계 경로 모두 `node`와 `loop` 인자를 처리하도록
+  직렬 명령을 보강해, 지상국에서도 선택한 에비오닉스만 정확히 울립니다.
+
 ## 0.12.6 — v6 b67 / flight-controller boot chime — 2026-07-31
 
 Protocol unchanged: `Flash6-Intelligent-b14`

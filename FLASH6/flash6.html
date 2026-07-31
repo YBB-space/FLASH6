@@ -539,6 +539,19 @@
             </span>
             <span class="mobile-quick-label">자이로 영점</span>
           </button>
+          <button id="mobileFindingBuzzerBtn" type="button" class="control-tile mobile-control mobile-quick-btn" data-mobile-control="finding_buzzer" aria-pressed="false">
+            <span class="mobile-quick-icon tone-blue" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M7 10v4"></path>
+                <path d="M10 7.5v9"></path>
+                <path d="M13 5v14"></path>
+                <path d="M16 8.5v7"></path>
+                <path d="M19 10.5v3"></path>
+              </svg>
+            </span>
+            <span class="mobile-quick-label">파인딩 버저</span>
+            <span id="mobileFindingBuzzerStatus" class="mobile-quick-state pill pill-gray">OFF</span>
+          </button>
           <button type="button" class="control-tile mobile-control mobile-quick-btn" data-mobile-control="downloads">
             <span class="mobile-quick-icon tone-blue" aria-hidden="true">
               <svg viewBox="0 0 24 24">
@@ -1985,6 +1998,14 @@
                   <button id="gyroZeroBtn" class="pill pill-gray" type="button">실행</button>
                 </div>
               </div>
+
+              <button id="findingBuzzerBtn" class="control-tile is-btn control-utility-tile" type="button" aria-label="선택 스테이지 파인딩 버저 켜기" aria-pressed="false">
+                <span>
+                  <span class="control-tile-label">파인딩 버저</span>
+                  <span id="findingBuzzerTarget" class="control-tile-sub">STAGE 1 locator</span>
+                </span>
+                <span id="findingBuzzerStatus" class="pill pill-gray">OFF</span>
+              </button>
 
             </div>
           </div>

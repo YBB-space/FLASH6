@@ -2992,6 +2992,7 @@
       syncMobileBoardHeader();
       syncWelcomeConnectScreen(isVerifiedBoardTransportConnected());
       syncFlashLinkTopologyUi();
+      if(typeof updateFindingBuzzerUi === "function") updateFindingBuzzerUi();
     }
     function syncDaqSequencePyroChannelToBoard(logIt){
       const channel = normalizePyroChannel(uiSettings && uiSettings.daqSequencePyroChannel, 1);

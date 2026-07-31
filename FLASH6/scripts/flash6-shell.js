@@ -845,6 +845,7 @@
       dashboardTelemetryStageId = next;
       updateStageTelemetryDashboard();
       syncDashboardSelectedStageTelemetry();
+      if(typeof updateFindingBuzzerUi === "function") updateFindingBuzzerUi();
       if(typeof redrawCharts === "function") redrawCharts();
     }
     function getStageTelemetryDashboardNodes(){

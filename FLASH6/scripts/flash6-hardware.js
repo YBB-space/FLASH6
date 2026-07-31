@@ -1,4 +1,77 @@
 /* FLASH6 hardware status, calibration, and control features. */
+    const findingBuzzerActiveByStage = {1:false, 2:false};
+    let findingBuzzerCommandBusy = false;
+    function findingBuzzerTargetNode(){
+      const role = typeof normalizeFlashLinkRole === "function"
+        ? normalizeFlashLinkRole(
+            (typeof flashLinkUiRole !== "undefined" && flashLinkUiRole) ||
+            (uiSettings && uiSettings.flashLinkRole)
+          )
+        : "avionics";
+      if(role === "ground") return Number(dashboardTelemetryStageId) === 2 ? 2 : 1;
+      const localNode = Number(
+        (typeof flashLinkUiNodeId !== "undefined" && flashLinkUiNodeId) ||
+        (uiSettings && uiSettings.flashLinkNodeId)
+      );
+      return localNode === 2 ? 2 : 1;
+    }
+    function setFindingBuzzerPill(node, active, busy){
+      if(!node) return;
+      node.textContent = busy ? "확인 중" : (active ? "ON" : "OFF");
+      node.classList.toggle("pill-green", active && !busy);
+      node.classList.toggle("pill-gray", !active || busy);
+    }
+    function updateFindingBuzzerUi(){
+      const stage = findingBuzzerTargetNode();
+      const active = !!findingBuzzerActiveByStage[stage];
+      if(el.findingBuzzerTarget) el.findingBuzzerTarget.textContent = "STAGE " + stage + " locator";
+      if(el.findingBuzzerBtn){
+        el.findingBuzzerBtn.classList.toggle("is-active", active);
+        el.findingBuzzerBtn.disabled = findingBuzzerCommandBusy;
+        el.findingBuzzerBtn.setAttribute("aria-pressed", active ? "true" : "false");
+        el.findingBuzzerBtn.setAttribute(
+          "aria-label",
+          "STAGE " + stage + " 파인딩 버저 " + (active ? "끄기" : "켜기")
+        );
+      }
+      if(el.mobileFindingBuzzerBtn){
+        el.mobileFindingBuzzerBtn.classList.toggle("is-active", active);
+        el.mobileFindingBuzzerBtn.disabled = findingBuzzerCommandBusy;
+        el.mobileFindingBuzzerBtn.setAttribute("aria-pressed", active ? "true" : "false");
+      }
+      setFindingBuzzerPill(el.findingBuzzerStatus, active, findingBuzzerCommandBusy);
+      setFindingBuzzerPill(el.mobileFindingBuzzerStatus, active, findingBuzzerCommandBusy);
+    }
+    async function toggleFindingBuzzer(){
+      if(findingBuzzerCommandBusy) return;
+      const stage = findingBuzzerTargetNode();
+      const nextActive = !findingBuzzerActiveByStage[stage];
+      findingBuzzerCommandBusy = true;
+      updateFindingBuzzerUi();
+      const result = await sendCommand(
+        nextActive
+          ? {
+              http:"/buzzer?pattern=find&loop=1&node=" + stage,
+              ser:"/buzzer?pattern=find&loop=1&node=" + stage
+            }
+          : {
+              http:"/buzzer_stop?node=" + stage,
+              ser:"/buzzer_stop?node=" + stage
+            },
+        true
+      );
+      findingBuzzerCommandBusy = false;
+      if(result && result.ok){
+        findingBuzzerActiveByStage[stage] = nextActive;
+        showToast(
+          "STAGE " + stage + " 파인딩 버저 " + (nextActive ? "작동" : "정지"),
+          nextActive ? "info" : "success"
+        );
+      }else{
+        showToast("파인딩 버저 명령을 전송하지 못했습니다.", "error");
+      }
+      updateFindingBuzzerUi();
+    }
     function setQuickItemStatus(targetEl, status){
       if(!targetEl) return;
       const item = targetEl.closest(".item, .status-battery, .status-chiptemp");
