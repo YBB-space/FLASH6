@@ -63,22 +63,19 @@ bool firmwareUpdateSha256Valid(const char* text) {
   return true;
 }
 
-bool firmwareUpdateSafetyReady() {
-  return safetyMode &&
-    armLock &&
-    sequenceState == kSequenceStateIdle &&
+bool firmwareUpdateOperationalReady() {
+  return sequenceState == kSequenceStateIdle &&
     !sequenceUserWaiting &&
     !missionLaunchStandby &&
     !buttonSequenceWarningActive &&
     sequenceRelayMask == 0U;
 }
 
-const char* firmwareUpdateSafetyError() {
-  if (!safetyMode) return "SAFETY_MODE_REQUIRED";
-  if (!armLock) return "ARM_LOCK_REQUIRED";
+const char* firmwareUpdateOperationalError() {
+  if (sequenceUserWaiting || missionLaunchStandby) {
+    return "MISSION_STANDBY_ACTIVE";
+  }
   if (sequenceState != kSequenceStateIdle ||
-      sequenceUserWaiting ||
-      missionLaunchStandby ||
       buttonSequenceWarningActive) {
     return "SEQUENCE_ACTIVE";
   }
@@ -111,8 +108,8 @@ bool firmwareUpdateBegin(
     firmwareUpdateSetError("UPDATE_BUSY");
     return false;
   }
-  if (!firmwareUpdateSafetyReady()) {
-    firmwareUpdateSetError(firmwareUpdateSafetyError());
+  if (!firmwareUpdateOperationalReady()) {
+    firmwareUpdateSetError(firmwareUpdateOperationalError());
     return false;
   }
   if (transport == FirmwareUpdateTransport::None) {
@@ -162,7 +159,7 @@ bool firmwareUpdateBegin(
     return false;
   }
 
-  // The safety checks above guarantee that no mission output is owned. Keep
+  // The operational checks above guarantee that no mission output is owned. Keep
   // the pins explicitly low while telemetry, A.I LINK, sensors and logging
   // are paused for the update.
   sequenceRelayMask = 0U;

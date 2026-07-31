@@ -3,6 +3,26 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.12.3 — v6 b64 / operational update gate — 2026-07-31
+
+Protocol unchanged: `Flash6-Intelligent-b14`
+
+Storage record protocol unchanged: `HWLOGV2` version `9`
+
+- USB·Wi-Fi·A.I LINK 펌웨어 업데이트의 안전모드 및 ARM 잠금 필수
+  조건을 제거했습니다.
+- 시퀀스 실행, 미션 대기, 파이로 출력 중에는 기존처럼 업데이트를
+  차단하며 A.I LINK 직결 품질·비행 상태·S/N 검사는 유지합니다.
+- 로컬 및 원격 보드 사전검사와 FLASH6 준비 상태 표시를 동일한
+  운용 조건으로 통일했습니다.
+
+## FLASH6 UI b167 — 2026-07-31
+
+- 업데이트 준비 카드에서 안전모드·ARM 잠금 항목을 제거하고
+  시퀀스 정지 및 미션 대기 해제 상태를 표시합니다.
+- 최종 확인 안내와 업데이트 버튼 활성 조건도 새 운용 조건에
+  맞게 변경했습니다.
+
 ## 0.12.2 — v6 b63 / unified buzzer language — 2026-07-31
 
 Protocol unchanged: `Flash6-Intelligent-b14`

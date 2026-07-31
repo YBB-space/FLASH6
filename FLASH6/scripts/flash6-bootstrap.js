@@ -581,8 +581,8 @@
       el.firmwareUpdateFileLabel = document.getElementById("firmwareUpdateFileLabel");
       el.firmwareUpdateFileName = document.getElementById("firmwareUpdateFileName");
       el.firmwareUpdateFileMeta = document.getElementById("firmwareUpdateFileMeta");
-      el.firmwareUpdateSafetyState = document.getElementById("firmwareUpdateSafetyState");
-      el.firmwareUpdateArmState = document.getElementById("firmwareUpdateArmState");
+      el.firmwareUpdateSequenceState = document.getElementById("firmwareUpdateSequenceState");
+      el.firmwareUpdateMissionState = document.getElementById("firmwareUpdateMissionState");
       el.firmwareUpdateStatus = document.getElementById("firmwareUpdateStatus");
       el.firmwareUpdateProgressStage = document.getElementById("firmwareUpdateProgressStage");
       el.firmwareUpdateProgressPercent = document.getElementById("firmwareUpdateProgressPercent");

@@ -26744,14 +26744,14 @@ function requestMobileMockup3dMesh(){
       const telemetry = remoteState && remoteState.data
         ? remoteState.data
         : (latestTelemetry || {});
-      const safe = Number(telemetry.sm) === 1;
-      const armLocked = Number(telemetry.al) === 1;
-      const idle = Number(telemetry.st || 0) === 0 &&
+      const sequenceIdle = Number(telemetry.st || 0) === 0 &&
         Number(telemetry.rly || 0) === 0;
+      const missionWaiting = Number(telemetry.uw || 0) === 1;
+      const idle = sequenceIdle && !missionWaiting;
       const transport = firmwareUpdateTransportKind();
       return {
-        safe,
-        armLocked,
+        sequenceIdle,
+        missionWaiting,
         idle,
         connected: transport !== "none",
         targetConnected: remoteNode === 0 ||
@@ -26787,6 +26787,7 @@ function requestMobileMockup3dMesh(){
         FIRMWARE_EMPTY_BODY:"선택한 펌웨어 파일이 비어 있습니다.",
         GROUND_ROLE_REQUIRED:"A.I LINK 원격 업데이트는 지상국 모드에서만 사용할 수 있습니다.",
         GROUND_SEQUENCE_ACTIVE:"지상국 시퀀스가 진행 중이라 업데이트를 시작할 수 없습니다.",
+        GROUND_MISSION_STANDBY_ACTIVE:"지상국이 미션 대기 상태라 업데이트를 시작할 수 없습니다.",
         STAGE2_MODE_REQUIRED:"지상국의 2단부 운용 모드를 먼저 켜세요.",
         TARGET_OFFLINE:"대상 에비오닉스가 오프라인입니다.",
         DIRECT_LINK_REQUIRED:"중계 경로에서는 업데이트할 수 없습니다. 대상 보드를 지상국 앞에 두고 직결 상태를 확인하세요.",
@@ -26795,6 +26796,8 @@ function requestMobileMockup3dMesh(){
         LINK_RX_RATE_LOW:"A.I LINK 수신률이 낮습니다. 링크가 안정될 때까지 기다리세요.",
         FLIGHT_ACTIVE:"대상 보드가 비행 상태입니다. 비행 중에는 업데이트할 수 없습니다.",
         TARGET_SEQUENCE_ACTIVE:"대상 보드의 미션 또는 시퀀스가 진행 중입니다.",
+        MISSION_STANDBY_ACTIVE:"보드가 미션 대기 상태라 업데이트를 시작할 수 없습니다.",
+        TARGET_MISSION_STANDBY_ACTIVE:"대상 보드가 미션 대기 상태라 업데이트를 시작할 수 없습니다.",
         TARGET_SAFETY_REQUIRED:"대상 에비오닉스의 안전 모드를 켜세요.",
         TARGET_ARM_LOCK_REQUIRED:"대상 에비오닉스의 ARM 잠금을 켜세요.",
         TARGET_ID_MISSING:"대상 보드의 S/N을 확인할 수 없습니다.",
@@ -26822,13 +26825,13 @@ function requestMobileMockup3dMesh(){
         el.firmwareUpdateTransport.textContent = firmwareUpdateTransportLabel();
       }
       setFirmwareUpdateCheck(
-        el.firmwareUpdateSafetyState,
-        readiness.safe && readiness.idle,
-        readiness.safe ? (readiness.idle ? "적용됨" : "시퀀스 확인") : "OFF");
+        el.firmwareUpdateSequenceState,
+        readiness.sequenceIdle,
+        readiness.sequenceIdle ? "정지" : "실행 중");
       setFirmwareUpdateCheck(
-        el.firmwareUpdateArmState,
-        readiness.armLocked && Number(latestTelemetry && latestTelemetry.rly || 0) === 0,
-        readiness.armLocked ? "잠김" : "해제");
+        el.firmwareUpdateMissionState,
+        !readiness.missionWaiting,
+        readiness.missionWaiting ? "대기 중" : "해제");
 
       let status = firmwareUpdateBundledLoading && !firmwareUpdateFile
         ? "프로젝트에 포함된 펌웨어를 불러오는 중입니다…"
@@ -26837,12 +26840,10 @@ function requestMobileMockup3dMesh(){
         status = firmwareUpdateValidationError;
       }else if(firmwareUpdateFile && !firmwareUpdateBuffer){
         status = "펌웨어 파일을 검사하고 있습니다…";
-      }else if(firmwareUpdateBuffer && remoteNode === 0 && !readiness.safe){
-        status = "안전 모드를 켜야 업데이트할 수 있습니다.";
-      }else if(firmwareUpdateBuffer && remoteNode === 0 && !readiness.armLocked){
-        status = "ARM 잠금을 적용해야 업데이트할 수 있습니다.";
       }else if(firmwareUpdateBuffer && remoteNode === 0 && !readiness.idle){
-        status = "진행 중인 시퀀스와 파이로 출력을 먼저 종료하세요.";
+        status = readiness.missionWaiting
+          ? "미션 대기 상태를 먼저 해제하세요."
+          : "진행 중인 시퀀스와 파이로 출력을 먼저 종료하세요.";
       }else if(firmwareUpdateBuffer && !readiness.connected){
         status = "USB 또는 지상국 Wi-Fi로 보드를 직접 연결하세요.";
       }else if(firmwareUpdateBuffer && remoteNode > 0){
@@ -26856,8 +26857,6 @@ function requestMobileMockup3dMesh(){
         el.firmwareUpdateStatus.classList.toggle(
           "is-ready",
           !!firmwareUpdateBuffer &&
-          (remoteNode > 0 || readiness.safe) &&
-          (remoteNode > 0 || readiness.armLocked) &&
           (remoteNode > 0 || readiness.idle) &&
           readiness.connected);
       }
@@ -26866,8 +26865,6 @@ function requestMobileMockup3dMesh(){
           firmwareUpdateUiBusy ||
           !firmwareUpdateBuffer ||
           !firmwareUpdateSha256 ||
-          (remoteNode === 0 && !readiness.safe) ||
-          (remoteNode === 0 && !readiness.armLocked) ||
           (remoteNode === 0 && !readiness.idle) ||
           !readiness.connected);
       }
@@ -27416,12 +27413,12 @@ function requestMobileMockup3dMesh(){
         return uploadFirmwareOverAiLinkSerial(buffer, hash, node);
       }
 
-      // Safety and link quality are checked before the image is copied to the
+      // Operational state and link quality are checked before the image is copied to the
       // ground station, then checked once more immediately before radio TX.
       await requestAiLinkFirmwareJson(
         "/firmware/remote/preflight?node=" + encodeURIComponent(node),
         5000);
-      updateFirmwareProgress(0, buffer.byteLength, "안전 상태와 A.I LINK 품질 확인 완료");
+      updateFirmwareProgress(0, buffer.byteLength, "운용 상태와 A.I LINK 품질 확인 완료");
       await stageFirmwareAtGround(buffer, hash, node);
       firmwareUpdateLastProgressAt = performance.now();
       firmwareUpdateLastProgressBytes = 0;
@@ -27654,6 +27651,7 @@ function requestMobileMockup3dMesh(){
           "BAD_TARGET",
           "STAGE2_MODE_REQUIRED",
           "GROUND_SEQUENCE_ACTIVE",
+          "GROUND_MISSION_STANDBY_ACTIVE",
           "TARGET_OFFLINE",
           "DIRECT_LINK_REQUIRED",
           "LINK_RSSI_LOW",
@@ -27661,8 +27659,7 @@ function requestMobileMockup3dMesh(){
           "LINK_RX_RATE_LOW",
           "FLIGHT_ACTIVE",
           "TARGET_SEQUENCE_ACTIVE",
-          "TARGET_SAFETY_REQUIRED",
-          "TARGET_ARM_LOCK_REQUIRED",
+          "TARGET_MISSION_STANDBY_ACTIVE",
           "TARGET_ID_MISSING"
         ]);
         firmwareUpdateValidationError = firmwareUpdateErrorText(errorCode);
@@ -41214,8 +41211,8 @@ function requestMobileMockup3dMesh(){
       el.firmwareUpdateFileLabel = document.getElementById("firmwareUpdateFileLabel");
       el.firmwareUpdateFileName = document.getElementById("firmwareUpdateFileName");
       el.firmwareUpdateFileMeta = document.getElementById("firmwareUpdateFileMeta");
-      el.firmwareUpdateSafetyState = document.getElementById("firmwareUpdateSafetyState");
-      el.firmwareUpdateArmState = document.getElementById("firmwareUpdateArmState");
+      el.firmwareUpdateSequenceState = document.getElementById("firmwareUpdateSequenceState");
+      el.firmwareUpdateMissionState = document.getElementById("firmwareUpdateMissionState");
       el.firmwareUpdateStatus = document.getElementById("firmwareUpdateStatus");
       el.firmwareUpdateProgressStage = document.getElementById("firmwareUpdateProgressStage");
       el.firmwareUpdateProgressPercent = document.getElementById("firmwareUpdateProgressPercent");

@@ -2043,9 +2043,10 @@ bool flashLinkFirmwarePreflight(
   if (targetNodeId == kFlashLinkNodeIdStage2 && !flashLinkStage2Enabled) {
     return fail("STAGE2_MODE_REQUIRED");
   }
+  if (sequenceUserWaiting || missionLaunchStandby) {
+    return fail("GROUND_MISSION_STANDBY_ACTIVE");
+  }
   if (sequenceState != kSequenceStateIdle ||
-      sequenceUserWaiting ||
-      missionLaunchStandby ||
       buttonSequenceWarningActive ||
       sequenceRelayMask != 0U) {
     return fail("GROUND_SEQUENCE_ACTIVE");
@@ -2078,16 +2079,12 @@ bool flashLinkFirmwarePreflight(
         static_cast<uint8_t>(FlightPhase::PreFlight)) {
     return fail("FLIGHT_ACTIVE");
   }
+  if ((peer->state.flags & (1U << 7)) != 0U) {
+    return fail("TARGET_MISSION_STANDBY_ACTIVE");
+  }
   if (peer->state.state != kSequenceStateIdle ||
-      (peer->state.flags & (1U << 7)) != 0U ||
       peer->state.relayMask != 0U) {
     return fail("TARGET_SEQUENCE_ACTIVE");
-  }
-  if ((peer->state.flags & (1U << 9)) == 0U) {
-    return fail("TARGET_SAFETY_REQUIRED");
-  }
-  if ((peer->state.flags & (1U << 10)) == 0U) {
-    return fail("TARGET_ARM_LOCK_REQUIRED");
   }
   if (peer->deviceId == 0U) return fail("TARGET_ID_MISSING");
   if (error && errorLen > 0U) error[0] = '\0';
