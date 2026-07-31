@@ -3,6 +3,19 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.12.11 — v6 b72 / stage-2 Hall ignition recovery — 2026-08-01
+
+Protocol unchanged: `Flash6-Intelligent-b14`
+
+Storage record protocol unchanged: `HWLOGV2` version `9`
+
+- 2단부 단분리 점화를 홀센서의 단일 `LOW→HIGH` 엣지에만 의존하지 않고,
+  T+ 이후 디바운스가 끝난 물리적 HIGH 상태를 매 제어 틱에서 재검증하도록
+  보강했습니다. 단간 이벤트와 홀센서 전환이 같은 시점에 겹쳐 엣지가
+  누락되어도 단분리 상태를 복구하고 `PYRO CH1`을 즉시 1초간 출력합니다.
+- 단분리 상태 기록, 단간 알림, 점화 출력을 하나의 함수로 통합해 엣지 경로와
+  상태 복구 경로가 서로 다른 조건으로 동작하지 않도록 정리했습니다.
+
 ## 0.12.10 — v6 b71 / physical separation ignition and forced recovery finder — 2026-07-31
 
 Protocol unchanged: `Flash6-Intelligent-b14`

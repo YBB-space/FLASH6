@@ -787,6 +787,27 @@ void missionCommandStage2Ignition(uint32_t nowMs) {
   missionEmitAlarm(0, "Stage-2 ignition", "PYRO CH1 ignition output started for 1.0 s.");
 }
 
+void missionLatchStage2PhysicalSeparation(uint32_t detectedMs, uint32_t nowMs) {
+  if (!missionIsStage2Node() || launchMission.stage2ArmReleased) return;
+
+  launchMission.stage2ArmReleased = true;
+  launchMission.stage2ArmReleasedMs = detectedMs != 0U ? detectedMs : nowMs;
+  if (!launchMission.launchLatched) return;
+
+  if (launchMission.stage1SeparationMs == 0U) {
+    launchMission.stage1SeparationMs = launchMission.stage2ArmReleasedMs;
+  }
+  missionSendInterstageEvent(
+    MissionInterstageEventCode::Stage2ArmReleased,
+    launchMission.stage2ArmReleasedMs,
+    (int32_t)(launchMission.stage2ArmReleasedMs - launchMission.launchMs));
+  missionEmitAlarm(0, "Stage-2 separation", "Hall sensor confirmed magnet departure.");
+  // The physical Hall state owns ignition authority. Starting the pulse here
+  // also covers a separation edge that was detected before the Stage-1 T+
+  // packet arrived.
+  missionCommandStage2Ignition(nowMs);
+}
+
 void missionCommandStage2Ejection(uint32_t nowMs, bool backup) {
   if (launchMission.stage2Ejected) return;
   const bool ok = setServoAngle(1U, missionStage2EjectionAngleDeg);
@@ -1124,25 +1145,8 @@ void missionLaunchSequenceTick(uint32_t nowMs, bool armReleased, uint32_t armRel
         }
       }
     } else if (missionIsStage2Node() &&
-               (missionLaunchStandby || launchMission.launchLatched) &&
-               !launchMission.stage2ArmReleased) {
-      launchMission.stage2ArmReleased = true;
-      launchMission.stage2ArmReleasedMs = armReleasedMs;
-      if (launchMission.launchLatched) {
-        if (launchMission.stage1SeparationMs == 0U) {
-          launchMission.stage1SeparationMs = armReleasedMs;
-        }
-        missionSendInterstageEvent(
-          MissionInterstageEventCode::Stage2ArmReleased,
-          armReleasedMs,
-          (int32_t)(armReleasedMs - launchMission.launchMs));
-        missionEmitAlarm(0, "Stage-2 separation", "Hall sensor confirmed magnet departure.");
-        // The Hall edge is the physical separation confirmation. Do not wait
-        // for a duplicate Stage-1 radio event: that packet can be lost at the
-        // exact moment the vehicles move apart. Start CH1 in this same
-        // mission tick and hold it for the fixed one-second ignition pulse.
-        missionCommandStage2Ignition(nowMs);
-      }
+               (missionLaunchStandby || launchMission.launchLatched)) {
+      missionLatchStage2PhysicalSeparation(armReleasedMs, nowMs);
     }
   }
 
@@ -1236,6 +1240,16 @@ void missionLaunchSequenceTick(uint32_t nowMs, bool armReleased, uint32_t armRel
   }
 
   if (missionIsStage2Node() && launchMission.launchLatched) {
+    // LOW (magnet near) means installed and HIGH means separated on Stage 2.
+    // An event-only implementation could permanently miss ignition if the
+    // debounced edge coincided with a standby/T+ synchronization update. Once
+    // T+ exists, reconcile the stable Hall level every control tick so the
+    // physical separation state remains recoverable without relaxing safety.
+    if (!launchMission.stage2ArmReleased && launchMission.armStableOn) {
+      missionLatchStage2PhysicalSeparation(
+        launchMission.armRawChangedMs,
+        nowMs);
+    }
     if (!launchMission.stage2Ignited && launchMission.stage2ArmReleased) {
       if (launchMission.stage1SeparationMs == 0U) {
         // The Hall sensor remains the authoritative physical separation
