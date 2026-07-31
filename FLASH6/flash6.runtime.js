@@ -8640,6 +8640,68 @@ function requestMobileMockup3dMesh(){
       return "";
     }
 
+    function syncCameraSystemClock(){
+      if(!el.cameraSystemTime) return;
+      const now = new Date();
+      const value = String(now.getHours()).padStart(2, "0") + ":" +
+        String(now.getMinutes()).padStart(2, "0");
+      if(el.cameraSystemTime.textContent !== value) el.cameraSystemTime.textContent = value;
+    }
+
+    function syncCameraStageSystemStatus(stageId, fallbackData, fallbackConnected){
+      const id = Number(stageId) === 2 ? 2 : 1;
+      const stageState = stageTelemetryModeActive ? stageTelemetryStore[id] : null;
+      const available = !!(stageState && stageState.valid && stageState.data);
+      const data = available
+        ? stageState.data
+        : (id === 1 && !stageTelemetryModeActive ? (fallbackData || {}) : null);
+      const connected = available
+        ? !!stageState.connected
+        : (id === 1 && !stageTelemetryModeActive ? !!fallbackConnected : false);
+      const statusNode = el["cameraStage" + id + "Status"];
+      const linkNode = el["cameraStage" + id + "Link"];
+      if(statusNode) statusNode.classList.toggle("is-online", connected);
+      if(linkNode) linkNode.textContent = connected ? "ONLINE" : (available ? "STALE" : "OFFLINE");
+
+      const armRaw = data && (data.swOn ?? data.s ?? data.sw);
+      const armText = armRaw == null ? "--" : (Number(armRaw) ? "ON" : "OFF");
+      const delayMs = Number(data && (data.ignitionDelayMs ?? data.ignition_delay_ms));
+      const delayValidRaw = data && (data.ignitionDelayValid ?? data.ignition_delay_valid);
+      const delayValid = delayValidRaw == null || Number(delayValidRaw) !== 0;
+      const delayText = data && delayValid && isFinite(delayMs) && delayMs >= 0
+        ? (delayMs / 1000).toFixed(2)
+        : "--";
+      const pyroRaw = data && (data.pyroChannel ?? data.pyro_ch ?? data.daq_seq_pyro ?? data.daq_pyro);
+      const pyroChannel = isFinite(Number(pyroRaw))
+        ? normalizePyroChannel(pyroRaw, 1)
+        : normalizePyroChannel(uiSettings && uiSettings.daqSequencePyroChannel, 1);
+      let storageInfo = null;
+      if(stageTelemetryModeActive){
+        storageInfo = latestAvionicsStorageByStage[id] || null;
+      }else if(id === 1){
+        try{ storageInfo = getActiveStoragePreviewInfo(); }catch(_error){}
+      }
+      let storagePercent = NaN;
+      try{ storagePercent = getSpiFlashUsedPercent(storageInfo); }catch(_error){}
+
+      const setValue = (suffix, value)=>{
+        const node = el["cameraStage" + id + suffix];
+        if(node) node.textContent = value;
+      };
+      setValue("Arm", armText);
+      setValue("IgnitionDelay", delayText);
+      setValue("Pyro", data ? ("CH" + pyroChannel) : "--");
+      setValue("Storage", isFinite(storagePercent) ? storagePercent.toFixed(1) + "%" : "--");
+    }
+
+    function syncCameraSystemStatusBar(data, linkOk){
+      syncCameraSystemClock();
+      syncCameraStageSystemStatus(1, data, linkOk);
+      syncCameraStageSystemStatus(2, data, false);
+      if(el.cameraSystemStatusBar) el.cameraSystemStatusBar.classList.toggle("is-linked", !!linkOk);
+      if(el.cameraSystemGroundLink) el.cameraSystemGroundLink.textContent = linkOk ? "A.I LINK" : "OFFLINE";
+    }
+
     function syncCameraHud(values){
       const data = values || {};
       updateCameraStageSeparation(data);
@@ -8667,6 +8729,7 @@ function requestMobileMockup3dMesh(){
       const linkOk = data.connected == null
         ? !!(connOk || wsConnected || serialConnected)
         : !!data.connected;
+      syncCameraSystemStatusBar(data, linkOk);
       const cameraMissionName = (
         (el.missionName && el.missionName.value) ||
         selectedMotorName ||
@@ -8747,18 +8810,6 @@ function requestMobileMockup3dMesh(){
       setText(el.cameraChartAltitude, isFinite(altitudeValue) ? altitudeValue.toFixed(1) + "m" : "--");
       setText(el.cameraChartSpeed, isFinite(speedValue) ? Math.max(0, speedValue).toFixed(1) + "m/s" : "--");
       setText(el.cameraChartGforce, isFinite(gforceValue) ? Math.max(0, gforceValue).toFixed(2) : "--");
-      setText(el.cameraHudArm, data.swOn == null ? "--" : (data.swOn ? "ON" : "OFF"));
-      const telemetryIgnitionDelayMs = Number(data.ignitionDelayMs);
-      const telemetryIgnitionDelayValid = Number(data.ignitionDelayValid) !== 0 &&
-        isFinite(telemetryIgnitionDelayMs) && telemetryIgnitionDelayMs >= 0;
-      const ignitionDelaySec = telemetryIgnitionDelayValid
-        ? telemetryIgnitionDelayMs / 1000
-        : Number(ignitionAnalysis && ignitionAnalysis.delaySec);
-      setText(el.cameraHudIgnitionDelay, isFinite(ignitionDelaySec) ? ignitionDelaySec.toFixed(2) : "--");
-      const pyroChannel = normalizePyroChannel(uiSettings && uiSettings.daqSequencePyroChannel, 1);
-      setText(el.cameraHudPyro, "CH" + pyroChannel);
-      const storagePercent = getSpiFlashUsedPercent(getActiveStoragePreviewInfo());
-      setText(el.cameraHudStorage, isFinite(storagePercent) ? storagePercent.toFixed(1) + "%" : "--");
       const hudStageId = Number(data.stageId);
       const hudLinkPrefix = hudStageId === 1 || hudStageId === 2 ? ("STAGE " + hudStageId + " • ") : "";
       setText(el.cameraHudLink, hudLinkPrefix + (linkOk ? "LINK CONNECTED" : "LINK DISCONNECTED"));
@@ -16523,6 +16574,31 @@ function requestMobileMockup3dMesh(){
       return !!(el.alarmHistoryPanel && !el.alarmHistoryPanel.classList.contains("hidden"));
     }
 
+    function getAlarmControlSource(action){
+      const key = String(action || "").toLowerCase();
+      if(key === "dashboard") return document.getElementById("desktopDashboardBtn");
+      if(key === "controls") return document.getElementById("desktopControlPanelNavBtn");
+      if(key === "storage") return document.getElementById("sidebarStorageBtn");
+      if(key === "mission") return document.querySelector('.side-nav-desktop .side-nav-item[data-page-title="Mission"]');
+      if(key === "terminal") return document.getElementById("sidebarTerminalBtn");
+      if(key === "settings") return document.getElementById("sidebarSettingsBtn");
+      return null;
+    }
+
+    function syncAlarmControlButtons(){
+      if(!el.alarmControlButtons || !el.alarmControlButtons.length) return;
+      el.alarmControlButtons.forEach((button)=>{
+        const action = String(button.dataset.controlCenterAction || "").toLowerCase();
+        const source = getAlarmControlSource(action);
+        let active = !!(source && source.classList.contains("active"));
+        if(action === "controls") active = document.body.classList.contains("control-drawer-open");
+        if(action === "settings"){
+          active = !!(el.settingsOverlay && !el.settingsOverlay.classList.contains("hidden"));
+        }
+        button.classList.toggle("is-active", active);
+      });
+    }
+
     function formatAlarmHistoryTime(timestamp){
       const date = new Date(Number(timestamp) || Date.now());
       return date.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit", second:"2-digit"});
@@ -16605,9 +16681,10 @@ function requestMobileMockup3dMesh(){
       el.alarmHistoryPanel.setAttribute("aria-hidden", next ? "false" : "true");
       el.alarmHistoryToggle.classList.toggle("is-open", next);
       el.alarmHistoryToggle.setAttribute("aria-expanded", next ? "true" : "false");
-      el.alarmHistoryToggle.setAttribute("aria-label", next ? "알람 목록 닫기" : "알람 목록 열기");
+      el.alarmHistoryToggle.setAttribute("aria-label", next ? "제어 센터 닫기" : "제어 센터 열기");
       if(next){
         alarmHistoryUnreadCount = 0;
+        syncAlarmControlButtons();
         renderAlarmHistory();
       }
     }
@@ -18369,7 +18446,12 @@ function requestMobileMockup3dMesh(){
     function positionDesktopNavAbortButton(){
       if(!el.desktopNavAbortBtn || window.innerWidth <= 900) return;
       const nav = document.querySelector(".side-nav-desktop");
-      if(!nav) return;
+      const navVisible = !!(nav && window.getComputedStyle(nav).display !== "none");
+      if(!navVisible){
+        el.desktopNavAbortBtn.style.top = "18px";
+        el.desktopNavAbortBtn.style.right = "18px";
+        return;
+      }
       const navRect = nav.getBoundingClientRect();
       const buttonRect = el.desktopNavAbortBtn.getBoundingClientRect();
       const buttonSize = buttonRect.height || 72;
@@ -40848,6 +40930,7 @@ function requestMobileMockup3dMesh(){
       el.alarmHistoryCount = document.getElementById("alarmHistoryCount");
       el.alarmHistoryClear = document.getElementById("alarmHistoryClear");
       el.alarmHistoryList = document.getElementById("alarmHistoryList");
+      el.alarmControlButtons = document.querySelectorAll("[data-control-center-action]");
       el.desktopCameraBtn = document.getElementById("desktopCameraBtn");
       el.webcamPanel = document.getElementById("webcamPanel");
       el.webcamVideo = document.getElementById("webcamVideo");
@@ -41075,10 +41158,17 @@ function requestMobileMockup3dMesh(){
       el.cameraHudGforceProg = document.getElementById("cameraHudGforceProg");
       el.cameraHudAltitudeGauge = document.getElementById("cameraHudAltitudeGauge");
       el.cameraHudAltitudeProg = document.getElementById("cameraHudAltitudeProg");
-      el.cameraHudArm = document.getElementById("cameraHudArm");
-      el.cameraHudIgnitionDelay = document.getElementById("cameraHudIgnitionDelay");
-      el.cameraHudPyro = document.getElementById("cameraHudPyro");
-      el.cameraHudStorage = document.getElementById("cameraHudStorage");
+      el.cameraSystemStatusBar = document.getElementById("cameraSystemStatusBar");
+      el.cameraSystemTime = document.getElementById("cameraSystemTime");
+      el.cameraSystemGroundLink = document.getElementById("cameraSystemGroundLink");
+      [1, 2].forEach((stageId)=>{
+        el["cameraStage" + stageId + "Status"] = document.getElementById("cameraStage" + stageId + "Status");
+        el["cameraStage" + stageId + "Link"] = document.getElementById("cameraStage" + stageId + "Link");
+        el["cameraStage" + stageId + "Arm"] = document.getElementById("cameraStage" + stageId + "Arm");
+        el["cameraStage" + stageId + "IgnitionDelay"] = document.getElementById("cameraStage" + stageId + "IgnitionDelay");
+        el["cameraStage" + stageId + "Pyro"] = document.getElementById("cameraStage" + stageId + "Pyro");
+        el["cameraStage" + stageId + "Storage"] = document.getElementById("cameraStage" + stageId + "Storage");
+      });
       el.cameraHudLink = document.getElementById("cameraHudLink");
       el.cameraAltitudeChart = document.getElementById("cameraAltitudeChart");
       el.cameraDynamicsChart = document.getElementById("cameraDynamicsChart");
@@ -46716,6 +46806,17 @@ function requestMobileMockup3dMesh(){
       if(el.alarmHistoryPanel){
         el.alarmHistoryPanel.addEventListener("click", (event)=>event.stopPropagation());
       }
+      if(el.alarmControlButtons && el.alarmControlButtons.length){
+        el.alarmControlButtons.forEach((button)=>{
+          button.addEventListener("click", (event)=>{
+            event.preventDefault();
+            event.stopPropagation();
+            const source = getAlarmControlSource(button.dataset.controlCenterAction);
+            if(source) source.click();
+            setAlarmHistoryOpen(false);
+          });
+        });
+      }
       if(el.alarmHistoryClear){
         el.alarmHistoryClear.addEventListener("click", ()=>{
           alarmHistory = [];
@@ -46846,6 +46947,8 @@ function requestMobileMockup3dMesh(){
       // KST 실시간 업데이트
       updateKstClock();
       intervalApp(updateKstClock, 1000);
+      syncCameraSystemClock();
+      intervalApp(syncCameraSystemClock, 1000);
 
       if (typeof window !== "undefined" && window.__flashBoot) {
         window.__flashBoot.jsReady = true;

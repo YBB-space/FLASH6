@@ -1591,6 +1591,68 @@
       return "";
     }
 
+    function syncCameraSystemClock(){
+      if(!el.cameraSystemTime) return;
+      const now = new Date();
+      const value = String(now.getHours()).padStart(2, "0") + ":" +
+        String(now.getMinutes()).padStart(2, "0");
+      if(el.cameraSystemTime.textContent !== value) el.cameraSystemTime.textContent = value;
+    }
+
+    function syncCameraStageSystemStatus(stageId, fallbackData, fallbackConnected){
+      const id = Number(stageId) === 2 ? 2 : 1;
+      const stageState = stageTelemetryModeActive ? stageTelemetryStore[id] : null;
+      const available = !!(stageState && stageState.valid && stageState.data);
+      const data = available
+        ? stageState.data
+        : (id === 1 && !stageTelemetryModeActive ? (fallbackData || {}) : null);
+      const connected = available
+        ? !!stageState.connected
+        : (id === 1 && !stageTelemetryModeActive ? !!fallbackConnected : false);
+      const statusNode = el["cameraStage" + id + "Status"];
+      const linkNode = el["cameraStage" + id + "Link"];
+      if(statusNode) statusNode.classList.toggle("is-online", connected);
+      if(linkNode) linkNode.textContent = connected ? "ONLINE" : (available ? "STALE" : "OFFLINE");
+
+      const armRaw = data && (data.swOn ?? data.s ?? data.sw);
+      const armText = armRaw == null ? "--" : (Number(armRaw) ? "ON" : "OFF");
+      const delayMs = Number(data && (data.ignitionDelayMs ?? data.ignition_delay_ms));
+      const delayValidRaw = data && (data.ignitionDelayValid ?? data.ignition_delay_valid);
+      const delayValid = delayValidRaw == null || Number(delayValidRaw) !== 0;
+      const delayText = data && delayValid && isFinite(delayMs) && delayMs >= 0
+        ? (delayMs / 1000).toFixed(2)
+        : "--";
+      const pyroRaw = data && (data.pyroChannel ?? data.pyro_ch ?? data.daq_seq_pyro ?? data.daq_pyro);
+      const pyroChannel = isFinite(Number(pyroRaw))
+        ? normalizePyroChannel(pyroRaw, 1)
+        : normalizePyroChannel(uiSettings && uiSettings.daqSequencePyroChannel, 1);
+      let storageInfo = null;
+      if(stageTelemetryModeActive){
+        storageInfo = latestAvionicsStorageByStage[id] || null;
+      }else if(id === 1){
+        try{ storageInfo = getActiveStoragePreviewInfo(); }catch(_error){}
+      }
+      let storagePercent = NaN;
+      try{ storagePercent = getSpiFlashUsedPercent(storageInfo); }catch(_error){}
+
+      const setValue = (suffix, value)=>{
+        const node = el["cameraStage" + id + suffix];
+        if(node) node.textContent = value;
+      };
+      setValue("Arm", armText);
+      setValue("IgnitionDelay", delayText);
+      setValue("Pyro", data ? ("CH" + pyroChannel) : "--");
+      setValue("Storage", isFinite(storagePercent) ? storagePercent.toFixed(1) + "%" : "--");
+    }
+
+    function syncCameraSystemStatusBar(data, linkOk){
+      syncCameraSystemClock();
+      syncCameraStageSystemStatus(1, data, linkOk);
+      syncCameraStageSystemStatus(2, data, false);
+      if(el.cameraSystemStatusBar) el.cameraSystemStatusBar.classList.toggle("is-linked", !!linkOk);
+      if(el.cameraSystemGroundLink) el.cameraSystemGroundLink.textContent = linkOk ? "A.I LINK" : "OFFLINE";
+    }
+
     function syncCameraHud(values){
       const data = values || {};
       updateCameraStageSeparation(data);
@@ -1618,6 +1680,7 @@
       const linkOk = data.connected == null
         ? !!(connOk || wsConnected || serialConnected)
         : !!data.connected;
+      syncCameraSystemStatusBar(data, linkOk);
       const cameraMissionName = (
         (el.missionName && el.missionName.value) ||
         selectedMotorName ||
@@ -1698,18 +1761,6 @@
       setText(el.cameraChartAltitude, isFinite(altitudeValue) ? altitudeValue.toFixed(1) + "m" : "--");
       setText(el.cameraChartSpeed, isFinite(speedValue) ? Math.max(0, speedValue).toFixed(1) + "m/s" : "--");
       setText(el.cameraChartGforce, isFinite(gforceValue) ? Math.max(0, gforceValue).toFixed(2) : "--");
-      setText(el.cameraHudArm, data.swOn == null ? "--" : (data.swOn ? "ON" : "OFF"));
-      const telemetryIgnitionDelayMs = Number(data.ignitionDelayMs);
-      const telemetryIgnitionDelayValid = Number(data.ignitionDelayValid) !== 0 &&
-        isFinite(telemetryIgnitionDelayMs) && telemetryIgnitionDelayMs >= 0;
-      const ignitionDelaySec = telemetryIgnitionDelayValid
-        ? telemetryIgnitionDelayMs / 1000
-        : Number(ignitionAnalysis && ignitionAnalysis.delaySec);
-      setText(el.cameraHudIgnitionDelay, isFinite(ignitionDelaySec) ? ignitionDelaySec.toFixed(2) : "--");
-      const pyroChannel = normalizePyroChannel(uiSettings && uiSettings.daqSequencePyroChannel, 1);
-      setText(el.cameraHudPyro, "CH" + pyroChannel);
-      const storagePercent = getSpiFlashUsedPercent(getActiveStoragePreviewInfo());
-      setText(el.cameraHudStorage, isFinite(storagePercent) ? storagePercent.toFixed(1) + "%" : "--");
       const hudStageId = Number(data.stageId);
       const hudLinkPrefix = hudStageId === 1 || hudStageId === 2 ? ("STAGE " + hudStageId + " • ") : "";
       setText(el.cameraHudLink, hudLinkPrefix + (linkOk ? "LINK CONNECTED" : "LINK DISCONNECTED"));

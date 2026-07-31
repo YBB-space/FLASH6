@@ -32463,47 +32463,203 @@ html:not(.phone-landscape-layout) body #hardwareServoDialog .hardware-servo-pres
 }
 
 /* Critical alarms live outside the transient toast queue. */
+.camera-system-statusbar{
+  display:none;
+}
+
+@media (min-width:901px){
+  body.camera-view-active .camera-system-statusbar{
+    position:fixed;
+    top:0;
+    left:0;
+    right:0;
+    z-index:90920;
+    height:34px;
+    display:grid;
+    grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);
+    align-items:center;
+    gap:18px;
+    padding:0 18px;
+    border-bottom:1px solid rgba(255,255,255,.1);
+    background:rgba(13,15,18,.82);
+    color:#d9dde2;
+    box-shadow:0 7px 22px rgba(0,0,0,.18);
+    -webkit-backdrop-filter:blur(14px) saturate(.8);
+    backdrop-filter:blur(14px) saturate(.8);
+    pointer-events:none;
+  }
+  .camera-system-stage{
+    min-width:0;
+    display:flex;
+    align-items:center;
+    gap:18px;
+    overflow:hidden;
+    white-space:nowrap;
+  }
+  .camera-system-stage--two{
+    justify-content:flex-end;
+  }
+  .camera-system-stage-name,
+  .camera-system-stage-metrics,
+  .camera-system-center{
+    display:flex;
+    align-items:center;
+  }
+  .camera-system-stage-name{
+    flex:0 0 auto;
+    gap:7px;
+    color:#c4c9d0;
+    font-size:9px;
+    line-height:1;
+    font-weight:650;
+    letter-spacing:.08em;
+  }
+  .camera-system-stage-name i{
+    width:5px;
+    height:5px;
+    border-radius:50%;
+    background:#69717d;
+    box-shadow:0 0 0 2px rgba(105,113,125,.12);
+  }
+  .camera-system-stage-name span{
+    color:#777f8a;
+    font:650 8px/1 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
+    letter-spacing:.07em;
+  }
+  .camera-system-stage.is-online .camera-system-stage-name i{
+    background:#45d582;
+    box-shadow:0 0 0 2px rgba(69,213,130,.13);
+  }
+  .camera-system-stage.is-online .camera-system-stage-name span{
+    color:#78dca5;
+  }
+  .camera-system-stage-metrics{
+    min-width:0;
+    gap:13px;
+    overflow:hidden;
+    color:#7f8792;
+    font:600 8px/1 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
+    letter-spacing:.05em;
+  }
+  .camera-system-stage-metrics span{
+    flex:0 0 auto;
+  }
+  .camera-system-stage-metrics b{
+    margin-left:3px;
+    color:#e0e3e7;
+    font-weight:650;
+    font-variant-numeric:tabular-nums;
+  }
+  .camera-system-center{
+    justify-content:center;
+    gap:8px;
+    min-width:128px;
+    height:22px;
+    padding:0 11px;
+    border-left:1px solid rgba(255,255,255,.08);
+    border-right:1px solid rgba(255,255,255,.08);
+    color:#848c97;
+  }
+  .camera-system-center time{
+    color:#eef0f2;
+    font:620 11px/1 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
+    font-variant-numeric:tabular-nums;
+  }
+  .camera-system-wifi{
+    width:13px;
+    height:13px;
+    fill:none;
+    stroke:currentColor;
+    stroke-width:1.7;
+    stroke-linecap:round;
+  }
+  .camera-system-center span{
+    font:650 8px/1 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
+    letter-spacing:.07em;
+  }
+  .camera-system-statusbar.is-linked .camera-system-center{
+    color:#74d9a1;
+  }
+  body.camera-view-active .alarm-history-toggle{
+    top:34px;
+  }
+  body.camera-view-active .alarm-history-panel{
+    top:72px;
+  }
+}
+
+@media (min-width:901px) and (max-width:1250px){
+  body.camera-view-active .camera-system-statusbar{
+    gap:10px;
+    padding:0 12px;
+  }
+  .camera-system-stage{
+    gap:10px;
+  }
+  .camera-system-stage-metrics{
+    gap:8px;
+    font-size:7px;
+  }
+  .camera-system-stage-name{
+    font-size:8px;
+  }
+  .camera-system-center{
+    min-width:108px;
+    padding:0 8px;
+  }
+}
+
 .alarm-history-toggle{
   position:fixed;
   top:0;
   left:50%;
   z-index:90950;
-  width:58px;
-  height:25px;
+  width:118px;
+  height:12px;
   display:flex;
   align-items:center;
   justify-content:center;
   padding:0;
   border:1px solid rgba(148,163,184,.28);
   border-top:0;
-  border-radius:0 0 8px 8px;
-  background:rgba(15,18,24,.94);
+  border-radius:0 0 7px 7px;
+  background:#191a1d;
   color:#aeb4bd;
   box-shadow:0 5px 14px rgba(0,0,0,.22);
-  transform:translateX(-50%);
+  transform:translateX(-50%) !important;
   cursor:pointer;
-  backdrop-filter:blur(12px);
+  transition:height .18s ease,color .18s ease,border-color .18s ease,background .18s ease;
 }
 .alarm-history-toggle:hover,
 .alarm-history-toggle.is-open{
+  height:30px;
   color:#f1f3f5;
-  border-color:rgba(148,163,184,.44);
+  border-color:#3b3e43;
+  background:#202226;
+  transform:translateX(-50%) !important;
+  box-shadow:0 8px 20px rgba(0,0,0,.28);
+}
+.alarm-history-toggle:active{
+  transform:translateX(-50%) !important;
 }
 .alarm-history-toggle svg{
-  width:15px;
-  height:15px;
+  width:14px;
+  height:14px;
   fill:none;
   stroke:currentColor;
   stroke-width:1.8;
   stroke-linecap:round;
   stroke-linejoin:round;
-  transition:transform .18s ease;
+  opacity:.72;
+  transform:translateY(-2px);
+  transition:transform .18s ease,opacity .18s ease;
 }
-.alarm-history-toggle.is-open svg{ transform:rotate(180deg); }
+.alarm-history-toggle:hover svg{ opacity:1; transform:translateY(4px); }
+.alarm-history-toggle.is-open svg{ opacity:1; transform:translateY(4px) rotate(180deg); }
 .alarm-history-unread{
   position:absolute;
-  top:5px;
-  right:7px;
+  top:3px;
+  right:9px;
   min-width:7px;
   height:7px;
   padding:0;
@@ -32514,55 +32670,152 @@ html:not(.phone-landscape-layout) body #hardwareServoDialog .hardware-servo-pres
 }
 .alarm-history-panel{
   position:fixed;
-  top:31px;
+  top:38px;
   left:50%;
   z-index:90940;
-  width:min(440px,calc(100vw - 28px));
-  max-height:min(54dvh,480px);
+  width:min(620px,calc(100vw - 32px));
+  max-height:min(76dvh,650px);
   display:flex;
   flex-direction:column;
   overflow:hidden;
-  border:1px solid rgba(148,163,184,.25);
-  border-radius:9px;
-  background:rgba(15,18,24,.98);
+  border:1px solid #35383d;
+  border-radius:8px;
+  background:#151618;
   color:#eef0f3;
-  box-shadow:0 18px 46px rgba(0,0,0,.38);
-  transform:translateX(-50%);
-  backdrop-filter:blur(16px);
+  box-shadow:0 24px 70px rgba(0,0,0,.48);
+  transform:translateX(-50%) !important;
 }
 .alarm-history-panel.hidden{ display:none !important; }
 .alarm-history-header{
   flex:0 0 auto;
-  min-height:48px;
+  min-height:52px;
+  display:flex;
+  align-items:center;
+  padding:0 20px;
+  border-bottom:1px solid #2c2e32;
+  background:#191a1d;
+}
+.alarm-history-header strong{
+  color:#f0f2f4;
+  font-size:16px;
+  line-height:1.2;
+  font-weight:650;
+}
+.alarm-control-grid{
+  flex:0 0 auto;
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:9px;
+  padding:15px 18px 17px;
+  background:#151618;
+}
+.alarm-control-button{
+  min-width:0;
+  min-height:62px;
+  display:flex;
+  align-items:center;
+  gap:11px;
+  padding:0 15px;
+  border:1px solid #33363b;
+  border-radius:7px;
+  background:#1d1f22;
+  color:#c0c5cc;
+  box-shadow:none;
+  transform:none !important;
+  cursor:pointer;
+  transition:background .14s ease,border-color .14s ease,color .14s ease;
+}
+.alarm-control-button:hover{
+  border-color:#464a51;
+  background:#24262a;
+  color:#f1f3f5;
+  transform:none !important;
+}
+.alarm-control-button:active{
+  background:#292c30;
+  transform:none !important;
+}
+.alarm-control-button.is-active{
+  border-color:#5a626d;
+  background:#2a2d32;
+  color:#f5f6f7;
+}
+.alarm-control-button svg{
+  flex:0 0 auto;
+  width:20px;
+  height:20px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.65;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.alarm-control-button span{
+  overflow:hidden;
+  font-size:12px;
+  line-height:1.2;
+  font-weight:650;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.alarm-history-section{
+  min-height:0;
+  display:flex;
+  flex:1 1 auto;
+  flex-direction:column;
+  border-top:1px solid #2c2e32;
+  background:#151618;
+}
+.alarm-history-section-header{
+  flex:0 0 auto;
+  min-height:46px;
   display:flex;
   align-items:center;
   justify-content:space-between;
   gap:12px;
-  padding:0 15px;
-  border-bottom:1px solid rgba(148,163,184,.18);
+  padding:0 18px 0 20px;
 }
-.alarm-history-header > div{ display:flex; align-items:baseline; gap:9px; }
-.alarm-history-header strong{ font-size:14px; font-weight:680; }
-.alarm-history-header span{
-  color:#7f8792;
+.alarm-history-section-header > div{
+  display:flex;
+  align-items:baseline;
+  gap:9px;
+}
+.alarm-history-section-header strong{
+  color:#dfe2e6;
+  font-size:13px;
+  font-weight:650;
+}
+.alarm-history-section-header span{
+  color:#858b95;
   font:650 10px/1 ui-monospace,SFMono-Regular,Menlo,monospace;
 }
-.alarm-history-header button{
-  padding:5px 0;
-  border:0;
-  background:transparent;
-  color:#858c96;
+.alarm-history-section-header button{
+  min-width:72px;
+  height:30px;
+  padding:0 11px;
+  border:1px solid #35383d;
+  border-radius:6px;
+  background:#202226;
+  color:#a8adb5;
   font-size:11px;
+  transform:none !important;
   cursor:pointer;
 }
-.alarm-history-header button:hover{ color:#d5d8dd; }
+.alarm-history-section-header button:hover{
+  border-color:#45484e;
+  background:#25272b;
+  color:#f1f2f4;
+  transform:none !important;
+}
 .alarm-history-list{
-  min-height:92px;
+  min-height:104px;
+  max-height:min(36dvh,330px);
+  padding:8px 0;
   overflow-y:auto;
   overscroll-behavior:contain;
 }
 .alarm-history-empty{
-  min-height:92px;
+  min-height:96px;
   display:flex;
   align-items:center;
   justify-content:center;
@@ -32571,17 +32824,18 @@ html:not(.phone-landscape-layout) body #hardwareServoDialog .hardware-servo-pres
 }
 .alarm-history-item{
   position:relative;
-  padding:13px 15px 14px 19px;
-  border-bottom:1px solid rgba(148,163,184,.13);
+  margin:0 12px;
+  padding:14px 14px 15px 26px;
+  border-bottom:1px solid #2c2e32;
 }
 .alarm-history-item:last-child{ border-bottom:0; }
 .alarm-history-item::before{
   content:"";
   position:absolute;
-  top:18px;
-  left:8px;
-  width:4px;
-  height:4px;
+  top:19px;
+  left:10px;
+  width:6px;
+  height:6px;
   border-radius:50%;
   background:#8b949f;
 }
@@ -32597,7 +32851,7 @@ html:not(.phone-landscape-layout) body #hardwareServoDialog .hardware-servo-pres
 .alarm-history-item-meta strong{
   overflow:hidden;
   color:#e4e7eb;
-  font-size:11px;
+  font-size:12px;
   font-weight:650;
   text-overflow:ellipsis;
   white-space:nowrap;
@@ -32608,11 +32862,37 @@ html:not(.phone-landscape-layout) body #hardwareServoDialog .hardware-servo-pres
   font:550 9px/1 ui-monospace,SFMono-Regular,Menlo,monospace;
 }
 .alarm-history-item p{
-  margin:5px 0 0;
+  margin:7px 0 0;
   color:#aeb4bd;
-  font-size:11.5px;
-  line-height:1.4;
+  font-size:12px;
+  line-height:1.5;
   word-break:keep-all;
+}
+
+@media (min-width:901px){
+  body .app-shell > .side-nav-desktop{
+    display:none !important;
+  }
+  body.dashboard-view-active #controlsCard.controls-card,
+  .desktop-control-drawer-mount #controlsCard.controls-card{
+    right:18px !important;
+    width:min(410px,calc(100vw - 36px)) !important;
+  }
+}
+
+@media (max-width:600px){
+  .alarm-history-panel{
+    top:36px;
+    width:calc(100vw - 20px);
+    max-height:calc(100dvh - 48px);
+  }
+  .alarm-control-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    padding:12px;
+  }
+  .alarm-control-button{
+    min-height:56px;
+  }
 }
 
 .critical-alert-stack{

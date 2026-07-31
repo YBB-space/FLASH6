@@ -31,6 +31,7 @@
       el.alarmHistoryCount = document.getElementById("alarmHistoryCount");
       el.alarmHistoryClear = document.getElementById("alarmHistoryClear");
       el.alarmHistoryList = document.getElementById("alarmHistoryList");
+      el.alarmControlButtons = document.querySelectorAll("[data-control-center-action]");
       el.desktopCameraBtn = document.getElementById("desktopCameraBtn");
       el.webcamPanel = document.getElementById("webcamPanel");
       el.webcamVideo = document.getElementById("webcamVideo");
@@ -258,10 +259,17 @@
       el.cameraHudGforceProg = document.getElementById("cameraHudGforceProg");
       el.cameraHudAltitudeGauge = document.getElementById("cameraHudAltitudeGauge");
       el.cameraHudAltitudeProg = document.getElementById("cameraHudAltitudeProg");
-      el.cameraHudArm = document.getElementById("cameraHudArm");
-      el.cameraHudIgnitionDelay = document.getElementById("cameraHudIgnitionDelay");
-      el.cameraHudPyro = document.getElementById("cameraHudPyro");
-      el.cameraHudStorage = document.getElementById("cameraHudStorage");
+      el.cameraSystemStatusBar = document.getElementById("cameraSystemStatusBar");
+      el.cameraSystemTime = document.getElementById("cameraSystemTime");
+      el.cameraSystemGroundLink = document.getElementById("cameraSystemGroundLink");
+      [1, 2].forEach((stageId)=>{
+        el["cameraStage" + stageId + "Status"] = document.getElementById("cameraStage" + stageId + "Status");
+        el["cameraStage" + stageId + "Link"] = document.getElementById("cameraStage" + stageId + "Link");
+        el["cameraStage" + stageId + "Arm"] = document.getElementById("cameraStage" + stageId + "Arm");
+        el["cameraStage" + stageId + "IgnitionDelay"] = document.getElementById("cameraStage" + stageId + "IgnitionDelay");
+        el["cameraStage" + stageId + "Pyro"] = document.getElementById("cameraStage" + stageId + "Pyro");
+        el["cameraStage" + stageId + "Storage"] = document.getElementById("cameraStage" + stageId + "Storage");
+      });
       el.cameraHudLink = document.getElementById("cameraHudLink");
       el.cameraAltitudeChart = document.getElementById("cameraAltitudeChart");
       el.cameraDynamicsChart = document.getElementById("cameraDynamicsChart");
@@ -5899,6 +5907,17 @@
       if(el.alarmHistoryPanel){
         el.alarmHistoryPanel.addEventListener("click", (event)=>event.stopPropagation());
       }
+      if(el.alarmControlButtons && el.alarmControlButtons.length){
+        el.alarmControlButtons.forEach((button)=>{
+          button.addEventListener("click", (event)=>{
+            event.preventDefault();
+            event.stopPropagation();
+            const source = getAlarmControlSource(button.dataset.controlCenterAction);
+            if(source) source.click();
+            setAlarmHistoryOpen(false);
+          });
+        });
+      }
       if(el.alarmHistoryClear){
         el.alarmHistoryClear.addEventListener("click", ()=>{
           alarmHistory = [];
@@ -6029,6 +6048,8 @@
       // KST 실시간 업데이트
       updateKstClock();
       intervalApp(updateKstClock, 1000);
+      syncCameraSystemClock();
+      intervalApp(syncCameraSystemClock, 1000);
 
       if (typeof window !== "undefined" && window.__flashBoot) {
         window.__flashBoot.jsReady = true;

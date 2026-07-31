@@ -5171,6 +5171,31 @@
       return !!(el.alarmHistoryPanel && !el.alarmHistoryPanel.classList.contains("hidden"));
     }
 
+    function getAlarmControlSource(action){
+      const key = String(action || "").toLowerCase();
+      if(key === "dashboard") return document.getElementById("desktopDashboardBtn");
+      if(key === "controls") return document.getElementById("desktopControlPanelNavBtn");
+      if(key === "storage") return document.getElementById("sidebarStorageBtn");
+      if(key === "mission") return document.querySelector('.side-nav-desktop .side-nav-item[data-page-title="Mission"]');
+      if(key === "terminal") return document.getElementById("sidebarTerminalBtn");
+      if(key === "settings") return document.getElementById("sidebarSettingsBtn");
+      return null;
+    }
+
+    function syncAlarmControlButtons(){
+      if(!el.alarmControlButtons || !el.alarmControlButtons.length) return;
+      el.alarmControlButtons.forEach((button)=>{
+        const action = String(button.dataset.controlCenterAction || "").toLowerCase();
+        const source = getAlarmControlSource(action);
+        let active = !!(source && source.classList.contains("active"));
+        if(action === "controls") active = document.body.classList.contains("control-drawer-open");
+        if(action === "settings"){
+          active = !!(el.settingsOverlay && !el.settingsOverlay.classList.contains("hidden"));
+        }
+        button.classList.toggle("is-active", active);
+      });
+    }
+
     function formatAlarmHistoryTime(timestamp){
       const date = new Date(Number(timestamp) || Date.now());
       return date.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit", second:"2-digit"});
@@ -5253,9 +5278,10 @@
       el.alarmHistoryPanel.setAttribute("aria-hidden", next ? "false" : "true");
       el.alarmHistoryToggle.classList.toggle("is-open", next);
       el.alarmHistoryToggle.setAttribute("aria-expanded", next ? "true" : "false");
-      el.alarmHistoryToggle.setAttribute("aria-label", next ? "알람 목록 닫기" : "알람 목록 열기");
+      el.alarmHistoryToggle.setAttribute("aria-label", next ? "제어 센터 닫기" : "제어 센터 열기");
       if(next){
         alarmHistoryUnreadCount = 0;
+        syncAlarmControlButtons();
         renderAlarmHistory();
       }
     }
@@ -7017,7 +7043,12 @@
     function positionDesktopNavAbortButton(){
       if(!el.desktopNavAbortBtn || window.innerWidth <= 900) return;
       const nav = document.querySelector(".side-nav-desktop");
-      if(!nav) return;
+      const navVisible = !!(nav && window.getComputedStyle(nav).display !== "none");
+      if(!navVisible){
+        el.desktopNavAbortBtn.style.top = "18px";
+        el.desktopNavAbortBtn.style.right = "18px";
+        return;
+      }
       const navRect = nav.getBoundingClientRect();
       const buttonRect = el.desktopNavAbortBtn.getBoundingClientRect();
       const buttonSize = buttonRect.height || 72;
