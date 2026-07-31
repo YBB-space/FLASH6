@@ -35128,7 +35128,161 @@ body.firmware-update-locked #firmwareUpdateOverlay{
   cursor:progress;
 }
 
+/* Dual-stage gyro zero confirmation. */
+html body #gyroZeroOverlay{
+  align-items:center !important;
+  justify-content:center !important;
+  padding:24px !important;
+}
+html body #gyroZeroOverlay > .gyro-zero-dialog{
+  width:min(560px, calc(100vw - 48px)) !important;
+  max-width:560px !important;
+  min-width:0 !important;
+  min-height:0 !important;
+  height:auto !important;
+  margin:auto !important;
+  padding:26px !important;
+  border:1px solid #383b41 !important;
+  border-radius:8px !important;
+  background:#17181a !important;
+  color:#f1f2f4 !important;
+  box-shadow:0 24px 70px rgba(0,0,0,.5) !important;
+  overflow:hidden !important;
+  text-align:left !important;
+}
+html body #gyroZeroOverlay > .gyro-zero-dialog::before,
+html body #gyroZeroOverlay > .gyro-zero-dialog::after{
+  content:none !important;
+  display:none !important;
+}
+.gyro-zero-heading{
+  display:flex;
+  align-items:baseline;
+  gap:14px;
+  padding-bottom:18px;
+  border-bottom:1px solid #303238;
+}
+.gyro-zero-kicker{
+  color:#8c929c;
+  font:700 10px/1 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
+  letter-spacing:.14em;
+}
+html body #gyroZeroOverlay .confirm-title{
+  margin:0 !important;
+  color:#f4f5f6 !important;
+  font-size:22px !important;
+  font-weight:700 !important;
+  line-height:1.2 !important;
+  text-align:left !important;
+}
+html body #gyroZeroOverlay .confirm-text{
+  margin:20px 0 0 !important;
+  color:#b8bcc3 !important;
+  font-size:14px !important;
+  line-height:1.65 !important;
+  text-align:left !important;
+}
+html body #gyroZeroOverlay .confirm-text strong{
+  color:#f3f4f6 !important;
+  font-weight:700 !important;
+}
+.gyro-zero-stage-guide{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+  margin-top:18px;
+}
+.gyro-zero-stage-guide > div{
+  display:grid;
+  grid-template-columns:1fr auto;
+  grid-template-rows:auto auto;
+  gap:5px 12px;
+  padding:15px 16px;
+  border:1px solid #34373d;
+  border-radius:6px;
+  background:#1d1f22;
+}
+.gyro-zero-stage-guide span{
+  color:#aeb2ba;
+  font-size:12px;
+  font-weight:700;
+  letter-spacing:.08em;
+}
+.gyro-zero-stage-guide strong{
+  grid-row:1 / 3;
+  grid-column:2;
+  align-self:center;
+  color:#f2f3f5;
+  font-size:24px;
+  font-weight:500;
+}
+.gyro-zero-stage-guide small{
+  color:#747a84;
+  font-size:11px;
+}
+.gyro-zero-note{
+  margin-top:16px;
+  color:#858b95;
+  font-size:11px;
+  line-height:1.55;
+}
+html body #gyroZeroOverlay .gyro-zero-actions{
+  display:grid !important;
+  grid-template-columns:1fr 2fr;
+  gap:10px !important;
+  width:100% !important;
+  margin:22px 0 0 !important;
+}
+html body #gyroZeroOverlay .gyro-zero-actions button{
+  width:100% !important;
+  min-width:0 !important;
+  min-height:46px !important;
+  margin:0 !important;
+  padding:0 16px !important;
+  border-radius:6px !important;
+  box-shadow:none !important;
+  font-size:13px !important;
+  font-weight:650 !important;
+  line-height:1 !important;
+  text-decoration:none !important;
+}
+html body #gyroZeroOverlay .gyro-zero-actions .confirm-cancel{
+  border:1px solid #383b41 !important;
+  background:#222428 !important;
+  color:#c4c7cd !important;
+}
+html body #gyroZeroOverlay .gyro-zero-actions .loadcell-primary{
+  border:1px solid #d1d3d6 !important;
+  background:#e7e8ea !important;
+  color:#17181a !important;
+}
+html body #gyroZeroOverlay .gyro-zero-actions button:disabled{
+  cursor:wait !important;
+  opacity:.55 !important;
+}
+
 @media (max-width:600px){
+  html body #gyroZeroOverlay{
+    padding:12px !important;
+  }
+  html body #gyroZeroOverlay > .gyro-zero-dialog{
+    width:100% !important;
+    max-width:none !important;
+    padding:20px !important;
+  }
+  .gyro-zero-heading{
+    display:block;
+  }
+  .gyro-zero-kicker{
+    display:block;
+    margin-bottom:8px;
+  }
+  .gyro-zero-stage-guide{
+    grid-template-columns:1fr;
+  }
+  html body #gyroZeroOverlay .gyro-zero-actions{
+    grid-template-columns:1fr !important;
+  }
   .firmware-update-dialog{
     width:100% !important;
   }

@@ -1,10 +1,10 @@
 {
-  "build": "v6 b58",
+  "build": "v6 b59",
   "file": "firmware.bin",
   "product": "FLASH6",
   "protocol": "Flash6-Intelligent-b13",
-  "sha256": "0eb2343d1c7bfee40e64c1ce94ab146a4f52b18dfbf27735d0a7ee7a33495e2c",
-  "size": 1188000,
+  "sha256": "3f125ab84a4e3aac6f70507705807b7382122713e0cab14aba4a58cc784c4699",
+  "size": 1188272,
   "target": "ESP32-S3",
-  "version": "0.11.6"
+  "version": "0.11.7"
 }

@@ -3,6 +3,21 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.11.7 — v6 b59 / FLASH6 dual-stage gyro zero b162 — 2026-07-31
+
+Protocol unchanged: `Flash6-Intelligent-b13`
+
+Storage record protocol unchanged: `HWLOGV2` version `9`
+
+- 자이로 영점 실행 전에 1·2단부를 지면 기준 90° 수직 자세로
+  고정하도록 안내하는 확인 모달을 추가했습니다.
+- 지상국에서는 현재 링크 선택과 무관하게 1단과 2단에 영점 명령을
+  각각 전송합니다. USB 시리얼 연결에서는 두 보드의 원격 실행
+  응답을 개별 확인합니다.
+- USB 시리얼 `/gyro_zero` 명령에도 `node=1|2` 대상 지정을 추가해
+  HTTP 연결과 동일하게 두 단을 개별 보정할 수 있습니다.
+- 리플레이의 자이로 영점은 기존처럼 현재 재생 화면에만 적용합니다.
+
 ## FLASH6 UI b161 — 2026-07-31
 
 - 지상국의 1·2단 텔레메트리와 중계 경로에서도 직접 연결과 동일한

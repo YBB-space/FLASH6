@@ -1389,9 +1389,21 @@ void handleSerialLine(const char* line) {
     String rollRaw;
     String pitchRaw;
     String yawRaw;
+    String nodeRaw;
     const float roll = getQueryValue(cmd, "roll", rollRaw) ? rollRaw.toFloat() : 0.0f;
     const float pitch = getQueryValue(cmd, "pitch", pitchRaw) ? pitchRaw.toFloat() : 0.0f;
     const float yaw = getQueryValue(cmd, "yaw", yawRaw) ? yawRaw.toFloat() : 0.0f;
+    uint8_t targetNodeId = 0U;
+    if (getQueryValue(cmd, "node", nodeRaw)) {
+      long requestedNode = 0;
+      if (!parseLongStrict(nodeRaw, requestedNode) ||
+          (requestedNode != kFlashLinkNodeIdStage1 &&
+           requestedNode != kFlashLinkNodeIdStage2)) {
+        Serial.println("ERR GYRO_ZERO BAD_NODE");
+        return;
+      }
+      targetNodeId = (uint8_t)requestedNode;
+    }
     if (forwardFlashLinkSerialCommand(
           reset
             ? FlashLinkCommandCode::GyroZeroReset
@@ -1399,7 +1411,8 @@ void handleSerialLine(const char* line) {
           (int32_t)lroundf(roll * 1000.0f),
           (int32_t)lroundf(pitch * 1000.0f),
           (int32_t)lroundf(yaw * 1000.0f),
-          false)) {
+          false,
+          targetNodeId)) {
       return;
     }
     if (reset) {

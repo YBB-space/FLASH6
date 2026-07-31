@@ -439,6 +439,9 @@
       el.forceBtn = document.getElementById("forceIgniteBtn");
       el.copyLogBtn = document.getElementById("copyLogBtn");
       el.gyroZeroBtn = document.getElementById("gyroZeroBtn");
+      el.gyroZeroOverlay = document.getElementById("gyroZeroOverlay");
+      el.gyroZeroConfirm = document.getElementById("gyroZeroConfirm");
+      el.gyroZeroCancel = document.getElementById("gyroZeroCancel");
       el.dashboardServoPanelBtn = document.getElementById("dashboardServoPanelBtn");
       el.dashboardPyroPanelBtn = document.getElementById("dashboardPyroPanelBtn");
       el.missionOpenBtn = document.getElementById("missionOpenBtn");
@@ -3921,6 +3924,90 @@
       if(el.settingsOverlay){
         el.settingsOverlay.addEventListener("click",(ev)=>{ if(ev.target===el.settingsOverlay) hideSettings(); });
       }
+      let gyroZeroCommandBusy = false;
+      function hideGyroZeroConfirm(){
+        if(gyroZeroCommandBusy) return;
+        setOverlayVisible(el.gyroZeroOverlay, false);
+      }
+      function showGyroZeroConfirm(){
+        hideMobileControlsPanel();
+        setOverlayVisible(el.gyroZeroOverlay, true);
+      }
+      function gyroZeroCommandTargets(){
+        // A ground station must calibrate both vehicle nodes explicitly.
+        // A directly connected avionics board can only calibrate itself.
+        const groundRole =
+          normalizeFlashLinkRole(flashLinkUiRole) === "ground" ||
+          normalizeFlashLinkRole(uiSettings && uiSettings.flashLinkRole) === "ground";
+        if(groundRole){
+          return [
+            { node:1, label:"1단부" },
+            { node:2, label:"2단부" }
+          ];
+        }
+        return [{ node:0, label:"에비오닉스" }];
+      }
+      async function executeGyroZero(){
+        if(gyroZeroCommandBusy) return;
+        gyroZeroCommandBusy = true;
+        if(el.gyroZeroConfirm){
+          el.gyroZeroConfirm.disabled = true;
+          el.gyroZeroConfirm.textContent = "영점 저장 중…";
+        }
+        if(el.gyroZeroCancel) el.gyroZeroCancel.disabled = true;
+        const targets = gyroZeroCommandTargets();
+        const failures = [];
+        showToast(
+          targets.length > 1 ? "1·2단 자이로 영점을 순서대로 저장합니다." : "자이로 영점을 저장합니다.",
+          "info",
+          {key:"gyro-zero-progress"}
+        );
+        try{
+          for(const target of targets){
+            const nodeSuffix = target.node ? ("&node=" + target.node) : "";
+            const path = "/gyro_zero?roll=0&pitch=0&yaw=0" + nodeSuffix;
+            const result = await sendGyroZeroCommand(path);
+            if(!result.ok){
+              failures.push({
+                label:target.label,
+                reason:String(result.reason || "UNKNOWN")
+              });
+            }
+          }
+          if(failures.length){
+            const gyroNotReady = failures.some((entry)=>entry.reason.indexOf("GYRO_NOT_READY") >= 0);
+            const summary = failures.map((entry)=>entry.label).join(" · ");
+            showToast(
+              summary + (gyroNotReady ? " 자이로 데이터가 준비되지 않았습니다." : " 영점 저장에 실패했습니다."),
+              "error",
+              {key:"gyro-zero-result"}
+            );
+            return;
+          }
+          // Both boards now publish zeroed attitude; keep UI local zero neutral.
+          clearLocalGyroZeroReference();
+          showToast(
+            targets.length > 1 ? "1·2단 자이로 영점 저장 완료" : t("gyroZeroDoneToast"),
+            "success",
+            {key:"gyro-zero-result"}
+          );
+          renderGyroGl(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
+          renderNavBall(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
+          renderGyroPreview(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
+          renderNavBallPreview(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
+          setOverlayVisible(el.gyroZeroOverlay, false);
+        }catch(err){
+          const msg = (err && err.message) ? err.message : "UNKNOWN";
+          showToast("자이로 영점 저장 실패: " + msg, "error", {key:"gyro-zero-result"});
+        }finally{
+          gyroZeroCommandBusy = false;
+          if(el.gyroZeroConfirm){
+            el.gyroZeroConfirm.disabled = false;
+            el.gyroZeroConfirm.textContent = "1·2단 영점 실행";
+          }
+          if(el.gyroZeroCancel) el.gyroZeroCancel.disabled = false;
+        }
+      }
       async function handleGyroZero(){
         // Replay owns an offline attitude stream. Its zero reference must stay
         // local to the viewer instead of sending a calibration command to a
@@ -3937,36 +4024,24 @@
           renderNavBallPreview(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
           return;
         }
-
-        const path = "/gyro_zero?roll=0&pitch=0&yaw=0";
-        try{
-          const result = await sendGyroZeroCommand(path);
-          if(!result.ok){
-            const reason = String(result.reason || "");
-            if(reason.indexOf("GYRO_NOT_READY") >= 0){
-              showToast(t("gyroZeroUnavailableToast"), "warn");
-            }else{
-              showToast("자이로 영점 저장 실패: " + (reason || "UNKNOWN"), "error");
-            }
-            return;
-          }
-          // Board now publishes zeroed attitude; keep UI local zero neutral.
-          clearLocalGyroZeroReference();
-          showToast(t("gyroZeroDoneToast"), "success");
-          renderGyroGl(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
-          renderNavBall(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
-          renderGyroPreview(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
-          renderNavBallPreview(gyroPitchDeg, gyroYawDeg, gyroRollDeg);
-        }catch(err){
-          const msg = (err && err.message) ? err.message : "UNKNOWN";
-          showToast("자이로 영점 저장 실패: " + msg, "error");
-        }
+        showGyroZeroConfirm();
       }
       if(el.gyroZeroBtn){
         el.gyroZeroBtn.addEventListener("click", handleGyroZero);
       }
       if(el.replayGyroZeroBtn){
         el.replayGyroZeroBtn.addEventListener("click", handleGyroZero);
+      }
+      if(el.gyroZeroConfirm){
+        el.gyroZeroConfirm.addEventListener("click", executeGyroZero);
+      }
+      if(el.gyroZeroCancel){
+        el.gyroZeroCancel.addEventListener("click", hideGyroZeroConfirm);
+      }
+      if(el.gyroZeroOverlay){
+        el.gyroZeroOverlay.addEventListener("click", (ev)=>{
+          if(ev.target === el.gyroZeroOverlay) hideGyroZeroConfirm();
+        });
       }
       if(el.cameraControlMenuClose){
         el.cameraControlMenuClose.addEventListener("click",()=>setCameraControlMenuOpen(false));

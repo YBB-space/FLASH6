@@ -127,7 +127,7 @@
   <!-- Preload 축소: AP 모드/저메모리 환경에서 동시 요청 버스트를 줄임 -->
   <script>
     (function(){
-    var ASSET_VER = "20260731-gyro-axis-consistency-b161-__FLASH6_DEPLOY_SHA__";
+    var ASSET_VER = "20260731-dual-gyro-zero-b162-__FLASH6_DEPLOY_SHA__";
       window.__flashBoot = window.__flashBoot || {jsReady:false,lastError:"",phase:"static_loader",version:ASSET_VER};
       var isLocalPreview = !!window.__flashBoot.localPreview;
       var beaconEnabled = (window.__flashBoot.beaconEnabled !== false);
@@ -365,7 +365,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="styles/flash6-app.css?v=20260731-gyro-axis-consistency-b161-__FLASH6_DEPLOY_SHA__">
+  <link rel="stylesheet" href="styles/flash6-app.css?v=20260731-dual-gyro-zero-b162-__FLASH6_DEPLOY_SHA__">
 </head>
 <body>
   <!-- ✅ LOCKOUT 배경 오버레이 -->
@@ -3841,6 +3841,36 @@
       </div>
     </div>
 
+    <!-- 1·2단 자이로 영점 확인 모달 -->
+    <div id="gyroZeroOverlay" class="confirm-overlay gyro-zero-overlay hidden" style="display:none;">
+      <div class="confirm-dialog gyro-zero-dialog" role="dialog" aria-modal="true" aria-labelledby="gyroZeroConfirmTitle" aria-describedby="gyroZeroConfirmText">
+        <div class="gyro-zero-heading">
+          <span class="gyro-zero-kicker">ATTITUDE REFERENCE</span>
+          <div id="gyroZeroConfirmTitle" class="confirm-title">1·2단 자이로 영점</div>
+        </div>
+        <div id="gyroZeroConfirmText" class="confirm-text">
+          두 기체를 지면 기준 <strong>90° 수직 자세</strong>로 고정한 뒤 영점을 실행하세요.
+        </div>
+        <div class="gyro-zero-stage-guide" aria-label="자이로 영점 준비 항목">
+          <div>
+            <span>STAGE 1</span>
+            <strong>90°</strong>
+            <small>수직 고정</small>
+          </div>
+          <div>
+            <span>STAGE 2</span>
+            <strong>90°</strong>
+            <small>수직 고정</small>
+          </div>
+        </div>
+        <div class="gyro-zero-note">움직임이 멈춘 상태에서 실행하면 현재 자세가 두 보드의 Roll/Pitch 0° 기준으로 각각 저장됩니다.</div>
+        <div class="confirm-actions gyro-zero-actions">
+          <button id="gyroZeroCancel" class="confirm-cancel" type="button">취소</button>
+          <button id="gyroZeroConfirm" class="loadcell-primary" type="button">1·2단 영점 실행</button>
+        </div>
+      </div>
+    </div>
+
     <div id="flashLinkReportOverlay" class="settings-overlay hidden" style="display:none;">
       <div class="settings-dialog flash-link-report-dialog" role="dialog" aria-modal="true" aria-labelledby="flashLinkReportTitle">
         <div class="settings-header">
@@ -4596,6 +4626,6 @@
     <button id="controlsOverlayClose" class="controls-overlay-close" type="button" aria-label="close">×</button>
     </div>
 
-  <script src="scripts/flash6-watchdog.js?v=20260731-gyro-axis-consistency-b161-__FLASH6_DEPLOY_SHA__"></script>
+  <script src="scripts/flash6-watchdog.js?v=20260731-dual-gyro-zero-b162-__FLASH6_DEPLOY_SHA__"></script>
 </body>
 </html> 
