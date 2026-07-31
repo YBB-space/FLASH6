@@ -1,8 +1,8 @@
 
 constexpr char kFirmwareProgram[] = "Altis_Intelligent3_firmware1";
-constexpr char kFirmwareVersion[] = "0.12.4";
-constexpr char kFirmwareBuildId[] = "v6 b65";
-constexpr uint16_t kFirmwareBuildNumber = 65;
+constexpr char kFirmwareVersion[] = "0.12.5";
+constexpr char kFirmwareBuildId[] = "v6 b66";
+constexpr uint16_t kFirmwareBuildNumber = 66;
 constexpr char kFirmwareBoard[] = "Altis_Intelligent3_b3";
 constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b14";
 constexpr uint8_t kStorageProtocolVersion = 9;
@@ -296,8 +296,8 @@ constexpr uint32_t kBootButtonMaxClickMs = 600;
 constexpr uint8_t kBootButtonMaxActionClicks = 6;
 constexpr uint32_t kBootButtonConfirmHoldMs = 1200;
 constexpr uint32_t kRoleConfigUnlockWindowMs = 60000;
-// System sounds use a restrained mid-band palette so each state remains
-// audible outdoors without turning every transition into a long melody.
+// System sounds share an outdoor-audible mid-band palette, but intentionally
+// use different contours and rhythms so operators can identify them by ear.
 constexpr uint16_t kBuzzerInputHz = 1600;
 constexpr uint16_t kBuzzerInputMs = 38;
 constexpr uint16_t kBuzzerWarningHz = 1320;
@@ -1952,42 +1952,51 @@ BuzzerNote buzzerSingleNote[1] = {};
 bool buzzerToneInitialized = false;
 
 const BuzzerNote kBootMelody[] = {
-  {1175, 70, 42},
-  {1568, 75, 42},
-  {2093, 135, 0},
+  // Two low acknowledgements followed by one sustained ready tone.
+  {988, 65, 45},
+  {988, 65, 55},
+  {1480, 170, 0},
 };
 const BuzzerNote kFlashLinkMelody[] = {
-  {1397, 65, 42},
-  {1865, 115, 0},
+  // Link-mode change: a compact high-to-low toggle cue.
+  {1760, 60, 35},
+  {1319, 110, 0},
 };
 const BuzzerNote kFlashLinkConnectedMelody[] = {
-  {1397, 50, 28},
-  {1760, 58, 32},
-  {2349, 120, 0},
+  // Link acquired: fast three-step "띠리링" rise.
+  {1319, 42, 22},
+  {1760, 48, 24},
+  {2349, 100, 0},
 };
 const BuzzerNote kFlashLinkDisconnectedAlarm[] = {
-  {1319, 140, 105},
-  {1319, 140, 820},
+  // Link lost: repeating low falling pair with a long alarm interval.
+  {1047, 120, 70},
+  {784, 180, 680},
 };
 const BuzzerNote kConfirmCue[] = {
-  {1568, 55, 40},
-  {2093, 105, 0},
+  // Successful local input: one clean short tone.
+  {1865, 80, 0},
 };
 const BuzzerNote kRejectCue[] = {
-  {988, 95, 50},
+  // Rejected or cancelled input: unmistakable three-step descent.
+  {1319, 70, 35},
+  {988, 80, 40},
   {659, 170, 0},
 };
 const BuzzerNote kMissionAlertCue[] = {
-  {2093, 75, 55},
-  {1568, 125, 0},
+  // Mission warning: high-low-high attention pattern.
+  {1865, 70, 40},
+  {1175, 100, 55},
+  {1865, 180, 0},
 };
 const BuzzerNote kOutputCue[] = {
-  {1397, 65, 35},
-  {1760, 115, 0},
+  // Pyro/servo output: one longer actuation tone.
+  {1480, 220, 0},
 };
 const BuzzerNote kWaitingLaunchCue[] = {
-  {1175, 70, 45},
-  {1568, 120, 0},
+  // Mission standby: a widely spaced low-to-high ready pair.
+  {1047, 65, 160},
+  {1568, 140, 0},
 };
 const BuzzerNote kFindMelody[] = {
   {1760, 120, 70}, {2349, 160, 90}, {1568, 120, 160},
@@ -2003,10 +2012,10 @@ const BuzzerNote kRecoveryFindMelody[] = {
   {2800, 900, 360},
 };
 const BuzzerNote kDeveloperOnMelody[] = {
-  {1568, 55, 40}, {2093, 105, 0},
+  {1319, 55, 35}, {1976, 100, 0},
 };
 const BuzzerNote kDeveloperOffMelody[] = {
-  {988, 95, 50}, {659, 170, 0},
+  {1175, 55, 35}, {784, 120, 0},
 };
 
 const GpsUartConfig kGpsConfigs[] = {

@@ -3,6 +3,20 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.12.5 — v6 b66 / distinct operational buzzer cues — 2026-07-31
+
+Protocol unchanged: `Flash6-Intelligent-b14`
+
+Storage record protocol unchanged: `HWLOGV2` version `9`
+
+- 부팅, A.I LINK 모드 변경·연결·단절, 입력 확인·거부, 미션 경고,
+  파이로·서보 출력, 미션 대기음을 서로 다른 음정 진행과 리듬으로
+  재설계해 화면을 보지 않고도 상태를 구분할 수 있게 했습니다.
+- 확인음은 짧은 단음, 거부음은 3단 하강, 출력음은 긴 단음, 미션
+  경고는 고음-저음-고음, 대기 전환은 간격이 큰 상승 2음으로
+  역할을 명확히 나눴습니다.
+- 파인딩 버저와 회수 비콘 패턴은 변경하지 않았습니다.
+
 ## 0.12.4 — v6 b65 / link and boot sound polish — 2026-07-31
 
 Protocol unchanged: `Flash6-Intelligent-b14`
