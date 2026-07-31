@@ -3,6 +3,13 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 UI b168 — 2026-07-31
+
+- A.I LINK 원격 펌웨어를 USB 지상국에 준비할 때 사용하는 Base64
+  명령 청크를 레거시 보드에서도 안전한 128바이트로 제한했습니다.
+- 이전 펌웨어 또는 USB 수신 한도에서 원격 업데이트가
+  `LINE_TOO_LONG`으로 중단되는 문제를 수정했습니다.
+
 ## 0.12.3 — v6 b64 / operational update gate — 2026-07-31
 
 Protocol unchanged: `Flash6-Intelligent-b14`

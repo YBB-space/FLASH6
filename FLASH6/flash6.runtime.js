@@ -26637,7 +26637,12 @@ function requestMobileMockup3dMesh(){
     const FIRMWARE_UPDATE_SERIAL_CONFIRM_BYTES = 2 * 1024;
     const FIRMWARE_UPDATE_SERIAL_LINE_PACE_MS = 2;
     const FIRMWARE_UPDATE_SERIAL_CONFIRM_RETRIES = 3;
-    const FIRMWARE_UPDATE_REMOTE_SERIAL_CHUNK_BYTES = 768;
+    // Remote A.I LINK images are staged through the connected ground board.
+    // Keep this command below the legacy 256-byte USB RX limit as well; using
+    // a larger Base64 line can make otherwise valid boards report
+    // LINE_TOO_LONG before the radio transfer even starts.
+    const FIRMWARE_UPDATE_REMOTE_SERIAL_CHUNK_BYTES =
+      FIRMWARE_UPDATE_SERIAL_CHUNK_BYTES;
     const FIRMWARE_UPDATE_REMOTE_SERIAL_CONFIRM_BYTES = 16 * 1024;
     const FIRMWARE_UPDATE_IMAGE_MAGIC = 0xE9;
     const FIRMWARE_UPDATE_REQUIRED_MARKERS = [
@@ -26782,6 +26787,7 @@ function requestMobileMockup3dMesh(){
         SERIAL_NOT_READY:"USB 연결을 확인하세요.",
         SERIAL_WRITE_FAIL:"USB 전송에 실패했습니다.",
         SERIAL_WRITE_TIMEOUT:"USB 전송 응답 시간이 초과되었습니다.",
+        LINE_TOO_LONG:"USB 전송 프레임이 보드의 수신 한도를 초과했습니다.",
         VERIFY_FAILED:"보드에서 펌웨어 이미지 검증을 완료하지 못했습니다.",
         UPDATE_BUSY:"보드에서 다른 업데이트가 진행 중입니다.",
         FIRMWARE_EMPTY_BODY:"선택한 펌웨어 파일이 비어 있습니다.",
