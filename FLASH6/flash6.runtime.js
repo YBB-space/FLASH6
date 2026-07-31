@@ -46934,8 +46934,6 @@ function requestMobileMockup3dMesh(){
       // KST 실시간 업데이트
       updateKstClock();
       intervalApp(updateKstClock, 1000);
-      syncCameraSystemClock();
-      intervalApp(syncCameraSystemClock, 1000);
 
       if (typeof window !== "undefined" && window.__flashBoot) {
         window.__flashBoot.jsReady = true;
