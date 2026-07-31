@@ -901,10 +901,11 @@
     }
     function flashLinkRoleConfigKey(config){
       const cfg = config || {};
+      const role = normalizeFlashLinkRole(cfg.role);
       return [
-        normalizeFlashLinkRole(cfg.role),
+        role,
         normalizeFlashLinkNodeId(cfg.nodeId),
-        cfg.stage2Mode === true ? 1 : 0
+        role === "ground" && cfg.stage2Mode === true ? 1 : 0
       ].join("|");
     }
     function currentFlashLinkRoleConfig(){
@@ -1160,11 +1161,15 @@
     }
     function buildFlashLinkRoleConfigPath(config){
       const cfg = config || currentFlashLinkRoleConfig();
+      const role = normalizeFlashLinkRole(cfg.role);
       const dataMode = normalizeDataModeValue(uiSettings && uiSettings.flashLinkDataMode, "flight");
-      const dataModePart = cfg.role === "avionics" ? ("&flash_link_data_mode=" + dataMode) : "";
-      return "/set?flash_link_role=" + normalizeFlashLinkRole(cfg.role) +
+      const dataModePart = role === "avionics" ? ("&flash_link_data_mode=" + dataMode) : "";
+      const stage2ModePart = role === "ground"
+        ? ("&flash_link_stage2_mode=" + (cfg.stage2Mode ? 1 : 0))
+        : "";
+      return "/set?flash_link_role=" + role +
         "&flash_link_node_id=" + normalizeFlashLinkNodeId(cfg.nodeId) +
-        "&flash_link_stage2_mode=" + (cfg.stage2Mode ? 1 : 0) +
+        stage2ModePart +
         dataModePart;
     }
     async function requestFlashLinkRoleConfigApply(config){
@@ -1175,7 +1180,8 @@
       const stageToken = "FLASH_LINK_STAGE2_MODE=" + (cfg.stage2Mode ? 1 : 0);
       const confirms = (message)=>{
         const text = String(message || "").toUpperCase();
-        return text.includes(roleToken) && text.includes(nodeToken) && text.includes(stageToken);
+        return text.includes(roleToken) && text.includes(nodeToken) &&
+          (cfg.role !== "ground" || text.includes(stageToken));
       };
       if(simEnabled) return {ok:true, confirmed:true, reason:"SIM"};
       if(serialConnected && serialWriter){

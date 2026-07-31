@@ -286,9 +286,12 @@ void loadSequenceSettings() {
   flashLinkDataFlightMode = settingsPrefs.getUChar("fl_data", 1U) != 0U;
   flashLinkNodeId = clampFlashLinkVehicleNodeId(
     settingsPrefs.getUChar("fl_node", kFlashLinkNodeIdStage1));
-  // The current launch plan is stage-1-only. Dual-stage networking remains
-  // available as an explicit opt-in and is coordinated by the ground node.
-  flashLinkStage2Enabled = settingsPrefs.getBool("fl_stage2", false);
+  // Dual-stage operation is owned by the ground node. Avionics learn the
+  // active launch configuration from ground discovery packets and must not
+  // retain an independent local copy across boots.
+  flashLinkStage2Enabled = flashLinkRole == FlashLinkRole::Ground
+    ? settingsPrefs.getBool("fl_stage2", false)
+    : false;
   // Ground control/HUD target is selected automatically at runtime.
   flashLinkTargetNodeId = kFlashLinkNodeIdStage1;
   developerMode = settingsPrefs.getBool("dev", false);
@@ -515,6 +518,17 @@ void sequenceTick() {
   if (sequenceAborted && (int32_t)(sequenceAbortHoldUntilMs - nowMs) <= 0) {
     sequenceAborted = false;
     sequenceAbortReason = 0;
+  }
+  // Mission-triggered pyro pulses (notably STAGE 2 CH1 ignition) run while
+  // sequenceState is TPLUS rather than FIRING. Expire those outputs here so a
+  // requested 1 s pulse can never remain electrically latched indefinitely.
+  if (sequenceRelayMask != 0U &&
+      sequenceState != kSequenceStateFiring &&
+      (int32_t)(nowMs - sequenceRelayHoldUntilMs) >= 0) {
+    sequenceRelayMask = 0U;
+    sequenceRelayHoldUntilMs = 0U;
+    applyPyroOutputs(nowMs);
+    Serial.println("[PYRO] mission pulse complete outputs=OFF");
   }
   if (sequenceState == kSequenceStateCountdown && (int32_t)(sequenceCountdownEndMs - nowMs) > 0) {
     const uint32_t remainingMs = sequenceCountdownEndMs - nowMs;

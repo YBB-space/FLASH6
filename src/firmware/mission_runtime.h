@@ -454,7 +454,7 @@ void missionEmitAlarm(uint16_t blockIndex, const char* title, const char* messag
 }
 
 bool missionUsesStage2HallPolarity() {
-  return flashLinkStage2Enabled && flashLinkStage2NodeRole();
+  return armSwitchUsesStage2HallInput();
 }
 
 bool missionArmMechanismInstalled() {
@@ -521,7 +521,9 @@ bool missionInterstageLinkHealthy(uint32_t nowMs) {
 }
 
 bool missionIsStage2Node() {
-  return missionUsesStage2HallPolarity();
+  // Sensor polarity is fixed by the board assignment, while mission authority
+  // still requires the ground-owned two-stage mode to be active.
+  return flashLinkStage2Enabled && flashLinkStage2NodeRole();
 }
 
 bool missionIsStage1Node() {
@@ -545,6 +547,12 @@ void missionSendInterstageEvent(
   event.code = static_cast<uint8_t>(code);
   event.sourceNodeId = flashLinkLocalNodeId();
   if (launchMission.interstageFallback) event.flags |= 1U << 0;
+  // STAGE 1 owns mission authorization. Carry its interlock snapshot with the
+  // standby event so STAGE 2 cannot reject an otherwise valid standby merely
+  // because only STAGE 1 was the current ground-control target.
+  if (safetyMode) event.flags |= 1U << 1;
+  if (armLock) event.flags |= 1U << 2;
+  if (inspectionPassed) event.flags |= 1U << 3;
   event.stage1SeparationBackupMs = missionStage1SeparationBackupMs;
   event.stage1EjectionDelayMs = missionStage1EjectionDelayMs;
   event.stage2EjectionDelayMs = missionStage2EjectionDelayMs;
@@ -765,7 +773,19 @@ void missionCommandStage1Ejection(uint32_t nowMs) {
 }
 
 void missionCommandStage2Ignition(uint32_t nowMs) {
-  if (launchMission.stage2Ignited || safetyMode) return;
+  if (!missionIsStage2Node()) {
+    Serial.println("[MISSION] stage2 ignition blocked: NOT_STAGE2_NODE");
+    return;
+  }
+  if (launchMission.stage2Ignited) return;
+  if (safetyMode) {
+    Serial.println("[MISSION] stage2 ignition blocked: SAFETY_MODE");
+    missionEmitAlarm(
+      0,
+      "Stage-2 ignition blocked",
+      "Safety mode blocked PYRO CH1 after physical separation.");
+    return;
+  }
   launchMission.stage2Ignited = true;
   launchMission.stage2IgnitionMs = nowMs;
   launchMission.state = LaunchMissionState::WaitingStage2Ejection;
@@ -969,6 +989,15 @@ void missionHandleInterstageEvent(
   if (missionIsStage2Node() && sourceNodeId == kFlashLinkNodeIdStage1) {
     if (code == MissionInterstageEventCode::Standby) {
       if (launchMission.launchLatched) return;
+      safetyMode = (event.flags & (1U << 1)) != 0U;
+      armLock = (event.flags & (1U << 2)) != 0U;
+      inspectionPassed = (event.flags & (1U << 3)) != 0U;
+      applyPyroOutputs(receivedAtMs);
+      Serial.printf(
+        "[MISSION] stage2 standby authorization sync safe=%u arm_lock=%u inspection=%u\n",
+        safetyMode ? 1U : 0U,
+        armLock ? 1U : 0U,
+        inspectionPassed ? 1U : 0U);
       const bool acceptNewSync =
         launchMission.sequenceId != event.sequenceId ||
         storageState.missionSyncId != event.sequenceId;
@@ -1014,7 +1043,16 @@ void missionHandleInterstageEvent(
       if (settingsChanged) saveSequenceSettings();
       if (!missionLaunchStandby && !launchMission.launchLatched) {
         const MissionStandbyResult result = startMissionStandbyRuntime(receivedAtMs);
-        if (result != MissionStandbyResult::Started) return;
+        if (result != MissionStandbyResult::Started) {
+          Serial.printf(
+            "[MISSION] stage2 standby rejected result=%u safe=%u arm_lock=%u inspection=%u hall=%s\n",
+            (unsigned)result,
+            safetyMode ? 1U : 0U,
+            armLock ? 1U : 0U,
+            inspectionPassed ? 1U : 0U,
+            armSwitchPhysicalOn() ? "HIGH" : "LOW");
+          return;
+        }
       }
       launchMission.sequenceId = event.sequenceId;
       if (acceptNewSync) {

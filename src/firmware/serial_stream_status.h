@@ -1293,7 +1293,11 @@ void handleSerialLine(const char* line) {
     if (requestedRole.length() > 0) setFlashLinkRole(requestedRole);
     if (requestedNodeId.length() > 0) setFlashLinkNodeId(requestedNodeId);
     if (requestedStage2Mode.length() > 0) {
-      flashLinkSetStage2Mode(truthy(requestedStage2Mode), true);
+      if (flashLinkGroundRole()) {
+        flashLinkSetStage2Mode(truthy(requestedStage2Mode), true);
+      } else {
+        Serial.println("[FLASH_LINK] ignored local stage2-mode setting on avionics");
+      }
     }
     if (protectedRoleRequest) consumeRoleConfigUnlock();
     if (requestedDataMode.length() > 0) {

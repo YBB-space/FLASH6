@@ -54,7 +54,6 @@ void setup() {
   fileSystemMutex = xSemaphoreCreateRecursiveMutex();
   bootMs = millis();
   pinMode(kLed, OUTPUT);
-  pinMode(kArmSwitch, INPUT_PULLDOWN);
   digitalWrite(kLed, LOW);
   initPyroOutputs();
   buzzerBegin();
@@ -64,6 +63,7 @@ void setup() {
   // serial telemetry disabled, so reserving the ground station's active TX
   // queue there only reduces runtime heap.
   loadSequenceSettings();
+  configureArmSwitchInput();
 #if ARDUINO_USB_MODE
   Serial.setRxBufferSize(kSerialRxBufferBytes);
 #endif
@@ -88,6 +88,12 @@ void setup() {
                 (unsigned)bootResetReason,
                 (unsigned)bootRawResetReason);
   Serial.printf("[BOOT] session=%lu\n", (unsigned long)bootSessionId);
+  Serial.printf(
+    "[ARM_INPUT] pin=%d type=%s raw=%s installed=%u\n",
+    kArmSwitch,
+    armSwitchUsesStage2HallInput() ? "A3144_PULLUP" : "CONTACT_PULLDOWN",
+    armSwitchPhysicalOn() ? "HIGH" : "LOW",
+    armSwitchPhysicalInstalled() ? 1U : 0U);
   if (!storageMutex) {
     Serial.println("[W25Q] recursive mutex allocation failed; storage disabled");
   }

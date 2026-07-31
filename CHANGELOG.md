@@ -3,6 +3,23 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.12.13 — v6 b74 / A3144 Hall input correction — 2026-08-01
+
+- STAGE 2 A3144 입력을 오픈컬렉터 출력에 맞는 `INPUT_PULLUP`으로 변경했습니다. STAGE 1 기계식 ARM 입력은 기존 `INPUT_PULLDOWN` 동작을 유지합니다.
+- Hall 입력의 전기 설정과 `장착 LOW / 분리 HIGH` 극성을 지상국의 2단 운용 설정에서 분리했습니다. STAGE 2로 지정된 보드는 링크 연결 전에도 Hall 상태를 올바르게 해석합니다.
+- STAGE 2 미션 실행 권한은 기존과 동일하게 지상국의 2단 운용 활성화가 필요하므로, 센서 수정이 단독으로 점화나 사출을 허용하지 않습니다.
+
+Protocol unchanged: `Flash6-Intelligent-b14`
+
+Storage record protocol unchanged: `HWLOGV2` version `9`
+
+## 0.12.12 — v6 b73 / stage-2 ignition authorization sync — 2026-08-01
+
+- `2단 운용` 설정의 소유권을 지상국으로 한정했습니다. 에비오닉스는 로컬 값을 저장하거나 강제하지 않고 지상국 Discover 패킷으로 현재 운용 구성을 수신합니다.
+- 1단부가 승인한 미션 대기 패킷에 안전모드·ARM 잠금·설비점검 상태를 함께 실어 2단부에 동기화합니다. 지상국 제어 대상이 1단부인 상태에서도 2단부가 미션 대기를 거부해 Hall 단분리 점화가 누락되는 문제를 수정했습니다.
+- STAGE 2 점화 함수에 역할 및 안전모드 차단 로그를 추가해 점화 실패 원인이 더 이상 조용히 누락되지 않습니다.
+- 미션 중 Pyro 펄스 만료를 주기적으로 처리하여 STAGE 2의 CH1 1초 출력이 정확히 OFF 되도록 보강했습니다.
+
 ## 0.12.11 — v6 b72 / stage-2 Hall ignition recovery — 2026-08-01
 
 Protocol unchanged: `Flash6-Intelligent-b14`

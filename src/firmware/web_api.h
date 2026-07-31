@@ -2347,9 +2347,11 @@ void setupRoutes() {
           ? "fl_stage2_mode"
           : (request->hasParam("stage2_mode") ? "stage2_mode" : nullptr));
     if (stage2ModeKey) {
-      flashLinkSetStage2Mode(
-        truthy(request->getParam(stage2ModeKey)->value()),
-        true);
+      if (flashLinkGroundRole()) {
+        flashLinkSetStage2Mode(
+          truthy(request->getParam(stage2ModeKey)->value()),
+          true);
+      }
     }
     if (protectedRoleRequest) consumeRoleConfigUnlock();
     const char* dataModeKey = request->hasParam("flash_link_data_mode")
