@@ -3,6 +3,21 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.12.10 — v6 b71 / physical separation ignition and forced recovery finder — 2026-07-31
+
+Protocol unchanged: `Flash6-Intelligent-b14`
+
+Storage record protocol unchanged: `HWLOGV2` version `9`
+
+- 2단부에서 T+ 성립 후 홀센서가 `LOW→HIGH`로 확정되면, 단분리 무선
+  이벤트가 누락되더라도 해당 제어 틱에서 즉시 `PYRO CH1`을 1초간
+  출력합니다. 홀센서를 실제 단분리 권한과 복구 타이머 기준으로 사용합니다.
+- 2단 사출 명령 후 파인딩 버저는 기존 음소거 저장값 및 이후 상태음과
+  무관하게 반복 재생을 시작합니다. 사출 서보 구동 오류가 발생한 경우에도
+  기체 회수를 위해 파인딩 버저를 가동합니다.
+- 2단 점화 로그에 CH1 GPIO, 출력 유지시간 및 단분리 후 경과시간을 추가해
+  현장 검증 시 실제 점화 경로를 바로 확인할 수 있게 했습니다.
+
 ## 0.12.9 — v6 b70 / recovery finder priority and alarm history — 2026-07-31
 
 Protocol unchanged: `Flash6-Intelligent-b14`

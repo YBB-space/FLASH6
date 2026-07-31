@@ -402,10 +402,20 @@ void buzzerPlayFindMelody(bool loop = false) {
 }
 
 void buzzerPlayRecoveryFindMelody() {
-  buzzerPlayPattern(
-    kRecoveryFindMelody,
-    sizeof(kRecoveryFindMelody) / sizeof(kRecoveryFindMelody[0]),
-    true);
+  // Recovery finding is a post-deployment safety output. It must start even
+  // when a stale pre-flight mute preference remains stored on the recovered
+  // stage. A deliberate BUZZER_STOP or mute command issued afterwards still
+  // stops it through the normal player controls.
+  buzzerSilence();
+  buzzer.notes = kRecoveryFindMelody;
+  buzzer.count = sizeof(kRecoveryFindMelody) / sizeof(kRecoveryFindMelody[0]);
+  buzzer.index = 0;
+  buzzer.active = true;
+  buzzer.steady = false;
+  buzzer.noteOn = false;
+  buzzer.loop = true;
+  buzzer.nextMs = 0;
+  buzzerStartCurrentNote(millis());
 }
 
 void buzzerPlayBootButtonMenuCue(uint8_t action) {

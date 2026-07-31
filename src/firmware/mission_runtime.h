@@ -775,6 +775,11 @@ void missionCommandStage2Ignition(uint32_t nowMs) {
   // ignition duration setting.
   sequenceRelayHoldUntilMs = nowMs + kStage2IgnitionPulseMs;
   applyPyroOutputs(nowMs);
+  Serial.printf(
+    "[MISSION] stage2 pyro ch1=ON gpio=%d pulse=%lums separation_elapsed=%lums\n",
+    kPyroPins[0],
+    (unsigned long)kStage2IgnitionPulseMs,
+    (unsigned long)(nowMs - launchMission.stage1SeparationMs));
   missionSendInterstageEvent(
     MissionInterstageEventCode::Stage2Ignited,
     nowMs,
@@ -817,7 +822,9 @@ void missionCommandStage2Ejection(uint32_t nowMs, bool backup) {
     snap.baroValid && isfinite(snap.altM) ? snap.altM : 0.0f,
     snap.flightFastVerticalSpeedMps,
     ok ? 1U : 0U);
-  if (ok) buzzerPlayRecoveryFindMelody();
+  // The recovery beacon is required after every ejection command, including
+  // a servo-driver fault where locating the vehicle is still necessary.
+  buzzerPlayRecoveryFindMelody();
   missionSyncLaunchTelemetry();
 }
 
@@ -1122,11 +1129,19 @@ void missionLaunchSequenceTick(uint32_t nowMs, bool armReleased, uint32_t armRel
       launchMission.stage2ArmReleased = true;
       launchMission.stage2ArmReleasedMs = armReleasedMs;
       if (launchMission.launchLatched) {
+        if (launchMission.stage1SeparationMs == 0U) {
+          launchMission.stage1SeparationMs = armReleasedMs;
+        }
         missionSendInterstageEvent(
           MissionInterstageEventCode::Stage2ArmReleased,
           armReleasedMs,
           (int32_t)(armReleasedMs - launchMission.launchMs));
         missionEmitAlarm(0, "Stage-2 separation", "Hall sensor confirmed magnet departure.");
+        // The Hall edge is the physical separation confirmation. Do not wait
+        // for a duplicate Stage-1 radio event: that packet can be lost at the
+        // exact moment the vehicles move apart. Start CH1 in this same
+        // mission tick and hold it for the fixed one-second ignition pulse.
+        missionCommandStage2Ignition(nowMs);
       }
     }
   }
@@ -1221,13 +1236,10 @@ void missionLaunchSequenceTick(uint32_t nowMs, bool armReleased, uint32_t armRel
   }
 
   if (missionIsStage2Node() && launchMission.launchLatched) {
-    const bool separationAuthorized = launchMission.interstageFallback ||
-      launchMission.stage1Separated;
-    if (!launchMission.stage2Ignited && launchMission.stage2ArmReleased &&
-        separationAuthorized) {
+    if (!launchMission.stage2Ignited && launchMission.stage2ArmReleased) {
       if (launchMission.stage1SeparationMs == 0U) {
-        // When the interstage event is unavailable, the stage-2 Hall sensor is
-        // the physical separation reference used by the recovery timers.
+        // The Hall sensor remains the authoritative physical separation
+        // reference when the Stage-1 radio event is unavailable.
         launchMission.stage1SeparationMs = launchMission.stage2ArmReleasedMs != 0U
           ? launchMission.stage2ArmReleasedMs
           : nowMs;
