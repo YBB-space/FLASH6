@@ -32894,6 +32894,11 @@ body.camera-view-active .alarm-history-toggle.has-unread{
   }
 }
 
+/* Desktop controls now live in the top control center. */
+html body .app-shell > .side-nav-desktop{
+  display:none !important;
+}
+
 .critical-alert-stack{
   position:fixed;
   top:clamp(18px,4vh,48px);
