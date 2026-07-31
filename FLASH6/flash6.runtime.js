@@ -943,6 +943,7 @@ if (typeof window !== "undefined") {
     };
     gyroPathState.stageId = 1;
     gyroPathState.attitudeQuat = null;
+    gyroPathState.uiAttitudeQuat = null;
     gyroPathState.lastTelemetryMs = 0;
     gyroPathState.separationMs = 0;
     const gyroStagePathStates = {
@@ -953,6 +954,7 @@ if (typeof window !== "undefined") {
         smoothPath: [],
         smoothPathMeters: [],
         attitudeQuat: null,
+        uiAttitudeQuat: null,
         lastTelemetryMs: 0,
         separationMs: 0
       })
@@ -977,6 +979,20 @@ if (typeof window !== "undefined") {
         data.attitude_q ?? data.attitudeQuat ?? null
       );
       if(firmwareQuat) state.attitudeQuat = firmwareQuat.slice();
+      const rollDeg = Number(data.gr ?? data.gyro_roll_deg ?? data.roll_deg);
+      const pitchDeg = Number(data.gp ?? data.gyro_pitch_deg ?? data.pitch_deg);
+      const yawDeg = Number(data.gyw ?? data.gyro_yaw_deg ?? data.yaw_deg);
+      if(isFinite(rollDeg) && isFinite(pitchDeg) && isFinite(yawDeg)){
+        // Keep the vehicle-preview transform separate from the quaternion used
+        // by trajectory physics. Ground/relay telemetry previously rendered
+        // state.attitudeQuat directly and therefore bypassed the UI axis map,
+        // making the same board rotate differently after switching link paths.
+        state.uiAttitudeQuat = quatFromVehicleUiEuler(
+          getGyroDisplayRollDeg(rollDeg),
+          getGyroDisplayPitchDeg(pitchDeg),
+          getGyroDisplayYawDeg(yawDeg)
+        );
+      }
       const sampleTimeMs = Number(nowMs) || Date.now();
       const pathTimeMs = Math.max(
         sampleTimeMs,
@@ -1013,12 +1029,16 @@ if (typeof window !== "undefined") {
       const secondaryIdentity = {
         stageId: 2,
         attitudeQuat: secondary.attitudeQuat,
+        uiAttitudeQuat: secondary.uiAttitudeQuat,
         lastTelemetryMs: secondary.lastTelemetryMs
       };
       Object.assign(secondary, primary);
       secondary.stageId = secondaryIdentity.stageId;
       secondary.attitudeQuat = secondaryIdentity.attitudeQuat || (
         primary.attitudeQuat ? primary.attitudeQuat.slice() : null
+      );
+      secondary.uiAttitudeQuat = secondaryIdentity.uiAttitudeQuat || (
+        primary.uiAttitudeQuat ? primary.uiAttitudeQuat.slice() : null
       );
       secondary.lastTelemetryMs = Math.max(
         Number(secondaryIdentity.lastTelemetryMs) || 0,
@@ -3680,6 +3700,7 @@ function requestMobileMockup3dMesh(){
       gyroPathState.fusionApogeeMs = 0;
       gyroPathState.stageId = stageId;
       gyroPathState.attitudeQuat = null;
+      gyroPathState.uiAttitudeQuat = null;
       gyroPathState.lastTelemetryMs = 0;
       gyroPathState.separationMs = 0;
       if(gyroGl && !opts.preserveTerrain){
@@ -5495,13 +5516,19 @@ function requestMobileMockup3dMesh(){
         ? {x:pathRender.current.x, y:pathRender.current.y + worldRocketLift, z:pathRender.current.z}
         : simpleRocketPos;
       const cameraFocusEase = 1 - Math.pow(1 - separation, 4);
-      const primaryPathQuat = gyroStagePathStates[1].attitudeQuat;
-      const secondaryPathQuat = gyroStagePathStates[2].attitudeQuat;
+      // Model rendering must always use the same vehicle/UI axis convention.
+      // attitudeQuat remains reserved for IMU/world trajectory calculations.
+      const primaryUiQuat = stageTelemetryModeActive
+        ? gyroStagePathStates[1].uiAttitudeQuat
+        : null;
+      const secondaryUiQuat = stageTelemetryModeActive
+        ? gyroStagePathStates[2].uiAttitudeQuat
+        : null;
       const rocketRotation = quatToMat4(
-        primaryPathQuat || getGyroRocketModelQuat()
+        primaryUiQuat || getGyroRocketModelQuat()
       );
       const secondStageRotation = quatToMat4(
-        secondaryPathQuat || primaryPathQuat || getGyroRocketModelQuat()
+        secondaryUiQuat || primaryUiQuat || getGyroRocketModelQuat()
       );
       const secondStageRenderPos = secondStagePathRender
         ? {

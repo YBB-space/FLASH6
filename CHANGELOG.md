@@ -3,6 +3,14 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 UI b161 — 2026-07-31
+
+- 지상국의 1·2단 텔레메트리와 중계 경로에서도 직접 연결과 동일한
+  자이로 UI 축 변환을 적용하도록 통일했습니다.
+- 궤적 계산용 자세 쿼터니언과 기체 표시용 쿼터니언을 분리해,
+  통신 경로가 전환될 때 롤·피치·요 방향이 달라지는 문제를
+  제거했습니다.
+
 ## 0.11.6 — v6 b58 / FLASH6 bidirectional stage relay b160 — 2026-07-30
 
 Protocol: `Flash6-Intelligent-b13`

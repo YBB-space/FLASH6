@@ -92,6 +92,21 @@ if(!html.includes("scripts/flash6-watchdog.js")){
   fail("external boot watchdog is not referenced by flash6.html");
 }
 
+const coreSource = fs.readFileSync(
+  path.join(root, "scripts", "flash6-core.js"),
+  "utf8"
+);
+if(!coreSource.includes("state.uiAttitudeQuat = quatFromVehicleUiEuler(")){
+  fail("stage telemetry no longer records the canonical gyro UI transform");
+}
+if(!coreSource.includes("gyroStagePathStates[1].uiAttitudeQuat") ||
+   !coreSource.includes("gyroStagePathStates[2].uiAttitudeQuat")){
+  fail("dual-stage gyro rendering no longer uses the UI attitude transform");
+}
+if(/const\s+primaryPathQuat\s*=\s*gyroStagePathStates\[1\]\.attitudeQuat/.test(coreSource)){
+  fail("trajectory attitude is being applied directly to the gyro UI model");
+}
+
 if(!process.exitCode){
   const bytes = runtimeModules.reduce(
     (sum, name)=>sum + fs.statSync(path.join(root, "scripts", name)).size,
