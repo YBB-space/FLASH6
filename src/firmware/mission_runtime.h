@@ -473,6 +473,11 @@ bool missionUpdateArmSwitch(uint32_t nowMs, uint32_t& releaseEdgeMs) {
   if (rawOn != launchMission.armRawOn) {
     launchMission.armRawOn = rawOn;
     launchMission.armRawChangedMs = nowMs;
+    Serial.printf(
+      "[ARM_INPUT] edge raw=%s installed=%u type=%s\n",
+      rawOn ? "HIGH" : "LOW",
+      missionArmMechanismInstalled() ? 1U : 0U,
+      missionUsesStage2HallPolarity() ? "A3144_PULLUP" : "CONTACT_PULLDOWN");
     // Contact chatter is a hardware fault, not a mission-state fault. Keep
     // watching vehicle ARM inputs while idle, during ignition/standby and in
     // flight so an intermittent connector cannot disappear merely because the

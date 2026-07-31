@@ -43,8 +43,10 @@ bool armSwitchUsesStage2HallInput() {
   // to the ground station's current dual-stage launch configuration. A stage-2
   // avionics board must keep the A3144 pull-up and active-low interpretation
   // even before A.I LINK discovery has propagated `flashLinkStage2Enabled`.
-  return flashLinkRole == FlashLinkRole::Avionics &&
-    flashLinkNodeId == kFlashLinkNodeIdStage2;
+  // `flashLinkNodeId` is the persistent physical vehicle assignment. The
+  // communication role may change while configuring a board, but the A3144
+  // wiring does not. Keep its pull-up and polarity tied to the board number.
+  return flashLinkNodeId == kFlashLinkNodeIdStage2;
 }
 
 void configureArmSwitchInput() {
@@ -113,10 +115,12 @@ bool setFlashLinkNodeId(const String& value) {
   node.replace('-', '_');
   if (node == "stage_1" || node == "stage1" || node == "first" || node == "1") {
     flashLinkNodeId = kFlashLinkNodeIdStage1;
+    configureArmSwitchInput();
     return true;
   }
   if (node == "stage_2" || node == "stage2" || node == "second" || node == "2") {
     flashLinkNodeId = kFlashLinkNodeIdStage2;
+    configureArmSwitchInput();
     return true;
   }
   return false;

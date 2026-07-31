@@ -3,6 +3,16 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.12.14 — v6 b75 / persistent Hall electrical mode — 2026-08-01
+
+- STAGE 2 A3144의 풀업과 active-low 해석을 현재 통신 역할이 아니라 영구 저장된 보드 번호에 고정했습니다.
+- 보드 단 번호를 변경하는 즉시 ARM GPIO 전기 설정을 다시 적용해, 재설정 중 풀다운 상태가 남지 않도록 했습니다.
+- Hall 원시 HIGH/LOW 변화와 정규화된 장착 상태를 직렬 로그에 추가했습니다.
+
+Protocol unchanged: `Flash6-Intelligent-b14`
+
+Storage record protocol unchanged: `HWLOGV2` version `9`
+
 ## 0.12.13 — v6 b74 / A3144 Hall input correction — 2026-08-01
 
 - STAGE 2 A3144 입력을 오픈컬렉터 출력에 맞는 `INPUT_PULLUP`으로 변경했습니다. STAGE 1 기계식 ARM 입력은 기존 `INPUT_PULLDOWN` 동작을 유지합니다.
