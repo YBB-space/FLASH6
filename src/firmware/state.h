@@ -1,8 +1,8 @@
 
 constexpr char kFirmwareProgram[] = "Altis_Intelligent3_firmware1";
-constexpr char kFirmwareVersion[] = "0.11.7";
-constexpr char kFirmwareBuildId[] = "v6 b59";
-constexpr uint16_t kFirmwareBuildNumber = 59;
+constexpr char kFirmwareVersion[] = "0.11.8";
+constexpr char kFirmwareBuildId[] = "v6 b60";
+constexpr uint16_t kFirmwareBuildNumber = 60;
 constexpr char kFirmwareBoard[] = "Altis_Intelligent3_b3";
 constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b13";
 constexpr uint8_t kStorageProtocolVersion = 9;
@@ -1299,6 +1299,8 @@ struct FlashLinkRuntime {
   bool linked = false;
   bool linkAnnounced = false;
   bool disconnectAlarmActive = false;
+  uint8_t groundLinkAnnouncedMask = 0;
+  uint8_t groundDisconnectAlarmMask = 0;
   bool remoteValid = false;
   volatile bool txBusy = false;
   volatile bool lastSendOk = false;

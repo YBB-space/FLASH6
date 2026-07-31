@@ -3,6 +3,21 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.11.8 — v6 b60 / ground A.I LINK disconnect buzzer — 2026-07-31
+
+Protocol unchanged: `Flash6-Intelligent-b13`
+
+Storage record protocol unchanged: `HWLOGV2` version `9`
+
+- 지상국 경로가 조기 반환되어 A.I LINK 단절 버저 검사가 실행되지
+  않던 문제를 수정했습니다.
+- 지상국은 연결 이력이 있는 1단·2단 링크를 개별 감시하며, 활성
+  운용 단의 텔레메트리가 단절 기준을 넘기면 경고 패턴을 반복합니다.
+- 한 단의 링크가 복구되더라도 다른 단의 단절이 남아 있으면 경고를
+  유지하고, 모든 단절 링크가 복구된 뒤에만 연결 멜로디로 전환합니다.
+- 2단 운용을 끄거나 바인딩을 삭제하면 해당 단의 경고 이력을 함께
+  정리해 의도하지 않은 잔류 버저를 방지합니다.
+
 ## FLASH6 UI b164 — 2026-07-31
 
 - PlatformIO 업로드 전 브라우저 내부 핸드오프에 응답하지 않는 경우,

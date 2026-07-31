@@ -85,6 +85,106 @@ FlashLinkGroundPeer* flashLinkGroundPeerForNode(uint8_t nodeId) {
   return &flashLinkGroundPeers[nodeId - kFlashLinkNodeIdStage1];
 }
 
+uint8_t flashLinkGroundNodeMask(uint8_t nodeId) {
+  if (nodeId < kFlashLinkNodeIdStage1 ||
+      nodeId > kFlashLinkNodeIdStage2) {
+    return 0U;
+  }
+  return static_cast<uint8_t>(
+    1U << (nodeId - kFlashLinkNodeIdStage1));
+}
+
+uint8_t flashLinkGroundRequiredNodeMask() {
+  return flashLinkStage2Enabled ? 0x03U : 0x01U;
+}
+
+void flashLinkGroundMaintainDisconnectAlarm() {
+  const uint8_t activeAlarmMask =
+    flashLink.groundDisconnectAlarmMask &
+    flashLinkGroundRequiredNodeMask();
+  flashLink.disconnectAlarmActive = activeAlarmMask != 0U;
+  if (!flashLink.disconnectAlarmActive || buzzerMuted) return;
+  if (!buzzer.active ||
+      !buzzer.loop ||
+      buzzer.notes != kFlashLinkDisconnectedAlarm) {
+    buzzerPlayFlashLinkDisconnectedAlarm();
+  }
+}
+
+void flashLinkGroundForgetNode(uint8_t nodeId) {
+  const uint8_t nodeMask = flashLinkGroundNodeMask(nodeId);
+  if (nodeMask == 0U) return;
+  flashLink.groundLinkAnnouncedMask &= static_cast<uint8_t>(~nodeMask);
+  flashLink.groundDisconnectAlarmMask &= static_cast<uint8_t>(~nodeMask);
+  flashLink.linkAnnounced = flashLink.groundLinkAnnouncedMask != 0U;
+  flashLinkGroundMaintainDisconnectAlarm();
+  if (!flashLink.disconnectAlarmActive &&
+      buzzer.active &&
+      buzzer.loop &&
+      buzzer.notes == kFlashLinkDisconnectedAlarm) {
+    buzzerStop();
+  }
+}
+
+void flashLinkGroundMarkTelemetryConnected(uint8_t nodeId) {
+  const uint8_t nodeMask = flashLinkGroundNodeMask(nodeId);
+  if (nodeMask == 0U) return;
+  const bool firstConnection =
+    (flashLink.groundLinkAnnouncedMask & nodeMask) == 0U;
+  const bool recovered =
+    (flashLink.groundDisconnectAlarmMask & nodeMask) != 0U;
+  flashLink.groundLinkAnnouncedMask |= nodeMask;
+  flashLink.groundDisconnectAlarmMask &=
+    static_cast<uint8_t>(~nodeMask);
+  flashLink.linkAnnounced = true;
+  flashLinkGroundMaintainDisconnectAlarm();
+  if ((firstConnection || recovered) &&
+      !flashLink.disconnectAlarmActive) {
+    buzzerPlayFlashLinkConnectedMelody();
+  }
+  if (firstConnection || recovered) {
+    Serial.printf(
+      "[FLASH_LINK] ground stage %u link %s\n",
+      (unsigned)nodeId,
+      recovered ? "recovered" : "established");
+  }
+}
+
+void flashLinkGroundDetectDisconnects(uint32_t nowMs) {
+  const uint8_t requiredMask = flashLinkGroundRequiredNodeMask();
+  flashLink.groundLinkAnnouncedMask &= requiredMask;
+  flashLink.groundDisconnectAlarmMask &= requiredMask;
+  uint8_t newlyDisconnectedMask = 0U;
+  for (uint8_t nodeId = kFlashLinkNodeIdStage1;
+       nodeId <= kFlashLinkNodeIdStage2;
+       ++nodeId) {
+    const uint8_t nodeMask = flashLinkGroundNodeMask(nodeId);
+    if ((requiredMask & nodeMask) == 0U ||
+        (flashLink.groundLinkAnnouncedMask & nodeMask) == 0U ||
+        (flashLink.groundDisconnectAlarmMask & nodeMask) != 0U) {
+      continue;
+    }
+    const FlashLinkGroundPeer* peer = flashLinkGroundPeerForNode(nodeId);
+    const bool telemetryFresh =
+      peer &&
+      peer->lastTelemetryRxMs != 0U &&
+      (uint32_t)(nowMs - peer->lastTelemetryRxMs) <=
+        kFlashLinkTelemetryStaleMs;
+    if (!telemetryFresh) {
+      flashLink.groundDisconnectAlarmMask |= nodeMask;
+      newlyDisconnectedMask |= nodeMask;
+    }
+  }
+  flashLink.linkAnnounced = flashLink.groundLinkAnnouncedMask != 0U;
+  if (newlyDisconnectedMask != 0U) {
+    Serial.printf(
+      "[FLASH_LINK] ground link lost stage_mask=0x%02X; buzzer alarm active\n",
+      (unsigned)newlyDisconnectedMask);
+    buzzerPlayFlashLinkDisconnectedAlarm();
+  }
+  flashLinkGroundMaintainDisconnectAlarm();
+}
+
 FlashLinkGroundPeer* flashLinkGroundPeerForMac(const uint8_t* mac) {
   if (!mac) return nullptr;
   const uint8_t peerCount = flashLinkStage2Enabled
@@ -1518,6 +1618,9 @@ void flashLinkBindingChanged(uint8_t nodeId) {
       flashLinkBoundSerial(nodeId) == 0U) {
     flashLinkTargetNodeId = kFlashLinkNodeIdStage1;
   }
+  if (flashLinkBoundSerial(nodeId) == 0U) {
+    flashLinkGroundForgetNode(nodeId);
+  }
   flashLinkGroundRefreshSelectedPeer();
   char serialText[28];
   flashLinkFormatSerial(
@@ -1586,6 +1689,7 @@ void flashLinkSetStage2Mode(bool enabled, bool persist) {
   if (!enabled) {
     flashLinkTargetNodeId = kFlashLinkNodeIdStage1;
     if (flashLinkGroundRole()) {
+      flashLinkGroundForgetNode(kFlashLinkNodeIdStage2);
       FlashLinkGroundPeer* stage2 =
         flashLinkGroundPeerForNode(kFlashLinkNodeIdStage2);
       if (stage2) flashLinkResetGroundPeer(*stage2);
@@ -3200,6 +3304,7 @@ void flashLinkHandlePacket(FlashLinkRxSlot& slot) {
     groundPeer->linked = groundPeer->directLinked || groundPeer->relayLinked;
     flashLinkApplyTelemetryForGroundPeer(*groundPeer, telemetry);
     flashLinkGroundConfirmStateCommandFromTelemetry(*groundPeer);
+    flashLinkGroundMarkTelemetryConnected(groundPeer->nodeId);
     flashLinkGroundAutoSelectTarget(nowMs);
     if (groundPeer->nodeId == flashLinkTargetNodeId) {
       flashLinkGroundRefreshSelectedPeer();
@@ -3210,7 +3315,8 @@ void flashLinkHandlePacket(FlashLinkRxSlot& slot) {
     flashLink.linked = true;
     flashLinkApplyTelemetry(telemetry);
   }
-  if (!flashLink.linkAnnounced || flashLink.disconnectAlarmActive) {
+  if (!flashLinkGroundRole() &&
+      (!flashLink.linkAnnounced || flashLink.disconnectAlarmActive)) {
     flashLink.linkAnnounced = true;
     flashLink.disconnectAlarmActive = false;
     buzzerPlayFlashLinkConnectedMelody();
@@ -3401,6 +3507,7 @@ void flashLinkGroundAutoSelectTarget(uint32_t nowMs) {
 }
 
 void flashLinkGroundTick(uint32_t nowMs) {
+  flashLinkGroundDetectDisconnects(nowMs);
   bool selectedStatsChanged = false;
   const uint8_t activePeerCount = flashLinkStage2Enabled
     ? kFlashLinkVehicleNodeCount
@@ -3897,7 +4004,20 @@ bool flashLinkFlushPendingStorageReadResponse() {
 }
 
 void flashLinkTick() {
-  if (!flashLinkMode || !flashLink.initialized) return;
+  if (!flashLinkMode || !flashLink.initialized) {
+    if (flashLink.disconnectAlarmActive) {
+      flashLink.disconnectAlarmActive = false;
+      flashLink.groundDisconnectAlarmMask = 0U;
+      if (buzzer.active &&
+          buzzer.loop &&
+          buzzer.notes == kFlashLinkDisconnectedAlarm) {
+        buzzerStop();
+      }
+    }
+    flashLink.linkAnnounced = false;
+    flashLink.groundLinkAnnouncedMask = 0U;
+    return;
+  }
 
   static uint32_t lastServiceUs = 0;
   const uint32_t serviceNowUs = micros();
