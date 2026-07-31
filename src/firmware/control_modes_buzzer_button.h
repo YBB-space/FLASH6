@@ -38,34 +38,13 @@ bool flashLinkMissionRoleEnabled() {
     (!flashLinkStage2NodeRole() || flashLinkStage2Enabled);
 }
 
-bool armSwitchUsesStage2HallInput() {
-  // The electrical input type belongs to the physical board assignment, not
-  // to the ground station's current dual-stage launch configuration. A stage-2
-  // avionics board must keep the A3144 pull-up and active-low interpretation
-  // even before A.I LINK discovery has propagated `flashLinkStage2Enabled`.
-  // `flashLinkNodeId` is the persistent physical vehicle assignment. The
-  // communication role may change while configuring a board, but the A3144
-  // wiring does not. Keep its pull-up and polarity tied to the board number.
-  return flashLinkNodeId == kFlashLinkNodeIdStage2;
-}
-
-void configureArmSwitchInput() {
-  // A3144 has an open-collector output: magnet present sinks OUT low and
-  // magnet removed lets the pull-up return OUT high. INPUT_PULLUP is a safe
-  // firmware fallback; flight hardware should also provide an external pull-up
-  // to 3.3 V. The stage-1 mechanical contact retains its existing pull-down.
-  pinMode(
-    kArmSwitch,
-    armSwitchUsesStage2HallInput() ? INPUT_PULLUP : INPUT_PULLDOWN);
-}
-
 bool armSwitchPhysicalInstalled() {
   const bool pinHigh = armSwitchPhysicalOn();
   // The stage-2 input is a Hall sensor: magnet near (mechanism installed) is
   // LOW and magnet departed (separated) is HIGH. Keep the public ARM fields
   // role-normalized so UI, logs and relay consumers retain ON=installed and
   // OFF=released semantics on both vehicle stages.
-  return armSwitchUsesStage2HallInput()
+  return stage2VehicleHardwareAssigned()
     ? !pinHigh
     : pinHigh;
 }
@@ -115,12 +94,15 @@ bool setFlashLinkNodeId(const String& value) {
   node.replace('-', '_');
   if (node == "stage_1" || node == "stage1" || node == "first" || node == "1") {
     flashLinkNodeId = kFlashLinkNodeIdStage1;
-    configureArmSwitchInput();
+    configureVehicleArmInput();
+    updateSharedSensorPins();
     return true;
   }
   if (node == "stage_2" || node == "stage2" || node == "second" || node == "2") {
     flashLinkNodeId = kFlashLinkNodeIdStage2;
-    configureArmSwitchInput();
+    if (gpsPinsActive || gpsState.ready) stopGps();
+    configureVehicleArmInput();
+    updateSharedSensorPins();
     return true;
   }
   return false;

@@ -390,6 +390,9 @@ void stopGps() {
   gpsState.rxPin = -1;
   gpsState.txPin = -1;
   gpsPinsActive = false;
+  // gpsUart.end() releases GPIO5 as a plain input. Restore the A3144 pull-up
+  // immediately when this board is assigned to STAGE 2.
+  configureVehicleArmInput();
 }
 
 void gpsApplyConfig(uint8_t index, bool logChange) {
@@ -453,6 +456,7 @@ void updateSharedSensorPins() {
   }
 
   if (gpsPinsActive || gpsState.ready) stopGps();
+  configureVehicleArmInput();
 }
 
 void gpsServiceAutodetect() {

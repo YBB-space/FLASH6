@@ -84,12 +84,32 @@ bool truthy(const String& v) {
   return s == "1" || s == "true" || s == "on" || s == "yes" || s == "flight";
 }
 
+bool stage2VehicleHardwareAssigned() {
+  return flashLinkNodeId == kFlashLinkNodeIdStage2;
+}
+
+int activeArmInputPin() {
+  return stage2VehicleHardwareAssigned() ? kStage2HallSwitch : kArmSwitch;
+}
+
+void configureVehicleArmInput() {
+  // STAGE 1 retains the PCB's external pull-down ARM input. STAGE 2 uses the
+  // former GPS RX pin for the A3144 open-collector Hall output instead.
+  pinMode(kArmSwitch, INPUT_PULLDOWN);
+  if (stage2VehicleHardwareAssigned()) {
+    pinMode(kStage2HallSwitch, INPUT_PULLUP);
+  }
+}
+
 bool armSwitchPhysicalOn() {
-  return digitalRead(kArmSwitch) == HIGH;
+  return digitalRead(activeArmInputPin()) == HIGH;
 }
 
 bool armSwitchEffectiveOn() {
-  return armLock || armSwitchPhysicalOn();
+  const bool installed = stage2VehicleHardwareAssigned()
+    ? !armSwitchPhysicalOn()
+    : armSwitchPhysicalOn();
+  return armLock || installed;
 }
 
 uint16_t crc16Ccitt(const uint8_t* data, size_t len) {
@@ -137,9 +157,15 @@ const char* dataOperationModeName() {
 }
 
 bool loadcellShouldRun() {
-  return !flashLinkGroundRole() && dataOperationModeCode() == 0U;
+  // STAGE 2 reserves the former GPS RX pin for its Hall sensor, so the DAQ
+  // load-cell pair may not reclaim the shared GPS pins on that board.
+  return !flashLinkGroundRole() && !stage2VehicleHardwareAssigned() &&
+    dataOperationModeCode() == 0U;
 }
 
 bool gpsShouldRun() {
-  return !flashLinkGroundRole() && dataOperationModeCode() == 1U;
+  // GPS RX is the dedicated A3144 input on STAGE 2, so UART GPS must never
+  // claim either GPS pin while that hardware assignment is active.
+  return !flashLinkGroundRole() && !stage2VehicleHardwareAssigned() &&
+    dataOperationModeCode() == 1U;
 }

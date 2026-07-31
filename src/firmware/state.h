@@ -1,8 +1,8 @@
 
 constexpr char kFirmwareProgram[] = "Altis_Intelligent3_firmware1";
-constexpr char kFirmwareVersion[] = "0.12.14";
-constexpr char kFirmwareBuildId[] = "v6 b75";
-constexpr uint16_t kFirmwareBuildNumber = 75;
+constexpr char kFirmwareVersion[] = "0.12.15";
+constexpr char kFirmwareBuildId[] = "v6 b76";
+constexpr uint16_t kFirmwareBuildNumber = 76;
 constexpr char kFirmwareBoard[] = "Altis_Intelligent3_b3";
 constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b14";
 constexpr uint8_t kStorageProtocolVersion = 9;
@@ -94,6 +94,9 @@ constexpr int kArmSwitch = 2;
 constexpr int kBootButton = 0;
 constexpr int8_t kGpsRx = 5;  // ESP32-S3 RX <- GPS TX
 constexpr int8_t kGpsTx = 3;  // ESP32-S3 TX -> GPS RX
+// STAGE 2 does not use GPS. Its former GPS RX input is reassigned to the
+// open-collector A3144 Hall output and is pulled up only to 3.3 V.
+constexpr int kStage2HallSwitch = kGpsRx;
 constexpr int kFlashCs = 10;
 constexpr int kFlashMosi = 11;
 constexpr int kFlashSclk = 12;

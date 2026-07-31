@@ -3,6 +3,20 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.12.15 — v6 b76 / dedicated STAGE 2 Hall input — 2026-08-01
+
+- 1단부의 ARM 입력은 PCB의 기존 GPIO2 풀다운 회로로 복원했습니다.
+- 2단부에서는 GPS를 비활성화하고 기존 GPS RX인 GPIO5를 A3144 Hall
+  전용 입력으로 재할당했습니다. A3144의 오픈컬렉터 출력에 맞춰 GPIO5는
+  3.3V 내부 풀업을 사용하며 `LOW=장착`, `HIGH=단분리`로 판정합니다.
+- 보드 단 번호를 바꾸면 GPS/Hall 핀 점유와 입력 모드를 즉시 다시
+  설정합니다. 2단 점화 권한 동기화, 점화 복구 및 파이로 펄스 종료
+  보강은 그대로 유지합니다.
+
+Protocol unchanged: `Flash6-Intelligent-b14`
+
+Storage record protocol unchanged: `HWLOGV2` version `9`
+
 ## 0.12.14 — v6 b75 / persistent Hall electrical mode — 2026-08-01
 
 - STAGE 2 A3144의 풀업과 active-low 해석을 현재 통신 역할이 아니라 영구 저장된 보드 번호에 고정했습니다.

@@ -454,7 +454,7 @@ void missionEmitAlarm(uint16_t blockIndex, const char* title, const char* messag
 }
 
 bool missionUsesStage2HallPolarity() {
-  return armSwitchUsesStage2HallInput();
+  return stage2VehicleHardwareAssigned();
 }
 
 bool missionArmMechanismInstalled() {
@@ -473,11 +473,6 @@ bool missionUpdateArmSwitch(uint32_t nowMs, uint32_t& releaseEdgeMs) {
   if (rawOn != launchMission.armRawOn) {
     launchMission.armRawOn = rawOn;
     launchMission.armRawChangedMs = nowMs;
-    Serial.printf(
-      "[ARM_INPUT] edge raw=%s installed=%u type=%s\n",
-      rawOn ? "HIGH" : "LOW",
-      missionArmMechanismInstalled() ? 1U : 0U,
-      missionUsesStage2HallPolarity() ? "A3144_PULLUP" : "CONTACT_PULLDOWN");
     // Contact chatter is a hardware fault, not a mission-state fault. Keep
     // watching vehicle ARM inputs while idle, during ignition/standby and in
     // flight so an intermittent connector cannot disappear merely because the
@@ -526,8 +521,6 @@ bool missionInterstageLinkHealthy(uint32_t nowMs) {
 }
 
 bool missionIsStage2Node() {
-  // Sensor polarity is fixed by the board assignment, while mission authority
-  // still requires the ground-owned two-stage mode to be active.
   return flashLinkStage2Enabled && flashLinkStage2NodeRole();
 }
 
