@@ -434,7 +434,7 @@ bool startFiringRuntime(uint32_t nowMs, uint8_t channel) {
   sequenceRelayMask = pyroMaskForChannel(channel);
   sequenceRelayHoldUntilMs = sequenceFiringEndMs;
   applyPyroOutputs(nowMs);
-  buzzerPlayTone(2400, 120);
+  buzzerPlayOutputCue();
   return true;
 }
 
@@ -454,7 +454,7 @@ bool startCountdownRuntimeFor(uint32_t nowMs, uint32_t durationMs, bool playStar
   sequenceCountdownSecondBeepAtMs = 0;
   sequenceFiringStartMs = 0;
   sequenceFiringEndMs = 0;
-  if (playStartTone) buzzerPlayTone(1200, 80);
+  if (playStartTone) buzzerPlayTone(kBuzzerCountdownHz, 70);
   return true;
 }
 
@@ -474,7 +474,7 @@ void abortSequenceRuntimeInternal(uint8_t reason, bool broadcastInterstage) {
   sequenceAborted = true;
   sequenceAbortReason = reason ? reason : 1;
   sequenceAbortHoldUntilMs = millis() + 3500U;
-  buzzerPlayTone(520, 260);
+  buzzerPlayRejectCue();
 }
 
 void abortSequenceRuntime(uint8_t reason) {
@@ -507,7 +507,9 @@ void sequenceTick() {
     if (remainingSec >= 1U && remainingSec <= 10U &&
         remainingSec != sequenceCountdownBeepSecond) {
       sequenceCountdownBeepSecond = remainingSec;
-      buzzerPlayTone(remainingSec <= 3U ? 2300U : 1850U, 100U);
+      buzzerPlayTone(
+        remainingSec <= 3U ? kBuzzerCountdownFinalHz : kBuzzerCountdownHz,
+        remainingSec <= 3U ? 80U : 55U);
       sequenceCountdownSecondBeepPending = remainingSec <= 3U;
       sequenceCountdownSecondBeepAtMs = nowMs + 250U;
     }
@@ -517,7 +519,7 @@ void sequenceTick() {
       const uint8_t currentSec = (uint8_t)((sequenceCountdownEndMs - nowMs + 999U) / 1000U);
       sequenceCountdownSecondBeepPending = false;
       if (currentSec == sequenceCountdownBeepSecond && currentSec >= 1U && currentSec <= 3U) {
-        buzzerPlayTone(2300U, 100U);
+        buzzerPlayTone(kBuzzerCountdownFinalHz, 80U);
       }
     }
   }
@@ -534,7 +536,7 @@ void sequenceTick() {
     sequenceRelayHoldUntilMs = 0;
     sequenceRelayMask = 0;
     applyPyroOutputs(nowMs);
-    buzzerPlayTone(1760, 90);
+    buzzerPlayWaitingLaunchCue();
   }
 }
 

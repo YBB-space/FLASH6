@@ -1096,7 +1096,7 @@ FlashLinkCommandResult flashLinkExecuteCommand(
       sequenceRelayMask = pyroMaskForChannel(channel);
       sequenceRelayHoldUntilMs = nowMs + durationMs;
       applyPyroOutputs(nowMs);
-      buzzerPlayTone(2200, min<uint32_t>(180U, durationMs));
+      buzzerPlayOutputCue();
       detail = sequenceRelayMask;
       return FlashLinkCommandResult::Ok;
     }

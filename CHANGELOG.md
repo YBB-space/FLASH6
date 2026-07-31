@@ -3,6 +3,21 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.12.2 — v6 b63 / unified buzzer language — 2026-07-31
+
+Protocol unchanged: `Flash6-Intelligent-b14`
+
+Storage record protocol unchanged: `HWLOGV2` version `9`
+
+- 파인딩 및 회수 비콘 패턴은 그대로 유지하고, 부팅·링크·버튼·시퀀스·
+  파이로·미션 알림음을 짧은 공통 사운드 체계로 재설계했습니다.
+- 정상 확인은 짧은 상승 2음, 거부·중단은 하강 2음, 일반 입력은
+  짧은 단음, A.I LINK 단절은 일정 간격의 2펄스로 통일했습니다.
+- 8음 부팅음과 5음 연결음을 각각 3음·2음으로 줄이고, 물리 버튼을
+  길게 누른 뒤 선택 횟수를 다시 반복하던 중복 비프를 제거했습니다.
+- 각 파일에 흩어진 파이로 출력·미션 경고·대기 전환 음을 의미별
+  공통 함수로 묶어 이후 음향 조정을 한 곳에서 수행할 수 있습니다.
+
 ## 0.12.1 — v6 b62 / confirmed firmware update — 2026-07-31
 
 Protocol unchanged: `Flash6-Intelligent-b14`

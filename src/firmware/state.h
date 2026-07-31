@@ -1,8 +1,8 @@
 
 constexpr char kFirmwareProgram[] = "Altis_Intelligent3_firmware1";
-constexpr char kFirmwareVersion[] = "0.12.1";
-constexpr char kFirmwareBuildId[] = "v6 b62";
-constexpr uint16_t kFirmwareBuildNumber = 62;
+constexpr char kFirmwareVersion[] = "0.12.2";
+constexpr char kFirmwareBuildId[] = "v6 b63";
+constexpr uint16_t kFirmwareBuildNumber = 63;
 constexpr char kFirmwareBoard[] = "Altis_Intelligent3_b3";
 constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b14";
 constexpr uint8_t kStorageProtocolVersion = 9;
@@ -296,10 +296,15 @@ constexpr uint32_t kBootButtonMaxClickMs = 600;
 constexpr uint8_t kBootButtonMaxActionClicks = 6;
 constexpr uint32_t kBootButtonConfirmHoldMs = 1200;
 constexpr uint32_t kRoleConfigUnlockWindowMs = 60000;
-constexpr uint16_t kBootButtonMenuBeepHz = 1760;
-constexpr uint16_t kBootButtonMenuBeepMs = 62;
-constexpr uint16_t kBootButtonMenuBeepGapMs = 58;
-constexpr uint16_t kBootButtonMenuActionDelayMs = 90;
+// System sounds use a restrained mid-band palette so each state remains
+// audible outdoors without turning every transition into a long melody.
+constexpr uint16_t kBuzzerInputHz = 1600;
+constexpr uint16_t kBuzzerInputMs = 38;
+constexpr uint16_t kBuzzerWarningHz = 1320;
+constexpr uint16_t kBuzzerWarningMs = 90;
+constexpr uint16_t kBuzzerCountdownHz = 1480;
+constexpr uint16_t kBuzzerCountdownFinalHz = 1960;
+constexpr uint16_t kBootButtonMenuActionDelayMs = 240;
 constexpr uint32_t kButtonSequenceWarningMs = 3000;
 constexpr uint32_t kButtonSequenceCountdownMs = 60000;
 constexpr uint32_t kButtonSequenceBeepIntervalMs = 1000;
@@ -1944,33 +1949,44 @@ uint32_t gpsSentenceCountAtSwitch = 0;
 bool gpsTargetRateConfigured = false;
 BuzzerPlayer buzzer;
 BuzzerNote buzzerSingleNote[1] = {};
-BuzzerNote bootButtonMenuCue[kBootButtonMaxActionClicks] = {};
 bool buzzerToneInitialized = false;
 
 const BuzzerNote kBootMelody[] = {
-  {1319, 55, 18},
-  {1976, 70, 20},
-  {1568, 52, 18},
-  {2637, 78, 22},
-  {2093, 58, 18},
-  {3136, 86, 28},
-  {2349, 60, 18},
-  {3520, 170, 0},
+  {1175, 70, 42},
+  {1568, 75, 42},
+  {2093, 135, 0},
 };
 const BuzzerNote kFlashLinkMelody[] = {
-  {1175, 65, 20}, {1568, 65, 20}, {2093, 80, 24}, {2637, 190, 0},
+  {1397, 65, 42},
+  {1865, 115, 0},
 };
 const BuzzerNote kFlashLinkConnectedMelody[] = {
-  {1319, 130, 50},
-  {1568, 150, 50},
-  {2093, 180, 60},
-  {2637, 220, 80},
-  {3136, 360, 0},
+  {1568, 60, 42},
+  {2093, 110, 0},
 };
 const BuzzerNote kFlashLinkDisconnectedAlarm[] = {
-  {659, 180, 100},
-  {440, 300, 80},
-  {0, 700, 0},
+  {1319, 140, 105},
+  {1319, 140, 820},
+};
+const BuzzerNote kConfirmCue[] = {
+  {1568, 55, 40},
+  {2093, 105, 0},
+};
+const BuzzerNote kRejectCue[] = {
+  {988, 95, 50},
+  {659, 170, 0},
+};
+const BuzzerNote kMissionAlertCue[] = {
+  {2093, 75, 55},
+  {1568, 125, 0},
+};
+const BuzzerNote kOutputCue[] = {
+  {1397, 65, 35},
+  {1760, 115, 0},
+};
+const BuzzerNote kWaitingLaunchCue[] = {
+  {1175, 70, 45},
+  {1568, 120, 0},
 };
 const BuzzerNote kFindMelody[] = {
   {1760, 120, 70}, {2349, 160, 90}, {1568, 120, 160},
@@ -1986,10 +2002,10 @@ const BuzzerNote kRecoveryFindMelody[] = {
   {2800, 900, 360},
 };
 const BuzzerNote kDeveloperOnMelody[] = {
-  {1568, 80, 35}, {2093, 100, 0},
+  {1568, 55, 40}, {2093, 105, 0},
 };
 const BuzzerNote kDeveloperOffMelody[] = {
-  {880, 90, 35}, {659, 140, 0},
+  {988, 95, 50}, {659, 170, 0},
 };
 
 const GpsUartConfig kGpsConfigs[] = {

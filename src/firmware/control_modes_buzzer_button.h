@@ -354,6 +354,41 @@ void buzzerPlayFlashLinkDisconnectedAlarm() {
     true);
 }
 
+void buzzerPlayConfirmCue() {
+  buzzerPlayPattern(
+    kConfirmCue,
+    sizeof(kConfirmCue) / sizeof(kConfirmCue[0]),
+    false);
+}
+
+void buzzerPlayRejectCue() {
+  buzzerPlayPattern(
+    kRejectCue,
+    sizeof(kRejectCue) / sizeof(kRejectCue[0]),
+    false);
+}
+
+void buzzerPlayMissionAlertCue() {
+  buzzerPlayPattern(
+    kMissionAlertCue,
+    sizeof(kMissionAlertCue) / sizeof(kMissionAlertCue[0]),
+    false);
+}
+
+void buzzerPlayOutputCue() {
+  buzzerPlayPattern(
+    kOutputCue,
+    sizeof(kOutputCue) / sizeof(kOutputCue[0]),
+    false);
+}
+
+void buzzerPlayWaitingLaunchCue() {
+  buzzerPlayPattern(
+    kWaitingLaunchCue,
+    sizeof(kWaitingLaunchCue) / sizeof(kWaitingLaunchCue[0]),
+    false);
+}
+
 void buzzerPlayFindMelody(bool loop = false) {
   buzzerPlayPattern(kFindMelody, sizeof(kFindMelody) / sizeof(kFindMelody[0]), loop);
 }
@@ -367,15 +402,9 @@ void buzzerPlayRecoveryFindMelody() {
 
 void buzzerPlayBootButtonMenuCue(uint8_t action) {
   if (action == 0) return;
-  if (action > kBootButtonMaxActionClicks) action = kBootButtonMaxActionClicks;
-  for (uint8_t i = 0; i < action; ++i) {
-    bootButtonMenuCue[i] = {
-      kBootButtonMenuBeepHz,
-      kBootButtonMenuBeepMs,
-      (uint16_t)(i + 1U < action ? kBootButtonMenuBeepGapMs : 0U),
-    };
-  }
-  buzzerPlayPattern(bootButtonMenuCue, action, false);
+  // Clicks already communicate the selected count. A second sequence of N
+  // beeps after the hold was redundant and made the interface sound noisy.
+  buzzerPlayConfirmCue();
 }
 
 void handleBootButtonClick(uint32_t nowMs) {
@@ -386,7 +415,7 @@ void handleBootButtonClick(uint32_t nowMs) {
   bootButtonLastPressMs = nowMs;
   if (bootButtonPressCount < kBootButtonMaxActionClicks) bootButtonPressCount++;
 
-  buzzerPlayTone((uint16_t)(1180U + (uint16_t)bootButtonPressCount * 130U), 48);
+  buzzerPlayTone(kBuzzerInputHz, kBuzzerInputMs);
   Serial.printf("[BOOT_BUTTON] clicks=%u/%u hold_to_run=%lums\n",
                 (unsigned)bootButtonPressCount,
                 (unsigned)kBootButtonMaxActionClicks,
@@ -400,7 +429,7 @@ void buttonSequenceWarningTick(uint32_t nowMs) {
   if (buttonSequenceWarningBeeps < 3U &&
       elapsedMs >= (uint32_t)buttonSequenceWarningBeeps * kButtonSequenceBeepIntervalMs) {
     buttonSequenceWarningBeeps++;
-    buzzerPlayTone(1760, 130);
+    buzzerPlayTone(kBuzzerWarningHz, kBuzzerWarningMs);
     Serial.printf("[BOOT_BUTTON] sequence warning beep=%u/3\n",
                   (unsigned)buttonSequenceWarningBeeps);
     return;
@@ -411,7 +440,7 @@ void buttonSequenceWarningTick(uint32_t nowMs) {
   if (startCountdownRuntimeFor(nowMs, kButtonSequenceCountdownMs, false)) {
     Serial.println("[BOOT_BUTTON] 60s sequence started");
   } else {
-    buzzerPlayTone(420, 260);
+    buzzerPlayRejectCue();
     Serial.println("[BOOT_BUTTON] 60s sequence start rejected");
   }
 }
@@ -422,7 +451,7 @@ void dispatchBootButtonHoldAction(uint8_t action, uint32_t nowMs) {
   switch (action) {
     case 1:
     case 2:
-      buzzerPlayTone((uint16_t)(1450U + action * 170U), 110);
+      buzzerPlayConfirmCue();
       Serial.printf("[BOOT_BUTTON] action=%u reserved\n", (unsigned)action);
       break;
 
@@ -453,7 +482,7 @@ void dispatchBootButtonHoldAction(uint8_t action, uint32_t nowMs) {
 
     case 4:
       if (buttonSequenceWarningActive || safetyMode || sequenceState != kSequenceStateIdle) {
-        buzzerPlayTone(420, 260);
+        buzzerPlayRejectCue();
         Serial.printf("[BOOT_BUTTON] action=4 rejected warning=%u safety=%u state=%u\n",
                       buttonSequenceWarningActive ? 1U : 0U,
                       safetyMode ? 1U : 0U,
@@ -483,7 +512,7 @@ void dispatchBootButtonHoldAction(uint8_t action, uint32_t nowMs) {
           sequenceState != kSequenceStateIdle ||
           sequenceUserWaiting ||
           missionLaunchStandby) {
-        buzzerPlayTone(420, 260);
+        buzzerPlayRejectCue();
         Serial.printf(
           "[BOOT_BUTTON] action=6 role config rejected warning=%u state=%u waiting=%u standby=%u\n",
           buttonSequenceWarningActive ? 1U : 0U,
@@ -495,7 +524,7 @@ void dispatchBootButtonHoldAction(uint8_t action, uint32_t nowMs) {
       roleConfigUnlockSeq++;
       if (roleConfigUnlockSeq == 0U) roleConfigUnlockSeq = 1U;
       roleConfigUnlockUntilMs = nowMs + kRoleConfigUnlockWindowMs;
-      buzzerPlayTone(2637, 220);
+      buzzerPlayConfirmCue();
       Serial.printf(
         "ACK ROLE_CONFIG_UNLOCK seq=%lu window_ms=%lu source=physical_button\n",
         (unsigned long)roleConfigUnlockSeq,
@@ -514,7 +543,6 @@ void scheduleBootButtonHoldAction(uint8_t action, uint32_t nowMs) {
   bootButtonPendingHoldAction = action;
   bootButtonPendingHoldActionAtMs =
     nowMs +
-    (uint32_t)action * (kBootButtonMenuBeepMs + kBootButtonMenuBeepGapMs) +
     kBootButtonMenuActionDelayMs;
   Serial.printf("[BOOT_BUTTON] menu cue action=%u dispatch_in=%lums\n",
                 (unsigned)action,

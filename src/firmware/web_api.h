@@ -2891,7 +2891,7 @@ void setupRoutes() {
     sequenceRelayMask = pyroMaskForChannel(ch);
     sequenceRelayHoldUntilMs = nowMs + ms;
     applyPyroOutputs(nowMs);
-    buzzerPlayTone(2200, min<uint32_t>(180U, ms));
+    buzzerPlayOutputCue();
     sendText(request, 200, "text/plain", String("PYRO_TEST CH=") + ch + " MS=" + ms);
   });
 

@@ -447,7 +447,7 @@ void missionEmitAlarm(uint16_t blockIndex, const char* title, const char* messag
                 missionAlarmLocal.title,
                 missionAlarmLocal.message,
                 stored ? "stored" : "not_stored");
-  buzzerPlayTone(2480, 180);
+  buzzerPlayMissionAlertCue();
 }
 
 bool missionUsesStage2HallPolarity() {
