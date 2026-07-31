@@ -2033,7 +2033,6 @@ bool flashLinkFirmwarePreflight(
     return false;
   };
   if (!flashLinkGroundRole()) return fail("GROUND_ROLE_REQUIRED");
-  if (!roleConfigUnlockActive(millis())) return fail("PHYSICAL_AUTH_REQUIRED");
   if (firmwareUpdateActive() || flashLinkFirmwareGround.active) {
     return fail("UPDATE_BUSY");
   }
@@ -2127,7 +2126,6 @@ bool flashLinkFirmwareStage(
   flashLinkFirmwareGround.lastActionMs = flashLinkFirmwareGround.startedMs;
   memcpy(flashLinkFirmwareGround.sha256, sha256, 32U);
   flashLinkFirmwareGround.image = image;
-  consumeRoleConfigUnlock();
   if (error && errorLen > 0U) error[0] = '\0';
   return true;
 }
@@ -2297,8 +2295,7 @@ bool flashLinkFirmwareHandlePacket(
     if (!firmwareUpdateBegin(
           begin.totalBytes,
           shaHex,
-          FirmwareUpdateTransport::AILink,
-          false)) {
+          FirmwareUpdateTransport::AILink)) {
       const FlashLinkFirmwareErrorCode error =
         strcmp(firmwareUpdate.error, "UPDATE_BUSY") == 0
           ? FlashLinkFirmwareErrorCode::Busy

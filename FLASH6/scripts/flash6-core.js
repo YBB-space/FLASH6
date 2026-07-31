@@ -6774,7 +6774,6 @@ function requestMobileMockup3dMesh(){
     let flashLinkRoleConfigBusy = false;
     let flashLinkIdentityResetBusy = false;
     let firmwareUpdateUiBusy = false;
-    let firmwareUpdateAuthorized = false;
     let firmwareUpdateFile = null;
     let firmwareUpdateBuffer = null;
     let firmwareUpdateSha256 = "";

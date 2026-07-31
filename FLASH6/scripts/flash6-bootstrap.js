@@ -566,6 +566,12 @@
       el.firmwareUpdateStart = document.getElementById("firmwareUpdateStart");
       el.firmwareUpdateActions = document.getElementById("firmwareUpdateActions");
       el.firmwareUpdateIdleView = document.getElementById("firmwareUpdateIdleView");
+      el.firmwareUpdateConfirmView = document.getElementById("firmwareUpdateConfirmView");
+      el.firmwareUpdateConfirmTarget = document.getElementById("firmwareUpdateConfirmTarget");
+      el.firmwareUpdateConfirmTransport = document.getElementById("firmwareUpdateConfirmTransport");
+      el.firmwareUpdateConfirmFile = document.getElementById("firmwareUpdateConfirmFile");
+      el.firmwareUpdateConfirmBack = document.getElementById("firmwareUpdateConfirmBack");
+      el.firmwareUpdateConfirmRun = document.getElementById("firmwareUpdateConfirmRun");
       el.firmwareUpdateProgressView = document.getElementById("firmwareUpdateProgressView");
       el.firmwareUpdateTransport = document.getElementById("firmwareUpdateTransport");
       el.firmwareUpdateDropzone = document.getElementById("firmwareUpdateDropzone");
@@ -575,7 +581,6 @@
       el.firmwareUpdateFileLabel = document.getElementById("firmwareUpdateFileLabel");
       el.firmwareUpdateFileName = document.getElementById("firmwareUpdateFileName");
       el.firmwareUpdateFileMeta = document.getElementById("firmwareUpdateFileMeta");
-      el.firmwareUpdateAuthState = document.getElementById("firmwareUpdateAuthState");
       el.firmwareUpdateSafetyState = document.getElementById("firmwareUpdateSafetyState");
       el.firmwareUpdateArmState = document.getElementById("firmwareUpdateArmState");
       el.firmwareUpdateStatus = document.getElementById("firmwareUpdateStatus");
@@ -5552,7 +5557,16 @@
         el.firmwareUpdateCancel.addEventListener("click", closeFirmwareUpdateModal);
       }
       if(el.firmwareUpdateStart){
-        el.firmwareUpdateStart.addEventListener("click", ()=>{
+        el.firmwareUpdateStart.addEventListener("click", openFirmwareUpdateConfirmation);
+      }
+      if(el.firmwareUpdateConfirmBack){
+        el.firmwareUpdateConfirmBack.addEventListener("click", ()=>{
+          setFirmwareUpdateConfirmVisible(false);
+          updateFirmwareUpdateUi();
+        });
+      }
+      if(el.firmwareUpdateConfirmRun){
+        el.firmwareUpdateConfirmRun.addEventListener("click", ()=>{
           void startFirmwareUpdate();
         });
       }

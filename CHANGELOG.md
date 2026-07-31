@@ -3,6 +3,29 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.12.1 — v6 b62 / confirmed firmware update — 2026-07-31
+
+Protocol unchanged: `Flash6-Intelligent-b14`
+
+Storage record protocol unchanged: `HWLOGV2` version `9`
+
+- USB·Wi-Fi·A.I LINK 펌웨어 업데이트에서 보드 물리 버튼 인증 조건을
+  제거하고, 안전모드·ARM 잠금·비행 및 시퀀스 정지 검사는 그대로
+  유지했습니다.
+- A.I LINK 업데이트는 기존과 같이 대상 직결 연결, 최신 텔레메트리,
+  RSSI, 손실률, 수신 Hz, 보드 S/N까지 모두 통과해야 시작됩니다.
+- 업데이트 완료 시 역할 설정용 물리 인증 상태를 소비하지 않도록
+  분리해 보드 역할 변경 인증과 펌웨어 업데이트를 독립시켰습니다.
+
+## FLASH6 UI b166 — 2026-07-31
+
+- 업데이트 시작 전에 대상 보드, 전송 경로, 펌웨어 파일을 다시
+  보여주는 전용 최종 확인 화면을 추가했습니다.
+- 펌웨어 업데이트 준비 화면의 물리 인증 항목과 관련 안내를 제거하고
+  안전모드·ARM 잠금 상태만 명확하게 표시합니다.
+- 최종 확인 후에도 펌웨어가 실제 전송 직전에 모든 안전·링크 조건을
+  다시 검사하므로 상태가 바뀐 경우 업데이트를 차단합니다.
+
 ## 0.12.0 — v6 b61 / guarded A.I LINK firmware OTA — 2026-07-31
 
 Protocol: `Flash6-Intelligent-b14`

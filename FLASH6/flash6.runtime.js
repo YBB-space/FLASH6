@@ -6775,7 +6775,6 @@ function requestMobileMockup3dMesh(){
     let flashLinkRoleConfigBusy = false;
     let flashLinkIdentityResetBusy = false;
     let firmwareUpdateUiBusy = false;
-    let firmwareUpdateAuthorized = false;
     let firmwareUpdateFile = null;
     let firmwareUpdateBuffer = null;
     let firmwareUpdateSha256 = "";
@@ -12303,7 +12302,7 @@ function requestMobileMockup3dMesh(){
       if(seq <= 0 || (flashLinkRoleUnlockLatched && seq === flashLinkRoleUnlockLastSeq)) return;
       flashLinkRoleUnlockLastSeq = seq;
       flashLinkRoleUnlockLatched = true;
-      if(authorizeFirmwareUpdateFromHardware()) return;
+      if(isFirmwareUpdateOpen()) return;
       if(flashLinkRoleConfigBusy || isFlashLinkRoleConfigOpen()) return;
       if(el.flashLinkRoleAccessHint){
         el.flashLinkRoleAccessHint.textContent = "물리 버튼 인증 완료 · 설정을 확인한 뒤 적용하세요.";
@@ -26647,7 +26646,6 @@ function requestMobileMockup3dMesh(){
     ];
     const FIRMWARE_UPDATE_BUNDLED_BIN = "firmware/firmware.bin";
     const FIRMWARE_UPDATE_BUNDLED_MANIFEST = "firmware/manifest.json";
-    let firmwareUpdateAuthorizationTimer = null;
     let firmwareUpdateBundledLoadPromise = null;
     let firmwareUpdateBundledLoading = false;
     let firmwareUpdateFileSource = "none";
@@ -26686,6 +26684,12 @@ function requestMobileMockup3dMesh(){
       if(kind === "serial") return "USB DIRECT";
       if(kind === "wifi") return "GROUND WI-FI";
       return "연결된 보드 없음";
+    }
+
+    function firmwareUpdateTargetLabel(){
+      if(firmwareUpdateTarget === "stage1") return "STAGE 1 에비오닉스";
+      if(firmwareUpdateTarget === "stage2") return "STAGE 2 에비오닉스";
+      return "현재 연결된 보드";
     }
 
     function firmwareUpdateGroundRole(){
@@ -26759,7 +26763,6 @@ function requestMobileMockup3dMesh(){
     function firmwareUpdateErrorText(code){
       const key = String(code || "").trim().toUpperCase();
       const messages = {
-        PHYSICAL_AUTH_REQUIRED:"보드 물리 버튼을 6회 누른 뒤 길게 눌러 인증하세요.",
         SAFETY_MODE_REQUIRED:"안전 모드를 먼저 켜세요.",
         ARM_LOCK_REQUIRED:"ARM 잠금을 먼저 켜세요.",
         SEQUENCE_ACTIVE:"진행 중인 미션 또는 시퀀스를 종료하세요.",
@@ -26773,7 +26776,7 @@ function requestMobileMockup3dMesh(){
         UPDATE_NOT_ACTIVE:"보드의 펌웨어 업데이트 세션이 먼저 종료되었습니다.",
         SHA256_MISMATCH:"전송된 펌웨어의 무결성 검증에 실패했습니다.",
         TRANSFER_TIMEOUT:"전송 응답 시간이 초과되었습니다. 연결을 확인하세요.",
-        SERIAL_BEGIN_TIMEOUT:"보드가 업데이트 시작에 응답하지 않았습니다. USB 연결과 물리 인증 상태를 확인하세요.",
+        SERIAL_BEGIN_TIMEOUT:"보드가 업데이트 시작에 응답하지 않았습니다. USB 연결 상태를 확인하세요.",
         SERIAL_TRANSFER_TIMEOUT:"USB 전송이 중단되었습니다. 케이블을 유지한 채 다시 시도하세요.",
         SERIAL_VERIFY_TIMEOUT:"전송은 끝났지만 보드의 펌웨어 검증 응답이 없습니다.",
         SERIAL_NOT_READY:"USB 연결을 확인하세요.",
@@ -26819,10 +26822,6 @@ function requestMobileMockup3dMesh(){
         el.firmwareUpdateTransport.textContent = firmwareUpdateTransportLabel();
       }
       setFirmwareUpdateCheck(
-        el.firmwareUpdateAuthState,
-        firmwareUpdateAuthorized,
-        firmwareUpdateAuthorized ? "인증됨" : "대기");
-      setFirmwareUpdateCheck(
         el.firmwareUpdateSafetyState,
         readiness.safe && readiness.idle,
         readiness.safe ? (readiness.idle ? "적용됨" : "시퀀스 확인") : "OFF");
@@ -26838,8 +26837,6 @@ function requestMobileMockup3dMesh(){
         status = firmwareUpdateValidationError;
       }else if(firmwareUpdateFile && !firmwareUpdateBuffer){
         status = "펌웨어 파일을 검사하고 있습니다…";
-      }else if(firmwareUpdateBuffer && !firmwareUpdateAuthorized){
-        status = "파일 검증 완료 · 보드 물리 버튼을 6회 누른 뒤 길게 누르세요.";
       }else if(firmwareUpdateBuffer && remoteNode === 0 && !readiness.safe){
         status = "안전 모드를 켜야 업데이트할 수 있습니다.";
       }else if(firmwareUpdateBuffer && remoteNode === 0 && !readiness.armLocked){
@@ -26859,7 +26856,6 @@ function requestMobileMockup3dMesh(){
         el.firmwareUpdateStatus.classList.toggle(
           "is-ready",
           !!firmwareUpdateBuffer &&
-          firmwareUpdateAuthorized &&
           (remoteNode > 0 || readiness.safe) &&
           (remoteNode > 0 || readiness.armLocked) &&
           (remoteNode > 0 || readiness.idle) &&
@@ -26870,7 +26866,6 @@ function requestMobileMockup3dMesh(){
           firmwareUpdateUiBusy ||
           !firmwareUpdateBuffer ||
           !firmwareUpdateSha256 ||
-          !firmwareUpdateAuthorized ||
           (remoteNode === 0 && !readiness.safe) ||
           (remoteNode === 0 && !readiness.armLocked) ||
           (remoteNode === 0 && !readiness.idle) ||
@@ -26880,11 +26875,6 @@ function requestMobileMockup3dMesh(){
 
     function openFirmwareUpdateModal(){
       if(!el.firmwareUpdateOverlay) return;
-      if(firmwareUpdateAuthorizationTimer){
-        clearTimeout(firmwareUpdateAuthorizationTimer);
-        firmwareUpdateAuthorizationTimer = null;
-      }
-      firmwareUpdateAuthorized = false;
       setFirmwareUpdateProgressVisible(false);
       setFirmwareUpdateBlockedVisible(false);
       setOverlayVisible(el.firmwareUpdateOverlay, true);
@@ -26897,17 +26887,13 @@ function requestMobileMockup3dMesh(){
 
     function closeFirmwareUpdateModal(){
       if(firmwareUpdateUiBusy || !el.firmwareUpdateOverlay) return;
-      if(firmwareUpdateAuthorizationTimer){
-        clearTimeout(firmwareUpdateAuthorizationTimer);
-        firmwareUpdateAuthorizationTimer = null;
-      }
-      firmwareUpdateAuthorized = false;
       setOverlayVisible(el.firmwareUpdateOverlay, false);
       el.firmwareUpdateOverlay.setAttribute("aria-hidden", "true");
     }
 
     function setFirmwareUpdateProgressVisible(visible){
       if(el.firmwareUpdateIdleView) el.firmwareUpdateIdleView.hidden = !!visible;
+      if(el.firmwareUpdateConfirmView) el.firmwareUpdateConfirmView.hidden = true;
       if(el.firmwareUpdateProgressView) el.firmwareUpdateProgressView.hidden = !visible;
       if(el.firmwareUpdateBlockedView) el.firmwareUpdateBlockedView.hidden = true;
       if(el.firmwareUpdateActions) el.firmwareUpdateActions.hidden = !!visible;
@@ -26919,6 +26905,7 @@ function requestMobileMockup3dMesh(){
 
     function setFirmwareUpdateBlockedVisible(visible, reasons){
       if(el.firmwareUpdateIdleView) el.firmwareUpdateIdleView.hidden = !!visible;
+      if(el.firmwareUpdateConfirmView) el.firmwareUpdateConfirmView.hidden = true;
       if(el.firmwareUpdateProgressView) el.firmwareUpdateProgressView.hidden = true;
       if(el.firmwareUpdateBlockedView) el.firmwareUpdateBlockedView.hidden = !visible;
       if(el.firmwareUpdateActions) el.firmwareUpdateActions.hidden = !!visible;
@@ -26935,6 +26922,40 @@ function requestMobileMockup3dMesh(){
       if(el.firmwareUpdateOverlay){
         el.firmwareUpdateOverlay.classList.remove("is-updating");
       }
+    }
+
+    function setFirmwareUpdateConfirmVisible(visible){
+      const active = !!visible;
+      if(el.firmwareUpdateIdleView) el.firmwareUpdateIdleView.hidden = active;
+      if(el.firmwareUpdateConfirmView) el.firmwareUpdateConfirmView.hidden = !active;
+      if(el.firmwareUpdateProgressView) el.firmwareUpdateProgressView.hidden = true;
+      if(el.firmwareUpdateBlockedView) el.firmwareUpdateBlockedView.hidden = true;
+      if(el.firmwareUpdateActions) el.firmwareUpdateActions.hidden = active;
+      if(el.firmwareUpdateClose) el.firmwareUpdateClose.hidden = false;
+      if(el.firmwareUpdateOverlay){
+        el.firmwareUpdateOverlay.classList.remove("is-updating");
+      }
+    }
+
+    function openFirmwareUpdateConfirmation(){
+      updateFirmwareUpdateUi();
+      if(
+        firmwareUpdateUiBusy ||
+        !el.firmwareUpdateStart ||
+        el.firmwareUpdateStart.disabled
+      ) return;
+      if(el.firmwareUpdateConfirmTarget){
+        el.firmwareUpdateConfirmTarget.textContent = firmwareUpdateTargetLabel();
+      }
+      if(el.firmwareUpdateConfirmTransport){
+        el.firmwareUpdateConfirmTransport.textContent = firmwareUpdateTransportLabel();
+      }
+      if(el.firmwareUpdateConfirmFile){
+        el.firmwareUpdateConfirmFile.textContent = firmwareUpdateFile
+          ? firmwareUpdateFile.name + " · " + formatFirmwareBytes(firmwareUpdateFile.size)
+          : "--";
+      }
+      setFirmwareUpdateConfirmVisible(true);
     }
 
     function firmwareBytesContainAscii(bytes, text){
@@ -27629,7 +27650,6 @@ function requestMobileMockup3dMesh(){
           .replace(/^FIRMWARE_[A-Z_]+\s+/i, "");
         const blockedCodes = new Set([
           "GROUND_ROLE_REQUIRED",
-          "PHYSICAL_AUTH_REQUIRED",
           "UPDATE_BUSY",
           "BAD_TARGET",
           "STAGE2_MODE_REQUIRED",
@@ -27666,24 +27686,6 @@ function requestMobileMockup3dMesh(){
           {key:"firmware-update-failed", duration:6500});
         updateFirmwareUpdateUi();
       }
-    }
-
-    function authorizeFirmwareUpdateFromHardware(){
-      if(!isFirmwareUpdateOpen() || firmwareUpdateUiBusy) return false;
-      firmwareUpdateAuthorized = true;
-      if(firmwareUpdateAuthorizationTimer) clearTimeout(firmwareUpdateAuthorizationTimer);
-      firmwareUpdateAuthorizationTimer = setTimeout(()=>{
-        firmwareUpdateAuthorizationTimer = null;
-        if(firmwareUpdateUiBusy) return;
-        firmwareUpdateAuthorized = false;
-        updateFirmwareUpdateUi();
-      }, 58000);
-      updateFirmwareUpdateUi();
-      showToast(
-        "펌웨어 업데이트 물리 인증이 완료되었습니다.",
-        "success",
-        {key:"firmware-update-authorized", duration:3200});
-      return true;
     }
 
 /* FLASH6 runtime module: flash6-telemetry.js. Loaded in manifest order by flash6.js. */
@@ -41197,6 +41199,12 @@ function requestMobileMockup3dMesh(){
       el.firmwareUpdateStart = document.getElementById("firmwareUpdateStart");
       el.firmwareUpdateActions = document.getElementById("firmwareUpdateActions");
       el.firmwareUpdateIdleView = document.getElementById("firmwareUpdateIdleView");
+      el.firmwareUpdateConfirmView = document.getElementById("firmwareUpdateConfirmView");
+      el.firmwareUpdateConfirmTarget = document.getElementById("firmwareUpdateConfirmTarget");
+      el.firmwareUpdateConfirmTransport = document.getElementById("firmwareUpdateConfirmTransport");
+      el.firmwareUpdateConfirmFile = document.getElementById("firmwareUpdateConfirmFile");
+      el.firmwareUpdateConfirmBack = document.getElementById("firmwareUpdateConfirmBack");
+      el.firmwareUpdateConfirmRun = document.getElementById("firmwareUpdateConfirmRun");
       el.firmwareUpdateProgressView = document.getElementById("firmwareUpdateProgressView");
       el.firmwareUpdateTransport = document.getElementById("firmwareUpdateTransport");
       el.firmwareUpdateDropzone = document.getElementById("firmwareUpdateDropzone");
@@ -41206,7 +41214,6 @@ function requestMobileMockup3dMesh(){
       el.firmwareUpdateFileLabel = document.getElementById("firmwareUpdateFileLabel");
       el.firmwareUpdateFileName = document.getElementById("firmwareUpdateFileName");
       el.firmwareUpdateFileMeta = document.getElementById("firmwareUpdateFileMeta");
-      el.firmwareUpdateAuthState = document.getElementById("firmwareUpdateAuthState");
       el.firmwareUpdateSafetyState = document.getElementById("firmwareUpdateSafetyState");
       el.firmwareUpdateArmState = document.getElementById("firmwareUpdateArmState");
       el.firmwareUpdateStatus = document.getElementById("firmwareUpdateStatus");
@@ -46183,7 +46190,16 @@ function requestMobileMockup3dMesh(){
         el.firmwareUpdateCancel.addEventListener("click", closeFirmwareUpdateModal);
       }
       if(el.firmwareUpdateStart){
-        el.firmwareUpdateStart.addEventListener("click", ()=>{
+        el.firmwareUpdateStart.addEventListener("click", openFirmwareUpdateConfirmation);
+      }
+      if(el.firmwareUpdateConfirmBack){
+        el.firmwareUpdateConfirmBack.addEventListener("click", ()=>{
+          setFirmwareUpdateConfirmVisible(false);
+          updateFirmwareUpdateUi();
+        });
+      }
+      if(el.firmwareUpdateConfirmRun){
+        el.firmwareUpdateConfirmRun.addEventListener("click", ()=>{
           void startFirmwareUpdate();
         });
       }

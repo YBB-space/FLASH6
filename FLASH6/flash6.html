@@ -127,7 +127,7 @@
   <!-- Preload 축소: AP 모드/저메모리 환경에서 동시 요청 버스트를 줄임 -->
   <script>
     (function(){
-    var ASSET_VER = "20260731-ailink-ota-b165-__FLASH6_DEPLOY_SHA__";
+    var ASSET_VER = "20260731-update-confirm-b166-__FLASH6_DEPLOY_SHA__";
       window.__flashBoot = window.__flashBoot || {jsReady:false,lastError:"",phase:"static_loader",version:ASSET_VER};
       var isLocalPreview = !!window.__flashBoot.localPreview;
       var beaconEnabled = (window.__flashBoot.beaconEnabled !== false);
@@ -365,7 +365,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="styles/flash6-app.css?v=20260731-ailink-ota-b165-__FLASH6_DEPLOY_SHA__">
+  <link rel="stylesheet" href="styles/flash6-app.css?v=20260731-update-confirm-b166-__FLASH6_DEPLOY_SHA__">
 </head>
 <body>
   <!-- ✅ LOCKOUT 배경 오버레이 -->
@@ -3545,11 +3545,6 @@
             </div>
 
             <div class="firmware-update-readiness" aria-label="업데이트 준비 상태">
-              <div id="firmwareUpdateAuthState" class="firmware-update-check">
-                <span class="firmware-update-check-dot"></span>
-                <div><strong>물리 인증</strong><small>보드 버튼 6회 입력 후 길게 누르기</small></div>
-                <b>대기</b>
-              </div>
               <div id="firmwareUpdateSafetyState" class="firmware-update-check">
                 <span class="firmware-update-check-dot"></span>
                 <div><strong>안전 모드</strong><small>미션·시퀀스 출력 차단</small></div>
@@ -3564,6 +3559,24 @@
 
             <div id="firmwareUpdateStatus" class="firmware-update-status" role="status">
               프로젝트에 포함된 펌웨어를 불러오는 중입니다…
+            </div>
+          </div>
+
+          <div id="firmwareUpdateConfirmView" class="firmware-update-confirm-view" hidden>
+            <div class="firmware-update-confirm-kicker">FINAL CONFIRMATION</div>
+            <strong>펌웨어 업데이트를 시작할까요?</strong>
+            <p>전송이 시작되면 완료될 때까지 보드 전원을 유지하고 FLASH6 연결을 끊지 마세요.</p>
+            <div class="firmware-update-confirm-summary">
+              <div><span>대상 보드</span><strong id="firmwareUpdateConfirmTarget">--</strong></div>
+              <div><span>전송 경로</span><strong id="firmwareUpdateConfirmTransport">--</strong></div>
+              <div><span>펌웨어</span><strong id="firmwareUpdateConfirmFile">--</strong></div>
+            </div>
+            <div class="firmware-update-confirm-warning">
+              안전 모드와 ARM 잠금, 비행·시퀀스 정지 상태를 전송 직전에 다시 검사합니다.
+            </div>
+            <div class="firmware-update-confirm-actions">
+              <button id="firmwareUpdateConfirmBack" type="button">이전</button>
+              <button id="firmwareUpdateConfirmRun" type="button">확인 후 업데이트</button>
             </div>
           </div>
 
@@ -3599,7 +3612,7 @@
 
         <div id="firmwareUpdateActions" class="flash-role-config-actions firmware-update-actions">
           <button id="firmwareUpdateCancel" class="flash-role-config-secondary" type="button">취소</button>
-          <button id="firmwareUpdateStart" class="flash-role-config-primary" type="button" disabled>업데이트 시작</button>
+          <button id="firmwareUpdateStart" class="flash-role-config-primary" type="button" disabled>업데이트 검토</button>
         </div>
       </div>
     </div>
@@ -4640,6 +4653,6 @@
     <button id="controlsOverlayClose" class="controls-overlay-close" type="button" aria-label="close">×</button>
     </div>
 
-  <script src="scripts/flash6-watchdog.js?v=20260731-ailink-ota-b165-__FLASH6_DEPLOY_SHA__"></script>
+  <script src="scripts/flash6-watchdog.js?v=20260731-update-confirm-b166-__FLASH6_DEPLOY_SHA__"></script>
 </body>
 </html> 

@@ -63,9 +63,8 @@ bool firmwareUpdateSha256Valid(const char* text) {
   return true;
 }
 
-bool firmwareUpdateSafetyReady(bool requirePhysicalAuth = true) {
-  return (!requirePhysicalAuth || roleConfigUnlockActive(millis())) &&
-    safetyMode &&
+bool firmwareUpdateSafetyReady() {
+  return safetyMode &&
     armLock &&
     sequenceState == kSequenceStateIdle &&
     !sequenceUserWaiting &&
@@ -74,10 +73,7 @@ bool firmwareUpdateSafetyReady(bool requirePhysicalAuth = true) {
     sequenceRelayMask == 0U;
 }
 
-const char* firmwareUpdateSafetyError(bool requirePhysicalAuth = true) {
-  if (requirePhysicalAuth && !roleConfigUnlockActive(millis())) {
-    return "PHYSICAL_AUTH_REQUIRED";
-  }
+const char* firmwareUpdateSafetyError() {
   if (!safetyMode) return "SAFETY_MODE_REQUIRED";
   if (!armLock) return "ARM_LOCK_REQUIRED";
   if (sequenceState != kSequenceStateIdle ||
@@ -109,15 +105,14 @@ void firmwareUpdateAbort(const char* reason) {
 bool firmwareUpdateBegin(
   size_t totalBytes,
   const char* sha256,
-  FirmwareUpdateTransport transport,
-  bool requirePhysicalAuth = true
+  FirmwareUpdateTransport transport
 ) {
   if (firmwareUpdate.active || Update.isRunning()) {
     firmwareUpdateSetError("UPDATE_BUSY");
     return false;
   }
-  if (!firmwareUpdateSafetyReady(requirePhysicalAuth)) {
-    firmwareUpdateSetError(firmwareUpdateSafetyError(requirePhysicalAuth));
+  if (!firmwareUpdateSafetyReady()) {
+    firmwareUpdateSetError(firmwareUpdateSafetyError());
     return false;
   }
   if (transport == FirmwareUpdateTransport::None) {
@@ -247,9 +242,6 @@ bool firmwareUpdateFinish(char* actualSha256, size_t actualSha256Len) {
     return false;
   }
 
-  if (firmwareUpdate.transport != FirmwareUpdateTransport::AILink) {
-    consumeRoleConfigUnlock();
-  }
   firmwareUpdate.active = false;
   firmwareUpdate.transport = FirmwareUpdateTransport::None;
   pendingRestart = true;
@@ -270,7 +262,7 @@ String firmwareUpdateStatusJson() {
     (unsigned)firmwareUpdate.writtenBytes,
     (unsigned)firmwareUpdate.expectedBytes,
     firmwareUpdate.error,
-    roleConfigUnlockActive(millis()) ? 1U : 0U,
+    1U,
     safetyMode ? 1U : 0U,
     armLock ? 1U : 0U);
   return String(json);
