@@ -5936,6 +5936,7 @@
       updateWsUI();
       intervalApp(ensureWsAlive, 500);
       intervalApp(ensureSerialAlive, 500);
+      intervalApp(pollPlatformioUploadHandoff, 250);
       intervalApp(fetchWifiInfo, 2000);
       intervalApp(fetchServoInfo, 2000);
       intervalApp(()=>{ fetchSpiFlashStatus({background:true}).catch(()=>{}); }, 5000);

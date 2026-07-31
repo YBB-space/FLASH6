@@ -3,6 +3,14 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 UI b163 — 2026-07-31
+
+- 로컬 FLASH6가 Web Serial 포트를 사용 중이어도 PlatformIO USB 업로드
+  시작 신호를 감지해 reader/writer와 포트를 먼저 자동 해제합니다.
+- 포트가 실제로 해제된 것을 확인한 뒤에만 esptool 업로드를 시작해
+  `busy` 충돌을 방지하고, 업로드가 끝난 뒤에는 기존 시리얼 연결을
+  자동으로 다시 시도합니다.
+
 ## 0.11.7 — v6 b59 / FLASH6 dual-stage gyro zero b162 — 2026-07-31
 
 Protocol unchanged: `Flash6-Intelligent-b13`

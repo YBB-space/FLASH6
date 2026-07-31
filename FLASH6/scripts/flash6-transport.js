@@ -2,6 +2,80 @@
     // Protocol decoding is implemented in scripts/flash6-protocol.js.
 
     let wsBaseCandidateIndex = 0;
+    let platformioUploadHandoffPollBusy = false;
+    let platformioUploadHandoffToken = "";
+    let platformioUploadHandoffActive = false;
+
+    function platformioUploadHandoffUrl(){
+      try{
+        const url = new URL("platformio-upload-handoff.json", document.baseURI);
+        url.searchParams.set("_ts", String(Date.now()));
+        return url.toString();
+      }catch(_error){
+        return "";
+      }
+    }
+
+    async function pollPlatformioUploadHandoff(){
+      if(
+        platformioUploadHandoffPollBusy ||
+        !isLocalPreviewHost() ||
+        !serialSupported() ||
+        (
+          !platformioUploadHandoffActive &&
+          !serialEnabled &&
+          !serialPort &&
+          !serialConnected &&
+          !serialReader &&
+          !serialWriter
+        )
+      ) return;
+      platformioUploadHandoffPollBusy = true;
+      try{
+        const url = platformioUploadHandoffUrl();
+        if(!url) return;
+        const response = await fetch(url, {cache:"no-store"});
+        if(!response.ok) return;
+        const payload = await response.json();
+        const requestedAt = Number(payload && payload.requested_at_ms) || 0;
+        const active = !!(
+          payload &&
+          payload.active &&
+          requestedAt > 0 &&
+          (Date.now() - requestedAt) < 60000
+        );
+        const token = String((payload && payload.token) || "");
+
+        if(active){
+          platformioUploadHandoffActive = true;
+          if(!token || token === platformioUploadHandoffToken) return;
+          platformioUploadHandoffToken = token;
+          cancelSerialAutoReconnect();
+          if(serialPort || serialConnected || serialReader || serialWriter){
+            addLogLine("PlatformIO upload requested; releasing WebSerial port.", "SER");
+            await serialDisconnect({silent:true});
+            showToast(
+              "펌웨어 업로드를 위해 USB 연결을 자동으로 해제했습니다.",
+              "notice",
+              {key:"platformio-upload-handoff", duration:3200});
+          }
+          return;
+        }
+
+        if(platformioUploadHandoffActive){
+          platformioUploadHandoffActive = false;
+          platformioUploadHandoffToken = "";
+          if(serialEnabled && !serialConnected){
+            scheduleSerialAutoReconnect("PlatformIO upload complete");
+          }
+        }
+      }catch(_error){
+        // The handoff file is available only on the local development host.
+      }finally{
+        platformioUploadHandoffPollBusy = false;
+      }
+    }
+
     function buildWsUrlFromBase(base){
       if(base){
         try{
@@ -755,7 +829,13 @@
 
     function scheduleSerialAutoReconnect(reason){
       if(serialAutoReconnectTimer) return;
-      if(!serialEnabled || simEnabled || serialConnected || serialConnectBusy) return;
+      if(
+        platformioUploadHandoffActive ||
+        !serialEnabled ||
+        simEnabled ||
+        serialConnected ||
+        serialConnectBusy
+      ) return;
       serialAutoReconnectAttempts += 1;
       const delay = Math.min(8000, 900 + (serialAutoReconnectAttempts * 900));
       addLogLine("WebSerial auto reconnect scheduled (" + (reason || "disconnect") + ", try " + serialAutoReconnectAttempts + ")", "SER");
