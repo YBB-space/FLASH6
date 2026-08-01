@@ -104,6 +104,9 @@ void flashLinkGroundMaintainDisconnectAlarm() {
     flashLinkGroundRequiredNodeMask();
   flashLink.disconnectAlarmActive = activeAlarmMask != 0U;
   if (!flashLink.disconnectAlarmActive || buzzerMuted) return;
+  // Mission cues have priority. The repeating link alarm resumes
+  // automatically on the first service tick after the finite cue ends.
+  if (buzzerMissionSequenceCueActive()) return;
   if (!buzzer.active ||
       !buzzer.loop ||
       buzzer.notes != kFlashLinkDisconnectedAlarm) {
@@ -180,7 +183,9 @@ void flashLinkGroundDetectDisconnects(uint32_t nowMs) {
     Serial.printf(
       "[FLASH_LINK] ground link lost stage_mask=0x%02X; buzzer alarm active\n",
       (unsigned)newlyDisconnectedMask);
-    buzzerPlayFlashLinkDisconnectedAlarm();
+    if (!buzzerMissionSequenceCueActive()) {
+      buzzerPlayFlashLinkDisconnectedAlarm();
+    }
   }
   flashLinkGroundMaintainDisconnectAlarm();
 }
@@ -4637,11 +4642,14 @@ void flashLinkTick() {
     flashLink.ackPending = false;
     flashLink.lastHelloMs = 0;
     flashLink.lastDiscoveryMs = 0;
-    buzzerPlayFlashLinkDisconnectedAlarm();
+    if (!buzzerMissionSequenceCueActive()) {
+      buzzerPlayFlashLinkDisconnectedAlarm();
+    }
     Serial.println("[FLASH_LINK] connection lost; buzzer alarm active");
   }
   if (flashLink.disconnectAlarmActive &&
       !buzzerMuted &&
+      !buzzerMissionSequenceCueActive() &&
       (!buzzer.active ||
        !buzzer.loop ||
        buzzer.notes != kFlashLinkDisconnectedAlarm)) {

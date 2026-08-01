@@ -3,6 +3,25 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.13.1 — v6 b78 / two-stage mission timing and buzzer parity — 2026-08-01
+
+- 1단이 전송하는 미션 대기 동기화에 버저 음소거 상태를 포함해, 각 보드에
+  따로 남아 있던 NVS 설정 때문에 2단 미션 버저만 조용해지는 문제를
+  제거했습니다.
+- 미션 이벤트·출력·발사 대기 버저 패턴에 통신 단절 반복 경고보다 높은
+  재생 우선순위를 부여했습니다. 통신 경고는 미션음이 끝나면 자동으로
+  다시 재생됩니다.
+- 1단 단분리 이벤트 재전송이 매번 현재 T+를 단분리 시각으로 덮어쓰던
+  문제를 수정했습니다. 2단은 최초 단분리 시각만 고정해 사용합니다.
+- 보드 간 시계 오차로 단분리 시각이 잠시 미래가 되더라도 unsigned 시간
+  언더플로가 2단 사출 백업을 즉시 만료시키지 않도록 검증을 추가했습니다.
+  2단 서보 CH1은 단분리 후 최소 8초 전에는 어떤 자동 경로에서도
+  작동할 수 없습니다.
+
+Protocol unchanged: `Flash6-Intelligent-b14`
+
+Storage record protocol unchanged: `HWLOGV2` version `9`
+
 ## 0.13.0 — v6 b77 / in-flight reboot recovery — 2026-08-01
 
 - T+ 권한 확정, 1단 단분리, 2단 물리 분리·점화 시점에 CRC가 포함된

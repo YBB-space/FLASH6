@@ -388,6 +388,13 @@ void buzzerPlayMissionAlertCue() {
     false);
 }
 
+bool buzzerMissionSequenceCueActive() {
+  return buzzer.active &&
+    (buzzer.notes == kMissionAlertCue ||
+     buzzer.notes == kOutputCue ||
+     buzzer.notes == kWaitingLaunchCue);
+}
+
 void buzzerPlayOutputCue() {
   buzzerPlayPattern(
     kOutputCue,

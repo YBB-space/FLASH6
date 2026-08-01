@@ -983,6 +983,9 @@ void missionSendInterstageEvent(
   if (safetyMode) event.flags |= 1U << 1;
   if (armLock) event.flags |= 1U << 2;
   if (inspectionPassed) event.flags |= 1U << 3;
+  // Mission audio is a vehicle-wide setting. Without this bit each board's
+  // independently persisted mute preference could leave only Stage 2 silent.
+  if (buzzerMuted) event.flags |= 1U << 4;
   event.stage1SeparationBackupMs = missionStage1SeparationBackupMs;
   event.stage1EjectionDelayMs = missionStage1EjectionDelayMs;
   event.stage2EjectionDelayMs = missionStage2EjectionDelayMs;
@@ -1270,6 +1273,26 @@ void missionLatchStage2PhysicalSeparation(uint32_t detectedMs, uint32_t nowMs) {
 
 void missionCommandStage2Ejection(uint32_t nowMs, bool backup) {
   if (launchMission.stage2Ejected) return;
+  // A peer timestamp can be a few milliseconds ahead of this board because
+  // the two ESP32 millis() clocks are not phase locked. Never let unsigned
+  // subtraction turn that small lead into a ~49-day elapsed interval and
+  // release the Stage-2 servo immediately after separation.
+  const bool separationClockValid =
+    launchMission.stage1SeparationMs != 0U &&
+    (int32_t)(nowMs - launchMission.stage1SeparationMs) >= 0;
+  const uint32_t separationElapsedMs = separationClockValid
+    ? (uint32_t)(nowMs - launchMission.stage1SeparationMs)
+    : 0U;
+  if (!separationClockValid ||
+      separationElapsedMs < kStage2ApogeeAcceptAfterSeparationMs) {
+    Serial.printf(
+      "[MISSION] stage2 ejection blocked: separation clock invalid/early "
+      "now=%lu separation=%lu elapsed=%lums\n",
+      (unsigned long)nowMs,
+      (unsigned long)launchMission.stage1SeparationMs,
+      (unsigned long)separationElapsedMs);
+    return;
+  }
   const bool ok = setServoAngle(1U, missionStage2EjectionAngleDeg);
   launchMission.stage2Ejected = true;
   launchMission.secondaryCommanded = true;
@@ -1296,7 +1319,7 @@ void missionCommandStage2Ejection(uint32_t nowMs, bool backup) {
     "ignition_elapsed=%lums phase=%s "
     "apogee=%.2f alt=%.2f vs_fast=%.2f ok=%u\n",
     backup ? "backup_timer" : "apogee",
-    (unsigned long)(nowMs - launchMission.stage1SeparationMs),
+    (unsigned long)separationElapsedMs,
     (unsigned long)(nowMs - launchMission.stage2IgnitionMs),
     flightPhaseName(static_cast<FlightPhase>(snap.flightPhase)),
     snap.flightApogeeM,
@@ -1429,6 +1452,13 @@ void missionHandleInterstageEvent(
     static_cast<MissionInterstageEventCode>(event.code);
 
   if (missionIsStage2Node() && sourceNodeId == kFlashLinkNodeIdStage1) {
+    // Standby packets normally arrive first, but a Stage-2 board that joins
+    // late may see T+ or separation first. Every ordinary Stage-1 mission
+    // event carries the same audio bit, so synchronize it before emitting any
+    // local cue. MissionAbort reuses flags for its reason code.
+    if (code != MissionInterstageEventCode::MissionAbort) {
+      setBuzzerMuted((event.flags & (1U << 4)) != 0U);
+    }
     if (code == MissionInterstageEventCode::Standby) {
       if (launchMission.launchLatched) return;
       safetyMode = (event.flags & (1U << 1)) != 0U;
@@ -1543,12 +1573,22 @@ void missionHandleInterstageEvent(
       }
       if (!launchMission.launchLatched) return;
       launchMission.stage1Separated = true;
-      const uint32_t separationElapsedMs = event.tplusMs > 0
-        ? (uint32_t)event.tplusMs
-        : 0U;
-      launchMission.stage1SeparationMs = separationElapsedMs > 0U
-        ? launchMission.launchMs + separationElapsedMs
-        : receivedAtMs;
+      // Stage-1 repeats this event for reliability. Latch the first valid
+      // separation time only; a later repeat must not slide the deadline.
+      if (launchMission.stage1SeparationMs == 0U) {
+        const uint32_t separationElapsedMs = event.tplusMs > 0
+          ? (uint32_t)event.tplusMs
+          : 0U;
+        uint32_t candidateMs = separationElapsedMs > 0U
+          ? launchMission.launchMs + separationElapsedMs
+          : receivedAtMs;
+        // Peer and local millis() are aligned from radio events, not from a
+        // shared oscillator. Clamp a future candidate to receipt time.
+        if ((int32_t)(receivedAtMs - candidateMs) < 0) {
+          candidateMs = receivedAtMs;
+        }
+        launchMission.stage1SeparationMs = candidateMs;
+      }
       return;
     }
     if (code == MissionInterstageEventCode::MissionAbort &&
@@ -1742,8 +1782,12 @@ void missionLaunchSequenceTick(uint32_t nowMs, bool armReleased, uint32_t armRel
       missionCommandStage2Ignition(nowMs);
     }
     if (launchMission.stage2Ignited && !launchMission.stage2Ejected) {
-      const uint32_t separationElapsedMs =
-        (uint32_t)(nowMs - launchMission.stage1SeparationMs);
+      const bool separationClockValid =
+        launchMission.stage1SeparationMs != 0U &&
+        (int32_t)(nowMs - launchMission.stage1SeparationMs) >= 0;
+      const uint32_t separationElapsedMs = separationClockValid
+        ? (uint32_t)(nowMs - launchMission.stage1SeparationMs)
+        : 0U;
       const bool apogeeTransitionAfterSeparation =
         (int32_t)(flightPhaseRuntime.transitionAtMs -
                   launchMission.stage1SeparationMs) >= 0;
@@ -1768,7 +1812,7 @@ void missionLaunchSequenceTick(uint32_t nowMs, bool armReleased, uint32_t armRel
           "Stage-2 early apogee ignored",
           "Apogee before 8.0 s was rejected; backup remains armed.");
       }
-      const bool backupDue =
+      const bool backupDue = separationClockValid &&
         separationElapsedMs >= missionStage2EjectionDelayMs;
       if (apogeeDetected || backupDue) {
         missionCommandStage2Ejection(
@@ -1797,7 +1841,7 @@ void missionLaunchSequenceTick(uint32_t nowMs, bool armReleased, uint32_t armRel
     missionSendInterstageEvent(
       MissionInterstageEventCode::Stage1Separated,
       launchMission.primaryCommandMs,
-      (int32_t)(nowMs - launchMission.launchMs));
+      (int32_t)(launchMission.primaryCommandMs - launchMission.launchMs));
   }
   if (missionIsStage2Node() && launchMission.stage2ArmReleased &&
       !launchMission.stage2Ejected &&
