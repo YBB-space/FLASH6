@@ -11,6 +11,18 @@ same commit that changes the corresponding constants in `src/firmware/state.h`.
 
 Protocol unchanged: `Flash6-Intelligent-b15`
 
+## FLASH6 UI b185 — 2026-08-02
+
+- SIMULATION PLUS의 예상 기압고도와 속도 파형이 전체 비행 스케일에서도
+  실측처럼 보이도록 기압계 양자화, 다중 주파수 압력 리플, 코스팅 버핏과
+  속도 적분 변동을 강화했습니다.
+- IMU 진동 바닥값과 비행 단계별 노이즈 크기를 높이되 물리 중심 궤적은
+  별도로 유지하여 노이즈가 최고고도 예측값 자체를 왜곡하지 않게 했습니다.
+
+Firmware build unchanged: `0.13.3` (`v6 b81`)
+
+Protocol unchanged: `Flash6-Intelligent-b15`
+
 ## FLASH6 UI b184 — 2026-08-02
 
 - SIMULATION PLUS의 센서 예측에 기압계 장기 바이어스, 상관 잡음, 점화·연소

@@ -443,13 +443,13 @@
       // truth deterministic, then pass it through a conservative sensor/body
       // disturbance model derived from the uploaded stage-1 record.
       const altitudeSigma = simulationPlusClamp(
-        Math.max(0.38, analysis.altitudeNoiseSigmaM * 1.35), 0.38, 4.8
+        Math.max(1.6, analysis.altitudeNoiseSigmaM * 2.15), 1.6, 7.5
       );
       const accelSigma = simulationPlusClamp(
-        Math.max(0.85, analysis.accelNoiseSigmaMps2 * 1.15), 0.85, 11
+        Math.max(1.15, analysis.accelNoiseSigmaMps2 * 1.35), 1.15, 13
       );
       const vibrationScale = simulationPlusClamp(
-        0.85 + (analysis.accelNoiseSigmaMps2 * 0.32), 0.85, 3.8
+        1.15 + (analysis.accelNoiseSigmaMps2 * 0.4), 1.15, 4.6
       );
       let coloredAltitudeNoise = simulationPlusGaussian(random) * altitudeSigma;
       let barometerBias = simulationPlusGaussian(random) * altitudeSigma * 0.35;
@@ -476,7 +476,10 @@
           )
           : 0;
         const bodyBuffet = isCoasting
-          ? Math.sin(sample.time * 2 * Math.PI * 3.1 + 0.35) * vibrationScale * 0.22
+          ? (
+            (Math.sin(sample.time * 2 * Math.PI * 2.7 + 0.35) * vibrationScale * 0.28) +
+            (Math.sin(sample.time * 2 * Math.PI * 6.2 + 1.1) * vibrationScale * 0.12)
+          )
           : 0;
         const eventShock = (ignitionPulse * vibrationScale * 4.8) -
           (burnoutPulse * vibrationScale * 3.2) +
@@ -493,14 +496,22 @@
           (ignitionPulse * altitudeSigma * 1.7) -
           (burnoutPulse * altitudeSigma * 1.2) +
           (deploymentPulse * altitudeSigma * 2.1);
+        const pressureRipple = isPowered
+          ? altitudeSigma * (
+            (Math.sin(sample.time * 2 * Math.PI * 4.3 + 0.4) * 0.52) +
+            (Math.sin(sample.time * 2 * Math.PI * 9.1 + 1.3) * 0.18)
+          )
+          : (isCoasting
+            ? altitudeSigma * Math.sin(sample.time * 2 * Math.PI * 1.35 + 0.7) * 0.23
+            : altitudeSigma * Math.sin(sample.time * 2 * Math.PI * 0.82 + 0.2) * 0.16);
         coloredAccelNoise = (coloredAccelNoise * 0.78) +
           (simulationPlusGaussian(random) * accelSigma * phaseAccelGain * Math.sqrt(1 - (0.78 * 0.78)));
         const observedAccelNoise = coloredAccelNoise + motorVibration + bodyBuffet + eventShock;
         coloredSpeedNoise = (coloredSpeedNoise * 0.935) +
-          (observedAccelNoise * dt * 0.42) + (simulationPlusGaussian(random) * 0.055);
+          (observedAccelNoise * dt * 0.5) + (simulationPlusGaussian(random) * 0.16);
         sample.sensorAltitude = Math.max(
           0,
-          sample.altitude + coloredAltitudeNoise + barometerBias + pressureTransient
+          Math.round((sample.altitude + coloredAltitudeNoise + barometerBias + pressureTransient + pressureRipple) * 10) / 10
         );
         sample.sensorSpeed = Math.max(0, sample.speed + coloredSpeedNoise);
         sample.sensorAccel = sample.accel + observedAccelNoise;
