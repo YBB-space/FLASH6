@@ -2262,9 +2262,27 @@ void setupRoutes() {
     if (storageLoggingKey) {
       const bool enabled = truthy(request->getParam(storageLoggingKey)->value());
       if (forwardRemote) {
-        queueRemote(
+        // A dual-stage flight owns one logging session per avionics board.
+        // The old path queued the command only for the currently selected
+        // target (normally stage 1), leaving stage 2 logging disabled and its
+        // storage percentage stuck at zero. Broadcast this state change to
+        // both bound stage nodes; each board still acknowledges independently.
+        remoteRequested = true;
+        const int32_t value = enabled ? 1 : 0;
+        remoteQueued = flashLinkQueueCommand(
           FlashLinkCommandCode::SetStorageLogging,
-          enabled ? 1 : 0);
+          value,
+          0,
+          0,
+          kFlashLinkNodeIdStage1) && remoteQueued;
+        if (flashLinkStage2Enabled) {
+          remoteQueued = flashLinkQueueCommand(
+            FlashLinkCommandCode::SetStorageLogging,
+            value,
+            0,
+            0,
+            kFlashLinkNodeIdStage2) && remoteQueued;
+        }
       } else if (!storageSetLoggingEnabled(enabled)) {
         sendText(
           request,

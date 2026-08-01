@@ -3,6 +3,14 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.13.3 — v6 b81 / dual-stage flight logging
+
+- 2단 운용에서 지상국의 비행데이터 로깅 명령을 1·2단 에비오닉스 모두에
+  전달하도록 수정했습니다. 이전에는 자동 선택된 1단에만 명령이 큐잉되어
+  2단 저장 사용량(%)이 증가하지 않았습니다.
+
+Protocol unchanged: `Flash6-Intelligent-b15`
+
 ## FLASH6 UI b176 — 2026-08-01
 
 - 카메라 HUD 지도를 하단 우측으로 조금 더 내리고 크기를 확장했습니다.
