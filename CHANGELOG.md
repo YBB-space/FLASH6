@@ -12,6 +12,16 @@ Firmware build unchanged: `0.13.3` (`v6 b80`)
 
 Protocol unchanged: `Flash6-Intelligent-b15`
 
+## FLASH6 UI b177 — 2026-08-01
+
+- 크리티컬 알림을 화면 오른쪽 하단 스택으로 정렬했습니다.
+- 카메라 HUD의 미션명을 타임라인 아래 중앙으로 이동했습니다.
+- 카메라 HUD 지도를 하단 가장자리 쪽으로 추가 배치했습니다.
+
+Firmware build unchanged: `0.13.3` (`v6 b80`)
+
+Protocol unchanged: `Flash6-Intelligent-b15`
+
 ## FLASH6 UI b175 — 2026-08-01
 
 - 제어 센터의 `더보기`를 기본 메뉴 카드에서 분리해 독립된 펼침 버튼으로

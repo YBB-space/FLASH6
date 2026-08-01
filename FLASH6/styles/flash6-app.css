@@ -33041,9 +33041,9 @@ html body .app-shell > .side-nav-desktop{
 .critical-alert-stack{
   position:fixed;
   top:auto;
-  right:auto;
+  right:18px;
   bottom:clamp(18px,3.2vh,34px);
-  left:18px;
+  left:auto;
   z-index:91000;
   width:min(440px,calc(100vw - 32px));
   max-height:min(42dvh,300px);
@@ -33131,9 +33131,9 @@ html body .app-shell > .side-nav-desktop{
 @media (max-width:700px){
   .critical-alert-stack{
     top:auto;
-    right:auto;
+    right:12px;
     bottom:calc(var(--mobile-nav-height, 72px) + var(--mobile-nav-gap, 12px) + env(safe-area-inset-bottom,0px) + 12px);
-    left:12px;
+    left:auto;
     width:min(390px,calc(100vw - 24px));
     max-height:min(40dvh,280px);
     gap:8px;
@@ -33157,7 +33157,7 @@ html body .app-shell > .side-nav-desktop{
 @media (min-width:768px) and (pointer:fine){
   body.camera-view-active .camera-map-panel{
     right:clamp(24px,2.2vw,36px) !important;
-    bottom:calc(128px + env(safe-area-inset-bottom,0px)) !important;
+    bottom:calc(72px + env(safe-area-inset-bottom,0px)) !important;
     width:clamp(260px,20vw,330px) !important;
     height:clamp(170px,20vh,220px) !important;
   }
@@ -33166,9 +33166,28 @@ html body .app-shell > .side-nav-desktop{
 @media (min-width:768px) and (pointer:fine) and (max-height:700px){
   body.camera-view-active .camera-map-panel{
     right:24px !important;
-    bottom:calc(96px + env(safe-area-inset-bottom,0px)) !important;
+    bottom:calc(54px + env(safe-area-inset-bottom,0px)) !important;
     width:min(300px,30vw) !important;
     height:156px !important;
+  }
+}
+
+/* Broadcast HUD hierarchy: keep the mission label under the timeline while
+   the sequence timer remains in its compact upper dock. */
+@media (min-width:768px) and (pointer:fine){
+  body.camera-view-active .camera-sequence-heading{
+    position:fixed;
+    left:50%;
+    bottom:calc(14px + env(safe-area-inset-bottom,0px));
+    z-index:12;
+    width:min(720px,70vw);
+    justify-content:center;
+    transform:translateX(-50%);
+    pointer-events:none;
+  }
+  body.camera-view-active .camera-sequence-heading .camera-sequence-kicker{
+    max-width:100%;
+    text-align:center;
   }
 }
 
