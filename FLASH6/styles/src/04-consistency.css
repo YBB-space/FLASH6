@@ -4588,8 +4588,10 @@ html body #gyroZeroOverlay .gyro-zero-actions button:disabled{
 /* Desktop navigation was consolidated into the top control center. Keep the
    legacy command elements mounted as invisible event proxies so desktop and
    mobile actions still share the same handlers. */
-.side-nav-desktop[hidden]{
+html body .app-shell > .side-nav-desktop[hidden]{
   display:none !important;
+  visibility:hidden !important;
+  pointer-events:none !important;
 }
 
 /* Shared vehicle target selector for direct hardware controls. It is only
