@@ -1226,9 +1226,38 @@ void handleSerialLine(const char* line) {
         else if (key == "storage_logging" || key == "flight_logging") {
           const bool enabled = truthy(val);
           if (forwardRemote) {
-            queueRemote(
-              FlashLinkCommandCode::SetStorageLogging,
-              enabled ? 1 : 0);
+            // A dual-stage flight has an independent logger on each avionics
+            // board.  The serial command path used to forward this request
+            // only to the currently selected peer (normally stage 1), so
+            // stage 2 stayed OFF even though the ground UI showed logging as
+            // enabled.  Mirror the HTTP path and queue one transaction per
+            // enabled stage; each board confirms its own state through the
+            // telemetry logging flag.
+            const int32_t value = enabled ? 1 : 0;
+            remoteRequested = true;
+            remoteRequestCount++;
+            if (remoteRequestCount == 1U) {
+              remoteRequestCode =
+                static_cast<uint8_t>(FlashLinkCommandCode::SetStorageLogging);
+              remoteRequestValue = value;
+            }
+            if (!flashLinkQueueCommand(
+                  FlashLinkCommandCode::SetStorageLogging,
+                  value,
+                  0,
+                  0,
+                  kFlashLinkNodeIdStage1)) {
+              remoteQueued = false;
+            }
+            if (flashLinkStage2Enabled &&
+                !flashLinkQueueCommand(
+                  FlashLinkCommandCode::SetStorageLogging,
+                  value,
+                  0,
+                  0,
+                  kFlashLinkNodeIdStage2)) {
+              remoteQueued = false;
+            }
           } else if (!storageSetLoggingEnabled(enabled)) {
             Serial.println("ERR SET STORAGE_LOGGING_FAILED");
             return;
