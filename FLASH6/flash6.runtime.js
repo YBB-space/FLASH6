@@ -16579,7 +16579,6 @@ function requestMobileMockup3dMesh(){
     function getAlarmControlSource(action){
       const key = String(action || "").toLowerCase();
       if(key === "dashboard") return document.getElementById("desktopDashboardBtn");
-      if(key === "controls") return document.getElementById("desktopControlPanelNavBtn");
       if(key === "storage") return document.getElementById("sidebarStorageBtn");
       if(key === "mission") return document.querySelector('.side-nav-desktop .side-nav-item[data-page-title="Mission"]');
       if(key === "terminal") return document.getElementById("sidebarTerminalBtn");
@@ -16593,12 +16592,36 @@ function requestMobileMockup3dMesh(){
         const action = String(button.dataset.controlCenterAction || "").toLowerCase();
         const source = getAlarmControlSource(action);
         let active = !!(source && source.classList.contains("active"));
-        if(action === "controls") active = document.body.classList.contains("control-drawer-open");
+        if(action === "more") active = !!(el.alarmControlMorePanel && !el.alarmControlMorePanel.classList.contains("hidden"));
         if(action === "settings"){
           active = !!(el.settingsOverlay && !el.settingsOverlay.classList.contains("hidden"));
         }
         button.classList.toggle("is-active", active);
       });
+      if(el.alarmControlProxyButtons && el.alarmControlProxyButtons.length){
+        el.alarmControlProxyButtons.forEach((button)=>{
+          const source = document.getElementById(String(button.dataset.controlCenterProxy || ""));
+          const disabled = !source || !!source.disabled || source.getAttribute("aria-disabled") === "true";
+          const active = !!(source && (
+            source.classList.contains("is-on") ||
+            source.classList.contains("is-running") ||
+            source.classList.contains("is-recording") ||
+            source.getAttribute("aria-pressed") === "true"
+          ));
+          button.disabled = disabled;
+          button.classList.toggle("is-active", active);
+        });
+      }
+    }
+
+    function setAlarmControlMoreOpen(open){
+      if(!el.alarmControlMorePanel) return;
+      const next = !!open;
+      el.alarmControlMorePanel.classList.toggle("hidden", !next);
+      el.alarmControlMorePanel.setAttribute("aria-hidden", next ? "false" : "true");
+      const trigger = el.alarmHistoryPanel && el.alarmHistoryPanel.querySelector('[data-control-center-action="more"]');
+      if(trigger) trigger.setAttribute("aria-expanded", next ? "true" : "false");
+      syncAlarmControlButtons();
     }
 
     function formatAlarmHistoryTime(timestamp){
@@ -16687,6 +16710,8 @@ function requestMobileMockup3dMesh(){
         alarmHistoryUnreadCount = 0;
         syncAlarmControlButtons();
         renderAlarmHistory();
+      }else{
+        setAlarmControlMoreOpen(false);
       }
     }
 
@@ -40996,6 +41021,8 @@ function requestMobileMockup3dMesh(){
       el.alarmHistoryClear = document.getElementById("alarmHistoryClear");
       el.alarmHistoryList = document.getElementById("alarmHistoryList");
       el.alarmControlButtons = document.querySelectorAll("[data-control-center-action]");
+      el.alarmControlMorePanel = document.getElementById("alarmControlMorePanel");
+      el.alarmControlProxyButtons = document.querySelectorAll("[data-control-center-proxy]");
       el.desktopCameraBtn = document.getElementById("desktopCameraBtn");
       el.webcamPanel = document.getElementById("webcamPanel");
       el.webcamVideo = document.getElementById("webcamVideo");
@@ -46880,8 +46907,25 @@ function requestMobileMockup3dMesh(){
           button.addEventListener("click", (event)=>{
             event.preventDefault();
             event.stopPropagation();
+            const action = String(button.dataset.controlCenterAction || "").toLowerCase();
+            if(action === "more"){
+              setAlarmControlMoreOpen(!(el.alarmControlMorePanel && !el.alarmControlMorePanel.classList.contains("hidden")));
+              return;
+            }
             const source = getAlarmControlSource(button.dataset.controlCenterAction);
             if(source) source.click();
+            setAlarmHistoryOpen(false);
+          });
+        });
+      }
+      if(el.alarmControlProxyButtons && el.alarmControlProxyButtons.length){
+        el.alarmControlProxyButtons.forEach((button)=>{
+          button.addEventListener("click", (event)=>{
+            event.preventDefault();
+            event.stopPropagation();
+            const source = document.getElementById(String(button.dataset.controlCenterProxy || ""));
+            if(!source || source.disabled || source.getAttribute("aria-disabled") === "true") return;
+            source.click();
             setAlarmHistoryOpen(false);
           });
         });

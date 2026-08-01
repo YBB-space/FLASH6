@@ -715,7 +715,7 @@ html body #replayLegacyProtocolOverlay .replay-legacy-protocol-dialog{
     display:none !important;
   }
 }
-/* Gyro-first dashboard data rail: map above the two telemetry charts. */
+/* Gyro-first dashboard data rail: centered charts with a detached map. */
 .camera-map-panel{display:none}
 @media (min-width:768px) and (pointer:fine){
   .camera-data-stack{
@@ -729,14 +729,20 @@ html body #replayLegacyProtocolOverlay .replay-legacy-protocol-dialog{
     z-index:7;
     display:grid;
     width:var(--camera-data-width);
-    grid-template-rows:repeat(3,var(--camera-data-panel-height));
+    grid-template-rows:repeat(2,var(--camera-data-panel-height));
     align-content:center;
     gap:8px;
     pointer-events:none;
   }
   .camera-map-panel{
-    position:relative;
+    position:fixed;
+    right:var(--camera-data-edge);
+    bottom:calc(124px + env(safe-area-inset-bottom, 0px));
+    left:auto;
+    z-index:7;
     display:block;
+    width:var(--camera-data-width);
+    height:var(--camera-data-panel-height);
     min-width:0;
     min-height:0;
     overflow:hidden;

@@ -22668,7 +22668,7 @@ html body #replayLegacyProtocolOverlay .replay-legacy-protocol-dialog{
     display:none !important;
   }
 }
-/* Gyro-first dashboard data rail: map above the two telemetry charts. */
+/* Gyro-first dashboard data rail: centered charts with a detached map. */
 .camera-map-panel{display:none}
 @media (min-width:768px) and (pointer:fine){
   .camera-data-stack{
@@ -22682,14 +22682,20 @@ html body #replayLegacyProtocolOverlay .replay-legacy-protocol-dialog{
     z-index:7;
     display:grid;
     width:var(--camera-data-width);
-    grid-template-rows:repeat(3,var(--camera-data-panel-height));
+    grid-template-rows:repeat(2,var(--camera-data-panel-height));
     align-content:center;
     gap:8px;
     pointer-events:none;
   }
   .camera-map-panel{
-    position:relative;
+    position:fixed;
+    right:var(--camera-data-edge);
+    bottom:calc(124px + env(safe-area-inset-bottom, 0px));
+    left:auto;
+    z-index:7;
     display:block;
+    width:var(--camera-data-width);
+    height:var(--camera-data-panel-height);
     min-width:0;
     min-height:0;
     overflow:hidden;
@@ -32483,12 +32489,24 @@ html:not(.phone-landscape-layout) body #hardwareServoDialog .hardware-servo-pres
     gap:18px;
     padding:0 18px;
     border-bottom:0;
-    background:linear-gradient(180deg,rgba(7,9,12,.42) 0%,rgba(7,9,12,.2) 58%,rgba(7,9,12,0) 100%);
+    background:transparent;
     color:#d9dde2;
     box-shadow:none;
     -webkit-backdrop-filter:none;
     backdrop-filter:none;
     pointer-events:none;
+  }
+  body.camera-view-active .camera-system-statusbar::before{
+    content:"";
+    position:absolute;
+    inset:0 0 -52px;
+    z-index:0;
+    background:linear-gradient(180deg,rgba(0,0,0,.58) 0%,rgba(0,0,0,.34) 38%,rgba(0,0,0,.14) 68%,rgba(0,0,0,0) 100%);
+    pointer-events:none;
+  }
+  body.camera-view-active .camera-system-statusbar > *{
+    position:relative;
+    z-index:1;
   }
   .camera-system-stage{
     min-width:0;
@@ -32757,6 +32775,48 @@ body.camera-view-active .alarm-history-toggle.has-unread{
   text-overflow:ellipsis;
   white-space:nowrap;
 }
+.alarm-control-more{
+  flex:0 0 auto;
+  padding:0 18px 17px;
+  border-top:1px solid #2c2e32;
+  background:#151618;
+}
+.alarm-control-more.hidden{ display:none !important; }
+.alarm-control-more-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:8px;
+  padding-top:15px;
+}
+.alarm-control-more-grid button{
+  min-width:0;
+  min-height:43px;
+  padding:0 12px;
+  border:1px solid #32353a;
+  border-radius:6px;
+  background:#1b1d20;
+  color:#b9bec6;
+  font-size:11px;
+  font-weight:650;
+  white-space:nowrap;
+  cursor:pointer;
+  transform:none !important;
+  transition:background .14s ease,border-color .14s ease,color .14s ease;
+}
+.alarm-control-more-grid button:hover:not(:disabled){
+  border-color:#484c53;
+  background:#24262a;
+  color:#f2f4f6;
+}
+.alarm-control-more-grid button.is-active{
+  border-color:#52645b;
+  background:#202924;
+  color:#7de0a7;
+}
+.alarm-control-more-grid button:disabled{
+  opacity:.34;
+  cursor:not-allowed;
+}
 .alarm-history-section{
   min-height:0;
   display:flex;
@@ -32891,6 +32951,13 @@ body.camera-view-active .alarm-history-toggle.has-unread{
   }
   .alarm-control-button{
     min-height:56px;
+  }
+  .alarm-control-more{
+    padding:0 12px 12px;
+  }
+  .alarm-control-more-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    padding-top:12px;
   }
 }
 

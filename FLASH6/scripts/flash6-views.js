@@ -5187,7 +5187,6 @@
     function getAlarmControlSource(action){
       const key = String(action || "").toLowerCase();
       if(key === "dashboard") return document.getElementById("desktopDashboardBtn");
-      if(key === "controls") return document.getElementById("desktopControlPanelNavBtn");
       if(key === "storage") return document.getElementById("sidebarStorageBtn");
       if(key === "mission") return document.querySelector('.side-nav-desktop .side-nav-item[data-page-title="Mission"]');
       if(key === "terminal") return document.getElementById("sidebarTerminalBtn");
@@ -5201,12 +5200,36 @@
         const action = String(button.dataset.controlCenterAction || "").toLowerCase();
         const source = getAlarmControlSource(action);
         let active = !!(source && source.classList.contains("active"));
-        if(action === "controls") active = document.body.classList.contains("control-drawer-open");
+        if(action === "more") active = !!(el.alarmControlMorePanel && !el.alarmControlMorePanel.classList.contains("hidden"));
         if(action === "settings"){
           active = !!(el.settingsOverlay && !el.settingsOverlay.classList.contains("hidden"));
         }
         button.classList.toggle("is-active", active);
       });
+      if(el.alarmControlProxyButtons && el.alarmControlProxyButtons.length){
+        el.alarmControlProxyButtons.forEach((button)=>{
+          const source = document.getElementById(String(button.dataset.controlCenterProxy || ""));
+          const disabled = !source || !!source.disabled || source.getAttribute("aria-disabled") === "true";
+          const active = !!(source && (
+            source.classList.contains("is-on") ||
+            source.classList.contains("is-running") ||
+            source.classList.contains("is-recording") ||
+            source.getAttribute("aria-pressed") === "true"
+          ));
+          button.disabled = disabled;
+          button.classList.toggle("is-active", active);
+        });
+      }
+    }
+
+    function setAlarmControlMoreOpen(open){
+      if(!el.alarmControlMorePanel) return;
+      const next = !!open;
+      el.alarmControlMorePanel.classList.toggle("hidden", !next);
+      el.alarmControlMorePanel.setAttribute("aria-hidden", next ? "false" : "true");
+      const trigger = el.alarmHistoryPanel && el.alarmHistoryPanel.querySelector('[data-control-center-action="more"]');
+      if(trigger) trigger.setAttribute("aria-expanded", next ? "true" : "false");
+      syncAlarmControlButtons();
     }
 
     function formatAlarmHistoryTime(timestamp){
@@ -5295,6 +5318,8 @@
         alarmHistoryUnreadCount = 0;
         syncAlarmControlButtons();
         renderAlarmHistory();
+      }else{
+        setAlarmControlMoreOpen(false);
       }
     }
 

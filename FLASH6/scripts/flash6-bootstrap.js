@@ -31,6 +31,8 @@
       el.alarmHistoryClear = document.getElementById("alarmHistoryClear");
       el.alarmHistoryList = document.getElementById("alarmHistoryList");
       el.alarmControlButtons = document.querySelectorAll("[data-control-center-action]");
+      el.alarmControlMorePanel = document.getElementById("alarmControlMorePanel");
+      el.alarmControlProxyButtons = document.querySelectorAll("[data-control-center-proxy]");
       el.desktopCameraBtn = document.getElementById("desktopCameraBtn");
       el.webcamPanel = document.getElementById("webcamPanel");
       el.webcamVideo = document.getElementById("webcamVideo");
@@ -5915,8 +5917,25 @@
           button.addEventListener("click", (event)=>{
             event.preventDefault();
             event.stopPropagation();
+            const action = String(button.dataset.controlCenterAction || "").toLowerCase();
+            if(action === "more"){
+              setAlarmControlMoreOpen(!(el.alarmControlMorePanel && !el.alarmControlMorePanel.classList.contains("hidden")));
+              return;
+            }
             const source = getAlarmControlSource(button.dataset.controlCenterAction);
             if(source) source.click();
+            setAlarmHistoryOpen(false);
+          });
+        });
+      }
+      if(el.alarmControlProxyButtons && el.alarmControlProxyButtons.length){
+        el.alarmControlProxyButtons.forEach((button)=>{
+          button.addEventListener("click", (event)=>{
+            event.preventDefault();
+            event.stopPropagation();
+            const source = document.getElementById(String(button.dataset.controlCenterProxy || ""));
+            if(!source || source.disabled || source.getAttribute("aria-disabled") === "true") return;
+            source.click();
             setAlarmHistoryOpen(false);
           });
         });
