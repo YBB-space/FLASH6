@@ -970,10 +970,6 @@
           <div class="camera-sequence-heading">
             <span id="cameraSequenceMissionName" class="camera-sequence-kicker">SEQUENCE</span>
           </div>
-          <div class="camera-sequence-time">
-            <span id="cameraHudTimerTag" class="camera-tmark">T-</span>
-            <strong id="cameraHudCountdown" class="camera-count-time">--:--</strong>
-          </div>
           <div class="camera-sequence-rule" aria-hidden="true"></div>
           <div id="cameraBroadcastAlert" class="camera-broadcast-alert hidden" role="status" aria-live="polite">
             <span id="cameraBroadcastAlertLabel" class="camera-broadcast-alert-label">ALERT</span>
@@ -1030,7 +1026,7 @@
 
         <header id="cameraSystemStatusBar" class="camera-system-statusbar" aria-label="1단부 및 2단부 시스템 상태">
           <section id="cameraStage1Status" class="camera-system-stage camera-system-stage--one">
-            <div class="camera-system-stage-name"><i></i><strong>STAGE 1</strong><span id="cameraStage1Link">OFFLINE</span></div>
+            <div class="camera-system-stage-name"><i></i><strong>STAGE 1</strong><span id="cameraStage1Link">OFFLINE</span><b id="cameraStage1State" class="camera-system-stage-state">--</b></div>
             <div class="camera-system-stage-metrics">
               <span>ARM <b id="cameraStage1Arm">--</b></span>
               <span>IGN <b id="cameraStage1IgnitionDelay">--</b>s</span>
@@ -1046,7 +1042,7 @@
               <span>PYRO <b id="cameraStage2Pyro">--</b></span>
               <span>STORAGE <b id="cameraStage2Storage">--</b></span>
             </div>
-            <div class="camera-system-stage-name"><span id="cameraStage2Link">OFFLINE</span><strong>STAGE 2</strong><i></i></div>
+            <div class="camera-system-stage-name"><span id="cameraStage2Link">OFFLINE</span><b id="cameraStage2State" class="camera-system-stage-state">--</b><strong>STAGE 2</strong><i></i></div>
           </section>
         </header>
 
@@ -1110,8 +1106,9 @@
               </section>
             </aside>
             <section class="camera-hud-center">
-              <div class="camera-primary-display">
-                <div id="cameraHudState" class="camera-hud-state ok">STANDBY</div>
+              <div class="camera-sequence-time camera-sequence-time--timeline">
+                <span id="cameraHudTimerTag" class="camera-tmark">T-</span>
+                <strong id="cameraHudCountdown" class="camera-count-time">--:--</strong>
               </div>
               <div class="camera-timeline">
                 <div class="camera-timeline-track"></div>

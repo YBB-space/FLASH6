@@ -12,6 +12,16 @@ Firmware build unchanged: `0.13.3` (`v6 b80`)
 
 Protocol unchanged: `Flash6-Intelligent-b15`
 
+## FLASH6 UI b179 — 2026-08-01
+
+- 시퀀스 시간 표시를 타임라인 바로 위 중앙으로 이동했습니다.
+- 중앙에 표시되던 현재 비행 상태를 1·2단 상태바의 각 스테이지 상태로
+  분리해 표시합니다.
+
+Firmware build unchanged: `0.13.3` (`v6 b80`)
+
+Protocol unchanged: `Flash6-Intelligent-b15`
+
 ## FLASH6 UI b178 — 2026-08-01
 
 - HUD 상단에 표시되는 비행 알림을 오른쪽 상단으로 이동했습니다.

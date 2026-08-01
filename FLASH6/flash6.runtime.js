@@ -8640,7 +8640,7 @@ function requestMobileMockup3dMesh(){
       return "";
     }
 
-    function syncCameraStageSystemStatus(stageId, fallbackData, fallbackConnected){
+    function syncCameraStageSystemStatus(stageId, fallbackData, fallbackConnected, fallbackStateText, fallbackStateTone){
       const id = Number(stageId) === 2 ? 2 : 1;
       const stageState = stageTelemetryModeActive ? stageTelemetryStore[id] : null;
       const available = !!(stageState && stageState.valid && stageState.data);
@@ -8652,8 +8652,17 @@ function requestMobileMockup3dMesh(){
         : (id === 1 && !stageTelemetryModeActive ? !!fallbackConnected : false);
       const statusNode = el["cameraStage" + id + "Status"];
       const linkNode = el["cameraStage" + id + "Link"];
+      const stateNode = el["cameraStage" + id + "State"];
       if(statusNode) statusNode.classList.toggle("is-online", connected);
       if(linkNode) linkNode.textContent = connected ? "ONLINE" : (available ? "STALE" : "OFFLINE");
+      const stageStateText = data
+        ? String(data.stateText || data.flight_state_text || data.flightStateText || stageTelemetryPhaseLabel(data) || "--")
+        : (id === 1 && fallbackStateText ? fallbackStateText : "--");
+      if(stateNode){
+        stateNode.textContent = stageStateText.replace(/_/g, " ").toUpperCase();
+        stateNode.classList.toggle("is-warn", (id === 1 && fallbackStateTone === "warn") || (!connected && available));
+        stateNode.classList.toggle("is-bad", (id === 1 && fallbackStateTone === "bad") || !available);
+      }
 
       const armRaw = data && (data.swOn ?? data.s ?? data.sw);
       const armText = armRaw == null ? "--" : (Number(armRaw) ? "ON" : "OFF");
@@ -8706,8 +8715,8 @@ function requestMobileMockup3dMesh(){
       setValue("Storage", isFinite(storagePercent) ? storagePercent.toFixed(1) + "%" : "--");
     }
 
-    function syncCameraSystemStatusBar(data, linkOk){
-      syncCameraStageSystemStatus(1, data, linkOk);
+    function syncCameraSystemStatusBar(data, linkOk, stateText, stateTone){
+      syncCameraStageSystemStatus(1, data, linkOk, stateText, stateTone);
       syncCameraStageSystemStatus(2, data, false);
     }
 
@@ -8738,7 +8747,7 @@ function requestMobileMockup3dMesh(){
       const linkOk = data.connected == null
         ? !!(connOk || wsConnected || serialConnected)
         : !!data.connected;
-      syncCameraSystemStatusBar(data, linkOk);
+      syncCameraSystemStatusBar(data, linkOk, cleanStateText, statusTone);
       const cameraMissionName = (
         (el.missionName && el.missionName.value) ||
         selectedMotorName ||
@@ -41278,6 +41287,7 @@ function requestMobileMockup3dMesh(){
       [1, 2].forEach((stageId)=>{
         el["cameraStage" + stageId + "Status"] = document.getElementById("cameraStage" + stageId + "Status");
         el["cameraStage" + stageId + "Link"] = document.getElementById("cameraStage" + stageId + "Link");
+        el["cameraStage" + stageId + "State"] = document.getElementById("cameraStage" + stageId + "State");
         el["cameraStage" + stageId + "Arm"] = document.getElementById("cameraStage" + stageId + "Arm");
         el["cameraStage" + stageId + "IgnitionDelay"] = document.getElementById("cameraStage" + stageId + "IgnitionDelay");
         el["cameraStage" + stageId + "Pyro"] = document.getElementById("cameraStage" + stageId + "Pyro");

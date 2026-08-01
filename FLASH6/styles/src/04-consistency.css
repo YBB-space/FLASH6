@@ -1083,6 +1083,17 @@ html:not(.phone-landscape-layout) body #hardwareServoDialog .hardware-servo-pres
     font:680 9px/1 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
     letter-spacing:.07em;
   }
+  .camera-system-stage-name .camera-system-stage-state{
+    max-width:150px;
+    overflow:hidden;
+    color:#f4f6f8;
+    font:700 8px/1 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
+    letter-spacing:.06em;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .camera-system-stage-name .camera-system-stage-state.is-warn{color:#fbbf24}
+  .camera-system-stage-name .camera-system-stage-state.is-bad{color:#fda4af}
   .camera-system-stage.is-online .camera-system-stage-name i{
     background:#45d582;
     box-shadow:0 0 0 2px rgba(69,213,130,.13);
@@ -1732,6 +1743,21 @@ html body .app-shell > .side-nav-desktop{
 /* Broadcast HUD hierarchy: keep the mission label under the timeline while
    the sequence timer remains in its compact upper dock. */
 @media (min-width:768px) and (pointer:fine){
+  body.camera-view-active .camera-hud-center .camera-sequence-time--timeline{
+    order:1;
+    width:100%;
+    min-height:46px;
+    justify-content:center;
+    margin:0;
+  }
+  body.camera-view-active .camera-hud-center .camera-sequence-time--timeline .camera-count-time{
+    min-width:0;
+    text-align:center;
+  }
+  body.camera-view-active .camera-hud-center .camera-timeline{
+    order:2;
+  }
+
   body.camera-view-active .camera-sequence-heading{
     position:fixed;
     left:50%;

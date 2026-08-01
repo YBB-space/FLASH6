@@ -264,6 +264,7 @@
       [1, 2].forEach((stageId)=>{
         el["cameraStage" + stageId + "Status"] = document.getElementById("cameraStage" + stageId + "Status");
         el["cameraStage" + stageId + "Link"] = document.getElementById("cameraStage" + stageId + "Link");
+        el["cameraStage" + stageId + "State"] = document.getElementById("cameraStage" + stageId + "State");
         el["cameraStage" + stageId + "Arm"] = document.getElementById("cameraStage" + stageId + "Arm");
         el["cameraStage" + stageId + "IgnitionDelay"] = document.getElementById("cameraStage" + stageId + "IgnitionDelay");
         el["cameraStage" + stageId + "Pyro"] = document.getElementById("cameraStage" + stageId + "Pyro");

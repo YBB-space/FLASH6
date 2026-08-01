@@ -1591,7 +1591,7 @@
       return "";
     }
 
-    function syncCameraStageSystemStatus(stageId, fallbackData, fallbackConnected){
+    function syncCameraStageSystemStatus(stageId, fallbackData, fallbackConnected, fallbackStateText, fallbackStateTone){
       const id = Number(stageId) === 2 ? 2 : 1;
       const stageState = stageTelemetryModeActive ? stageTelemetryStore[id] : null;
       const available = !!(stageState && stageState.valid && stageState.data);
@@ -1603,8 +1603,17 @@
         : (id === 1 && !stageTelemetryModeActive ? !!fallbackConnected : false);
       const statusNode = el["cameraStage" + id + "Status"];
       const linkNode = el["cameraStage" + id + "Link"];
+      const stateNode = el["cameraStage" + id + "State"];
       if(statusNode) statusNode.classList.toggle("is-online", connected);
       if(linkNode) linkNode.textContent = connected ? "ONLINE" : (available ? "STALE" : "OFFLINE");
+      const stageStateText = data
+        ? String(data.stateText || data.flight_state_text || data.flightStateText || stageTelemetryPhaseLabel(data) || "--")
+        : (id === 1 && fallbackStateText ? fallbackStateText : "--");
+      if(stateNode){
+        stateNode.textContent = stageStateText.replace(/_/g, " ").toUpperCase();
+        stateNode.classList.toggle("is-warn", (id === 1 && fallbackStateTone === "warn") || (!connected && available));
+        stateNode.classList.toggle("is-bad", (id === 1 && fallbackStateTone === "bad") || !available);
+      }
 
       const armRaw = data && (data.swOn ?? data.s ?? data.sw);
       const armText = armRaw == null ? "--" : (Number(armRaw) ? "ON" : "OFF");
@@ -1657,8 +1666,8 @@
       setValue("Storage", isFinite(storagePercent) ? storagePercent.toFixed(1) + "%" : "--");
     }
 
-    function syncCameraSystemStatusBar(data, linkOk){
-      syncCameraStageSystemStatus(1, data, linkOk);
+    function syncCameraSystemStatusBar(data, linkOk, stateText, stateTone){
+      syncCameraStageSystemStatus(1, data, linkOk, stateText, stateTone);
       syncCameraStageSystemStatus(2, data, false);
     }
 
@@ -1689,7 +1698,7 @@
       const linkOk = data.connected == null
         ? !!(connOk || wsConnected || serialConnected)
         : !!data.connected;
-      syncCameraSystemStatusBar(data, linkOk);
+      syncCameraSystemStatusBar(data, linkOk, cleanStateText, statusTone);
       const cameraMissionName = (
         (el.missionName && el.missionName.value) ||
         selectedMotorName ||
