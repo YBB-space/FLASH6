@@ -74,6 +74,10 @@
         stage_rssi_dbm:finiteOrNull(39),
         stage_rssi_age_ms:finiteOrNull(40),
         storage_logging:finiteOrNull(41),
+        storage_used_bytes:finiteOrNull(42),
+        storage_capacity_bytes:finiteOrNull(43),
+        storage_records:finiteOrNull(44),
+        storage_ready:(finiteOrNull(43) ?? 0) > 0 ? 1 : 0,
         data_origin:"avionics"
       };
     }

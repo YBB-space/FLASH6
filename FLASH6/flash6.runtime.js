@@ -8675,6 +8675,26 @@ function requestMobileMockup3dMesh(){
       }
       let storagePercent = NaN;
       try{ storagePercent = getSpiFlashUsedPercent(storageInfo); }catch(_error){}
+      if(!isFinite(storagePercent) && data){
+        const reportedPercent = Number(
+          data.storage_used_percent ?? data.storage_percent ?? data.used_percent
+        );
+        if(isFinite(reportedPercent)){
+          storagePercent = Math.max(0, Math.min(100, reportedPercent));
+        }else{
+          const storageUsedBytes = Number(
+            data.storage_used_bytes ?? data.remote_storage_used_bytes
+          );
+          const storageCapacityBytes = Number(
+            data.storage_capacity_bytes ?? data.remote_storage_capacity_bytes
+          );
+          if(isFinite(storageUsedBytes) && isFinite(storageCapacityBytes) && storageCapacityBytes > 0){
+            storagePercent = Math.max(0, Math.min(100,
+              (Math.max(0, storageUsedBytes) / storageCapacityBytes) * 100
+            ));
+          }
+        }
+      }
 
       const setValue = (suffix, value)=>{
         const node = el["cameraStage" + id + suffix];
@@ -25396,6 +25416,10 @@ function requestMobileMockup3dMesh(){
         stage_rssi_dbm:finiteOrNull(39),
         stage_rssi_age_ms:finiteOrNull(40),
         storage_logging:finiteOrNull(41),
+        storage_used_bytes:finiteOrNull(42),
+        storage_capacity_bytes:finiteOrNull(43),
+        storage_records:finiteOrNull(44),
+        storage_ready:(finiteOrNull(43) ?? 0) > 0 ? 1 : 0,
         data_origin:"avionics"
       };
     }

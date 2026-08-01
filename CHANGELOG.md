@@ -3,6 +3,20 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.13.3 — v6 b80 / dual-stage storage HUD telemetry — 2026-08-01
+
+- 지상국의 1·2단 통합 텔레메트리 스냅샷에 각 보드의 SPI NOR 사용량,
+  전체 용량, 저장 레코드 수를 추가했습니다. 2단 상태바의 STORAGE가
+  데이터가 있음에도 `--`로 남던 문제를 수정했습니다.
+- FLASH6는 스테이지별 저장공간 캐시가 아직 준비되지 않은 경우에도 해당
+  스냅샷의 사용량과 용량으로 사용률을 직접 계산합니다.
+- HUD의 고도 계기를 왼쪽 하단으로 옮기고 지도 크기를 줄였으며, 시퀀스
+  미션명과 T-/T+ 시간 표시는 상단 왼쪽으로 정렬했습니다.
+
+Protocol updated: `Flash6-Intelligent-b14` → `Flash6-Intelligent-b15`
+
+Storage record protocol unchanged: `HWLOGV2` version `9`
+
 ## 0.13.2 — v6 b79 / addressed two-stage hardware controls — 2026-08-01
 
 - 지상국의 2단 운용 모드에서 파이로·서보·자이로 영점·재부팅 모달에

@@ -1,10 +1,10 @@
 
 constexpr char kFirmwareProgram[] = "Altis_Intelligent3_firmware1";
-constexpr char kFirmwareVersion[] = "0.13.2";
-constexpr char kFirmwareBuildId[] = "v6 b79";
-constexpr uint16_t kFirmwareBuildNumber = 79;
+constexpr char kFirmwareVersion[] = "0.13.3";
+constexpr char kFirmwareBuildId[] = "v6 b80";
+constexpr uint16_t kFirmwareBuildNumber = 80;
 constexpr char kFirmwareBoard[] = "Altis_Intelligent3_b3";
-constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b14";
+constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b15";
 constexpr uint8_t kStorageProtocolVersion = 9;
 // Only formats explicitly verified by this build are decoded as native.
 // Expand this range only after replay compatibility has been validated.

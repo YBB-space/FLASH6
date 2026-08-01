@@ -656,7 +656,8 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
   //  deployment_flags,relay,state,td,arm,arm_physical,ign_delay_valid,
   //  ign_delay_ms,alarm_seq,alarm_block,alarm_title,alarm_message,rx_seq,
   //  rx_hz,chip_temp,chip_temp_valid,loop_ms,cpu_us,reset_code,boot_session,
-  //  rx_loss_permille,rssi_dbm,rssi_age_ms,storage_logging]
+  //  rx_loss_permille,rssi_dbm,rssi_age_ms,storage_logging,
+  //  storage_used,storage_capacity,storage_records]
   char stageSnapshots[2][576];
   for (uint8_t i = 0; i < 2; ++i) {
     if (!remoteOutput || !flashLinkStage2Enabled) {
@@ -685,7 +686,7 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
       "[%u,%u,%u,%lu,%.2f,%.3f,%.3f,%.3f,%.2f,%.2f,%.2f,"
       "%.6f,%.6f,%.6f,%.6f,%u,%.2f,%u,%u,%u,%u,%ld,%u,%u,"
       "%u,%lu,%lu,%u,\"%s\",\"%s\",%lu,%u,%.1f,%u,%.3f,%u,%u,%lu,"
-      "%u,%d,%lu,%u]",
+      "%u,%d,%lu,%u,%lu,%lu,%lu]",
       (unsigned)(i + kFlashLinkNodeIdStage1),
       connected ? 1U : 0U,
       valid ? 1U : 0U,
@@ -727,7 +728,10 @@ size_t buildStreamJsonV2(char* json, size_t jsonLen) {
       (unsigned)peer.rxLossPermille,
       (int)peer.rssiDbm,
       (unsigned long)rssiAgeMs,
-      (peer.state.flags & (1U << 14)) ? 1U : 0U);
+      (peer.state.flags & (1U << 14)) ? 1U : 0U,
+      (unsigned long)peer.state.storageUsedBytes,
+      (unsigned long)peer.state.storageCapacityBytes,
+      (unsigned long)peer.state.storageRecordCount);
     if (stageLen <= 0 || (size_t)stageLen >= sizeof(stageSnapshots[i])) {
       strlcpy(stageSnapshots[i], "null", sizeof(stageSnapshots[i]));
     }

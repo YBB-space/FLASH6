@@ -722,6 +722,8 @@ html body #replayLegacyProtocolOverlay .replay-legacy-protocol-dialog{
     --camera-data-edge:clamp(24px,2.2vw,36px);
     --camera-data-width:clamp(270px,22vw,320px);
     --camera-data-panel-height:clamp(185px,21vh,220px);
+    --camera-map-width:clamp(220px,18vw,270px);
+    --camera-map-height:clamp(145px,17vh,178px);
     position:fixed;
     top:calc(34px + env(safe-area-inset-top, 0px));
     bottom:calc(116px + env(safe-area-inset-bottom, 0px));
@@ -737,12 +739,12 @@ html body #replayLegacyProtocolOverlay .replay-legacy-protocol-dialog{
   .camera-map-panel{
     position:fixed;
     right:var(--camera-data-edge);
-    bottom:calc(124px + env(safe-area-inset-bottom, 0px));
+    bottom:calc(196px + env(safe-area-inset-bottom, 0px));
     left:auto;
     z-index:7;
     display:block;
-    width:var(--camera-data-width);
-    height:var(--camera-data-panel-height);
+    width:var(--camera-map-width);
+    height:var(--camera-map-height);
     min-width:0;
     min-height:0;
     overflow:hidden;
@@ -874,6 +876,7 @@ html body #replayLegacyProtocolOverlay .replay-legacy-protocol-dialog{
   .camera-data-stack{
     --camera-data-edge:24px;
     --camera-data-width:min(300px,36vw);
+    --camera-map-width:min(250px,30vw);
   }
 }
 
@@ -881,6 +884,7 @@ html body #replayLegacyProtocolOverlay .replay-legacy-protocol-dialog{
   .camera-data-stack{
     --camera-data-edge:20px;
     --camera-data-panel-height:140px;
+    --camera-map-height:124px;
     gap:7px;
   }
 }
@@ -2344,12 +2348,13 @@ body.camera-view-active .mobile-board-header{display:none !important}
 }
 .camera-sequence-dock{
   position:absolute;
-  top:calc(28px + env(safe-area-inset-top, 0px));
-  right:32px;
+  top:calc(46px + env(safe-area-inset-top, 0px));
+  right:auto;
+  left:32px;
   z-index:8;
   width:clamp(300px,27vw,420px);
   display:grid;
-  justify-items:end;
+  justify-items:start;
   gap:5px;
   color:rgba(190,196,204,.68);
   font-family:"SF Pro Display","Inter","Segoe UI",Arial,sans-serif;
@@ -2362,7 +2367,7 @@ body.camera-view-active .mobile-board-header{display:none !important}
   overflow:hidden;
   text-overflow:ellipsis;
   white-space:nowrap;
-  text-align:right;
+  text-align:left;
   font-family:"SF Pro Display","Helvetica Neue","Inter","Segoe UI",Arial,sans-serif;
   font-size:clamp(12px,.82vw,14px);
   font-weight:300;
@@ -2375,7 +2380,7 @@ body.camera-view-active .mobile-board-header{display:none !important}
 .camera-sequence-heading{
   display:flex;
   align-items:center;
-  justify-content:flex-end;
+  justify-content:flex-start;
   gap:10px;
   width:100%;
   min-width:0;
@@ -2773,7 +2778,7 @@ body.camera-view-active .camera-sequence-time .camera-count-time{
 body.camera-view-active .camera-hud-left.hidden{
   display:none !important;
 }
-body.camera-view-active .camera-hud-left:not(.hidden) .camera-gauge--speed{
+body.camera-view-active .camera-hud-left:not(.hidden) .camera-gauge--alt{
   animation:camera-flight-gauge-enter .76s cubic-bezier(.14,.86,.18,1) both;
 }
 body.camera-view-active .camera-hud-left:not(.hidden) .camera-gauge--accel{
@@ -4948,7 +4953,7 @@ body.camera-view-active .camera-hud-left.is-stage-separating .camera-gauge{
   .camera-hud-attitude-group:not(.hidden) .camera-attitude-ring--outer,
   .camera-hud-attitude-group:not(.hidden) .camera-attitude-ring--horizon,
   .camera-hud-attitude-group:not(.hidden) .camera-attitude-ring--meridian,
-  body.camera-view-active .camera-hud-left:not(.hidden) .camera-gauge--speed,
+  body.camera-view-active .camera-hud-left:not(.hidden) .camera-gauge--alt,
   body.camera-view-active .camera-hud-left:not(.hidden) .camera-gauge--accel{
     animation:none;
   }
@@ -5178,7 +5183,7 @@ body.camera-view-active .camera-center-countdown .camera-count-time{
     right:18px;
     bottom:calc(220px + env(safe-area-inset-bottom, 0px));
   }
-  .camera-sequence-dock{right:18px;width:min(320px,72vw)}
+  .camera-sequence-dock{right:auto;left:18px;width:min(320px,72vw)}
   .camera-hud-attitude-group .camera-gauge{
     width:140px;
     height:140px;
