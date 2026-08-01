@@ -566,6 +566,10 @@
       el.missionStandbyReviewOverlay = document.getElementById("missionStandbyReviewOverlay");
       el.missionStandbyReviewCancel = document.getElementById("missionStandbyReviewCancel");
       el.missionStandbyReviewConfirm = document.getElementById("missionStandbyReviewConfirm");
+      el.flightLoggingGuardOverlay = document.getElementById("flightLoggingGuardOverlay");
+      el.flightLoggingGuardOk = document.getElementById("flightLoggingGuardOk");
+      el.flightLoggingGuardText = document.getElementById("flightLoggingGuardText");
+      el.flightLoggingGuardDetail = document.getElementById("flightLoggingGuardDetail");
       el.missionReviewS1Separation = document.getElementById("missionReviewS1Separation");
       el.missionReviewS1Ejection = document.getElementById("missionReviewS1Ejection");
       el.missionReviewLinkFallback = document.getElementById("missionReviewLinkFallback");
@@ -5469,6 +5473,18 @@
       if(el.missionStandbyReviewOverlay){
         el.missionStandbyReviewOverlay.addEventListener("click", ev=>{
           if(ev.target === el.missionStandbyReviewOverlay) setOverlayVisible(el.missionStandbyReviewOverlay, false);
+        });
+      }
+      if(el.flightLoggingGuardOk){
+        el.flightLoggingGuardOk.addEventListener("click", ()=>{
+          setOverlayVisible(el.flightLoggingGuardOverlay, false);
+        });
+      }
+      if(el.flightLoggingGuardOverlay){
+        el.flightLoggingGuardOverlay.addEventListener("click", ev=>{
+          if(ev.target === el.flightLoggingGuardOverlay){
+            setOverlayVisible(el.flightLoggingGuardOverlay, false);
+          }
         });
       }
       if(el.ignTimeInput){

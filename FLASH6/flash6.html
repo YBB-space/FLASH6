@@ -127,7 +127,7 @@
   <!-- Preload 축소: AP 모드/저메모리 환경에서 동시 요청 버스트를 줄임 -->
   <script>
     (function(){
-    var ASSET_VER = "20260801-control-center-more-b175-__FLASH6_DEPLOY_SHA__";
+    var ASSET_VER = "20260801-flight-logging-guard-b180-__FLASH6_DEPLOY_SHA__";
       window.__flashBoot = window.__flashBoot || {jsReady:false,lastError:"",phase:"static_loader",version:ASSET_VER};
       var isLocalPreview = !!window.__flashBoot.localPreview;
       var beaconEnabled = (window.__flashBoot.beaconEnabled !== false);
@@ -3935,6 +3935,19 @@
       </div>
     </div>
 
+    <!-- 미션 시작 전 비행데이터 로깅 확인 모달 -->
+    <div id="flightLoggingGuardOverlay" class="confirm-overlay flight-logging-guard-overlay hidden" style="display:none;" aria-hidden="true">
+      <div class="confirm-dialog flight-logging-guard-dialog" role="alertdialog" aria-modal="true" aria-labelledby="flightLoggingGuardTitle" aria-describedby="flightLoggingGuardText">
+        <div class="confirm-icon" aria-hidden="true"><span>!</span></div>
+        <div id="flightLoggingGuardTitle" class="confirm-title">비행 데이터 로깅 확인</div>
+        <div id="flightLoggingGuardText" class="confirm-text">비행데이터 로깅 상태를 확인하세요.</div>
+        <div id="flightLoggingGuardDetail" class="confirm-note">미션 시작 전에 비행 로깅을 켜야 합니다.</div>
+        <div class="confirm-actions">
+          <button id="flightLoggingGuardOk" class="loadcell-primary" type="button">확인</button>
+        </div>
+      </div>
+    </div>
+
     <!-- 미션 지정 필요 모달 -->
     <div id="missionRequiredOverlay" class="confirm-overlay hidden" style="display:none;">
       <div class="confirm-dialog">
@@ -4751,6 +4764,6 @@
     <button id="controlsOverlayClose" class="controls-overlay-close" type="button" aria-label="close">×</button>
     </div>
 
-  <script src="scripts/flash6-watchdog.js?v=20260801-control-center-more-b175-__FLASH6_DEPLOY_SHA__"></script>
+  <script src="scripts/flash6-watchdog.js?v=20260801-flight-logging-guard-b180-__FLASH6_DEPLOY_SHA__"></script>
 </body>
 </html> 

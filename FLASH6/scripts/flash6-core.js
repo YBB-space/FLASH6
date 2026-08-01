@@ -140,6 +140,10 @@ if (typeof window !== "undefined") {
     let flightDataLoggingPending = false;
     let flightDataLoggingKnown = false;
     let flightDataLoggingDesired = null;
+    // Ground/dual-stage telemetry carries an independent logging flag for
+    // each avionics board. Keep those flags separate so mission guards do not
+    // accidentally accept stage 1 logging as proof that stage 2 is logging.
+    const flightDataLoggingByStage = {1:null, 2:null};
 
     const IGN_THRUST_THRESHOLD = 10.0;  // kgf, ignition delay threshold
     const IGN_PRESSURE_WINDOW_THRESHOLD_MPA = 0.3;

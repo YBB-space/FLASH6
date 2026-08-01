@@ -11,6 +11,16 @@ same commit that changes the corresponding constants in `src/firmware/state.h`.
 
 Protocol unchanged: `Flash6-Intelligent-b15`
 
+## FLASH6 UI b180 — 2026-08-01
+
+- 미션 대기 또는 시퀀스 시작 전에 비행데이터 로깅 상태를 확인합니다.
+- 1·2단 운용에서는 양쪽 로깅이 모두 켜져 있어야 진행되며, 꺼져 있거나
+  상태를 확인하지 못하면 시작을 막고 경고 모달을 표시합니다.
+
+Firmware build unchanged: `0.13.3` (`v6 b81`)
+
+Protocol unchanged: `Flash6-Intelligent-b15`
+
 ## FLASH6 UI b176 — 2026-08-01
 
 - 카메라 HUD 지도를 하단 우측으로 조금 더 내리고 크기를 확장했습니다.

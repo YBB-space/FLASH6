@@ -723,10 +723,20 @@
       });
     }
 
-    function applyFlightDataLoggingTelemetry(data){
+    function updateFlightDataLoggingStageTelemetry(stageId, raw){
+      const id = Number(stageId) === 2 ? 2 : (Number(stageId) === 1 ? 1 : 0);
+      if(!id || raw == null || raw === "" || !isFinite(Number(raw))) return;
+      flightDataLoggingByStage[id] = Number(raw) !== 0;
+    }
+
+    function applyFlightDataLoggingTelemetry(data, stageId){
       if(!data) return;
       const raw = data.storage_logging != null ? data.storage_logging : data.sl;
       if(raw == null || raw === "" || !isFinite(Number(raw))) return;
+      updateFlightDataLoggingStageTelemetry(
+        stageId != null ? stageId : (data.stage_node_id ?? data.stage_node ?? data.flash_link_node_id),
+        raw
+      );
       const enabled = Number(raw) !== 0;
       if(
         flightDataLoggingPending &&
@@ -740,6 +750,71 @@
       flightDataLoggingEnabled = enabled;
       if(changed && !enabled) finalizeAppDataSession();
       syncFlightDataLoggingUi();
+    }
+
+    function getFlightLoggingGuardStatus(){
+      if(simEnabled){
+        return {ready:true, required:[1], missing:[], unknown:[], dual:false};
+      }
+      const ground = isFlashLinkGroundStorageUi();
+      const configuredDual = !!(
+        flashLinkUiStage2Mode ||
+        (uiSettings && uiSettings.flashLinkStage2Mode)
+      );
+      const configuredNode = Number(
+        flashLinkUiNodeId || (uiSettings && uiSettings.flashLinkNodeId) || 1
+      ) === 2 ? 2 : 1;
+      const required = ground
+        ? (configuredDual ? [1, 2] : [1])
+        : [configuredNode];
+      const missing = [];
+      const unknown = [];
+      required.forEach((stageId)=>{
+        let value = flightDataLoggingByStage[stageId];
+        // Direct avionics mode does not always include stage_node_id in its
+        // first telemetry frame, so use the established single-board flag as
+        // a fallback for that one required board only.
+        if(value == null && required.length === 1 && flightDataLoggingKnown){
+          value = flightDataLoggingEnabled;
+        }
+        if(value == null) unknown.push(stageId);
+        else if(!value) missing.push(stageId);
+      });
+      return {
+        ready:missing.length === 0 && unknown.length === 0,
+        required,
+        missing,
+        unknown,
+        dual:configuredDual
+      };
+    }
+
+    function showFlightLoggingGuardModal(actionLabel){
+      const status = getFlightLoggingGuardStatus();
+      const ids = status.missing.concat(status.unknown);
+      const stageText = ids.length
+        ? ids.map((id)=>id + "단부").join(", ")
+        : "에비오닉스";
+      const unknownOnly = status.missing.length === 0 && status.unknown.length > 0;
+      if(el.flightLoggingGuardText){
+        el.flightLoggingGuardText.textContent = unknownOnly
+          ? stageText + " 비행데이터 로깅 상태를 확인하지 못했습니다. 로깅 상태와 연결을 확인한 뒤 다시 시도하세요."
+          : stageText + " 비행데이터 로깅이 켜져 있지 않습니다. " +
+            (actionLabel || "미션") + " 전에 비행 로깅을 시작하세요.";
+      }
+      if(el.flightLoggingGuardDetail){
+        el.flightLoggingGuardDetail.textContent = status.dual
+          ? "2단 운용에서는 1단·2단 로깅이 모두 ON이어야 합니다."
+          : "비행 데이터가 저장되지 않으면 해당 비행을 복구하거나 분석할 수 없습니다.";
+      }
+      setOverlayVisible(el.flightLoggingGuardOverlay, true);
+    }
+
+    function ensureFlightLoggingForMission(actionLabel){
+      const status = getFlightLoggingGuardStatus();
+      if(status.ready) return true;
+      showFlightLoggingGuardModal(actionLabel);
+      return false;
     }
 
     function waitForFlightDataLoggingConfirmation(expected, timeoutMs){
@@ -1080,7 +1155,7 @@
       latestAvionicsStorageInfo = normalized;
       latestAvionicsStorageOkMs = Date.now();
       if(normalized.logging != null){
-        applyFlightDataLoggingTelemetry({storage_logging:normalized.logging});
+        applyFlightDataLoggingTelemetry({storage_logging:normalized.logging}, stageNode);
       }
       syncStoragePreview();
       processSequenceStorageGuardUpdate({notifyCritical:true});

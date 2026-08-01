@@ -141,6 +141,10 @@ if (typeof window !== "undefined") {
     let flightDataLoggingPending = false;
     let flightDataLoggingKnown = false;
     let flightDataLoggingDesired = null;
+    // Ground/dual-stage telemetry carries an independent logging flag for
+    // each avionics board. Keep those flags separate so mission guards do not
+    // accidentally accept stage 1 logging as proof that stage 2 is logging.
+    const flightDataLoggingByStage = {1:null, 2:null};
 
     const IGN_THRUST_THRESHOLD = 10.0;  // kgf, ignition delay threshold
     const IGN_PRESSURE_WINDOW_THRESHOLD_MPA = 0.3;
@@ -8174,6 +8178,9 @@ function requestMobileMockup3dMesh(){
           stage_node_id:stageId,
           data_origin:"avionics"
         });
+      }
+      if(state.data && state.data.storage_logging != null){
+        updateFlightDataLoggingStageTelemetry(stageId, state.data.storage_logging);
       }
       state.attitudeRevision++;
       const ageMs = Math.max(0, Number(sample.stage_age_ms ?? sample.age_ms) || 0);
@@ -19249,6 +19256,7 @@ function requestMobileMockup3dMesh(){
 
     async function confirmMissionStandbyFromUi(){
       setOverlayVisible(el.missionStandbyReviewOverlay, false);
+      if(!ensureFlightLoggingForMission("미션 대기")) return;
       const unsafeStages = missionStandbyUnsafeStageIds();
       if(unsafeStages.length){
         await enforceMissionStandbySafety(unsafeStages);
@@ -19283,6 +19291,7 @@ function requestMobileMockup3dMesh(){
 
     async function startMissionStandbyFromUi(){
       if(missionStandbyUiActive || sequenceActive) return;
+      if(!ensureFlightLoggingForMission("미션 대기")) return;
       const unsafeStages = missionStandbyUnsafeStageIds();
       if(unsafeStages.length){
         await enforceMissionStandbySafety(unsafeStages);
@@ -30492,10 +30501,20 @@ function requestMobileMockup3dMesh(){
       });
     }
 
-    function applyFlightDataLoggingTelemetry(data){
+    function updateFlightDataLoggingStageTelemetry(stageId, raw){
+      const id = Number(stageId) === 2 ? 2 : (Number(stageId) === 1 ? 1 : 0);
+      if(!id || raw == null || raw === "" || !isFinite(Number(raw))) return;
+      flightDataLoggingByStage[id] = Number(raw) !== 0;
+    }
+
+    function applyFlightDataLoggingTelemetry(data, stageId){
       if(!data) return;
       const raw = data.storage_logging != null ? data.storage_logging : data.sl;
       if(raw == null || raw === "" || !isFinite(Number(raw))) return;
+      updateFlightDataLoggingStageTelemetry(
+        stageId != null ? stageId : (data.stage_node_id ?? data.stage_node ?? data.flash_link_node_id),
+        raw
+      );
       const enabled = Number(raw) !== 0;
       if(
         flightDataLoggingPending &&
@@ -30509,6 +30528,71 @@ function requestMobileMockup3dMesh(){
       flightDataLoggingEnabled = enabled;
       if(changed && !enabled) finalizeAppDataSession();
       syncFlightDataLoggingUi();
+    }
+
+    function getFlightLoggingGuardStatus(){
+      if(simEnabled){
+        return {ready:true, required:[1], missing:[], unknown:[], dual:false};
+      }
+      const ground = isFlashLinkGroundStorageUi();
+      const configuredDual = !!(
+        flashLinkUiStage2Mode ||
+        (uiSettings && uiSettings.flashLinkStage2Mode)
+      );
+      const configuredNode = Number(
+        flashLinkUiNodeId || (uiSettings && uiSettings.flashLinkNodeId) || 1
+      ) === 2 ? 2 : 1;
+      const required = ground
+        ? (configuredDual ? [1, 2] : [1])
+        : [configuredNode];
+      const missing = [];
+      const unknown = [];
+      required.forEach((stageId)=>{
+        let value = flightDataLoggingByStage[stageId];
+        // Direct avionics mode does not always include stage_node_id in its
+        // first telemetry frame, so use the established single-board flag as
+        // a fallback for that one required board only.
+        if(value == null && required.length === 1 && flightDataLoggingKnown){
+          value = flightDataLoggingEnabled;
+        }
+        if(value == null) unknown.push(stageId);
+        else if(!value) missing.push(stageId);
+      });
+      return {
+        ready:missing.length === 0 && unknown.length === 0,
+        required,
+        missing,
+        unknown,
+        dual:configuredDual
+      };
+    }
+
+    function showFlightLoggingGuardModal(actionLabel){
+      const status = getFlightLoggingGuardStatus();
+      const ids = status.missing.concat(status.unknown);
+      const stageText = ids.length
+        ? ids.map((id)=>id + "단부").join(", ")
+        : "에비오닉스";
+      const unknownOnly = status.missing.length === 0 && status.unknown.length > 0;
+      if(el.flightLoggingGuardText){
+        el.flightLoggingGuardText.textContent = unknownOnly
+          ? stageText + " 비행데이터 로깅 상태를 확인하지 못했습니다. 로깅 상태와 연결을 확인한 뒤 다시 시도하세요."
+          : stageText + " 비행데이터 로깅이 켜져 있지 않습니다. " +
+            (actionLabel || "미션") + " 전에 비행 로깅을 시작하세요.";
+      }
+      if(el.flightLoggingGuardDetail){
+        el.flightLoggingGuardDetail.textContent = status.dual
+          ? "2단 운용에서는 1단·2단 로깅이 모두 ON이어야 합니다."
+          : "비행 데이터가 저장되지 않으면 해당 비행을 복구하거나 분석할 수 없습니다.";
+      }
+      setOverlayVisible(el.flightLoggingGuardOverlay, true);
+    }
+
+    function ensureFlightLoggingForMission(actionLabel){
+      const status = getFlightLoggingGuardStatus();
+      if(status.ready) return true;
+      showFlightLoggingGuardModal(actionLabel);
+      return false;
     }
 
     function waitForFlightDataLoggingConfirmation(expected, timeoutMs){
@@ -30849,7 +30933,7 @@ function requestMobileMockup3dMesh(){
       latestAvionicsStorageInfo = normalized;
       latestAvionicsStorageOkMs = Date.now();
       if(normalized.logging != null){
-        applyFlightDataLoggingTelemetry({storage_logging:normalized.logging});
+        applyFlightDataLoggingTelemetry({storage_logging:normalized.logging}, stageNode);
       }
       syncStoragePreview();
       processSequenceStorageGuardUpdate({notifyCritical:true});
@@ -33566,6 +33650,7 @@ function requestMobileMockup3dMesh(){
     }
     function showConfirm(){
       hideMobileControlsPanel();
+      if(!ensureFlightLoggingForMission("시퀀스 시작")) return;
       const storageGuard = getSequenceStorageGuard();
       if(storageGuard.blocked){
         showSequenceStorageGuardToast(true);
@@ -33618,6 +33703,7 @@ function requestMobileMockup3dMesh(){
 
     function startHold(){
       if(lockoutLatched) return;
+      if(!ensureFlightLoggingForMission("시퀀스 시작")) return;
       const storageGuard = getSequenceStorageGuard();
       if(storageGuard.blocked){
         showSequenceStorageGuardToast(true);
@@ -41589,6 +41675,10 @@ function requestMobileMockup3dMesh(){
       el.missionStandbyReviewOverlay = document.getElementById("missionStandbyReviewOverlay");
       el.missionStandbyReviewCancel = document.getElementById("missionStandbyReviewCancel");
       el.missionStandbyReviewConfirm = document.getElementById("missionStandbyReviewConfirm");
+      el.flightLoggingGuardOverlay = document.getElementById("flightLoggingGuardOverlay");
+      el.flightLoggingGuardOk = document.getElementById("flightLoggingGuardOk");
+      el.flightLoggingGuardText = document.getElementById("flightLoggingGuardText");
+      el.flightLoggingGuardDetail = document.getElementById("flightLoggingGuardDetail");
       el.missionReviewS1Separation = document.getElementById("missionReviewS1Separation");
       el.missionReviewS1Ejection = document.getElementById("missionReviewS1Ejection");
       el.missionReviewLinkFallback = document.getElementById("missionReviewLinkFallback");
@@ -46492,6 +46582,18 @@ function requestMobileMockup3dMesh(){
       if(el.missionStandbyReviewOverlay){
         el.missionStandbyReviewOverlay.addEventListener("click", ev=>{
           if(ev.target === el.missionStandbyReviewOverlay) setOverlayVisible(el.missionStandbyReviewOverlay, false);
+        });
+      }
+      if(el.flightLoggingGuardOk){
+        el.flightLoggingGuardOk.addEventListener("click", ()=>{
+          setOverlayVisible(el.flightLoggingGuardOverlay, false);
+        });
+      }
+      if(el.flightLoggingGuardOverlay){
+        el.flightLoggingGuardOverlay.addEventListener("click", ev=>{
+          if(ev.target === el.flightLoggingGuardOverlay){
+            setOverlayVisible(el.flightLoggingGuardOverlay, false);
+          }
         });
       }
       if(el.ignTimeInput){

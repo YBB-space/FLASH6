@@ -1126,6 +1126,9 @@
           data_origin:"avionics"
         });
       }
+      if(state.data && state.data.storage_logging != null){
+        updateFlightDataLoggingStageTelemetry(stageId, state.data.storage_logging);
+      }
       state.attitudeRevision++;
       const ageMs = Math.max(0, Number(sample.stage_age_ms ?? sample.age_ms) || 0);
       state.updatedAt = Date.now() - Math.min(ageMs, 0x7fffffff);

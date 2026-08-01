@@ -225,6 +225,7 @@
     }
     function showConfirm(){
       hideMobileControlsPanel();
+      if(!ensureFlightLoggingForMission("시퀀스 시작")) return;
       const storageGuard = getSequenceStorageGuard();
       if(storageGuard.blocked){
         showSequenceStorageGuardToast(true);
@@ -277,6 +278,7 @@
 
     function startHold(){
       if(lockoutLatched) return;
+      if(!ensureFlightLoggingForMission("시퀀스 시작")) return;
       const storageGuard = getSequenceStorageGuard();
       if(storageGuard.blocked){
         showSequenceStorageGuardToast(true);
