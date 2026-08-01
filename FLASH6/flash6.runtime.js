@@ -8723,8 +8723,31 @@ function requestMobileMockup3dMesh(){
     }
 
     function syncCameraSystemStatusBar(data, linkOk, stateText, stateTone){
-      syncCameraStageSystemStatus(1, data, linkOk, stateText, stateTone);
-      syncCameraStageSystemStatus(2, data, false);
+      if(stageTelemetryModeActive){
+        // Ground/dual-stage telemetry has an independent snapshot for each
+        // vehicle. Do not reuse the ground station's top-level frame for
+        // either side of the status bar; syncCameraStageSystemStatus() will
+        // read the matching stageTelemetryStore entry.
+        syncCameraStageSystemStatus(1, null, false, null, null);
+        syncCameraStageSystemStatus(2, null, false, null, null);
+        return;
+      }
+
+      // In direct avionics mode only one vehicle is the active source. The
+      // previous implementation always treated that frame as Stage 1, so a
+      // direct Stage-2 connection left its ARM/IGN/PYRO/STORAGE values at
+      // `--`. Route the frame to the selected node so the ignition delay is
+      // visible for either single-board role.
+      const directNode = Number(
+        flashLinkUiNodeId || (uiSettings && uiSettings.flashLinkNodeId) || 1
+      ) === 2 ? 2 : 1;
+      if(directNode === 2){
+        syncCameraStageSystemStatus(1, null, false, null, null);
+        syncCameraStageSystemStatus(2, data, linkOk, stateText, stateTone);
+      }else{
+        syncCameraStageSystemStatus(1, data, linkOk, stateText, stateTone);
+        syncCameraStageSystemStatus(2, null, false, null, null);
+      }
     }
 
     function syncCameraHud(values){

@@ -21,6 +21,17 @@ Firmware build unchanged: `0.13.3` (`v6 b81`)
 
 Protocol unchanged: `Flash6-Intelligent-b15`
 
+## FLASH6 UI b181 — 2026-08-01
+
+- 직접 2단 에비오닉스에 연결한 경우에도 카메라 상태바가 2단의 ARM·점화
+  지연·PYRO·저장공간 값을 올바른 보드에서 읽도록 수정했습니다.
+- 지상국/2단 운용에서는 각 차량 텔레메트리 스냅샷을 그대로 사용해 1·2단
+  점화 지연 표시가 서로 섞이지 않도록 했습니다.
+
+Firmware build unchanged: `0.13.3` (`v6 b81`)
+
+Protocol unchanged: `Flash6-Intelligent-b15`
+
 ## FLASH6 UI b176 — 2026-08-01
 
 - 카메라 HUD 지도를 하단 우측으로 조금 더 내리고 크기를 확장했습니다.
