@@ -2,6 +2,33 @@ static uint8_t serialStorageBulkData[kSerialStorageChunkBytes];
 static unsigned char serialStorageBulkB64[
   ((kSerialStorageChunkBytes + 2U) / 3U) * 4U + 1U];
 
+// USB CDC writes may accept only the bytes that currently fit in the TX
+// queue.  A single large Serial.write() therefore cannot be treated as an
+// all-or-nothing operation.  Storage ACKs are one logical Base64 line, so a
+// partial write makes the browser receive an undecodable chunk.
+static bool serialWriteBulkFully(
+  const uint8_t* data,
+  size_t len,
+  uint32_t noProgressTimeoutMs = 1200U
+) {
+  if (!data || len == 0U) return len == 0U;
+  size_t written = 0U;
+  uint32_t lastProgressAtMs = millis();
+  while (written < len) {
+    const size_t n = Serial.write(data + written, len - written);
+    if (n > 0U) {
+      written += n;
+      lastProgressAtMs = millis();
+      continue;
+    }
+    if ((uint32_t)(millis() - lastProgressAtMs) >= noProgressTimeoutMs) {
+      return false;
+    }
+    delay(1);
+  }
+  return true;
+}
+
 void serialPrintStorageStatus() {
   StorageLock lock;
   if (!lock) {
@@ -132,8 +159,11 @@ void serialPrintStorageChunk(uint32_t offset, uint32_t len) {
   }
   serialStorageBulkB64[b64Len] = '\0';
   Serial.printf("ACK SPI_FLASH_CHUNK off=%lu len=%lu b64=", (unsigned long)offset, (unsigned long)len);
-  Serial.write(serialStorageBulkB64, b64Len);
+  const bool sent = serialWriteBulkFully(serialStorageBulkB64, b64Len);
   Serial.write('\n');
+  if (!sent) {
+    Serial.println("ERR SPI_FLASH_READ TX_INCOMPLETE");
+  }
 }
 
 void serialPrintRemoteStorageItem(uint32_t idx, uint8_t requestedNodeId = 0U) {
@@ -252,8 +282,11 @@ void serialPrintRemoteStorageChunk(
     (unsigned)targetNodeId,
     (unsigned long)offset,
     (unsigned)totalLen);
-  Serial.write(serialStorageBulkB64, b64Len);
+  const bool sent = serialWriteBulkFully(serialStorageBulkB64, b64Len);
   Serial.write('\n');
+  if (!sent) {
+    Serial.println("ERR SPI_FLASH_REMOTE_CHUNK TX_INCOMPLETE");
+  }
 }
 
 void serialMissionBegin(size_t len) {

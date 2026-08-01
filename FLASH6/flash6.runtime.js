@@ -33791,13 +33791,31 @@ function requestMobileMockup3dMesh(){
       return parseSpiFlashBulkChunkAckMessage(message, "SPI_FLASH_REMOTE_CHUNK");
     }
 
-    function decodeBase64ToBytes(b64){
+    function decodeBase64ToBytes(b64, expectedBytes){
       const text = String(b64 || "").trim();
       if(!text) return new Uint8Array(0);
-      const bin = atob(text);
+      const expected = Math.max(0, Math.floor(Number(expectedBytes) || 0));
+      const expectedEncodedLength = expected > 0 ? (Math.ceil(expected / 3) * 4) : 0;
+      if(
+        (expectedEncodedLength > 0 && text.length !== expectedEncodedLength) ||
+        (text.length % 4) !== 0 ||
+        !/^[A-Za-z0-9+/]*={0,2}$/.test(text) ||
+        text.slice(0, -2).indexOf("=") >= 0
+      ){
+        throw new Error("SERIAL_CHUNK_BASE64_INVALID");
+      }
+      let bin = "";
+      try{
+        bin = atob(text);
+      }catch(_err){
+        throw new Error("SERIAL_CHUNK_BASE64_INVALID");
+      }
       const out = new Uint8Array(bin.length);
       for(let i=0;i<bin.length;i++){
         out[i] = bin.charCodeAt(i) & 0xFF;
+      }
+      if(expected > 0 && out.length !== expected){
+        throw new Error("SERIAL_CHUNK_SIZE_FAIL");
       }
       return out;
     }
@@ -33925,31 +33943,51 @@ function requestMobileMockup3dMesh(){
       const offInt = Math.max(0, Math.floor(Number(off) || 0));
       const lenInt = Math.max(1, Math.min(SPI_FLASH_SERIAL_CHUNK_BYTES, Math.floor(Number(len) || 0)));
       const cmd = "/storage/spi_flash/read?off=" + offInt + "&len=" + lenInt;
-      const waiter = createSerialAckWaiter((evt)=>{
-        if(evt.kind === "err") return true;
-        return evt.kind === "ack" && String(evt.message || "").indexOf("SPI_FLASH_CHUNK") === 0;
-      }, 2400);
-      const wrote = await serialWriteLine(cmd, {log:false, timeoutMs:2400});
-      if(!wrote){
-        cancelSerialAckWaiter(waiter, "SERIAL_WRITE_FAIL");
-        throw new Error("SERIAL_WRITE_FAIL");
+      let lastErr = null;
+      for(let attempt = 0; attempt < 4; attempt++){
+        const waiter = createSerialAckWaiter((evt)=>{
+          const message = String(evt.message || "");
+          if(evt.kind === "err"){
+            return message.indexOf("SPI_FLASH_READ") === 0 ||
+              message.indexOf("SPI_FLASH_CHUNK") === 0;
+          }
+          return evt.kind === "ack" && message.indexOf("SPI_FLASH_CHUNK") === 0;
+        }, 6500);
+        const wrote = await serialWriteLine(cmd, {log:false, timeoutMs:2400});
+        if(!wrote){
+          cancelSerialAckWaiter(waiter, "SERIAL_WRITE_FAIL");
+        }
+        const reply = await waiter.promise;
+        try{
+          if(!reply.ok){
+            throw new Error(reply.message || reply.kind || "SERIAL_CHUNK_FAIL");
+          }
+          const chunk = parseSpiFlashChunkAckMessage(reply.message);
+          if(!chunk) throw new Error("SERIAL_CHUNK_PARSE_FAIL");
+          if(chunk.off !== offInt || chunk.len <= 0 || chunk.len > lenInt){
+            throw new Error("SERIAL_CHUNK_MISMATCH");
+          }
+          return decodeBase64ToBytes(chunk.b64, chunk.len);
+        }catch(err){
+          lastErr = err;
+          const reason = String(err && err.message || err || "");
+          if(
+            reason.indexOf("SERIAL_DISCONNECTED") >= 0 ||
+            reason.indexOf("SERIAL_NOT_READY") >= 0 ||
+            reason.indexOf("SERIAL_TX_DISABLED") >= 0
+          ){
+            throw err;
+          }
+          if(attempt < 3){
+            if(el.spiFlashStatusLine){
+              el.spiFlashStatusLine.textContent =
+                "손상된 USB 청크 재요청 중... " + (attempt + 2) + "/4";
+            }
+            await delay(60 + attempt * 100);
+          }
+        }
       }
-      const reply = await waiter.promise;
-      if(!reply.ok){
-        throw new Error(reply.message || reply.kind || "SERIAL_FAIL");
-      }
-      const chunk = parseSpiFlashChunkAckMessage(reply.message);
-      if(!chunk){
-        throw new Error("SERIAL_CHUNK_PARSE_FAIL");
-      }
-      if(chunk.off !== offInt || chunk.len <= 0 || chunk.len > lenInt){
-        throw new Error("SERIAL_CHUNK_MISMATCH");
-      }
-      const bytes = decodeBase64ToBytes(chunk.b64);
-      if(bytes.length !== chunk.len){
-        throw new Error("SERIAL_CHUNK_SIZE_FAIL");
-      }
-      return bytes;
+      throw (lastErr || new Error("SERIAL_CHUNK_FAIL"));
     }
 
     async function fetchSpiFlashRemoteChunkViaSerial(off, len, requestedNodeId){
@@ -33985,8 +34023,7 @@ function requestMobileMockup3dMesh(){
           if(chunk.off !== offInt || chunk.len <= 0 || chunk.len > lenInt){
             throw new Error("SERIAL_REMOTE_CHUNK_MISMATCH");
           }
-          const bytes = decodeBase64ToBytes(chunk.b64);
-          if(bytes.length !== chunk.len) throw new Error("SERIAL_REMOTE_CHUNK_SIZE_FAIL");
+          const bytes = decodeBase64ToBytes(chunk.b64, chunk.len);
           return bytes;
         }catch(err){
           lastErr = err;
@@ -34086,10 +34123,7 @@ function requestMobileMockup3dMesh(){
           if(gotOff !== offInt || gotLen <= 0 || gotLen > lenInt || !json.b64){
             throw new Error("REMOTE_CHUNK_MISMATCH");
           }
-          const bytes = decodeBase64ToBytes(json.b64);
-          if(bytes.length !== gotLen){
-            throw new Error("REMOTE_CHUNK_SIZE_FAIL");
-          }
+          const bytes = decodeBase64ToBytes(json.b64, gotLen);
           return bytes;
         }catch(err){
           lastErr = err;

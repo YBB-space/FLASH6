@@ -3,6 +3,25 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.13.4 — v6 b82 / reliable serial storage transfer
+
+- 8KB 저장 청크의 Base64 응답을 USB CDC TX 큐가 모두 받을 때까지 반복
+  전송하도록 변경했습니다. TX 버퍼 포화 때 ACK가 중간에서 잘려 브라우저의
+  Base64 디코딩이 실패하던 문제를 수정했습니다.
+
+Protocol unchanged: `Flash6-Intelligent-b15`
+
+## FLASH6 UI b188 — 2026-08-02
+
+- USB 및 A.I LINK 저장 청크를 디코딩하기 전에 Base64 길이·문자·원본 바이트
+  수를 검증합니다.
+- 손상되거나 불완전한 USB 저장 청크는 다운로드 전체를 중단하지 않고 같은
+  오프셋을 최대 4회 자동 재요청합니다.
+
+Firmware build: `0.13.4` (`v6 b82`)
+
+Protocol unchanged: `Flash6-Intelligent-b15`
+
 ## 0.13.3 — v6 b81 / dual-stage flight logging
 
 - 2단 운용에서 지상국의 비행데이터 로깅 명령을 1·2단 에비오닉스 모두에
