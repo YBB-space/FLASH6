@@ -1257,9 +1257,9 @@ body.camera-view-active .alarm-history-toggle.has-unread{
 .alarm-control-grid{
   flex:0 0 auto;
   display:grid;
-  grid-template-columns:repeat(3,minmax(0,1fr));
+  grid-template-columns:repeat(5,minmax(0,1fr));
   gap:9px;
-  padding:15px 18px 17px;
+  padding:15px 18px 10px;
   background:#151618;
 }
 .alarm-control-button{
@@ -1311,6 +1311,55 @@ body.camera-view-active .alarm-history-toggle.has-unread{
   text-overflow:ellipsis;
   white-space:nowrap;
 }
+.alarm-control-more-toggle{
+  flex:0 0 auto;
+  min-height:42px;
+  margin:0 18px 15px;
+  padding:0 14px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  border:1px solid #303338;
+  border-radius:6px;
+  background:#191b1e;
+  color:#bfc4cb;
+  cursor:pointer;
+  transform:none !important;
+  transition:background .14s ease,border-color .14s ease,color .14s ease;
+}
+.alarm-control-more-toggle:hover,
+.alarm-control-more-toggle.is-active{
+  border-color:#464a51;
+  background:#222428;
+  color:#f2f4f6;
+}
+.alarm-control-more-toggle-label{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.alarm-control-more-toggle-label strong{
+  font-size:11px;
+  font-weight:650;
+}
+.alarm-control-more-toggle svg{
+  width:17px;
+  height:17px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.65;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.alarm-control-more-toggle .alarm-control-more-chevron{
+  width:16px;
+  height:16px;
+  opacity:.72;
+  transition:transform .16s ease;
+}
+.alarm-control-more-toggle.is-active .alarm-control-more-chevron{
+  transform:rotate(180deg);
+}
 .alarm-control-more{
   flex:0 0 auto;
   padding:0 18px 17px;
@@ -1328,6 +1377,10 @@ body.camera-view-active .alarm-history-toggle.has-unread{
   min-width:0;
   min-height:43px;
   padding:0 12px;
+  display:flex;
+  align-items:center;
+  justify-content:flex-start;
+  gap:9px;
   border:1px solid #32353a;
   border-radius:6px;
   background:#1b1d20;
@@ -1338,6 +1391,17 @@ body.camera-view-active .alarm-history-toggle.has-unread{
   cursor:pointer;
   transform:none !important;
   transition:background .14s ease,border-color .14s ease,color .14s ease;
+}
+.alarm-control-more-grid button svg{
+  flex:0 0 auto;
+  width:16px;
+  height:16px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.6;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+  opacity:.86;
 }
 .alarm-control-more-grid button:hover:not(:disabled){
   border-color:#484c53;
@@ -1490,6 +1554,9 @@ body.camera-view-active .alarm-history-toggle.has-unread{
   }
   .alarm-control-more{
     padding:0 12px 12px;
+  }
+  .alarm-control-more-toggle{
+    margin:0 12px 12px;
   }
   .alarm-control-more-grid{
     grid-template-columns:repeat(2,minmax(0,1fr));

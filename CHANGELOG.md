@@ -3,6 +3,18 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 UI b175 — 2026-08-01
+
+- 제어 센터의 `더보기`를 기본 메뉴 카드에서 분리해 독립된 펼침 버튼으로
+  배치했습니다. 기본 메뉴는 대시보드·저장공간·미션·터미널·설정만
+  유지합니다.
+- 확장 제어의 시퀀스, 미션, 로깅, 서보, 파이로, 안전, ARM, 자이로,
+  버저, 보고서, 재부팅 항목에 기능별 선형 아이콘을 복원했습니다.
+
+Firmware build unchanged: `0.13.3` (`v6 b80`)
+
+Protocol unchanged: `Flash6-Intelligent-b15`
+
 ## 0.13.3 — v6 b80 / dual-stage storage HUD telemetry — 2026-08-01
 
 - 지상국의 1·2단 통합 텔레메트리 스냅샷에 각 보드의 SPI NOR 사용량,
