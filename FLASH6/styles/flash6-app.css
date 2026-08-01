@@ -33157,18 +33157,44 @@ html body .app-shell > .side-nav-desktop{
 @media (min-width:768px) and (pointer:fine){
   body.camera-view-active .camera-map-panel{
     right:clamp(24px,2.2vw,36px) !important;
-    bottom:calc(72px + env(safe-area-inset-bottom,0px)) !important;
+    bottom:calc(24px + env(safe-area-inset-bottom,0px)) !important;
     width:clamp(260px,20vw,330px) !important;
     height:clamp(170px,20vh,220px) !important;
+  }
+
+  /* The transient alert shown in the sequence dock is the HUD alert the
+     operator sees during flight. Keep it on the upper-right, independent of
+     the timer/mission label dock on the left. */
+  body.camera-view-active .camera-broadcast-alert{
+    position:fixed;
+    top:calc(62px + env(safe-area-inset-top,0px));
+    right:clamp(24px,2.4vw,42px);
+    z-index:900;
+    width:min(460px,34vw);
+    min-height:0;
+    margin:0;
   }
 }
 
 @media (min-width:768px) and (pointer:fine) and (max-height:700px){
   body.camera-view-active .camera-map-panel{
     right:24px !important;
-    bottom:calc(54px + env(safe-area-inset-bottom,0px)) !important;
+    bottom:calc(20px + env(safe-area-inset-bottom,0px)) !important;
     width:min(300px,30vw) !important;
     height:156px !important;
+  }
+}
+
+@media (max-width:767px){
+  body.camera-view-active .camera-broadcast-alert{
+    position:fixed;
+    top:calc(58px + env(safe-area-inset-top,0px));
+    right:12px;
+    left:auto;
+    z-index:900;
+    width:min(390px,calc(100vw - 24px));
+    min-height:0;
+    margin:0;
   }
 }
 

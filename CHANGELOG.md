@@ -12,6 +12,15 @@ Firmware build unchanged: `0.13.3` (`v6 b80`)
 
 Protocol unchanged: `Flash6-Intelligent-b15`
 
+## FLASH6 UI b178 — 2026-08-01
+
+- HUD 상단에 표시되는 비행 알림을 오른쪽 상단으로 이동했습니다.
+- 카메라 HUD 지도를 화면 하단 가장자리까지 추가로 내렸습니다.
+
+Firmware build unchanged: `0.13.3` (`v6 b80`)
+
+Protocol unchanged: `Flash6-Intelligent-b15`
+
 ## FLASH6 UI b177 — 2026-08-01
 
 - 크리티컬 알림을 화면 오른쪽 하단 스택으로 정렬했습니다.
