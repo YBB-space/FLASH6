@@ -3959,27 +3959,22 @@
       <div class="confirm-dialog gyro-zero-dialog" role="dialog" aria-modal="true" aria-labelledby="gyroZeroConfirmTitle" aria-describedby="gyroZeroConfirmText">
         <div class="gyro-zero-heading">
           <span class="gyro-zero-kicker">ATTITUDE REFERENCE</span>
-          <div id="gyroZeroConfirmTitle" class="confirm-title">1·2단 자이로 영점</div>
+          <div id="gyroZeroConfirmTitle" class="confirm-title">자이로 영점</div>
+        </div>
+        <div class="hardware-target-selector" data-hardware-target-selector hidden>
+          <span class="hardware-target-label">제어 대상</span>
+          <div class="hardware-target-tabs" role="tablist" aria-label="자이로 영점 대상 선택">
+            <button type="button" data-hardware-target-stage="1" aria-selected="true">STAGE 1</button>
+            <button type="button" data-hardware-target-stage="2" aria-selected="false">STAGE 2</button>
+          </div>
         </div>
         <div id="gyroZeroConfirmText" class="confirm-text">
-          두 기체를 지면 기준 <strong>90° 수직 자세</strong>로 고정한 뒤 영점을 실행하세요.
+          선택한 기체를 지면 기준 <strong>90° 수직 자세</strong>로 고정한 뒤 영점을 실행하세요.
         </div>
-        <div class="gyro-zero-stage-guide" aria-label="자이로 영점 준비 항목">
-          <div>
-            <span>STAGE 1</span>
-            <strong>90°</strong>
-            <small>수직 고정</small>
-          </div>
-          <div>
-            <span>STAGE 2</span>
-            <strong>90°</strong>
-            <small>수직 고정</small>
-          </div>
-        </div>
-        <div class="gyro-zero-note">움직임이 멈춘 상태에서 실행하면 현재 자세가 두 보드의 Roll/Pitch 0° 기준으로 각각 저장됩니다.</div>
+        <div class="gyro-zero-note">움직임이 멈춘 상태에서 실행하면 현재 자세가 선택한 보드의 Roll/Pitch 0° 기준으로 저장됩니다.</div>
         <div class="confirm-actions gyro-zero-actions">
           <button id="gyroZeroCancel" class="confirm-cancel" type="button">취소</button>
-          <button id="gyroZeroConfirm" class="loadcell-primary" type="button">1·2단 영점 실행</button>
+          <button id="gyroZeroConfirm" class="loadcell-primary" type="button">영점 실행</button>
         </div>
       </div>
     </div>
@@ -4127,6 +4122,13 @@
         <div id="rebootConfirmText" class="disconnect-text" data-i18n-html="rebootConfirmText">
           에비오닉스의 센서와 무선 링크가 잠시 중단됩니다.<br>
           지상국은 재부팅되지 않습니다.
+        </div>
+        <div class="hardware-target-selector" data-hardware-target-selector hidden>
+          <span class="hardware-target-label">재부팅 대상</span>
+          <div class="hardware-target-tabs" role="tablist" aria-label="재부팅 대상 선택">
+            <button type="button" data-hardware-target-stage="1" aria-selected="true">STAGE 1</button>
+            <button type="button" data-hardware-target-stage="2" aria-selected="false">STAGE 2</button>
+          </div>
         </div>
         <div id="rebootConfirmActions" class="reboot-actions">
           <button id="rebootConfirmBtn" class="disconnect-ok reboot-confirm" data-i18n="rebootConfirmBtn">에비오닉스 재부팅</button>
@@ -4454,6 +4456,13 @@
           <button id="hardwareServoClose" class="settings-close-btn" type="button" aria-label="close">×</button>
         </div>
         <div class="hardware-servo-dialog-body">
+          <div class="hardware-target-selector" data-hardware-target-selector hidden>
+            <span class="hardware-target-label">제어 대상</span>
+            <div class="hardware-target-tabs" role="tablist" aria-label="서보 제어 대상 선택">
+              <button type="button" data-hardware-target-stage="1" aria-selected="true">STAGE 1</button>
+              <button type="button" data-hardware-target-stage="2" aria-selected="false">STAGE 2</button>
+            </div>
+          </div>
           <div class="hardware-servo-group">
             <div class="settings-label">채널 선택</div>
             <label class="hardware-servo-channel-picker" aria-label="서보 채널 선택">
@@ -4626,6 +4635,13 @@
           <button id="pyroControlClose" class="settings-close-btn" type="button" aria-label="close">×</button>
         </div>
         <div class="pyro-control-body">
+          <div class="hardware-target-selector" data-hardware-target-selector hidden>
+            <span class="hardware-target-label">제어 대상</span>
+            <div class="hardware-target-tabs" role="tablist" aria-label="파이로 제어 대상 선택">
+              <button type="button" data-hardware-target-stage="1" aria-selected="true">STAGE 1</button>
+              <button type="button" data-hardware-target-stage="2" aria-selected="false">STAGE 2</button>
+            </div>
+          </div>
           <div class="pyro-control-selector">
             <div class="settings-label pyro-control-channel-label">채널 선택</div>
             <section class="pyro-channel-grid" aria-label="파이로 채널">

@@ -1054,6 +1054,7 @@ void handleSerialLine(const char* line) {
     }
     long channel = 1;
     long angle = 0;
+    uint8_t targetNodeId = 0U;
     bool channelProvided = false;
     bool angleProvided = false;
     if (cmd.startsWith("SERVO")) {
@@ -1081,6 +1082,7 @@ void handleSerialLine(const char* line) {
     } else {
       String chRaw;
       String angleRaw;
+      String nodeRaw;
       if (getQueryValue(cmd, "ch", chRaw) || getQueryValue(cmd, "id", chRaw) || getQueryValue(cmd, "channel", chRaw)) {
         if (!parseLongStrict(chRaw, channel)) {
           Serial.println("ERR SERVO BAD_ARGUMENT");
@@ -1095,6 +1097,16 @@ void handleSerialLine(const char* line) {
         }
         angleProvided = true;
       }
+      if (getQueryValue(cmd, "node", nodeRaw)) {
+        long requestedNode = 0;
+        if (!parseLongStrict(nodeRaw, requestedNode) ||
+            (requestedNode != kFlashLinkNodeIdStage1 &&
+             requestedNode != kFlashLinkNodeIdStage2)) {
+          Serial.println("ERR SERVO BAD_NODE");
+          return;
+        }
+        targetNodeId = (uint8_t)requestedNode;
+      }
     }
     if (!channelProvided || !angleProvided ||
         channel < 1 || channel > kServoChannelCount ||
@@ -1105,7 +1117,10 @@ void handleSerialLine(const char* line) {
     if (forwardFlashLinkSerialCommand(
           FlashLinkCommandCode::SetServo,
           channel,
-          angle)) {
+          angle,
+          0,
+          true,
+          targetNodeId)) {
       return;
     }
     if (!setServoAngle((uint8_t)channel, (uint8_t)angle)) {
@@ -1573,6 +1588,7 @@ void handleSerialLine(const char* line) {
     }
     uint8_t ch = daqSequencePyroChannel;
     uint32_t ms = 500;
+    uint8_t targetNodeId = 0U;
     if (cmd.startsWith("PYRO")) {
       String rest = cmd.substring(4);
       rest.trim();
@@ -1597,6 +1613,7 @@ void handleSerialLine(const char* line) {
     } else {
       String chRaw;
       String msRaw;
+      String nodeRaw;
       long parsed = 0;
       if (getQueryValue(cmd, "ch", chRaw)) {
         if (!parseLongStrict(chRaw, parsed)) {
@@ -1612,11 +1629,23 @@ void handleSerialLine(const char* line) {
         }
         ms = clampU32(parsed, 10, 30000, 500);
       }
+      if (getQueryValue(cmd, "node", nodeRaw)) {
+        if (!parseLongStrict(nodeRaw, parsed) ||
+            (parsed != kFlashLinkNodeIdStage1 &&
+             parsed != kFlashLinkNodeIdStage2)) {
+          Serial.println("ERR PYRO BAD_NODE");
+          return;
+        }
+        targetNodeId = (uint8_t)parsed;
+      }
     }
     if (forwardFlashLinkSerialCommand(
           FlashLinkCommandCode::PyroTest,
           ch,
-          (int32_t)ms)) {
+          (int32_t)ms,
+          0,
+          true,
+          targetNodeId)) {
       return;
     }
     const uint32_t nowMs = millis();
@@ -1887,8 +1916,26 @@ void handleSerialLine(const char* line) {
     return;
   }
 
-  if (cmd == "/reset") {
-    if (forwardFlashLinkSerialCommand(FlashLinkCommandCode::Reboot)) {
+  if (cmd == "/reset" || cmd.startsWith("/reset?")) {
+    String nodeRaw;
+    uint8_t targetNodeId = 0U;
+    if (getQueryValue(cmd, "node", nodeRaw)) {
+      long requestedNode = 0;
+      if (!parseLongStrict(nodeRaw, requestedNode) ||
+          (requestedNode != kFlashLinkNodeIdStage1 &&
+           requestedNode != kFlashLinkNodeIdStage2)) {
+        Serial.println("ERR RESET BAD_NODE");
+        return;
+      }
+      targetNodeId = (uint8_t)requestedNode;
+    }
+    if (forwardFlashLinkSerialCommand(
+          FlashLinkCommandCode::Reboot,
+          0,
+          0,
+          0,
+          true,
+          targetNodeId)) {
       return;
     }
     Serial.println("ACK RESETTING");

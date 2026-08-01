@@ -3,6 +3,20 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.13.2 — v6 b79 / addressed two-stage hardware controls — 2026-08-01
+
+- 지상국의 2단 운용 모드에서 파이로·서보·자이로 영점·재부팅 모달에
+  공통 STAGE 1 / STAGE 2 제어 대상 선택기를 추가했습니다. 1단 운용과
+  에비오닉스 직접 연결에서는 선택기를 숨기고 기존 로컬 동작을 유지합니다.
+- 선택한 STAGE 번호를 HTTP와 USB 시리얼 명령에 모두 포함하고, 서보·파이로·
+  재부팅 시리얼 파서가 해당 노드로 A.I LINK 명령을 전달하도록 확장했습니다.
+- 원격 서보 명령이 실패했을 때 노드 정보가 없는 레거시 명령으로 재시도해
+  다른 단을 움직일 수 있던 위험한 폴백을 차단했습니다.
+
+Protocol unchanged: `Flash6-Intelligent-b14`
+
+Storage record protocol unchanged: `HWLOGV2` version `9`
+
 ## 0.13.1 — v6 b78 / two-stage mission timing and buzzer parity — 2026-08-01
 
 - 1단이 전송하는 미션 대기 동기화에 버저 음소거 상태를 포함해, 각 보드에

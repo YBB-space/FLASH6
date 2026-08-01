@@ -1,4 +1,65 @@
 /* FLASH6 hardware status, calibration, and control features. */
+    let hardwareControlTargetStage = 1;
+    function hardwareControlUsesStageSelector(){
+      const groundRole = typeof isFlashLinkGroundUi === "function"
+        ? isFlashLinkGroundUi()
+        : (typeof normalizeFlashLinkRole === "function" &&
+          normalizeFlashLinkRole(uiSettings && uiSettings.flashLinkRole) === "ground");
+      return !!(groundRole && uiSettings && uiSettings.flashLinkStage2Mode === true);
+    }
+    function hardwareControlTargetNode(){
+      const groundRole = typeof isFlashLinkGroundUi === "function"
+        ? isFlashLinkGroundUi()
+        : (typeof normalizeFlashLinkRole === "function" &&
+          normalizeFlashLinkRole(uiSettings && uiSettings.flashLinkRole) === "ground");
+      if(!groundRole) return 0;
+      if(!hardwareControlUsesStageSelector()) return 1;
+      return Number(hardwareControlTargetStage) === 2 ? 2 : 1;
+    }
+    function hardwareControlPathForNode(path, requestedNode){
+      const raw = String(path || "");
+      const node = Number(requestedNode) === 2 ? 2 : (Number(requestedNode) === 1 ? 1 : 0);
+      if(!node || /(?:[?&])node=\d+(?:&|$)/.test(raw)) return raw;
+      return raw + (raw.indexOf("?") >= 0 ? "&" : "?") + "node=" + node;
+    }
+    function hardwareControlPath(path){
+      return hardwareControlPathForNode(path, hardwareControlTargetNode());
+    }
+    function setHardwareControlTargetDisabled(disabled, root){
+      const scope = root && typeof root.querySelectorAll === "function" ? root : document;
+      scope.querySelectorAll("[data-hardware-target-stage]").forEach((button)=>{
+        button.disabled = !!disabled;
+      });
+    }
+    function syncHardwareControlTargetUi(){
+      const visible = hardwareControlUsesStageSelector();
+      const stage = visible && Number(hardwareControlTargetStage) === 2 ? 2 : 1;
+      if(!visible) hardwareControlTargetStage = 1;
+      document.querySelectorAll("[data-hardware-target-selector]").forEach((selector)=>{
+        selector.hidden = !visible;
+        selector.setAttribute("aria-hidden", visible ? "false" : "true");
+        selector.querySelectorAll("[data-hardware-target-stage]").forEach((button)=>{
+          const active = Number(button.getAttribute("data-hardware-target-stage")) === stage;
+          button.classList.toggle("is-active", active);
+          button.setAttribute("aria-selected", active ? "true" : "false");
+        });
+      });
+    }
+    function setHardwareControlTargetStage(stage){
+      hardwareControlTargetStage = Number(stage) === 2 && hardwareControlUsesStageSelector() ? 2 : 1;
+      syncHardwareControlTargetUi();
+    }
+    function initializeHardwareControlTargetSelectors(){
+      document.querySelectorAll("[data-hardware-target-stage]").forEach((button)=>{
+        if(button.dataset.hardwareTargetBound === "1") return;
+        button.dataset.hardwareTargetBound = "1";
+        button.addEventListener("click", ()=>{
+          setHardwareControlTargetStage(button.getAttribute("data-hardware-target-stage"));
+          if(el.hardwareServoOverlay && !el.hardwareServoOverlay.classList.contains("hidden")) fetchServoInfo();
+        });
+      });
+      syncHardwareControlTargetUi();
+    }
     const findingBuzzerActiveByStage = {1:false, 2:false};
     let findingBuzzerCommandBusy = false;
     function findingBuzzerTargetNode(){
@@ -1019,6 +1080,7 @@
       if(forceModalOpen) hideForceConfirm();
     }
     function showServoControl(){
+      syncHardwareControlTargetUi();
       if(isMobileLayout() && el.mobileControlsPanel){
         hideMobileControlsPanel();
         setLauncherPanelVisible(false);
@@ -1077,6 +1139,7 @@
       if(el.hardwarePyroDurationInput) el.hardwarePyroDurationInput.value = String(durMs);
     }
     function showPyroControl(){
+      syncHardwareControlTargetUi();
       if(isMobileLayout() && el.mobileControlsPanel){
         hideMobileControlsPanel();
       }
@@ -1324,10 +1387,12 @@
       }
       if(rebootConfirmOverlayEl){
         rebootConfirmOverlayEl.classList.toggle("is-waiting", waiting);
+        setHardwareControlTargetDisabled(waiting, rebootConfirmOverlayEl);
       }
     }
     function showRebootConfirm(){
       hideMobileControlsPanel();
+      syncHardwareControlTargetUi();
       stopRebootRecoveryLoop();
       rebootConfirmWaiting = false;
       rebootConfirmStartedMs = 0;

@@ -4591,3 +4591,81 @@ html body #gyroZeroOverlay .gyro-zero-actions button:disabled{
 .side-nav-desktop[hidden]{
   display:none !important;
 }
+
+/* Shared vehicle target selector for direct hardware controls. It is only
+   revealed by the runtime when the ground station is in two-stage mode. */
+.hardware-target-selector{
+  display:grid;
+  grid-template-columns:auto minmax(260px, 1fr);
+  align-items:center;
+  gap:18px;
+  width:100%;
+  padding:8px;
+  border:1px solid #30343a;
+  border-radius:10px;
+  background:#111316;
+}
+.hardware-target-selector[hidden]{
+  display:none !important;
+}
+.hardware-target-label{
+  padding-left:10px;
+  color:#8f949d;
+  font-size:12px;
+  font-weight:700;
+  letter-spacing:.08em;
+  white-space:nowrap;
+}
+.hardware-target-tabs{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:6px;
+}
+.hardware-target-tabs button{
+  min-height:44px;
+  padding:0 18px;
+  border:0;
+  border-radius:7px;
+  background:transparent;
+  color:#8e939c;
+  font:700 13px/1 var(--font-sans, sans-serif);
+  letter-spacing:.06em;
+  cursor:pointer;
+}
+.hardware-target-tabs button:hover{
+  background:#1b1e22;
+  color:#d8dadd;
+}
+.hardware-target-tabs button.is-active{
+  background:#e5e6e8;
+  color:#17181a;
+}
+.hardware-target-tabs button:disabled{
+  cursor:default;
+  opacity:.58;
+}
+#hardwareServoDialog .hardware-target-selector,
+#pyroControlDialog .hardware-target-selector{
+  margin-bottom:18px;
+}
+#gyroZeroOverlay .hardware-target-selector,
+#rebootConfirmOverlay .hardware-target-selector{
+  margin:4px 0 2px;
+}
+html:not(.phone-landscape-layout) body #rebootConfirmOverlay .hardware-target-selector{
+  grid-column:1 / -1 !important;
+  grid-row:3 !important;
+  margin-top:14px !important;
+}
+html:not(.phone-landscape-layout) body #rebootConfirmOverlay #rebootConfirmActions{
+  grid-row:4 !important;
+}
+@media (max-width:600px){
+  .hardware-target-selector{
+    grid-template-columns:1fr;
+    gap:7px;
+  }
+  .hardware-target-label{
+    padding:2px 4px 0;
+  }
+}

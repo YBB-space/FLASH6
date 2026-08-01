@@ -3957,25 +3957,25 @@
       }
       function showGyroZeroConfirm(){
         hideMobileControlsPanel();
+        syncHardwareControlTargetUi();
         setOverlayVisible(el.gyroZeroOverlay, true);
       }
       function gyroZeroCommandTargets(){
-        // A ground station must calibrate both vehicle nodes explicitly.
-        // A directly connected avionics board can only calibrate itself.
+        // In two-stage ground mode the operator explicitly selects one node.
+        // Directly connected avionics can only calibrate itself.
         const groundRole =
           normalizeFlashLinkRole(flashLinkUiRole) === "ground" ||
           normalizeFlashLinkRole(uiSettings && uiSettings.flashLinkRole) === "ground";
         if(groundRole){
-          return [
-            { node:1, label:"1단부" },
-            { node:2, label:"2단부" }
-          ];
+          const node = hardwareControlTargetNode() === 2 ? 2 : 1;
+          return [{ node, label:node === 2 ? "2단부" : "1단부" }];
         }
         return [{ node:0, label:"에비오닉스" }];
       }
       async function executeGyroZero(){
         if(gyroZeroCommandBusy) return;
         gyroZeroCommandBusy = true;
+        setHardwareControlTargetDisabled(true, el.gyroZeroOverlay);
         if(el.gyroZeroConfirm){
           el.gyroZeroConfirm.disabled = true;
           el.gyroZeroConfirm.textContent = "영점 저장 중…";
@@ -3984,7 +3984,7 @@
         const targets = gyroZeroCommandTargets();
         const failures = [];
         showToast(
-          targets.length > 1 ? "1·2단 자이로 영점을 순서대로 저장합니다." : "자이로 영점을 저장합니다.",
+          targets[0].label + " 자이로 영점을 저장합니다.",
           "info",
           {key:"gyro-zero-progress"}
         );
@@ -4010,10 +4010,11 @@
             );
             return;
           }
-          // Both boards now publish zeroed attitude; keep UI local zero neutral.
+          // The selected board now publishes zeroed attitude; keep the UI's
+          // additional local replay/reference offset neutral.
           clearLocalGyroZeroReference();
           showToast(
-            targets.length > 1 ? "1·2단 자이로 영점 저장 완료" : t("gyroZeroDoneToast"),
+            targets[0].label + " 자이로 영점 저장 완료",
             "success",
             {key:"gyro-zero-result"}
           );
@@ -4027,9 +4028,10 @@
           showToast("자이로 영점 저장 실패: " + msg, "error", {key:"gyro-zero-result"});
         }finally{
           gyroZeroCommandBusy = false;
+          setHardwareControlTargetDisabled(false, el.gyroZeroOverlay);
           if(el.gyroZeroConfirm){
             el.gyroZeroConfirm.disabled = false;
-            el.gyroZeroConfirm.textContent = "1·2단 영점 실행";
+            el.gyroZeroConfirm.textContent = "영점 실행";
           }
           if(el.gyroZeroCancel) el.gyroZeroCancel.disabled = false;
         }
@@ -4055,6 +4057,7 @@
       if(el.gyroZeroBtn){
         el.gyroZeroBtn.addEventListener("click", handleGyroZero);
       }
+      initializeHardwareControlTargetSelectors();
       if(el.findingBuzzerBtn){
         el.findingBuzzerBtn.addEventListener("click", (ev)=>{
           ev.preventDefault();
@@ -5059,7 +5062,7 @@
           setProgress(0);
         };
       };
-      const askHardwarePyroConfirm = (ch, durMs)=>{
+      const askHardwarePyroConfirm = (ch, durMs, targetStage)=>{
         const pyroInlineOpen = !!(
           el.pyroControlOverlay &&
           !el.pyroControlOverlay.classList.contains("hidden") &&
@@ -5071,8 +5074,8 @@
           el.pyroControlConfirmCancel
         );
         if(pyroInlineOpen){
-          el.pyroControlConfirmTitle.textContent = "CH" + ch + " 동작 확인";
-          el.pyroControlConfirmDesc.textContent = "파이로 제어는 고위험 동작 입니다!\nCH" + ch + " / 지속시간 " + durMs + " ms로 실행할까요?";
+          el.pyroControlConfirmTitle.textContent = "STAGE " + targetStage + " · CH" + ch + " 동작 확인";
+          el.pyroControlConfirmDesc.textContent = "파이로 제어는 고위험 동작 입니다!\nSTAGE " + targetStage + " / CH" + ch + " / 지속시간 " + durMs + " ms로 실행할까요?";
           el.pyroControlDialog.classList.add("is-confirming");
           return new Promise((resolve)=>{
             let settled = false;
@@ -5126,7 +5129,7 @@
           return Promise.resolve(false);
         }
         titleEl.textContent = "파이로 동작 확인";
-        descEl.textContent = "파이로 제어는 고위험 동작 입니다! CH" + ch + " 동작을 실행할까요? 주변에 위험 요소가 없는지 꼭 확인하세요.";
+        descEl.textContent = "파이로 제어는 고위험 동작 입니다! STAGE " + targetStage + "의 CH" + ch + " 동작을 실행할까요? 주변에 위험 요소가 없는지 꼭 확인하세요.";
         hintEl.textContent = "지속시간: " + durMs + " ms - 긴 인가는 에비오닉스에 손상을 줄 수 있습니다.";
         setOverlayVisible(overlay, true);
         return new Promise((resolve)=>{
@@ -5164,11 +5167,13 @@
         durMs = Math.max(10, Math.min(30000, durMs));
         if(el.hardwarePyroDurationInput) el.hardwarePyroDurationInput.value = String(durMs);
         if(el.pyroControlDurationInput) el.pyroControlDurationInput.value = String(durMs);
-        const ok = await askHardwarePyroConfirm(ch, durMs);
+        const targetStage = hardwareControlTargetNode() || Number(uiSettings && uiSettings.flashLinkNodeId) || 1;
+        const ok = await askHardwarePyroConfirm(ch, durMs, targetStage);
         if(!ok) return;
-        showToast("파이로 CH" + ch + " 테스트: " + durMs + "ms", "warn", {key:"hardware-pyro-fire-ch" + ch, duration:2400});
-        await sendCommand({http:"/pyro_test?ch=" + ch + "&ms=" + durMs, ser:"/pyro_test?ch=" + ch + "&ms=" + durMs}, true);
-        addLogLine("Hardware PYRO CH" + ch + " → ON " + durMs + "ms", "CMD");
+        const path = hardwareControlPathForNode("/pyro_test?ch=" + ch + "&ms=" + durMs, targetStage);
+        showToast("STAGE " + targetStage + " 파이로 CH" + ch + " 테스트: " + durMs + "ms", "warn", {key:"hardware-pyro-fire-ch" + ch, duration:2400});
+        await sendCommand({http:path, ser:path}, true);
+        addLogLine("STAGE " + targetStage + " Hardware PYRO CH" + ch + " → ON " + durMs + "ms", "CMD");
       };
       const forceHardwarePyroRowLayout = ()=>{
         try{
@@ -5828,7 +5833,8 @@
       if(rebootConfirmBtnEl){
         rebootConfirmBtnEl.addEventListener("click",()=>{
           setRebootConfirmWaiting();
-          sendCommand({http:"/reset", ser:"/reset"}, true);
+          const path = hardwareControlPath("/reset");
+          sendCommand({http:path, ser:path}, true);
         });
       }
       if(rebootConfirmCancelBtnEl){

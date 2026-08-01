@@ -4231,6 +4231,9 @@
     async function fetchServoInfo(){
       if(simEnabled) return;
       if(isLocalPreviewHost()) return;
+      // The ground station's endpoint describes its own PWM state, not the
+      // selected remote vehicle. Do not overwrite remote-control values.
+      if(typeof isFlashLinkGroundUi === "function" && isFlashLinkGroundUi()) return;
       const isServoModalVisible = isServoControlVisible();
       if(!servoInfo || isServoModalVisible){
       try{
@@ -4256,7 +4259,7 @@
     async function sendServoCommand(channel, deg){
       const uiCh = Math.max(1, Math.min(SERVO_CHANNELS.length, Math.round(Number(channel) || 1)));
       const hwCh = mapServoUiToHwChannel(uiCh);
-      const path = "/servo?ch=" + hwCh + "&deg=" + deg;
+      const path = hardwareControlPath("/servo?ch=" + hwCh + "&deg=" + deg);
       if(simEnabled){
         // Keep simulator behavior tied to UI channel labels.
         handleSimCommand({ http:"/servo?ch=" + uiCh + "&deg=" + deg, ser:"SERVO " + uiCh + " " + deg });
@@ -4296,7 +4299,9 @@
 
           // 1차: REST 형태(/servo?...), 2차: 레거시(SERVO ch deg) 폴백
           let serialResult = await sendOneSerialServo(path);
-          if(!serialResult.ok){
+          // Never fall back to the unaddressed legacy command for a remote
+          // stage: it could move the wrong vehicle's servo.
+          if(!serialResult.ok && path.indexOf("node=") < 0){
             serialResult = await sendOneSerialServo("SERVO " + hwCh + " " + deg);
           }
           if(serialResult.ok){
@@ -4378,10 +4383,12 @@
       row.lastAppliedDeg = appliedDeg;
       setServoUiAngle(channel, appliedDeg);
       if(logIt){
-        addLogLine("PWM" + channel + " servo -> " + appliedDeg + "°", "SERVO");
+        const stage = hardwareControlTargetNode() || Number(uiSettings && uiSettings.flashLinkNodeId) || 1;
+        addLogLine("STAGE " + stage + " PWM" + channel + " servo -> " + appliedDeg + "°", "SERVO");
       }
       if(showFeedback){
-        showToast("PWM" + channel + " 각도 " + appliedDeg + "° 적용", "info", {
+        const stage = hardwareControlTargetNode() || Number(uiSettings && uiSettings.flashLinkNodeId) || 1;
+        showToast("STAGE " + stage + " · PWM" + channel + " 각도 " + appliedDeg + "° 적용", "info", {
           key:"servo-set-" + channel,
           duration:1800
         });

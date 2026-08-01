@@ -15623,6 +15623,9 @@ function requestMobileMockup3dMesh(){
     async function fetchServoInfo(){
       if(simEnabled) return;
       if(isLocalPreviewHost()) return;
+      // The ground station's endpoint describes its own PWM state, not the
+      // selected remote vehicle. Do not overwrite remote-control values.
+      if(typeof isFlashLinkGroundUi === "function" && isFlashLinkGroundUi()) return;
       const isServoModalVisible = isServoControlVisible();
       if(!servoInfo || isServoModalVisible){
       try{
@@ -15648,7 +15651,7 @@ function requestMobileMockup3dMesh(){
     async function sendServoCommand(channel, deg){
       const uiCh = Math.max(1, Math.min(SERVO_CHANNELS.length, Math.round(Number(channel) || 1)));
       const hwCh = mapServoUiToHwChannel(uiCh);
-      const path = "/servo?ch=" + hwCh + "&deg=" + deg;
+      const path = hardwareControlPath("/servo?ch=" + hwCh + "&deg=" + deg);
       if(simEnabled){
         // Keep simulator behavior tied to UI channel labels.
         handleSimCommand({ http:"/servo?ch=" + uiCh + "&deg=" + deg, ser:"SERVO " + uiCh + " " + deg });
@@ -15688,7 +15691,9 @@ function requestMobileMockup3dMesh(){
 
           // 1차: REST 형태(/servo?...), 2차: 레거시(SERVO ch deg) 폴백
           let serialResult = await sendOneSerialServo(path);
-          if(!serialResult.ok){
+          // Never fall back to the unaddressed legacy command for a remote
+          // stage: it could move the wrong vehicle's servo.
+          if(!serialResult.ok && path.indexOf("node=") < 0){
             serialResult = await sendOneSerialServo("SERVO " + hwCh + " " + deg);
           }
           if(serialResult.ok){
@@ -15770,10 +15775,12 @@ function requestMobileMockup3dMesh(){
       row.lastAppliedDeg = appliedDeg;
       setServoUiAngle(channel, appliedDeg);
       if(logIt){
-        addLogLine("PWM" + channel + " servo -> " + appliedDeg + "°", "SERVO");
+        const stage = hardwareControlTargetNode() || Number(uiSettings && uiSettings.flashLinkNodeId) || 1;
+        addLogLine("STAGE " + stage + " PWM" + channel + " servo -> " + appliedDeg + "°", "SERVO");
       }
       if(showFeedback){
-        showToast("PWM" + channel + " 각도 " + appliedDeg + "° 적용", "info", {
+        const stage = hardwareControlTargetNode() || Number(uiSettings && uiSettings.flashLinkNodeId) || 1;
+        showToast("STAGE " + stage + " · PWM" + channel + " 각도 " + appliedDeg + "° 적용", "info", {
           key:"servo-set-" + channel,
           duration:1800
         });
@@ -37020,6 +37027,67 @@ function requestMobileMockup3dMesh(){
     }
 
 /* FLASH6 hardware status, calibration, and control features. */
+    let hardwareControlTargetStage = 1;
+    function hardwareControlUsesStageSelector(){
+      const groundRole = typeof isFlashLinkGroundUi === "function"
+        ? isFlashLinkGroundUi()
+        : (typeof normalizeFlashLinkRole === "function" &&
+          normalizeFlashLinkRole(uiSettings && uiSettings.flashLinkRole) === "ground");
+      return !!(groundRole && uiSettings && uiSettings.flashLinkStage2Mode === true);
+    }
+    function hardwareControlTargetNode(){
+      const groundRole = typeof isFlashLinkGroundUi === "function"
+        ? isFlashLinkGroundUi()
+        : (typeof normalizeFlashLinkRole === "function" &&
+          normalizeFlashLinkRole(uiSettings && uiSettings.flashLinkRole) === "ground");
+      if(!groundRole) return 0;
+      if(!hardwareControlUsesStageSelector()) return 1;
+      return Number(hardwareControlTargetStage) === 2 ? 2 : 1;
+    }
+    function hardwareControlPathForNode(path, requestedNode){
+      const raw = String(path || "");
+      const node = Number(requestedNode) === 2 ? 2 : (Number(requestedNode) === 1 ? 1 : 0);
+      if(!node || /(?:[?&])node=\d+(?:&|$)/.test(raw)) return raw;
+      return raw + (raw.indexOf("?") >= 0 ? "&" : "?") + "node=" + node;
+    }
+    function hardwareControlPath(path){
+      return hardwareControlPathForNode(path, hardwareControlTargetNode());
+    }
+    function setHardwareControlTargetDisabled(disabled, root){
+      const scope = root && typeof root.querySelectorAll === "function" ? root : document;
+      scope.querySelectorAll("[data-hardware-target-stage]").forEach((button)=>{
+        button.disabled = !!disabled;
+      });
+    }
+    function syncHardwareControlTargetUi(){
+      const visible = hardwareControlUsesStageSelector();
+      const stage = visible && Number(hardwareControlTargetStage) === 2 ? 2 : 1;
+      if(!visible) hardwareControlTargetStage = 1;
+      document.querySelectorAll("[data-hardware-target-selector]").forEach((selector)=>{
+        selector.hidden = !visible;
+        selector.setAttribute("aria-hidden", visible ? "false" : "true");
+        selector.querySelectorAll("[data-hardware-target-stage]").forEach((button)=>{
+          const active = Number(button.getAttribute("data-hardware-target-stage")) === stage;
+          button.classList.toggle("is-active", active);
+          button.setAttribute("aria-selected", active ? "true" : "false");
+        });
+      });
+    }
+    function setHardwareControlTargetStage(stage){
+      hardwareControlTargetStage = Number(stage) === 2 && hardwareControlUsesStageSelector() ? 2 : 1;
+      syncHardwareControlTargetUi();
+    }
+    function initializeHardwareControlTargetSelectors(){
+      document.querySelectorAll("[data-hardware-target-stage]").forEach((button)=>{
+        if(button.dataset.hardwareTargetBound === "1") return;
+        button.dataset.hardwareTargetBound = "1";
+        button.addEventListener("click", ()=>{
+          setHardwareControlTargetStage(button.getAttribute("data-hardware-target-stage"));
+          if(el.hardwareServoOverlay && !el.hardwareServoOverlay.classList.contains("hidden")) fetchServoInfo();
+        });
+      });
+      syncHardwareControlTargetUi();
+    }
     const findingBuzzerActiveByStage = {1:false, 2:false};
     let findingBuzzerCommandBusy = false;
     function findingBuzzerTargetNode(){
@@ -38040,6 +38108,7 @@ function requestMobileMockup3dMesh(){
       if(forceModalOpen) hideForceConfirm();
     }
     function showServoControl(){
+      syncHardwareControlTargetUi();
       if(isMobileLayout() && el.mobileControlsPanel){
         hideMobileControlsPanel();
         setLauncherPanelVisible(false);
@@ -38098,6 +38167,7 @@ function requestMobileMockup3dMesh(){
       if(el.hardwarePyroDurationInput) el.hardwarePyroDurationInput.value = String(durMs);
     }
     function showPyroControl(){
+      syncHardwareControlTargetUi();
       if(isMobileLayout() && el.mobileControlsPanel){
         hideMobileControlsPanel();
       }
@@ -38345,10 +38415,12 @@ function requestMobileMockup3dMesh(){
       }
       if(rebootConfirmOverlayEl){
         rebootConfirmOverlayEl.classList.toggle("is-waiting", waiting);
+        setHardwareControlTargetDisabled(waiting, rebootConfirmOverlayEl);
       }
     }
     function showRebootConfirm(){
       hideMobileControlsPanel();
+      syncHardwareControlTargetUi();
       stopRebootRecoveryLoop();
       rebootConfirmWaiting = false;
       rebootConfirmStartedMs = 0;
@@ -44850,25 +44922,25 @@ function requestMobileMockup3dMesh(){
       }
       function showGyroZeroConfirm(){
         hideMobileControlsPanel();
+        syncHardwareControlTargetUi();
         setOverlayVisible(el.gyroZeroOverlay, true);
       }
       function gyroZeroCommandTargets(){
-        // A ground station must calibrate both vehicle nodes explicitly.
-        // A directly connected avionics board can only calibrate itself.
+        // In two-stage ground mode the operator explicitly selects one node.
+        // Directly connected avionics can only calibrate itself.
         const groundRole =
           normalizeFlashLinkRole(flashLinkUiRole) === "ground" ||
           normalizeFlashLinkRole(uiSettings && uiSettings.flashLinkRole) === "ground";
         if(groundRole){
-          return [
-            { node:1, label:"1단부" },
-            { node:2, label:"2단부" }
-          ];
+          const node = hardwareControlTargetNode() === 2 ? 2 : 1;
+          return [{ node, label:node === 2 ? "2단부" : "1단부" }];
         }
         return [{ node:0, label:"에비오닉스" }];
       }
       async function executeGyroZero(){
         if(gyroZeroCommandBusy) return;
         gyroZeroCommandBusy = true;
+        setHardwareControlTargetDisabled(true, el.gyroZeroOverlay);
         if(el.gyroZeroConfirm){
           el.gyroZeroConfirm.disabled = true;
           el.gyroZeroConfirm.textContent = "영점 저장 중…";
@@ -44877,7 +44949,7 @@ function requestMobileMockup3dMesh(){
         const targets = gyroZeroCommandTargets();
         const failures = [];
         showToast(
-          targets.length > 1 ? "1·2단 자이로 영점을 순서대로 저장합니다." : "자이로 영점을 저장합니다.",
+          targets[0].label + " 자이로 영점을 저장합니다.",
           "info",
           {key:"gyro-zero-progress"}
         );
@@ -44903,10 +44975,11 @@ function requestMobileMockup3dMesh(){
             );
             return;
           }
-          // Both boards now publish zeroed attitude; keep UI local zero neutral.
+          // The selected board now publishes zeroed attitude; keep the UI's
+          // additional local replay/reference offset neutral.
           clearLocalGyroZeroReference();
           showToast(
-            targets.length > 1 ? "1·2단 자이로 영점 저장 완료" : t("gyroZeroDoneToast"),
+            targets[0].label + " 자이로 영점 저장 완료",
             "success",
             {key:"gyro-zero-result"}
           );
@@ -44920,9 +44993,10 @@ function requestMobileMockup3dMesh(){
           showToast("자이로 영점 저장 실패: " + msg, "error", {key:"gyro-zero-result"});
         }finally{
           gyroZeroCommandBusy = false;
+          setHardwareControlTargetDisabled(false, el.gyroZeroOverlay);
           if(el.gyroZeroConfirm){
             el.gyroZeroConfirm.disabled = false;
-            el.gyroZeroConfirm.textContent = "1·2단 영점 실행";
+            el.gyroZeroConfirm.textContent = "영점 실행";
           }
           if(el.gyroZeroCancel) el.gyroZeroCancel.disabled = false;
         }
@@ -44948,6 +45022,7 @@ function requestMobileMockup3dMesh(){
       if(el.gyroZeroBtn){
         el.gyroZeroBtn.addEventListener("click", handleGyroZero);
       }
+      initializeHardwareControlTargetSelectors();
       if(el.findingBuzzerBtn){
         el.findingBuzzerBtn.addEventListener("click", (ev)=>{
           ev.preventDefault();
@@ -45952,7 +46027,7 @@ function requestMobileMockup3dMesh(){
           setProgress(0);
         };
       };
-      const askHardwarePyroConfirm = (ch, durMs)=>{
+      const askHardwarePyroConfirm = (ch, durMs, targetStage)=>{
         const pyroInlineOpen = !!(
           el.pyroControlOverlay &&
           !el.pyroControlOverlay.classList.contains("hidden") &&
@@ -45964,8 +46039,8 @@ function requestMobileMockup3dMesh(){
           el.pyroControlConfirmCancel
         );
         if(pyroInlineOpen){
-          el.pyroControlConfirmTitle.textContent = "CH" + ch + " 동작 확인";
-          el.pyroControlConfirmDesc.textContent = "파이로 제어는 고위험 동작 입니다!\nCH" + ch + " / 지속시간 " + durMs + " ms로 실행할까요?";
+          el.pyroControlConfirmTitle.textContent = "STAGE " + targetStage + " · CH" + ch + " 동작 확인";
+          el.pyroControlConfirmDesc.textContent = "파이로 제어는 고위험 동작 입니다!\nSTAGE " + targetStage + " / CH" + ch + " / 지속시간 " + durMs + " ms로 실행할까요?";
           el.pyroControlDialog.classList.add("is-confirming");
           return new Promise((resolve)=>{
             let settled = false;
@@ -46019,7 +46094,7 @@ function requestMobileMockup3dMesh(){
           return Promise.resolve(false);
         }
         titleEl.textContent = "파이로 동작 확인";
-        descEl.textContent = "파이로 제어는 고위험 동작 입니다! CH" + ch + " 동작을 실행할까요? 주변에 위험 요소가 없는지 꼭 확인하세요.";
+        descEl.textContent = "파이로 제어는 고위험 동작 입니다! STAGE " + targetStage + "의 CH" + ch + " 동작을 실행할까요? 주변에 위험 요소가 없는지 꼭 확인하세요.";
         hintEl.textContent = "지속시간: " + durMs + " ms - 긴 인가는 에비오닉스에 손상을 줄 수 있습니다.";
         setOverlayVisible(overlay, true);
         return new Promise((resolve)=>{
@@ -46057,11 +46132,13 @@ function requestMobileMockup3dMesh(){
         durMs = Math.max(10, Math.min(30000, durMs));
         if(el.hardwarePyroDurationInput) el.hardwarePyroDurationInput.value = String(durMs);
         if(el.pyroControlDurationInput) el.pyroControlDurationInput.value = String(durMs);
-        const ok = await askHardwarePyroConfirm(ch, durMs);
+        const targetStage = hardwareControlTargetNode() || Number(uiSettings && uiSettings.flashLinkNodeId) || 1;
+        const ok = await askHardwarePyroConfirm(ch, durMs, targetStage);
         if(!ok) return;
-        showToast("파이로 CH" + ch + " 테스트: " + durMs + "ms", "warn", {key:"hardware-pyro-fire-ch" + ch, duration:2400});
-        await sendCommand({http:"/pyro_test?ch=" + ch + "&ms=" + durMs, ser:"/pyro_test?ch=" + ch + "&ms=" + durMs}, true);
-        addLogLine("Hardware PYRO CH" + ch + " → ON " + durMs + "ms", "CMD");
+        const path = hardwareControlPathForNode("/pyro_test?ch=" + ch + "&ms=" + durMs, targetStage);
+        showToast("STAGE " + targetStage + " 파이로 CH" + ch + " 테스트: " + durMs + "ms", "warn", {key:"hardware-pyro-fire-ch" + ch, duration:2400});
+        await sendCommand({http:path, ser:path}, true);
+        addLogLine("STAGE " + targetStage + " Hardware PYRO CH" + ch + " → ON " + durMs + "ms", "CMD");
       };
       const forceHardwarePyroRowLayout = ()=>{
         try{
@@ -46721,7 +46798,8 @@ function requestMobileMockup3dMesh(){
       if(rebootConfirmBtnEl){
         rebootConfirmBtnEl.addEventListener("click",()=>{
           setRebootConfirmWaiting();
-          sendCommand({http:"/reset", ser:"/reset"}, true);
+          const path = hardwareControlPath("/reset");
+          sendCommand({http:path, ser:path}, true);
         });
       }
       if(rebootConfirmCancelBtnEl){
