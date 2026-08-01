@@ -11,6 +11,17 @@ same commit that changes the corresponding constants in `src/firmware/state.h`.
 
 Protocol unchanged: `Flash6-Intelligent-b15`
 
+## FLASH6 UI b184 — 2026-08-02
+
+- SIMULATION PLUS의 센서 예측에 기압계 장기 바이어스, 상관 잡음, 점화·연소
+  종료·사출 압력 과도응답, 추력 구간 기체 진동과 코스팅 버핏을 추가했습니다.
+- 차트는 매끈한 물리 중심값보다 예상 센서 파형을 우선 표시하도록 변경했으며,
+  모터 편차·항력·점화 지연·분리 속도 오차를 Monte Carlo 범위에 반영했습니다.
+
+Firmware build unchanged: `0.13.3` (`v6 b81`)
+
+Protocol unchanged: `Flash6-Intelligent-b15`
+
 ## FLASH6 UI b183 — 2026-08-02
 
 - 1단 비행 BIN에서 단분리 시점의 고도·상승속도·가속도 성능을 추출해

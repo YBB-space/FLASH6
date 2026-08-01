@@ -25821,9 +25821,21 @@ function requestMobileMockup3dMesh(){
       const random = simulationPlusSeededRandom(
         analysis.sampleCount * 2654435761 + Math.round(analysis.separationAltitudeM * 100)
       );
-      const altitudeSigma = Math.max(0.12, analysis.altitudeNoiseSigmaM);
-      const accelSigma = Math.max(0.2, analysis.accelNoiseSigmaMps2);
+      // A stage-2 prediction should resemble the signal that the avionics will
+      // actually record, not a laboratory-perfect trajectory. Keep the model
+      // truth deterministic, then pass it through a conservative sensor/body
+      // disturbance model derived from the uploaded stage-1 record.
+      const altitudeSigma = simulationPlusClamp(
+        Math.max(0.38, analysis.altitudeNoiseSigmaM * 1.35), 0.38, 4.8
+      );
+      const accelSigma = simulationPlusClamp(
+        Math.max(0.85, analysis.accelNoiseSigmaMps2 * 1.15), 0.85, 11
+      );
+      const vibrationScale = simulationPlusClamp(
+        0.85 + (analysis.accelNoiseSigmaMps2 * 0.32), 0.85, 3.8
+      );
       let coloredAltitudeNoise = simulationPlusGaussian(random) * altitudeSigma;
+      let barometerBias = simulationPlusGaussian(random) * altitudeSigma * 0.35;
       let coloredSpeedNoise = 0;
       let coloredAccelNoise = simulationPlusGaussian(random) * accelSigma;
       samples.forEach((sample)=>{
@@ -25834,29 +25846,67 @@ function requestMobileMockup3dMesh(){
         sample.altitudeLow = Math.max(0, sample.altitude - spread);
         sample.altitudeHigh = sample.altitude + spread;
         sample.tPlus = analysis.separationTPlusSec + sample.time;
-        coloredAltitudeNoise = (coloredAltitudeNoise * 0.94) +
-          (simulationPlusGaussian(random) * altitudeSigma * Math.sqrt(1 - (0.94 * 0.94)));
-        coloredAccelNoise = (coloredAccelNoise * 0.72) +
-          (simulationPlusGaussian(random) * accelSigma * Math.sqrt(1 - (0.72 * 0.72)));
-        coloredSpeedNoise = (coloredSpeedNoise * 0.9) +
-          (coloredAccelNoise * dt * 0.34) + (simulationPlusGaussian(random) * 0.025);
-        sample.sensorAltitude = Math.max(0, sample.altitude + coloredAltitudeNoise);
+        const isPowered = sample.phase === "2단 추력 비행";
+        const isCoasting = sample.phase === "코스팅";
+        const ignitionPulse = Math.exp(-sample.time / 0.075);
+        const burnoutPulse = Math.exp(-Math.pow((sample.time - burnoutTime) / 0.095, 2));
+        const deploymentPulse = Math.exp(-Math.pow((sample.time - apogeeTime) / 0.16, 2));
+        const phaseAccelGain = isPowered ? 2.4 : (isCoasting ? 0.72 : 1.15);
+        const motorVibration = isPowered
+          ? vibrationScale * (
+            (Math.sin(sample.time * 2 * Math.PI * 23.0) * 0.72) +
+            (Math.sin(sample.time * 2 * Math.PI * 41.0 + 0.8) * 0.34)
+          )
+          : 0;
+        const bodyBuffet = isCoasting
+          ? Math.sin(sample.time * 2 * Math.PI * 3.1 + 0.35) * vibrationScale * 0.22
+          : 0;
+        const eventShock = (ignitionPulse * vibrationScale * 4.8) -
+          (burnoutPulse * vibrationScale * 3.2) +
+          (deploymentPulse * vibrationScale * 5.4);
+
+        coloredAltitudeNoise = (coloredAltitudeNoise * 0.965) +
+          (simulationPlusGaussian(random) * altitudeSigma * Math.sqrt(1 - (0.965 * 0.965)));
+        barometerBias = simulationPlusClamp(
+          (barometerBias * 0.9985) + (simulationPlusGaussian(random) * altitudeSigma * 0.017),
+          -altitudeSigma * 2.8,
+          altitudeSigma * 2.8
+        );
+        const pressureTransient =
+          (ignitionPulse * altitudeSigma * 1.7) -
+          (burnoutPulse * altitudeSigma * 1.2) +
+          (deploymentPulse * altitudeSigma * 2.1);
+        coloredAccelNoise = (coloredAccelNoise * 0.78) +
+          (simulationPlusGaussian(random) * accelSigma * phaseAccelGain * Math.sqrt(1 - (0.78 * 0.78)));
+        const observedAccelNoise = coloredAccelNoise + motorVibration + bodyBuffet + eventShock;
+        coloredSpeedNoise = (coloredSpeedNoise * 0.935) +
+          (observedAccelNoise * dt * 0.42) + (simulationPlusGaussian(random) * 0.055);
+        sample.sensorAltitude = Math.max(
+          0,
+          sample.altitude + coloredAltitudeNoise + barometerBias + pressureTransient
+        );
         sample.sensorSpeed = Math.max(0, sample.speed + coloredSpeedNoise);
-        sample.sensorAccel = sample.accel + coloredAccelNoise;
+        sample.sensorAccel = sample.accel + observedAccelNoise;
       });
 
       const monteCarloApogees = [];
       const monteCarloSpeeds = [];
       const monteCarloAccels = [];
       for(let run = 0; run < 400; run++){
-        const separationError = simulationPlusGaussian(random) * altitudeSigma;
-        const motorSigma = 0.024 + Math.min(0.07, accelSigma / Math.max(1, targets.maxAccel) * 0.7);
+        const separationError = simulationPlusGaussian(random) * altitudeSigma * 1.35;
+        const separationSpeedError = simulationPlusGaussian(random) * Math.max(0.9, accelSigma * 0.3);
+        const ignitionDelayError = simulationPlusGaussian(random) * 0.065;
+        const motorSigma = 0.035 + Math.min(0.06, accelSigma / Math.max(1, targets.maxAccel) * 0.8);
         const motorScale = 1 + (simulationPlusGaussian(random) * motorSigma);
-        const dragScale = 1 + (simulationPlusGaussian(random) * 0.075);
-        const speedCandidate = Math.max(0, targets.maxSpeed * motorScale);
+        const dragScale = 1 + (simulationPlusGaussian(random) * 0.085);
+        const speedCandidate = Math.max(
+          0,
+          (targets.maxSpeed + separationSpeedError - (ignitionDelayError * 9.80665)) * motorScale
+        );
         const coastEnergy = Math.max(0, targets.apogee - analysis.separationAltitudeM);
         const apogeeCandidate = analysis.separationAltitudeM + separationError +
-          (coastEnergy * motorScale * motorScale / Math.max(0.72, dragScale));
+          (coastEnergy * motorScale * motorScale / Math.max(0.62, dragScale)) +
+          (separationSpeedError * 1.7) - (ignitionDelayError * Math.max(8, analysis.separationSpeedMps));
         monteCarloSpeeds.push(speedCandidate);
         monteCarloAccels.push(targets.maxAccel * motorScale + (simulationPlusGaussian(random) * accelSigma * 0.2));
         monteCarloApogees.push(apogeeCandidate);
@@ -25937,11 +25987,11 @@ function requestMobileMockup3dMesh(){
       }
       const note = document.getElementById("simulationPlusConfidenceNote");
       if(note){
-        note.textContent = "400회 Monte Carlo · 입력 BIN의 기압/IMU/시간 지터 노이즈 전파 · " +
+        note.textContent = "400회 Monte Carlo · 기압 바이어스/IMU 진동/점화·분리 충격/시간 지터 전파 · " +
           (analysis.nativeSeparation ? "저장된 단분리 이벤트 사용" : "기본 T+2.50 s 단분리 조건 사용");
       }
       const altitudeLegend = document.getElementById("simulationPlusAltitudeLegend");
-      if(altitudeLegend) altitudeLegend.textContent = "PREDICTED · ±" + Math.round(prediction.uncertainty * 100) + "%";
+      if(altitudeLegend) altitudeLegend.textContent = "SENSOR PREDICTION · P10–P90";
       simulationPlusScheduleCharts();
     }
 
@@ -26048,8 +26098,8 @@ function requestMobileMockup3dMesh(){
         ctx.lineTo(xFor(points[index]), yForValue(points[index].altitudeLow));
       }
       ctx.closePath(); ctx.fill();
-      simulationPlusPlotLine(ctx, points, xFor, (point)=>yForValue(point.altitude), "#35cf7c", 2.2);
-      simulationPlusPlotLine(ctx, points, xFor, (point)=>yForValue(point.sensorAltitude), "rgba(217,224,231,.42)", 0.85);
+      simulationPlusPlotLine(ctx, points, xFor, (point)=>yForValue(point.altitude), "rgba(53,207,124,.42)", 1.25);
+      simulationPlusPlotLine(ctx, points, xFor, (point)=>yForValue(point.sensorAltitude), "rgba(235,239,244,.94)", 1.45);
       const events = [
         {time:0, label:"SEP / IGN"},
         {time:prediction.burnoutTime, label:"BURNOUT"},
@@ -26081,17 +26131,17 @@ function requestMobileMockup3dMesh(){
       const xFor = (point)=>axes.pad.left + (point.time / xMax) * axes.plotWidth;
       const speedY = (point)=>axes.pad.top + (1 - Math.max(0, point.speed) / speedMax) * axes.plotHeight;
       const accelY = (point)=>axes.pad.top + (1 - Math.max(0, point.accel) / accelMax) * axes.plotHeight;
-      simulationPlusPlotLine(ctx, points, xFor, speedY, "#e8ebef", 2);
-      simulationPlusPlotLine(ctx, points, xFor, accelY, "#f5a623", 1.65);
+      simulationPlusPlotLine(ctx, points, xFor, speedY, "rgba(232,235,239,.34)", 1.1);
+      simulationPlusPlotLine(ctx, points, xFor, accelY, "rgba(245,166,35,.32)", 1.05);
       simulationPlusPlotLine(
         ctx, points, xFor,
         (point)=>axes.pad.top + (1 - Math.max(0, point.sensorSpeed) / speedMax) * axes.plotHeight,
-        "rgba(232,235,239,.28)", 0.75
+        "rgba(232,235,239,.96)", 1.45
       );
       simulationPlusPlotLine(
         ctx, points, xFor,
         (point)=>axes.pad.top + (1 - Math.max(0, point.sensorAccel) / accelMax) * axes.plotHeight,
-        "rgba(245,166,35,.28)", 0.7
+        "rgba(245,166,35,.92)", 1.25
       );
       ctx.font = "700 10px ui-monospace, monospace";
       ctx.textAlign = "right";
