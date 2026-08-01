@@ -6338,6 +6338,7 @@ function requestMobileMockup3dMesh(){
     let serialRxEnabled = true;
     let serialTxEnabled = true;
     let serialPort = null;
+    let serialPreferredPort = null;
     let serialReader = null;
     let serialWriter = null;
     let serialReadAbort = null;

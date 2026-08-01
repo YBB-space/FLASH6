@@ -262,6 +262,47 @@
       evaluateRuntimeAlarms(Date.now());
     }
 
+    async function recoverStaleSerialLink(){
+      let controlReply = null;
+      try{
+        // A directly connected avionics board may temporarily pause periodic
+        // telemetry while storage or radio work is active. Probe the existing
+        // control channel before closing a perfectly valid USB port.
+        const settingsReply = await requestSerialSettingsAck(1400);
+        if(settingsReply && settingsReply.ok){
+          controlReply = settingsReply;
+          if(settingsReply.flashLinkRole){
+            serialConnectedRole = settingsReply.flashLinkRole;
+          }
+        }
+        const streamReply = await requestSerialStreamState(true, {
+          developer:true,
+          timeoutMs:1400,
+          writeTimeoutMs:1400
+        });
+        if(streamReply && streamReply.ok){
+          controlReply = streamReply;
+          if(streamReply.flashLinkRole){
+            serialConnectedRole = streamReply.flashLinkRole;
+          }
+        }
+        const gotSample = await waitForSerialSampleAfter(Date.now() - 1, 900);
+        if(serialConnected && (gotSample || (controlReply && controlReply.ok))){
+          markSerialControlLinkReady(gotSample);
+          addLogLine(
+            gotSample
+              ? "WebSerial telemetry resumed on the existing port."
+              : "WebSerial control link is responsive; telemetry stream is pending.",
+            "SER"
+          );
+          return true;
+        }
+      }catch(error){
+        addLogLine("WebSerial stale-link probe failed: " + (error?.message || error), "SER");
+      }
+      return false;
+    }
+
     function ensureSerialAlive(){
       if(
         firmwareUpdateUiBusy ||
@@ -273,17 +314,21 @@
       const lastActivity = Math.max(lastSerialActivityAt || 0, lastSerialSampleAt || 0);
       if(!lastActivity || (Date.now() - lastActivity) <= SERIAL_LINK_STALE_MS) return;
       serialStaleRecoveryBusy = true;
-      addLogLine("WebSerial link stale; reopening the verified FLASH6 board port.", "SER");
-      serialConnected = false;
-      serialConnectedRole = "";
-      flushSerialAckWaiters("SERIAL_STALE");
-      updateSerialPill();
-      connOk = false;
-      updateConnectionUI(false);
-      closeSerialHandles({closePort:true}).finally(()=>{
-        serialPort = null;
+      addLogLine("WebSerial link stale; probing the existing FLASH6 board port.", "SER");
+      recoverStaleSerialLink().then((recovered)=>{
+        if(recovered) return;
+        serialConnected = false;
+        serialConnectedRole = "";
+        flushSerialAckWaiters("SERIAL_STALE");
+        updateSerialPill();
+        connOk = false;
+        updateConnectionUI(false);
+        return closeSerialHandles({closePort:true}).then(()=>{
+          serialPort = null;
+          scheduleSerialAutoReconnect("stale link");
+        });
+      }).finally(()=>{
         serialStaleRecoveryBusy = false;
-        scheduleSerialAutoReconnect("stale link");
       });
     }
 
@@ -392,7 +437,15 @@
     function initSerialPortEvents(){
       if(serialPortEventsBound || !serialSupported() || !navigator.serial.addEventListener) return;
       serialPortEventsBound = true;
-      navigator.serial.addEventListener("disconnect", ()=>{
+      navigator.serial.addEventListener("disconnect", (event)=>{
+        const eventPort = event && event.port ? event.port : null;
+        const eventTarget = event && event.target && event.target !== navigator.serial
+          ? event.target
+          : null;
+        const disconnectedPort = eventPort || eventTarget;
+        // WebSerial emits one global event for every granted device. Unplugging
+        // stage 2 must not tear down an active stage-1/ground connection.
+        if(serialPort && disconnectedPort && disconnectedPort !== serialPort) return;
         if(!serialConnected && !serialEnabled) return;
         addLogLine("WebSerial port disconnected by browser event.", "SER");
         if(serialConnected){
@@ -721,8 +774,13 @@
         }
       );
       if(reply && reply.ok){
-        const m = String(reply.message || "").match(/\bSTREAM=(\d+)/i);
+        const message = String(reply.message || "");
+        const m = message.match(/\bSTREAM=(\d+)/i);
         reply.streamEnabled = m ? (Number(m[1]) !== 0) : null;
+        const roleMatch = message.match(/\bFLASH_LINK_ROLE=([^\s]+)/i);
+        reply.flashLinkRole = roleMatch
+          ? String(roleMatch[1] || "").trim().toLowerCase()
+          : "";
       }
       return reply || { ok:false, kind:"unknown", message:"SERIAL_NO_REPLY" };
     }
@@ -837,6 +895,9 @@
 
     async function getPreviouslyGrantedSerialPort(){
       const ports = await getPreviouslyGrantedSerialPorts();
+      if(serialPreferredPort && ports.indexOf(serialPreferredPort) >= 0){
+        return serialPreferredPort;
+      }
       return ports.length ? ports[0] : null;
     }
 
@@ -863,11 +924,22 @@
       serialAutoReconnectTimer = setTimeout(async ()=>{
         serialAutoReconnectTimer = null;
         if(!serialEnabled || simEnabled || serialConnected || serialConnectBusy) return;
-        await serialConnect({
-          preferGranted:true,
-          autoReconnect:true,
-          requireGround:serialGroundRequired
-        });
+        const grantedPorts = await getPreviouslyGrantedSerialPorts();
+        if(serialPreferredPort && grantedPorts.indexOf(serialPreferredPort) >= 0){
+          grantedPorts.splice(grantedPorts.indexOf(serialPreferredPort), 1);
+          grantedPorts.unshift(serialPreferredPort);
+        }
+        for(const port of grantedPorts){
+          const connected = await serialConnect({
+            port,
+            preferGranted:true,
+            grantedOnly:true,
+            autoReconnect:true,
+            requireGround:serialGroundRequired,
+            quiet:true
+          });
+          if(connected) break;
+        }
         if(!serialConnected){
           scheduleSerialAutoReconnect("retry");
         }
@@ -970,25 +1042,45 @@
         setSerialConnectWizardStage("waiting", "보드 응답 확인 중");
         let gotSample = false;
         let gotBoardAck = false;
-        const settingsAck = await requestSerialSettingsAck(1100);
-        if(settingsAck && settingsAck.ok){
-          if(requireGround && settingsAck.flashLinkRole !== "ground"){
-            throw new Error("SERIAL_NOT_GROUND_STATION");
-          }
-          serialConnectedRole = settingsAck.flashLinkRole || "";
-          gotBoardAck = true;
-        }else if(requireGround){
-          throw new Error("SERIAL_GROUND_ROLE_UNVERIFIED");
-        }
-        const handshakeDeadline = Date.now() + (gotBoardAck ? 4200 : 9000);
+        let roleVerified = false;
+        // Native USB can enumerate before sensor, storage and radio setup has
+        // reached loop(). Keep probing the same port instead of failing after
+        // the first 1.1-second settings timeout.
+        const handshakeDeadline = Date.now() + 15000;
         while(serialConnected && Date.now() < handshakeDeadline){
-          const streamAck = await requestSerialStreamState(true, {developer:true, timeoutMs:1000, writeTimeoutMs:1200});
+          if(!roleVerified){
+            const settingsAck = await requestSerialSettingsAck(1200);
+            if(settingsAck && settingsAck.ok){
+              const settingsRole = settingsAck.flashLinkRole || "";
+              if(requireGround && settingsRole !== "ground"){
+                throw new Error("SERIAL_NOT_GROUND_STATION");
+              }
+              serialConnectedRole = settingsRole;
+              roleVerified = !!settingsRole;
+              gotBoardAck = true;
+            }
+          }
+          const streamAck = await requestSerialStreamState(true, {
+            developer:true,
+            timeoutMs:1200,
+            writeTimeoutMs:1400
+          });
           if(streamAck && streamAck.ok){
             gotBoardAck = true;
+            if(streamAck.flashLinkRole){
+              serialConnectedRole = streamAck.flashLinkRole;
+              roleVerified = true;
+            }
           }
-          gotSample = await waitForSerialSampleAfter(handshakeStartedAt, gotBoardAck ? 1200 : 1800);
+          gotSample = await waitForSerialSampleAfter(
+            handshakeStartedAt,
+            gotBoardAck ? 1000 : 1400
+          );
           if(gotSample) break;
           if(gotBoardAck && !requireGround) break;
+        }
+        if(requireGround && !roleVerified){
+          throw new Error("SERIAL_GROUND_ROLE_UNVERIFIED");
         }
         if(!gotSample && !gotBoardAck){
           throw new Error("SERIAL_DATA_TIMEOUT");
@@ -998,6 +1090,7 @@
         }
 
         markSerialControlLinkReady(gotSample);
+        serialPreferredPort = selectedPort;
         if(gotSample){
           addLogLine(t("webserialConnected") + " @" + serialCurrentBaud + "bps", "SER");
         }else{

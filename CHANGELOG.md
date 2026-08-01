@@ -11,6 +11,21 @@ same commit that changes the corresponding constants in `src/firmware/state.h`.
 
 Protocol unchanged: `Flash6-Intelligent-b15`
 
+## FLASH6 UI b187 — 2026-08-02
+
+- 에비오닉스 USB 직결에서 텔레메트리가 잠시 멈춰도 포트를 즉시 닫지 않고
+  기존 제어 채널에 재응답 및 스트림 재개를 먼저 요청하도록 변경했습니다.
+- USB가 센서·저장장치 초기화보다 먼저 인식되는 ESP32-S3 부팅 상황에서 최초
+  응답을 한 번만 기다리지 않고 같은 포트에서 최대 15초간 재확인합니다.
+- 여러 FLASH6 USB 권한이 등록된 환경에서 마지막 정상 연결 포트를 우선
+  재사용하고, 실패 시 허용된 포트를 순차 검사하도록 자동 재연결을 보강했습니다.
+- 연결되지 않은 다른 FLASH6 장치의 USB 분리 이벤트가 현재 유선 연결까지
+  끊어 버리던 WebSerial 전역 이벤트 처리 문제를 수정했습니다.
+
+Firmware build unchanged: `0.13.3` (`v6 b81`)
+
+Protocol unchanged: `Flash6-Intelligent-b15`
+
 ## FLASH6 UI b186 — 2026-08-02
 
 - SIMULATION PLUS의 연속 비행 타임라인을 단분리 시점 기준으로 분리해,
