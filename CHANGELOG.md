@@ -11,6 +11,20 @@ same commit that changes the corresponding constants in `src/firmware/state.h`.
 
 Protocol unchanged: `Flash6-Intelligent-b15`
 
+## FLASH6 UI b183 — 2026-08-02
+
+- 1단 비행 BIN에서 단분리 시점의 고도·상승속도·가속도 성능을 추출해
+  2단 점화, 연소 종료, 정점, 사출 및 착지까지 계산하는
+  `ALTIS INTELLIGENCE · SIMULATION PLUS` 작업공간을 추가했습니다.
+- 입력 BIN의 기압고도 잔차, IMU 가속도 변동, 샘플링 지터를 추정하고
+  400회 Monte Carlo 계산으로 예측 범위(P10–P90)를 제공합니다.
+- 물리 모델의 중심 궤적과 노이즈가 포함된 예상 센서 파형을 함께 표시하며,
+  두 값을 포함한 예측 데이터를 CSV로 내보낼 수 있습니다.
+
+Firmware build unchanged: `0.13.3` (`v6 b81`)
+
+Protocol unchanged: `Flash6-Intelligent-b15`
+
 ## FLASH6 UI b182 — 2026-08-01
 
 - 시퀀스 타임의 `T-` 라벨과 카운트다운 숫자 폰트를 가볍고 정돈된 HUD

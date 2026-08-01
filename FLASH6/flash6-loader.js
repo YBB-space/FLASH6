@@ -103,6 +103,7 @@
     "flash6-shell.js",
     "flash6-views.js",
     "flash6-charts-replay.js",
+    "flash6-simulation-plus.js",
     "flash6-protocol.js",
     "flash6-transport.js",
     "flash6-firmware-update.js",

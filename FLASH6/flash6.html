@@ -494,6 +494,14 @@
               리플레이
             </button>
           </div>
+          <button id="welcomeSimulationPlusBtn" class="welcome-simulation-plus-btn" type="button">
+            <span>
+              <small>ALTIS INTELLIGENCE</small>
+              <strong>SIMULATION PLUS</strong>
+            </span>
+            <em>1단 비행 BIN으로 2단 비행 예측</em>
+            <b aria-hidden="true">›</b>
+          </button>
           <div class="welcome-connect-sim-prompt">
             <span>기기가 없으신가요?</span>
             <button id="welcomeSimConnectBtn" class="welcome-connect-sim-text-btn" type="button">시뮬레이션</button>
@@ -3533,6 +3541,82 @@
           </section>
         </div>
       </div>
+    </div>
+
+    <div id="simulationPlusOverlay" class="simulation-plus-overlay hidden" style="display:none;" aria-hidden="true">
+      <section class="simulation-plus-dialog" role="dialog" aria-modal="true" aria-labelledby="simulationPlusTitle">
+        <header class="simulation-plus-header">
+          <div>
+            <span class="simulation-plus-eyebrow">ALTIS INTELLIGENCE</span>
+            <h2 id="simulationPlusTitle">SIMULATION PLUS</h2>
+            <p>1단 비행 기록을 초기 조건으로 사용해 2단의 점화·상승·정점·하강을 예측합니다.</p>
+          </div>
+          <button id="simulationPlusCloseBtn" class="simulation-plus-close" type="button" aria-label="닫기">×</button>
+        </header>
+
+        <div class="simulation-plus-body">
+          <section id="simulationPlusInputPanel" class="simulation-plus-input-panel">
+            <button id="simulationPlusDropzone" class="simulation-plus-dropzone" type="button">
+              <span class="simulation-plus-drop-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M4 7.5h6l2 2h8v9.5H4z"></path><path d="M12 16V10m0 0-2.5 2.5M12 10l2.5 2.5"></path></svg>
+              </span>
+              <span>
+                <strong>1단 비행 BIN 선택</strong>
+                <small>파일을 선택하거나 이 영역에 드래그하세요.</small>
+              </span>
+            </button>
+            <input id="simulationPlusFileInput" type="file" class="hidden-input" accept=".bin,application/octet-stream">
+            <div class="simulation-plus-reference">
+              <div><span>REFERENCE</span><strong>2단 최대 가속도</strong><b>77.64 m/s²</b></div>
+              <div><span>REFERENCE</span><strong>2단 최대 속도</strong><b>112.45 m/s</b></div>
+              <div><span>REFERENCE</span><strong>2단 최고 고도</strong><b>561 m</b></div>
+              <div><span>REFERENCE</span><strong>기준 분리 고도</strong><b>79 m</b></div>
+            </div>
+          </section>
+
+          <section id="simulationPlusWorkspace" class="simulation-plus-workspace hidden" aria-live="polite">
+            <div class="simulation-plus-sourcebar">
+              <div>
+                <span>STAGE 1 FLIGHT RECORD</span>
+                <strong id="simulationPlusFileName">--</strong>
+                <small id="simulationPlusSourceMeta">--</small>
+              </div>
+              <button id="simulationPlusChangeFileBtn" type="button">파일 변경</button>
+            </div>
+
+            <div id="simulationPlusStatus" class="simulation-plus-status">비행 기록을 해석하고 있습니다.</div>
+
+            <div id="simulationPlusMetrics" class="simulation-plus-metrics"></div>
+
+            <div class="simulation-plus-chart-grid">
+              <article class="simulation-plus-chart-card">
+                <header><div><span>STAGE 2</span><strong>고도 예측</strong></div><b id="simulationPlusAltitudeLegend">m · T+</b></header>
+                <canvas id="simulationPlusAltitudeChart" aria-label="2단 고도 예측 차트"></canvas>
+              </article>
+              <article class="simulation-plus-chart-card">
+                <header><div><span>STAGE 2</span><strong>속도 · 가속도 예측</strong></div><b>m/s · m/s²</b></header>
+                <canvas id="simulationPlusDynamicsChart" aria-label="2단 속도와 가속도 예측 차트"></canvas>
+              </article>
+            </div>
+
+            <div class="simulation-plus-lower-grid">
+              <article class="simulation-plus-data-card">
+                <header><span>예측 이벤트</span><small>1단 T+ 기준</small></header>
+                <div id="simulationPlusEventTable" class="simulation-plus-event-table"></div>
+              </article>
+              <article class="simulation-plus-data-card simulation-plus-assumptions">
+                <header><span>모델 조건</span><small>MODEL-CONSTRAINED</small></header>
+                <div id="simulationPlusAssumptionList"></div>
+              </article>
+            </div>
+
+            <footer class="simulation-plus-footer">
+              <p id="simulationPlusConfidenceNote">예측값은 입력 로그 품질과 기준 성능 데이터에 따른 추정치입니다.</p>
+              <button id="simulationPlusExportBtn" type="button">예측 데이터 CSV 내보내기</button>
+            </footer>
+          </section>
+        </div>
+      </section>
     </div>
 
     <div id="perfOverlay" class="settings-overlay hidden" style="display:none;">
