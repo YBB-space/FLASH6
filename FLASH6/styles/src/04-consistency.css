@@ -4883,6 +4883,34 @@ html:not(.phone-landscape-layout) body #rebootConfirmOverlay .hardware-target-se
 html:not(.phone-landscape-layout) body #rebootConfirmOverlay #rebootConfirmActions{
   grid-row:4 !important;
 }
+
+/* Sequence timer: use a quiet, humanist display face instead of the heavy
+ * browser default used by <strong>.  Keep the timer legible while matching
+ * the restrained HUD typography and avoiding the blocky, over-emphasized
+ * countdown look. */
+body.camera-view-active .camera-sequence-time--timeline .camera-tmark,
+body.camera-view-active .camera-sequence-time--timeline .camera-count-time{
+  font-family:"Helvetica Neue", "Inter", "Segoe UI", Arial, sans-serif !important;
+  font-synthesis:none !important;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:geometricPrecision;
+}
+body.camera-view-active .camera-sequence-time--timeline .camera-tmark{
+  color:rgba(210,215,222,.68) !important;
+  font-size:clamp(16px,1.15vw,19px) !important;
+  font-weight:400 !important;
+  letter-spacing:.06em !important;
+  text-shadow:none !important;
+}
+body.camera-view-active .camera-sequence-time--timeline .camera-count-time{
+  color:rgba(255,255,255,.94) !important;
+  font-size:clamp(40px,3vw,48px) !important;
+  font-weight:300 !important;
+  letter-spacing:.08em !important;
+  line-height:1 !important;
+  -webkit-text-stroke:0 !important;
+  text-shadow:0 2px 16px rgba(0,0,0,.46) !important;
+}
 @media (max-width:600px){
   .hardware-target-selector{
     grid-template-columns:1fr;

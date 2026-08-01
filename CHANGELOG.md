@@ -11,6 +11,15 @@ same commit that changes the corresponding constants in `src/firmware/state.h`.
 
 Protocol unchanged: `Flash6-Intelligent-b15`
 
+## FLASH6 UI b182 — 2026-08-01
+
+- 시퀀스 타임의 `T-` 라벨과 카운트다운 숫자 폰트를 가볍고 정돈된 HUD
+  타이포그래피로 조정해 두꺼운 기본 글꼴 느낌을 줄였습니다.
+
+Firmware build unchanged: `0.13.3` (`v6 b81`)
+
+Protocol unchanged: `Flash6-Intelligent-b15`
+
 ## FLASH6 UI b180 — 2026-08-01
 
 - 미션 대기 또는 시퀀스 시작 전에 비행데이터 로깅 상태를 확인합니다.
