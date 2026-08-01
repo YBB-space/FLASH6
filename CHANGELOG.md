@@ -3,6 +3,15 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 UI b176 — 2026-08-01
+
+- 카메라 HUD 지도를 하단 우측으로 조금 더 내리고 크기를 확장했습니다.
+- 크리티컬 알림 스택을 상단 중앙에서 기존 하단 알림 영역으로 되돌렸습니다.
+
+Firmware build unchanged: `0.13.3` (`v6 b80`)
+
+Protocol unchanged: `Flash6-Intelligent-b15`
+
 ## FLASH6 UI b175 — 2026-08-01
 
 - 제어 센터의 `더보기`를 기본 메뉴 카드에서 분리해 독립된 펼침 버튼으로
