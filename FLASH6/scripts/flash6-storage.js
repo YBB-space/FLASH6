@@ -698,6 +698,10 @@
     }
 
     function syncFlightDataLoggingUi(){
+      const stageSummary = getFlightDataLoggingStageSummary();
+      const partial = stageSummary.known.length > 0 &&
+        stageSummary.enabled.length > 0 &&
+        stageSummary.disabled.length > 0;
       const controls = [
         [el.flightLoggingBtn, el.flightLoggingStatus],
         [el.mobileFlightLoggingBtn, el.mobileFlightLoggingStatus]
@@ -712,7 +716,7 @@
         if(status){
           status.textContent = flightDataLoggingPending
             ? "확인 중"
-            : (flightDataLoggingEnabled ? "ON" : "OFF");
+            : (partial ? "부분 ON" : (flightDataLoggingEnabled ? "ON" : "OFF"));
           status.classList.remove("pill-gray", "pill-green", "pill-blue");
           status.classList.add(
             flightDataLoggingPending
@@ -729,33 +733,8 @@
       flightDataLoggingByStage[id] = Number(raw) !== 0;
     }
 
-    function applyFlightDataLoggingTelemetry(data, stageId){
-      if(!data) return;
-      const raw = data.storage_logging != null ? data.storage_logging : data.sl;
-      if(raw == null || raw === "" || !isFinite(Number(raw))) return;
-      updateFlightDataLoggingStageTelemetry(
-        stageId != null ? stageId : (data.stage_node_id ?? data.stage_node ?? data.flash_link_node_id),
-        raw
-      );
-      const enabled = Number(raw) !== 0;
-      if(
-        flightDataLoggingPending &&
-        flightDataLoggingDesired != null &&
-        enabled !== flightDataLoggingDesired
-      ) return;
-      const changed = enabled !== flightDataLoggingEnabled;
-      flightDataLoggingKnown = true;
-      flightDataLoggingPending = false;
-      flightDataLoggingDesired = null;
-      flightDataLoggingEnabled = enabled;
-      if(changed && !enabled) finalizeAppDataSession();
-      syncFlightDataLoggingUi();
-    }
-
-    function getFlightLoggingGuardStatus(){
-      if(simEnabled){
-        return {ready:true, required:[1], missing:[], unknown:[], dual:false};
-      }
+    function getFlightDataLoggingRequiredStages(){
+      if(simEnabled) return [1];
       const ground = isFlashLinkGroundStorageUi();
       const configuredDual = !!(
         flashLinkUiStage2Mode ||
@@ -764,9 +743,100 @@
       const configuredNode = Number(
         flashLinkUiNodeId || (uiSettings && uiSettings.flashLinkNodeId) || 1
       ) === 2 ? 2 : 1;
-      const required = ground
-        ? (configuredDual ? [1, 2] : [1])
-        : [configuredNode];
+      return ground ? (configuredDual ? [1, 2] : [1]) : [configuredNode];
+    }
+
+    function getFlightDataLoggingStageSummary(expected){
+      const required = getFlightDataLoggingRequiredStages();
+      const known = [];
+      const unknown = [];
+      const enabled = [];
+      const disabled = [];
+      required.forEach((stageId)=>{
+        let value = flightDataLoggingByStage[stageId];
+        // A directly connected avionics frame can omit its node id. Only a
+        // single-board, non-ground session may use the legacy global value.
+        if(
+          value == null &&
+          required.length === 1 &&
+          !isFlashLinkGroundStorageUi() &&
+          flightDataLoggingKnown
+        ) value = flightDataLoggingEnabled;
+        if(value == null){
+          unknown.push(stageId);
+          return;
+        }
+        known.push(stageId);
+        (value ? enabled : disabled).push(stageId);
+      });
+      const matchesExpected = expected == null
+        ? false
+        : unknown.length === 0 && required.every((stageId)=>
+            flightDataLoggingByStage[stageId] === !!expected ||
+            (!isFlashLinkGroundStorageUi() && required.length === 1 &&
+              flightDataLoggingByStage[stageId] == null &&
+              flightDataLoggingKnown && flightDataLoggingEnabled === !!expected)
+          );
+      return {required, known, unknown, enabled, disabled, matchesExpected};
+    }
+
+    function commitFlightDataLoggingState(enabled){
+      const changed = !!enabled !== flightDataLoggingEnabled;
+      flightDataLoggingKnown = true;
+      flightDataLoggingPending = false;
+      flightDataLoggingDesired = null;
+      flightDataLoggingEnabled = !!enabled;
+      if(changed && !enabled) finalizeAppDataSession();
+      syncFlightDataLoggingUi();
+    }
+
+    function syncFlightDataLoggingAggregate(){
+      const summary = getFlightDataLoggingStageSummary();
+      if(summary.unknown.length) return false;
+      const enabled = summary.enabled.length === summary.required.length;
+      if(flightDataLoggingPending && flightDataLoggingDesired != null){
+        if(!summary.matchesExpected) return false;
+        commitFlightDataLoggingState(flightDataLoggingDesired);
+        return true;
+      }
+      commitFlightDataLoggingState(enabled);
+      return true;
+    }
+
+    function applyFlightDataLoggingTelemetry(data, stageId){
+      if(!data) return;
+      const raw = data.storage_logging != null ? data.storage_logging : data.sl;
+      if(raw == null || raw === "" || !isFinite(Number(raw))) return;
+      const resolvedStageId = normalizeStorageStageNode(
+        stageId != null ? stageId : (data.stage_node_id ?? data.stage_node ?? data.flash_link_node_id)
+      );
+      // In ground mode the top-level storage flag belongs to the ground board,
+      // not to either avionics node. Accept only stage-tagged relay telemetry or
+      // explicit remote storage status so it cannot overwrite the stage result.
+      if(isFlashLinkGroundStorageUi() && !resolvedStageId) return;
+      updateFlightDataLoggingStageTelemetry(resolvedStageId, raw);
+      const enabled = Number(raw) !== 0;
+      if(resolvedStageId){
+        syncFlightDataLoggingAggregate();
+        return;
+      }
+      if(
+        flightDataLoggingPending &&
+        flightDataLoggingDesired != null &&
+        enabled !== flightDataLoggingDesired
+      ) return;
+      commitFlightDataLoggingState(enabled);
+    }
+
+    function getFlightLoggingGuardStatus(){
+      if(simEnabled){
+        return {ready:true, required:[1], missing:[], unknown:[], dual:false};
+      }
+      const configuredDual = !!(
+        flashLinkUiStage2Mode ||
+        (uiSettings && uiSettings.flashLinkStage2Mode)
+      );
+      const required = getFlightDataLoggingRequiredStages();
       const missing = [];
       const unknown = [];
       required.forEach((stageId)=>{
@@ -774,7 +844,10 @@
         // Direct avionics mode does not always include stage_node_id in its
         // first telemetry frame, so use the established single-board flag as
         // a fallback for that one required board only.
-        if(value == null && required.length === 1 && flightDataLoggingKnown){
+        if(
+          value == null && required.length === 1 &&
+          !isFlashLinkGroundStorageUi() && flightDataLoggingKnown
+        ){
           value = flightDataLoggingEnabled;
         }
         if(value == null) unknown.push(stageId);
@@ -817,27 +890,39 @@
       return false;
     }
 
-    function waitForFlightDataLoggingConfirmation(expected, timeoutMs){
+    async function refreshFlightDataLoggingConfirmationStatus(){
+      if(isFlashLinkGroundStorageUi()){
+        const required = getFlightDataLoggingRequiredStages();
+        for(const stageId of required){
+          await refreshRemoteSpiFlashStatus(stageId);
+          await delay(80);
+        }
+        return;
+      }
+      await fetchSpiFlashStatus({force:true});
+    }
+
+    async function waitForFlightDataLoggingConfirmation(expected, timeoutMs){
       const deadline = Date.now() + Math.max(250, Number(timeoutMs) || 2500);
-      return new Promise((resolve)=>{
-        const inspect = ()=>{
-          if(
-            !flightDataLoggingPending &&
-            flightDataLoggingDesired == null &&
-            flightDataLoggingKnown &&
-            flightDataLoggingEnabled === expected
-          ){
-            resolve(true);
-            return;
+      let nextProbeAt = 0;
+      while(Date.now() < deadline){
+        const summary = getFlightDataLoggingStageSummary(expected);
+        if(summary.matchesExpected){
+          commitFlightDataLoggingState(expected);
+          return true;
+        }
+        if(Date.now() >= nextProbeAt){
+          await refreshFlightDataLoggingConfirmationStatus();
+          nextProbeAt = Date.now() + 450;
+          const refreshed = getFlightDataLoggingStageSummary(expected);
+          if(refreshed.matchesExpected){
+            commitFlightDataLoggingState(expected);
+            return true;
           }
-          if(Date.now() >= deadline){
-            resolve(false);
-            return;
-          }
-          setTimeout(inspect, 50);
-        };
-        inspect();
-      });
+        }
+        await delay(100);
+      }
+      return false;
     }
 
     async function toggleFlightDataLogging(){
@@ -848,6 +933,10 @@
       }
       const previous = flightDataLoggingEnabled;
       const next = !previous;
+      const requiredStages = getFlightDataLoggingRequiredStages();
+      // A cached ON/OFF value must not confirm a new command. Each required
+      // board has to report its state again after this request.
+      requiredStages.forEach((stageId)=>{ flightDataLoggingByStage[stageId] = null; });
       flightDataLoggingPending = true;
       flightDataLoggingDesired = next;
       syncFlightDataLoggingUi();
@@ -863,35 +952,42 @@
         return;
       }
 
-      let commandAccepted = false;
-      let confirmed = false;
-      const confirmationWindows = [2400, 3200, 4200];
-      for(let attempt = 0; attempt < confirmationWindows.length && !confirmed; attempt++){
-        const result = await sendCommand({
+      const command = {
           http:"/set?storage_logging=" + (next ? 1 : 0),
           ser:"/set?storage_logging=" + (next ? 1 : 0)
-        }, true);
+      };
+      let result = await sendCommand(command, true);
+      let commandAccepted = !!(result && result.ok);
+      let confirmed = await waitForFlightDataLoggingConfirmation(next, 6800);
+      // One idempotent retry is enough for a transient relay queue failure;
+      // repeated blind retries previously caused duplicate board beeps and
+      // made the UI race against old telemetry.
+      if(!confirmed){
+        flightDataLoggingPending = true;
+        flightDataLoggingDesired = next;
+        result = await sendCommand(command, false);
         commandAccepted = commandAccepted || !!(result && result.ok);
-        confirmed = await waitForFlightDataLoggingConfirmation(
-          next,
-          confirmationWindows[attempt]
-        );
-        if(!confirmed && attempt + 1 < confirmationWindows.length){
-          flightDataLoggingPending = true;
-          flightDataLoggingDesired = next;
-          syncFlightDataLoggingUi();
-          await delay(120 + attempt * 100);
-        }
+        confirmed = await waitForFlightDataLoggingConfirmation(next, 5200);
       }
 
       if(!confirmed){
         flightDataLoggingPending = false;
         flightDataLoggingDesired = null;
-        flightDataLoggingEnabled = previous;
+        const summary = getFlightDataLoggingStageSummary();
+        flightDataLoggingEnabled = summary.unknown.length === 0
+          ? summary.enabled.length === summary.required.length
+          : previous;
+        flightDataLoggingKnown = summary.unknown.length === 0;
         syncFlightDataLoggingUi();
+        const unresolved = summary.required.filter((stageId)=>
+          flightDataLoggingByStage[stageId] !== next
+        );
+        const stageText = unresolved.length
+          ? unresolved.map((stageId)=>stageId + "단부").join(", ") + " 상태 확인 실패"
+          : "상태 확인 실패";
         showToast(
           commandAccepted
-            ? "에비오닉스가 로깅 상태를 적용하지 않았습니다. 저장공간과 A.I LINK를 확인하세요."
+            ? stageText + ": 저장공간과 A.I LINK를 확인하세요."
             : "비행데이터 로깅 명령을 전송하지 못했습니다. 연결을 확인하세요.",
           "error"
         );

@@ -1127,7 +1127,7 @@
         });
       }
       if(state.data && state.data.storage_logging != null){
-        updateFlightDataLoggingStageTelemetry(stageId, state.data.storage_logging);
+        applyFlightDataLoggingTelemetry(state.data, stageId);
       }
       state.attitudeRevision++;
       const ageMs = Math.max(0, Number(sample.stage_age_ms ?? sample.age_ms) || 0);
