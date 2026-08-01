@@ -127,7 +127,7 @@
   <!-- Preload 축소: AP 모드/저메모리 환경에서 동시 요청 버스트를 줄임 -->
   <script>
     (function(){
-    var ASSET_VER = "20260802-simulation-plus-rough-noise-b185-__FLASH6_DEPLOY_SHA__";
+    var ASSET_VER = "20260802-simulation-plus-stage-boundary-b186-__FLASH6_DEPLOY_SHA__";
       window.__flashBoot = window.__flashBoot || {jsReady:false,lastError:"",phase:"static_loader",version:ASSET_VER};
       var isLocalPreview = !!window.__flashBoot.localPreview;
       var beaconEnabled = (window.__flashBoot.beaconEnabled !== false);
@@ -365,7 +365,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="styles/flash6-app.css?v=20260802-simulation-plus-rough-noise-b185-__FLASH6_DEPLOY_SHA__">
+  <link rel="stylesheet" href="styles/flash6-app.css?v=20260802-simulation-plus-stage-boundary-b186-__FLASH6_DEPLOY_SHA__">
 </head>
 <body>
   <!-- ✅ LOCKOUT 배경 오버레이 -->
@@ -3590,12 +3590,12 @@
 
             <div class="simulation-plus-chart-grid">
               <article class="simulation-plus-chart-card">
-                <header><div><span>STAGE 2</span><strong>고도 예측</strong></div><b id="simulationPlusAltitudeLegend">m · T+</b></header>
-                <canvas id="simulationPlusAltitudeChart" aria-label="2단 고도 예측 차트"></canvas>
+                <header><div><span>FLIGHT TIMELINE</span><strong>1단 실측 · 2단 예측 고도</strong></div><b id="simulationPlusAltitudeLegend">m · T+</b></header>
+                <canvas id="simulationPlusAltitudeChart" aria-label="1단 실측 및 2단 고도 예측 차트"></canvas>
               </article>
               <article class="simulation-plus-chart-card">
-                <header><div><span>STAGE 2</span><strong>속도 · 가속도 예측</strong></div><b>m/s · m/s²</b></header>
-                <canvas id="simulationPlusDynamicsChart" aria-label="2단 속도와 가속도 예측 차트"></canvas>
+                <header><div><span>FLIGHT TIMELINE</span><strong>1단 실측 · 2단 예측 동역학</strong></div><b>m/s · m/s²</b></header>
+                <canvas id="simulationPlusDynamicsChart" aria-label="1단 실측 및 2단 속도와 가속도 예측 차트"></canvas>
               </article>
             </div>
 
@@ -4848,6 +4848,6 @@
     <button id="controlsOverlayClose" class="controls-overlay-close" type="button" aria-label="close">×</button>
     </div>
 
-  <script src="scripts/flash6-watchdog.js?v=20260802-simulation-plus-rough-noise-b185-__FLASH6_DEPLOY_SHA__"></script>
+  <script src="scripts/flash6-watchdog.js?v=20260802-simulation-plus-stage-boundary-b186-__FLASH6_DEPLOY_SHA__"></script>
 </body>
 </html> 

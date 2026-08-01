@@ -11,6 +11,20 @@ same commit that changes the corresponding constants in `src/firmware/state.h`.
 
 Protocol unchanged: `Flash6-Intelligent-b15`
 
+## FLASH6 UI b186 — 2026-08-02
+
+- SIMULATION PLUS의 연속 비행 타임라인을 단분리 시점 기준으로 분리해,
+  단분리 전에는 업로드한 1단 BIN 실측 데이터만 표시하고 단분리 이후에는
+  2단 물리 예측 및 예상 센서 데이터만 표시하도록 변경했습니다.
+- 2단 예상 센서 파형에 1단 로그에서 추출한 기압·IMU·속도 노이즈 패턴을
+  이식해 실제 에비오닉스 기록과 유사한 질감으로 만들었습니다.
+- 예측 데이터 생성률을 기본 100 Hz로 높이고 CSV에서 모든 통합 샘플을
+  보존합니다. 화면 차트만 렌더링 단계에서 다운샘플링합니다.
+
+Firmware build unchanged: `0.13.3` (`v6 b81`)
+
+Protocol unchanged: `Flash6-Intelligent-b15`
+
 ## FLASH6 UI b185 — 2026-08-02
 
 - SIMULATION PLUS의 예상 기압고도와 속도 파형이 전체 비행 스케일에서도

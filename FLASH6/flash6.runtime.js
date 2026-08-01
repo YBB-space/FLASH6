@@ -25606,6 +25606,7 @@ function requestMobileMockup3dMesh(){
 
       const altitudeResiduals = [];
       const accelDifferences = [];
+      const speedDifferences = [];
       const sampleIntervals = [];
       let previousAccelMagnitude = NaN;
       let previousFrameTime = NaN;
@@ -25625,6 +25626,12 @@ function requestMobileMockup3dMesh(){
         if(isFinite(magnitude) && isFinite(previousAccelMagnitude)){
           const difference = (magnitude - previousAccelMagnitude) * 9.80665;
           if(Math.abs(difference) < 80) accelDifferences.push(difference);
+        }
+        const recordedSpeed = Number(sample.speed_mps);
+        const localSpeed = simulationPlusRegressionSlope(frames, altitudes, index, 420);
+        if(isFinite(recordedSpeed) && isFinite(localSpeed)){
+          const difference = recordedSpeed - Math.max(0, localSpeed);
+          if(Math.abs(difference) < 45) speedDifferences.push(difference);
         }
         if(isFinite(magnitude)) previousAccelMagnitude = magnitude;
         const ts = simulationPlusFrameTime(frame, NaN);
@@ -25667,8 +25674,67 @@ function requestMobileMockup3dMesh(){
         accelNoiseSigmaMps2,
         medianSampleIntervalMs,
         sampleJitterSigmaMs,
+        altitudeNoisePattern:altitudeResiduals.slice(),
+        accelNoisePattern:accelDifferences.slice(),
+        speedNoisePattern:speedDifferences.slice(),
         quality
       };
+    }
+
+    function simulationPlusPatternValue(values, index, sigma){
+      if(!Array.isArray(values) || values.length < 4 || !(sigma > 0)) return 0;
+      const value = Number(values[Math.abs(index) % values.length]);
+      return isFinite(value) ? simulationPlusClamp(value / sigma, -3.5, 3.5) : 0;
+    }
+
+    function simulationPlusRecordedSpeed(frames, altitudes, index){
+      const sample = frames[index] && frames[index].sample;
+      if(!sample) return NaN;
+      const candidates = [sample.speed_mps, sample.flight_fast_vertical_speed_mps, sample.vertical_speed_mps];
+      for(const value of candidates){
+        const numeric = Number(value);
+        if(isFinite(numeric) && numeric >= 0 && numeric < 220) return numeric;
+      }
+      const derived = simulationPlusRegressionSlope(frames, altitudes, index, 420);
+      return isFinite(derived) ? Math.max(0, derived) : NaN;
+    }
+
+    function simulationPlusBuildStage1Timeline(analysis, frames){
+      const altitudes = simulationPlusSmoothedAltitudes(frames);
+      const recorded = [];
+      for(let index = 0; index <= analysis.separationIndex && index < frames.length; index++){
+        const frame = frames[index];
+        const sample = frame && frame.sample;
+        const ts = simulationPlusFrameTime(frame, NaN);
+        if(!sample || !isFinite(ts) || ts < analysis.launchAtMs || ts > analysis.separationAtMs) continue;
+        const rawAltitude = simulationPlusFinite(
+          sample.alt_m,
+          simulationPlusFinite(simulationPlusAltitude(sample), altitudes[index])
+        );
+        if(!isFinite(rawAltitude)) continue;
+        const storedMagnitudeG = Number(sample.flight_accel_raw_g);
+        const rawMagnitudeG = isFinite(storedMagnitudeG)
+          ? storedMagnitudeG
+          : Math.hypot(Number(sample.ax), Number(sample.ay), Number(sample.az));
+        const accel = isFinite(rawMagnitudeG) ? rawMagnitudeG * 9.80665 : NaN;
+        const speed = simulationPlusRecordedSpeed(frames, altitudes, index);
+        const tPlus = Math.max(0, (ts - analysis.launchAtMs) / 1000);
+        recorded.push({
+          time:tPlus,
+          tPlus,
+          altitude:rawAltitude,
+          sensorAltitude:rawAltitude,
+          altitudeLow:rawAltitude,
+          altitudeHigh:rawAltitude,
+          speed:isFinite(speed) ? speed : 0,
+          sensorSpeed:isFinite(speed) ? speed : 0,
+          accel:isFinite(accel) ? accel : 0,
+          sensorAccel:isFinite(accel) ? accel : 0,
+          phase:String(sample.flight_phase || "1단 실측"),
+          source:"STAGE1_RECORDED"
+        });
+      }
+      return recorded;
     }
 
     function simulationPlusSeededRandom(seed){
@@ -25748,9 +25814,11 @@ function requestMobileMockup3dMesh(){
       return {height, time};
     }
 
-    function simulationPlusBuildPrediction(analysis){
+    function simulationPlusBuildPrediction(analysis, frames){
       const targets = simulationPlusPredictTargets(analysis);
-      const dt = 0.02;
+      // Generate prediction records at avionics-class density. The canvas is
+      // downsampled only while drawing; exports retain every generated sample.
+      const dt = simulationPlusClamp(analysis.medianSampleIntervalMs / 1000, 0.005, 0.01);
       const samples = [];
       const initialAltitude = Math.max(0, analysis.separationAltitudeM);
       const initialSpeed = simulationPlusClamp(analysis.separationSpeedMps, 8, targets.maxSpeed - 18);
@@ -25838,7 +25906,10 @@ function requestMobileMockup3dMesh(){
       let barometerBias = simulationPlusGaussian(random) * altitudeSigma * 0.35;
       let coloredSpeedNoise = 0;
       let coloredAccelNoise = simulationPlusGaussian(random) * accelSigma;
-      samples.forEach((sample)=>{
+      const altitudePatternSigma = Math.max(0.05, simulationPlusRobustSigma(analysis.altitudeNoisePattern || []));
+      const accelPatternSigma = Math.max(0.05, simulationPlusRobustSigma(analysis.accelNoisePattern || []));
+      const speedPatternSigma = Math.max(0.05, simulationPlusRobustSigma(analysis.speedNoisePattern || []));
+      samples.forEach((sample, sampleIndex)=>{
         const phaseGrowth = sample.time <= apogeeTime
           ? (0.35 + (0.65 * sample.time / Math.max(apogeeTime, 0.1)))
           : 1;
@@ -25864,6 +25935,15 @@ function requestMobileMockup3dMesh(){
             (Math.sin(sample.time * 2 * Math.PI * 6.2 + 1.1) * vibrationScale * 0.12)
           )
           : 0;
+        const stage1AltitudeTexture = simulationPlusPatternValue(
+          analysis.altitudeNoisePattern, sampleIndex * 3 + 17, altitudePatternSigma
+        ) * altitudeSigma * (isPowered ? 0.72 : 0.46);
+        const stage1AccelTexture = simulationPlusPatternValue(
+          analysis.accelNoisePattern, sampleIndex * 5 + 29, accelPatternSigma
+        ) * accelSigma * (isPowered ? 1.05 : 0.62);
+        const stage1SpeedTexture = simulationPlusPatternValue(
+          analysis.speedNoisePattern, sampleIndex * 2 + 11, speedPatternSigma
+        ) * Math.max(0.16, accelSigma * 0.055);
         const eventShock = (ignitionPulse * vibrationScale * 4.8) -
           (burnoutPulse * vibrationScale * 3.2) +
           (deploymentPulse * vibrationScale * 5.4);
@@ -25889,16 +25969,23 @@ function requestMobileMockup3dMesh(){
             : altitudeSigma * Math.sin(sample.time * 2 * Math.PI * 0.82 + 0.2) * 0.16);
         coloredAccelNoise = (coloredAccelNoise * 0.78) +
           (simulationPlusGaussian(random) * accelSigma * phaseAccelGain * Math.sqrt(1 - (0.78 * 0.78)));
-        const observedAccelNoise = coloredAccelNoise + motorVibration + bodyBuffet + eventShock;
+        const observedAccelNoise = coloredAccelNoise + stage1AccelTexture + motorVibration + bodyBuffet + eventShock;
         coloredSpeedNoise = (coloredSpeedNoise * 0.935) +
           (observedAccelNoise * dt * 0.5) + (simulationPlusGaussian(random) * 0.16);
         sample.sensorAltitude = Math.max(
           0,
-          Math.round((sample.altitude + coloredAltitudeNoise + barometerBias + pressureTransient + pressureRipple) * 10) / 10
+          Math.round((sample.altitude + coloredAltitudeNoise + stage1AltitudeTexture + barometerBias + pressureTransient + pressureRipple) * 10) / 10
         );
-        sample.sensorSpeed = Math.max(0, sample.speed + coloredSpeedNoise);
+        sample.sensorSpeed = Math.max(0, sample.speed + coloredSpeedNoise + stage1SpeedTexture);
         sample.sensorAccel = sample.accel + observedAccelNoise;
+        sample.source = "STAGE2_PREDICTED";
       });
+
+      const stage1Samples = simulationPlusBuildStage1Timeline(analysis, frames || []);
+      const stage2Samples = samples.map((sample)=>Object.assign({}, sample, {
+        time:analysis.separationTPlusSec + sample.time
+      }));
+      const timelineSamples = stage1Samples.concat(stage2Samples);
 
       const monteCarloApogees = [];
       const monteCarloSpeeds = [];
@@ -25930,6 +26017,9 @@ function requestMobileMockup3dMesh(){
       return {
         targets,
         samples,
+        timelineSamples,
+        stage1Samples,
+        stage2Samples,
         maxAccel:targets.maxAccel,
         maxSpeed:Math.max.apply(null, samples.map((sample)=>sample.speed)),
         apogee:apogeeAltitude,
@@ -25937,6 +26027,8 @@ function requestMobileMockup3dMesh(){
         burnoutTime,
         apogeeTime,
         landingTime:time,
+        timelineEnd:analysis.separationTPlusSec + time,
+        sampleIntervalSec:dt,
         dragCoefficient,
         uncertainty,
         intervals,
@@ -25991,6 +26083,7 @@ function requestMobileMockup3dMesh(){
           '<div><span>2단 연소시간</span><strong>' + simulationPlusFormat(prediction.burnDuration, 2) + ' s</strong></div>' +
           '<div><span>Static margin</span><strong>' + SIM_PLUS_REFERENCE.staticMargin.join(" / ") + '</strong></div>' +
           '<div><span>사출 후 종단속도</span><strong>' + simulationPlusFormat(SIM_PLUS_REFERENCE.deploymentTerminalSpeed, 1) + ' m/s</strong></div>' +
+          '<div><span>예측 기록률</span><strong>' + simulationPlusFormat(1 / prediction.sampleIntervalSec, 0) + ' Hz</strong></div>' +
           '<div><span>기압고도 노이즈 σ</span><strong>' + simulationPlusFormat(analysis.altitudeNoiseSigmaM, 2) + ' m</strong></div>' +
           '<div><span>IMU 노이즈 σ</span><strong>' + simulationPlusFormat(analysis.accelNoiseSigmaMps2, 2) + ' m/s²</strong></div>' +
           '<div><span>샘플 지터 σ</span><strong>' + simulationPlusFormat(analysis.sampleJitterSigmaMs, 1) + ' ms</strong></div>' +
@@ -25998,11 +26091,11 @@ function requestMobileMockup3dMesh(){
       }
       const note = document.getElementById("simulationPlusConfidenceNote");
       if(note){
-        note.textContent = "400회 Monte Carlo · 기압 바이어스/IMU 진동/점화·분리 충격/시간 지터 전파 · " +
+        note.textContent = "단분리 전 1단 실측 · 단분리 후 2단 예측 · 1단 실측 노이즈 패턴 전이 · 400회 Monte Carlo · " +
           (analysis.nativeSeparation ? "저장된 단분리 이벤트 사용" : "기본 T+2.50 s 단분리 조건 사용");
       }
       const altitudeLegend = document.getElementById("simulationPlusAltitudeLegend");
-      if(altitudeLegend) altitudeLegend.textContent = "SENSOR PREDICTION · P10–P90";
+      if(altitudeLegend) altitudeLegend.textContent = "STAGE 1 RECORDED → STAGE 2 PREDICTED";
       simulationPlusScheduleCharts();
     }
 
@@ -26092,8 +26185,10 @@ function requestMobileMockup3dMesh(){
       const context = simulationPlusCanvasContext(canvas);
       const prediction = simulationPlusState.prediction;
       if(!context || !prediction) return;
-      const points = simulationPlusDownsample(prediction.samples, 700);
-      const xMax = Math.max(1, prediction.landingTime);
+      const points = simulationPlusDownsample(prediction.timelineSamples || prediction.samples, 900);
+      const predictedPoints = points.filter((point)=>point.source === "STAGE2_PREDICTED");
+      const recordedPoints = points.filter((point)=>point.source === "STAGE1_RECORDED");
+      const xMax = Math.max(1, prediction.timelineEnd || prediction.landingTime);
       const yMax = simulationPlusNiceMax(prediction.apogee * 1.08);
       const axes = simulationPlusDrawAxes(context, {xMax, yMax});
       const {ctx, width, height} = context;
@@ -26101,20 +26196,21 @@ function requestMobileMockup3dMesh(){
       const yForValue = (value)=>axes.pad.top + (1 - value / yMax) * axes.plotHeight;
       ctx.fillStyle = "rgba(45,205,122,.10)";
       ctx.beginPath();
-      points.forEach((point, index)=>{
+      predictedPoints.forEach((point, index)=>{
         const x = xFor(point); const y = yForValue(point.altitudeHigh);
         if(index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
       });
-      for(let index = points.length - 1; index >= 0; index--){
-        ctx.lineTo(xFor(points[index]), yForValue(points[index].altitudeLow));
+      for(let index = predictedPoints.length - 1; index >= 0; index--){
+        ctx.lineTo(xFor(predictedPoints[index]), yForValue(predictedPoints[index].altitudeLow));
       }
       ctx.closePath(); ctx.fill();
-      simulationPlusPlotLine(ctx, points, xFor, (point)=>yForValue(point.altitude), "rgba(53,207,124,.42)", 1.25);
-      simulationPlusPlotLine(ctx, points, xFor, (point)=>yForValue(point.sensorAltitude), "rgba(235,239,244,.94)", 1.45);
+      simulationPlusPlotLine(ctx, predictedPoints, xFor, (point)=>yForValue(point.altitude), "rgba(53,207,124,.42)", 1.25);
+      simulationPlusPlotLine(ctx, recordedPoints, xFor, (point)=>yForValue(point.sensorAltitude), "rgba(235,239,244,.96)", 1.45);
+      simulationPlusPlotLine(ctx, predictedPoints, xFor, (point)=>yForValue(point.sensorAltitude), "rgba(53,207,124,.96)", 1.45);
       const events = [
-        {time:0, label:"SEP / IGN"},
-        {time:prediction.burnoutTime, label:"BURNOUT"},
-        {time:prediction.apogeeTime, label:"APOGEE"}
+        {time:simulationPlusState.analysis.separationTPlusSec, label:"SEP / IGN"},
+        {time:simulationPlusState.analysis.separationTPlusSec + prediction.burnoutTime, label:"BURNOUT"},
+        {time:simulationPlusState.analysis.separationTPlusSec + prediction.apogeeTime, label:"APOGEE"}
       ];
       events.forEach((event)=>{
         const x = axes.pad.left + (event.time / xMax) * axes.plotWidth;
@@ -26133,8 +26229,10 @@ function requestMobileMockup3dMesh(){
       const context = simulationPlusCanvasContext(canvas);
       const prediction = simulationPlusState.prediction;
       if(!context || !prediction) return;
-      const points = simulationPlusDownsample(prediction.samples, 700);
-      const xMax = Math.max(1, prediction.landingTime);
+      const points = simulationPlusDownsample(prediction.timelineSamples || prediction.samples, 900);
+      const predictedPoints = points.filter((point)=>point.source === "STAGE2_PREDICTED");
+      const recordedPoints = points.filter((point)=>point.source === "STAGE1_RECORDED");
+      const xMax = Math.max(1, prediction.timelineEnd || prediction.landingTime);
       const speedMax = simulationPlusNiceMax(prediction.maxSpeed * 1.08);
       const accelMax = simulationPlusNiceMax(prediction.maxAccel * 1.12);
       const axes = simulationPlusDrawAxes(context, {xMax, yMax:speedMax, rightAxis:true, rightMax:accelMax});
@@ -26142,15 +26240,17 @@ function requestMobileMockup3dMesh(){
       const xFor = (point)=>axes.pad.left + (point.time / xMax) * axes.plotWidth;
       const speedY = (point)=>axes.pad.top + (1 - Math.max(0, point.speed) / speedMax) * axes.plotHeight;
       const accelY = (point)=>axes.pad.top + (1 - Math.max(0, point.accel) / accelMax) * axes.plotHeight;
-      simulationPlusPlotLine(ctx, points, xFor, speedY, "rgba(232,235,239,.34)", 1.1);
-      simulationPlusPlotLine(ctx, points, xFor, accelY, "rgba(245,166,35,.32)", 1.05);
+      simulationPlusPlotLine(ctx, predictedPoints, xFor, speedY, "rgba(232,235,239,.26)", 1.1);
+      simulationPlusPlotLine(ctx, predictedPoints, xFor, accelY, "rgba(245,166,35,.24)", 1.05);
+      simulationPlusPlotLine(ctx, recordedPoints, xFor, speedY, "rgba(232,235,239,.96)", 1.45);
+      simulationPlusPlotLine(ctx, recordedPoints, xFor, accelY, "rgba(245,166,35,.92)", 1.25);
       simulationPlusPlotLine(
-        ctx, points, xFor,
+        ctx, predictedPoints, xFor,
         (point)=>axes.pad.top + (1 - Math.max(0, point.sensorSpeed) / speedMax) * axes.plotHeight,
         "rgba(232,235,239,.96)", 1.45
       );
       simulationPlusPlotLine(
-        ctx, points, xFor,
+        ctx, predictedPoints, xFor,
         (point)=>axes.pad.top + (1 - Math.max(0, point.sensorAccel) / accelMax) * axes.plotHeight,
         "rgba(245,166,35,.92)", 1.25
       );
@@ -26209,7 +26309,7 @@ function requestMobileMockup3dMesh(){
           applyPressureRobustAltitudeToReplayFrames(frames);
         }
         const analysis = simulationPlusAnalyzeStage1(frames);
-        const prediction = simulationPlusBuildPrediction(analysis);
+        const prediction = simulationPlusBuildPrediction(analysis, frames);
         simulationPlusState.frames = frames;
         simulationPlusState.analysis = analysis;
         simulationPlusState.prediction = prediction;
@@ -26217,6 +26317,7 @@ function requestMobileMockup3dMesh(){
         if(status){
           status.classList.remove("is-loading");
           status.textContent = "2단 비행 예측 완료 · 입력 " + analysis.sampleCount.toLocaleString("ko-KR") +
+            " samples · 통합 " + prediction.timelineSamples.length.toLocaleString("ko-KR") +
             " samples · 신뢰도 " + prediction.confidence + "%";
         }
         simulationPlusRenderResult();
@@ -26239,9 +26340,9 @@ function requestMobileMockup3dMesh(){
       const analysis = simulationPlusState.analysis;
       if(!prediction || !analysis) return;
       const rows = [
-        ["STAGE2_ELAPSED_S","MISSION_TPLUS_S","PHASE","ALTITUDE_TRUE_M","ALTITUDE_SENSOR_M","ALTITUDE_LOW_M","ALTITUDE_HIGH_M","SPEED_TRUE_MPS","SPEED_SENSOR_MPS","ACCEL_TRUE_MPS2","ACCEL_SENSOR_MPS2"],
-        ...prediction.samples.filter((_sample, index)=>index % 5 === 0).map((sample)=>[
-          sample.time.toFixed(2), sample.tPlus.toFixed(2), sample.phase,
+        ["MISSION_TPLUS_S","SOURCE","PHASE","ALTITUDE_TRUE_M","ALTITUDE_SENSOR_M","ALTITUDE_LOW_M","ALTITUDE_HIGH_M","SPEED_TRUE_MPS","SPEED_SENSOR_MPS","ACCEL_TRUE_MPS2","ACCEL_SENSOR_MPS2"],
+        ...(prediction.timelineSamples || prediction.samples).map((sample)=>[
+          sample.tPlus.toFixed(2), sample.source || "STAGE2_PREDICTED", sample.phase,
           sample.altitude.toFixed(3), sample.sensorAltitude.toFixed(3), sample.altitudeLow.toFixed(3), sample.altitudeHigh.toFixed(3),
           sample.speed.toFixed(3), sample.sensorSpeed.toFixed(3), sample.accel.toFixed(3), sample.sensorAccel.toFixed(3)
         ])
