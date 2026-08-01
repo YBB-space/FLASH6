@@ -488,7 +488,10 @@
     <button id="desktopNavAbortBtn" class="desktop-nav-abort" type="button" aria-label="시퀀스 중단" title="시퀀스 중단" disabled>
       <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="1.5"></rect></svg>
     </button>
-    <aside class="side-nav side-nav-desktop" aria-label="sidebar">
+    <!-- Hidden desktop command proxies. The visible desktop navigation lives
+         in the top control center; these buttons remain only so the existing
+         command handlers have one shared activation path. -->
+    <aside class="side-nav side-nav-desktop" aria-label="desktop command proxies" aria-hidden="true" hidden>
       <div class="side-nav-menu">
         <button id="desktopDashboardBtn" class="side-nav-item" data-page-title="Dashboard" data-nav-label="대시보드" aria-label="Dashboard" title="대시보드">
           <svg viewBox="0 0 24 24">

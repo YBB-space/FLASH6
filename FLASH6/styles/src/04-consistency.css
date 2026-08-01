@@ -4585,3 +4585,9 @@ html body #gyroZeroOverlay .gyro-zero-actions button:disabled{
     padding:22px 20px;
   }
 }
+/* Desktop navigation was consolidated into the top control center. Keep the
+   legacy command elements mounted as invisible event proxies so desktop and
+   mobile actions still share the same handlers. */
+.side-nav-desktop[hidden]{
+  display:none !important;
+}
