@@ -154,6 +154,227 @@ struct LaunchMissionRuntime {
 
 LaunchMissionRuntime launchMission;
 
+constexpr uint32_t kMissionRecoveryMagic = 0x4D524331UL;  // MRC1
+constexpr uint16_t kMissionRecoveryVersion = 1U;
+constexpr uint32_t kMissionRecoveryRtcUpdateMs = 50U;
+constexpr uint32_t kMissionRecoveryMaxElapsedMs = 10U * 60U * 1000U;
+constexpr uint32_t kMissionRecoveryWarmResetMaxGapMs = 15000U;
+constexpr uint64_t kMissionRecoveryMaxRtcGapUs =
+  (uint64_t)kMissionRecoveryMaxElapsedMs * 1000ULL;
+
+enum MissionRecoveryFlagA : uint8_t {
+  kMissionRecoveryActive = 1U << 0,
+  kMissionRecoveryAuthority = 1U << 1,
+  kMissionRecoveryForceTimed = 1U << 2,
+  kMissionRecoveryCoastSeen = 1U << 3,
+  kMissionRecoveryEarlyCoast = 1U << 4,
+  kMissionRecoveryCoastTimeout = 1U << 5,
+  kMissionRecoveryInterstageFallback = 1U << 6,
+  kMissionRecoveryStage1Separated = 1U << 7,
+};
+
+enum MissionRecoveryFlagB : uint8_t {
+  kMissionRecoveryStage2ArmReleased = 1U << 0,
+  kMissionRecoveryStage2Ignited = 1U << 1,
+  kMissionRecoveryStage1Ejected = 1U << 2,
+  kMissionRecoveryStage2Ejected = 1U << 3,
+  kMissionRecoveryPrimaryFailed = 1U << 4,
+  kMissionRecoverySecondaryCommanded = 1U << 5,
+  kMissionRecoverySecondaryFailed = 1U << 6,
+  kMissionRecoveryEarlyApogeeIgnored = 1U << 7,
+};
+
+enum MissionRecoveryFlagC : uint8_t {
+  kMissionRecoveryStage2Enabled = 1U << 0,
+  kMissionRecoverySafetyMode = 1U << 1,
+  kMissionRecoveryArmLock = 1U << 2,
+  kMissionRecoveryInspectionPassed = 1U << 3,
+};
+
+struct __attribute__((packed)) MissionRecoveryRecord {
+  uint32_t magic = 0U;
+  uint16_t version = 0U;
+  uint16_t size = 0U;
+  uint32_t generation = 0U;
+  uint64_t boardSerial = 0U;
+  uint64_t rtcSavedUs = 0U;
+  uint32_t sequenceId = 0U;
+  uint32_t launchElapsedMs = 0U;
+  uint32_t separationTplusMs = 0U;
+  uint32_t stage2ArmTplusMs = 0U;
+  uint32_t stage2IgnitionTplusMs = 0U;
+  uint8_t nodeId = 0U;
+  uint8_t launchState = 0U;
+  uint8_t flagsA = 0U;
+  uint8_t flagsB = 0U;
+  uint8_t flagsC = 0U;
+  uint8_t flightPhase = 0U;
+  uint8_t reserved[2] = {};
+  uint16_t crc16 = 0U;
+};
+
+RTC_NOINIT_ATTR MissionRecoveryRecord missionRecoveryRtcRecord;
+uint32_t missionRecoveryGeneration = 0U;
+uint32_t missionRecoveryLastRtcUpdateMs = 0U;
+
+uint16_t missionRecoveryCrc(const MissionRecoveryRecord& record) {
+  return crc16Ccitt(
+    reinterpret_cast<const uint8_t*>(&record),
+    offsetof(MissionRecoveryRecord, crc16));
+}
+
+bool missionRecoveryRecordValid(const MissionRecoveryRecord& record) {
+  return record.magic == kMissionRecoveryMagic &&
+    record.version == kMissionRecoveryVersion &&
+    record.size == sizeof(MissionRecoveryRecord) &&
+    record.sequenceId != 0U &&
+    record.launchElapsedMs <= kMissionRecoveryMaxElapsedMs &&
+    record.crc16 == missionRecoveryCrc(record);
+}
+
+bool missionRecoveryResetEligible() {
+  if (bootRawResetReason == kRawPowerGlitchResetReason) return true;
+  switch (bootResetReason) {
+    case ESP_RST_PANIC:
+    case ESP_RST_INT_WDT:
+    case ESP_RST_TASK_WDT:
+    case ESP_RST_WDT:
+    case ESP_RST_BROWNOUT:
+      return true;
+    default:
+      return false;
+  }
+}
+
+bool missionRecoveryGenerationNewer(uint32_t lhs, uint32_t rhs) {
+  return static_cast<int32_t>(lhs - rhs) > 0;
+}
+
+bool missionRecoveryReadSlot(const char* key, MissionRecoveryRecord& out) {
+  if (!missionRecoveryPrefsReady || !key) return false;
+  if (missionRecoveryPrefs.getBytesLength(key) != sizeof(out)) return false;
+  if (missionRecoveryPrefs.getBytes(key, &out, sizeof(out)) != sizeof(out)) {
+    return false;
+  }
+  return missionRecoveryRecordValid(out);
+}
+
+bool missionRecoveryActiveNow() {
+  return launchMission.launchLatched &&
+    launchMission.launchAuthorityConfirmed &&
+    launchMission.state != LaunchMissionState::Idle &&
+    launchMission.state != LaunchMissionState::Standby &&
+    launchMission.state != LaunchMissionState::Complete &&
+    launchMission.state != LaunchMissionState::Fault &&
+    !launchMission.stage1Ejected &&
+    !launchMission.stage2Ejected;
+}
+
+void missionRecoveryPopulate(
+  MissionRecoveryRecord& record,
+  uint32_t nowMs,
+  uint32_t generation
+) {
+  record = MissionRecoveryRecord{};
+  record.magic = kMissionRecoveryMagic;
+  record.version = kMissionRecoveryVersion;
+  record.size = sizeof(MissionRecoveryRecord);
+  record.generation = generation;
+  record.boardSerial = boardSerialNumber;
+  record.rtcSavedUs = esp_rtc_get_time_us();
+  record.sequenceId = launchMission.sequenceId;
+  record.launchElapsedMs =
+    (uint32_t)(nowMs - launchMission.launchMs);
+  if (launchMission.stage1Separated) {
+    record.separationTplusMs =
+      (uint32_t)(launchMission.stage1SeparationMs - launchMission.launchMs);
+  }
+  if (launchMission.stage2ArmReleased) {
+    record.stage2ArmTplusMs =
+      (uint32_t)(launchMission.stage2ArmReleasedMs - launchMission.launchMs);
+  }
+  if (launchMission.stage2Ignited) {
+    record.stage2IgnitionTplusMs =
+      (uint32_t)(launchMission.stage2IgnitionMs - launchMission.launchMs);
+  }
+  record.nodeId = flashLinkNodeId;
+  record.launchState = static_cast<uint8_t>(launchMission.state);
+  if (missionRecoveryActiveNow()) record.flagsA |= kMissionRecoveryActive;
+  if (launchMission.launchAuthorityConfirmed) record.flagsA |= kMissionRecoveryAuthority;
+  if (launchMission.forceTimed) record.flagsA |= kMissionRecoveryForceTimed;
+  if (launchMission.coastSeen) record.flagsA |= kMissionRecoveryCoastSeen;
+  if (launchMission.earlyCoast) record.flagsA |= kMissionRecoveryEarlyCoast;
+  if (launchMission.coastTimeout) record.flagsA |= kMissionRecoveryCoastTimeout;
+  if (launchMission.interstageFallback) record.flagsA |= kMissionRecoveryInterstageFallback;
+  if (launchMission.stage1Separated) record.flagsA |= kMissionRecoveryStage1Separated;
+  if (launchMission.stage2ArmReleased) record.flagsB |= kMissionRecoveryStage2ArmReleased;
+  if (launchMission.stage2Ignited) record.flagsB |= kMissionRecoveryStage2Ignited;
+  if (launchMission.stage1Ejected) record.flagsB |= kMissionRecoveryStage1Ejected;
+  if (launchMission.stage2Ejected) record.flagsB |= kMissionRecoveryStage2Ejected;
+  if (launchMission.primaryFailed) record.flagsB |= kMissionRecoveryPrimaryFailed;
+  if (launchMission.secondaryCommanded) record.flagsB |= kMissionRecoverySecondaryCommanded;
+  if (launchMission.secondaryFailed) record.flagsB |= kMissionRecoverySecondaryFailed;
+  if (launchMission.stage2EarlyApogeeIgnored) record.flagsB |= kMissionRecoveryEarlyApogeeIgnored;
+  if (flashLinkStage2Enabled) record.flagsC |= kMissionRecoveryStage2Enabled;
+  if (safetyMode) record.flagsC |= kMissionRecoverySafetyMode;
+  if (armLock) record.flagsC |= kMissionRecoveryArmLock;
+  if (inspectionPassed) record.flagsC |= kMissionRecoveryInspectionPassed;
+  record.flightPhase = snap.flightPhase;
+  record.crc16 = missionRecoveryCrc(record);
+}
+
+void missionRecoveryClear() {
+  missionRecoveryRtcRecord = MissionRecoveryRecord{};
+  missionRecoveryGeneration = 0U;
+  missionRecoveryLastRtcUpdateMs = 0U;
+  if (!missionRecoveryPrefsReady) {
+    missionRecoveryPrefsReady = missionRecoveryPrefs.begin("mission_r", false);
+  }
+  if (!missionRecoveryPrefsReady) return;
+  if (missionRecoveryPrefs.isKey("slot_a")) missionRecoveryPrefs.remove("slot_a");
+  if (missionRecoveryPrefs.isKey("slot_b")) missionRecoveryPrefs.remove("slot_b");
+}
+
+void missionRecoveryCheckpoint(uint32_t nowMs, bool persistent) {
+  if (!missionRecoveryActiveNow()) {
+    if (persistent) missionRecoveryClear();
+    return;
+  }
+  if (persistent) ++missionRecoveryGeneration;
+  if (missionRecoveryGeneration == 0U) missionRecoveryGeneration = 1U;
+  MissionRecoveryRecord record;
+  missionRecoveryPopulate(record, nowMs, missionRecoveryGeneration);
+  missionRecoveryRtcRecord = record;
+  missionRecoveryLastRtcUpdateMs = nowMs;
+  if (!persistent) return;
+  if (!missionRecoveryPrefsReady) {
+    missionRecoveryPrefsReady = missionRecoveryPrefs.begin("mission_r", false);
+  }
+  if (!missionRecoveryPrefsReady) {
+    Serial.println("[MISSION_RECOVERY] NVS unavailable; RTC checkpoint only");
+    return;
+  }
+  const char* key = (record.generation & 1U) ? "slot_a" : "slot_b";
+  const size_t written = missionRecoveryPrefs.putBytes(key, &record, sizeof(record));
+  Serial.printf(
+    "[MISSION_RECOVERY] checkpoint gen=%lu state=%u elapsed=%lums slot=%s stored=%u\n",
+    (unsigned long)record.generation,
+    (unsigned)record.launchState,
+    (unsigned long)record.launchElapsedMs,
+    key,
+    written == sizeof(record) ? 1U : 0U);
+}
+
+void missionRecoveryService(uint32_t nowMs) {
+  if (!missionRecoveryActiveNow()) return;
+  if (missionRecoveryLastRtcUpdateMs != 0U &&
+      (uint32_t)(nowMs - missionRecoveryLastRtcUpdateMs) <
+        kMissionRecoveryRtcUpdateMs) {
+    return;
+  }
+  missionRecoveryCheckpoint(nowMs, false);
+}
+
 struct MissionAbortBroadcastRuntime {
   bool active = false;
   uint8_t reason = 0;
@@ -531,6 +752,217 @@ bool missionIsStage1Node() {
   return flashLinkMissionRoleEnabled() && !flashLinkStage2NodeRole();
 }
 
+void missionRecoveryBeginAndRestore() {
+  missionRecoveryPrefsReady = missionRecoveryPrefs.begin("mission_r", false);
+
+  MissionRecoveryRecord slotA;
+  MissionRecoveryRecord slotB;
+  const bool slotAValid = missionRecoveryReadSlot("slot_a", slotA);
+  const bool slotBValid = missionRecoveryReadSlot("slot_b", slotB);
+  MissionRecoveryRecord persisted;
+  bool persistedValid = false;
+  if (slotAValid && slotBValid) {
+    persisted = missionRecoveryGenerationNewer(
+      slotA.generation,
+      slotB.generation) ? slotA : slotB;
+    persistedValid = true;
+  } else if (slotAValid) {
+    persisted = slotA;
+    persistedValid = true;
+  } else if (slotBValid) {
+    persisted = slotB;
+    persistedValid = true;
+  }
+
+  const bool rtcValid = missionRecoveryRecordValid(missionRecoveryRtcRecord);
+  MissionRecoveryRecord selected;
+  bool selectedValid = false;
+  if (persistedValid) {
+    selected = persisted;
+    selectedValid = true;
+  }
+  if (rtcValid &&
+      (!selectedValid ||
+       (missionRecoveryRtcRecord.sequenceId == selected.sequenceId &&
+        missionRecoveryRtcRecord.boardSerial == selected.boardSerial &&
+        missionRecoveryRtcRecord.nodeId == selected.nodeId &&
+        (missionRecoveryGenerationNewer(
+           missionRecoveryRtcRecord.generation,
+           selected.generation) ||
+         (missionRecoveryRtcRecord.generation == selected.generation &&
+          missionRecoveryRtcRecord.launchElapsedMs >= selected.launchElapsedMs))))) {
+    selected = missionRecoveryRtcRecord;
+    selectedValid = true;
+  }
+
+  const uint64_t rtcNowUs = esp_rtc_get_time_us();
+  const bool rtcContinuity = rtcValid && selectedValid &&
+    missionRecoveryRtcRecord.sequenceId == selected.sequenceId &&
+    missionRecoveryRtcRecord.boardSerial == selected.boardSerial &&
+    missionRecoveryRtcRecord.nodeId == selected.nodeId &&
+    missionRecoveryRtcRecord.rtcSavedUs != 0U &&
+    rtcNowUs >= missionRecoveryRtcRecord.rtcSavedUs &&
+    (rtcNowUs - missionRecoveryRtcRecord.rtcSavedUs) <=
+      (uint64_t)kMissionRecoveryWarmResetMaxGapMs * 1000ULL;
+  const bool warmResetEligible = rtcContinuity &&
+    (bootResetReason == ESP_RST_POWERON || bootResetReason == ESP_RST_EXT);
+  const bool resetEligible = missionRecoveryResetEligible() || warmResetEligible;
+  const bool boardMatches = selectedValid && boardSerialNumber != 0U &&
+    selected.boardSerial == boardSerialNumber;
+  const bool nodeMatches = selectedValid &&
+    selected.nodeId == flashLinkNodeId;
+  const bool active = selectedValid &&
+    (selected.flagsA & kMissionRecoveryActive) != 0U &&
+    (selected.flagsA & kMissionRecoveryAuthority) != 0U;
+  const bool roleEligible = flashLinkAvionicsRole();
+  if (!resetEligible || !roleEligible ||
+      !boardMatches || !nodeMatches || !active) {
+    if (selectedValid) {
+      Serial.printf(
+        "[MISSION_RECOVERY] discarded reset=%s role=%u board=%u node=%u active=%u\n",
+        telemetryResetReasonName(),
+        roleEligible ? 1U : 0U,
+        boardMatches ? 1U : 0U,
+        nodeMatches ? 1U : 0U,
+        active ? 1U : 0U);
+    }
+    missionRecoveryClear();
+    return;
+  }
+
+  uint32_t recoveredElapsedMs = selected.launchElapsedMs;
+  if (selected.rtcSavedUs != 0U && rtcNowUs >= selected.rtcSavedUs) {
+    const uint64_t rtcGapUs = rtcNowUs - selected.rtcSavedUs;
+    if (rtcGapUs <= kMissionRecoveryMaxRtcGapUs) {
+      recoveredElapsedMs = min<uint32_t>(
+        kMissionRecoveryMaxElapsedMs,
+        recoveredElapsedMs + (uint32_t)(rtcGapUs / 1000ULL));
+    }
+  }
+
+  const uint32_t nowMs = millis();
+  const uint32_t launchMs = nowMs - recoveredElapsedMs;
+  const bool rawArmOn = armSwitchPhysicalOn();
+  launchMission = LaunchMissionRuntime{};
+  launchMission.state =
+    selected.launchState >= static_cast<uint8_t>(LaunchMissionState::WaitingCoast) &&
+    selected.launchState <= static_cast<uint8_t>(LaunchMissionState::WaitingStage2Ejection)
+      ? static_cast<LaunchMissionState>(selected.launchState)
+      : (selected.nodeId == kFlashLinkNodeIdStage2
+          ? LaunchMissionState::WaitingStage2Arm
+          : LaunchMissionState::WaitingCoast);
+  launchMission.forceTimed = (selected.flagsA & kMissionRecoveryForceTimed) != 0U;
+  launchMission.armRawOn = rawArmOn;
+  launchMission.armStableOn = rawArmOn;
+  launchMission.armRawChangedMs = nowMs;
+  launchMission.launchLatched = true;
+  launchMission.launchAuthorityConfirmed = true;
+  launchMission.coastSeen = (selected.flagsA & kMissionRecoveryCoastSeen) != 0U;
+  launchMission.earlyCoast = (selected.flagsA & kMissionRecoveryEarlyCoast) != 0U;
+  launchMission.coastTimeout = (selected.flagsA & kMissionRecoveryCoastTimeout) != 0U;
+  launchMission.interstageFallback =
+    (selected.flagsA & kMissionRecoveryInterstageFallback) != 0U;
+  launchMission.stage1Separated =
+    (selected.flagsA & kMissionRecoveryStage1Separated) != 0U;
+  launchMission.stage2ArmReleased =
+    (selected.flagsB & kMissionRecoveryStage2ArmReleased) != 0U;
+  launchMission.stage2Ignited =
+    (selected.flagsB & kMissionRecoveryStage2Ignited) != 0U;
+  launchMission.stage1Ejected =
+    (selected.flagsB & kMissionRecoveryStage1Ejected) != 0U;
+  launchMission.stage2Ejected =
+    (selected.flagsB & kMissionRecoveryStage2Ejected) != 0U;
+  launchMission.primaryFailed =
+    (selected.flagsB & kMissionRecoveryPrimaryFailed) != 0U;
+  launchMission.secondaryCommanded =
+    (selected.flagsB & kMissionRecoverySecondaryCommanded) != 0U;
+  launchMission.secondaryFailed =
+    (selected.flagsB & kMissionRecoverySecondaryFailed) != 0U;
+  launchMission.stage2EarlyApogeeIgnored =
+    (selected.flagsB & kMissionRecoveryEarlyApogeeIgnored) != 0U;
+  launchMission.launchMs = launchMs;
+  launchMission.sequenceId = selected.sequenceId;
+  if (launchMission.stage1Separated) {
+    launchMission.stage1SeparationMs =
+      launchMs + selected.separationTplusMs;
+    launchMission.primaryCommandMs = launchMission.stage1SeparationMs;
+  }
+  if (launchMission.stage2ArmReleased) {
+    launchMission.stage2ArmReleasedMs =
+      launchMs + selected.stage2ArmTplusMs;
+  }
+  if (launchMission.stage2Ignited) {
+    launchMission.stage2IgnitionMs =
+      launchMs + selected.stage2IgnitionTplusMs;
+  }
+
+  flashLinkStage2Enabled =
+    (selected.flagsC & kMissionRecoveryStage2Enabled) != 0U;
+  safetyMode = (selected.flagsC & kMissionRecoverySafetyMode) != 0U;
+  armLock = (selected.flagsC & kMissionRecoveryArmLock) != 0U;
+  inspectionPassed =
+    (selected.flagsC & kMissionRecoveryInspectionPassed) != 0U;
+  missionLaunchStandby = false;
+  sequenceUserWaiting = false;
+  sequenceState = kSequenceStateTplus;
+  sequenceFiringStartMs = launchMs;
+  sequenceFiringEndMs = 0U;
+  sequenceRelayMask = 0U;
+  sequenceRelayHoldUntilMs = 0U;
+  sequenceAborted = false;
+  sequenceAbortReason = 0U;
+  applyPyroOutputs(nowMs);
+
+  // A servo command is idempotent and its hold signal disappears across a
+  // reboot. Re-assert only the Stage-1 separation position; never mirror this
+  // onto a Stage-2 node where CH1 owns the ejection mechanism instead.
+  if (selected.nodeId == kFlashLinkNodeIdStage1 &&
+      launchMission.stage1Separated) {
+    const bool servoHeld =
+      setServoAngle(1U, missionStage1SeparationAngleDeg);
+    Serial.printf("[MISSION_RECOVERY] stage1 separation servo hold=%u angle=%u\n",
+                  servoHeld ? 1U : 0U,
+                  (unsigned)missionStage1SeparationAngleDeg);
+  }
+
+  flightPhaseResetRuntime();
+  FlightPhase recoveredPhase = FlightPhase::PoweredFlight;
+  if (launchMission.stage1Separated || launchMission.stage2Ignited ||
+      selected.flightPhase == static_cast<uint8_t>(FlightPhase::Coasting) ||
+      selected.flightPhase == static_cast<uint8_t>(FlightPhase::Descent)) {
+    recoveredPhase = selected.flightPhase == static_cast<uint8_t>(FlightPhase::Descent)
+      ? FlightPhase::Descent
+      : FlightPhase::Coasting;
+  }
+  flightPhaseRuntime.phase = recoveredPhase;
+  flightPhaseRuntime.phaseEnteredMs = launchMission.stage1Separated
+    ? launchMission.stage1SeparationMs
+    : launchMs;
+  flightPhaseRuntime.ignitionSeen = true;
+  flightPhaseRuntime.ascentConfirmed = true;
+  snap.flightPhase = static_cast<uint8_t>(recoveredPhase);
+
+  missionRecoveryGeneration = selected.generation;
+  missionRecoveryLastRtcUpdateMs = nowMs;
+  missionSyncLaunchTelemetry();
+  missionEmitAlarm(
+    0,
+    "재부팅 백업 복구",
+    "비정상 재부팅 전 미션 상태와 T+ 타이머를 복구했습니다. 이미 실행된 파이로 출력은 다시 켜지지 않습니다.");
+  Serial.printf(
+    "[MISSION_RECOVERY] restored gen=%lu node=%u state=%u elapsed=%lums "
+    "sep=%u arm2=%u ign2=%u rtc=%u\n",
+    (unsigned long)selected.generation,
+    (unsigned)selected.nodeId,
+    (unsigned)selected.launchState,
+    (unsigned long)recoveredElapsedMs,
+    launchMission.stage1Separated ? 1U : 0U,
+    launchMission.stage2ArmReleased ? 1U : 0U,
+    launchMission.stage2Ignited ? 1U : 0U,
+    rtcValid ? 1U : 0U);
+  missionRecoveryCheckpoint(nowMs, true);
+}
+
 void missionSendInterstageEvent(
   MissionInterstageEventCode code,
   uint32_t eventAtMs,
@@ -630,6 +1062,7 @@ void missionEnterArmContactFault(uint32_t nowMs) {
     0,
     "ARM contact fault",
     "ARM input is unstable. Inspect connector, sensor and wiring; safety mode enabled.");
+  missionRecoveryClear();
   missionSyncLaunchTelemetry();
 }
 
@@ -667,6 +1100,7 @@ void missionLatchTplus(
   missionLastSequenceState = sequenceState;
   missionEmitAlarm(0, "T+ started", reason ? reason : "Stage-1 ARM released.");
   missionSyncLaunchTelemetry();
+  if (authorityConfirmed) missionRecoveryCheckpoint(millis(), true);
 }
 
 void missionConfirmThrustLaunchAuthority(uint32_t armReleasedMs) {
@@ -694,6 +1128,7 @@ void missionConfirmThrustLaunchAuthority(uint32_t armReleasedMs) {
     launchMission.launchMs,
     0);
   missionSyncLaunchTelemetry();
+  missionRecoveryCheckpoint(millis(), true);
 }
 
 void missionRejectUnconfirmedThrustLaunch(uint32_t nowMs) {
@@ -725,6 +1160,7 @@ void missionRejectUnconfirmedThrustLaunch(uint32_t nowMs) {
     0,
     "Launch validation fault",
     "No ARM release within 1 s of thrust; standby restored.");
+  missionRecoveryClear();
   missionSyncLaunchTelemetry();
 }
 
@@ -751,6 +1187,7 @@ void missionCommandPrimaryDeployment(uint32_t nowMs) {
   } else {
     missionEmitAlarm(0, "Coasting confirmed", "SERVO CH1 moved to configured angle.");
   }
+  missionRecoveryCheckpoint(nowMs, true);
 }
 
 void missionCommandStage1Ejection(uint32_t nowMs) {
@@ -767,6 +1204,7 @@ void missionCommandStage1Ejection(uint32_t nowMs) {
     ok ? "Stage-1 ejection" : "Stage-1 ejection fault",
     ok ? "SERVO CH2 moved to configured angle." : "SERVO CH2 command failed.");
   if (ok) buzzerPlayRecoveryFindMelody();
+  missionRecoveryClear();
   missionSyncLaunchTelemetry();
 }
 
@@ -793,6 +1231,7 @@ void missionCommandStage2Ignition(uint32_t nowMs) {
   // ignition duration setting.
   sequenceRelayHoldUntilMs = nowMs + kStage2IgnitionPulseMs;
   applyPyroOutputs(nowMs);
+  missionRecoveryCheckpoint(nowMs, true);
   Serial.printf(
     "[MISSION] stage2 pyro ch1=ON gpio=%d pulse=%lums separation_elapsed=%lums\n",
     kPyroPins[0],
@@ -820,6 +1259,9 @@ void missionLatchStage2PhysicalSeparation(uint32_t detectedMs, uint32_t nowMs) {
     launchMission.stage2ArmReleasedMs,
     (int32_t)(launchMission.stage2ArmReleasedMs - launchMission.launchMs));
   missionEmitAlarm(0, "Stage-2 separation", "Hall sensor confirmed magnet departure.");
+  // Keep the separation-to-ignition path free of NVS latency. The following
+  // ignition command persists the state immediately after energising CH1.
+  missionRecoveryCheckpoint(nowMs, false);
   // The physical Hall state owns ignition authority. Starting the pulse here
   // also covers a separation edge that was detected before the Stage-1 T+
   // packet arrived.
@@ -864,6 +1306,7 @@ void missionCommandStage2Ejection(uint32_t nowMs, bool backup) {
   // The recovery beacon is required after every ejection command, including
   // a servo-driver fault where locating the vehicle is still necessary.
   buzzerPlayRecoveryFindMelody();
+  missionRecoveryClear();
   missionSyncLaunchTelemetry();
 }
 
@@ -934,6 +1377,7 @@ MissionStandbyResult startMissionStandbyRuntime(uint32_t nowMs) {
     return MissionStandbyResult::Busy;
   }
 
+  missionRecoveryClear();
   flightPhaseResetRuntime();
   missionResetLaunchRuntime(nowMs);
   sequenceAborted = false;
@@ -1127,6 +1571,7 @@ void missionHandleInterstageEvent(
         launchMission.stage2ArmReleased = true;
         launchMission.stage2ArmReleasedMs = receivedAtMs;
         missionEmitAlarm(0, "Stage-2 separation confirmed", "Remote ARM release received.");
+        missionRecoveryCheckpoint(receivedAtMs, true);
       }
     }
   }
@@ -1501,4 +1946,5 @@ void missionRuntimeTick() {
   }
   missionLastSwitch = switchNow;
   missionLastSequenceState = sequenceState;
+  missionRecoveryService(nowMs);
 }

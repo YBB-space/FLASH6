@@ -1,8 +1,8 @@
 
 constexpr char kFirmwareProgram[] = "Altis_Intelligent3_firmware1";
-constexpr char kFirmwareVersion[] = "0.12.15";
-constexpr char kFirmwareBuildId[] = "v6 b76";
-constexpr uint16_t kFirmwareBuildNumber = 76;
+constexpr char kFirmwareVersion[] = "0.13.0";
+constexpr char kFirmwareBuildId[] = "v6 b77";
+constexpr uint16_t kFirmwareBuildNumber = 77;
 constexpr char kFirmwareBoard[] = "Altis_Intelligent3_b3";
 constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b14";
 constexpr uint8_t kStorageProtocolVersion = 9;
@@ -329,6 +329,7 @@ Preferences settingsPrefs;
 Preferences loadcellPrefs;
 Preferences identityPrefs;
 Preferences bindingPrefs;
+Preferences missionRecoveryPrefs;
 #if defined(CONFIG_IDF_TARGET_ESP32S3)
 SPIClass storageSpi(FSPI);
 #elif defined(HSPI)
@@ -348,6 +349,7 @@ bool settingsPrefsReady = false;
 bool loadcellPrefsReady = false;
 bool identityPrefsReady = false;
 bool bindingPrefsReady = false;
+bool missionRecoveryPrefsReady = false;
 uint64_t boardSerialNumber = 0;
 uint8_t imuAddr = 0x00;
 uint8_t baroAddr = 0x00;
@@ -2143,6 +2145,10 @@ bool startCountdownRuntimeFor(uint32_t nowMs, uint32_t durationMs, bool playStar
 bool loadMissionRuntimeFromFlash();
 void missionRuntimeTick();
 void missionResetLaunchRuntime(uint32_t nowMs);
+void missionRecoveryBeginAndRestore();
+void missionRecoveryCheckpoint(uint32_t nowMs, bool persistent);
+void missionRecoveryService(uint32_t nowMs);
+void missionRecoveryClear();
 bool startForcedTimedMissionRuntime(uint32_t nowMs);
 bool flashLinkSendMissionEvent(const FlashLinkMissionEventV1& event);
 void missionBroadcastAbort(uint8_t reason);

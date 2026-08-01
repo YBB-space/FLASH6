@@ -3,6 +3,23 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.13.0 — v6 b77 / in-flight reboot recovery — 2026-08-01
+
+- T+ 권한 확정, 1단 단분리, 2단 물리 분리·점화 시점에 CRC가 포함된
+  이중 슬롯 미션 체크포인트를 저장합니다. 평상시 루프에서는 플래시를
+  쓰지 않고 RTC 메모리만 갱신해 저장 지연과 NVS 마모를 억제했습니다.
+- 브라운아웃, 패닉, 워치독 재부팅 시 보드 S/N과 단 역할이 일치하는
+  진행 중 체크포인트만 복구합니다. 정상 전원 투입·수동 재부팅·완료된
+  미션에서는 복구 데이터를 폐기해 과거 비행이 재실행되지 않습니다.
+- 복구 후 T+·단분리·점화 타이머를 RTC 경과시간까지 포함해 이어가며,
+  이미 실행된 파이로 출력은 재인가하지 않습니다. 사출 전 상태에서는
+  기존 어포지/백업 조건을 계속 감시합니다. 1단 단분리 이후 복구 시에는
+  파이로와 분리해 안전하게 CH1 서보 유지 각도만 다시 인가합니다.
+
+Protocol unchanged: `Flash6-Intelligent-b14`
+
+Storage record protocol unchanged: `HWLOGV2` version `9`
+
 ## 0.12.15 — v6 b76 / dedicated STAGE 2 Hall input — 2026-08-01
 
 - 1단부의 ARM 입력은 PCB의 기존 GPIO2 풀다운 회로로 복원했습니다.

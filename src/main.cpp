@@ -15,6 +15,8 @@
 #include "esp_system.h"
 #include "esp_rom_sys.h"
 #include "esp_wifi.h"
+#include "esp_attr.h"
+#include "soc/esp32s3/rtc.h"
 #include "esp_heap_caps.h"
 #include "mbedtls/base64.h"
 #include "mbedtls/sha256.h"
@@ -119,6 +121,7 @@ void setup() {
     updateSharedSensorPins();
     Serial.println("[FLASH_LINK] ground role: local sensors disabled");
   }
+  missionRecoveryBeginAndRestore();
   setupWifi();
   if (flashLinkMode) setupFlashLink();
   if (wifiApShouldRun()) {

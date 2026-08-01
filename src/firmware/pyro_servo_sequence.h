@@ -396,7 +396,9 @@ int32_t sequenceTdMs(uint32_t nowMs) {
     return -(int32_t)remainingMs;
   }
   if (st == kSequenceStateFiring || st == kSequenceStateTplus) {
-    return (int32_t)((nowMs >= sequenceFiringStartMs) ? (nowMs - sequenceFiringStartMs) : 0U);
+    // Unsigned subtraction also preserves the recovered T+ timebase when the
+    // pre-reset elapsed time is larger than the current boot uptime.
+    return (int32_t)(uint32_t)(nowMs - sequenceFiringStartMs);
   }
   // Wired-ignition standby has no synthetic countdown. T+ starts from the
   // first valid ARM-release or thrust-flight evidence; thrust-first T+ remains
@@ -417,6 +419,7 @@ uint8_t sequenceRelayMaskNow(uint32_t nowMs) {
 
 void clearSequenceRuntime() {
   const uint32_t nowMs = millis();
+  missionRecoveryClear();
   buttonSequenceWarningActive = false;
   buttonSequenceWarningBeeps = 0;
   sequenceState = kSequenceStateIdle;
