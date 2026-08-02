@@ -3,6 +3,15 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 UI b203 — 2026-08-02
+
+- 상태바 요소의 중첩된 강한 그림자를 제거하고, 아래로 1~2px 떨어지는 두 단계의
+  은은한 검정 그림자로 낮췄습니다. 연결 점과 중앙 화살표도 같은 강도로 맞췄습니다.
+
+Firmware build unchanged: `0.13.5` (`v6 b83`)
+
+Protocol unchanged: `Flash6-Intelligent-b16`
+
 ## FLASH6 UI b202 — 2026-08-02
 
 - 상위 상태바의 상속 그림자에 의존하지 않고 STAGE·ONLINE/OFFLINE·상태·ARM·
