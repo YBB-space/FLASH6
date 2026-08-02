@@ -261,8 +261,6 @@
       el.cameraHudAltitudeGauge = document.getElementById("cameraHudAltitudeGauge");
       el.cameraHudAltitudeProg = document.getElementById("cameraHudAltitudeProg");
       el.cameraHudSecondaryGauges = document.getElementById("cameraHudSecondaryGauges");
-      el.cameraHudSecondaryStage = document.getElementById("cameraHudSecondaryStage");
-      el.cameraHudSecondaryMode = document.getElementById("cameraHudSecondaryMode");
       el.cameraHudSecondaryPrimaryLabel = document.getElementById("cameraHudSecondaryPrimaryLabel");
       el.cameraHudSecondaryPrimaryUnit = document.getElementById("cameraHudSecondaryPrimaryUnit");
       el.cameraHudSecondarySecondaryLabel = document.getElementById("cameraHudSecondarySecondaryLabel");

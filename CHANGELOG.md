@@ -3,6 +3,30 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 UI b218 — 2026-08-02
+
+- 비행 로깅 명령 중 마지막으로 확인된 단별 상태와 저장공간 사용량을 유지해,
+  A.I LINK 응답 지연이 실제 OFF 또는 0%로 표시되는 문제를 수정했습니다.
+- 저장 시작·저장 중은 초록색, 종료 중·정지는 빨간색으로 구분하고 일부 단만
+  확인된 경우에는 `부분 저장` 상태로 표시하도록 개선했습니다.
+- 저장공간 초기화 명령이 이미 접수된 뒤 상태 확인이 늦다는 이유로 초기화를
+  반복 실행하지 않고, 단일 요청 후 저장공간 화면에서 재동기화하도록 변경했습니다.
+
+Firmware build unchanged: `0.13.5` (`v6 b83`)
+
+Protocol unchanged: `Flash6-Intelligent-b16`
+
+## FLASH6 UI b217 — 2026-08-02
+
+- 단분리 전후의 4개 데이터 구성과 단별 자동 전환 로직은 그대로 유지하면서,
+  하단 텔레메트리 계기의 외형만 기존 디자인으로 복원했습니다.
+- 단계 헤더와 반투명 묶음 패널, 눈금 장식을 제거하고 기존의 라벨·단위,
+  세로 구분선, 숫자, 하단 가로 게이지 구성으로 통일했습니다.
+
+Firmware build unchanged: `0.13.5` (`v6 b83`)
+
+Protocol unchanged: `Flash6-Intelligent-b16`
+
 ## FLASH6 UI b216 — 2026-08-02
 
 - HUD 왼쪽 데이터 스택의 지도, 고도 차트, 텔레메트리 차트가 동일한 세로

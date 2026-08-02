@@ -1869,16 +1869,10 @@
         ? (stageSeparated ? Math.max(0, rightSecondaryValue).toFixed(1) : rightSecondaryValue.toFixed(1))
         : "--");
       setText(el.cameraHudAltitudeGauge, isFinite(altitudeValue) ? altitudeValue.toFixed(1) : "--");
-      setText(el.cameraHudSecondaryStage, stageSeparated ? "STAGE 2" : "STAGE 1");
-      setText(el.cameraHudSecondaryMode, stageSeparated ? "SEPARATED VEHICLE" : "FLIGHT DYNAMICS");
       setText(el.cameraHudSecondaryPrimaryLabel, stageSeparated ? "ALTITUDE" : "ACCELERATION");
       setText(el.cameraHudSecondaryPrimaryUnit, stageSeparated ? "m" : "g");
       setText(el.cameraHudSecondarySecondaryLabel, stageSeparated ? "SPEED" : "VERTICAL SPEED");
       setText(el.cameraHudSecondarySecondaryUnit, "m/s");
-      if(el.cameraHudSecondaryGauges){
-        el.cameraHudSecondaryGauges.classList.toggle("is-stage-two", stageSeparated);
-        el.cameraHudSecondaryGauges.classList.toggle("is-link-stale", stageSeparated && !(stage2Telemetry && stage2Telemetry.connected));
-      }
       const chartAltitudeValue = Number(data.altitudeM);
       const chartSpeedValue = Number(data.speedMps);
       const chartGforceValue = Number(data.gforceG);

@@ -157,6 +157,13 @@ body.camera-view-active .page-wrap{
   body.dashboard-view-active #controlsCard .flight-logging-tile.is-recording .control-tile-label{
     color:#9ce0b8 !important;
   }
+  body.dashboard-view-active #controlsCard .flight-logging-tile.is-stopped{
+    border-color:#5b3438 !important;
+    background:#241a1c !important;
+  }
+  body.dashboard-view-active #controlsCard .flight-logging-tile.is-stopped .control-tile-label{
+    color:#f0a3aa !important;
+  }
   body.dashboard-view-active #controlsCard .flight-logging-tile.is-pending{
     opacity:.72;
   }
@@ -833,6 +840,13 @@ body #stage2EarlyApogeeOverlay .stage2-early-apogee-eject:disabled{
   }
   .desktop-control-drawer-mount #controlsCard .flight-logging-tile.is-recording .control-tile-label{
     color:#9ce0b8 !important;
+  }
+  .desktop-control-drawer-mount #controlsCard .flight-logging-tile.is-stopped{
+    border-color:#5b3438 !important;
+    background:#241a1c !important;
+  }
+  .desktop-control-drawer-mount #controlsCard .flight-logging-tile.is-stopped .control-tile-label{
+    color:#f0a3aa !important;
   }
   .desktop-control-drawer-mount #controlsCard .control-tile-actions--dual{
     display:flex !important;
@@ -5269,151 +5283,11 @@ body.camera-view-active .camera-hud-attitude-group{
   gap:22px;
 }
 
-/* Stage-aware lower instruments. The cluster adds hierarchy without turning
-   the HUD into a row of opaque cards. */
-body.camera-view-active .camera-instrument-cluster{
-  width:clamp(350px,24vw,420px);
-  padding:11px 14px 12px;
-  border-top:1px solid rgba(255,255,255,.30);
-  border-bottom:1px solid rgba(255,255,255,.12);
-  background:
-    linear-gradient(90deg,rgba(5,9,15,.38),rgba(5,9,15,.16) 72%,rgba(5,9,15,0));
-  box-shadow:0 18px 34px -28px rgba(0,0,0,.96);
-  backdrop-filter:blur(7px) saturate(108%);
-  -webkit-backdrop-filter:blur(7px) saturate(108%);
+body.camera-view-active .camera-hud-right{
+  gap:26px;
 }
-body.camera-view-active .camera-hud-left.camera-instrument-cluster{
-  display:block !important;
-}
-body.camera-view-active .camera-hud-right.camera-instrument-cluster{
-  display:block !important;
-  background:
-    linear-gradient(270deg,rgba(5,9,15,.38),rgba(5,9,15,.16) 72%,rgba(5,9,15,0));
-}
-body.camera-view-active .camera-hud-right.camera-instrument-cluster.hidden{
+body.camera-view-active .camera-hud-right.hidden{
   display:none !important;
-}
-body.camera-view-active .camera-hud-right:not(.hidden) .camera-gauge--secondary-primary{
-  animation:camera-secondary-gauge-enter .72s cubic-bezier(.14,.86,.18,1) both;
-}
-body.camera-view-active .camera-hud-right:not(.hidden) .camera-gauge--secondary-secondary{
-  animation:camera-secondary-gauge-enter .78s .08s cubic-bezier(.14,.86,.18,1) both;
-}
-@keyframes camera-secondary-gauge-enter{
-  0%{opacity:0;transform:translate3d(42px,24px,0) scale(.82)}
-  65%{opacity:1;transform:translate3d(-3px,-1px,0) scale(1.015)}
-  100%{opacity:1;transform:translate3d(0,0,0) scale(1)}
-}
-.camera-instrument-cluster-head{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:16px;
-  margin-bottom:11px;
-  font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
-  font-size:8px;
-  line-height:1;
-  letter-spacing:.18em;
-  text-transform:uppercase;
-}
-.camera-instrument-cluster-head span{
-  display:inline-flex;
-  align-items:center;
-  gap:7px;
-  color:rgba(248,250,252,.90);
-  font-weight:800;
-}
-.camera-instrument-cluster-head span i{
-  width:5px;
-  height:5px;
-  flex:0 0 5px;
-  border-radius:50%;
-  background:#56df93;
-  box-shadow:0 0 9px rgba(86,223,147,.48);
-}
-.camera-instrument-cluster-head span b{
-  color:inherit;
-  font:inherit;
-}
-.camera-instrument-cluster-head em{
-  overflow:hidden;
-  color:rgba(203,213,225,.52);
-  font-style:normal;
-  font-weight:650;
-  text-overflow:ellipsis;
-  white-space:nowrap;
-}
-.camera-instrument-grid{
-  display:grid;
-  grid-template-columns:repeat(2,minmax(0,1fr));
-  gap:22px;
-}
-body.camera-view-active .camera-instrument-grid .camera-gauge{
-  width:auto !important;
-  min-width:0;
-  min-height:68px;
-}
-body.camera-view-active .camera-instrument-grid .camera-gauge-readout{
-  grid-template-columns:minmax(0,1fr) minmax(64px,.76fr);
-  min-height:42px;
-  column-gap:10px;
-}
-body.camera-view-active .camera-instrument-grid .camera-gauge-divider{
-  display:none;
-}
-body.camera-view-active .camera-instrument-grid .camera-gauge-copy{
-  position:relative;
-  padding-left:10px;
-}
-body.camera-view-active .camera-instrument-grid .camera-gauge-copy::before{
-  content:"";
-  position:absolute;
-  left:0;
-  top:1px;
-  bottom:1px;
-  width:2px;
-  background:linear-gradient(180deg,rgba(255,255,255,.75),rgba(255,255,255,.12));
-}
-body.camera-view-active .camera-instrument-grid .camera-gauge-label{
-  font-size:10px !important;
-  letter-spacing:.10em !important;
-}
-body.camera-view-active .camera-instrument-grid .camera-gauge-value{
-  justify-self:end;
-  font-size:30px !important;
-}
-body.camera-view-active .camera-instrument-grid .camera-gauge-bar{
-  height:3px;
-  margin-top:10px;
-  background:
-    repeating-linear-gradient(90deg,rgba(255,255,255,.20) 0 1px,transparent 1px 20%),
-    rgba(255,255,255,.10);
-}
-body.camera-view-active .camera-instrument-grid .camera-gauge-bar::after{
-  content:"";
-  position:absolute;
-  inset:1px 0 auto;
-  height:1px;
-  background:rgba(255,255,255,.10);
-}
-body.camera-view-active .camera-instrument-grid .camera-gauge-progress{
-  position:relative;
-  z-index:1;
-  height:2px;
-  background:rgba(255,255,255,.90);
-  box-shadow:0 0 9px rgba(255,255,255,.20);
-}
-body.camera-view-active .camera-hud-right.is-stage-two{
-  border-top-color:rgba(86,223,147,.52);
-}
-body.camera-view-active .camera-hud-right.is-stage-two .camera-gauge-copy::before,
-body.camera-view-active .camera-hud-right.is-stage-two .camera-gauge-progress{
-  background:#56df93;
-  box-shadow:0 0 9px rgba(86,223,147,.28);
-}
-body.camera-view-active .camera-hud-right.is-link-stale .camera-instrument-cluster-head span i{
-  background:#a6adb7;
-  box-shadow:none;
 }
 body.camera-view-active .camera-hud-center{
   grid-column:2;
@@ -5441,18 +5315,6 @@ body.camera-view-active .camera-center-countdown .camera-count-time{
   .camera-hud-attitude-group{
     right:24px;
     bottom:calc(26px + env(safe-area-inset-bottom, 0px));
-  }
-  body.camera-view-active .camera-instrument-cluster{
-    width:min(310px,31vw);
-    padding-inline:10px;
-  }
-  .camera-instrument-grid{gap:12px}
-  body.camera-view-active .camera-instrument-grid .camera-gauge-readout{
-    grid-template-columns:minmax(0,1fr) minmax(52px,.68fr);
-    column-gap:6px;
-  }
-  body.camera-view-active .camera-instrument-grid .camera-gauge-value{
-    font-size:25px !important;
   }
   body.camera-view-active .camera-hud-center{
     position:absolute;

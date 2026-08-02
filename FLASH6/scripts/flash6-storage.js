@@ -704,27 +704,31 @@
       const stageSummary = getFlightDataLoggingStageSummary();
       const partial = stageSummary.known.length > 0 &&
         stageSummary.enabled.length > 0 &&
-        stageSummary.disabled.length > 0;
+        (stageSummary.disabled.length > 0 || stageSummary.unknown.length > 0);
+      const displayedEnabled = flightDataLoggingPending && flightDataLoggingDesired != null
+        ? !!flightDataLoggingDesired
+        : (stageSummary.enabled.length > 0 || flightDataLoggingEnabled);
       const controls = [
         [el.flightLoggingBtn, el.flightLoggingStatus],
         [el.mobileFlightLoggingBtn, el.mobileFlightLoggingStatus]
       ];
       controls.forEach(([button, status])=>{
         if(button){
-          button.classList.toggle("is-recording", flightDataLoggingEnabled);
+          button.classList.toggle("is-recording", displayedEnabled);
+          button.classList.toggle("is-stopped", !displayedEnabled);
           button.classList.toggle("is-pending", flightDataLoggingPending);
-          button.setAttribute("aria-pressed", flightDataLoggingEnabled ? "true" : "false");
+          button.setAttribute("aria-pressed", displayedEnabled ? "true" : "false");
           button.disabled = !!flightDataLoggingPending;
         }
         if(status){
           status.textContent = flightDataLoggingPending
-            ? "확인 중"
-            : (partial ? "부분 ON" : (flightDataLoggingEnabled ? "ON" : "OFF"));
-          status.classList.remove("pill-gray", "pill-green", "pill-blue");
+            ? (displayedEnabled ? "시작 중" : "종료 중")
+            : (partial ? "부분 저장" : (displayedEnabled ? "저장 중" : "정지"));
+          status.classList.remove("pill-gray", "pill-green", "pill-blue", "pill-red");
           status.classList.add(
             flightDataLoggingPending
-              ? "pill-blue"
-              : (flightDataLoggingEnabled ? "pill-green" : "pill-gray")
+              ? (displayedEnabled ? "pill-green" : "pill-red")
+              : (partial ? "pill-blue" : (displayedEnabled ? "pill-green" : "pill-red"))
           );
         }
       });
@@ -964,11 +968,11 @@
       const previous = flightDataLoggingEnabled;
       const next = !previous;
       const requiredStages = getFlightDataLoggingRequiredStages();
-      // A cached ON/OFF value must not confirm a new command. Each required
-      // board has to report its state again after this request.
-      requiredStages.forEach((stageId)=>{
-        flightDataLoggingByStage[stageId] = null;
-      });
+      // Preserve the last confirmed per-stage state while the command is in
+      // flight. Clearing this cache made a delayed A.I LINK reply look like a
+      // real OFF and also replaced the storage percentage with a transient 0.
+      // Since `next` is always the opposite of the confirmed aggregate, the
+      // old cache cannot falsely confirm this new command.
       flightDataLoggingPending = true;
       flightDataLoggingDesired = next;
       syncFlightDataLoggingUi();
@@ -1008,7 +1012,7 @@
         const summary = getFlightDataLoggingStageSummary();
         flightDataLoggingEnabled = summary.unknown.length === 0
           ? summary.enabled.length === summary.required.length
-          : previous;
+          : (summary.enabled.length > 0 ? true : previous);
         flightDataLoggingKnown = summary.unknown.length === 0;
         syncFlightDataLoggingUi();
         const unresolved = summary.required.filter((stageId)=>
@@ -1172,7 +1176,32 @@
         processSequenceStorageGuardUpdate({notifyCritical:false});
         return;
       }
-      latestSpiFlashStorageInfo = Object.assign({}, info, {updated_at:Date.now()});
+      const previousInfo = latestSpiFlashStorageInfo;
+      const incomingUsed = Math.max(0, Number(info.used_bytes || 0));
+      const previousUsed = Math.max(0, Number(previousInfo && previousInfo.used_bytes || 0));
+      const incomingLogging = info.logging != null
+        ? Number(info.logging) !== 0
+        : !!(previousInfo && Number(previousInfo.logging));
+      const startingLogging = flightDataLoggingPending &&
+        flightDataLoggingDesired === true &&
+        !isFlashLinkGroundStorageUi();
+      const stableInfo = Object.assign({}, info);
+      // Starting a new sector can briefly publish an empty status snapshot.
+      // Used bytes are monotonic while logging, so retain the last confirmed
+      // value until a real post-write snapshot arrives. A reset reports
+      // logging=0 and is therefore still allowed to reach zero immediately.
+      if((incomingLogging || startingLogging) && incomingUsed === 0 && previousUsed > 0){
+        stableInfo.used_bytes = previousUsed;
+        stableInfo.record_count = Math.max(
+          Number(stableInfo.record_count || stableInfo.records || 0),
+          Number(previousInfo.record_count || previousInfo.records || 0)
+        );
+        if(isFinite(Number(previousInfo.used_percent))){
+          stableInfo.used_percent = Number(previousInfo.used_percent);
+        }
+      }
+      latestSpiFlashStorageInfo = Object.assign({}, stableInfo, {updated_at:Date.now()});
+      info = latestSpiFlashStorageInfo;
       latestSpiFlashStorageOkMs = Date.now();
       spiFlashReadyState = true;
       if(!isFlashLinkGroundStorageUi() && info.logging != null){
@@ -1277,6 +1306,27 @@
         requestedNodeId || normalized.stage_node
       );
       if(stageNode){
+        const previous = latestAvionicsStorageByStage[stageNode];
+        const incomingLogging = normalized.logging != null
+          ? Number(normalized.logging) !== 0
+          : !!(previous && Number(previous.logging));
+        const startingLogging = flightDataLoggingPending &&
+          flightDataLoggingDesired === true &&
+          getFlightDataLoggingRequiredStages().includes(stageNode);
+        if(
+          (incomingLogging || startingLogging) &&
+          Math.max(0, Number(normalized.used_bytes || 0)) === 0 &&
+          Math.max(0, Number(previous && previous.used_bytes || 0)) > 0
+        ){
+          normalized.used_bytes = Number(previous.used_bytes);
+          normalized.record_count = Math.max(
+            Number(normalized.record_count || 0),
+            Number(previous.record_count || 0)
+          );
+          if(isFinite(Number(previous.used_percent))){
+            normalized.used_percent = Number(previous.used_percent);
+          }
+        }
         normalized.stage_node = stageNode;
         latestAvionicsStorageByStage[stageNode] = Object.assign(
           {},
@@ -3490,12 +3540,12 @@
           await delay(80);
         }
 
-        for(let attempt = 0; attempt < 3; attempt++){
+        for(let attempt = 0; attempt < 2; attempt++){
           let accepted = false;
           if(el.spiFlashStatusLine){
             el.spiFlashStatusLine.textContent =
               target.statusLabel + " 초기화 요청 중… " +
-              (attempt + 1) + "/3";
+              (attempt + 1) + "/2";
           }
 
           if(canUseSerialForSpiFlash()){
@@ -3528,7 +3578,7 @@
             }
             const confirmed = await waitForSpiFlashResetCompletion(
               target,
-              target.remote ? 9000 : 3500
+              target.remote ? 6000 : 3500
             );
             if(confirmed){
               syncStoragePreview("0.0%", true);
@@ -3539,10 +3589,19 @@
               );
               return true;
             }
-            lastReason = "RESET_STATE_NOT_CONFIRMED";
+            // The erase command has already been accepted. Never send it a
+            // second time merely because the status relay is slower than the
+            // flash operation. Re-open the storage view and let its live poll
+            // converge without blocking the user in the hold dialog.
+            showToast(
+              target.statusLabel + " 초기화 요청이 완료되었습니다. 상태를 다시 동기화합니다.",
+              "info",
+              {key:"spi-flash-init-sync"}
+            );
+            return true;
           }
 
-          if(attempt < 2) await delay(250 + attempt * 250);
+          if(attempt < 1) await delay(250 + attempt * 250);
         }
 
         const reason = lastReason || "RESET_COMMAND_FAILED";
