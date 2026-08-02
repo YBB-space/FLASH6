@@ -3,6 +3,17 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 UI b192 — 2026-08-02
+
+- 제어센터 손잡이에 마우스를 올렸을 때 나타나던 진한 사각형 배경과
+  그림자를 제거했습니다.
+- 화살표 이동은 유지하고, 화면 상단에서 자연스럽게 사라지는 약한
+  그라데이션만 표시하도록 정리했습니다.
+
+Firmware build unchanged: `0.13.4` (`v6 b82`)
+
+Protocol unchanged: `Flash6-Intelligent-b15`
+
 ## FLASH6 UI b191 — 2026-08-02
 
 - 새 알람이 발생해도 제어센터 버튼과 화살표가 빨갛게 변하지 않도록
