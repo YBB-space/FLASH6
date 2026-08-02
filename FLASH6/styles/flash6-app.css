@@ -32663,6 +32663,7 @@ html:not(.phone-landscape-layout) body #hardwareServoDialog .hardware-servo-pres
     backdrop-filter:blur(8px) saturate(.84);
     -webkit-mask-image:linear-gradient(180deg,#000 0%,#000 56%,rgba(0,0,0,.7) 72%,transparent 100%);
     mask-image:linear-gradient(180deg,#000 0%,#000 56%,rgba(0,0,0,.7) 72%,transparent 100%);
+    filter:drop-shadow(0 8px 9px rgba(0,0,0,.32)) drop-shadow(0 17px 19px rgba(0,0,0,.2));
     pointer-events:none;
   }
   body.camera-view-active .camera-system-statusbar::after{
