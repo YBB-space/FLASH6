@@ -657,8 +657,11 @@
           used_percent:0
         };
       }
+      // The ground status bar represents the primary (stage 1) avionics.
+      // Previously this used whichever remote board replied last, so a stage
+      // 2 refresh could make the percentage jump or disappear.
       return isFlashLinkGroundStorageUi()
-        ? (latestAvionicsStorageInfo || latestSpiFlashStorageInfo)
+        ? (latestAvionicsStorageByStage[1] || latestAvionicsStorageInfo || latestSpiFlashStorageInfo)
         : latestSpiFlashStorageInfo;
     }
 
@@ -883,11 +886,38 @@
       setOverlayVisible(el.flightLoggingGuardOverlay, true);
     }
 
-    function ensureFlightLoggingForMission(actionLabel){
-      const status = getFlightLoggingGuardStatus();
-      if(status.ready) return true;
-      showFlightLoggingGuardModal(actionLabel);
-      return false;
+    async function ensureFlightLoggingForMission(actionLabel){
+      if(simEnabled) return true;
+      if(flightLoggingGuardCheckPromise) return flightLoggingGuardCheckPromise;
+
+      flightLoggingGuardCheckPromise = (async()=>{
+        let status = getFlightLoggingGuardStatus();
+        if(status.ready) return true;
+
+        // A mission button can be pressed while the logging command is still
+        // travelling through the ground relay. Do not reject it from the old
+        // cache: wait for every required board to report the requested ON.
+        if(flightDataLoggingPending && flightDataLoggingDesired === true){
+          if(await waitForFlightDataLoggingConfirmation(true, 6200)) return true;
+        }else if(!(flightDataLoggingPending && flightDataLoggingDesired === false)){
+          // On a freshly reloaded UI the board may already be logging while
+          // the per-stage cache is still empty. Probe and allow one complete
+          // A.I LINK storage-status period before showing a warning.
+          await refreshFlightDataLoggingConfirmationStatus();
+          status = getFlightLoggingGuardStatus();
+          if(status.ready) return true;
+          if(await waitForFlightDataLoggingConfirmation(true, 2600)) return true;
+        }
+
+        showFlightLoggingGuardModal(actionLabel);
+        return false;
+      })();
+
+      try{
+        return await flightLoggingGuardCheckPromise;
+      }finally{
+        flightLoggingGuardCheckPromise = null;
+      }
     }
 
     async function refreshFlightDataLoggingConfirmationStatus(){
@@ -936,7 +966,9 @@
       const requiredStages = getFlightDataLoggingRequiredStages();
       // A cached ON/OFF value must not confirm a new command. Each required
       // board has to report its state again after this request.
-      requiredStages.forEach((stageId)=>{ flightDataLoggingByStage[stageId] = null; });
+      requiredStages.forEach((stageId)=>{
+        flightDataLoggingByStage[stageId] = null;
+      });
       flightDataLoggingPending = true;
       flightDataLoggingDesired = next;
       syncFlightDataLoggingUi();
@@ -1246,10 +1278,22 @@
       );
       if(stageNode){
         normalized.stage_node = stageNode;
-        latestAvionicsStorageByStage[stageNode] = normalized;
+        latestAvionicsStorageByStage[stageNode] = Object.assign(
+          {},
+          latestAvionicsStorageByStage[stageNode] || {},
+          normalized
+        );
       }
-      latestAvionicsStorageInfo = normalized;
-      latestAvionicsStorageOkMs = Date.now();
+      // Keep the legacy single-value cache pinned to stage 1. Stage 2 still
+      // has its own cache and selector, but can no longer overwrite the
+      // primary status shown in the HUD and mission storage guard.
+      const primaryStorageUpdate = stageNode === 1 || !stageNode;
+      if(primaryStorageUpdate){
+        latestAvionicsStorageInfo = stageNode
+          ? latestAvionicsStorageByStage[stageNode]
+          : normalized;
+        latestAvionicsStorageOkMs = Date.now();
+      }
       if(normalized.logging != null){
         applyFlightDataLoggingTelemetry({storage_logging:normalized.logging}, stageNode);
       }
@@ -3331,7 +3375,7 @@
         "/storage/spi_flash/remote/status" + nodeQuery;
       const ctrl = createAbortControllerSafe();
       const timer = ctrl
-        ? setTimeout(()=>{ try{ ctrl.abort(); }catch(_e){} }, 1800)
+        ? setTimeout(()=>{ try{ ctrl.abort(); }catch(_e){} }, 3000)
         : null;
       const opt = API_BASE
         ? Object.assign(

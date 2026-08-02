@@ -11,6 +11,19 @@ same commit that changes the corresponding constants in `src/firmware/state.h`.
 
 Protocol unchanged: `Flash6-Intelligent-b15`
 
+## FLASH6 UI b189 — 2026-08-02
+
+- 비행 로깅 명령 직후 미션 대기를 누르면 오래된 단별 캐시로 즉시 차단하던
+  검증을 실제 1·2단 로깅 응답을 기다리는 비동기 확인 방식으로 변경했습니다.
+- UI 새로고침 뒤 단별 로깅 상태가 아직 비어 있어도 A.I LINK 저장 상태를 한
+  주기 재확인한 다음 미션 대기 가능 여부를 판정합니다.
+- USB 지상국 연결에서는 중계 텔레메트리의 단별 저장 용량·사용량·기록 수를
+  직접 반영하고, 2단 응답이 1단 대표 저장공간 값을 덮지 않도록 분리했습니다.
+
+Firmware build unchanged: `0.13.4` (`v6 b82`)
+
+Protocol unchanged: `Flash6-Intelligent-b15`
+
 ## FLASH6 UI b188 — 2026-08-02
 
 - USB 및 A.I LINK 저장 청크를 디코딩하기 전에 Base64 길이·문자·원본 바이트

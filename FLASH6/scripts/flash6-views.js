@@ -7828,7 +7828,7 @@
 
     async function confirmMissionStandbyFromUi(){
       setOverlayVisible(el.missionStandbyReviewOverlay, false);
-      if(!ensureFlightLoggingForMission("미션 대기")) return;
+      if(!(await ensureFlightLoggingForMission("미션 대기"))) return;
       const unsafeStages = missionStandbyUnsafeStageIds();
       if(unsafeStages.length){
         await enforceMissionStandbySafety(unsafeStages);
@@ -7863,7 +7863,7 @@
 
     async function startMissionStandbyFromUi(){
       if(missionStandbyUiActive || sequenceActive) return;
-      if(!ensureFlightLoggingForMission("미션 대기")) return;
+      if(!(await ensureFlightLoggingForMission("미션 대기"))) return;
       const unsafeStages = missionStandbyUnsafeStageIds();
       if(unsafeStages.length){
         await enforceMissionStandbySafety(unsafeStages);

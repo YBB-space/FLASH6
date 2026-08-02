@@ -223,9 +223,9 @@
     function hideConfirm(){
       closeSequenceStartOverlay(true);
     }
-    function showConfirm(){
+    async function showConfirm(){
       hideMobileControlsPanel();
-      if(!ensureFlightLoggingForMission("시퀀스 시작")) return;
+      if(!(await ensureFlightLoggingForMission("시퀀스 시작"))) return;
       const storageGuard = getSequenceStorageGuard();
       if(storageGuard.blocked){
         showSequenceStorageGuardToast(true);
@@ -278,7 +278,13 @@
 
     function startHold(){
       if(lockoutLatched) return;
-      if(!ensureFlightLoggingForMission("시퀀스 시작")) return;
+      // showConfirm() already performs the asynchronous board verification.
+      // Keep pointer-down synchronous so releasing the button while a probe is
+      // in flight can never start a delayed long-press timer afterward.
+      if(!getFlightLoggingGuardStatus().ready){
+        showFlightLoggingGuardModal("시퀀스 시작");
+        return;
+      }
       const storageGuard = getSequenceStorageGuard();
       if(storageGuard.blocked){
         showSequenceStorageGuardToast(true);

@@ -141,6 +141,7 @@ if (typeof window !== "undefined") {
     let flightDataLoggingPending = false;
     let flightDataLoggingKnown = false;
     let flightDataLoggingDesired = null;
+    let flightLoggingGuardCheckPromise = null;
     // Ground/dual-stage telemetry carries an independent logging flag for
     // each avionics board. Keep those flags separate so mission guards do not
     // accidentally accept stage 1 logging as proof that stage 2 is logging.
@@ -8182,6 +8183,36 @@ function requestMobileMockup3dMesh(){
       }
       if(state.data && state.data.storage_logging != null){
         applyFlightDataLoggingTelemetry(state.data, stageId);
+      }
+      // Stage snapshots are the authoritative storage source when the UI is
+      // connected to the ground board over USB. A local browser cannot call
+      // the ground board's HTTP remote-status endpoint in that topology, so
+      // relying on that endpoint left capacity/usage stale or blank even
+      // though the relay telemetry was healthy.
+      const storageCapacity = Number(state.data && state.data.storage_capacity_bytes);
+      if(isFinite(storageCapacity) && storageCapacity > 0){
+        const storageUsed = Math.max(0, Number(state.data.storage_used_bytes) || 0);
+        const storageRecords = Math.max(0, Number(state.data.storage_records) || 0);
+        const storageLogging = state.data.storage_logging;
+        const cachedStorage = latestAvionicsStorageByStage[stageId];
+        const storageChanged = !cachedStorage ||
+          Number(cachedStorage.capacity_bytes) !== storageCapacity ||
+          Number(cachedStorage.used_bytes) !== storageUsed ||
+          Number(cachedStorage.record_count) !== storageRecords ||
+          (storageLogging != null && Number(cachedStorage.logging) !== Number(storageLogging));
+        const storageStale = !cachedStorage ||
+          (Date.now() - Number(cachedStorage.updated_at || 0)) >= 1000;
+        if(storageChanged || storageStale){
+          updateRemoteSpiFlashInfo({
+            ready:Number(state.data.storage_ready ?? 1) ? 1 : 0,
+            stage_node:stageId,
+            used_bytes:storageUsed,
+            capacity_bytes:storageCapacity,
+            chip_capacity_bytes:storageCapacity,
+            record_count:storageRecords,
+            logging:storageLogging
+          }, stageId);
+        }
       }
       state.attitudeRevision++;
       const ageMs = Math.max(0, Number(sample.stage_age_ms ?? sample.age_ms) || 0);
@@ -19280,7 +19311,7 @@ function requestMobileMockup3dMesh(){
 
     async function confirmMissionStandbyFromUi(){
       setOverlayVisible(el.missionStandbyReviewOverlay, false);
-      if(!ensureFlightLoggingForMission("미션 대기")) return;
+      if(!(await ensureFlightLoggingForMission("미션 대기"))) return;
       const unsafeStages = missionStandbyUnsafeStageIds();
       if(unsafeStages.length){
         await enforceMissionStandbySafety(unsafeStages);
@@ -19315,7 +19346,7 @@ function requestMobileMockup3dMesh(){
 
     async function startMissionStandbyFromUi(){
       if(missionStandbyUiActive || sequenceActive) return;
-      if(!ensureFlightLoggingForMission("미션 대기")) return;
+      if(!(await ensureFlightLoggingForMission("미션 대기"))) return;
       const unsafeStages = missionStandbyUnsafeStageIds();
       if(unsafeStages.length){
         await enforceMissionStandbySafety(unsafeStages);
@@ -29448,10 +29479,19 @@ function requestMobileMockup3dMesh(){
           if(origin === "avionics"){
             if(stageNode){
               telemetryStorageInfo.stage_node = stageNode;
-              latestAvionicsStorageByStage[stageNode] = telemetryStorageInfo;
+              latestAvionicsStorageByStage[stageNode] = Object.assign(
+                {},
+                latestAvionicsStorageByStage[stageNode] || {},
+                telemetryStorageInfo
+              );
             }
-            latestAvionicsStorageInfo = telemetryStorageInfo;
-            latestAvionicsStorageOkMs = Date.now();
+            const primaryStorageUpdate = stageNode === 1 || !stageNode;
+            if(primaryStorageUpdate){
+              latestAvionicsStorageInfo = stageNode
+                ? latestAvionicsStorageByStage[stageNode]
+                : telemetryStorageInfo;
+              latestAvionicsStorageOkMs = Date.now();
+            }
           }else{
             latestSpiFlashStorageInfo = telemetryStorageInfo;
             latestSpiFlashStorageOkMs = Date.now();
@@ -31589,8 +31629,11 @@ function requestMobileMockup3dMesh(){
           used_percent:0
         };
       }
+      // The ground status bar represents the primary (stage 1) avionics.
+      // Previously this used whichever remote board replied last, so a stage
+      // 2 refresh could make the percentage jump or disappear.
       return isFlashLinkGroundStorageUi()
-        ? (latestAvionicsStorageInfo || latestSpiFlashStorageInfo)
+        ? (latestAvionicsStorageByStage[1] || latestAvionicsStorageInfo || latestSpiFlashStorageInfo)
         : latestSpiFlashStorageInfo;
     }
 
@@ -31815,11 +31858,38 @@ function requestMobileMockup3dMesh(){
       setOverlayVisible(el.flightLoggingGuardOverlay, true);
     }
 
-    function ensureFlightLoggingForMission(actionLabel){
-      const status = getFlightLoggingGuardStatus();
-      if(status.ready) return true;
-      showFlightLoggingGuardModal(actionLabel);
-      return false;
+    async function ensureFlightLoggingForMission(actionLabel){
+      if(simEnabled) return true;
+      if(flightLoggingGuardCheckPromise) return flightLoggingGuardCheckPromise;
+
+      flightLoggingGuardCheckPromise = (async()=>{
+        let status = getFlightLoggingGuardStatus();
+        if(status.ready) return true;
+
+        // A mission button can be pressed while the logging command is still
+        // travelling through the ground relay. Do not reject it from the old
+        // cache: wait for every required board to report the requested ON.
+        if(flightDataLoggingPending && flightDataLoggingDesired === true){
+          if(await waitForFlightDataLoggingConfirmation(true, 6200)) return true;
+        }else if(!(flightDataLoggingPending && flightDataLoggingDesired === false)){
+          // On a freshly reloaded UI the board may already be logging while
+          // the per-stage cache is still empty. Probe and allow one complete
+          // A.I LINK storage-status period before showing a warning.
+          await refreshFlightDataLoggingConfirmationStatus();
+          status = getFlightLoggingGuardStatus();
+          if(status.ready) return true;
+          if(await waitForFlightDataLoggingConfirmation(true, 2600)) return true;
+        }
+
+        showFlightLoggingGuardModal(actionLabel);
+        return false;
+      })();
+
+      try{
+        return await flightLoggingGuardCheckPromise;
+      }finally{
+        flightLoggingGuardCheckPromise = null;
+      }
     }
 
     async function refreshFlightDataLoggingConfirmationStatus(){
@@ -31868,7 +31938,9 @@ function requestMobileMockup3dMesh(){
       const requiredStages = getFlightDataLoggingRequiredStages();
       // A cached ON/OFF value must not confirm a new command. Each required
       // board has to report its state again after this request.
-      requiredStages.forEach((stageId)=>{ flightDataLoggingByStage[stageId] = null; });
+      requiredStages.forEach((stageId)=>{
+        flightDataLoggingByStage[stageId] = null;
+      });
       flightDataLoggingPending = true;
       flightDataLoggingDesired = next;
       syncFlightDataLoggingUi();
@@ -32178,10 +32250,22 @@ function requestMobileMockup3dMesh(){
       );
       if(stageNode){
         normalized.stage_node = stageNode;
-        latestAvionicsStorageByStage[stageNode] = normalized;
+        latestAvionicsStorageByStage[stageNode] = Object.assign(
+          {},
+          latestAvionicsStorageByStage[stageNode] || {},
+          normalized
+        );
       }
-      latestAvionicsStorageInfo = normalized;
-      latestAvionicsStorageOkMs = Date.now();
+      // Keep the legacy single-value cache pinned to stage 1. Stage 2 still
+      // has its own cache and selector, but can no longer overwrite the
+      // primary status shown in the HUD and mission storage guard.
+      const primaryStorageUpdate = stageNode === 1 || !stageNode;
+      if(primaryStorageUpdate){
+        latestAvionicsStorageInfo = stageNode
+          ? latestAvionicsStorageByStage[stageNode]
+          : normalized;
+        latestAvionicsStorageOkMs = Date.now();
+      }
       if(normalized.logging != null){
         applyFlightDataLoggingTelemetry({storage_logging:normalized.logging}, stageNode);
       }
@@ -34263,7 +34347,7 @@ function requestMobileMockup3dMesh(){
         "/storage/spi_flash/remote/status" + nodeQuery;
       const ctrl = createAbortControllerSafe();
       const timer = ctrl
-        ? setTimeout(()=>{ try{ ctrl.abort(); }catch(_e){} }, 1800)
+        ? setTimeout(()=>{ try{ ctrl.abort(); }catch(_e){} }, 3000)
         : null;
       const opt = API_BASE
         ? Object.assign(
@@ -34932,9 +35016,9 @@ function requestMobileMockup3dMesh(){
     function hideConfirm(){
       closeSequenceStartOverlay(true);
     }
-    function showConfirm(){
+    async function showConfirm(){
       hideMobileControlsPanel();
-      if(!ensureFlightLoggingForMission("시퀀스 시작")) return;
+      if(!(await ensureFlightLoggingForMission("시퀀스 시작"))) return;
       const storageGuard = getSequenceStorageGuard();
       if(storageGuard.blocked){
         showSequenceStorageGuardToast(true);
@@ -34987,7 +35071,13 @@ function requestMobileMockup3dMesh(){
 
     function startHold(){
       if(lockoutLatched) return;
-      if(!ensureFlightLoggingForMission("시퀀스 시작")) return;
+      // showConfirm() already performs the asynchronous board verification.
+      // Keep pointer-down synchronous so releasing the button while a probe is
+      // in flight can never start a delayed long-press timer afterward.
+      if(!getFlightLoggingGuardStatus().ready){
+        showFlightLoggingGuardModal("시퀀스 시작");
+        return;
+      }
       const storageGuard = getSequenceStorageGuard();
       if(storageGuard.blocked){
         showSequenceStorageGuardToast(true);

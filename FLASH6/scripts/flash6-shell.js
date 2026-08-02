@@ -1129,6 +1129,36 @@
       if(state.data && state.data.storage_logging != null){
         applyFlightDataLoggingTelemetry(state.data, stageId);
       }
+      // Stage snapshots are the authoritative storage source when the UI is
+      // connected to the ground board over USB. A local browser cannot call
+      // the ground board's HTTP remote-status endpoint in that topology, so
+      // relying on that endpoint left capacity/usage stale or blank even
+      // though the relay telemetry was healthy.
+      const storageCapacity = Number(state.data && state.data.storage_capacity_bytes);
+      if(isFinite(storageCapacity) && storageCapacity > 0){
+        const storageUsed = Math.max(0, Number(state.data.storage_used_bytes) || 0);
+        const storageRecords = Math.max(0, Number(state.data.storage_records) || 0);
+        const storageLogging = state.data.storage_logging;
+        const cachedStorage = latestAvionicsStorageByStage[stageId];
+        const storageChanged = !cachedStorage ||
+          Number(cachedStorage.capacity_bytes) !== storageCapacity ||
+          Number(cachedStorage.used_bytes) !== storageUsed ||
+          Number(cachedStorage.record_count) !== storageRecords ||
+          (storageLogging != null && Number(cachedStorage.logging) !== Number(storageLogging));
+        const storageStale = !cachedStorage ||
+          (Date.now() - Number(cachedStorage.updated_at || 0)) >= 1000;
+        if(storageChanged || storageStale){
+          updateRemoteSpiFlashInfo({
+            ready:Number(state.data.storage_ready ?? 1) ? 1 : 0,
+            stage_node:stageId,
+            used_bytes:storageUsed,
+            capacity_bytes:storageCapacity,
+            chip_capacity_bytes:storageCapacity,
+            record_count:storageRecords,
+            logging:storageLogging
+          }, stageId);
+        }
+      }
       state.attitudeRevision++;
       const ageMs = Math.max(0, Number(sample.stage_age_ms ?? sample.age_ms) || 0);
       state.updatedAt = Date.now() - Math.min(ageMs, 0x7fffffff);

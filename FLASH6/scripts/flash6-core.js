@@ -140,6 +140,7 @@ if (typeof window !== "undefined") {
     let flightDataLoggingPending = false;
     let flightDataLoggingKnown = false;
     let flightDataLoggingDesired = null;
+    let flightLoggingGuardCheckPromise = null;
     // Ground/dual-stage telemetry carries an independent logging flag for
     // each avionics board. Keep those flags separate so mission guards do not
     // accidentally accept stage 1 logging as proof that stage 2 is logging.

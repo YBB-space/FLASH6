@@ -346,10 +346,19 @@
           if(origin === "avionics"){
             if(stageNode){
               telemetryStorageInfo.stage_node = stageNode;
-              latestAvionicsStorageByStage[stageNode] = telemetryStorageInfo;
+              latestAvionicsStorageByStage[stageNode] = Object.assign(
+                {},
+                latestAvionicsStorageByStage[stageNode] || {},
+                telemetryStorageInfo
+              );
             }
-            latestAvionicsStorageInfo = telemetryStorageInfo;
-            latestAvionicsStorageOkMs = Date.now();
+            const primaryStorageUpdate = stageNode === 1 || !stageNode;
+            if(primaryStorageUpdate){
+              latestAvionicsStorageInfo = stageNode
+                ? latestAvionicsStorageByStage[stageNode]
+                : telemetryStorageInfo;
+              latestAvionicsStorageOkMs = Date.now();
+            }
           }else{
             latestSpiFlashStorageInfo = telemetryStorageInfo;
             latestSpiFlashStorageOkMs = Date.now();
