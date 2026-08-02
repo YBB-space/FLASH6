@@ -32680,9 +32680,10 @@ html:not(.phone-landscape-layout) body #hardwareServoDialog .hardware-servo-pres
     overflow:hidden;
     white-space:nowrap;
     text-shadow:
-      0 1px 1px #000,
-      0 2px 4px rgba(0,0,0,.96),
-      0 0 10px rgba(0,0,0,.86);
+      0 1px 2px #000,
+      0 3px 6px #000,
+      0 0 13px rgba(0,0,0,.98),
+      0 0 22px rgba(0,0,0,.8);
   }
   .camera-system-stage--two{
     justify-content:flex-end;
@@ -32707,7 +32708,7 @@ html:not(.phone-landscape-layout) body #hardwareServoDialog .hardware-servo-pres
     height:5px;
     border-radius:50%;
     background:#69717d;
-    box-shadow:0 1px 4px rgba(0,0,0,.95),0 0 0 2px rgba(105,113,125,.12);
+    box-shadow:0 2px 6px #000,0 0 12px rgba(0,0,0,.98),0 0 0 2px rgba(105,113,125,.12);
   }
   .camera-system-stage-name span{
     color:#bec5cd;
@@ -32727,7 +32728,7 @@ html:not(.phone-landscape-layout) body #hardwareServoDialog .hardware-servo-pres
   .camera-system-stage-name .camera-system-stage-state.is-bad{color:#fda4af}
   .camera-system-stage.is-online .camera-system-stage-name i{
     background:#45d582;
-    box-shadow:0 1px 4px rgba(0,0,0,.95),0 0 0 2px rgba(69,213,130,.13),0 0 7px rgba(69,213,130,.22);
+    box-shadow:0 2px 6px #000,0 0 12px rgba(0,0,0,.98),0 0 0 2px rgba(69,213,130,.16),0 0 8px rgba(69,213,130,.25);
   }
   .camera-system-stage.is-online .camera-system-stage-name span{
     color:#78dca5;
@@ -32765,7 +32766,7 @@ html:not(.phone-landscape-layout) body #hardwareServoDialog .hardware-servo-pres
     box-shadow:none;
     color:#f0f2f5;
     pointer-events:auto;
-    filter:drop-shadow(0 2px 3px rgba(0,0,0,.98)) drop-shadow(0 0 7px rgba(0,0,0,.78));
+    filter:drop-shadow(0 3px 5px #000) drop-shadow(0 0 12px rgba(0,0,0,.98)) drop-shadow(0 0 20px rgba(0,0,0,.72));
   }
   body.camera-view-active .alarm-history-toggle:hover,
   body.camera-view-active .alarm-history-toggle.is-open{
