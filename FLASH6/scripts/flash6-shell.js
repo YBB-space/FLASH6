@@ -1291,10 +1291,27 @@
       if(!stageTelemetryModeActive) return fallback;
       const active = stageTelemetryStore[cameraHudActiveStageId];
       const stage1 = stageTelemetryStore[1];
+      const stage2 = stageTelemetryStore[2];
+      const buildStageSnapshot = (state)=>{
+        if(!state) return null;
+        const stageData = state.data || {};
+        const verticalSpeed = readTelemetryVerticalSpeedMps(stageData);
+        return {
+          valid:!!state.valid,
+          connected:!!state.connected,
+          altitudeM:Number(state.altitudeM),
+          speedMps:Number(state.speedMps),
+          gforceG:Number(state.gforceG),
+          verticalSpeedMps:isFinite(verticalSpeed) ? Number(verticalSpeed) : NaN
+        };
+      };
       const source = active && active.valid ? active : null;
       if(!source) return Object.assign({}, fallback, {
         stageId:cameraHudActiveStageId,
         connected:false,
+        stageSeparated:!!cameraHudStageSwitchLatched,
+        stage1Telemetry:buildStageSnapshot(stage1),
+        stage2Telemetry:buildStageSnapshot(stage2),
         stateText:"STAGE " + cameraHudActiveStageId + " · NO DATA",
         stateStatus:"bad"
       });
@@ -1303,6 +1320,9 @@
       return Object.assign({}, fallback, {
         stageId:cameraHudActiveStageId,
         connected:source.connected,
+        stageSeparated:!!cameraHudStageSwitchLatched,
+        stage1Telemetry:buildStageSnapshot(stage1),
+        stage2Telemetry:buildStageSnapshot(stage2),
         stateText:stageTelemetryPhaseLabel(data),
         stateStatus:source.connected ? "ok" : "warn",
         st:Number(data.st) || 0,
@@ -1824,20 +1844,53 @@
       if(el.cameraHudFlightGauges){
         el.cameraHudFlightGauges.classList.toggle("hidden", !flightInstrumentsVisible);
       }
-      const altitudeValue = Number(data.altitudeM);
-      const gforceValue = Number(data.gforceG);
-      const speedValue = Number(data.speedMps);
+      if(el.cameraHudSecondaryGauges){
+        el.cameraHudSecondaryGauges.classList.toggle("hidden", !flightInstrumentsVisible);
+      }
+      const stage1Telemetry = data.stage1Telemetry || data;
+      const stage2Telemetry = data.stage2Telemetry || null;
+      const stageSeparated = !!data.stageSeparated;
+      const altitudeValue = Number(stage1Telemetry.altitudeM);
+      const gforceValue = Number(stage1Telemetry.gforceG);
+      const speedValue = Number(stage1Telemetry.speedMps);
+      const stage1VerticalSpeed = Number(stage1Telemetry.verticalSpeedMps);
+      const verticalSpeedValue = isFinite(stage1VerticalSpeed)
+        ? stage1VerticalSpeed
+        : Number(data.altitudeRateMps);
+      const secondaryAltitudeValue = stage2Telemetry ? Number(stage2Telemetry.altitudeM) : NaN;
+      const secondarySpeedValue = stage2Telemetry ? Number(stage2Telemetry.speedMps) : NaN;
+      const rightPrimaryValue = stageSeparated ? secondaryAltitudeValue : gforceValue;
+      const rightSecondaryValue = stageSeparated ? secondarySpeedValue : verticalSpeedValue;
       setText(el.cameraHudSpeedGauge, isFinite(speedValue) ? Math.max(0, speedValue).toFixed(1) : "--");
-      setText(el.cameraHudGforceGauge, isFinite(gforceValue) ? Math.max(0, gforceValue).toFixed(2) : "--");
+      setText(el.cameraHudGforceGauge, isFinite(rightPrimaryValue)
+        ? (stageSeparated ? rightPrimaryValue.toFixed(1) : Math.max(0, rightPrimaryValue).toFixed(2))
+        : "--");
+      setText(el.cameraHudVerticalSpeedGauge, isFinite(rightSecondaryValue)
+        ? (stageSeparated ? Math.max(0, rightSecondaryValue).toFixed(1) : rightSecondaryValue.toFixed(1))
+        : "--");
       setText(el.cameraHudAltitudeGauge, isFinite(altitudeValue) ? altitudeValue.toFixed(1) : "--");
-      setText(el.cameraChartAltitude, isFinite(altitudeValue) ? altitudeValue.toFixed(1) + "m" : "--");
-      setText(el.cameraChartSpeed, isFinite(speedValue) ? Math.max(0, speedValue).toFixed(1) + "m/s" : "--");
-      setText(el.cameraChartGforce, isFinite(gforceValue) ? Math.max(0, gforceValue).toFixed(2) : "--");
+      setText(el.cameraHudSecondaryStage, stageSeparated ? "STAGE 2" : "STAGE 1");
+      setText(el.cameraHudSecondaryMode, stageSeparated ? "SEPARATED VEHICLE" : "FLIGHT DYNAMICS");
+      setText(el.cameraHudSecondaryPrimaryLabel, stageSeparated ? "ALTITUDE" : "ACCELERATION");
+      setText(el.cameraHudSecondaryPrimaryUnit, stageSeparated ? "m" : "g");
+      setText(el.cameraHudSecondarySecondaryLabel, stageSeparated ? "SPEED" : "VERTICAL SPEED");
+      setText(el.cameraHudSecondarySecondaryUnit, "m/s");
+      if(el.cameraHudSecondaryGauges){
+        el.cameraHudSecondaryGauges.classList.toggle("is-stage-two", stageSeparated);
+        el.cameraHudSecondaryGauges.classList.toggle("is-link-stale", stageSeparated && !(stage2Telemetry && stage2Telemetry.connected));
+      }
+      const chartAltitudeValue = Number(data.altitudeM);
+      const chartSpeedValue = Number(data.speedMps);
+      const chartGforceValue = Number(data.gforceG);
+      setText(el.cameraChartAltitude, isFinite(chartAltitudeValue) ? chartAltitudeValue.toFixed(1) + "m" : "--");
+      setText(el.cameraChartSpeed, isFinite(chartSpeedValue) ? Math.max(0, chartSpeedValue).toFixed(1) + "m/s" : "--");
+      setText(el.cameraChartGforce, isFinite(chartGforceValue) ? Math.max(0, chartGforceValue).toFixed(2) : "--");
       const hudStageId = Number(data.stageId);
       const hudLinkPrefix = hudStageId === 1 || hudStageId === 2 ? ("STAGE " + hudStageId + " • ") : "";
       setText(el.cameraHudLink, hudLinkPrefix + (linkOk ? "LINK CONNECTED" : "LINK DISCONNECTED"));
       setGaugeBar(el.cameraHudSpeedProg, Math.max(0, speedValue), CAMERA_SPEED_GAUGE_MAX_MPS);
-      setGaugeBar(el.cameraHudGforceProg, Math.max(0, gforceValue), CAMERA_G_FORCE_GAUGE_MAX);
+      setGaugeBar(el.cameraHudGforceProg, Math.max(0, rightPrimaryValue), stageSeparated ? CAMERA_ALT_GAUGE_MAX_M : CAMERA_G_FORCE_GAUGE_MAX);
+      setGaugeBar(el.cameraHudVerticalSpeedProg, Math.abs(rightSecondaryValue), CAMERA_SPEED_GAUGE_MAX_MPS);
       setGaugeBar(el.cameraHudAltitudeProg, Math.max(0, altitudeValue), CAMERA_ALT_GAUGE_MAX_M);
       drawCameraHudChart();
       if(el.cameraHudTimelineItems && el.cameraHudTimelineItems.length){

@@ -127,7 +127,7 @@
   <!-- Preload 축소: AP 모드/저메모리 환경에서 동시 요청 버스트를 줄임 -->
   <script>
     (function(){
-    var ASSET_VER = "20260802-map-above-charts-b214-__FLASH6_DEPLOY_SHA__";
+    var ASSET_VER = "20260802-dual-stage-hud-instruments-b215-__FLASH6_DEPLOY_SHA__";
       window.__flashBoot = window.__flashBoot || {jsReady:false,lastError:"",phase:"static_loader",version:ASSET_VER};
       var isLocalPreview = !!window.__flashBoot.localPreview;
       var beaconEnabled = (window.__flashBoot.beaconEnabled !== false);
@@ -365,7 +365,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="styles/flash6-app.css?v=20260802-map-above-charts-b214-__FLASH6_DEPLOY_SHA__">
+  <link rel="stylesheet" href="styles/flash6-app.css?v=20260802-dual-stage-hud-instruments-b215-__FLASH6_DEPLOY_SHA__">
 </head>
 <body>
   <!-- ✅ LOCKOUT 배경 오버레이 -->
@@ -1050,7 +1050,12 @@
 
         <div class="camera-hud">
           <div class="camera-hud-inner">
-            <section id="cameraHudFlightGauges" class="camera-hud-left">
+            <section id="cameraHudFlightGauges" class="camera-hud-left camera-instrument-cluster">
+              <div class="camera-instrument-cluster-head">
+                <span><i></i>STAGE 1</span>
+                <em>PRIMARY FLIGHT</em>
+              </div>
+              <div class="camera-instrument-grid">
               <div class="camera-gauge camera-gauge--alt">
                 <div class="camera-gauge-readout">
                   <div class="camera-gauge-copy">
@@ -1064,18 +1069,19 @@
                   <span id="cameraHudAltitudeProg" class="camera-gauge-progress"></span>
                 </div>
               </div>
-              <div class="camera-gauge camera-gauge--accel">
+              <div class="camera-gauge camera-gauge--speed">
                 <div class="camera-gauge-readout">
                   <div class="camera-gauge-copy">
-                    <div class="camera-gauge-label">G-FORCE</div>
-                    <div class="camera-gauge-unit">g</div>
+                    <div class="camera-gauge-label">SPEED</div>
+                    <div class="camera-gauge-unit">m/s</div>
                   </div>
                   <i class="camera-gauge-divider" aria-hidden="true"></i>
-                  <div id="cameraHudGforceGauge" class="camera-gauge-value">--</div>
+                  <div id="cameraHudSpeedGauge" class="camera-gauge-value">--</div>
                 </div>
                 <div class="camera-gauge-bar" aria-hidden="true">
-                  <span id="cameraHudGforceProg" class="camera-gauge-progress"></span>
+                  <span id="cameraHudSpeedProg" class="camera-gauge-progress"></span>
                 </div>
+              </div>
               </div>
             </section>
 
@@ -1130,6 +1136,40 @@
             </section>
 
             <section id="cameraHudAttitudeGroup" class="camera-hud-attitude-group">
+              <section id="cameraHudSecondaryGauges" class="camera-hud-right camera-instrument-cluster">
+                <div class="camera-instrument-cluster-head">
+                  <span><i></i><b id="cameraHudSecondaryStage">STAGE 1</b></span>
+                  <em id="cameraHudSecondaryMode">FLIGHT DYNAMICS</em>
+                </div>
+                <div class="camera-instrument-grid">
+                  <div class="camera-gauge camera-gauge--secondary-primary">
+                    <div class="camera-gauge-readout">
+                      <div class="camera-gauge-copy">
+                        <div id="cameraHudSecondaryPrimaryLabel" class="camera-gauge-label">ACCELERATION</div>
+                        <div id="cameraHudSecondaryPrimaryUnit" class="camera-gauge-unit">g</div>
+                      </div>
+                      <i class="camera-gauge-divider" aria-hidden="true"></i>
+                      <div id="cameraHudGforceGauge" class="camera-gauge-value">--</div>
+                    </div>
+                    <div class="camera-gauge-bar" aria-hidden="true">
+                      <span id="cameraHudGforceProg" class="camera-gauge-progress"></span>
+                    </div>
+                  </div>
+                  <div class="camera-gauge camera-gauge--secondary-secondary">
+                    <div class="camera-gauge-readout">
+                      <div class="camera-gauge-copy">
+                        <div id="cameraHudSecondarySecondaryLabel" class="camera-gauge-label">VERTICAL SPEED</div>
+                        <div id="cameraHudSecondarySecondaryUnit" class="camera-gauge-unit">m/s</div>
+                      </div>
+                      <i class="camera-gauge-divider" aria-hidden="true"></i>
+                      <div id="cameraHudVerticalSpeedGauge" class="camera-gauge-value">--</div>
+                    </div>
+                    <div class="camera-gauge-bar" aria-hidden="true">
+                      <span id="cameraHudVerticalSpeedProg" class="camera-gauge-progress"></span>
+                    </div>
+                  </div>
+                </div>
+              </section>
               <section id="cameraGyroPreviewMount" class="camera-gyro-preview-mount" aria-label="Gyro preview">
                 <div class="camera-attitude-rings" aria-hidden="true">
                   <i class="camera-attitude-ring camera-attitude-ring--outer"></i>
@@ -4789,6 +4829,6 @@
     <button id="controlsOverlayClose" class="controls-overlay-close" type="button" aria-label="close">×</button>
     </div>
 
-  <script src="scripts/flash6-watchdog.js?v=20260802-map-above-charts-b214-__FLASH6_DEPLOY_SHA__"></script>
+  <script src="scripts/flash6-watchdog.js?v=20260802-dual-stage-hud-instruments-b215-__FLASH6_DEPLOY_SHA__"></script>
 </body>
 </html> 

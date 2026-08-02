@@ -260,6 +260,15 @@
       el.cameraHudGforceProg = document.getElementById("cameraHudGforceProg");
       el.cameraHudAltitudeGauge = document.getElementById("cameraHudAltitudeGauge");
       el.cameraHudAltitudeProg = document.getElementById("cameraHudAltitudeProg");
+      el.cameraHudSecondaryGauges = document.getElementById("cameraHudSecondaryGauges");
+      el.cameraHudSecondaryStage = document.getElementById("cameraHudSecondaryStage");
+      el.cameraHudSecondaryMode = document.getElementById("cameraHudSecondaryMode");
+      el.cameraHudSecondaryPrimaryLabel = document.getElementById("cameraHudSecondaryPrimaryLabel");
+      el.cameraHudSecondaryPrimaryUnit = document.getElementById("cameraHudSecondaryPrimaryUnit");
+      el.cameraHudSecondarySecondaryLabel = document.getElementById("cameraHudSecondarySecondaryLabel");
+      el.cameraHudSecondarySecondaryUnit = document.getElementById("cameraHudSecondarySecondaryUnit");
+      el.cameraHudVerticalSpeedGauge = document.getElementById("cameraHudVerticalSpeedGauge");
+      el.cameraHudVerticalSpeedProg = document.getElementById("cameraHudVerticalSpeedProg");
       el.cameraSystemStatusBar = document.getElementById("cameraSystemStatusBar");
       [1, 2].forEach((stageId)=>{
         el["cameraStage" + stageId + "Status"] = document.getElementById("cameraStage" + stageId + "Status");

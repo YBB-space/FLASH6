@@ -3,6 +3,19 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 UI b215 — 2026-08-02
+
+- HUD 하단 계기를 단분리 전에는 1단 고도, 속도, 가속도, 수직속도의 4개
+  항목으로 구성했습니다.
+- 단분리 확정 후에는 왼쪽의 1단 고도·속도를 유지하면서 오른쪽 두 항목만
+  2단 고도·속도로 자동 전환하도록 단별 텔레메트리 저장소를 연결했습니다.
+- 단계와 데이터 성격을 빠르게 구분할 수 있도록 계기 묶음의 정보 계층, 눈금,
+  진행선 및 2단 전환 표시를 HUD 스타일에 맞춰 개선했습니다.
+
+Firmware build unchanged: `0.13.5` (`v6 b83`)
+
+Protocol unchanged: `Flash6-Intelligent-b16`
+
 ## FLASH6 UI b214 — 2026-08-02
 
 - HUD 지도를 오른쪽 하단의 분리 배치에서 왼쪽 데이터 스택으로 되돌리고, 고도 및

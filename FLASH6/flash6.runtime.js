@@ -8346,10 +8346,27 @@ function requestMobileMockup3dMesh(){
       if(!stageTelemetryModeActive) return fallback;
       const active = stageTelemetryStore[cameraHudActiveStageId];
       const stage1 = stageTelemetryStore[1];
+      const stage2 = stageTelemetryStore[2];
+      const buildStageSnapshot = (state)=>{
+        if(!state) return null;
+        const stageData = state.data || {};
+        const verticalSpeed = readTelemetryVerticalSpeedMps(stageData);
+        return {
+          valid:!!state.valid,
+          connected:!!state.connected,
+          altitudeM:Number(state.altitudeM),
+          speedMps:Number(state.speedMps),
+          gforceG:Number(state.gforceG),
+          verticalSpeedMps:isFinite(verticalSpeed) ? Number(verticalSpeed) : NaN
+        };
+      };
       const source = active && active.valid ? active : null;
       if(!source) return Object.assign({}, fallback, {
         stageId:cameraHudActiveStageId,
         connected:false,
+        stageSeparated:!!cameraHudStageSwitchLatched,
+        stage1Telemetry:buildStageSnapshot(stage1),
+        stage2Telemetry:buildStageSnapshot(stage2),
         stateText:"STAGE " + cameraHudActiveStageId + " · NO DATA",
         stateStatus:"bad"
       });
@@ -8358,6 +8375,9 @@ function requestMobileMockup3dMesh(){
       return Object.assign({}, fallback, {
         stageId:cameraHudActiveStageId,
         connected:source.connected,
+        stageSeparated:!!cameraHudStageSwitchLatched,
+        stage1Telemetry:buildStageSnapshot(stage1),
+        stage2Telemetry:buildStageSnapshot(stage2),
         stateText:stageTelemetryPhaseLabel(data),
         stateStatus:source.connected ? "ok" : "warn",
         st:Number(data.st) || 0,
@@ -8685,10 +8705,10 @@ function requestMobileMockup3dMesh(){
       const available = !!(stageState && stageState.valid && stageState.data);
       const data = available
         ? stageState.data
-        : (id === 1 && !stageTelemetryModeActive ? (fallbackData || {}) : null);
+        : (!stageTelemetryModeActive ? (fallbackData || null) : null);
       const connected = available
         ? !!stageState.connected
-        : (id === 1 && !stageTelemetryModeActive ? !!fallbackConnected : false);
+        : (!stageTelemetryModeActive ? !!fallbackConnected : false);
       const statusNode = el["cameraStage" + id + "Status"];
       const linkNode = el["cameraStage" + id + "Link"];
       const stateNode = el["cameraStage" + id + "State"];
@@ -8696,7 +8716,7 @@ function requestMobileMockup3dMesh(){
       if(linkNode) linkNode.textContent = connected ? "ONLINE" : (available ? "STALE" : "OFFLINE");
       const stageStateText = data
         ? String(data.stateText || data.flight_state_text || data.flightStateText || stageTelemetryPhaseLabel(data) || "--")
-        : (id === 1 && fallbackStateText ? fallbackStateText : "--");
+        : (fallbackStateText || "--");
       if(stateNode){
         stateNode.textContent = stageStateText.replace(/_/g, " ").toUpperCase();
         stateNode.classList.toggle("is-warn", (id === 1 && fallbackStateTone === "warn") || (!connected && available));
@@ -8705,20 +8725,18 @@ function requestMobileMockup3dMesh(){
 
       const armRaw = data && (data.swOn ?? data.s ?? data.sw);
       const armText = armRaw == null ? "--" : (Number(armRaw) ? "ON" : "OFF");
-      const delayMs = Number(data && (data.ignitionDelayMs ?? data.ignition_delay_ms));
-      const delayValidRaw = data && (data.ignitionDelayValid ?? data.ignition_delay_valid);
-      const delayValid = delayValidRaw == null || Number(delayValidRaw) !== 0;
-      const delayText = data && delayValid && isFinite(delayMs) && delayMs >= 0
-        ? (delayMs / 1000).toFixed(2)
-        : "--";
-      const pyroRaw = data && (data.pyroChannel ?? data.pyro_ch ?? data.daq_seq_pyro ?? data.daq_pyro);
-      const pyroChannel = isFinite(Number(pyroRaw))
-        ? normalizePyroChannel(pyroRaw, 1)
-        : normalizePyroChannel(uiSettings && uiSettings.daqSequencePyroChannel, 1);
+      const tempRaw = Number(data && (data.chip_temp_c ?? data.ctemp ?? data.chip_temp ?? data.chipTemp));
+      const tempOkRaw = data && (data.chip_temp_ok ?? data.ctemp_ok ?? data.chipTempOk);
+      const tempOk = tempOkRaw == null || Number(tempOkRaw) !== 0;
+      let linkRate = Number(data && (data.stage_rx_hz ?? data.rx_hz ?? data.fl_rx_hz ?? data.flash_link_rx_hz));
+      if(!isFinite(linkRate) && !stageTelemetryModeActive && connected){
+        const directRate = Number(rxHzWindow > 0 ? rxHzWindow : sampleRateHzWindow);
+        if(isFinite(directRate)) linkRate = directRate;
+      }
       let storageInfo = null;
       if(stageTelemetryModeActive){
         storageInfo = latestAvionicsStorageByStage[id] || null;
-      }else if(id === 1){
+      }else if(!stageTelemetryModeActive){
         try{ storageInfo = getActiveStoragePreviewInfo(); }catch(_error){}
       }
       let storagePercent = NaN;
@@ -8749,9 +8767,9 @@ function requestMobileMockup3dMesh(){
         if(node) node.textContent = value;
       };
       setValue("Arm", armText);
-      setValue("IgnitionDelay", delayText);
-      setValue("Pyro", data ? ("CH" + pyroChannel) : "--");
       setValue("Storage", isFinite(storagePercent) ? storagePercent.toFixed(1) + "%" : "--");
+      setValue("Temp", data && tempOk && isFinite(tempRaw) ? tempRaw.toFixed(1) + "°C" : "--");
+      setValue("Rate", connected && isFinite(linkRate) ? String(Math.max(0, Math.round(linkRate))) : "--");
     }
 
     function syncCameraSystemStatusBar(data, linkOk, stateText, stateTone){
@@ -8881,20 +8899,53 @@ function requestMobileMockup3dMesh(){
       if(el.cameraHudFlightGauges){
         el.cameraHudFlightGauges.classList.toggle("hidden", !flightInstrumentsVisible);
       }
-      const altitudeValue = Number(data.altitudeM);
-      const gforceValue = Number(data.gforceG);
-      const speedValue = Number(data.speedMps);
+      if(el.cameraHudSecondaryGauges){
+        el.cameraHudSecondaryGauges.classList.toggle("hidden", !flightInstrumentsVisible);
+      }
+      const stage1Telemetry = data.stage1Telemetry || data;
+      const stage2Telemetry = data.stage2Telemetry || null;
+      const stageSeparated = !!data.stageSeparated;
+      const altitudeValue = Number(stage1Telemetry.altitudeM);
+      const gforceValue = Number(stage1Telemetry.gforceG);
+      const speedValue = Number(stage1Telemetry.speedMps);
+      const stage1VerticalSpeed = Number(stage1Telemetry.verticalSpeedMps);
+      const verticalSpeedValue = isFinite(stage1VerticalSpeed)
+        ? stage1VerticalSpeed
+        : Number(data.altitudeRateMps);
+      const secondaryAltitudeValue = stage2Telemetry ? Number(stage2Telemetry.altitudeM) : NaN;
+      const secondarySpeedValue = stage2Telemetry ? Number(stage2Telemetry.speedMps) : NaN;
+      const rightPrimaryValue = stageSeparated ? secondaryAltitudeValue : gforceValue;
+      const rightSecondaryValue = stageSeparated ? secondarySpeedValue : verticalSpeedValue;
       setText(el.cameraHudSpeedGauge, isFinite(speedValue) ? Math.max(0, speedValue).toFixed(1) : "--");
-      setText(el.cameraHudGforceGauge, isFinite(gforceValue) ? Math.max(0, gforceValue).toFixed(2) : "--");
+      setText(el.cameraHudGforceGauge, isFinite(rightPrimaryValue)
+        ? (stageSeparated ? rightPrimaryValue.toFixed(1) : Math.max(0, rightPrimaryValue).toFixed(2))
+        : "--");
+      setText(el.cameraHudVerticalSpeedGauge, isFinite(rightSecondaryValue)
+        ? (stageSeparated ? Math.max(0, rightSecondaryValue).toFixed(1) : rightSecondaryValue.toFixed(1))
+        : "--");
       setText(el.cameraHudAltitudeGauge, isFinite(altitudeValue) ? altitudeValue.toFixed(1) : "--");
-      setText(el.cameraChartAltitude, isFinite(altitudeValue) ? altitudeValue.toFixed(1) + "m" : "--");
-      setText(el.cameraChartSpeed, isFinite(speedValue) ? Math.max(0, speedValue).toFixed(1) + "m/s" : "--");
-      setText(el.cameraChartGforce, isFinite(gforceValue) ? Math.max(0, gforceValue).toFixed(2) : "--");
+      setText(el.cameraHudSecondaryStage, stageSeparated ? "STAGE 2" : "STAGE 1");
+      setText(el.cameraHudSecondaryMode, stageSeparated ? "SEPARATED VEHICLE" : "FLIGHT DYNAMICS");
+      setText(el.cameraHudSecondaryPrimaryLabel, stageSeparated ? "ALTITUDE" : "ACCELERATION");
+      setText(el.cameraHudSecondaryPrimaryUnit, stageSeparated ? "m" : "g");
+      setText(el.cameraHudSecondarySecondaryLabel, stageSeparated ? "SPEED" : "VERTICAL SPEED");
+      setText(el.cameraHudSecondarySecondaryUnit, "m/s");
+      if(el.cameraHudSecondaryGauges){
+        el.cameraHudSecondaryGauges.classList.toggle("is-stage-two", stageSeparated);
+        el.cameraHudSecondaryGauges.classList.toggle("is-link-stale", stageSeparated && !(stage2Telemetry && stage2Telemetry.connected));
+      }
+      const chartAltitudeValue = Number(data.altitudeM);
+      const chartSpeedValue = Number(data.speedMps);
+      const chartGforceValue = Number(data.gforceG);
+      setText(el.cameraChartAltitude, isFinite(chartAltitudeValue) ? chartAltitudeValue.toFixed(1) + "m" : "--");
+      setText(el.cameraChartSpeed, isFinite(chartSpeedValue) ? Math.max(0, chartSpeedValue).toFixed(1) + "m/s" : "--");
+      setText(el.cameraChartGforce, isFinite(chartGforceValue) ? Math.max(0, chartGforceValue).toFixed(2) : "--");
       const hudStageId = Number(data.stageId);
       const hudLinkPrefix = hudStageId === 1 || hudStageId === 2 ? ("STAGE " + hudStageId + " • ") : "";
       setText(el.cameraHudLink, hudLinkPrefix + (linkOk ? "LINK CONNECTED" : "LINK DISCONNECTED"));
       setGaugeBar(el.cameraHudSpeedProg, Math.max(0, speedValue), CAMERA_SPEED_GAUGE_MAX_MPS);
-      setGaugeBar(el.cameraHudGforceProg, Math.max(0, gforceValue), CAMERA_G_FORCE_GAUGE_MAX);
+      setGaugeBar(el.cameraHudGforceProg, Math.max(0, rightPrimaryValue), stageSeparated ? CAMERA_ALT_GAUGE_MAX_M : CAMERA_G_FORCE_GAUGE_MAX);
+      setGaugeBar(el.cameraHudVerticalSpeedProg, Math.abs(rightSecondaryValue), CAMERA_SPEED_GAUGE_MAX_MPS);
       setGaugeBar(el.cameraHudAltitudeProg, Math.max(0, altitudeValue), CAMERA_ALT_GAUGE_MAX_M);
       drawCameraHudChart();
       if(el.cameraHudTimelineItems && el.cameraHudTimelineItems.length){
@@ -28095,6 +28146,78 @@ function requestMobileMockup3dMesh(){
     }
 
 /* FLASH6 runtime module: flash6-telemetry.js. Loaded in manifest order by flash6.js. */
+    let stage2EarlyApogeeCommandBusy = false;
+
+    function setStage2EarlyApogeeOverlayVisible(visible){
+      const overlay = el.stage2EarlyApogeeOverlay || document.getElementById("stage2EarlyApogeeOverlay");
+      if(!overlay) return;
+      overlay.setAttribute("aria-hidden", visible ? "false" : "true");
+      setOverlayVisible(overlay, !!visible);
+      if(visible){
+        const button = el.stage2EarlyApogeeEject || document.getElementById("stage2EarlyApogeeEject");
+        if(button && !stage2EarlyApogeeCommandBusy){
+          requestAnimationFrame(()=>button.focus({preventScroll:true}));
+        }
+      }
+    }
+
+    function showStage2EarlyApogeeWarning(){
+      if(replaySourceActive || simEnabled) return;
+      stage2EarlyApogeeCommandBusy = false;
+      const button = el.stage2EarlyApogeeEject || document.getElementById("stage2EarlyApogeeEject");
+      if(button){
+        button.disabled = false;
+        button.textContent = "2단 강제 사출";
+      }
+      setStage2EarlyApogeeOverlayVisible(true);
+    }
+
+    function hideStage2EarlyApogeeWarning(){
+      if(stage2EarlyApogeeCommandBusy) return;
+      setStage2EarlyApogeeOverlayVisible(false);
+    }
+
+    async function confirmStage2EarlyApogeeEjection(){
+      if(stage2EarlyApogeeCommandBusy) return;
+      const button = el.stage2EarlyApogeeEject || document.getElementById("stage2EarlyApogeeEject");
+      stage2EarlyApogeeCommandBusy = true;
+      if(button){
+        button.disabled = true;
+        button.textContent = "2단부에 명령 전송 중…";
+      }
+      const path = typeof hardwareControlPathForNode === "function"
+        ? hardwareControlPathForNode("/stage2_force_eject", 2)
+        : "/stage2_force_eject?node=2";
+      const result = await sendCommand({http:path, ser:path}, true);
+      if(result && result.ok){
+        if(button) button.textContent = "강제 사출 명령 전송됨";
+        showToast("2단 강제 사출 명령을 전송했습니다. 서보 작동 결과를 확인하세요.", "warn", {
+          key:"stage2-early-apogee-force-sent",
+          duration:6000
+        });
+        addLogLine("[STAGE 2] 조기 어포지 운영자 강제 사출 명령 전송", "MISSION");
+        setTimeout(()=>{
+          stage2EarlyApogeeCommandBusy = false;
+          setStage2EarlyApogeeOverlayVisible(false);
+        }, 550);
+        return;
+      }
+      stage2EarlyApogeeCommandBusy = false;
+      if(button){
+        button.disabled = false;
+        button.textContent = "2단 강제 사출";
+      }
+      const reason = String(
+        (result && result.reason) ||
+        (result && result.httpResult && result.httpResult.reason) ||
+        "보드 응답 없음"
+      );
+      showToast("2단 강제 사출 명령 실패: " + reason, "error", {
+        key:"stage2-early-apogee-force-failed",
+        duration:7000
+      });
+    }
+
     // =====================
     // 공통: 샘플 수신 처리
     // =====================
@@ -28127,6 +28250,7 @@ function requestMobileMockup3dMesh(){
         "Stage-2 ejection backup":"2단 백업 사출",
         "Stage-2 ejection fault":"2단 사출 실패",
         "Stage-2 early apogee ignored":"2단 조기 어포지 무시",
+        "Stage-2 forced ejection":"2단 강제 사출",
         "Stage-2 separation":"2단 분리 감지",
         "Forced timed mission":"미션 강제 구동",
         "Mission standby":"미션 대기",
@@ -28170,6 +28294,8 @@ function requestMobileMockup3dMesh(){
         localizedMessage = "홀센서에서 자석 이탈을 확인했습니다 · 2단 단분리로 판정합니다.";
       }else if(/^Apogee before 8\.0 s was rejected/i.test(message)){
         localizedMessage = "단분리 후 8초 이전 어포지 검출을 무시했습니다 · 설정된 백업 사출은 계속 대기합니다.";
+      }else if(/^Operator confirmed early-apogee ejection/i.test(message)){
+        localizedMessage = "운영자 확인으로 조기 어포지 사출을 실행했습니다 · 서보 CH1 작동 결과를 확인하세요.";
       }else if(/^Ignition ended without stage-1 ARM release/i.test(message)){
         localizedMessage = "점화 종료 후에도 1단 ARM 해제가 감지되지 않았습니다 · 발사체에 접근하지 마세요.";
       }else{
@@ -28258,6 +28384,8 @@ function requestMobileMockup3dMesh(){
           showMissionArmRiskWarning(eventStageId ? [eventStageId] : [1], "launch");
         }else if(!isReplaySample && rawTitle === "Launch validation fault"){
           showMissionArmRiskWarning(eventStageId ? [eventStageId] : [1], "thrust-validation");
+        }else if(!isReplaySample && rawTitle === "Stage-2 early apogee ignored"){
+          showStage2EarlyApogeeWarning();
         }
         // Replay alarms are reviewed from the explicit alarm toggle in the
         // playback dock. Live alarms remain immediate and intrusive.
@@ -41126,6 +41254,7 @@ function requestMobileMockup3dMesh(){
         normalizedPath.startsWith("/set?arm_lock=") ||
         normalizedPath.startsWith("/set?storage_logging=") ||
         normalizedPath.startsWith("/set?flight_logging=") ||
+        normalizedPath.startsWith("/stage2_force_eject") ||
         normalizedPath.startsWith("/reset");
       if(lockoutLatched && !isLockoutBypassCmd && !isCoreConfigCmd){
         const name = relayMaskName(lockoutRelayMask);
@@ -41143,6 +41272,7 @@ function requestMobileMockup3dMesh(){
         normalizedPath.startsWith("/force_ignite") ||
         normalizedPath.startsWith("/mission_standby") ||
         normalizedPath.startsWith("/mission_force_timed") ||
+        normalizedPath.startsWith("/stage2_force_eject") ||
         normalizedPath.startsWith("/pyro_test") ||
         normalizedPath.startsWith("/abort") ||
         normalizedPath.startsWith("/sequence_end");
@@ -41706,15 +41836,24 @@ function requestMobileMockup3dMesh(){
       el.cameraHudGforceProg = document.getElementById("cameraHudGforceProg");
       el.cameraHudAltitudeGauge = document.getElementById("cameraHudAltitudeGauge");
       el.cameraHudAltitudeProg = document.getElementById("cameraHudAltitudeProg");
+      el.cameraHudSecondaryGauges = document.getElementById("cameraHudSecondaryGauges");
+      el.cameraHudSecondaryStage = document.getElementById("cameraHudSecondaryStage");
+      el.cameraHudSecondaryMode = document.getElementById("cameraHudSecondaryMode");
+      el.cameraHudSecondaryPrimaryLabel = document.getElementById("cameraHudSecondaryPrimaryLabel");
+      el.cameraHudSecondaryPrimaryUnit = document.getElementById("cameraHudSecondaryPrimaryUnit");
+      el.cameraHudSecondarySecondaryLabel = document.getElementById("cameraHudSecondarySecondaryLabel");
+      el.cameraHudSecondarySecondaryUnit = document.getElementById("cameraHudSecondarySecondaryUnit");
+      el.cameraHudVerticalSpeedGauge = document.getElementById("cameraHudVerticalSpeedGauge");
+      el.cameraHudVerticalSpeedProg = document.getElementById("cameraHudVerticalSpeedProg");
       el.cameraSystemStatusBar = document.getElementById("cameraSystemStatusBar");
       [1, 2].forEach((stageId)=>{
         el["cameraStage" + stageId + "Status"] = document.getElementById("cameraStage" + stageId + "Status");
         el["cameraStage" + stageId + "Link"] = document.getElementById("cameraStage" + stageId + "Link");
         el["cameraStage" + stageId + "State"] = document.getElementById("cameraStage" + stageId + "State");
         el["cameraStage" + stageId + "Arm"] = document.getElementById("cameraStage" + stageId + "Arm");
-        el["cameraStage" + stageId + "IgnitionDelay"] = document.getElementById("cameraStage" + stageId + "IgnitionDelay");
-        el["cameraStage" + stageId + "Pyro"] = document.getElementById("cameraStage" + stageId + "Pyro");
         el["cameraStage" + stageId + "Storage"] = document.getElementById("cameraStage" + stageId + "Storage");
+        el["cameraStage" + stageId + "Temp"] = document.getElementById("cameraStage" + stageId + "Temp");
+        el["cameraStage" + stageId + "Rate"] = document.getElementById("cameraStage" + stageId + "Rate");
       });
       el.cameraHudLink = document.getElementById("cameraHudLink");
       el.cameraAltitudeChart = document.getElementById("cameraAltitudeChart");
@@ -41894,6 +42033,9 @@ function requestMobileMockup3dMesh(){
       el.missionForceS1Action = document.getElementById("missionForceS1Action");
       el.missionForceS2Action = document.getElementById("missionForceS2Action");
       el.missionForceCancel = document.getElementById("missionForceCancel");
+      el.stage2EarlyApogeeOverlay = document.getElementById("stage2EarlyApogeeOverlay");
+      el.stage2EarlyApogeeWait = document.getElementById("stage2EarlyApogeeWait");
+      el.stage2EarlyApogeeEject = document.getElementById("stage2EarlyApogeeEject");
       updateMissionStandbyButtonUi();
       updateVirtualMissionButtonUi();
       el.forceBtn = document.getElementById("forceIgniteBtn");
@@ -43289,6 +43431,12 @@ function requestMobileMockup3dMesh(){
         el.missionForceOverlay.addEventListener("click",(ev)=>{
           if(ev.target === el.missionForceOverlay) hideMissionForceConfirm();
         });
+      }
+      if(el.stage2EarlyApogeeWait){
+        el.stage2EarlyApogeeWait.addEventListener("click", hideStage2EarlyApogeeWarning);
+      }
+      if(el.stage2EarlyApogeeEject){
+        el.stage2EarlyApogeeEject.addEventListener("click", confirmStage2EarlyApogeeEjection);
       }
 
       if(el.abortBtn){
