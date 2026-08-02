@@ -266,9 +266,9 @@
         el["cameraStage" + stageId + "Link"] = document.getElementById("cameraStage" + stageId + "Link");
         el["cameraStage" + stageId + "State"] = document.getElementById("cameraStage" + stageId + "State");
         el["cameraStage" + stageId + "Arm"] = document.getElementById("cameraStage" + stageId + "Arm");
-        el["cameraStage" + stageId + "IgnitionDelay"] = document.getElementById("cameraStage" + stageId + "IgnitionDelay");
-        el["cameraStage" + stageId + "Pyro"] = document.getElementById("cameraStage" + stageId + "Pyro");
         el["cameraStage" + stageId + "Storage"] = document.getElementById("cameraStage" + stageId + "Storage");
+        el["cameraStage" + stageId + "Temp"] = document.getElementById("cameraStage" + stageId + "Temp");
+        el["cameraStage" + stageId + "Rate"] = document.getElementById("cameraStage" + stageId + "Rate");
       });
       el.cameraHudLink = document.getElementById("cameraHudLink");
       el.cameraAltitudeChart = document.getElementById("cameraAltitudeChart");

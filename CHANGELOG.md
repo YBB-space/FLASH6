@@ -3,6 +3,17 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 UI b213 — 2026-08-02
+
+- HUD 상단 단별 상태 항목을 ARM, 저장공간, 보드 온도, 수신 Hz, 현재 비행
+  상태로 정리하고 1·2단을 대칭 구성으로 통일했습니다.
+- 직접 연결된 2단 보드에서도 상태바 데이터와 저장공간 값이 정상적으로 채워지도록
+  단일 보드 텔레메트리 분기를 수정했습니다.
+
+Firmware build unchanged: `0.13.5` (`v6 b83`)
+
+Protocol unchanged: `Flash6-Intelligent-b16`
+
 ## FLASH6 UI b212 — 2026-08-02
 
 - HUD 상태바의 검정 그라데이션과 마스크를 여러 단계로 세분화해, 끝 경계가

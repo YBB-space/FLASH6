@@ -127,7 +127,7 @@
   <!-- Preload 축소: AP 모드/저메모리 환경에서 동시 요청 버스트를 줄임 -->
   <script>
     (function(){
-    var ASSET_VER = "20260802-statusbar-soft-edge-b212-__FLASH6_DEPLOY_SHA__";
+    var ASSET_VER = "20260802-statusbar-stage-metrics-b213-__FLASH6_DEPLOY_SHA__";
       window.__flashBoot = window.__flashBoot || {jsReady:false,lastError:"",phase:"static_loader",version:ASSET_VER};
       var isLocalPreview = !!window.__flashBoot.localPreview;
       var beaconEnabled = (window.__flashBoot.beaconEnabled !== false);
@@ -365,7 +365,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="styles/flash6-app.css?v=20260802-statusbar-soft-edge-b212-__FLASH6_DEPLOY_SHA__">
+  <link rel="stylesheet" href="styles/flash6-app.css?v=20260802-statusbar-stage-metrics-b213-__FLASH6_DEPLOY_SHA__">
 </head>
 <body>
   <!-- ✅ LOCKOUT 배경 오버레이 -->
@@ -1026,23 +1026,25 @@
 
         <header id="cameraSystemStatusBar" class="camera-system-statusbar" aria-label="1단부 및 2단부 시스템 상태">
           <section id="cameraStage1Status" class="camera-system-stage camera-system-stage--one">
-            <div class="camera-system-stage-name"><i></i><strong>STAGE 1</strong><span id="cameraStage1Link">OFFLINE</span><b id="cameraStage1State" class="camera-system-stage-state">--</b></div>
+            <div class="camera-system-stage-name"><i></i><strong>STAGE 1</strong><span id="cameraStage1Link">OFFLINE</span></div>
             <div class="camera-system-stage-metrics">
               <span>ARM <b id="cameraStage1Arm">--</b></span>
-              <span>IGN <b id="cameraStage1IgnitionDelay">--</b>s</span>
-              <span>PYRO <b id="cameraStage1Pyro">--</b></span>
               <span>STORAGE <b id="cameraStage1Storage">--</b></span>
+              <span>TEMP <b id="cameraStage1Temp">--</b></span>
+              <span>LINK <b id="cameraStage1Rate">--</b>Hz</span>
+              <span>STATE <b id="cameraStage1State" class="camera-system-stage-state">--</b></span>
             </div>
           </section>
           <div class="camera-system-center" aria-hidden="true"></div>
           <section id="cameraStage2Status" class="camera-system-stage camera-system-stage--two">
             <div class="camera-system-stage-metrics">
-              <span>ARM <b id="cameraStage2Arm">--</b></span>
-              <span>IGN <b id="cameraStage2IgnitionDelay">--</b>s</span>
-              <span>PYRO <b id="cameraStage2Pyro">--</b></span>
+              <span>STATE <b id="cameraStage2State" class="camera-system-stage-state">--</b></span>
+              <span>LINK <b id="cameraStage2Rate">--</b>Hz</span>
+              <span>TEMP <b id="cameraStage2Temp">--</b></span>
               <span>STORAGE <b id="cameraStage2Storage">--</b></span>
+              <span>ARM <b id="cameraStage2Arm">--</b></span>
             </div>
-            <div class="camera-system-stage-name"><span id="cameraStage2Link">OFFLINE</span><b id="cameraStage2State" class="camera-system-stage-state">--</b><strong>STAGE 2</strong><i></i></div>
+            <div class="camera-system-stage-name"><span id="cameraStage2Link">OFFLINE</span><strong>STAGE 2</strong><i></i></div>
           </section>
         </header>
 
@@ -4787,6 +4789,6 @@
     <button id="controlsOverlayClose" class="controls-overlay-close" type="button" aria-label="close">×</button>
     </div>
 
-  <script src="scripts/flash6-watchdog.js?v=20260802-statusbar-soft-edge-b212-__FLASH6_DEPLOY_SHA__"></script>
+  <script src="scripts/flash6-watchdog.js?v=20260802-statusbar-stage-metrics-b213-__FLASH6_DEPLOY_SHA__"></script>
 </body>
 </html> 

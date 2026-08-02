@@ -1630,10 +1630,10 @@
       const available = !!(stageState && stageState.valid && stageState.data);
       const data = available
         ? stageState.data
-        : (id === 1 && !stageTelemetryModeActive ? (fallbackData || {}) : null);
+        : (!stageTelemetryModeActive ? (fallbackData || null) : null);
       const connected = available
         ? !!stageState.connected
-        : (id === 1 && !stageTelemetryModeActive ? !!fallbackConnected : false);
+        : (!stageTelemetryModeActive ? !!fallbackConnected : false);
       const statusNode = el["cameraStage" + id + "Status"];
       const linkNode = el["cameraStage" + id + "Link"];
       const stateNode = el["cameraStage" + id + "State"];
@@ -1641,7 +1641,7 @@
       if(linkNode) linkNode.textContent = connected ? "ONLINE" : (available ? "STALE" : "OFFLINE");
       const stageStateText = data
         ? String(data.stateText || data.flight_state_text || data.flightStateText || stageTelemetryPhaseLabel(data) || "--")
-        : (id === 1 && fallbackStateText ? fallbackStateText : "--");
+        : (fallbackStateText || "--");
       if(stateNode){
         stateNode.textContent = stageStateText.replace(/_/g, " ").toUpperCase();
         stateNode.classList.toggle("is-warn", (id === 1 && fallbackStateTone === "warn") || (!connected && available));
@@ -1650,20 +1650,18 @@
 
       const armRaw = data && (data.swOn ?? data.s ?? data.sw);
       const armText = armRaw == null ? "--" : (Number(armRaw) ? "ON" : "OFF");
-      const delayMs = Number(data && (data.ignitionDelayMs ?? data.ignition_delay_ms));
-      const delayValidRaw = data && (data.ignitionDelayValid ?? data.ignition_delay_valid);
-      const delayValid = delayValidRaw == null || Number(delayValidRaw) !== 0;
-      const delayText = data && delayValid && isFinite(delayMs) && delayMs >= 0
-        ? (delayMs / 1000).toFixed(2)
-        : "--";
-      const pyroRaw = data && (data.pyroChannel ?? data.pyro_ch ?? data.daq_seq_pyro ?? data.daq_pyro);
-      const pyroChannel = isFinite(Number(pyroRaw))
-        ? normalizePyroChannel(pyroRaw, 1)
-        : normalizePyroChannel(uiSettings && uiSettings.daqSequencePyroChannel, 1);
+      const tempRaw = Number(data && (data.chip_temp_c ?? data.ctemp ?? data.chip_temp ?? data.chipTemp));
+      const tempOkRaw = data && (data.chip_temp_ok ?? data.ctemp_ok ?? data.chipTempOk);
+      const tempOk = tempOkRaw == null || Number(tempOkRaw) !== 0;
+      let linkRate = Number(data && (data.stage_rx_hz ?? data.rx_hz ?? data.fl_rx_hz ?? data.flash_link_rx_hz));
+      if(!isFinite(linkRate) && !stageTelemetryModeActive && connected){
+        const directRate = Number(rxHzWindow > 0 ? rxHzWindow : sampleRateHzWindow);
+        if(isFinite(directRate)) linkRate = directRate;
+      }
       let storageInfo = null;
       if(stageTelemetryModeActive){
         storageInfo = latestAvionicsStorageByStage[id] || null;
-      }else if(id === 1){
+      }else if(!stageTelemetryModeActive){
         try{ storageInfo = getActiveStoragePreviewInfo(); }catch(_error){}
       }
       let storagePercent = NaN;
@@ -1694,9 +1692,9 @@
         if(node) node.textContent = value;
       };
       setValue("Arm", armText);
-      setValue("IgnitionDelay", delayText);
-      setValue("Pyro", data ? ("CH" + pyroChannel) : "--");
       setValue("Storage", isFinite(storagePercent) ? storagePercent.toFixed(1) + "%" : "--");
+      setValue("Temp", data && tempOk && isFinite(tempRaw) ? tempRaw.toFixed(1) + "°C" : "--");
+      setValue("Rate", connected && isFinite(linkRate) ? String(Math.max(0, Math.round(linkRate))) : "--");
     }
 
     function syncCameraSystemStatusBar(data, linkOk, stateText, stateTone){

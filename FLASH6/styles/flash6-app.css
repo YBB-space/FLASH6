@@ -32721,7 +32721,7 @@ html:not(.phone-landscape-layout) body #hardwareServoDialog .hardware-servo-pres
     font:680 9px/1 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
     letter-spacing:.07em;
   }
-  .camera-system-stage-name .camera-system-stage-state{
+  .camera-system-stage-state{
     max-width:150px;
     overflow:hidden;
     color:#f4f6f8;
@@ -32730,8 +32730,8 @@ html:not(.phone-landscape-layout) body #hardwareServoDialog .hardware-servo-pres
     text-overflow:ellipsis;
     white-space:nowrap;
   }
-  .camera-system-stage-name .camera-system-stage-state.is-warn{color:#fbbf24}
-  .camera-system-stage-name .camera-system-stage-state.is-bad{color:#fda4af}
+  .camera-system-stage-state.is-warn{color:#fbbf24}
+  .camera-system-stage-state.is-bad{color:#fda4af}
   .camera-system-stage.is-online .camera-system-stage-name i{
     background:#45d582;
     box-shadow:0 7px 19px rgba(0,0,0,.42),0 0 0 2px rgba(69,213,130,.12),0 0 7px rgba(69,213,130,.14) !important;
