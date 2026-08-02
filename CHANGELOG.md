@@ -3,6 +3,15 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 UI b204 — 2026-08-02
+
+- HUD 상태 요소의 검정 그림자 농도와 확산 범위를 한 단계 더 낮춰, 밝은 배경에서
+  요소를 살짝 분리하는 정도만 남겼습니다.
+
+Firmware build unchanged: `0.13.5` (`v6 b83`)
+
+Protocol unchanged: `Flash6-Intelligent-b16`
+
 ## FLASH6 UI b203 — 2026-08-02
 
 - 상태바 요소의 중첩된 강한 그림자를 제거하고, 아래로 1~2px 떨어지는 두 단계의
