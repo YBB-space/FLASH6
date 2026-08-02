@@ -32503,9 +32503,21 @@ html:not(.phone-landscape-layout) body #hardwareServoDialog .hardware-servo-pres
   body.camera-view-active .camera-system-statusbar::before{
     content:"";
     position:absolute;
-    inset:0 0 -52px;
+    inset:0 0 -24px;
     z-index:0;
-    background:linear-gradient(180deg,rgba(0,0,0,.58) 0%,rgba(0,0,0,.34) 38%,rgba(0,0,0,.14) 68%,rgba(0,0,0,0) 100%);
+    background:linear-gradient(180deg,rgba(0,0,0,.6) 0%,rgba(0,0,0,.4) 42%,rgba(0,0,0,.14) 72%,rgba(0,0,0,0) 100%);
+    pointer-events:none;
+  }
+  body.camera-view-active .camera-system-statusbar::after{
+    content:"";
+    position:absolute;
+    right:18px;
+    bottom:0;
+    left:18px;
+    z-index:0;
+    height:1px;
+    background:linear-gradient(90deg,transparent 0%,rgba(222,228,235,.2) 12%,rgba(222,228,235,.2) 88%,transparent 100%);
+    box-shadow:0 1px 0 rgba(0,0,0,.38);
     pointer-events:none;
   }
   body.camera-view-active .camera-system-statusbar > *{
