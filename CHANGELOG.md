@@ -3,6 +3,15 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 UI b197 — 2026-08-02
+
+- HUD 상태바 그라데이션에서 푸른 회색 색조를 제거하고 순수 검정 계열의
+  반투명 배경으로 조정했습니다.
+
+Firmware build unchanged: `0.13.5` (`v6 b83`)
+
+Protocol unchanged: `Flash6-Intelligent-b16`
+
 ## FLASH6 UI b196 — 2026-08-02
 
 - 데스크톱 HUD 상태바 아래의 1px 경계선과 딱 끊기는 그림자를 제거했습니다.
