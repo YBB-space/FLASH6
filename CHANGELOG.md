@@ -3,6 +3,16 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 UI b202 — 2026-08-02
+
+- 상위 상태바의 상속 그림자에 의존하지 않고 STAGE·ONLINE/OFFLINE·상태·ARM·
+  점화·파이로·저장공간 요소 각각에 검정 `text-shadow`와 `drop-shadow`를 직접
+  적용했습니다. 연결 상태 점에도 직접 그림자를 강제 적용했습니다.
+
+Firmware build unchanged: `0.13.5` (`v6 b83`)
+
+Protocol unchanged: `Flash6-Intelligent-b16`
+
 ## FLASH6 UI b201 — 2026-08-02
 
 - HUD 상태바 텍스트·연결 점·중앙 화살표에 적용되는 검정 그림자의 농도와
