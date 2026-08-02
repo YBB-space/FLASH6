@@ -32492,32 +32492,35 @@ html:not(.phone-landscape-layout) body #hardwareServoDialog .hardware-servo-pres
     align-items:center;
     gap:18px;
     padding:0 18px;
-    border-bottom:0;
-    background:transparent;
+    border-bottom:1px solid rgba(235,239,244,.14);
+    background:rgba(10,13,17,.46);
     color:#d9dde2;
-    box-shadow:none;
-    -webkit-backdrop-filter:none;
-    backdrop-filter:none;
+    box-shadow:0 1px 0 rgba(0,0,0,.72),0 8px 22px rgba(0,0,0,.18);
+    -webkit-backdrop-filter:blur(9px) saturate(.82);
+    backdrop-filter:blur(9px) saturate(.82);
     pointer-events:none;
   }
   body.camera-view-active .camera-system-statusbar::before{
     content:"";
     position:absolute;
-    inset:0 0 -24px;
+    top:34px;
+    right:0;
+    bottom:-18px;
+    left:0;
     z-index:0;
-    background:linear-gradient(180deg,rgba(0,0,0,.6) 0%,rgba(0,0,0,.4) 42%,rgba(0,0,0,.14) 72%,rgba(0,0,0,0) 100%);
+    background:linear-gradient(180deg,rgba(0,0,0,.2) 0%,rgba(0,0,0,.06) 48%,transparent 100%);
     pointer-events:none;
   }
   body.camera-view-active .camera-system-statusbar::after{
     content:"";
     position:absolute;
-    right:18px;
-    bottom:0;
-    left:18px;
+    right:0;
+    bottom:-1px;
+    left:0;
     z-index:0;
     height:1px;
-    background:linear-gradient(90deg,transparent 0%,rgba(222,228,235,.2) 12%,rgba(222,228,235,.2) 88%,transparent 100%);
-    box-shadow:0 1px 0 rgba(0,0,0,.38);
+    background:linear-gradient(90deg,transparent 0%,rgba(225,231,238,.2) 8%,rgba(225,231,238,.2) 92%,transparent 100%);
+    box-shadow:0 1px 0 rgba(0,0,0,.62);
     pointer-events:none;
   }
   body.camera-view-active .camera-system-statusbar > *{

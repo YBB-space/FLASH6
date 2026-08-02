@@ -3,6 +3,17 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 UI b194 — 2026-08-02
+
+- 상태바 34px 영역에 반투명 다크 글라스 배경과 하단 경계를 직접 적용해
+  본 화면과 확실히 구분되도록 변경했습니다.
+- 상태바 아래 그림자는 짧은 페이드로 제한하고, 배경 밝기에 관계없이 상태
+  텍스트가 읽히도록 대비와 블러를 보강했습니다.
+
+Firmware build unchanged: `0.13.4` (`v6 b82`)
+
+Protocol unchanged: `Flash6-Intelligent-b15`
+
 ## FLASH6 UI b193 — 2026-08-02
 
 - 투명 상태바 아래의 검정 그라데이션 길이를 줄여 본 화면과의 경계를
