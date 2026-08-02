@@ -1225,12 +1225,28 @@ html:not(.phone-landscape-layout) body #hardwareServoDialog .hardware-servo-pres
 }
 .alarm-history-toggle:hover svg{ opacity:1; transform:translateY(4px); }
 .alarm-history-toggle.is-open svg{ opacity:1; transform:translateY(4px) rotate(180deg); }
-.alarm-history-toggle.has-unread,
-body.camera-view-active .alarm-history-toggle.has-unread{
-  color:#ff6673;
+.alarm-history-toggle::after{
+  content:"";
+  position:absolute;
+  top:3px;
+  right:12px;
+  width:6px;
+  height:6px;
+  border-radius:50%;
+  background:#ff6673;
+  box-shadow:0 0 0 2px rgba(255,102,115,.14);
+  opacity:0;
+  transform:scale(.7);
+  transition:opacity .16s ease,transform .16s ease;
+  pointer-events:none;
 }
-.alarm-history-toggle.has-unread svg{
+.alarm-history-toggle.has-unread::after{
   opacity:1;
+  transform:scale(1);
+}
+body.camera-view-active .alarm-history-toggle::after{
+  top:8px;
+  right:14px;
 }
 .alarm-history-panel{
   position:fixed;

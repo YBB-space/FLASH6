@@ -3,6 +3,17 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 UI b191 — 2026-08-02
+
+- 새 알람이 발생해도 제어센터 버튼과 화살표가 빨갛게 변하지 않도록
+  변경했습니다.
+- 버튼 오른쪽의 작은 알림 점으로 미확인 알람을 표시하며, 제어센터에서
+  알람을 확인하면 기존과 같이 표시가 해제됩니다.
+
+Firmware build unchanged: `0.13.4` (`v6 b82`)
+
+Protocol unchanged: `Flash6-Intelligent-b15`
+
 ## FLASH6 UI b190 — 2026-08-02
 
 - 연결 홈의 `ALTIS INTELLIGENCE · SIMULATION PLUS` 진입 기능을 제거했습니다.
