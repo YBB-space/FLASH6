@@ -865,7 +865,7 @@ body #stage2EarlyApogeeOverlay .stage2-early-apogee-eject:disabled{
     --camera-data-edge:clamp(24px,2.2vw,36px);
     --camera-data-width:clamp(270px,22vw,320px);
     --camera-data-panel-height:clamp(185px,21vh,220px);
-    --camera-map-height:clamp(145px,17vh,178px);
+    --camera-map-height:var(--camera-data-panel-height);
     position:fixed;
     top:calc(34px + env(safe-area-inset-top, 0px));
     bottom:calc(116px + env(safe-area-inset-bottom, 0px));
@@ -1023,7 +1023,7 @@ body #stage2EarlyApogeeOverlay .stage2-early-apogee-eject:disabled{
   .camera-data-stack{
     --camera-data-edge:20px;
     --camera-data-panel-height:140px;
-    --camera-map-height:124px;
+    --camera-map-height:var(--camera-data-panel-height);
     gap:7px;
   }
 }

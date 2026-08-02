@@ -3,6 +3,17 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 UI b216 — 2026-08-02
+
+- HUD 왼쪽 데이터 스택의 지도, 고도 차트, 텔레메트리 차트가 동일한 세로
+  높이를 공유하도록 통일했습니다.
+- 낮은 화면에서도 별도 지도 높이를 사용하지 않고 세 패널이 같은 비율을
+  유지하도록 반응형 높이 규칙을 정리했습니다.
+
+Firmware build unchanged: `0.13.5` (`v6 b83`)
+
+Protocol unchanged: `Flash6-Intelligent-b16`
+
 ## FLASH6 UI b215 — 2026-08-02
 
 - HUD 하단 계기를 단분리 전에는 1단 고도, 속도, 가속도, 수직속도의 4개
