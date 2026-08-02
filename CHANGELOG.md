@@ -3,6 +3,15 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 UI b214 — 2026-08-02
+
+- HUD 지도를 오른쪽 하단의 분리 배치에서 왼쪽 데이터 스택으로 되돌리고, 고도 및
+  텔레메트리 차트 위에 같은 폭과 간격으로 정렬했습니다.
+
+Firmware build unchanged: `0.13.5` (`v6 b83`)
+
+Protocol unchanged: `Flash6-Intelligent-b16`
+
 ## FLASH6 UI b213 — 2026-08-02
 
 - HUD 상단 단별 상태 항목을 ARM, 저장공간, 보드 온도, 수신 Hz, 현재 비행

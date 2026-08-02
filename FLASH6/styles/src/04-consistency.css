@@ -1737,16 +1737,8 @@ html body .app-shell > .side-nav-desktop{
   }
 }
 
-/* Camera HUD map: keep it in the lower-right data rail, with enough room for
-   the charts above and the bottom flight gauges below. */
+/* Camera HUD alerts remain detached from the centered map/chart data rail. */
 @media (min-width:768px) and (pointer:fine){
-  body.camera-view-active .camera-map-panel{
-    right:clamp(24px,2.2vw,36px) !important;
-    bottom:calc(24px + env(safe-area-inset-bottom,0px)) !important;
-    width:clamp(260px,20vw,330px) !important;
-    height:clamp(170px,20vh,220px) !important;
-  }
-
   /* The transient alert shown in the sequence dock is the HUD alert the
      operator sees during flight. Keep it on the upper-right, independent of
      the timer/mission label dock on the left. */
@@ -1758,15 +1750,6 @@ html body .app-shell > .side-nav-desktop{
     width:min(460px,34vw);
     min-height:0;
     margin:0;
-  }
-}
-
-@media (min-width:768px) and (pointer:fine) and (max-height:700px){
-  body.camera-view-active .camera-map-panel{
-    right:24px !important;
-    bottom:calc(20px + env(safe-area-inset-bottom,0px)) !important;
-    width:min(300px,30vw) !important;
-    height:156px !important;
   }
 }
 

@@ -22811,14 +22811,13 @@ body #stage2EarlyApogeeOverlay .stage2-early-apogee-eject:disabled{
     display:none !important;
   }
 }
-/* Gyro-first dashboard data rail: centered charts with a detached map. */
+/* Gyro-first dashboard data rail: map followed by the two telemetry charts. */
 .camera-map-panel{display:none}
 @media (min-width:768px) and (pointer:fine){
   .camera-data-stack{
     --camera-data-edge:clamp(24px,2.2vw,36px);
     --camera-data-width:clamp(270px,22vw,320px);
     --camera-data-panel-height:clamp(185px,21vh,220px);
-    --camera-map-width:clamp(220px,18vw,270px);
     --camera-map-height:clamp(145px,17vh,178px);
     position:fixed;
     top:calc(34px + env(safe-area-inset-top, 0px));
@@ -22827,19 +22826,17 @@ body #stage2EarlyApogeeOverlay .stage2-early-apogee-eject:disabled{
     z-index:7;
     display:grid;
     width:var(--camera-data-width);
-    grid-template-rows:repeat(2,var(--camera-data-panel-height));
+    grid-template-rows:var(--camera-map-height) repeat(2,var(--camera-data-panel-height));
     align-content:center;
     gap:8px;
     pointer-events:none;
   }
   .camera-map-panel{
-    position:fixed;
-    right:var(--camera-data-edge);
-    bottom:calc(196px + env(safe-area-inset-bottom, 0px));
-    left:auto;
-    z-index:7;
+    position:relative;
+    inset:auto;
+    z-index:auto;
     display:block;
-    width:var(--camera-map-width);
+    width:100%;
     height:var(--camera-map-height);
     min-width:0;
     min-height:0;
@@ -22972,7 +22969,6 @@ body #stage2EarlyApogeeOverlay .stage2-early-apogee-eject:disabled{
   .camera-data-stack{
     --camera-data-edge:24px;
     --camera-data-width:min(300px,36vw);
-    --camera-map-width:min(250px,30vw);
   }
 }
 
@@ -33348,16 +33344,8 @@ html body .app-shell > .side-nav-desktop{
   }
 }
 
-/* Camera HUD map: keep it in the lower-right data rail, with enough room for
-   the charts above and the bottom flight gauges below. */
+/* Camera HUD alerts remain detached from the centered map/chart data rail. */
 @media (min-width:768px) and (pointer:fine){
-  body.camera-view-active .camera-map-panel{
-    right:clamp(24px,2.2vw,36px) !important;
-    bottom:calc(24px + env(safe-area-inset-bottom,0px)) !important;
-    width:clamp(260px,20vw,330px) !important;
-    height:clamp(170px,20vh,220px) !important;
-  }
-
   /* The transient alert shown in the sequence dock is the HUD alert the
      operator sees during flight. Keep it on the upper-right, independent of
      the timer/mission label dock on the left. */
@@ -33369,15 +33357,6 @@ html body .app-shell > .side-nav-desktop{
     width:min(460px,34vw);
     min-height:0;
     margin:0;
-  }
-}
-
-@media (min-width:768px) and (pointer:fine) and (max-height:700px){
-  body.camera-view-active .camera-map-panel{
-    right:24px !important;
-    bottom:calc(20px + env(safe-area-inset-bottom,0px)) !important;
-    width:min(300px,30vw) !important;
-    height:156px !important;
   }
 }
 
