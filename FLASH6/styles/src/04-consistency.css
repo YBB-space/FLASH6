@@ -1042,10 +1042,10 @@ html:not(.phone-landscape-layout) body #hardwareServoDialog .hardware-servo-pres
     height:62px;
     background:linear-gradient(
       180deg,
-      rgba(0,0,0,.68) 0%,
-      rgba(0,0,0,.54) 42%,
-      rgba(0,0,0,.32) 60%,
-      rgba(0,0,0,.11) 78%,
+      rgba(0,0,0,.86) 0%,
+      rgba(0,0,0,.74) 42%,
+      rgba(0,0,0,.48) 60%,
+      rgba(0,0,0,.18) 78%,
       transparent 100%
     );
     -webkit-backdrop-filter:blur(8px) saturate(.84);

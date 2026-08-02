@@ -3,6 +3,15 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 UI b198 — 2026-08-02
+
+- HUD 상태바 내부의 검정 농도를 높이고, 상태바 아래에서만 투명하게 감쇠하도록
+  그라데이션 대비를 강화했습니다.
+
+Firmware build unchanged: `0.13.5` (`v6 b83`)
+
+Protocol unchanged: `Flash6-Intelligent-b16`
+
 ## FLASH6 UI b197 — 2026-08-02
 
 - HUD 상태바 그라데이션에서 푸른 회색 색조를 제거하고 순수 검정 계열의
