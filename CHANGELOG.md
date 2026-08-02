@@ -3,6 +3,15 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 UI b200 — 2026-08-02
+
+- 상태바 배경에 추가했던 이중 그림자를 제거하고, 단 상태·ARM·점화·파이로·
+  저장공간 텍스트와 연결 표시점, 중앙 화살표 자체에 검정 그림자를 적용했습니다.
+
+Firmware build unchanged: `0.13.5` (`v6 b83`)
+
+Protocol unchanged: `Flash6-Intelligent-b16`
+
 ## FLASH6 UI b199 — 2026-08-02
 
 - HUD 상태바의 검정 그라데이션 형태를 따라 아래로 퍼지는 이중 그림자를
