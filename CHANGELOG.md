@@ -3,6 +3,16 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 UI b196 — 2026-08-02
+
+- 데스크톱 HUD 상태바 아래의 1px 경계선과 딱 끊기는 그림자를 제거했습니다.
+- 상태바 배경·블러가 본 화면 쪽으로 짧게 감쇠하는 다단 그라데이션을 적용해,
+  밝은 배경에서도 글자는 읽히면서 경계는 자연스럽게 이어지도록 변경했습니다.
+
+Firmware build unchanged: `0.13.5` (`v6 b83`)
+
+Protocol unchanged: `Flash6-Intelligent-b16`
+
 ## 0.13.5 — v6 b83 / guarded early-apogee operator ejection — 2026-08-02
 
 - 2단 단분리 후 8초 이전에 어포지 조건이 검출되어 자동 사출이 보류되면,
