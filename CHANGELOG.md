@@ -3,6 +3,15 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 UI b209 — 2026-08-02
+
+- HUD 상태바의 블러 레이어에 검정 틴트와 밝기 감쇠를 추가했습니다. 아래쪽으로
+  투명하게 풀리는 기존 그라데이션 경계는 유지했습니다.
+
+Firmware build unchanged: `0.13.5` (`v6 b83`)
+
+Protocol unchanged: `Flash6-Intelligent-b16`
+
 ## FLASH6 UI b208 — 2026-08-02
 
 - HUD 상태 글자의 개별 확산 그림자를 한 단계 진하고 넓게 조정했습니다. 행 전체
