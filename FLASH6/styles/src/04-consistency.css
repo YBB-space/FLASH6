@@ -1068,7 +1068,7 @@ html:not(.phone-landscape-layout) body #hardwareServoDialog .hardware-servo-pres
     gap:18px;
     overflow:hidden;
     white-space:nowrap;
-    text-shadow:0 3px 12px rgba(0,0,0,.62),0 7px 28px rgba(0,0,0,.38);
+    text-shadow:none;
   }
   .camera-system-stage--two{
     justify-content:flex-end;
@@ -1083,7 +1083,7 @@ html:not(.phone-landscape-layout) body #hardwareServoDialog .hardware-servo-pres
   body.camera-view-active .camera-system-stage-name > span,
   body.camera-view-active .camera-system-stage-name > b,
   body.camera-view-active .camera-system-stage-metrics > span{
-    text-shadow:0 3px 12px rgba(0,0,0,.68),0 7px 28px rgba(0,0,0,.42) !important;
+    text-shadow:0 6px 18px rgba(0,0,0,.3) !important;
     filter:none !important;
   }
   .camera-system-stage-name{
@@ -1100,7 +1100,7 @@ html:not(.phone-landscape-layout) body #hardwareServoDialog .hardware-servo-pres
     height:5px;
     border-radius:50%;
     background:#69717d;
-    box-shadow:0 3px 11px rgba(0,0,0,.62),0 7px 24px rgba(0,0,0,.38),0 0 0 2px rgba(105,113,125,.1) !important;
+    box-shadow:0 6px 15px rgba(0,0,0,.3),0 0 0 2px rgba(105,113,125,.1) !important;
   }
   .camera-system-stage-name span{
     color:#bec5cd;
@@ -1120,7 +1120,7 @@ html:not(.phone-landscape-layout) body #hardwareServoDialog .hardware-servo-pres
   .camera-system-stage-name .camera-system-stage-state.is-bad{color:#fda4af}
   .camera-system-stage.is-online .camera-system-stage-name i{
     background:#45d582;
-    box-shadow:0 3px 11px rgba(0,0,0,.62),0 7px 24px rgba(0,0,0,.38),0 0 0 2px rgba(69,213,130,.12),0 0 7px rgba(69,213,130,.14) !important;
+    box-shadow:0 6px 15px rgba(0,0,0,.3),0 0 0 2px rgba(69,213,130,.12),0 0 7px rgba(69,213,130,.14) !important;
   }
   .camera-system-stage.is-online .camera-system-stage-name span{
     color:#78dca5;
@@ -1158,7 +1158,7 @@ html:not(.phone-landscape-layout) body #hardwareServoDialog .hardware-servo-pres
     box-shadow:none;
     color:#f0f2f5;
     pointer-events:auto;
-    filter:drop-shadow(0 3px 9px rgba(0,0,0,.62)) drop-shadow(0 7px 19px rgba(0,0,0,.38));
+    filter:drop-shadow(0 6px 16px rgba(0,0,0,.3));
   }
   body.camera-view-active .alarm-history-toggle:hover,
   body.camera-view-active .alarm-history-toggle.is-open{

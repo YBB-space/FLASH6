@@ -3,6 +3,15 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 UI b207 — 2026-08-02
+
+- HUD 상태 행 전체에 중첩되던 그림자를 제거하고 각 글자에만 넓은 단일 확산
+  그림자를 적용해, 긴 사각형처럼 보이던 음영을 없앴습니다.
+
+Firmware build unchanged: `0.13.5` (`v6 b83`)
+
+Protocol unchanged: `Flash6-Intelligent-b16`
+
 ## FLASH6 UI b206 — 2026-08-02
 
 - HUD 상태 요소에 붙어 있던 작은 그림자 대신, 블러 반경이 큰 두 단계의 검정
