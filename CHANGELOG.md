@@ -3,6 +3,16 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## FLASH6 UI b190 — 2026-08-02
+
+- 연결 홈의 `ALTIS INTELLIGENCE · SIMULATION PLUS` 진입 기능을 제거했습니다.
+- 전용 예측 작업공간, 차트·CSV 처리 코드와 스타일을 런타임에서 제거해
+  초기 UI 다운로드 및 파싱 부담을 줄였습니다.
+
+Firmware build unchanged: `0.13.4` (`v6 b82`)
+
+Protocol unchanged: `Flash6-Intelligent-b15`
+
 ## 0.13.4 — v6 b82 / reliable serial storage transfer
 
 - 8KB 저장 청크의 Base64 응답을 USB CDC TX 큐가 모두 받을 때까지 반복
