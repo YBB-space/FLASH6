@@ -461,6 +461,149 @@ html body #replayLegacyProtocolOverlay .replay-legacy-protocol-dialog{
   }
 }
 
+/* Stage-2 early-apogee decision. This uses the same restrained confirmation
+ * language as the mission standby modal while keeping the destructive action
+ * visually unambiguous. */
+body #stage2EarlyApogeeOverlay{
+  z-index:100180 !important;
+  padding:24px !important;
+  background:rgba(5,7,10,.76) !important;
+  backdrop-filter:blur(12px) saturate(.82) !important;
+  -webkit-backdrop-filter:blur(12px) saturate(.82) !important;
+}
+body #stage2EarlyApogeeOverlay.hidden{
+  display:none !important;
+}
+body #stage2EarlyApogeeOverlay > .stage2-early-apogee-dialog{
+  width:min(720px, calc(100vw - 48px)) !important;
+  min-height:0 !important;
+  max-height:calc(100dvh - 48px) !important;
+  margin:auto !important;
+  padding:36px !important;
+  overflow:auto !important;
+  border:1px solid rgba(146,153,164,.28) !important;
+  border-radius:18px !important;
+  background:#17191c !important;
+  box-shadow:0 24px 72px rgba(0,0,0,.5) !important;
+}
+body #stage2EarlyApogeeOverlay > .stage2-early-apogee-dialog::before,
+body #stage2EarlyApogeeOverlay > .stage2-early-apogee-dialog::after{
+  display:none !important;
+}
+body #stage2EarlyApogeeOverlay .stage2-early-apogee-heading{
+  display:grid;
+  gap:8px;
+  padding-bottom:22px;
+  border-bottom:1px solid rgba(137,144,154,.22);
+}
+body #stage2EarlyApogeeOverlay .stage2-early-apogee-kicker{
+  color:#ff7b86;
+  font:700 11px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;
+  letter-spacing:.17em;
+}
+body #stage2EarlyApogeeOverlay .confirm-title{
+  margin:0 !important;
+  color:#f2f3f5 !important;
+  font-size:clamp(25px,2.2vw,32px) !important;
+  font-weight:690 !important;
+  letter-spacing:-.025em !important;
+}
+body #stage2EarlyApogeeOverlay .confirm-text{
+  margin:24px 0 0 !important;
+  color:#c6c9ce !important;
+  font-size:16px !important;
+  line-height:1.65 !important;
+  text-align:left !important;
+}
+body #stage2EarlyApogeeOverlay .stage2-early-apogee-status{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  margin-top:24px;
+  border:1px solid rgba(137,144,154,.22);
+  border-radius:10px;
+  overflow:hidden;
+  background:#131518;
+}
+body #stage2EarlyApogeeOverlay .stage2-early-apogee-status > div{
+  display:grid;
+  gap:8px;
+  min-width:0;
+  padding:17px 18px;
+}
+body #stage2EarlyApogeeOverlay .stage2-early-apogee-status > div + div{
+  border-left:1px solid rgba(137,144,154,.2);
+}
+body #stage2EarlyApogeeOverlay .stage2-early-apogee-status span{
+  color:#858b95;
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:.08em;
+}
+body #stage2EarlyApogeeOverlay .stage2-early-apogee-status strong{
+  color:#e2e4e8;
+  font-size:14px;
+  font-weight:650;
+  white-space:nowrap;
+}
+body #stage2EarlyApogeeOverlay .confirm-note{
+  margin:20px 0 0 !important;
+  padding:0 !important;
+  border:0 !important;
+  background:transparent !important;
+  color:#8e949e !important;
+  font-size:13px !important;
+  line-height:1.6 !important;
+  text-align:left !important;
+}
+body #stage2EarlyApogeeOverlay .stage2-early-apogee-actions{
+  display:grid !important;
+  grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr) !important;
+  gap:12px !important;
+  margin-top:28px !important;
+}
+body #stage2EarlyApogeeOverlay .stage2-early-apogee-actions button{
+  width:100% !important;
+  min-height:54px !important;
+  margin:0 !important;
+  border-radius:9px !important;
+  font-size:15px !important;
+  font-weight:700 !important;
+  box-shadow:none !important;
+}
+body #stage2EarlyApogeeOverlay .stage2-early-apogee-eject{
+  border:1px solid #b94b55 !important;
+  background:#a93640 !important;
+  color:#fff !important;
+}
+body #stage2EarlyApogeeOverlay .stage2-early-apogee-eject:hover:not(:disabled){
+  background:#b83d48 !important;
+}
+body #stage2EarlyApogeeOverlay .stage2-early-apogee-eject:disabled{
+  opacity:.55 !important;
+  cursor:wait !important;
+}
+@media (max-width:680px){
+  body #stage2EarlyApogeeOverlay{
+    padding:12px !important;
+  }
+  body #stage2EarlyApogeeOverlay > .stage2-early-apogee-dialog{
+    width:100% !important;
+    max-height:calc(100dvh - 24px) !important;
+    padding:26px 22px !important;
+    border-radius:14px !important;
+  }
+  body #stage2EarlyApogeeOverlay .stage2-early-apogee-status{
+    grid-template-columns:1fr !important;
+  }
+  body #stage2EarlyApogeeOverlay .stage2-early-apogee-status > div + div{
+    border-left:0 !important;
+    border-top:1px solid rgba(137,144,154,.2) !important;
+  }
+  body #stage2EarlyApogeeOverlay .stage2-early-apogee-actions{
+    grid-template-columns:1fr !important;
+  }
+}
+
 @media (max-width:600px){
   .flash-link-report-visual,
   .flash-link-report-visual-pane{

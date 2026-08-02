@@ -1271,8 +1271,12 @@ void missionLatchStage2PhysicalSeparation(uint32_t detectedMs, uint32_t nowMs) {
   missionCommandStage2Ignition(nowMs);
 }
 
-void missionCommandStage2Ejection(uint32_t nowMs, bool backup) {
-  if (launchMission.stage2Ejected) return;
+bool missionCommandStage2Ejection(
+  uint32_t nowMs,
+  bool backup,
+  bool operatorOverride = false
+) {
+  if (launchMission.stage2Ejected) return false;
   // A peer timestamp can be a few milliseconds ahead of this board because
   // the two ESP32 millis() clocks are not phase locked. Never let unsigned
   // subtraction turn that small lead into a ~49-day elapsed interval and
@@ -1284,14 +1288,15 @@ void missionCommandStage2Ejection(uint32_t nowMs, bool backup) {
     ? (uint32_t)(nowMs - launchMission.stage1SeparationMs)
     : 0U;
   if (!separationClockValid ||
-      separationElapsedMs < kStage2ApogeeAcceptAfterSeparationMs) {
+      (!operatorOverride &&
+       separationElapsedMs < kStage2ApogeeAcceptAfterSeparationMs)) {
     Serial.printf(
       "[MISSION] stage2 ejection blocked: separation clock invalid/early "
       "now=%lu separation=%lu elapsed=%lums\n",
       (unsigned long)nowMs,
       (unsigned long)launchMission.stage1SeparationMs,
       (unsigned long)separationElapsedMs);
-    return;
+    return false;
   }
   const bool ok = setServoAngle(1U, missionStage2EjectionAngleDeg);
   launchMission.stage2Ejected = true;
@@ -1303,6 +1308,11 @@ void missionCommandStage2Ejection(uint32_t nowMs, bool backup) {
       0,
       "Stage-2 ejection fault",
       "SERVO CH1 command failed.");
+  } else if (operatorOverride) {
+    missionEmitAlarm(
+      0,
+      "Stage-2 forced ejection",
+      "Operator confirmed early-apogee ejection. SERVO CH1 moved.");
   } else if (backup) {
     missionEmitAlarm(
       0,
@@ -1318,7 +1328,8 @@ void missionCommandStage2Ejection(uint32_t nowMs, bool backup) {
     "[MISSION] stage2 ejection reason=%s separation_elapsed=%lums "
     "ignition_elapsed=%lums phase=%s "
     "apogee=%.2f alt=%.2f vs_fast=%.2f ok=%u\n",
-    backup ? "backup_timer" : "apogee",
+    operatorOverride ? "operator_early_apogee" :
+      (backup ? "backup_timer" : "apogee"),
     (unsigned long)separationElapsedMs,
     (unsigned long)(nowMs - launchMission.stage2IgnitionMs),
     flightPhaseName(static_cast<FlightPhase>(snap.flightPhase)),
@@ -1331,6 +1342,10 @@ void missionCommandStage2Ejection(uint32_t nowMs, bool backup) {
   buzzerPlayRecoveryFindMelody();
   missionRecoveryClear();
   missionSyncLaunchTelemetry();
+  // The command was accepted even when the servo driver reports a fault.
+  // That fault has its own mission alarm/state; returning false here would
+  // incorrectly tell the operator that the request was merely busy.
+  return true;
 }
 
 bool startForcedTimedMissionRuntime(uint32_t nowMs) {

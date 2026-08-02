@@ -1,4 +1,76 @@
 /* FLASH6 runtime module: flash6-telemetry.js. Loaded in manifest order by flash6.js. */
+    let stage2EarlyApogeeCommandBusy = false;
+
+    function setStage2EarlyApogeeOverlayVisible(visible){
+      const overlay = el.stage2EarlyApogeeOverlay || document.getElementById("stage2EarlyApogeeOverlay");
+      if(!overlay) return;
+      overlay.setAttribute("aria-hidden", visible ? "false" : "true");
+      setOverlayVisible(overlay, !!visible);
+      if(visible){
+        const button = el.stage2EarlyApogeeEject || document.getElementById("stage2EarlyApogeeEject");
+        if(button && !stage2EarlyApogeeCommandBusy){
+          requestAnimationFrame(()=>button.focus({preventScroll:true}));
+        }
+      }
+    }
+
+    function showStage2EarlyApogeeWarning(){
+      if(replaySourceActive || simEnabled) return;
+      stage2EarlyApogeeCommandBusy = false;
+      const button = el.stage2EarlyApogeeEject || document.getElementById("stage2EarlyApogeeEject");
+      if(button){
+        button.disabled = false;
+        button.textContent = "2단 강제 사출";
+      }
+      setStage2EarlyApogeeOverlayVisible(true);
+    }
+
+    function hideStage2EarlyApogeeWarning(){
+      if(stage2EarlyApogeeCommandBusy) return;
+      setStage2EarlyApogeeOverlayVisible(false);
+    }
+
+    async function confirmStage2EarlyApogeeEjection(){
+      if(stage2EarlyApogeeCommandBusy) return;
+      const button = el.stage2EarlyApogeeEject || document.getElementById("stage2EarlyApogeeEject");
+      stage2EarlyApogeeCommandBusy = true;
+      if(button){
+        button.disabled = true;
+        button.textContent = "2단부에 명령 전송 중…";
+      }
+      const path = typeof hardwareControlPathForNode === "function"
+        ? hardwareControlPathForNode("/stage2_force_eject", 2)
+        : "/stage2_force_eject?node=2";
+      const result = await sendCommand({http:path, ser:path}, true);
+      if(result && result.ok){
+        if(button) button.textContent = "강제 사출 명령 전송됨";
+        showToast("2단 강제 사출 명령을 전송했습니다. 서보 작동 결과를 확인하세요.", "warn", {
+          key:"stage2-early-apogee-force-sent",
+          duration:6000
+        });
+        addLogLine("[STAGE 2] 조기 어포지 운영자 강제 사출 명령 전송", "MISSION");
+        setTimeout(()=>{
+          stage2EarlyApogeeCommandBusy = false;
+          setStage2EarlyApogeeOverlayVisible(false);
+        }, 550);
+        return;
+      }
+      stage2EarlyApogeeCommandBusy = false;
+      if(button){
+        button.disabled = false;
+        button.textContent = "2단 강제 사출";
+      }
+      const reason = String(
+        (result && result.reason) ||
+        (result && result.httpResult && result.httpResult.reason) ||
+        "보드 응답 없음"
+      );
+      showToast("2단 강제 사출 명령 실패: " + reason, "error", {
+        key:"stage2-early-apogee-force-failed",
+        duration:7000
+      });
+    }
+
     // =====================
     // 공통: 샘플 수신 처리
     // =====================
@@ -31,6 +103,7 @@
         "Stage-2 ejection backup":"2단 백업 사출",
         "Stage-2 ejection fault":"2단 사출 실패",
         "Stage-2 early apogee ignored":"2단 조기 어포지 무시",
+        "Stage-2 forced ejection":"2단 강제 사출",
         "Stage-2 separation":"2단 분리 감지",
         "Forced timed mission":"미션 강제 구동",
         "Mission standby":"미션 대기",
@@ -74,6 +147,8 @@
         localizedMessage = "홀센서에서 자석 이탈을 확인했습니다 · 2단 단분리로 판정합니다.";
       }else if(/^Apogee before 8\.0 s was rejected/i.test(message)){
         localizedMessage = "단분리 후 8초 이전 어포지 검출을 무시했습니다 · 설정된 백업 사출은 계속 대기합니다.";
+      }else if(/^Operator confirmed early-apogee ejection/i.test(message)){
+        localizedMessage = "운영자 확인으로 조기 어포지 사출을 실행했습니다 · 서보 CH1 작동 결과를 확인하세요.";
       }else if(/^Ignition ended without stage-1 ARM release/i.test(message)){
         localizedMessage = "점화 종료 후에도 1단 ARM 해제가 감지되지 않았습니다 · 발사체에 접근하지 마세요.";
       }else{
@@ -162,6 +237,8 @@
           showMissionArmRiskWarning(eventStageId ? [eventStageId] : [1], "launch");
         }else if(!isReplaySample && rawTitle === "Launch validation fault"){
           showMissionArmRiskWarning(eventStageId ? [eventStageId] : [1], "thrust-validation");
+        }else if(!isReplaySample && rawTitle === "Stage-2 early apogee ignored"){
+          showStage2EarlyApogeeWarning();
         }
         // Replay alarms are reviewed from the explicit alarm toggle in the
         // playback dock. Live alarms remain immediate and intrusive.

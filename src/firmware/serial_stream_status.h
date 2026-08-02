@@ -1622,6 +1622,44 @@ void handleSerialLine(const char* line) {
     }
   }
 
+  if (cmd.startsWith("/stage2_force_eject") ||
+      cmd == "STAGE2_FORCE_EJECT") {
+    uint8_t targetNodeId = kFlashLinkNodeIdStage2;
+    String nodeRaw;
+    long parsed = 0;
+    if (getQueryValue(cmd, "node", nodeRaw)) {
+      if (!parseLongStrict(nodeRaw, parsed) ||
+          parsed != kFlashLinkNodeIdStage2) {
+        Serial.println("ERR STAGE2_FORCE_EJECT BAD_NODE");
+        return;
+      }
+      targetNodeId = (uint8_t)parsed;
+    }
+    if (forwardFlashLinkSerialCommand(
+          FlashLinkCommandCode::ForceStage2Ejection,
+          0,
+          0,
+          0,
+          true,
+          targetNodeId)) {
+      return;
+    }
+    FlashLinkCommandV1 command{};
+    command.code = static_cast<uint8_t>(FlashLinkCommandCode::ForceStage2Ejection);
+    int32_t detail = 0;
+    const FlashLinkCommandResult result = flashLinkExecuteCommand(command, detail);
+    if (result != FlashLinkCommandResult::Ok) {
+      Serial.printf(
+        "ERR STAGE2_FORCE_EJECT REJECTED result=%u\n",
+        (unsigned)result);
+      return;
+    }
+    Serial.printf(
+      "ACK STAGE2_FORCE_EJECT servo=1 angle=%ld\n",
+      (long)detail);
+    return;
+  }
+
   if (cmd == "/abort" || cmd == "ABORT") {
     if (forwardFlashLinkSerialCommand(
           FlashLinkCommandCode::Abort,

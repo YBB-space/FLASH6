@@ -1,10 +1,10 @@
 
 constexpr char kFirmwareProgram[] = "Altis_Intelligent3_firmware1";
-constexpr char kFirmwareVersion[] = "0.13.4";
-constexpr char kFirmwareBuildId[] = "v6 b82";
-constexpr uint16_t kFirmwareBuildNumber = 82;
+constexpr char kFirmwareVersion[] = "0.13.5";
+constexpr char kFirmwareBuildId[] = "v6 b83";
+constexpr uint16_t kFirmwareBuildNumber = 83;
 constexpr char kFirmwareBoard[] = "Altis_Intelligent3_b3";
-constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b15";
+constexpr char kFirmwareProtocol[] = "Flash6-Intelligent-b16";
 constexpr uint8_t kStorageProtocolVersion = 9;
 // Only formats explicitly verified by this build are decoded as native.
 // Expand this range only after replay compatibility has been validated.
@@ -748,6 +748,7 @@ enum class FlashLinkCommandCode : uint8_t {
   SetStage1EjectionAngleDeg = 34,
   SetStage2EjectionAngleDeg = 35,
   SetStorageLogging = 36,
+  ForceStage2Ejection = 37,
 };
 
 enum class FlashLinkCommandResult : uint8_t {

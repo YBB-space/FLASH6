@@ -4,6 +4,14 @@ uint8_t stationCount() {
   return WiFi.softAPgetStationNum();
 }
 
+// Implemented by flash_link_wifi.h, which is included after this header.
+// The local HTTP path uses the same guarded command executor as ESP-NOW and
+// USB serial so every transport enforces identical Stage-2 safety checks.
+FlashLinkCommandResult flashLinkExecuteCommand(
+  const FlashLinkCommandV1& command,
+  int32_t& detail
+);
+
 uint8_t stationCountCached() {
   const uint32_t now = millis();
   if (lastStationCacheMs == 0 || (uint32_t)(now - lastStationCacheMs) >= 250U) {
@@ -2849,6 +2857,38 @@ void setupRoutes() {
         sendText(request, 409, "application/json", "{\"ok\":0,\"err\":\"BUSY\"}");
         return;
     }
+  });
+
+  server.on("/stage2_force_eject", HTTP_GET, [](AsyncWebServerRequest* request) {
+    if (forwardFlashLinkHttpCommand(
+          request,
+          FlashLinkCommandCode::ForceStage2Ejection)) {
+      return;
+    }
+    FlashLinkCommandV1 command{};
+    command.code = static_cast<uint8_t>(FlashLinkCommandCode::ForceStage2Ejection);
+    int32_t detail = 0;
+    const FlashLinkCommandResult result = flashLinkExecuteCommand(command, detail);
+    if (result != FlashLinkCommandResult::Ok) {
+      const int status = result == FlashLinkCommandResult::SafetyMode
+        ? 403
+        : (result == FlashLinkCommandResult::PermissionDenied ? 409 : 409);
+      char json[112];
+      snprintf(
+        json,
+        sizeof(json),
+        "{\"ok\":0,\"err\":\"STAGE2_FORCE_EJECT_REJECTED\",\"result\":%u}",
+        (unsigned)result);
+      sendText(request, status, "application/json", json);
+      return;
+    }
+    char json[96];
+    snprintf(
+      json,
+      sizeof(json),
+      "{\"ok\":1,\"stage\":2,\"servo\":1,\"angle\":%ld}",
+      (long)detail);
+    sendText(request, 200, "application/json", json);
   });
 
   server.on("/abort", HTTP_GET, [](AsyncWebServerRequest* request) {

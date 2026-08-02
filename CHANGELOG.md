@@ -3,6 +3,31 @@
 Firmware, build, and wire-protocol version changes are recorded here in the
 same commit that changes the corresponding constants in `src/firmware/state.h`.
 
+## 0.13.5 — v6 b83 / guarded early-apogee operator ejection — 2026-08-02
+
+- 2단 단분리 후 8초 이전에 어포지 조건이 검출되어 자동 사출이 보류되면,
+  FLASH6에 전용 경고 모달을 표시하도록 추가했습니다.
+- 운영자가 실제 어포지 통과를 확인한 경우 모달에서 2단 `SERVO CH1` 강제
+  사출을 실행할 수 있습니다. 강제 명령은 2단 노드의 발사 시작, 홀센서 분리,
+  점화 완료, 조기 어포지 이벤트가 모두 확인된 경우에만 허용됩니다.
+- 강제 사출 명령을 USB Serial, HTTP 및 A.I LINK 중계 경로에 추가했으며,
+  안전 모드·비행 전·이미 사출된 상태의 명령은 거부합니다.
+- 서보 구동 실패는 명령 전송 실패로 오인하지 않고 별도의 미션 고장 알람과
+  `FAULT` 상태로 보고하도록 응답 의미를 분리했습니다.
+
+Protocol updated: `Flash6-Intelligent-b15` → `Flash6-Intelligent-b16`
+
+## FLASH6 UI b195 — 2026-08-02
+
+- 실시간 2단 조기 어포지 알람 수신 시 자동 사출 보류 상태, 백업 타이머 유지,
+  제어 대상을 한 화면에서 확인하는 경고 모달을 추가했습니다.
+- `백업 계속 대기`와 `2단 강제 사출`을 명확히 분리하고, 강제 명령 처리 중에는
+  중복 입력을 차단합니다. 리플레이에서는 실기체 제어 모달이 열리지 않습니다.
+
+Firmware: `0.13.5` (`v6 b83`)
+
+Protocol: `Flash6-Intelligent-b16`
+
 ## FLASH6 UI b194 — 2026-08-02
 
 - 상태바 34px 영역에 반투명 다크 글라스 배경과 하단 경계를 직접 적용해

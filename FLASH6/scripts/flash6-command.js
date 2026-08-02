@@ -166,6 +166,7 @@
         normalizedPath.startsWith("/set?arm_lock=") ||
         normalizedPath.startsWith("/set?storage_logging=") ||
         normalizedPath.startsWith("/set?flight_logging=") ||
+        normalizedPath.startsWith("/stage2_force_eject") ||
         normalizedPath.startsWith("/reset");
       if(lockoutLatched && !isLockoutBypassCmd && !isCoreConfigCmd){
         const name = relayMaskName(lockoutRelayMask);
@@ -183,6 +184,7 @@
         normalizedPath.startsWith("/force_ignite") ||
         normalizedPath.startsWith("/mission_standby") ||
         normalizedPath.startsWith("/mission_force_timed") ||
+        normalizedPath.startsWith("/stage2_force_eject") ||
         normalizedPath.startsWith("/pyro_test") ||
         normalizedPath.startsWith("/abort") ||
         normalizedPath.startsWith("/sequence_end");

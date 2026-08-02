@@ -411,6 +411,7 @@ bool flashLinkCommandIsUrgent(uint8_t code) {
          code == static_cast<uint8_t>(FlashLinkCommandCode::SequenceEnd) ||
          code == static_cast<uint8_t>(FlashLinkCommandCode::ForceIgnite) ||
          code == static_cast<uint8_t>(FlashLinkCommandCode::ForceTimedMission) ||
+         code == static_cast<uint8_t>(FlashLinkCommandCode::ForceStage2Ejection) ||
          code == static_cast<uint8_t>(FlashLinkCommandCode::MissionStandby) ||
          code == static_cast<uint8_t>(FlashLinkCommandCode::SetSafety) ||
          code == static_cast<uint8_t>(FlashLinkCommandCode::SetArmLock) ||
@@ -1080,6 +1081,21 @@ FlashLinkCommandResult flashLinkExecuteCommand(
           return FlashLinkCommandResult::Busy;
       }
     }
+
+    case FlashLinkCommandCode::ForceStage2Ejection:
+      if (safetyMode) return FlashLinkCommandResult::SafetyMode;
+      if (!missionIsStage2Node()) return FlashLinkCommandResult::Unsupported;
+      if (!launchMission.launchLatched ||
+          !launchMission.stage2ArmReleased ||
+          !launchMission.stage2Ignited ||
+          !launchMission.stage2EarlyApogeeIgnored) {
+        return FlashLinkCommandResult::PermissionDenied;
+      }
+      if (launchMission.stage2Ejected) return FlashLinkCommandResult::Busy;
+      detail = missionStage2EjectionAngleDeg;
+      return missionCommandStage2Ejection(nowMs, false, true)
+        ? FlashLinkCommandResult::Ok
+        : FlashLinkCommandResult::Busy;
 
     case FlashLinkCommandCode::Abort:
       abortSequenceRuntime(command.arg0 > 0 ? (uint8_t)command.arg0 : 1U);

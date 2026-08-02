@@ -448,6 +448,9 @@
       el.missionForceS1Action = document.getElementById("missionForceS1Action");
       el.missionForceS2Action = document.getElementById("missionForceS2Action");
       el.missionForceCancel = document.getElementById("missionForceCancel");
+      el.stage2EarlyApogeeOverlay = document.getElementById("stage2EarlyApogeeOverlay");
+      el.stage2EarlyApogeeWait = document.getElementById("stage2EarlyApogeeWait");
+      el.stage2EarlyApogeeEject = document.getElementById("stage2EarlyApogeeEject");
       updateMissionStandbyButtonUi();
       updateVirtualMissionButtonUi();
       el.forceBtn = document.getElementById("forceIgniteBtn");
@@ -1843,6 +1846,12 @@
         el.missionForceOverlay.addEventListener("click",(ev)=>{
           if(ev.target === el.missionForceOverlay) hideMissionForceConfirm();
         });
+      }
+      if(el.stage2EarlyApogeeWait){
+        el.stage2EarlyApogeeWait.addEventListener("click", hideStage2EarlyApogeeWarning);
+      }
+      if(el.stage2EarlyApogeeEject){
+        el.stage2EarlyApogeeEject.addEventListener("click", confirmStage2EarlyApogeeEjection);
       }
 
       if(el.abortBtn){

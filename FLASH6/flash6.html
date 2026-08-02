@@ -127,7 +127,7 @@
   <!-- Preload 축소: AP 모드/저메모리 환경에서 동시 요청 버스트를 줄임 -->
   <script>
     (function(){
-    var ASSET_VER = "20260802-statusbar-glass-b194-__FLASH6_DEPLOY_SHA__";
+    var ASSET_VER = "20260802-stage2-early-apogee-b195-__FLASH6_DEPLOY_SHA__";
       window.__flashBoot = window.__flashBoot || {jsReady:false,lastError:"",phase:"static_loader",version:ASSET_VER};
       var isLocalPreview = !!window.__flashBoot.localPreview;
       var beaconEnabled = (window.__flashBoot.beaconEnabled !== false);
@@ -365,7 +365,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="styles/flash6-app.css?v=20260802-statusbar-glass-b194-__FLASH6_DEPLOY_SHA__">
+  <link rel="stylesheet" href="styles/flash6-app.css?v=20260802-stage2-early-apogee-b195-__FLASH6_DEPLOY_SHA__">
 </head>
 <body>
   <!-- ✅ LOCKOUT 배경 오버레이 -->
@@ -2982,7 +2982,7 @@
                     <h2 id="fwProductTitle">FLASH6</h2>
                     <p>Flight telemetry, mission control and data acquisition.</p>
                   </div>
-                  <span class="fw-release-state">STABLE · B29</span>
+                  <span class="fw-release-state">STABLE · B83</span>
 
                   <dl class="fw-build-grid" aria-label="software build information">
                     <div>
@@ -2991,11 +2991,11 @@
                     </div>
                     <div>
                       <dt>BUILD ID</dt>
-                      <dd>v6 b42</dd>
+                      <dd>v6 b83</dd>
                     </div>
                     <div>
                       <dt>PROTOCOL</dt>
-                      <dd>Flash6-Intelligent-b8</dd>
+                      <dd>Flash6-Intelligent-b16</dd>
                     </div>
                   </dl>
                 </section>
@@ -3935,6 +3935,29 @@
       </div>
     </div>
 
+    <!-- 2단 조기 어포지 수동 사출 판단 -->
+    <div id="stage2EarlyApogeeOverlay" class="confirm-overlay stage2-early-apogee-overlay hidden" style="display:none;" aria-hidden="true">
+      <div class="confirm-dialog stage2-early-apogee-dialog" role="alertdialog" aria-modal="true" aria-labelledby="stage2EarlyApogeeTitle" aria-describedby="stage2EarlyApogeeText">
+        <div class="stage2-early-apogee-heading">
+          <span class="stage2-early-apogee-kicker">STAGE 2 · FLIGHT DECISION</span>
+          <div id="stage2EarlyApogeeTitle" class="confirm-title">조기 어포지를 감지했습니다</div>
+        </div>
+        <div id="stage2EarlyApogeeText" class="confirm-text">
+          단분리 후 8초 이전에 어포지 통과 조건이 검출되어 자동 사출을 보류했습니다.
+        </div>
+        <div class="stage2-early-apogee-status" aria-label="현재 자동 시퀀스 상태">
+          <div><span>자동 사출</span><strong>차단됨</strong></div>
+          <div><span>백업 사출</span><strong>계속 대기</strong></div>
+          <div><span>대상</span><strong>STAGE 2 · SERVO CH1</strong></div>
+        </div>
+        <div class="confirm-note">기체가 실제로 최고점을 통과했다고 판단되는 경우에만 강제 사출하세요. 실행 즉시 2단 사출 서보가 설정 각도로 이동합니다.</div>
+        <div class="confirm-actions stage2-early-apogee-actions">
+          <button id="stage2EarlyApogeeWait" class="confirm-cancel" type="button">백업 계속 대기</button>
+          <button id="stage2EarlyApogeeEject" class="stage2-early-apogee-eject" type="button">2단 강제 사출</button>
+        </div>
+      </div>
+    </div>
+
     <!-- 미션 시작 전 비행데이터 로깅 확인 모달 -->
     <div id="flightLoggingGuardOverlay" class="confirm-overlay flight-logging-guard-overlay hidden" style="display:none;" aria-hidden="true">
       <div class="confirm-dialog flight-logging-guard-dialog" role="alertdialog" aria-modal="true" aria-labelledby="flightLoggingGuardTitle" aria-describedby="flightLoggingGuardText">
@@ -4764,6 +4787,6 @@
     <button id="controlsOverlayClose" class="controls-overlay-close" type="button" aria-label="close">×</button>
     </div>
 
-  <script src="scripts/flash6-watchdog.js?v=20260802-statusbar-glass-b194-__FLASH6_DEPLOY_SHA__"></script>
+  <script src="scripts/flash6-watchdog.js?v=20260802-stage2-early-apogee-b195-__FLASH6_DEPLOY_SHA__"></script>
 </body>
 </html> 
