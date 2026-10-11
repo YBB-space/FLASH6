@@ -44,6 +44,8 @@ The ESP32 firmware exposes telemetry/control APIs, while this UI runs from the b
 - `scripts/flash6-bootstrap.js` - DOM binding and ordered application startup.
 - `scripts/flash6-watchdog.js` - boot failure guard and fallback connectivity
   probe.
+- `MISSION_DATA_ARCHITECTURE.html` - mission data ownership, chart series,
+  timestamp/sampling rules, and the future roll-control telemetry contract.
 - `styles/src/` - ordered stylesheet source layers.
 - `styles/flash6-app.css` - generated single-request application stylesheet. Run
   `node scripts/build-flash6-css.cjs` after editing a source layer.

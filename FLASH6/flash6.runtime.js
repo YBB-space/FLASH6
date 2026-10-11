@@ -7223,6 +7223,39 @@ function requestMobileMockup3dMesh(){
       return Number(num.toFixed(normalizeDecimalDigits(digits, 1)));
     }
 
+    function defaultRollControlParameters(){
+      return {
+        mode:"rate",
+        targetRate:0,
+        targetAngle:0,
+        kp:0,
+        ki:0,
+        kd:0,
+        integratorLimit:0,
+        derivativeLpfHz:10,
+        antiWindup:true,
+        gyroAxis:"x",
+        gyroSign:1,
+        gyroLpfHz:20,
+        maxDeflection:10,
+        deadband:0.2,
+        maxSlewRate:60,
+        activePhase:"boost_coast",
+        startDelayMs:500,
+        controlRateHz:100,
+        sensorTimeoutMs:100,
+        maxRollRate:720,
+        failsafe:"neutral",
+        channels:[
+          {enabled:true,direction:1,neutral:90},
+          {enabled:false,direction:1,neutral:90},
+          {enabled:false,direction:1,neutral:90},
+          {enabled:false,direction:1,neutral:90},
+          {enabled:false,direction:1,neutral:90}
+        ]
+      };
+    }
+
     function defaultSettings(){
       return {
         thrustUnit:"kgf",
@@ -7259,6 +7292,10 @@ function requestMobileMockup3dMesh(){
         serialRx: true,
         serialTx: true,
         muteMode: false,
+        rollControl: false,
+        selectedMission:"pioneer_i",
+        rollControlParams:defaultRollControlParameters(),
+        rollControlSavedAt:0,
         lang: "ko",
         theme: "dark"
       };
@@ -7314,6 +7351,21 @@ function requestMobileMockup3dMesh(){
         uiSettings.loadcellChartDigits = normalizeDecimalDigits(uiSettings.loadcellChartDigits, 3);
         uiSettings.storageExportDigits = normalizeDecimalDigits(uiSettings.storageExportDigits, 3);
         uiSettings.cameraEnabled = uiSettings.cameraEnabled === true;
+        uiSettings.rollControl = uiSettings.rollControl === true;
+        uiSettings.selectedMission = uiSettings.selectedMission === "remeet"
+          ? "remeet"
+          : "pioneer_i";
+        {
+          const rollDefaults = defaultRollControlParameters();
+          const savedRoll = uiSettings.rollControlParams && typeof uiSettings.rollControlParams === "object"
+            ? uiSettings.rollControlParams
+            : {};
+          uiSettings.rollControlParams = Object.assign({}, rollDefaults, savedRoll);
+          const savedChannels = Array.isArray(savedRoll.channels) ? savedRoll.channels : [];
+          uiSettings.rollControlParams.channels = rollDefaults.channels.map((channel, index)=>
+            Object.assign({}, channel, savedChannels[index] || {})
+          );
+        }
         uiSettings.gyroPreview = normalizeGyroPreviewMode(uiSettings.gyroPreview);
         uiSettings.flashLinkRole = normalizeFlashLinkRole(uiSettings.flashLinkRole);
         uiSettings.flashLinkNodeId = normalizeFlashLinkNodeId(uiSettings.flashLinkNodeId);
@@ -9256,6 +9308,17 @@ function requestMobileMockup3dMesh(){
 
     function applySettingsToUI(){
       if(!uiSettings) return;
+      const selectedMission = uiSettings.selectedMission === "remeet"
+        ? "remeet"
+        : "pioneer_i";
+      if(el.missionProfileSelect) el.missionProfileSelect.value = selectedMission;
+      if(el.pioneerMissionSettings) el.pioneerMissionSettings.hidden = selectedMission !== "pioneer_i";
+      if(el.remeetMissionSettings) el.remeetMissionSettings.hidden = selectedMission !== "remeet";
+      if(el.missionProfileDescription){
+        el.missionProfileDescription.innerHTML = selectedMission === "remeet"
+          ? "<b>REMEET</b><span>롤 제어 실증 미션 · 롤 제어 파라미터를 설정합니다.</span>"
+          : "<b>PIONEER I</b><span>기존 2단 비행 내장 미션 · 분리와 사출 시퀀스를 설정합니다.</span>";
+      }
       const thrustLabel = document.querySelector('[data-label="thrust-unit"]');
       const thrustBadge = document.querySelector('[data-badge="thrust-unit"]');
       const pressureBadge = document.querySelector('[data-badge="pressure-unit"]');
@@ -9366,6 +9429,32 @@ function requestMobileMockup3dMesh(){
       if(el.serialRxToggle) el.serialRxToggle.checked = uiSettings.serialRx !== false;
       if(el.serialTxToggle) el.serialTxToggle.checked = uiSettings.serialTx !== false;
       if(el.muteModeToggle) el.muteModeToggle.checked = !!uiSettings.muteMode;
+      if(el.rollControlToggle) el.rollControlToggle.checked = !!uiSettings.rollControl;
+      if(el.rollControlForm){
+        const params = uiSettings.rollControlParams || defaultRollControlParameters();
+        el.rollControlForm.querySelectorAll("[data-roll-setting]").forEach((field)=>{
+          const key = field.getAttribute("data-roll-setting");
+          if(!key || params[key] == null) return;
+          if(field.type === "checkbox") field.checked = !!params[key];
+          else field.value = String(params[key]);
+        });
+        el.rollControlForm.querySelectorAll("[data-roll-channel]").forEach((card,index)=>{
+          const channel = Array.isArray(params.channels) ? params.channels[index] : null;
+          if(!channel) return;
+          const enabled = card.querySelector('[data-field="enabled"]');
+          const direction = card.querySelector('[data-field="direction"]');
+          const neutral = card.querySelector('[data-field="neutral"]');
+          if(enabled) enabled.checked = !!channel.enabled;
+          if(direction) direction.value = String(Number(channel.direction) < 0 ? -1 : 1);
+          if(neutral) neutral.value = String(channel.neutral == null ? 90 : channel.neutral);
+        });
+        if(el.rollControlSaveStatus){
+          const savedAt = Number(uiSettings.rollControlSavedAt) || 0;
+          el.rollControlSaveStatus.textContent = savedAt
+            ? "UI 저장 · " + new Date(savedAt).toLocaleString()
+            : "기본값 · 아직 기체에 적용되지 않음";
+        }
+      }
       if(el.langSelect) el.langSelect.value = (uiSettings.lang === "en") ? "en" : "ko";
       if(el.themeToggle) el.themeToggle.checked = (uiSettings.theme === "dark");
       const displayMode = getDisplayOperationModeValue();
@@ -26465,6 +26554,15 @@ function requestMobileMockup3dMesh(){
           );
         }
         if(uiSettings){
+          const rollControlMatch = message.match(/\broll_control=(\d+)/i);
+          let changed = false;
+          if(rollControlMatch){
+            const enabled = Number(rollControlMatch[1]) !== 0;
+            if(uiSettings.rollControl !== enabled){
+              uiSettings.rollControl = enabled;
+              changed = true;
+            }
+          }
           const fields = [
             ["missionStage1SeparationBackupMs", "mission_s1_sep_backup_ms", 500, 15000],
             ["missionStage1EjectionDelayMs", "mission_s1_eject_delay_ms", 100, 10000],
@@ -26475,7 +26573,6 @@ function requestMobileMockup3dMesh(){
             ["missionStage1EjectionAngleDeg", "mission_s1_eject_angle_deg", 0, 180],
             ["missionStage2EjectionAngleDeg", "mission_s2_eject_angle_deg", 0, 180]
           ];
-          let changed = false;
           fields.forEach(([key, wire, min, max])=>{
             const match = message.match(new RegExp("\\b" + wire + "=(\\d+)", "i"));
             if(!match) return;
@@ -30807,7 +30904,13 @@ function requestMobileMockup3dMesh(){
       const configuredNode = Number(
         flashLinkUiNodeId || (uiSettings && uiSettings.flashLinkNodeId) || 1
       ) === 2 ? 2 : 1;
-      return ground ? (configuredDual ? [1, 2] : [1]) : [configuredNode];
+      if(!ground) return [configuredNode];
+      const configured = configuredDual ? [1, 2] : [1];
+      const connected = configured.filter((stageId)=>{
+        const stage = stageTelemetryStore && stageTelemetryStore[stageId];
+        return !!(stage && stage.connected && stage.valid !== false);
+      });
+      return connected.length ? connected : configured;
     }
 
     function getFlightDataLoggingStageSummary(expected){
@@ -41305,6 +41408,7 @@ function requestMobileMockup3dMesh(){
         normalizedPath.startsWith("/sequence_end") ||
         normalizedPath.startsWith("/set?safe=") ||
         normalizedPath.startsWith("/set?arm_lock=") ||
+        normalizedPath.startsWith("/set?roll_control=") ||
         normalizedPath.startsWith("/set?storage_logging=") ||
         normalizedPath.startsWith("/set?flight_logging=") ||
         normalizedPath.startsWith("/stage2_force_eject") ||
@@ -42460,6 +42564,15 @@ function requestMobileMockup3dMesh(){
       el.serialRxToggle = document.getElementById("serialRxToggle");
       el.serialTxToggle = document.getElementById("serialTxToggle");
       el.muteModeToggle = document.getElementById("muteModeToggle");
+      el.rollControlToggle = document.getElementById("rollControlToggle");
+      el.rollControlForm = document.getElementById("rollControlForm");
+      el.rollControlSaveBtn = document.getElementById("rollControlSaveBtn");
+      el.rollControlResetBtn = document.getElementById("rollControlResetBtn");
+      el.rollControlSaveStatus = document.getElementById("rollControlSaveStatus");
+      el.missionProfileSelect = document.getElementById("missionProfileSelect");
+      el.missionProfileDescription = document.getElementById("missionProfileDescription");
+      el.pioneerMissionSettings = document.getElementById("pioneerMissionSettings");
+      el.remeetMissionSettings = document.getElementById("remeetMissionSettings");
       el.serialStatus = document.getElementById("serialStatus");
       el.serialStatusText = document.getElementById("serialStatusText");
       el.hwBoardName = document.getElementById("hwBoardName");
@@ -43366,6 +43479,79 @@ function requestMobileMockup3dMesh(){
             "info",
             {key:"mute-mode-toggle"}
           );
+        });
+      }
+      if(el.rollControlToggle){
+        el.rollControlToggle.addEventListener("change",()=>{
+          const enabled = !!el.rollControlToggle.checked;
+          uiSettings.rollControl = enabled;
+          saveSettings();
+          sendCommand({
+            http:"/set?roll_control="+(enabled?1:0),
+            ser:"/set?roll_control="+(enabled?1:0)
+          }, true);
+          showToast(
+            enabled ? "롤 제어가 활성화되었습니다." : "롤 제어가 비활성화되었습니다.",
+            "info",
+            {key:"roll-control-toggle"}
+          );
+        });
+      }
+      if(el.missionProfileSelect){
+        el.missionProfileSelect.addEventListener("change",()=>{
+          const selectedMission = el.missionProfileSelect.value === "remeet"
+            ? "remeet"
+            : "pioneer_i";
+          uiSettings.selectedMission = selectedMission;
+          if(selectedMission === "pioneer_i" && uiSettings.rollControl){
+            uiSettings.rollControl = false;
+            sendCommand({http:"/set?roll_control=0", ser:"/set?roll_control=0"}, true);
+          }
+          saveSettings();
+          applySettingsToUI();
+          showToast(
+            selectedMission === "remeet" ? "REMEET 미션을 선택했습니다." : "PIONEER I 미션을 선택했습니다.",
+            "info",
+            {key:"mission-profile-select"}
+          );
+        });
+      }
+      if(el.rollControlForm){
+        el.rollControlForm.addEventListener("submit",(ev)=>{
+          ev.preventDefault();
+          if(!el.rollControlForm.reportValidity()) return;
+          const defaults = defaultRollControlParameters();
+          const params = Object.assign({}, defaults);
+          el.rollControlForm.querySelectorAll("[data-roll-setting]").forEach((field)=>{
+            const key = field.getAttribute("data-roll-setting");
+            if(!key) return;
+            if(field.type === "checkbox") params[key] = !!field.checked;
+            else if(typeof defaults[key] === "number") params[key] = Number(field.value);
+            else params[key] = String(field.value || "");
+          });
+          params.channels = Array.from(el.rollControlForm.querySelectorAll("[data-roll-channel]")).map((card)=>({
+            enabled:!!card.querySelector('[data-field="enabled"]')?.checked,
+            direction:Number(card.querySelector('[data-field="direction"]')?.value) < 0 ? -1 : 1,
+            neutral:Number(card.querySelector('[data-field="neutral"]')?.value)
+          }));
+          if(!params.channels.some((channel)=>channel.enabled)){
+            showToast("롤 제어 출력 채널을 하나 이상 선택하세요.", "warn", {key:"roll-control-channel"});
+            return;
+          }
+          uiSettings.rollControlParams = params;
+          uiSettings.rollControlSavedAt = Date.now();
+          saveSettings();
+          applySettingsToUI();
+          showToast("롤 제어 파라미터를 UI에 저장했습니다.", "success", {key:"roll-control-params"});
+        });
+      }
+      if(el.rollControlResetBtn){
+        el.rollControlResetBtn.addEventListener("click",()=>{
+          uiSettings.rollControlParams = defaultRollControlParameters();
+          uiSettings.rollControlSavedAt = 0;
+          saveSettings();
+          applySettingsToUI();
+          showToast("롤 제어 파라미터를 기본값으로 되돌렸습니다.", "info", {key:"roll-control-reset"});
         });
       }
       if(el.serialControlTile){

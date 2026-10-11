@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>롤 제어 알고리즘 설계</title>
+  <style>
+    html,body{background:#fff;color:#111}
+    body{max-width:900px;margin:0 auto;padding:46px 58px 70px;font-family:"Noto Serif KR","Nanum Myeongjo","Batang","Times New Roman",serif;font-size:11pt;line-height:1.75}
+    header{border-bottom:1.5px solid #111;padding-bottom:20px;margin-bottom:25px}
+    h1{text-align:center;font-size:21pt;line-height:1.35;margin:0 0 8px;font-weight:700}
+    h2{font-size:14.5pt;line-height:1.4;margin:2.1em 0 .65em;padding-bottom:4px;border-bottom:1px solid #777}
+    h3{font-size:12pt;margin:1.35em 0 .35em}
+    p{margin:.55em 0 1em;text-align:justify;word-break:keep-all}
+    table{width:100%;border-collapse:collapse;margin:12px 0 22px;font-size:9.8pt;line-height:1.5}
+    th,td{border:1px solid #555;padding:7px 9px;vertical-align:top;text-align:left}
+    th{background:#f4f4f4;font-weight:700}
+    figure{margin:22px 0 29px;text-align:center;break-inside:avoid;page-break-inside:avoid}
+    .diagram,.chart{display:block;width:100%;height:auto;border:1px solid #777;background:#fff}
+    .diagram{max-width:780px;margin-left:auto;margin-right:auto}
+    figcaption{font-size:9.7pt;line-height:1.5;margin:8px auto 0;max-width:94%;text-align:center}
+    .equation{border-top:1px solid #999;border-bottom:1px solid #999;padding:12px 10px;margin:13px 0 18px;text-align:center;font:12pt/1.9 "Times New Roman","Noto Serif KR",serif}
+    pre{white-space:pre-wrap;border:1px solid #777;background:#fff;padding:12px 14px;margin:13px 0 20px;font:9.5pt/1.6 "Courier New",monospace}
+    .note{border-left:3px solid #222;padding:7px 13px;margin:15px 0 20px}
+    .note p{margin:0;text-align:left}
+    .small{font-size:9.6pt;color:#444}
+    ol{margin:.35em 0 1.1em;padding-left:1.75em}
+    li{margin:.28em 0;padding-left:3px}
+    .source{font-size:9pt;color:#444;border-top:1px solid #888;padding-top:10px;margin-top:30px}
+    code{font-family:"Courier New",monospace;font-size:.88em}
+    @media(max-width:700px){body{padding:27px 18px 45px;font-size:10.5pt}h1{font-size:18pt}table{font-size:9pt}th,td{padding:6px}}
+    @media print{body{max-width:none;padding:0 0 20px}figure{page-break-inside:avoid}.diagram,.chart{border-color:#555}}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>롤 제어 알고리즘</h1>
+  </header>
+
+  <h2>1. 제어 루프 구조</h2>
+  <p>롤 제어기는 롤각을 천천히 정렬하는 외부 루프와 롤각속도를 빠르게 추종하는 내부 루프를 직렬로 연결한 캐스케이드 구조로 구성한다. 외부 루프의 출력은 내부 루프의 각속도 기준값이며, 내부 루프의 출력은 카나드 믹서를 거쳐 네 개의 조향각으로 변환된다. 비행체의 롤 응답은 다시 롤각 <code>φ</code>와 롤각속도 <code>p</code>로 측정되어 두 루프에 동시에 피드백된다.</p>
+  <figure>
+    <svg class="diagram" viewBox="0 0 1200 330" preserveAspectRatio="xMidYMid meet" role="img" aria-label="롤 캐스케이드 제어 블록도">
+      <defs><marker id="arr" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0 0L10 5L0 10z" fill="#222"/></marker></defs>
+      <g fill="#fff" stroke="#222" stroke-width="1.5">
+        <rect x="25" y="80" width="135" height="74"/><rect x="190" y="80" width="145" height="74"/><rect x="365" y="80" width="145" height="74"/><rect x="540" y="80" width="145" height="74"/><rect x="715" y="80" width="145" height="74"/><rect x="890" y="80" width="145" height="74"/><rect x="1065" y="80" width="110" height="74"/>
+      </g>
+      <g fill="none" stroke="#222" stroke-width="1.5" marker-end="url(#arr)">
+        <path d="M160 117h30"/><path d="M335 117h30"/><path d="M510 117h30"/><path d="M685 117h30"/><path d="M860 117h30"/><path d="M1035 117h30"/>
+        <path d="M1120 154v82H260v-82"/><path d="M610 236v30H260"/>
+      </g>
+      <g font-family="Times New Roman,serif" fill="#111" text-anchor="middle">
+        <text x="92" y="107" font-size="16" font-weight="700">롤 명령</text><text x="92" y="131" font-size="12">φ_cmd 또는 p_cmd</text>
+        <text x="262" y="107" font-size="16" font-weight="700">외부 루프</text><text x="262" y="131" font-size="12">eφ = φ_cmd − φ</text>
+        <text x="437" y="107" font-size="16" font-weight="700">각속도 기준</text><text x="437" y="131" font-size="12">p_cmd</text>
+        <text x="612" y="107" font-size="16" font-weight="700">내부 루프</text><text x="612" y="131" font-size="12">ep = p_cmd − p</text>
+        <text x="787" y="107" font-size="16" font-weight="700">PID 출력</text><text x="787" y="131" font-size="12">u ∈ [−1, +1]</text>
+        <text x="962" y="107" font-size="16" font-weight="700">카나드 믹서</text><text x="962" y="131" font-size="12">u → δ₁…δ₄</text>
+        <text x="1120" y="107" font-size="16" font-weight="700">비행체</text><text x="1120" y="131" font-size="12">롤 모멘트</text>
+        <text x="690" y="258" font-size="12">피드백: φ(자세 추정), p(자이로 gx)</text>
+        <text x="258" y="292" font-size="12">두 루프의 측정값 피드백</text>
+      </g>
+    </svg>
+    <figcaption>그림 1. 롤각 외부 루프와 롤각속도 내부 루프를 이용한 캐스케이드 구조.</figcaption>
+  </figure>
+
+  <h3>1.1 루프 신호 정의</h3>
+  <table><thead><tr><th>기호</th><th>신호</th><th>의미</th></tr></thead><tbody>
+    <tr><td><code>φ_cmd</code></td><td>롤각 명령</td><td>추종할 목표 롤각. 각도 명령을 사용하지 않는 경우 외부 루프를 생략한다.</td></tr>
+    <tr><td><code>φ</code></td><td>측정 롤각</td><td>자세 추정기가 계산한 +x축 기준 롤각.</td></tr>
+    <tr><td><code>p_cmd</code></td><td>롤각속도 기준</td><td>외부 루프가 생성하거나 상위 시스템이 직접 지정하는 목표 각속도.</td></tr>
+    <tr><td><code>p</code></td><td>측정 롤각속도</td><td>자이로 x축 각속도(<code>gx</code>)를 보정·필터링한 값.</td></tr>
+    <tr><td><code>eφ, ep</code></td><td>각도·각속도 오차</td><td>각 루프의 기준값과 측정값 차이.</td></tr>
+    <tr><td><code>u</code></td><td>정규화 제어출력</td><td>내부 PID 출력. 믹서 입력 범위는 −1에서 +1로 정의한다.</td></tr>
+    <tr><td><code>δ₁…δ₄</code></td><td>카나드 명령</td><td>믹서가 계산한 네 카나드의 최종 조향각.</td></tr>
+  </tbody></table>
+  <p>각 샘플에서 자세 추정값과 자이로값을 먼저 갱신한 뒤 외부 루프, 내부 루프, 믹서 순서로 계산한다. 따라서 내부 루프는 외부 루프보다 빠른 응답을 담당하고, 외부 루프는 내부 루프가 충분히 안정화된 범위에서만 천천히 기준값을 변경한다. 모든 신호는 동일한 제어 시간 간격 <code>Δt</code>를 기준으로 계산한다.</p>
+
+  <h2>2. 제어 법칙</h2>
+  <p>제어 법칙은 롤각 오차를 먼저 각속도 기준값으로 변환한 다음, 측정된 롤각속도가 그 기준값을 추종하도록 조향 명령을 계산하는 순서로 구성된다. 이와 같은 캐스케이드 구조를 사용하면 외부 루프는 목표 자세 정렬을 담당하고, 내부 루프는 공력 교란과 순간적인 회전 변화에 빠르게 대응할 수 있다.</p>
+  <h3>2.1 외부 롤각 루프</h3>
+  <div class="equation">e<sub>φ</sub>(k) = wrap(φ<sub>cmd</sub>(k) − φ(k))<br>p<sub>cmd</sub>(k) = sat(K<sub>φ</sub> e<sub>φ</sub>(k), −p<sub>max</sub>, +p<sub>max</sub>)</div>
+  <p><code>wrap()</code>은 오차를 −180°에서 +180° 범위로 접는다. 각도 명령을 사용하지 않고 각속도 명령을 직접 받는 모드에서는 외부 루프를 생략하고 <code>p_cmd</code>를 직접 사용한다.</p>
+
+  <h3>2.2 내부 롤각속도 PID</h3>
+  <div class="equation">e<sub>p</sub>(k) = p<sub>cmd</sub>(k) − p(k)<br>I(k) = I(k−1) + e<sub>p</sub>(k)Δt<br>u<sub>raw</sub>(k) = K<sub>p</sub>e<sub>p</sub>(k) + K<sub>i</sub>I(k) + K<sub>d</sub>[e<sub>p</sub>(k) − e<sub>p</sub>(k−1)]/Δt<br>u(k) = sat(u<sub>raw</sub>(k), −1, +1)</div>
+  <p>미분항은 측정 잡음에 민감하므로 실제 구현에서는 오차 미분 대신 저역통과 필터를 적용한 <code>p</code>의 미분을 사용하거나, 필터 시정수 <code>τ_d</code>를 명시한다. 적분항은 출력 포화 방향으로 더 진행하지 않도록 조건부 적분 또는 back-calculation anti-windup을 적용한다.</p>
+
+  <h3>2.3 카나드 믹서</h3>
+  <div class="equation">δ<sub>i</sub>(k) = sat(δ<sub>trim,i</sub> + m<sub>i</sub> G<sub>roll</sub> u(k), −δ<sub>max,i</sub>, +δ<sub>max,i</sub>)<br>i ∈ {1, 2, 3, 4}</div>
+  <p><code>m_i</code>는 각 카나드의 단위 조향이 +롤 모멘트에 기여하는 방향을 나타내는 믹서 부호이고, <code>G_roll</code>은 정규화 제어출력을 실제 조향각으로 변환하는 이득이다. 카나드 위치는 1번 45°, 2번 135°, 3번 225°, 4번 315°로 기록하되, <code>m_i</code>의 최종 부호는 형상 시험으로 확인한다.</p>
+
+  <h2>3. 카나드 배치와 롤 모멘트</h2>
+  <p>네 카나드의 조향각은 개별 핀의 공력 효과를 합산하여 동체 x축 주위 모멘트로 변환한다. 동압 <code>q</code>, 기준 면적 <code>S</code>, 기준 길이 <code>d</code>를 사용하면 전체 롤 모멘트는 다음과 같이 표현할 수 있다.</p>
+  <div class="equation">L<sub>x</sub> = q S d C<sub>l</sub> &nbsp;&nbsp;&nbsp; , &nbsp;&nbsp;&nbsp; ΔL<sub>x</sub> ≈ q S d Σ<sub>i=1</sub><sup>4</sup> C<sub>lδ,i</sub> δ<sub>i</sub></div>
+  <p>여기서 <code>C<sub>lδ,i</sub></code>는 i번 카나드의 단위 조향에 대한 롤 모멘트 계수이다. 믹서 벡터 <code>m = [m₁ m₂ m₃ m₄]<sup>T</sup></code>는 이 계수의 부호와 상대 크기를 반영하며, 서로 마주 보는 카나드는 반대 방향의 조향으로 순수 롤 모멘트를 만들고 다른 축 모멘트는 최소화하도록 구성한다.</p>
+  <figure>
+    <svg class="diagram" viewBox="0 30 700 400" preserveAspectRatio="xMidYMid meet" role="img" aria-label="대칭 카나드 배치와 롤 좌표계">
+      <defs><marker id="axis" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0 0L9 4.5L0 9z" fill="#222"/></marker></defs>
+      <circle cx="350" cy="215" r="145" fill="none" stroke="#777" stroke-width="1.2" stroke-dasharray="5 5"/>
+      <circle cx="350" cy="215" r="58" fill="#f7f7f7" stroke="#222" stroke-width="1.5"/>
+      <g fill="#fff" stroke="#222" stroke-width="1.5">
+        <g transform="translate(350 215) rotate(45)"><polygon points="58,-8 142,-4.5 142,4.5 58,8"/></g>
+        <g transform="translate(350 215) rotate(135)"><polygon points="58,-8 142,-4.5 142,4.5 58,8"/></g>
+        <g transform="translate(350 215) rotate(225)"><polygon points="58,-8 142,-4.5 142,4.5 58,8"/></g>
+        <g transform="translate(350 215) rotate(315)"><polygon points="58,-8 142,-4.5 142,4.5 58,8"/></g>
+      </g>
+      <g fill="none" stroke="#222" stroke-width="1.4" marker-end="url(#axis)"><path d="M350 215H555"/><path d="M350 215V395"/></g>
+      <g font-family="Times New Roman,serif" fill="#111" font-size="14"><text x="562" y="220">+y (오른쪽) · 0°</text><text x="360" y="414">+z (아래쪽)</text><text x="350" y="207" text-anchor="middle">⊙ +x</text><text x="350" y="232" text-anchor="middle" font-size="12">동체 단면</text><text x="470" y="320" font-weight="700">1번 · 45°</text><text x="170" y="320" font-weight="700">2번 · 135°</text><text x="170" y="112" font-weight="700">3번 · 225°</text><text x="470" y="112" font-weight="700">4번 · 315°</text></g>
+    </svg>
+    <figcaption>그림 2. +y를 0°로 하고 +z 방향으로 증가시키는 카나드 위치각과 롤 좌표계.</figcaption>
+  </figure>
+
+  <h2>4. 제어 루프 응답</h2>
+  <p>제어 루프의 입력 명령과 측정 롤각속도는 동일한 시간축에서 비교한다. 아래 응답은 캐스케이드 구조의 동작 관계를 설명하기 위한 개념도이며, 실제 결과에서는 시험 데이터를 사용한다.</p>
+  <figure>
+    <svg class="chart" viewBox="0 0 820 330" preserveAspectRatio="xMidYMid meet" role="img" aria-label="롤각속도 계단 응답 검증 차트 예시">
+      <g stroke="#d3d3d3" stroke-width="1"><path d="M78 48H770M78 108H770M78 168H770M78 228H770M78 288H770"/><path d="M178 32V288M278 32V288M378 32V288M478 32V288M578 32V288M678 32V288"/></g>
+      <path d="M78 30V288H770" fill="none" stroke="#222" stroke-width="1.5"/><path d="M378 30V288" fill="none" stroke="#555" stroke-dasharray="6 5"/>
+      <path d="M78 228H178V108H278V168H378V138H478V150H578V144H678V150H770" fill="none" stroke="#1d4ed8" stroke-width="3"/>
+      <path d="M78 228C125 228 150 218 178 182S230 119 278 158S326 174 378 145S430 133 478 151S530 151 578 145S635 146 678 148S730 149 770 149" fill="none" stroke="#111" stroke-width="3"/>
+      <g font-family="Times New Roman,serif" fill="#111" font-size="12"><text x="26" y="52">+120</text><text x="46" y="172">0</text><text x="24" y="292">−120</text><text x="70" y="312">T+0 s</text><text x="744" y="312">T+8 s</text><text x="355" y="22">명령 계단</text><text x="88" y="23">p (deg/s)</text><line x1="585" y1="23" x2="607" y2="23" stroke="#1d4ed8" stroke-width="3"/><text x="613" y="27">명령</text><line x1="665" y1="23" x2="687" y2="23" stroke="#111" stroke-width="3"/><text x="693" y="27">측정</text></g>
+    </svg>
+    <figcaption>그림 3. 롤각속도 계단 입력에 대한 명령·측정 응답 예시. 실제 논문에는 시험 원본을 사용한다.</figcaption>
+  </figure>
+</body>
+</html>

@@ -168,6 +168,39 @@
       return Number(num.toFixed(normalizeDecimalDigits(digits, 1)));
     }
 
+    function defaultRollControlParameters(){
+      return {
+        mode:"rate",
+        targetRate:0,
+        targetAngle:0,
+        kp:0,
+        ki:0,
+        kd:0,
+        integratorLimit:0,
+        derivativeLpfHz:10,
+        antiWindup:true,
+        gyroAxis:"x",
+        gyroSign:1,
+        gyroLpfHz:20,
+        maxDeflection:10,
+        deadband:0.2,
+        maxSlewRate:60,
+        activePhase:"boost_coast",
+        startDelayMs:500,
+        controlRateHz:100,
+        sensorTimeoutMs:100,
+        maxRollRate:720,
+        failsafe:"neutral",
+        channels:[
+          {enabled:true,direction:1,neutral:90},
+          {enabled:false,direction:1,neutral:90},
+          {enabled:false,direction:1,neutral:90},
+          {enabled:false,direction:1,neutral:90},
+          {enabled:false,direction:1,neutral:90}
+        ]
+      };
+    }
+
     function defaultSettings(){
       return {
         thrustUnit:"kgf",
@@ -204,6 +237,10 @@
         serialRx: true,
         serialTx: true,
         muteMode: false,
+        rollControl: false,
+        selectedMission:"pioneer_i",
+        rollControlParams:defaultRollControlParameters(),
+        rollControlSavedAt:0,
         lang: "ko",
         theme: "dark"
       };
@@ -259,6 +296,21 @@
         uiSettings.loadcellChartDigits = normalizeDecimalDigits(uiSettings.loadcellChartDigits, 3);
         uiSettings.storageExportDigits = normalizeDecimalDigits(uiSettings.storageExportDigits, 3);
         uiSettings.cameraEnabled = uiSettings.cameraEnabled === true;
+        uiSettings.rollControl = uiSettings.rollControl === true;
+        uiSettings.selectedMission = uiSettings.selectedMission === "remeet"
+          ? "remeet"
+          : "pioneer_i";
+        {
+          const rollDefaults = defaultRollControlParameters();
+          const savedRoll = uiSettings.rollControlParams && typeof uiSettings.rollControlParams === "object"
+            ? uiSettings.rollControlParams
+            : {};
+          uiSettings.rollControlParams = Object.assign({}, rollDefaults, savedRoll);
+          const savedChannels = Array.isArray(savedRoll.channels) ? savedRoll.channels : [];
+          uiSettings.rollControlParams.channels = rollDefaults.channels.map((channel, index)=>
+            Object.assign({}, channel, savedChannels[index] || {})
+          );
+        }
         uiSettings.gyroPreview = normalizeGyroPreviewMode(uiSettings.gyroPreview);
         uiSettings.flashLinkRole = normalizeFlashLinkRole(uiSettings.flashLinkRole);
         uiSettings.flashLinkNodeId = normalizeFlashLinkNodeId(uiSettings.flashLinkNodeId);
@@ -2201,6 +2253,17 @@
 
     function applySettingsToUI(){
       if(!uiSettings) return;
+      const selectedMission = uiSettings.selectedMission === "remeet"
+        ? "remeet"
+        : "pioneer_i";
+      if(el.missionProfileSelect) el.missionProfileSelect.value = selectedMission;
+      if(el.pioneerMissionSettings) el.pioneerMissionSettings.hidden = selectedMission !== "pioneer_i";
+      if(el.remeetMissionSettings) el.remeetMissionSettings.hidden = selectedMission !== "remeet";
+      if(el.missionProfileDescription){
+        el.missionProfileDescription.innerHTML = selectedMission === "remeet"
+          ? "<b>REMEET</b><span>롤 제어 실증 미션 · 롤 제어 파라미터를 설정합니다.</span>"
+          : "<b>PIONEER I</b><span>기존 2단 비행 내장 미션 · 분리와 사출 시퀀스를 설정합니다.</span>";
+      }
       const thrustLabel = document.querySelector('[data-label="thrust-unit"]');
       const thrustBadge = document.querySelector('[data-badge="thrust-unit"]');
       const pressureBadge = document.querySelector('[data-badge="pressure-unit"]');
@@ -2311,6 +2374,32 @@
       if(el.serialRxToggle) el.serialRxToggle.checked = uiSettings.serialRx !== false;
       if(el.serialTxToggle) el.serialTxToggle.checked = uiSettings.serialTx !== false;
       if(el.muteModeToggle) el.muteModeToggle.checked = !!uiSettings.muteMode;
+      if(el.rollControlToggle) el.rollControlToggle.checked = !!uiSettings.rollControl;
+      if(el.rollControlForm){
+        const params = uiSettings.rollControlParams || defaultRollControlParameters();
+        el.rollControlForm.querySelectorAll("[data-roll-setting]").forEach((field)=>{
+          const key = field.getAttribute("data-roll-setting");
+          if(!key || params[key] == null) return;
+          if(field.type === "checkbox") field.checked = !!params[key];
+          else field.value = String(params[key]);
+        });
+        el.rollControlForm.querySelectorAll("[data-roll-channel]").forEach((card,index)=>{
+          const channel = Array.isArray(params.channels) ? params.channels[index] : null;
+          if(!channel) return;
+          const enabled = card.querySelector('[data-field="enabled"]');
+          const direction = card.querySelector('[data-field="direction"]');
+          const neutral = card.querySelector('[data-field="neutral"]');
+          if(enabled) enabled.checked = !!channel.enabled;
+          if(direction) direction.value = String(Number(channel.direction) < 0 ? -1 : 1);
+          if(neutral) neutral.value = String(channel.neutral == null ? 90 : channel.neutral);
+        });
+        if(el.rollControlSaveStatus){
+          const savedAt = Number(uiSettings.rollControlSavedAt) || 0;
+          el.rollControlSaveStatus.textContent = savedAt
+            ? "UI 저장 · " + new Date(savedAt).toLocaleString()
+            : "기본값 · 아직 기체에 적용되지 않음";
+        }
+      }
       if(el.langSelect) el.langSelect.value = (uiSettings.lang === "en") ? "en" : "ko";
       if(el.themeToggle) el.themeToggle.checked = (uiSettings.theme === "dark");
       const displayMode = getDisplayOperationModeValue();

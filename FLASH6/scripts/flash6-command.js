@@ -164,6 +164,7 @@
         normalizedPath.startsWith("/sequence_end") ||
         normalizedPath.startsWith("/set?safe=") ||
         normalizedPath.startsWith("/set?arm_lock=") ||
+        normalizedPath.startsWith("/set?roll_control=") ||
         normalizedPath.startsWith("/set?storage_logging=") ||
         normalizedPath.startsWith("/set?flight_logging=") ||
         normalizedPath.startsWith("/stage2_force_eject") ||

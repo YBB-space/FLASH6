@@ -831,6 +831,15 @@
       el.serialRxToggle = document.getElementById("serialRxToggle");
       el.serialTxToggle = document.getElementById("serialTxToggle");
       el.muteModeToggle = document.getElementById("muteModeToggle");
+      el.rollControlToggle = document.getElementById("rollControlToggle");
+      el.rollControlForm = document.getElementById("rollControlForm");
+      el.rollControlSaveBtn = document.getElementById("rollControlSaveBtn");
+      el.rollControlResetBtn = document.getElementById("rollControlResetBtn");
+      el.rollControlSaveStatus = document.getElementById("rollControlSaveStatus");
+      el.missionProfileSelect = document.getElementById("missionProfileSelect");
+      el.missionProfileDescription = document.getElementById("missionProfileDescription");
+      el.pioneerMissionSettings = document.getElementById("pioneerMissionSettings");
+      el.remeetMissionSettings = document.getElementById("remeetMissionSettings");
       el.serialStatus = document.getElementById("serialStatus");
       el.serialStatusText = document.getElementById("serialStatusText");
       el.hwBoardName = document.getElementById("hwBoardName");
@@ -1737,6 +1746,79 @@
             "info",
             {key:"mute-mode-toggle"}
           );
+        });
+      }
+      if(el.rollControlToggle){
+        el.rollControlToggle.addEventListener("change",()=>{
+          const enabled = !!el.rollControlToggle.checked;
+          uiSettings.rollControl = enabled;
+          saveSettings();
+          sendCommand({
+            http:"/set?roll_control="+(enabled?1:0),
+            ser:"/set?roll_control="+(enabled?1:0)
+          }, true);
+          showToast(
+            enabled ? "롤 제어가 활성화되었습니다." : "롤 제어가 비활성화되었습니다.",
+            "info",
+            {key:"roll-control-toggle"}
+          );
+        });
+      }
+      if(el.missionProfileSelect){
+        el.missionProfileSelect.addEventListener("change",()=>{
+          const selectedMission = el.missionProfileSelect.value === "remeet"
+            ? "remeet"
+            : "pioneer_i";
+          uiSettings.selectedMission = selectedMission;
+          if(selectedMission === "pioneer_i" && uiSettings.rollControl){
+            uiSettings.rollControl = false;
+            sendCommand({http:"/set?roll_control=0", ser:"/set?roll_control=0"}, true);
+          }
+          saveSettings();
+          applySettingsToUI();
+          showToast(
+            selectedMission === "remeet" ? "REMEET 미션을 선택했습니다." : "PIONEER I 미션을 선택했습니다.",
+            "info",
+            {key:"mission-profile-select"}
+          );
+        });
+      }
+      if(el.rollControlForm){
+        el.rollControlForm.addEventListener("submit",(ev)=>{
+          ev.preventDefault();
+          if(!el.rollControlForm.reportValidity()) return;
+          const defaults = defaultRollControlParameters();
+          const params = Object.assign({}, defaults);
+          el.rollControlForm.querySelectorAll("[data-roll-setting]").forEach((field)=>{
+            const key = field.getAttribute("data-roll-setting");
+            if(!key) return;
+            if(field.type === "checkbox") params[key] = !!field.checked;
+            else if(typeof defaults[key] === "number") params[key] = Number(field.value);
+            else params[key] = String(field.value || "");
+          });
+          params.channels = Array.from(el.rollControlForm.querySelectorAll("[data-roll-channel]")).map((card)=>({
+            enabled:!!card.querySelector('[data-field="enabled"]')?.checked,
+            direction:Number(card.querySelector('[data-field="direction"]')?.value) < 0 ? -1 : 1,
+            neutral:Number(card.querySelector('[data-field="neutral"]')?.value)
+          }));
+          if(!params.channels.some((channel)=>channel.enabled)){
+            showToast("롤 제어 출력 채널을 하나 이상 선택하세요.", "warn", {key:"roll-control-channel"});
+            return;
+          }
+          uiSettings.rollControlParams = params;
+          uiSettings.rollControlSavedAt = Date.now();
+          saveSettings();
+          applySettingsToUI();
+          showToast("롤 제어 파라미터를 UI에 저장했습니다.", "success", {key:"roll-control-params"});
+        });
+      }
+      if(el.rollControlResetBtn){
+        el.rollControlResetBtn.addEventListener("click",()=>{
+          uiSettings.rollControlParams = defaultRollControlParameters();
+          uiSettings.rollControlSavedAt = 0;
+          saveSettings();
+          applySettingsToUI();
+          showToast("롤 제어 파라미터를 기본값으로 되돌렸습니다.", "info", {key:"roll-control-reset"});
         });
       }
       if(el.serialControlTile){

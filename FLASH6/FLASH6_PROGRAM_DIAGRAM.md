@@ -66,6 +66,25 @@ flowchart TD
   WsClients --> UIRender["UI update + charts + status pills"]
 ```
 
+## 2.1) Chart and mission-data architecture
+
+The chart contract and future roll-control series are documented in
+[`MISSION_DATA_ARCHITECTURE.html`](MISSION_DATA_ARCHITECTURE.html). In short, charts
+consume the normalized telemetry store; they do not read sensors or issue control
+commands directly.
+
+```mermaid
+flowchart TD
+  Raw["SampleSnap / flight log"] --> Normalize["flash6-telemetry.js\nnormalize + derive"]
+  Normalize --> Store["telemetryStore\nordered timestamped samples"]
+  Store --> LiveChart["Live chart renderer"]
+  Store --> ReplayChart["Replay / export renderer"]
+  Normalize --> Events["phase + mission events"]
+  Events --> LiveChart
+  Events --> ReplayChart
+  Roll["roll_control.*\noptional series"] --> Normalize
+```
+
 ## 3) Command / Control Path
 
 ```mermaid

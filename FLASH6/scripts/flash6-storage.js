@@ -750,7 +750,13 @@
       const configuredNode = Number(
         flashLinkUiNodeId || (uiSettings && uiSettings.flashLinkNodeId) || 1
       ) === 2 ? 2 : 1;
-      return ground ? (configuredDual ? [1, 2] : [1]) : [configuredNode];
+      if(!ground) return [configuredNode];
+      const configured = configuredDual ? [1, 2] : [1];
+      const connected = configured.filter((stageId)=>{
+        const stage = stageTelemetryStore && stageTelemetryStore[stageId];
+        return !!(stage && stage.connected && stage.valid !== false);
+      });
+      return connected.length ? connected : configured;
     }
 
     function getFlightDataLoggingStageSummary(expected){

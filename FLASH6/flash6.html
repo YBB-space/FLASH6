@@ -127,7 +127,7 @@
   <!-- Preload 축소: AP 모드/저메모리 환경에서 동시 요청 버스트를 줄임 -->
   <script>
     (function(){
-    var ASSET_VER = "20260802-storage-state-sync-b218-__FLASH6_DEPLOY_SHA__";
+    var ASSET_VER = "20260802-logging-route-b219-__FLASH6_DEPLOY_SHA__";
       window.__flashBoot = window.__flashBoot || {jsReady:false,lastError:"",phase:"static_loader",version:ASSET_VER};
       var isLocalPreview = !!window.__flashBoot.localPreview;
       var beaconEnabled = (window.__flashBoot.beaconEnabled !== false);
@@ -365,7 +365,7 @@
       }
     })();
   </script>
-  <link rel="stylesheet" href="styles/flash6-app.css?v=20260802-storage-state-sync-b218-__FLASH6_DEPLOY_SHA__">
+  <link rel="stylesheet" href="styles/flash6-app.css?v=20260802-logging-route-b219-__FLASH6_DEPLOY_SHA__">
 </head>
 <body>
   <!-- ✅ LOCKOUT 배경 오버레이 -->
@@ -2424,7 +2424,7 @@
               <button class="mobile-settings-home-btn" type="button" data-settings-mobile-target="connect" data-settings-mobile-title="하드웨어"><span>하드웨어</span><i>›</i></button>
               <button class="mobile-settings-home-btn" type="button" data-settings-mobile-target="communication" data-settings-mobile-title="통신"><span>통신</span><i>›</i></button>
               <button class="mobile-settings-home-btn" type="button" data-settings-mobile-target="units" data-settings-mobile-title="인터페이스"><span>인터페이스</span><i>›</i></button>
-              <button class="mobile-settings-home-btn" type="button" data-settings-mobile-target="sequence" data-settings-mobile-title="시퀀스"><span>시퀀스</span><i>›</i></button>
+              <button class="mobile-settings-home-btn" type="button" data-settings-mobile-target="sequence" data-settings-mobile-title="미션"><span>미션</span><i>›</i></button>
             </div>
             <div class="mobile-settings-menu-card">
               <button class="mobile-settings-home-btn" type="button" data-settings-mobile-target="safety" data-settings-mobile-title="안전"><span>안전</span><i>›</i></button>
@@ -2438,7 +2438,7 @@
             <button class="settings-nav-btn active" data-target="connect"><span data-i18n="settingsNavConnect">하드웨어</span><span class="settings-nav-badge">Hardware</span></button>
             <button class="settings-nav-btn" data-target="communication"><span data-i18n="settingsNavCommunication">통신</span><span class="settings-nav-badge">LINK</span></button>
             <button class="settings-nav-btn" data-target="units"><span data-i18n="settingsNavInterface">인터페이스</span><span class="settings-nav-badge">Interface</span></button>
-            <button class="settings-nav-btn" data-target="sequence"><span data-i18n="settingsNavSequence">시퀀스</span><span class="settings-nav-badge">Sequence</span></button>
+            <button class="settings-nav-btn" data-target="sequence"><span data-i18n="settingsNavSequence">미션</span><span class="settings-nav-badge">Mission</span></button>
             <button class="settings-nav-btn" data-target="safety"><span data-i18n="settingsNavSafety">SAFETY</span><span class="settings-nav-badge">Safety</span></button>
             <button class="settings-nav-btn" data-target="fw"><span data-i18n="settingsNavInfo">정보</span><span class="settings-nav-badge">Info</span></button>
           </nav>
@@ -2863,8 +2863,115 @@
 
             </div>
 
-            <!-- SEQUENCE -->
+            <!-- MISSION -->
             <div class="settings-panel" data-panel="sequence">
+              <div class="settings-group mission-selector-settings">
+                <div class="settings-group-title">미션 지정</div>
+                <div class="settings-row">
+                  <div>
+                    <div class="settings-label">활성 미션</div>
+                    <div class="hint-mini">미션을 선택하면 해당 미션의 내장 설정만 표시됩니다.</div>
+                  </div>
+                  <select id="missionProfileSelect" class="settings-select" aria-label="활성 미션 선택">
+                    <option value="pioneer_i">PIONEER I</option>
+                    <option value="remeet">REMEET</option>
+                  </select>
+                </div>
+                <div id="missionProfileDescription" class="mission-profile-description"></div>
+              </div>
+
+              <div id="remeetMissionSettings" class="mission-config-panel" data-mission-config="remeet" hidden>
+              <div class="settings-group roll-control-settings">
+                <div class="settings-group-title">
+                  <span>롤 제어</span>
+                  <span class="settings-nav-badge">ROLL CONTROL</span>
+                </div>
+                <div class="settings-row">
+                  <div>
+                    <div class="settings-label">롤 제어 활성화</div>
+                    <div class="hint-mini">기본값은 꺼짐입니다. 활성화 전 센서 축, 출력 방향과 제한값을 지상 시험으로 확인하세요.</div>
+                  </div>
+                  <label class="switch">
+                    <input type="checkbox" id="rollControlToggle">
+                    <span class="slider"></span>
+                  </label>
+                </div>
+                <form id="rollControlForm" class="roll-control-form">
+                  <div class="settings-row">
+                    <div><div class="settings-label">제어 방식</div><div class="hint-mini">RATE는 롤 각속도, ANGLE은 롤 자세를 추종합니다.</div></div>
+                    <select class="settings-select" data-roll-setting="mode">
+                      <option value="rate">RATE · 각속도</option>
+                      <option value="angle">ANGLE · 각도</option>
+                    </select>
+                  </div>
+                  <div class="roll-control-summary-grid">
+                    <label><span>목표 롤 각속도</span><div><input type="number" min="-2000" max="2000" step="1" data-roll-setting="targetRate"><i>deg/s</i></div></label>
+                    <label><span>목표 롤 각도</span><div><input type="number" min="-180" max="180" step="0.1" data-roll-setting="targetAngle"><i>deg</i></div></label>
+                  </div>
+
+                  <details class="roll-control-section" open>
+                    <summary><span>제어기</span><small>PID · 적분 · 필터</small></summary>
+                    <div class="roll-control-summary-grid roll-control-grid-3">
+                      <label><span>Kp</span><div><input type="number" min="0" max="1000" step="0.001" data-roll-setting="kp"></div></label>
+                      <label><span>Ki</span><div><input type="number" min="0" max="1000" step="0.001" data-roll-setting="ki"></div></label>
+                      <label><span>Kd</span><div><input type="number" min="0" max="1000" step="0.001" data-roll-setting="kd"></div></label>
+                      <label><span>적분기 제한</span><div><input type="number" min="0" max="180" step="0.1" data-roll-setting="integratorLimit"><i>deg</i></div></label>
+                      <label><span>D항 LPF</span><div><input type="number" min="0" max="100" step="0.1" data-roll-setting="derivativeLpfHz"><i>Hz</i></div></label>
+                      <label class="roll-control-check"><span>Anti-windup</span><input type="checkbox" data-roll-setting="antiWindup"></label>
+                    </div>
+                  </details>
+
+                  <details class="roll-control-section">
+                    <summary><span>센서와 출력</span><small>자이로 축 · PWM 채널 · 기구 방향</small></summary>
+                    <div class="roll-control-summary-grid roll-control-grid-3">
+                      <label><span>롤 자이로 축</span><select data-roll-setting="gyroAxis"><option value="x">GYRO X</option><option value="y">GYRO Y</option><option value="z">GYRO Z</option></select></label>
+                      <label><span>센서 부호</span><select data-roll-setting="gyroSign"><option value="1">+1 · 그대로</option><option value="-1">−1 · 반전</option></select></label>
+                      <label><span>자이로 LPF</span><div><input type="number" min="0" max="200" step="1" data-roll-setting="gyroLpfHz"><i>Hz</i></div></label>
+                      <label><span>최대 조향각</span><div><input type="number" min="0" max="90" step="0.1" data-roll-setting="maxDeflection"><i>deg</i></div></label>
+                      <label><span>출력 데드밴드</span><div><input type="number" min="0" max="10" step="0.1" data-roll-setting="deadband"><i>deg</i></div></label>
+                      <label><span>최대 조향 속도</span><div><input type="number" min="1" max="1000" step="1" data-roll-setting="maxSlewRate"><i>deg/s</i></div></label>
+                    </div>
+                    <div class="roll-control-subtitle">출력 채널</div>
+                    <div class="roll-control-channel-grid">
+                      <div class="roll-channel-card" data-roll-channel="1"><label><input type="checkbox" data-field="enabled"><b>PWM1</b></label><select data-field="direction" aria-label="PWM1 direction"><option value="1">+1</option><option value="-1">−1</option></select><div><input type="number" min="0" max="180" step="1" data-field="neutral" aria-label="PWM1 neutral"><i>°</i></div></div>
+                      <div class="roll-channel-card" data-roll-channel="2"><label><input type="checkbox" data-field="enabled"><b>PWM2</b></label><select data-field="direction" aria-label="PWM2 direction"><option value="1">+1</option><option value="-1">−1</option></select><div><input type="number" min="0" max="180" step="1" data-field="neutral" aria-label="PWM2 neutral"><i>°</i></div></div>
+                      <div class="roll-channel-card" data-roll-channel="3"><label><input type="checkbox" data-field="enabled"><b>PWM3</b></label><select data-field="direction" aria-label="PWM3 direction"><option value="1">+1</option><option value="-1">−1</option></select><div><input type="number" min="0" max="180" step="1" data-field="neutral" aria-label="PWM3 neutral"><i>°</i></div></div>
+                      <div class="roll-channel-card" data-roll-channel="4"><label><input type="checkbox" data-field="enabled"><b>PWM4</b></label><select data-field="direction" aria-label="PWM4 direction"><option value="1">+1</option><option value="-1">−1</option></select><div><input type="number" min="0" max="180" step="1" data-field="neutral" aria-label="PWM4 neutral"><i>°</i></div></div>
+                      <div class="roll-channel-card" data-roll-channel="5"><label><input type="checkbox" data-field="enabled"><b>PWM5</b></label><select data-field="direction" aria-label="PWM5 direction"><option value="1">+1</option><option value="-1">−1</option></select><div><input type="number" min="0" max="180" step="1" data-field="neutral" aria-label="PWM5 neutral"><i>°</i></div></div>
+                    </div>
+                    <div class="hint-mini roll-control-channel-hint">채널별 활성화 · 출력 부호 · PWM 중립각 순서입니다.</div>
+                  </details>
+
+                  <details class="roll-control-section">
+                    <summary><span>작동 조건과 안전 제한</span><small>비행 구간 · 제어 주기 · 페일세이프</small></summary>
+                    <div class="roll-control-summary-grid roll-control-grid-3">
+                      <label><span>활성 비행 구간</span><select data-roll-setting="activePhase"><option value="boost">동력 비행</option><option value="coast">코스팅</option><option value="boost_coast">동력 비행 + 코스팅</option><option value="flight">비행 전체</option></select></label>
+                      <label><span>발사 후 시작 지연</span><div><input type="number" min="0" max="30000" step="10" data-roll-setting="startDelayMs"><i>ms</i></div></label>
+                      <label><span>제어 주기</span><div><input type="number" min="10" max="500" step="10" data-roll-setting="controlRateHz"><i>Hz</i></div></label>
+                      <label><span>센서 타임아웃</span><div><input type="number" min="10" max="2000" step="10" data-roll-setting="sensorTimeoutMs"><i>ms</i></div></label>
+                      <label><span>최대 허용 롤속도</span><div><input type="number" min="1" max="5000" step="10" data-roll-setting="maxRollRate"><i>deg/s</i></div></label>
+                      <label><span>이상 시 출력</span><select data-roll-setting="failsafe"><option value="neutral">즉시 중립</option><option value="hold">마지막 출력 유지</option><option value="disable">PWM 출력 해제</option></select></label>
+                    </div>
+                  </details>
+                  <div class="roll-control-actions">
+                    <span id="rollControlSaveStatus" class="settings-desc">기본값 · 아직 기체에 적용되지 않음</span>
+                    <div><button id="rollControlResetBtn" class="settings-btn" type="button">기본값</button><button id="rollControlSaveBtn" class="settings-btn" type="submit">파라미터 저장</button></div>
+                  </div>
+                </form>
+              </div>
+
+              <div class="settings-group mission-timing-settings mission-settings-empty">
+                <div class="settings-group-title">내장 미션 설정</div>
+                <div class="mission-empty-state">
+                  <b>REMEET 내장 미션 설정</b>
+                  <span>미션 파라미터가 아직 정의되지 않았습니다.</span>
+                </div>
+              </div>
+
+              </div>
+
+              <div id="pioneerMissionSettings" class="mission-config-panel" data-mission-config="pioneer_i">
+
               <div class="settings-group">
                 <div class="settings-group-title" data-i18n="settingsGroupSequence">점화 시퀀스</div>
                 <div class="settings-row">
@@ -2949,6 +3056,8 @@
                 </div>
                 <button id="missionTimingSave" class="settings-btn" type="button">미션 설정 저장</button>
               </div>
+
+              </div>
             </div>
 
             <!-- SAFETY -->
@@ -3021,7 +3130,7 @@
                     </div>
                     <div>
                       <dt>BUILD ID</dt>
-                      <dd>v6 b83</dd>
+                      <dd>v6 b84</dd>
                     </div>
                     <div>
                       <dt>PROTOCOL</dt>
@@ -4817,6 +4926,6 @@
     <button id="controlsOverlayClose" class="controls-overlay-close" type="button" aria-label="close">×</button>
     </div>
 
-  <script src="scripts/flash6-watchdog.js?v=20260802-storage-state-sync-b218-__FLASH6_DEPLOY_SHA__"></script>
+  <script src="scripts/flash6-watchdog.js?v=20260802-logging-route-b219-__FLASH6_DEPLOY_SHA__"></script>
 </body>
 </html> 
