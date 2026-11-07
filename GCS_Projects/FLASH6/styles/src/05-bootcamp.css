@@ -1,0 +1,280 @@
+/* Bootcamp: quiet, fixed-viewport pages, isolated from the regular FLASH6 UI. */
+html[data-bootcamp="1"] body{display:block;overflow:hidden;background:#141416;color:#e8e8eb}
+html[data-bootcamp="1"] body::before{display:none}
+html[data-bootcamp="1"] body > :not(#bootcampApp):not(#flashBootErrorOverlay):not(script){display:none !important}
+html[data-bootcamp="0"] #bootcampApp,.bootcamp-app[hidden],.bootcamp-app [hidden]{display:none !important}
+.bootcamp-app{
+  --bc-muted:#94949d;--bc-line:#323236;--bc-accent:#e5e5e9;
+  width:100%;height:100dvh;min-height:0;overflow:hidden;display:flex;flex-direction:column;
+  padding:max(84px,env(safe-area-inset-top)) max(28px,env(safe-area-inset-right)) max(32px,env(safe-area-inset-bottom)) max(28px,env(safe-area-inset-left));
+  background:#141416;color:#e8e8eb;font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;text-align:left;
+}
+.bootcamp-app:not(.is-rocket) :is(button,input,select){font:inherit}
+.bootcamp-app:not(.is-rocket) button{min-height:38px;padding:8px 18px;border:1px solid #424247;border-radius:4px;background:transparent;color:#d1d1d7;font-size:13px;font-weight:500;cursor:pointer;box-shadow:none;transition:background .12s}
+.bootcamp-app:not(.is-rocket) button:hover:not(:disabled){background:#252529;transform:none;box-shadow:none}
+.bootcamp-app:not(.is-rocket) button:active:not(:disabled){transform:none;box-shadow:none}
+.bootcamp-app .bootcamp-primary{display:inline-flex;align-items:center;justify-content:center;gap:24px;background:#e4e4e8;border-color:#e4e4e8;color:#19191c}
+.bootcamp-app .bootcamp-primary:hover:not(:disabled){background:#fff;border-color:#fff}
+.bootcamp-app:not(.is-rocket) button:disabled{opacity:.38;cursor:default;box-shadow:none;transform:none}
+.bootcamp-app:not(.is-rocket) :is(button,a,input):focus-visible{outline:2px solid #ccc;outline-offset:4px}
+.bootcamp-app h1:focus{outline:none}
+.bootcamp-header{position:absolute;top:max(22px,env(safe-area-inset-top));left:max(28px,env(safe-area-inset-left));right:max(28px,env(safe-area-inset-right));z-index:2;display:flex;align-items:center;justify-content:space-between;gap:20px;padding-bottom:12px;border-bottom:1px solid var(--bc-line)}
+.bootcamp-header-title{margin-left:auto;color:#a7a7b0;font-size:12px;font-weight:400;text-align:right;white-space:nowrap}
+.bootcamp-brand{display:flex;align-items:center;gap:20px;color:#a7a7b0;text-decoration:none;font-size:11px;font-weight:400}
+.bootcamp-brand img{display:block;flex:none;object-fit:contain}
+.bootcamp-brand .bootcamp-logo-altis{width:86px;height:16px}
+.bootcamp-brand .bootcamp-logo-gnu{width:112px;height:28px;filter:brightness(0) invert(1);opacity:.85}
+.bootcamp-content{flex:1;min-height:0;width:100%;max-width:1000px;margin:0 auto;display:flex;align-items:stretch}
+.bootcamp-welcome,.bootcamp-setup{min-height:0;width:100%;display:flex;flex-direction:column}
+.bootcamp-welcome{justify-content:center;max-width:640px;margin:0 auto}
+.bootcamp-app h1{flex:none;margin:0 0 8px;font-size:clamp(22px,2.8vw,28px);line-height:1.4;font-weight:550;letter-spacing:-.7px;color:#ededf0;word-break:keep-all}
+.bootcamp-welcome h1{font-size:clamp(28px,3vw,36px);line-height:1.4;margin-bottom:16px}
+.bootcamp-welcome > p,.bootcamp-description{flex:none;font-size:13px;line-height:1.6;color:var(--bc-muted);word-break:keep-all}
+.bootcamp-welcome > button{align-self:flex-start;min-width:124px;margin-top:24px}
+.bootcamp-setup > section{flex:1;min-height:0;display:flex;flex-direction:column}
+.bootcamp-setup > :is([data-bootcamp-step="sensor"],[data-bootcamp-step="mcu"]){max-width:640px;width:100%;margin:0 auto;justify-content:center}
+.bootcamp-progress{flex:none;width:100%;margin:0 0 clamp(16px,3vh,28px)}
+.bootcamp-progress ol{display:flex;justify-content:flex-start;list-style:none;gap:32px;margin:0;padding:0}
+.bootcamp-progress li{padding:0 0 10px;color:#72727b;font-size:14px;font-weight:500;white-space:nowrap;border-bottom:2px solid transparent}
+.bootcamp-progress [aria-current="step"]{color:#e3e3e8;border-color:#d3d3db}
+.bootcamp-progress .is-complete{color:#9999a1}
+.bootcamp-choices{border:0;min-width:0;display:flex;flex-direction:column;padding:0;margin:22px 0 0;border-top:1px solid var(--bc-line)}
+.bootcamp-choice{display:flex;align-items:center;gap:18px;min-height:94px;padding:18px 4px;border-bottom:1px solid var(--bc-line);cursor:pointer}
+.bootcamp-choice:hover{background:#ffffff03}
+.bootcamp-choice:has(input:checked){border-bottom-color:#8c8c96}
+.bootcamp-choice input{width:16px;height:16px;flex:0 0 16px;accent-color:#d9d9df}
+.bootcamp-choice-body{display:flex;flex-direction:column;gap:3px;color:var(--bc-muted);font-size:12px}
+.bootcamp-choice-body strong{color:#e5e5e9;font-size:20px;font-weight:500;letter-spacing:-.3px}
+.bootcamp-actions{flex:none;display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:16px}
+.bootcamp-board-guide{flex:1;min-height:0;margin:14px 0 0;display:flex;flex-direction:column;overflow:hidden}
+.bootcamp-board-scroll{flex:1;min-height:0;display:flex;justify-content:center;overflow:hidden}
+.bootcamp-board-svg{display:block;width:100%;height:100%;min-width:0;font-family:inherit}
+.bootcamp-board-component{fill:#17252a;stroke:#4b676e;stroke-width:2}
+.bootcamp-pin-labels{fill:#edf9fb;font-size:10px;font-weight:500;text-anchor:middle}
+.bootcamp-wire{fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+.bootcamp-wire-ground{stroke:#c0c9d6}
+.bootcamp-wire-power{stroke:#dda298}
+.bootcamp-wire-data{stroke:#a6d8b6}
+.bootcamp-wire-clock{stroke:#8cb9dd}
+.bootcamp-pin-target circle:first-child{fill:#111315;stroke-width:2.5}
+.bootcamp-pin-target circle:last-child{fill:currentColor;stroke-width:2}
+.bootcamp-pin-target.bootcamp-wire-ground{color:#c0c9d6}
+.bootcamp-pin-target.bootcamp-wire-power{color:#dda298}
+.bootcamp-pin-target.bootcamp-wire-data{color:#a6d8b6}
+.bootcamp-pin-target.bootcamp-wire-clock{color:#8cb9dd}
+.bootcamp-pin-callout rect{fill:#202328;stroke:#383c42;rx:3}
+.bootcamp-pin-callout text{font-size:12px;font-weight:500;text-anchor:middle}
+.bootcamp-ground-label{fill:#c0c9d6}
+.bootcamp-power-label{fill:#dda298}
+.bootcamp-data-label{fill:#a6d8b6}
+.bootcamp-clock-label{fill:#8cb9dd}
+.bootcamp-callout-leader{stroke-width:1;fill:none}
+.bootcamp-sensor-pcb{fill:#253832;stroke:#526c60;stroke-width:1.5}
+.bootcamp-sensor-name{fill:#e1e5e2;font-size:20px;font-weight:500}
+.bootcamp-sensor-pin-labels{font-size:13px;font-weight:500;text-anchor:end}
+.bootcamp-sensor-sockets circle{fill:#111315;stroke-width:2}
+.bootcamp-wire-legend{flex:none;display:flex;flex-wrap:wrap;justify-content:center;gap:6px 28px;padding:12px 0;font-size:11px;color:#a2a2aa}
+.bootcamp-wire-legend > span{display:flex;align-items:center;gap:7px}
+.bootcamp-wire-legend b{font-weight:500;color:#dedee3}
+.bootcamp-wire-legend i{width:16px;height:2px;flex:none}
+.bootcamp-legend-power{background:#dda298}.bootcamp-legend-data{background:#a6d8b6}.bootcamp-legend-clock{background:#8cb9dd}.bootcamp-legend-ground{background:#c0c9d6}
+.bootcamp-connect-layout{flex:1;min-height:0;width:100%;max-width:880px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:60px}
+.bootcamp-connect-visual{display:flex;flex-direction:column;align-items:center;gap:20px}
+.bootcamp-connect-visual img{width:100%;max-width:360px;height:auto}
+.bootcamp-connect-visual > span{font-size:11px;color:#898992}
+.bootcamp-connect-info{display:flex;flex-direction:column;align-items:flex-start;gap:18px}
+.bootcamp-usb-badge{font-size:11px;color:#85858f}
+.bootcamp-usb-badge.is-connected{color:#dddddf}
+.bootcamp-usb-status,.bootcamp-sensor-status{font-size:12px;line-height:1.7;color:#a5a5ae;overflow-wrap:anywhere}
+.bootcamp-usb-status[data-phase="error"],.bootcamp-usb-status[data-phase="unsupported"]{color:#dfabab}
+.bootcamp-connect-info button{min-width:150px}
+.bootcamp-usb-help{font-size:10px;line-height:1.6;color:#777781}
+.bootcamp-upload-grid{flex:1;min-height:0;max-height:400px;display:grid;grid-template-columns:1fr 1fr;gap:36px;margin:auto 0}
+.bootcamp-upload-card{min-width:0;min-height:0;display:flex;flex-direction:column;gap:18px;padding:18px 0}
+.bootcamp-code-example{border-right:1px solid var(--bc-line);padding-right:36px}
+.bootcamp-code-example h2{font-size:24px;line-height:1.3;font-weight:500;color:#dedee4}
+.bootcamp-lesson-meta{font-size:11px;color:#8f8f99}
+.bootcamp-code-summary{margin-top:auto;font-size:12px;color:#93939d}
+.bootcamp-code-summary p{font-size:11px;line-height:1.6}
+.bootcamp-code-download{display:inline-flex;gap:10px;margin-top:10px;color:#bcbcc5;text-decoration:underline;text-underline-offset:3px;font-size:11px}
+.bootcamp-code-summary button{display:block;font-size:11px;min-height:30px;padding:5px 10px;margin-top:8px}
+.bootcamp-card-heading{flex:none;display:flex;align-items:center;gap:10px}
+.bootcamp-card-heading h2{font-size:14px;line-height:1.3;font-weight:500;color:#d8d8de}
+.bootcamp-upload-progress{flex:none}
+.bootcamp-upload-progress > div{display:flex;justify-content:space-between;gap:10px;margin-bottom:8px;color:#9e9ea9;font-size:10px}
+.bootcamp-upload-progress progress,.bootcamp-data-progress progress{display:block;appearance:none;width:100%;height:3px;overflow:hidden;border:0;border-radius:0;background:#35353a;accent-color:#cfcfd5}
+.bootcamp-app progress::-webkit-progress-bar{background:#35353a}
+.bootcamp-app progress::-webkit-progress-value{background:#cfcfd5}
+.bootcamp-app progress::-moz-progress-bar{background:#cfcfd5}
+.bootcamp-upload-log{flex:none;margin-top:auto;padding-top:14px;border-top:1px solid var(--bc-line)}
+.bootcamp-upload-log > span{font-size:10px;color:#72727d}
+.bootcamp-upload-log pre{height:4.8em;overflow:hidden;white-space:pre-wrap;overflow-wrap:anywhere;margin-top:7px;color:#9898a2;font:10px/1.6 ui-monospace,Menlo,monospace}
+.bootcamp-data-layout{flex:1;min-height:0;display:flex;flex-direction:column;gap:18px;margin-top:20px}
+.bootcamp-data-heading{flex:none;display:flex;align-items:center;gap:9px}
+.bootcamp-live-dot{width:5px;height:5px;flex:none;border-radius:50%;background:#55555d}
+.bootcamp-live-dot.is-live{background:#d2d2da}
+.bootcamp-live-values{flex:1;min-height:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:1fr 1fr;border-top:1px solid var(--bc-line)}
+.bootcamp-live-values > div{min-width:0;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:12px;border-bottom:1px solid var(--bc-line)}
+.bootcamp-live-values > div:not(:nth-child(3n)){border-right:1px solid var(--bc-line)}
+.bootcamp-live-values span{font-size:11px;color:#8e8e99}
+.bootcamp-live-values small{font-size:10px;margin-left:5px;color:#686873}
+.bootcamp-live-values strong{font:400 clamp(26px,4vw,44px)/1.2 ui-monospace,Menlo,monospace;letter-spacing:-1px;color:#dedee5}
+.bootcamp-data-progress{flex:none;display:flex;align-items:center;gap:16px;font-size:10px;color:#81818d;line-height:1.5}
+.bootcamp-data-progress progress{flex:0 0 130px}
+.bootcamp-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+/* Final lesson mounts the original viewport and uses its existing HUD/button styles. */
+.bootcamp-app.is-rocket{padding:0}
+.bootcamp-app.is-rocket > .bootcamp-header,.bootcamp-app.is-rocket .bootcamp-progress{display:none}
+.bootcamp-app.is-rocket .bootcamp-content{max-width:none;padding:0}
+.bootcamp-rocket-page{position:relative}
+.bootcamp-rocket-mount{position:relative;flex:1;min-height:0;overflow:hidden}
+#bootcampRocketMount > #cameraView{position:absolute !important;inset:0;display:block !important;width:100% !important;height:100% !important;min-height:0;overflow:hidden}
+#bootcampRocketMount .camera-gyro-plus-stage,#bootcampRocketMount .camera-gyro-plus-mount{position:absolute;inset:0;width:100%;height:100%;overflow:hidden}
+#bootcampRocketMount #gyro3dViewport{position:absolute !important;inset:0;width:100% !important;height:100% !important;min-height:0 !important;min-width:0 !important;max-height:none;max-width:none;border:0;border-radius:0}
+#bootcampRocketMount #gyro3dExpandedHud,
+#bootcampRocketMount .status-expanded-metrics,
+#bootcampRocketMount .status-gyro-actions,
+#bootcampRocketMount #cameraControlMenuLayer,
+#bootcampRocketMount #cameraSequenceDock,
+#bootcampRocketMount .camera-hud-center,
+#bootcampRocketMount #cameraGyroPreviewMount,
+#bootcampRocketMount #webcamPanel{display:none !important}
+#bootcampRocketMount .gyro3d-canvas{opacity:0}
+#bootcampRocketMount .is-model-ready .gyro3d-canvas{opacity:1}
+#bootcampRocketMount .camera-system-center{gap:12px}
+#bootcampRocketMount #cameraSystemStatusBar{grid-template-columns:minmax(0,1fr) auto}
+#bootcampRocketMount #cameraStage2Status{display:none}
+#bootcampRocketMount .camera-system-center{justify-self:end;justify-content:flex-end;min-width:0}
+#bootcampRocketMount .bootcamp-axis-readings{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(3,1fr);gap:10px;padding:36px 14px 12px}
+.bootcamp-axis-readings > div{display:grid;grid-template-columns:22px 1fr auto;align-items:baseline;gap:6px;color:rgba(255,255,255,.88);font:10px/1.4 ui-monospace,Menlo,monospace}
+.bootcamp-axis-readings span,.bootcamp-axis-readings small{color:rgba(226,232,240,.55);font-size:9px}
+.bootcamp-axis-readings b{font-size:18px;font-weight:400;text-align:right;font-variant-numeric:tabular-nums}
+.bootcamp-rocket-mount .bootcamp-lesson-zero{position:absolute;right:calc(20px + env(safe-area-inset-right,0px));top:50%;transform:translateY(-50%);z-index:25;width:auto;height:auto;min-height:38px;padding:10px 12px;gap:8px}
+.bootcamp-rocket-mount .bootcamp-lesson-zero:hover:not(:disabled),.bootcamp-rocket-mount .bootcamp-lesson-zero:active:not(:disabled),.bootcamp-rocket-mount .bootcamp-lesson-zero:disabled{transform:translateY(-50%)}
+.bootcamp-lesson-zero svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.4}
+.bootcamp-rocket-message{position:absolute;inset:0;z-index:26;display:flex;align-items:center;justify-content:center;padding:24px 130px;color:var(--text-soft);font-size:12px;text-align:center;pointer-events:none}
+.bootcamp-rocket-note{position:absolute;z-index:26;bottom:22px;left:50%;transform:translateX(-50%);max-width:80%;color:var(--text-soft);font-size:11px;text-align:center;pointer-events:none}
+@media(max-width:600px){
+  .bootcamp-app{padding:max(72px,env(safe-area-inset-top)) max(20px,env(safe-area-inset-right)) max(20px,env(safe-area-inset-bottom)) max(20px,env(safe-area-inset-left))}
+  .bootcamp-header{top:max(18px,env(safe-area-inset-top));left:max(20px,env(safe-area-inset-left));right:max(20px,env(safe-area-inset-right));padding-bottom:10px}
+  .bootcamp-header-title{font-size:11px}
+  .bootcamp-brand{font-size:10px;gap:14px}
+  .bootcamp-brand .bootcamp-logo-altis{width:75px;height:14px}
+  .bootcamp-brand .bootcamp-logo-gnu{width:96px;height:24px}
+  .bootcamp-progress{margin-bottom:14px}
+  .bootcamp-progress ol{gap:16px}
+  .bootcamp-progress li{font-size:12px;padding-bottom:8px}
+  .bootcamp-app h1{font-size:23px}
+  .bootcamp-welcome h1{font-size:28px}
+  .bootcamp-choice{min-height:84px;padding:14px 4px}
+  .bootcamp-choice-body strong{font-size:19px}
+  .bootcamp-actions{margin-top:12px}
+  .bootcamp-wire-legend{font-size:10px;gap:6px 12px;padding:7px 6px}
+  .bootcamp-wire-legend > span{gap:5px}
+  .bootcamp-wire-legend i{width:10px}
+  .bootcamp-connect-layout{grid-template-columns:1fr;grid-template-rows:1fr 1fr;gap:16px;padding:12px 8px}
+  .bootcamp-connect-visual{gap:12px}
+  .bootcamp-connect-visual img{max-width:240px}
+  .bootcamp-connect-info{align-items:center;gap:14px;text-align:center}
+  .bootcamp-connect-info .bootcamp-usb-status{font-size:12px}
+  .bootcamp-upload-grid{max-height:none;grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr);gap:14px;margin-top:18px}
+  .bootcamp-upload-card{padding:0;gap:12px}
+  .bootcamp-code-example{padding:0 0 14px;border-right:0;border-bottom:1px solid var(--bc-line)}
+  .bootcamp-code-example h2{font-size:20px}
+  .bootcamp-code-example .bootcamp-description{display:none}
+  .bootcamp-code-summary{margin-top:0}
+  .bootcamp-code-download{margin-top:6px}
+  .bootcamp-upload-log{padding-top:8px}
+  .bootcamp-upload-log pre{height:3.2em;font-size:9px;margin-top:4px}
+  .bootcamp-data-layout{gap:12px;margin-top:16px}
+  .bootcamp-live-values{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(3,1fr)}
+  .bootcamp-live-values > div{padding:8px;gap:5px;border-right:0 !important}
+  .bootcamp-live-values > div:nth-child(odd){border-right:1px solid var(--bc-line) !important}
+  .bootcamp-live-values strong{font-size:30px}
+  .bootcamp-data-progress{flex-direction:column;align-items:stretch;gap:7px;font-size:10px}
+  .bootcamp-data-progress progress{flex:none}
+  .bootcamp-usb-help{font-size:9px}
+  .bootcamp-rocket-mount .bootcamp-lesson-zero{right:12px;padding:10px;font-size:11px;gap:6px}
+  .bootcamp-lesson-zero svg{width:17px;height:17px}
+  .bootcamp-rocket-message{padding:20px 100px 20px 20px;font-size:11px}
+}
+@media(max-height:650px){
+  .bootcamp-app{padding-top:max(68px,env(safe-area-inset-top));padding-bottom:max(16px,env(safe-area-inset-bottom))}
+  .bootcamp-app.is-rocket{padding:0}
+  .bootcamp-header{top:max(16px,env(safe-area-inset-top));padding-bottom:8px}
+  .bootcamp-progress{margin-bottom:10px}
+  .bootcamp-app h1{font-size:22px;margin-bottom:5px}
+  .bootcamp-welcome h1{font-size:30px;margin-bottom:14px}
+  .bootcamp-description,.bootcamp-welcome > p{font-size:11px}
+  .bootcamp-choices{margin-top:14px}
+  .bootcamp-choice{min-height:76px;padding:12px 4px}
+  .bootcamp-actions{margin-top:10px}
+  .bootcamp-app:not(.is-rocket) button{min-height:34px;font-size:12px;padding:6px 14px}
+  .bootcamp-connect-layout{gap:24px}
+  .bootcamp-connect-visual img{max-width:270px}
+  .bootcamp-connect-info{gap:12px}
+  .bootcamp-upload-card{gap:12px;padding-top:10px;padding-bottom:10px}
+  .bootcamp-code-example h2{font-size:20px}
+  .bootcamp-code-example .bootcamp-description{display:none}
+  .bootcamp-data-layout{gap:10px;margin-top:12px}
+  .bootcamp-live-values strong{font-size:26px}
+  .bootcamp-upload-log pre{height:3.2em}
+}
+@media(max-height:500px) and (min-width:601px){
+  .bootcamp-app h1{font-size:20px}
+  .bootcamp-progress li{font-size:12px;padding-bottom:6px}
+  .bootcamp-upload-card{padding:0;gap:10px}
+  .bootcamp-code-example{padding-right:24px}
+  .bootcamp-upload-grid{gap:24px;margin-top:12px}
+  .bootcamp-code-example h2{font-size:18px}
+  .bootcamp-lesson-meta,.bootcamp-usb-status,.bootcamp-code-summary p{font-size:10px;line-height:1.5}
+  .bootcamp-code-download{margin-top:5px;font-size:10px}
+  .bootcamp-usb-help{display:none}
+  .bootcamp-upload-log{padding-top:6px}
+  .bootcamp-upload-log pre{height:3.2em;font-size:9px;margin-top:3px}
+  .bootcamp-live-values > div{padding:5px;gap:3px}
+  .bootcamp-live-values strong{font-size:22px}
+  .bootcamp-connect-visual img{max-width:240px}
+  .bootcamp-setup > [data-bootcamp-step="pins"]{display:grid;grid-template-columns:minmax(0,1fr) 230px;grid-template-rows:auto auto minmax(0,1fr);gap:5px 14px}
+  [data-bootcamp-step="pins"] > h1{grid-column:2;grid-row:1;font-size:18px}
+  [data-bootcamp-step="pins"] > .bootcamp-description{grid-column:2;grid-row:2;font-size:10px}
+  [data-bootcamp-step="pins"] > .bootcamp-board-guide{grid-column:1;grid-row:1/4;margin:0;height:100%}
+  [data-bootcamp-step="pins"] > .bootcamp-actions{grid-column:2;grid-row:3;align-self:end;margin:0;gap:8px}
+  [data-bootcamp-step="pins"] .bootcamp-actions > button{font-size:10px;padding:6px 9px}
+}
+
+@media(max-width:900px){
+  #bootcampRocketMount .camera-system-statusbar{position:absolute;top:0;left:0;right:0;z-index:30;display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px 16px;padding:10px 14px;color:#eee;background:rgba(0,0,0,.38)}
+  #bootcampRocketMount .camera-system-stage{display:flex;align-items:center;gap:12px;min-width:0}
+  #bootcampRocketMount .camera-system-stage-name{display:flex;gap:6px;font-size:10px}
+  #bootcampRocketMount .camera-system-stage-metrics{display:flex;gap:8px;font:9px/1.4 ui-monospace,Menlo,monospace}
+  #bootcampRocketMount .camera-system-center{display:flex;gap:10px;font-size:10px}
+  #bootcampRocketMount .camera-system-center{margin-left:auto}
+  #bootcampRocketMount .camera-hud{height:160px !important}
+  #bootcampRocketMount .camera-hud-inner{padding:10px 14px !important}
+  #bootcampRocketMount .camera-hud-left{left:14px;bottom:16px;gap:12px}
+  #bootcampRocketMount .camera-hud-attitude-group{right:14px;bottom:16px;gap:0}
+  #bootcampRocketMount .camera-hud-right{gap:12px}
+  #bootcampRocketMount .camera-gauge{width:110px !important;min-height:55px}
+  #bootcampRocketMount .camera-gauge-readout{column-gap:6px;grid-template-columns:1fr 1px 44px}
+  #bootcampRocketMount .camera-gauge-value{font-size:24px !important}
+  #bootcampRocketMount .camera-gauge-label{font-size:8px !important}
+  #bootcampRocketMount .camera-data-stack{position:absolute;top:78px;bottom:100px;left:14px;display:grid;width:210px;grid-template-rows:repeat(3,minmax(0,1fr));gap:6px;pointer-events:none}
+  #bootcampRocketMount .camera-map-panel{position:relative;display:block;height:100%;overflow:hidden;background:rgba(4,5,8,.52)}
+  #bootcampRocketMount .camera-data-stack .camera-telemetry-chart{position:relative !important;inset:auto !important;display:grid !important;width:100% !important;height:100% !important;min-height:0}
+  #bootcampRocketMount .bootcamp-axis-readings{padding:28px 8px 8px;gap:4px}
+  #bootcampRocketMount .bootcamp-axis-readings b{font-size:13px}
+}
+@media(max-width:600px){
+  #bootcampRocketMount .camera-system-stage--two .camera-system-stage-metrics{display:none}
+  #bootcampRocketMount .camera-system-stage--one .camera-system-stage-metrics > span:nth-child(n+4){display:none}
+  #bootcampRocketMount .camera-data-stack{top:90px;bottom:auto;width:155px;height:280px}
+  #bootcampRocketMount .camera-data-stack .camera-map-panel{display:none}
+  #bootcampRocketMount .camera-data-stack{grid-template-rows:1fr 1fr;height:190px}
+  #bootcampRocketMount .camera-gauge{width:82px !important}
+  #bootcampRocketMount .camera-gauge-value{font-size:19px !important}
+  #bootcampRocketMount .camera-gauge-readout{column-gap:4px;grid-template-columns:1fr 1px 32px}
+  #bootcampRocketMount .camera-hud-left,#bootcampRocketMount .camera-hud-right{gap:8px}
+  #bootcampRocketMount .camera-gauge-label{letter-spacing:0 !important;font-size:7px !important}
+}

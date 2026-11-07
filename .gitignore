@@ -21,7 +21,7 @@ __pycache__/
 
 # JavaScript dependencies and generated native bundles
 node_modules/
-FLASH6/mobile_app_native/www/
+GCS_Projects/FLASH6/mobile_app_native/www/
 
 # Local IDE state
 **/xcuserdata/

@@ -1,0 +1,23 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "FLASH6 HUD LIVE relay",
+      "type": "process",
+      "command": "node",
+      "args": [
+        "${workspaceFolder}/../../GCS_Projects/FLASH6/scripts/hud-live-relay.cjs"
+      ],
+      "isBackground": true,
+      "runOptions": {
+        "runOn": "folderOpen"
+      },
+      "presentation": {
+        "reveal": "never",
+        "panel": "dedicated",
+        "clear": false
+      },
+      "problemMatcher": []
+    }
+  ]
+}

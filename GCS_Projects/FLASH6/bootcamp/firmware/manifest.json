@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "board": "arduino-nano",
+  "mcu": "atmega328p",
+  "signature": [
+    30,
+    149,
+    15
+  ],
+  "serialBaud": 115200,
+  "sensors": {
+    "LSM6DSO": {
+      "source": "LSM6DSO.ino",
+      "hex": "lsm6dso-nano.hex",
+      "sourceSha256": "510a3a02a7d2fb666ef5c96eba6d0b6c8870d4cc246565c99dfd390e55886895",
+      "hexSha256": "ea5f021a142334d0392b2768c2ec156167067f68b7f2b384e30756c0e9f7df3d"
+    },
+    "MPU6050": {
+      "source": "MPU6050.ino",
+      "hex": "mpu6050-nano.hex",
+      "sourceSha256": "5c419f7b0187bb35c9045a2d91664b2c30420e6164226714c61dddba01710358",
+      "hexSha256": "0ac64a29f3249efa2d488be3e7bcd42e39c9281c9bb98d9c4f0a56afd6f6882c"
+    }
+  }
+}
